@@ -169,6 +169,8 @@ class CharacterFacade {
             'avatarVersion': _avatarVersion(c.imagePath, c.id, byDbId),
             'folderId': c.folderId ?? '',
             'messageCount': msgCounts[c.id] ?? 0,
+            // The group Setting picker's "Linked by" hint (additive).
+            'worldNames': decodeJsonList(c.worldNames),
           },
         )
         .toList();

@@ -39,6 +39,13 @@ Map<String, dynamic> worldSummaryJson(
     'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
         ? 'custom'
         : (w.biomeId ?? 'temperate'),
+  // Additive: the climate's own name, so a custom climate reads as the
+  // desktop shows it (the group Setting picker's weather line).
+  if (w.climateEnabled)
+    'climateName': Biome.resolve(
+      biomeId: w.biomeId,
+      biomeJson: w.biomeJson,
+    ).displayName,
   'injectDescription': w.injectDescription,
   'climateEnabled': w.climateEnabled,
   'coverImage': w.coverImage,

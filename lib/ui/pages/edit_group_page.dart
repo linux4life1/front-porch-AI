@@ -17,14 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -94,8 +93,30 @@ class _EditGroupPageState extends State<EditGroupPage>
   final Map<String, TextEditingController> _charPromptControllers = {};
 
   final List<LorebookEntry> _groupLoreEntries = [];
-  final List<String> _worldIds = [];
+  // Where new chats meet, and what the group stored when the page opened.
+  GroupWorldChoice _worldChoice = const GroupWorldChoice();
+  GroupWorldChoice _worldsAsLoaded = const GroupWorldChoice();
   bool _inheritCharacterLorebooks = false;
+
+  // The fork notice filled the editor in. Bumping _realismGen rebuilds the
+  // realism editor from the blobs it wrote.
+  bool _forkApplied = false;
+  int _realismGen = 0;
+
+  void _useForkSettings(ForkedGroupSource s) {
+    setState(() {
+      if (s.realismMissingFrom(widget.group)) {
+        final blobs = neutralGroupRealismBlobs([
+          for (final m in _realismMembers) m.mid,
+        ], needsEnabled: s.needsOn);
+        _defaultMemberRealismState = blobs.defaultMemberJson;
+        _baselineRealismState = blobs.baselineJson;
+        _realismGen++;
+      }
+      if (s.worldMissingFrom(widget.group)) _worldChoice = s.worlds!;
+      _forkApplied = true;
+    });
+  }
 
   // Preserved on edit (baseline is immutable per spec; default seeds passed through)
   String _baselineRealismState = '{}';
@@ -131,7 +152,6 @@ class _EditGroupPageState extends State<EditGroupPage>
     _turnOrder = g.turnOrder;
     _autoAdvance = g.autoAdvance;
     _directorMode = g.directorMode;
-    _worldIds.addAll(g.worldIds);
     _originalRawLorebook = g.groupLorebook;
   }
 
@@ -142,48 +162,25 @@ class _EditGroupPageState extends State<EditGroupPage>
     _membersLoaded = true;
 
     final g = widget.group;
-    // Load members (tolerate missing chars) — now in didChangeDependencies per standard pattern
-    // Wire member loading for edit surfaces (extends existing load in didChangeDependencies).
-    // groupRepo + private paths + toCharacterCard. Functional for pre-existing and new groups.
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
+    final worlds = Provider.of<WorldRepository>(context, listen: false);
     // Fire-and-forget async load (didChangeDependencies is sync). Collect the
     // full roster once, then a single setState — the Realism tab needs the whole
     // member list (with origin ids) before it initializes its seeds.
     () async {
-      final memberRows = await groupRepo.getMembersForGroup(g.id);
-      final cards = <CharacterCard>[];
-      final realismMembers = <GroupRealismMember>[];
-      for (final m in memberRows) {
-        final fn = m.avatarFilename;
-        if (fn == null) continue;
-        final avatarPath = p.join(storage.groupsDir.path, g.id, 'avatars', fn);
-        if (!await File(avatarPath).exists()) continue;
-        cards.add(m.toCharacterCard(resolvedImagePath: avatarPath));
-        realismMembers.add(
-          GroupRealismMember(
-            mid: m.id,
-            name: m.name,
-            originStableId: m.originStableId,
-            avatarPath: avatarPath,
-          ),
-        );
-      }
-      if (mounted) {
-        setState(() {
-          _members.addAll(cards);
-          _realismMembers.addAll(realismMembers);
-          _realismLoaded = true;
-          // Per-char prompt controllers keyed by the member mid (matches the
-          // runtime read + the fixed creator write).
-          for (final rm in realismMembers) {
-            _charPromptControllers.putIfAbsent(
-              rm.mid,
-              () => TextEditingController(),
-            );
-          }
-        });
-      }
+      final roster = await loadEditGroupRoster(groupRepo, storage, g.id);
+      if (!mounted) return;
+      setState(() {
+        _members.addAll(roster.cards);
+        _realismMembers.addAll(roster.realism);
+        _realismLoaded = true;
+        // Per-char prompt controllers keyed by the member mid (matches the
+        // runtime read + the fixed creator write).
+        for (final rm in roster.realism) {
+          _charPromptControllers.putIfAbsent(rm.mid, TextEditingController.new);
+        }
+      });
     }();
 
     // Per-char prompt controllers seeded from the stored overrides (member-level
@@ -202,6 +199,7 @@ class _EditGroupPageState extends State<EditGroupPage>
       debugPrint('[EditGroup] group lorebook could not be read: $e');
       _bookUnreadable = true;
     }
+    _worldChoice = _worldsAsLoaded = groupWorldChoiceIn(g, worlds);
     _startFingerprint = _fingerprint();
   }
 
@@ -217,7 +215,8 @@ class _EditGroupPageState extends State<EditGroupPage>
     _turnOrder.name,
     _autoAdvance,
     _directorMode,
-    _worldIds,
+    _worldChoice.settingId,
+    _worldChoice.loreIds,
     _inheritCharacterLorebooks,
     {
       for (final e in _charPromptControllers.entries)
@@ -265,6 +264,12 @@ class _EditGroupPageState extends State<EditGroupPage>
     final String groupLoreJson = keepRaw
         ? _originalRawLorebook
         : jsonEncode(Lorebook(entries: List.from(_groupLoreEntries)).toJson());
+    final worldFields = groupWorldFieldsToSave(
+      storedWorldIds: widget.group.worldIds,
+      storedLoreWorldIds: widget.group.loreWorldIds,
+      chosen: _worldChoice,
+      asLoaded: _worldsAsLoaded,
+    );
 
     final updated = GroupChat(
       id: widget.group.id,
@@ -291,7 +296,8 @@ class _EditGroupPageState extends State<EditGroupPage>
       ),
       baselineRealismState: _baselineRealismState,
       characterSystemPrompts: charPrompts,
-      worldIds: List.from(_worldIds),
+      worldIds: worldFields.worldIds,
+      loreWorldIds: worldFields.loreWorldIds,
       groupLorebook: groupLoreJson,
       inheritCharacterLorebooks: _inheritCharacterLorebooks,
       // Chaos flags are runtime/session settings (controlled in Group Settings dialog).
@@ -347,33 +353,6 @@ class _EditGroupPageState extends State<EditGroupPage>
 
   @override
   Widget build(BuildContext context) {
-    // Only the Realism & Dynamics tab builder stays local here; Details,
-    // Dialogue, and Lore & Worlds are widgets under edit_group/.
-    // All colors via AppColors.* only — no 0xFF, no raw Colors.* introduced.
-
-    Widget buildRealismTab() {
-      if (!_realismLoaded) {
-        return const Center(
-          child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-      // Edits flow straight into the two blobs the Save button already persists.
-      // No setState needed — the editor owns its own display state.
-      return GroupRealismDynamicsEditor(
-        key: const ValueKey('group-realism-editor'),
-        members: _realismMembers,
-        initialDefaultMemberJson: _defaultMemberRealismState,
-        initialBaselineJson: _baselineRealismState,
-        onChanged: (d, b) {
-          _defaultMemberRealismState = d;
-          _baselineRealismState = b;
-        },
-      );
-    }
-
     return UnsavedChangesGuard(
       isDirty: _isDirty,
       child: Scaffold(
@@ -433,49 +412,81 @@ class _EditGroupPageState extends State<EditGroupPage>
         body: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 720),
-            child: TabBarView(
-              controller: _tabController,
+            child: Column(
               children: [
-                EditGroupDetailsTab(
-                  nameController: _nameController,
-                  systemPromptController: _systemPromptController,
-                  scenarioController: _scenarioController,
-                  members: _members,
-                  charPromptControllers: _charPromptControllers,
-                  onEditMember: _editMember,
-                ),
-                EditGroupDialogueTab(
-                  firstMessageController: _firstMessageController,
-                  altGreetings: _altGreetings,
-                  altGreetingSeeds: _altGreetingSeeds,
-                  onAltGreetingsChanged: _setAltGreetings,
-                ),
-                // A LISTENING read, as before: world changes rebuild the page.
-                EditGroupLoreWorldsTab(
-                  allWorlds: Provider.of<WorldRepository>(context).placeWorlds,
-                  loreEntries: _groupLoreEntries,
-                  bookUnreadable: _bookUnreadable,
-                  inheritCharacterLorebooks: _inheritCharacterLorebooks,
-                  worldIds: _worldIds,
-                  onAddEntry: (entry) {
-                    if (mounted) setState(() => _groupLoreEntries.add(entry));
-                  },
-                  onReplaceEntry: (i, entry) {
-                    if (mounted) setState(() => _groupLoreEntries[i] = entry);
-                  },
-                  onRemoveEntry: (i) =>
-                      setState(() => _groupLoreEntries.removeAt(i)),
+                EditGroupForkNotice(
+                  group: widget.group,
+                  applied: _forkApplied,
+                  onUseSettings: _useForkSettings,
+                  inheritOn: _inheritCharacterLorebooks,
                   onInheritChanged: (v) =>
                       setState(() => _inheritCharacterLorebooks = v),
-                  onLinkWorld: (id) => setState(() => _worldIds.add(id)),
-                  onUnlinkWorld: (id) => setState(() => _worldIds.remove(id)),
                 ),
-                buildRealismTab(),
+                Expanded(child: _tabs()),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  // Details, Dialogue, Lore & Worlds and Realism are widgets under
+  // edit_group/. All colors via AppColors.* only — no raw Colors.*.
+  Widget _tabs() {
+    // A LISTENING read, as before: world changes rebuild the page.
+    final worlds = Provider.of<WorldRepository>(context);
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        EditGroupDetailsTab(
+          nameController: _nameController,
+          systemPromptController: _systemPromptController,
+          scenarioController: _scenarioController,
+          members: _members,
+          charPromptControllers: _charPromptControllers,
+          onEditMember: _editMember,
+        ),
+        EditGroupDialogueTab(
+          firstMessageController: _firstMessageController,
+          altGreetings: _altGreetings,
+          altGreetingSeeds: _altGreetingSeeds,
+          onAltGreetingsChanged: _setAltGreetings,
+        ),
+        EditGroupLoreWorldsTab(
+          allWorlds: worlds.placeWorlds,
+          weatherOf: groupWeatherLabels(worlds),
+          suggestedBy: worldsLinkedByMembers(_members, worlds),
+          legacyWorldCount: groupNeedsWorldSplitNotice(widget.group)
+              ? widget.group.worldIds.length
+              : 0,
+          loreEntries: _groupLoreEntries,
+          bookUnreadable: _bookUnreadable,
+          inheritCharacterLorebooks: _inheritCharacterLorebooks,
+          worldChoice: _worldChoice,
+          onAddEntry: (entry) {
+            if (mounted) setState(() => _groupLoreEntries.add(entry));
+          },
+          onReplaceEntry: (i, entry) {
+            if (mounted) setState(() => _groupLoreEntries[i] = entry);
+          },
+          onRemoveEntry: (i) => setState(() => _groupLoreEntries.removeAt(i)),
+          onInheritChanged: (v) =>
+              setState(() => _inheritCharacterLorebooks = v),
+          onWorldChoiceChanged: (c) => setState(() => _worldChoice = c),
+        ),
+        EditGroupRealismTab(
+          key: ValueKey('group-realism-editor-$_realismGen'),
+          loaded: _realismLoaded,
+          members: _realismMembers,
+          defaultMemberJson: _defaultMemberRealismState,
+          baselineJson: _baselineRealismState,
+          onChanged: (d, b) {
+            _defaultMemberRealismState = d;
+            _baselineRealismState = b;
+          },
+        ),
+      ],
     );
   }
 }

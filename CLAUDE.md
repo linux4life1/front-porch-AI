@@ -123,6 +123,13 @@ count only goes down.
   `StatusColors`, `InkColors`, `RealismColors`, `ChatColors`, `NavColors`,
   `ModelColors`, `AccentColors` for their domains. A bare palette constant in
   UI code stays Porch under every theme.
+- Every UI element follows the user-selected theme (`lib/ui/theme/themes/`)
+  in light and dark, desktop and web. Chrome and accents read the
+  `AppPalette`-backed helpers (`formAccentOf`, `cardOf`, `borderOf`,
+  `textPrimary`, …); `AppColors.resolve` only flips light/dark and is for
+  semantic hues. The PWA paints only the `var(--…)` tokens
+  `WebThemeTokens` sends, never a literal colour. Check new UI under a
+  non-Porch theme before calling it done.
 - Dialogs open through `showWarmDialog`.
 - Creation wizards follow `create_character_page.dart`: step dots, linear
   `_currentStep`, bottom nav.

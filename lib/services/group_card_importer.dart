@@ -218,7 +218,8 @@ class GroupCardImporter {
           ),
         );
 
-        final originalStableId = (raw['_original_stable_id'] as String?)?.trim();
+        final originalStableId = (raw['_original_stable_id'] as String?)
+            ?.trim();
         if (originalStableId != null && originalStableId.isNotEmpty) {
           oldStableIdToNewStableId[originalStableId] = memberId;
         }
@@ -314,6 +315,7 @@ class GroupCardImporter {
       systemPrompt: groupCard.systemPrompt,
       groupLorebook: groupCard.groupLorebook ?? '',
       worldIds: groupCard.worldIds,
+      loreWorldIds: groupCard.loreWorldIds,
       inheritCharacterLorebooks: groupCard.inheritCharacterLorebooks,
       chaosModeEnabled: groupCard.chaosModeEnabled,
       chaosNsfwEnabled: groupCard.chaosNsfwEnabled,

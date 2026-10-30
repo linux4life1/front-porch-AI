@@ -54,21 +54,13 @@ class GroupWizardStepIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      'Members',
-      'Identity',
-      'Prompts',
-      'Lore',
-      'Realism',
-      'Group Dynamics',
-      'Opening',
-      'Review',
-    ];
+    const labels = GroupWizardSteps.labels;
 
     final children = <Widget>[];
     for (int i = 0; i < labels.length; i++) {
-      final isDynamicsStep = (i == 6);
-      final isAvailable = !isDynamicsStep || memberCount <= 4;
+      final isAvailable =
+          i != GroupWizardSteps.dynamics ||
+          memberCount <= GroupWizardSteps.dynamicsMaxMembers;
 
       children.add(_stepDot(context, i, labels[i], available: isAvailable));
       if (i < labels.length - 1) {
@@ -168,14 +160,8 @@ class GroupWizardNavButtons extends StatelessWidget {
     final effectiveNextStep = draft.effectiveNextStep(currentStep);
     final isLastStep = effectiveNextStep == null;
 
-    String nextText;
-    if (isLastStep) {
-      nextText = 'Create Group';
-    } else if (effectiveNextStep == 6 && draft.members.length > 4) {
-      nextText = 'Skip to Review';
-    } else {
-      nextText = 'Next';
-    }
+    // Skipping Group Dynamics lands on Opening, so it is still plain "Next".
+    final nextText = isLastStep ? 'Create Group' : 'Next';
 
     final canGoNext = draft.canAdvanceFromStep(currentStep);
 

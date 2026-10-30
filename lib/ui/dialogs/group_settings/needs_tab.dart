@@ -244,6 +244,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const GroupThisChatNote(),
             // Header
             Row(
               children: [

@@ -166,6 +166,8 @@ void main() {
     await next('Group Name');
     await tester.enterText(find.byType(TextField).first, 'Restored Porch');
     await tester.pumpAndSettle();
+    // Added with the Setting step, now between Identity and Prompts.
+    await next('Where does the group meet?');
     await next('Group System Prompt');
     await next('Add Entry');
     await next('Day Number');

@@ -4,7 +4,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -35,18 +37,38 @@ class GroupLorebookWorldsTab extends StatefulWidget {
 
 class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   bool _inheritCharacterLorebooks = false;
-  List<String> _worldIds = [];
   List<LorebookEntry> _groupLoreEntries = [];
   bool _bookUnreadable = false;
 
-  List<World> _allWorlds = [];
-  List<World> _placeWorlds = [];
+  // Where the group's NEW chats meet. The stored fields are kept so an
+  // untouched choice saves them back exactly (an unsplit group stays so).
+  GroupWorldChoice _worldChoice = const GroupWorldChoice();
+  GroupWorldChoice _worldsAsLoaded = const GroupWorldChoice();
+  List<String> _storedWorldIds = const [];
+  List<String>? _storedLoreWorldIds;
+  int _legacyWorldCount = 0;
+  String? _hereLine;
 
   @override
   void initState() {
     super.initState();
     _loadFromActiveGroup();
-    _loadWorlds();
+    _loadHere();
+  }
+
+  /// Where the open chat is, read from its stored place slots, so nobody
+  /// expects this tab to move it. Left out when the slots can't be read.
+  Future<void> _loadHere() async {
+    try {
+      final sid = widget.chatService.currentSessionId;
+      if (sid == null) return;
+      final repo = Provider.of<WorldRepository>(context, listen: false);
+      final slots = await repo.getChatWorldAttachments(sid);
+      if (!mounted) return;
+      setState(() => _hereLine = _currentChatLine(repo, slots.primaryId));
+    } catch (e) {
+      debugPrint('[GroupSettings] where this chat is unknown: $e');
+    }
   }
 
   void _loadFromActiveGroup() {
@@ -54,13 +76,22 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
 
     if (g == null) {
       _inheritCharacterLorebooks = false;
-      _worldIds = [];
       _groupLoreEntries = [];
       return;
     }
 
     _inheritCharacterLorebooks = g.inheritCharacterLorebooks;
-    _worldIds = List<String>.from(g.worldIds);
+    _storedWorldIds = List<String>.from(g.worldIds);
+    _storedLoreWorldIds = g.loreWorldIds == null
+        ? null
+        : List<String>.from(g.loreWorldIds!);
+    _legacyWorldCount = groupNeedsWorldSplitNotice(g) ? g.worldIds.length : 0;
+    try {
+      final repo = Provider.of<WorldRepository>(context, listen: false);
+      _worldChoice = _worldsAsLoaded = groupWorldChoiceIn(g, repo);
+    } catch (e) {
+      debugPrint('[GroupSettings] worlds unavailable: $e');
+    }
 
     _groupLoreEntries = [];
     _bookUnreadable = false;
@@ -73,19 +104,6 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     }
   }
 
-  void _loadWorlds() {
-    try {
-      final repo = Provider.of<WorldRepository>(context, listen: false);
-      // Top-level worlds only: a place is reached through its world.
-      _allWorlds = repo.linkableWorlds;
-      _placeWorlds = repo.placeWorlds;
-    } catch (_) {
-      _allWorlds = [];
-      _placeWorlds = [];
-    }
-    setState(() {});
-  }
-
   /// Write the tab's state back onto the LIVE group object after every
   /// mutation. Without this, the dialog-level Save persisted a group this
   /// tab never touched — lorebook/world edits made here were silently lost.
@@ -93,7 +111,14 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     final g = widget.chatService.activeGroup;
     if (g == null) return;
     g.inheritCharacterLorebooks = _inheritCharacterLorebooks;
-    g.worldIds = List<String>.from(_worldIds);
+    final worlds = groupWorldFieldsToSave(
+      storedWorldIds: _storedWorldIds,
+      storedLoreWorldIds: _storedLoreWorldIds,
+      chosen: _worldChoice,
+      asLoaded: _worldsAsLoaded,
+    );
+    g.worldIds = worlds.worldIds;
+    g.loreWorldIds = worlds.loreWorldIds;
     // An unreadable book stays as stored until the user adds entries here;
     // a world chip or the inherit switch must not wipe it.
     if (_bookUnreadable && _groupLoreEntries.isEmpty) return;
@@ -200,14 +225,22 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     }
   }
 
-  void _toggleWorld(World w) {
-    setState(() {
-      // Unlinking drops an older link to a place inside the world too.
-      final linked = linkStateOf(_worldIds, w, _placeWorlds).linked;
-      _worldIds = refsWithoutWorld(_worldIds, w, _placeWorlds);
-      if (!linked) _worldIds.add(w.id);
-    });
+  void _setWorldChoice(GroupWorldChoice choice) {
+    setState(() => _worldChoice = choice);
     _syncToGroup();
+  }
+
+  /// Where the open chat is, so nobody expects this tab to move it.
+  String _currentChatLine(WorldRepository repo, String? id) {
+    final here = id == null ? null : repo.worldById(id);
+    if (here == null) {
+      return 'This chat has no world. Add one from Places in the sidebar.';
+    }
+    final root = topWorldOf(here, repo.worldById);
+    final where = root.id == here.id
+        ? here.name
+        : '${here.name} in ${root.name}';
+    return 'This chat is at $where. To move it, use Places in the sidebar.';
   }
 
   @override
@@ -216,6 +249,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     if (group == null) {
       return const Center(child: Text('No active group.'));
     }
+    final worlds = Provider.of<WorldRepository>(context);
 
     return Column(
       children: [
@@ -242,55 +276,19 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 ),
                 const SizedBox(height: 16),
 
-                // Places (Living Worlds)
-                GroupSectionHeader(
-                  'Worlds',
-                  Icons.public,
-                  AppColors.formAccentOf(context),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Attach worlds for climate + lore on this group. New chats '
-                  'start at each world\'s starred place; this session also '
-                  'has Places under Story Tools.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textTertiary(context),
+                // Places (Living Worlds): the group's NEW chats only.
+                GroupWorldsSection(
+                  value: _worldChoice,
+                  onChanged: _setWorldChoice,
+                  places: worlds.placeWorlds,
+                  weatherOf: groupWeatherLabels(worlds),
+                  suggestedBy: worldsLinkedByMembers(
+                    widget.chatService.groupCharacters,
+                    worlds,
                   ),
+                  legacyWorldCount: _legacyWorldCount,
+                  currentChatLine: _hereLine,
                 ),
-                const SizedBox(height: 8),
-                if (_allWorlds.isEmpty)
-                  Text(
-                    'No worlds yet. Create one in the Worlds tab to attach it here.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                      fontSize: 12,
-                    ),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _allWorlds.map((w) {
-                      final link = linkStateOf(_worldIds, w, _placeWorlds);
-                      final selected = link.linked;
-                      final label = link.linkedAt != null
-                          ? '${w.name} · at ${link.linkedAt!.name}'
-                          : w.biomeId != null &&
-                                w.biomeId!.isNotEmpty &&
-                                w.biomeId != 'temperate'
-                          ? '${w.name} · ${w.biomeId}'
-                          : w.name;
-                      return FilterChip(
-                        label: Text(label),
-                        selected: selected,
-                        onSelected: (_) => _toggleWorld(w),
-                        selectedColor: AppColors.formAccentOf(
-                          context,
-                        ).withValues(alpha: 0.3),
-                      );
-                    }).toList(),
-                  ),
                 const SizedBox(height: 24),
 
                 // Group lorebook entries

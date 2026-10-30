@@ -154,18 +154,48 @@ class WorldChatAttachments {
     String chatId,
     List<String> templateWorldIds, {
     bool startAtStar = true,
+    List<String>? loreRefs,
   }) async {
     // New-session seeding can fire moments after a cold launch; resolving
     // against a not-yet-loaded cache would silently seed nothing, permanently.
     await _repo.ready;
     final unresolved = <String>[];
     final ids = _resolveRefs(templateWorldIds, unresolved);
+    final lore = loreRefs == null ? null : _resolveRefs(loreRefs, unresolved);
     if (unresolved.isNotEmpty) {
       debugPrint(
         '[Worlds] template had unresolved refs for chat $chatId: $unresolved',
       );
     }
-    await _repo.setChatWorlds(chatId, ids, startAtStar: startAtStar);
+    if (lore == null) {
+      await _repo.setChatWorlds(chatId, ids, startAtStar: startAtStar);
+      return;
+    }
+    // A split template names its Setting outright, so climate never moves
+    // it. A world starts at its star; a place the author picked starts
+    // there. Lore worlds map to their star exactly as the flat seed does,
+    // so a legacy group re-saved unchanged seeds the same slots.
+    final setting = ids.isEmpty
+        ? null
+        : (_isPlace(_repo.worldById(ids.first)!)
+              ? ids.first
+              : _startOf(ids.first));
+    final loreIds = <String>[];
+    for (final id in lore) {
+      final slot = _startOf(id);
+      if (slot != setting && !loreIds.contains(slot)) loreIds.add(slot);
+    }
+    await _repo.setChatWorldAttachments(
+      chatId,
+      primaryId: setting,
+      loreIds: loreIds,
+    );
+  }
+
+  /// The slot a template ref takes: its starred place when it has one.
+  String _startOf(String id) {
+    final start = _repo.startingPlaceFor(id);
+    return start != null && _isPlace(start) ? start.id : id;
   }
 
   Future<void> setBiome({

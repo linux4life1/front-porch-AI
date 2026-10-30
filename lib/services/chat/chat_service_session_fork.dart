@@ -36,14 +36,18 @@ extension ChatServiceSessionFork on ChatService {
         (_activeGroup != null
             ? _activeGroup!.worldIds
             : (_activeCharacter?.worldNames ?? const <String>[]));
+    // A split group names its Setting and Lore apart; null keeps the flat
+    // legacy seed for groups nobody has re-saved.
+    final loreRefs = carryRefs == null ? _activeGroup?.loreWorldIds : null;
     try {
-      if (refs.isNotEmpty) {
+      if (refs.isNotEmpty || (loreRefs?.isNotEmpty ?? false)) {
         // A fork carries the parent's slots as they stand: a scene the
         // user moved up to the world itself must not jump to its star.
         await _worldRepository.applyTemplateWorldsToChat(
           sid,
           refs,
           startAtStar: carryRefs == null,
+          loreRefs: loreRefs,
         );
       }
       // Even when a fresh chat legitimately gets NO worlds, that is a decision

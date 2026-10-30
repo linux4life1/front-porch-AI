@@ -45,6 +45,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/chat.dart' show Biome;
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart' show parseGroupRealismSeeds;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -289,8 +290,12 @@ void main() {
         storage.webSearchSettings.wikiUrlForChat(groupSession),
         'https://tea-rooms.example/wiki/',
       );
+      // Changed with the group Setting split: the group's settings for new
+      // chats now come from the chat's own Setting (Tea Rooms, inside
+      // Bletchfield), stored by world id instead of the card's name ref.
+      // Same world, same starting place for a later New chat.
       expect(promoteChat.activeGroup!.worldIds, [
-        'Bletchfield',
+        'town',
       ], reason: 'a later New chat in the group starts in the host\'s world');
     });
 
@@ -318,4 +323,50 @@ void main() {
       expect(promoteChat.chatLoreWorldIds, ['town']);
     });
   });
+
+  // Local report: after adding someone to a 1:1 with realism on, Edit Group
+  // said realism and needs were off. The fork saved the group's settings for
+  // new chats as an empty '{}', which both the editor and a New Chat read as
+  // off. Proven to fail: drop _saveForkTemplate from forkToGroupChat and the
+  // seed expectations go red; flip inheritCharacterLorebooks back and the
+  // lorebook one does.
+  test(
+    'a fork with realism on saves realism on for the group\'s new chats',
+    () async {
+      await chat.setActiveCharacter(card('Nia', 'char-fork-realism-host'));
+      await chat.setRealismEnabled(true);
+      await chat.setNeedsSimEnabled(true);
+      await chat.addGeneratedImageMessage('/pictures/porch.png', 'a porch');
+      final groups = GroupChatRepository(storage, db);
+
+      final group = await chat.forkToGroupChat([
+        card('Marisol', 'char-fork-realism-guest'),
+      ], groups);
+
+      expect(group, isNotNull);
+      expect(
+        chat.realismEnabled,
+        isTrue,
+        reason: 'the forked chat itself keeps the 1:1\'s realism',
+      );
+      await groups.reload();
+      final saved = groups.getById(group!.id)!;
+      final seeds = parseGroupRealismSeeds(saved.defaultMemberRealismState);
+      expect(
+        seeds,
+        hasLength(2),
+        reason: 'THE BUG: no member seeds, so new chats started realism-off',
+      );
+      expect(
+        seeds.values.every((s) => (s['needs'] as Map?)?.isNotEmpty ?? false),
+        isTrue,
+        reason: 'needs was on in the 1:1, so new chats start with needs on',
+      );
+      expect(
+        saved.inheritCharacterLorebooks,
+        isTrue,
+        reason: 'the host\'s lorebook fired in the 1:1 and must keep firing',
+      );
+    },
+  );
 }

@@ -95,8 +95,16 @@ class GroupChat {
   /// See docs/characters.md "Prompt Priority in Groups" for the hierarchy.
   Map<String, String> characterSystemPrompts;
 
-  /// Worlds linked to this group (for world lorebook injection).
+  /// Worlds linked to this group (for world lorebook injection). Once
+  /// [loreWorldIds] is set this holds at most one ref: the Setting new chats
+  /// start in (a world starts at its starred place, a place starts there).
   List<String> worldIds;
+
+  /// Worlds whose lorebooks new chats also read, as Lore slots (no weather,
+  /// no starting place). Null means the group was never split: [worldIds]
+  /// then seeds new chats the legacy way, the first climate world taking
+  /// the Setting and the rest Lore.
+  List<String>? loreWorldIds;
 
   /// Group-level lorebook entries (JSON string, same format as Character.lorebook).
   /// Takes highest priority in prompt construction.
@@ -128,6 +136,7 @@ class GroupChat {
     this.baselineRealismState = '{}',
     Map<String, String>? characterSystemPrompts,
     this.worldIds = const [],
+    this.loreWorldIds,
     this.groupLorebook = '',
     this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
@@ -166,6 +175,7 @@ class GroupChat {
       'baseline_realism_state': baselineRealismState,
       'character_system_prompts': characterSystemPrompts,
       'world_ids': worldIds,
+      if (loreWorldIds != null) 'lore_world_ids': loreWorldIds,
       'group_lorebook': groupLorebook,
       'inherit_character_lorebooks': inheritCharacterLorebooks,
       'chaos_mode_enabled': chaosModeEnabled,
@@ -185,6 +195,11 @@ class GroupChat {
     final worldIdsList = (rawWorldIds is List)
         ? rawWorldIds.map((e) => e.toString()).toList()
         : <String>[];
+
+    final rawLore = json['lore_world_ids'];
+    final loreList = (rawLore is List)
+        ? rawLore.map((e) => e.toString()).toList()
+        : null;
 
     final pairedOpening = compactGreetingPairs(
       greetingSlotsFromRaw(json['alternate_greetings']),
@@ -216,6 +231,7 @@ class GroupChat {
       baselineRealismState: json['baseline_realism_state'] ?? '{}',
       characterSystemPrompts: charPrompts,
       worldIds: worldIdsList,
+      loreWorldIds: loreList,
       groupLorebook: json['group_lorebook'] ?? '',
       inheritCharacterLorebooks: json['inherit_character_lorebooks'] ?? false,
       chaosModeEnabled: json['chaos_mode_enabled'] ?? false,

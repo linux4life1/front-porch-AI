@@ -293,7 +293,11 @@ class GroupRealismStep extends StatelessWidget {
           ),
         ],
 
-        GroupWizardNavButtons(draft: d, actions: actions, currentStep: 4),
+        GroupWizardNavButtons(
+          draft: d,
+          actions: actions,
+          currentStep: GroupWizardSteps.realism,
+        ),
       ],
     );
   }

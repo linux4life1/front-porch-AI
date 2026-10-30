@@ -130,13 +130,13 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   Future<void> _createGroup({bool enterChat = true}) async {
     if (_draft.members.length < 2) {
       _showSnack('A group needs at least 2 characters.');
-      _draft.goToStep(0);
+      _draft.goToStep(GroupWizardSteps.members);
       return;
     }
     final name = _draft.nameController.text.trim();
     if (name.isEmpty) {
       _showSnack('Please give the group a name.');
-      _draft.goToStep(1);
+      _draft.goToStep(GroupWizardSteps.identity);
       return;
     }
 
@@ -196,20 +196,34 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     Widget scroll(Widget child, {double padding = 32}) =>
         SingleChildScrollView(padding: EdgeInsets.all(padding), child: child);
     return switch (d.currentStep) {
-      0 => scroll(GroupMembersStep(draft: d, actions: a), padding: 24),
-      1 => scroll(GroupIdentityStep(draft: d, actions: a)),
-      2 => scroll(GroupPromptsStep(draft: d, actions: a)),
-      3 => scroll(GroupLoreStep(draft: d, actions: a)),
-      4 => scroll(GroupRealismStep(draft: d, actions: a)),
-      5 =>
-        d.members.length <= 4
+      GroupWizardSteps.members => scroll(
+        GroupMembersStep(draft: d, actions: a),
+        padding: 24,
+      ),
+      GroupWizardSteps.identity => scroll(
+        GroupIdentityStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.setting => scroll(
+        GroupSettingStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.prompts => scroll(
+        GroupPromptsStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.lore => scroll(GroupLoreStep(draft: d, actions: a)),
+      GroupWizardSteps.realism => scroll(
+        GroupRealismStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.dynamics =>
+        d.members.length <= GroupWizardSteps.dynamicsMaxMembers
             ? scroll(GroupDynamicsStep(draft: d, actions: a))
             : Center(
                 child: GroupDynamicsDisabledNotice(
                   memberCount: d.members.length,
                 ),
               ),
-      6 => scroll(GroupOpeningStep(draft: d, actions: a)),
+      GroupWizardSteps.opening => scroll(
+        GroupOpeningStep(draft: d, actions: a),
+      ),
       _ => scroll(GroupReviewStep(draft: d, actions: a)),
     };
   }
@@ -240,10 +254,20 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
             ),
             const SizedBox(width: 10),
             const Text('Create Group Chat'),
-            const Spacer(),
-            GroupWizardStepIndicator(
-              currentStep: _draft.currentStep,
-              memberCount: _draft.members.length,
+            const SizedBox(width: 16),
+            // Nine dots outgrow a narrow window; they scroll instead of
+            // overflowing the bar.
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: GroupWizardStepIndicator(
+                    currentStep: _draft.currentStep,
+                    memberCount: _draft.members.length,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

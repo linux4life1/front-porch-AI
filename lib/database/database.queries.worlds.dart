@@ -176,17 +176,23 @@ extension AppDatabaseWorldQueries on AppDatabase {
       touched++;
     }
     final groupRows = await customSelect(
-      'SELECT id, world_ids FROM groups WHERE deleted_at IS NULL',
+      'SELECT id, world_ids, lore_world_ids FROM groups '
+      'WHERE deleted_at IS NULL',
     ).get();
     for (final row in groupRows) {
       final id = row.data['id']?.toString();
       final raw = row.data['world_ids']?.toString() ?? '[]';
       final next = _filterWorldRefJson(raw, ids: ids, names: names);
-      if (next == null) continue;
-      await customStatement('UPDATE groups SET world_ids = ? WHERE id = ?', [
-        next,
-        id,
-      ]);
+      // NULL lore stays NULL: an unsplit group keeps its legacy seed.
+      final rawLore = row.data['lore_world_ids']?.toString();
+      final nextLore = rawLore == null
+          ? null
+          : _filterWorldRefJson(rawLore, ids: ids, names: names);
+      if (next == null && nextLore == null) continue;
+      await customStatement(
+        'UPDATE groups SET world_ids = ?, lore_world_ids = ? WHERE id = ?',
+        [next ?? raw, nextLore ?? rawLore, id],
+      );
       touched++;
     }
     if (touched > 0) await bumpSyncVersion();

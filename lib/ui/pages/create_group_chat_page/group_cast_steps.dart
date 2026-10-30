@@ -191,7 +191,11 @@ class GroupMembersStep extends StatelessWidget {
           onTapCharacter: draft.addMember,
         ),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 0),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.members,
+        ),
       ],
     );
   }
@@ -279,7 +283,11 @@ class GroupIdentityStep extends StatelessWidget {
           activeThumbColor: AccentColors.amberOf(context),
         ),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 1),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.identity,
+        ),
       ],
     );
   }

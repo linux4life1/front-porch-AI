@@ -142,6 +142,20 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'relationships': <String, int>{},
 };
 
+/// A group's settings for new chats with realism on and every member
+/// ([memberIds], the runtime member ids) at the neutral starting seed. What
+/// a group made from a 1:1 chat carries: a new chat starts fresh, as New
+/// Chat does in a 1:1, so the current bond and mood are not copied.
+GroupRealismBlobs neutralGroupRealismBlobs(
+  Iterable<String> memberIds, {
+  required bool needsEnabled,
+}) => buildGroupRealismBlobs(
+  seeds: {for (final id in memberIds) id: defaultGroupMemberRealismSeed()},
+  needsEnabled: needsEnabled,
+  timeOfDay: 'morning',
+  dayCount: 1,
+);
+
 /// Re-key member realism seeds from arbitrary *source* ids to the RUNTIME member
 /// ids the realism engine actually reads.
 ///

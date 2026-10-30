@@ -6258,6 +6258,17 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _loreWorldIdsMeta = const VerificationMeta(
+    'loreWorldIds',
+  );
+  @override
+  late final GeneratedColumn<String> loreWorldIds = GeneratedColumn<String>(
+    'lore_world_ids',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _inheritCharacterLorebooksMeta =
       const VerificationMeta('inheritCharacterLorebooks');
   @override
@@ -6358,6 +6369,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     chaosNsfwEnabled,
     groupLorebook,
     worldIds,
+    loreWorldIds,
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
@@ -6490,6 +6502,15 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         worldIds.isAcceptableOrUnknown(data['world_ids']!, _worldIdsMeta),
       );
     }
+    if (data.containsKey('lore_world_ids')) {
+      context.handle(
+        _loreWorldIdsMeta,
+        loreWorldIds.isAcceptableOrUnknown(
+          data['lore_world_ids']!,
+          _loreWorldIdsMeta,
+        ),
+      );
+    }
     if (data.containsKey('inherit_character_lorebooks')) {
       context.handle(
         _inheritCharacterLorebooksMeta,
@@ -6606,6 +6627,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}world_ids'],
       )!,
+      loreWorldIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lore_world_ids'],
+      ),
       inheritCharacterLorebooks: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}inherit_character_lorebooks'],
@@ -6665,6 +6690,7 @@ class Group extends DataClass implements Insertable<Group> {
   final bool chaosNsfwEnabled;
   final String groupLorebook;
   final String worldIds;
+  final String? loreWorldIds;
   final bool inheritCharacterLorebooks;
 
   /// Immutable creation-time baseline realism/needs seed for this group definition.
@@ -6716,6 +6742,7 @@ class Group extends DataClass implements Insertable<Group> {
     required this.chaosNsfwEnabled,
     required this.groupLorebook,
     required this.worldIds,
+    this.loreWorldIds,
     required this.inheritCharacterLorebooks,
     required this.baselineRealismState,
     required this.characterSystemPrompts,
@@ -6743,6 +6770,9 @@ class Group extends DataClass implements Insertable<Group> {
     map['chaos_nsfw_enabled'] = Variable<bool>(chaosNsfwEnabled);
     map['group_lorebook'] = Variable<String>(groupLorebook);
     map['world_ids'] = Variable<String>(worldIds);
+    if (!nullToAbsent || loreWorldIds != null) {
+      map['lore_world_ids'] = Variable<String>(loreWorldIds);
+    }
     map['inherit_character_lorebooks'] = Variable<bool>(
       inheritCharacterLorebooks,
     );
@@ -6777,6 +6807,9 @@ class Group extends DataClass implements Insertable<Group> {
       chaosNsfwEnabled: Value(chaosNsfwEnabled),
       groupLorebook: Value(groupLorebook),
       worldIds: Value(worldIds),
+      loreWorldIds: loreWorldIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(loreWorldIds),
       inheritCharacterLorebooks: Value(inheritCharacterLorebooks),
       baselineRealismState: Value(baselineRealismState),
       characterSystemPrompts: Value(characterSystemPrompts),
@@ -6815,6 +6848,7 @@ class Group extends DataClass implements Insertable<Group> {
       chaosNsfwEnabled: serializer.fromJson<bool>(json['chaosNsfwEnabled']),
       groupLorebook: serializer.fromJson<String>(json['groupLorebook']),
       worldIds: serializer.fromJson<String>(json['worldIds']),
+      loreWorldIds: serializer.fromJson<String?>(json['loreWorldIds']),
       inheritCharacterLorebooks: serializer.fromJson<bool>(
         json['inheritCharacterLorebooks'],
       ),
@@ -6850,6 +6884,7 @@ class Group extends DataClass implements Insertable<Group> {
       'chaosNsfwEnabled': serializer.toJson<bool>(chaosNsfwEnabled),
       'groupLorebook': serializer.toJson<String>(groupLorebook),
       'worldIds': serializer.toJson<String>(worldIds),
+      'loreWorldIds': serializer.toJson<String?>(loreWorldIds),
       'inheritCharacterLorebooks': serializer.toJson<bool>(
         inheritCharacterLorebooks,
       ),
@@ -6879,6 +6914,7 @@ class Group extends DataClass implements Insertable<Group> {
     bool? chaosNsfwEnabled,
     String? groupLorebook,
     String? worldIds,
+    Value<String?> loreWorldIds = const Value.absent(),
     bool? inheritCharacterLorebooks,
     String? baselineRealismState,
     String? characterSystemPrompts,
@@ -6902,6 +6938,7 @@ class Group extends DataClass implements Insertable<Group> {
     chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
     groupLorebook: groupLorebook ?? this.groupLorebook,
     worldIds: worldIds ?? this.worldIds,
+    loreWorldIds: loreWorldIds.present ? loreWorldIds.value : this.loreWorldIds,
     inheritCharacterLorebooks:
         inheritCharacterLorebooks ?? this.inheritCharacterLorebooks,
     baselineRealismState: baselineRealismState ?? this.baselineRealismState,
@@ -6946,6 +6983,9 @@ class Group extends DataClass implements Insertable<Group> {
           ? data.groupLorebook.value
           : this.groupLorebook,
       worldIds: data.worldIds.present ? data.worldIds.value : this.worldIds,
+      loreWorldIds: data.loreWorldIds.present
+          ? data.loreWorldIds.value
+          : this.loreWorldIds,
       inheritCharacterLorebooks: data.inheritCharacterLorebooks.present
           ? data.inheritCharacterLorebooks.value
           : this.inheritCharacterLorebooks,
@@ -6979,6 +7019,7 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('groupLorebook: $groupLorebook, ')
           ..write('worldIds: $worldIds, ')
+          ..write('loreWorldIds: $loreWorldIds, ')
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
@@ -7006,6 +7047,7 @@ class Group extends DataClass implements Insertable<Group> {
     chaosNsfwEnabled,
     groupLorebook,
     worldIds,
+    loreWorldIds,
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
@@ -7032,6 +7074,7 @@ class Group extends DataClass implements Insertable<Group> {
           other.chaosNsfwEnabled == this.chaosNsfwEnabled &&
           other.groupLorebook == this.groupLorebook &&
           other.worldIds == this.worldIds &&
+          other.loreWorldIds == this.loreWorldIds &&
           other.inheritCharacterLorebooks == this.inheritCharacterLorebooks &&
           other.baselineRealismState == this.baselineRealismState &&
           other.characterSystemPrompts == this.characterSystemPrompts &&
@@ -7056,6 +7099,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<bool> chaosNsfwEnabled;
   final Value<String> groupLorebook;
   final Value<String> worldIds;
+  final Value<String?> loreWorldIds;
   final Value<bool> inheritCharacterLorebooks;
   final Value<String> baselineRealismState;
   final Value<String> characterSystemPrompts;
@@ -7079,6 +7123,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.chaosNsfwEnabled = const Value.absent(),
     this.groupLorebook = const Value.absent(),
     this.worldIds = const Value.absent(),
+    this.loreWorldIds = const Value.absent(),
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
@@ -7103,6 +7148,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.chaosNsfwEnabled = const Value.absent(),
     this.groupLorebook = const Value.absent(),
     this.worldIds = const Value.absent(),
+    this.loreWorldIds = const Value.absent(),
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
@@ -7128,6 +7174,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<bool>? chaosNsfwEnabled,
     Expression<String>? groupLorebook,
     Expression<String>? worldIds,
+    Expression<String>? loreWorldIds,
     Expression<bool>? inheritCharacterLorebooks,
     Expression<String>? baselineRealismState,
     Expression<String>? characterSystemPrompts,
@@ -7153,6 +7200,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       if (chaosNsfwEnabled != null) 'chaos_nsfw_enabled': chaosNsfwEnabled,
       if (groupLorebook != null) 'group_lorebook': groupLorebook,
       if (worldIds != null) 'world_ids': worldIds,
+      if (loreWorldIds != null) 'lore_world_ids': loreWorldIds,
       if (inheritCharacterLorebooks != null)
         'inherit_character_lorebooks': inheritCharacterLorebooks,
       if (baselineRealismState != null)
@@ -7182,6 +7230,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<bool>? chaosNsfwEnabled,
     Value<String>? groupLorebook,
     Value<String>? worldIds,
+    Value<String?>? loreWorldIds,
     Value<bool>? inheritCharacterLorebooks,
     Value<String>? baselineRealismState,
     Value<String>? characterSystemPrompts,
@@ -7207,6 +7256,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
       groupLorebook: groupLorebook ?? this.groupLorebook,
       worldIds: worldIds ?? this.worldIds,
+      loreWorldIds: loreWorldIds ?? this.loreWorldIds,
       inheritCharacterLorebooks:
           inheritCharacterLorebooks ?? this.inheritCharacterLorebooks,
       baselineRealismState: baselineRealismState ?? this.baselineRealismState,
@@ -7267,6 +7317,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     if (worldIds.present) {
       map['world_ids'] = Variable<String>(worldIds.value);
     }
+    if (loreWorldIds.present) {
+      map['lore_world_ids'] = Variable<String>(loreWorldIds.value);
+    }
     if (inheritCharacterLorebooks.present) {
       map['inherit_character_lorebooks'] = Variable<bool>(
         inheritCharacterLorebooks.value,
@@ -7317,6 +7370,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('groupLorebook: $groupLorebook, ')
           ..write('worldIds: $worldIds, ')
+          ..write('loreWorldIds: $loreWorldIds, ')
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')

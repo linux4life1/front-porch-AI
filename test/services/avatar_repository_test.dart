@@ -117,7 +117,10 @@ void main() {
       //      Guarded by the chain / cycle / re-root group in
       //      test/services/world_repository_test.dart and by
       //      test/database/repair_covers_ladder_columns_test.
-      expect(db.schemaVersion, 61);
+      // v62: groups.lore_world_ids — a group's lore-only worlds apart from
+      //      its Setting. Guarded by the Group Setting split group in
+      //      test/services/world_repository_test.dart.
+      expect(db.schemaVersion, 62);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

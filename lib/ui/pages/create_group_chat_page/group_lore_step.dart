@@ -17,20 +17,15 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'create_group_chat_page.dart';
 
-const _loreEnabledAccent =
-    Colors.blueAccent; // theme-keep: lorebook enabled vs always-on marker
-
+/// The group lorebook and the Inherit switch. Worlds have their own step
+/// (Setting) since a group meets in one world.
 class GroupLoreStep extends StatelessWidget {
   const GroupLoreStep({super.key, required this.draft, required this.actions});
 
@@ -39,9 +34,8 @@ class GroupLoreStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final worldRepo = Provider.of<WorldRepository>(context);
-    final allWorlds = libraryDisplayOrder(worldRepo.placeWorlds);
-    final byId = {for (final w in allWorlds) w.id: w};
+    // Matched-on-keys entries; always-on entries keep the amber marker.
+    final loreEnabledAccent = AppColors.journalAccentOf(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +75,7 @@ class GroupLoreStep extends StatelessWidget {
                   color: entry.constant
                       ? AccentColors.amberOf(context).withValues(alpha: 0.3)
                       : entry.enabled
-                      ? _loreEnabledAccent.withValues(alpha: 0.15)
+                      ? loreEnabledAccent.withValues(alpha: 0.15)
                       : AppColors.borderOf(context).withValues(alpha: 0.5),
                 ),
               ),
@@ -96,7 +90,7 @@ class GroupLoreStep extends StatelessWidget {
                         color: entry.constant
                             ? AccentColors.amberOf(context)
                             : entry.enabled
-                            ? _loreEnabledAccent
+                            ? loreEnabledAccent
                             : AppColors.iconSecondary(context),
                       ),
                       const SizedBox(width: 6),
@@ -140,13 +134,13 @@ class GroupLoreStep extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: _loreEnabledAccent.withValues(alpha: 0.1),
+                            color: loreEnabledAccent.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             'Depth ${entry.stickyDepth}',
-                            style: const TextStyle(
-                              color: _loreEnabledAccent,
+                            style: TextStyle(
+                              color: loreEnabledAccent,
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                             ),
@@ -241,54 +235,11 @@ class GroupLoreStep extends StatelessWidget {
           onChanged: (v) =>
               draft.update(() => draft.inheritCharacterLorebooks = v),
         ),
-        const SizedBox(height: 16),
-        Text(
-          'Linked Worlds',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.lore,
         ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: [
-            ...draft.worldIds.map((wid) {
-              final w = allWorlds.firstWhere(
-                (ww) => ww.id == wid || ww.name == wid,
-                orElse: () => World(
-                  name: wid,
-                  lorebook: Lorebook(entries: const []),
-                ),
-              );
-              return Chip(
-                label: Text(w.name),
-                onDeleted: () =>
-                    draft.toggleWorld(w.id.isNotEmpty ? w.id : wid),
-              );
-            }),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final chosen = await showDialog<World>(
-                  context: context,
-                  builder: (ctx) => SimpleDialog(
-                    title: const Text('Link a World'),
-                    children: linkableWorldsOf(allWorlds, (id) => byId[id])
-                        .map(
-                          (w) => SimpleDialogOption(
-                            onPressed: () => Navigator.pop(ctx, w),
-                            child: Text(w.name),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                );
-                if (chosen != null) draft.toggleWorld(chosen.id);
-              },
-              icon: const Icon(Icons.public),
-              label: const Text('Link World'),
-            ),
-          ],
-        ),
-
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 3),
       ],
     );
   }
