@@ -101,9 +101,9 @@ extension ChatServiceCastShrink on ChatService {
       snapshot = _realismSnapshot.capture();
     }
     // Read the survivor's per-char NSFW flag straight from the group store.
-    // Absent is off, as loadNsfwScalarsForSpeaker reads it in the group. Never
-    // the live register: it holds whichever member was loaded or seeded last,
-    // so a survivor with no entry would inherit another member's flag.
+    // No entry means off: a member with none has Afterglow off in the group
+    // too. Never the live register: it holds whichever member was loaded or
+    // seeded last, so a survivor with no entry would inherit another member's.
     final bool soleNsfwEnabled =
         _groupRealism[soleId]?.nsfwCooldownEnabled ?? false;
     // Same reasoning for their Pockets record, and read here for the same reason:
