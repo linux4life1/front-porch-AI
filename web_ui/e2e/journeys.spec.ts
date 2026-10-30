@@ -2129,3 +2129,54 @@ test(
     }
   },
 );
+
+// Group Settings' "Realism for new chats": the switches save the group's
+// settings for new chats, and a group made on the web (not from a 1:1)
+// shows no forked-group notice.
+test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+  const name = `New Chats Crew ${test.info().project.name}`;
+  const created = await request.post('/api/groups', { data: { name, memberIds } });
+  expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+  const groupId = ((await created.json()) as { id: string }).id;
+  const newChats = async () =>
+    (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as {
+      realism: boolean;
+      needs: boolean;
+      forkSource: unknown;
+    };
+  try {
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+
+    // The insight column on a wide window; the Stats drawer below 1024px.
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    await panel.locator('summary', { hasText: 'Group settings' }).click();
+    const section = panel.getByTestId('group-new-chats-section');
+    await expect(section).toContainText('Realism for new chats');
+    await expect(panel.getByTestId('group-fork-notice')).toHaveCount(0);
+    expect(await newChats()).toMatchObject({ realism: true, needs: true, forkSource: null });
+
+    const realism = section.getByRole('checkbox', { name: 'Realism Engine' });
+    const needs = section.getByRole('checkbox', { name: 'Needs' });
+    await expect(realism).toBeChecked();
+    await needs.uncheck();
+    await expect.poll(async () => (await newChats()).needs).toBe(false);
+    await expect(realism).toBeChecked();
+    await realism.uncheck();
+    await expect.poll(async () => (await newChats()).realism).toBe(false);
+    await expect(needs).toBeDisabled();
+    await realism.check();
+    await expect.poll(async () => (await newChats()).realism).toBe(true);
+  } finally {
+    await request.post(`/api/groups/${groupId}/delete`);
+  }
+});

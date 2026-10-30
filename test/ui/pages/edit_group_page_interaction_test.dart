@@ -297,4 +297,100 @@ void main() {
       );
     });
   });
+
+  // The notice as the overhaul drew it: it names the character the 1:1 was
+  // with, lists what it would fill in, and offers "Leave as is". Proven to
+  // fail: drop hostName from findForkedGroupSource and the first test goes
+  // red; drop the "Leave as is" button and the second does.
+  group('the forked-group notice names its chat and can be left', () {
+    Future<_RecordingGroups> pumpForked(WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 1100));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final groups = _RecordingGroups();
+      final chat = FakeChatService();
+      final storage = FakeStorageService();
+      final worlds = FakeWorldRepository([
+        World(
+          id: 'creek',
+          name: 'Hollow Creek',
+          lorebook: Lorebook(entries: []),
+          biomeId: 'temperate',
+        ),
+      ]);
+      final characters = FakeCharacterRepository([]);
+      for (final s in [groups, chat, storage, worlds, characters]) {
+        addTearDown(s.dispose);
+      }
+      final database = db.AppDatabase.forTesting(sameIsolate: true);
+      addTearDown(database.close);
+      await tester.runAsync(() async {
+        await database
+            .into(database.characters)
+            .insert(db.CharactersCompanion.insert(id: 'c-j', name: 'Juniper'));
+        await database.insertSession(
+          db.SessionsCompanion.insert(
+            id: 'one',
+            characterId: const Value('c-j'),
+          ),
+        );
+        await database.insertSession(
+          db.SessionsCompanion.insert(
+            id: 'forked',
+            groupId: const Value('g-wren'),
+            parentSession: const Value('one'),
+            realismEnabled: const Value(true),
+            needsSimEnabled: const Value(true),
+          ),
+        );
+        await database.setChatWorldAttachments('forked', primaryId: 'creek');
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+              ChangeNotifierProvider<ChatService>.value(value: chat),
+              ChangeNotifierProvider<StorageService>.value(value: storage),
+              ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+              ChangeNotifierProvider<CharacterRepository>.value(
+                value: characters,
+              ),
+              Provider<db.AppDatabase>.value(value: database),
+            ],
+            child: MaterialApp(
+              home: EditGroupPage(
+                group: GroupChat(id: 'g-wren', name: 'Juniper & Wren'),
+              ),
+            ),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+      });
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      return groups;
+    }
+
+    testWidgets('it names Juniper and lists what it would fill in', (
+      tester,
+    ) async {
+      await pumpForked(tester);
+      expect(
+        find.text('This group started from your chat with Juniper.'),
+        findsOneWidget,
+      );
+      expect(find.text('Realism on · Needs on'), findsOneWidget);
+      expect(find.text('Hollow Creek'), findsWidgets);
+      expect(find.text("Read Juniper's lorebook"), findsOneWidget);
+    });
+
+    testWidgets('"Leave as is" hides it and saves nothing', (tester) async {
+      final groups = await pumpForked(tester);
+      await tester.tap(find.byKey(const ValueKey('edit-group-fork-leave')));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(
+        find.byKey(const ValueKey('edit-group-fork-notice')),
+        findsNothing,
+      );
+      expect(groups.saved, isNull);
+    });
+  });
 }

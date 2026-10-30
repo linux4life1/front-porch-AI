@@ -40,6 +40,8 @@ class WebGroupRoutes {
     router.post('/api/groups/<id>/delete', _delete);
     router.post('/api/groups/<id>/settings', _settings);
     router.get('/api/groups/<id>/worlds', _worlds);
+    router.get('/api/groups/<id>/new-chats', _newChats);
+    router.post('/api/groups/<id>/new-chats', _setNewChats);
     router.post(
       '/api/groups/draft/scenario',
       (shelf.Request r) => _draft(r, false),
@@ -121,6 +123,30 @@ class WebGroupRoutes {
     final ok = await _facade.updateSettings(id, body);
     if (!ok) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// Realism, Needs and Inherit for the group's new chats, and the notice
+  /// for a group made from a 1:1 that is missing that chat's settings.
+  Future<shelf.Response> _newChats(shelf.Request request, String id) async {
+    final state = await _facade.newChats.stateOf(id);
+    if (state == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(state);
+  }
+
+  /// Body: any of {realism, needs, inherit} as booleans, and
+  /// `useForkSource: true` to fill in what the 1:1 the group came from had.
+  Future<shelf.Response> _setNewChats(shelf.Request request, String id) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    if (!await _facade.newChats.update(id, body)) {
+      return JsonResponse.error(404, 'Group not found');
+    }
+    final state = await _facade.newChats.stateOf(id);
+    return JsonResponse.ok(state ?? const {});
   }
 
   /// Export a group as a self-contained Group Card PNG download.
