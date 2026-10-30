@@ -22,7 +22,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 /// Scenario and first-message generation for the Create Group wizard. Returns
 /// the cleaned text (possibly empty); the page owns the busy flags, snackbars
-/// and the `mounted` checks.
+/// and the `mounted` checks. [settingBrief] (groupSettingBrief) says where
+/// the scene starts, so the opening is written in the place the group's
+/// chats really open in.
 class GroupOpeningGenerator {
   const GroupOpeningGenerator(this.service);
 
@@ -30,31 +32,23 @@ class GroupOpeningGenerator {
 
   // ── AI GENERATION (adapted + improved from old dialog) ─────────────
 
+  /// The block that pins the scene to the group's Setting; empty without one.
+  static String _settingBlock(String settingBrief) =>
+      settingBrief.trim().isEmpty
+      ? ''
+      : '\n\nWHERE THE SCENE TAKES PLACE (write it here; do not move it or '
+            'contradict it):\n${settingBrief.trim()}';
+
   Future<String> scenario({
     required List<CharacterCard> members,
     String dynamicsContext = '',
+    String settingBrief = '',
   }) async {
-    final briefs = members
-        .map((c) {
-          final trait = c.personality.isNotEmpty
-              ? c.personality.split('.').first
-              : c.name;
-          return '${c.name} ($trait)';
-        })
-        .join(', ');
-
-    final dynamicsCtx = dynamicsContext.isNotEmpty
-        ? '\n\nHidden inter-character dynamics to reflect in the setting and atmosphere:\n$dynamicsContext\n\nIncorporate the emotional undercurrents between the characters into the description of the location and situation (without stating them directly).'
-        : '';
-
-    final prompt =
-        '[Output ONLY the scenario text. No planning, reasoning, or explanation. '
-        'Do NOT use <think> tags.]\n\n'
-        'Write a brief scenario (1-2 sentences max) for a group roleplay with: $briefs.$dynamicsCtx\n'
-        'The scenario should describe WHERE the characters are and WHAT is happening.\n'
-        'Use {{user}} to refer to the player when appropriate. Keep it concise.\n\n'
-        'SCENARIO: ';
-
+    final prompt = scenarioPrompt(
+      members: members,
+      dynamicsContext: dynamicsContext,
+      settingBrief: settingBrief,
+    );
     final buf = StringBuffer();
     final params = GenerationParams(
       prompt: prompt,
@@ -71,12 +65,58 @@ class GroupOpeningGenerator {
     return _cleanThinkAndMarkers(buf.toString(), prefixMarkers: ['SCENARIO:']);
   }
 
+  /// The scenario prompt, apart from the call so what it asks is testable.
+  static String scenarioPrompt({
+    required List<CharacterCard> members,
+    String dynamicsContext = '',
+    String settingBrief = '',
+  }) {
+    final briefs = members
+        .map((c) {
+          final trait = c.personality.isNotEmpty
+              ? c.personality.split('.').first
+              : c.name;
+          return '${c.name} ($trait)';
+        })
+        .join(', ');
+
+    final dynamicsCtx = dynamicsContext.isNotEmpty
+        ? '\n\nHidden inter-character dynamics to reflect in the setting and atmosphere:\n$dynamicsContext\n\nIncorporate the emotional undercurrents between the characters into the description of the location and situation (without stating them directly).'
+        : '';
+
+    return '[Output ONLY the scenario text. No planning, reasoning, or explanation. '
+        'Do NOT use <think> tags.]\n\n'
+        'Write a brief scenario (1-2 sentences max) for a group roleplay with: $briefs.$dynamicsCtx${_settingBlock(settingBrief)}\n'
+        'The scenario should describe WHERE the characters are and WHAT is happening.\n'
+        'Use {{user}} to refer to the player when appropriate. Keep it concise.\n\n'
+        'SCENARIO: ';
+  }
+
   Future<String> firstMessage({
     required List<CharacterCard> members,
     required String scenario,
     required bool isDirector,
     String dynamicsContext = '',
+    String settingBrief = '',
   }) async {
+    final prompt = firstMessagePrompt(
+      members: members,
+      scenario: scenario,
+      isDirector: isDirector,
+      dynamicsContext: dynamicsContext,
+      settingBrief: settingBrief,
+    );
+    return _firstMessageFrom(prompt, isDirector: isDirector);
+  }
+
+  /// The opening prompt, apart from the call so what it asks is testable.
+  static String firstMessagePrompt({
+    required List<CharacterCard> members,
+    required String scenario,
+    required bool isDirector,
+    String dynamicsContext = '',
+    String settingBrief = '',
+  }) {
     final descriptions = members
         .map((c) {
           final persona = c.personality.isNotEmpty
@@ -95,10 +135,11 @@ class GroupOpeningGenerator {
         ? '\n\n$dynamicsContext\n\nIMPORTANT INSTRUCTIONS FOR USING THE DYNAMICS:\n- These are the characters\' private, hidden feelings toward one another (the player does not know these feelings exist).\n- Use them to create natural tension, chemistry, coldness, protectiveness, jealousy, affection, etc. in the opening scene.\n- Show the dynamics through subtext, body language, tone of voice, who stands near whom, micro-expressions, and how characters speak to (or about) each other.\n- Never have a character explicitly state their numerical score or tier. Reveal it organically through behavior and dialogue.\n- Strong negative scores should create visible friction or wariness. Strong positive scores should create warmth, protectiveness, or instinctive closeness.'
         : '';
 
-    final prompt = isDirector
+    final where = _settingBlock(settingBrief);
+    return isDirector
         ? '[INSTRUCTIONS: Output ONLY the creative scene text. '
               'Do NOT plan, reason, analyze, or explain. Do NOT use <think> tags. Start writing IMMEDIATELY.]\n\n'
-              'Write a vivid, immersive opening scene (3-5 paragraphs) for a DIRECTOR MODE group roleplay featuring:\n$descriptions$scenarioCtx$dynamicsCtx\n\n'
+              'Write a vivid, immersive opening scene (3-5 paragraphs) for a DIRECTOR MODE group roleplay featuring:\n$descriptions$scenarioCtx$dynamicsCtx$where\n\n'
               'CRITICAL: There is NO user/player present. Characters interact ONLY with each other.\n'
               'Each character MUST have at least 2 lines of dialogue.\n'
               'Characters address and react to EACH OTHER.\n'
@@ -107,11 +148,16 @@ class GroupOpeningGenerator {
               'BEGIN SCENE:\n'
         : '[INSTRUCTIONS: Output ONLY the creative scene text. '
               'Do NOT plan, reason, analyze, or explain. Do NOT use <think> tags. Start writing IMMEDIATELY.]\n\n'
-              'Write a vivid, immersive opening message (2-4 paragraphs) for a group roleplay featuring:\n$descriptions$scenarioCtx$dynamicsCtx\n\n'
+              'Write a vivid, immersive opening message (2-4 paragraphs) for a group roleplay featuring:\n$descriptions$scenarioCtx$dynamicsCtx$where\n\n'
               'The player ({{user}}) is present. Include natural dialogue from the characters and actions in *asterisks*.\n'
               'Keep it engaging and true to the characters.\n\n'
               'OPENING:\n';
+  }
 
+  Future<String> _firstMessageFrom(
+    String prompt, {
+    required bool isDirector,
+  }) async {
     final buf = StringBuffer();
     final params = GenerationParams(
       prompt: prompt,

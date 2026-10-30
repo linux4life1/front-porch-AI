@@ -27,10 +27,18 @@ import 'create_group_chat_page.dart';
 /// The group lorebook and the Inherit switch. Worlds have their own step
 /// (Setting) since a group meets in one world.
 class GroupLoreStep extends StatelessWidget {
-  const GroupLoreStep({super.key, required this.draft, required this.actions});
+  const GroupLoreStep({
+    super.key,
+    required this.draft,
+    required this.actions,
+    this.showNav = true,
+  });
 
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
+
+  /// False when the Prompts & Lore step hosts this one.
+  final bool showNav;
 
   @override
   Widget build(BuildContext context) {
@@ -235,11 +243,12 @@ class GroupLoreStep extends StatelessWidget {
           onChanged: (v) =>
               draft.update(() => draft.inheritCharacterLorebooks = v),
         ),
-        GroupWizardNavButtons(
-          draft: draft,
-          actions: actions,
-          currentStep: GroupWizardSteps.lore,
-        ),
+        if (showNav)
+          GroupWizardNavButtons(
+            draft: draft,
+            actions: actions,
+            currentStep: GroupWizardSteps.promptsLore,
+          ),
       ],
     );
   }

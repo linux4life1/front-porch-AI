@@ -7,3 +7,4 @@ export 'bare_place_setting_repair.dart';
 export 'world_row_codec.dart';
 export 'world_starting_place.dart';
 export 'group_world_choice.dart';
+export 'group_setting_brief.dart';

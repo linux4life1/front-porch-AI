@@ -49,7 +49,7 @@ class GroupReviewStep extends StatelessWidget {
         const SizedBox(height: 12),
 
         // Scenario + First Message moved here (last step) so AI generation
-        // can use the hidden relationships from the Group Dynamics step.
+        // can use the hidden relationships from Group Dynamics on the Realism step.
         Row(
           children: [
             Expanded(

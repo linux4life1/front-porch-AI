@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 
 import '../../golden/support/fakes.dart';
@@ -81,14 +82,19 @@ void main() {
     await next('Group Name');
     await tester.enterText(find.byType(TextField).first, 'Pace Probe');
     await tester.pumpAndSettle();
-    // Added with the Setting step, now between Identity and Prompts.
+    // Changed with the seven-step flow: Setting, then Realism.
     await next('Where does the group meet?');
-    await next('Group System Prompt');
-    await next('Add Entry');
     await next('Day Number');
 
-    await tester.ensureVisible(find.text('Aerin').last);
-    await tester.tap(find.text('Aerin').last);
+    // Changed with the seven-step flow: Group Dynamics now shares the
+    // Realism page and names every member too, so the tap is scoped to
+    // Aerin's realism card instead of the last "Aerin" on the page.
+    final aerinCard = find.descendant(
+      of: find.byType(GroupMemberRealismCard),
+      matching: find.text('Aerin'),
+    );
+    await tester.ensureVisible(aerinCard.first);
+    await tester.tap(aerinCard.first);
     await tester.pumpAndSettle();
 
     expect(find.byType(NeedsFormSection), findsWidgets);

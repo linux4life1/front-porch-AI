@@ -166,16 +166,12 @@ void main() {
     await next('Group Name');
     await tester.enterText(find.byType(TextField).first, 'Restored Porch');
     await tester.pumpAndSettle();
-    // Added with the Setting step, now between Identity and Prompts.
+    // Changed with the seven-step flow: Setting, Realism (with Group
+    // Dynamics inside), Opening, Prompts & Lore, Review.
     await next('Where does the group meet?');
-    await next('Group System Prompt');
-    await next('Add Entry');
     await next('Day Number');
-    await next(
-      'Pre-seed how the characters feel toward each other. These hidden '
-      'relationships influence behavior in small groups (4 or fewer members).',
-    );
     await next('Opening Scene');
+    await next('Group System Prompt');
     await next('Create Group & Enter Chat');
 
     const createOnly = "Create Only (don't enter chat yet)";

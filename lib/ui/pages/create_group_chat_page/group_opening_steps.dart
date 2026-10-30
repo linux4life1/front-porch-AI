@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/world_repository.dart';
 
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -68,6 +71,23 @@ class GroupOpeningStep extends StatelessWidget {
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
 
+  /// Where the Setting step put the group; Generate writes the scene there.
+  Widget _settingLine(BuildContext context) {
+    final worlds = Provider.of<WorldRepository>(context);
+    final where = groupSettingSummary(
+      draft.worldChoice,
+      worlds.worldById,
+      groupWeatherLabels(worlds),
+    );
+    return Text(
+      draft.worldChoice.settingId == null
+          ? '$where Generate makes up a place.'
+          : '$where Generate writes the scene there.',
+      key: const ValueKey('group-opening-setting'),
+      style: TextStyle(color: AppColors.textSecondary(context)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -77,6 +97,8 @@ class GroupOpeningStep extends StatelessWidget {
           'Opening Scene',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 6),
+        _settingLine(context),
         const SizedBox(height: 12),
 
         // Dialogue subsection (groups): first message + alternate greetings.
@@ -209,10 +231,14 @@ class GroupPromptsStep extends StatelessWidget {
     super.key,
     required this.draft,
     required this.actions,
+    this.showNav = true,
   });
 
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
+
+  /// False when the Prompts & Lore step hosts this one.
+  final bool showNav;
 
   @override
   Widget build(BuildContext context) {
@@ -330,11 +356,12 @@ class GroupPromptsStep extends StatelessWidget {
         if (draft.members.isEmpty)
           const Text('Add members first to configure per-character prompts.'),
 
-        GroupWizardNavButtons(
-          draft: draft,
-          actions: actions,
-          currentStep: GroupWizardSteps.prompts,
-        ),
+        if (showNav)
+          GroupWizardNavButtons(
+            draft: draft,
+            actions: actions,
+            currentStep: GroupWizardSteps.promptsLore,
+          ),
       ],
     );
   }

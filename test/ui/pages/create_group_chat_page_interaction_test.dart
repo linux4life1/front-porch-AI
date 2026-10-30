@@ -130,21 +130,30 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Seam Probe Ensemble');
     await tester.pumpAndSettle();
 
-    // ── Steps 2-7, each landmark owned by its part file ───────────────────
-    // Added with the Setting step (one world + starting place), which now
-    // sits between Identity and Prompts.
+    // ── Steps 2-6, each landmark owned by its part file ───────────────────
+    // Changed with the seven-step flow: Setting, then Realism with Group
+    // Dynamics inside it, then Opening (so the generator knows the place
+    // and the dynamics), then Prompts and Lore on one page. Dynamics and
+    // Lore no longer have steps of their own, so their landmarks share the
+    // page.
     await next('Where does the group meet?', 'group_setting_step');
-    await next('Group System Prompt', 'steps_opening (prompts)');
-    await next('Add Entry', 'steps_lore');
     await next('Day Number', 'steps_realism');
-    // ('Group Dynamics' also sits in the ever-present step indicator, so the
-    // landmark is step-owned prose instead.)
-    await next(
-      'Pre-seed how the characters feel toward each other. These hidden '
-          'relationships influence behavior in small groups (4 or fewer members).',
-      'steps_dynamics',
+    // (Group Dynamics has no dot of its own; its prose is the landmark.)
+    expect(
+      find.text(
+        'Pre-seed how the characters feel toward each other. These hidden '
+        'relationships influence behavior in small groups (4 or fewer members).',
+      ),
+      findsWidgets,
+      reason: 'Group Dynamics is a section of the Realism step',
     );
     await next('Opening Scene', 'steps_opening');
+    await next('Group System Prompt', 'steps_opening (prompts)');
+    expect(
+      find.text('Add Entry'),
+      findsWidgets,
+      reason: 'the group lorebook shares the Prompts & Lore step',
+    );
     await next('Create Group & Enter Chat', 'steps_review');
 
     // The final actions must be genuinely tappable — scrolled into view and
@@ -158,59 +167,244 @@ void main() {
     );
   });
 
-  // With five or more members Group Dynamics is skipped. The dots greyed out
-  // Opening instead, Back from Review jumped to Realism past Opening, and
-  // Back from Opening landed on the "Dynamics unavailable" page Next had
-  // skipped. Every index now comes from GroupWizardSteps.
-  group('step order with Group Dynamics skipped', () {
-    const big = 5;
-    test('Next and Back both step over Dynamics, and only Dynamics', () {
+  // Changed with the seven-step flow. Phase 1 pinned that Next and Back
+  // stepped over Group Dynamics for five or more members; Dynamics is now a
+  // section of Realism, so no step is ever skipped and every dot is live.
+  group('step order', () {
+    test('Next and Back walk every step, in the artifact order', () {
+      expect(GroupWizardSteps.labels, [
+        'Members',
+        'Identity',
+        'Setting',
+        'Realism',
+        'Opening',
+        'Prompts & Lore',
+        'Review',
+      ]);
+      var step = GroupWizardSteps.members;
+      final walked = <int>[step];
+      for (
+        int? n = GroupWizardSteps.next(step);
+        n != null;
+        n = GroupWizardSteps.next(step)
+      ) {
+        walked.add(step = n);
+      }
+      expect(walked, [0, 1, 2, 3, 4, 5, 6]);
       expect(
-        GroupWizardSteps.next(GroupWizardSteps.realism, memberCount: big),
-        GroupWizardSteps.opening,
+        GroupWizardSteps.previous(GroupWizardSteps.review),
+        GroupWizardSteps.promptsLore,
       );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.review, memberCount: big),
-        GroupWizardSteps.opening,
-        reason: 'Back from Review skipped Opening',
-      );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: big),
-        GroupWizardSteps.realism,
-      );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: 3),
-        GroupWizardSteps.dynamics,
-      );
-      expect(
-        GroupWizardSteps.next(GroupWizardSteps.review, memberCount: 3),
-        isNull,
-      );
+      expect(GroupWizardSteps.previous(GroupWizardSteps.members), 0);
     });
 
-    testWidgets('the greyed-out dot is Group Dynamics, not Opening', (
-      tester,
-    ) async {
+    testWidgets('every dot is live', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: GroupWizardStepIndicator(
-              currentStep: GroupWizardSteps.realism,
-              memberCount: big,
+              currentStep: GroupWizardSteps.members,
             ),
           ),
         ),
       );
       Color labelColor(String label) =>
           tester.widget<Text>(find.text(label)).style!.color!;
-      expect(
-        labelColor('Group Dynamics'),
-        isNot(labelColor('Opening')),
-        reason: 'with 5 members Dynamics is unavailable and Opening is not',
-      );
+      expect(labelColor('Realism'), labelColor('Review'));
       expect(labelColor('Opening'), labelColor('Review'));
     });
   });
+
+  // The Opening step's Generate sends where the Setting step put the group.
+  // The recording service only captures what the page sends; it never stands
+  // in for a model's reading.
+  testWidgets('Generate on Opening sends the picked place to the model', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final vale = World(
+      id: 'vale',
+      name: 'Green Vale',
+      description: 'Wet lowland forest.',
+      lorebook: Lorebook(entries: []),
+    )..defaultPlaceId = 'mill';
+    final mill = World(
+      id: 'mill',
+      name: 'The Mill',
+      parentWorldId: 'vale',
+      description: 'A flour mill on stilts.',
+      lorebook: Lorebook(entries: []),
+    );
+    final llmService = _RecordingLlm();
+    addTearDown(llmService.dispose);
+    await _pumpWizard(
+      tester,
+      worlds: [vale, mill],
+      llm: _RecordingLlmProvider(llmService),
+    );
+
+    Future<void> tapNext() async {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bo').first);
+    await tester.pumpAndSettle();
+    await tapNext();
+    await tester.enterText(find.byType(TextField).first, 'Mill Crew');
+    await tapNext();
+    expect(find.text('Where does the group meet?'), findsWidgets);
+    await tester.ensureVisible(find.text('Green Vale').first);
+    await tester.tap(find.text('Green Vale').first);
+    await tester.pumpAndSettle();
+    while (find.text('Opening Scene').evaluate().isEmpty) {
+      await tapNext();
+    }
+
+    // Scenario and first message each have a Generate button on the step.
+    final generate = find.byIcon(Icons.auto_awesome);
+    expect(generate, findsNWidgets(2));
+    for (var i = 0; i < 2; i++) {
+      llmService.seen.clear();
+      await tester.ensureVisible(generate.at(i));
+      await tester.tap(generate.at(i));
+      await tester.pumpAndSettle();
+      expect(llmService.seen, hasLength(1), reason: 'Generate #$i');
+      final prompt = llmService.seen.single.prompt;
+      expect(prompt, contains('WHERE THE SCENE TAKES PLACE'), reason: '#$i');
+      expect(prompt, contains('The Mill'), reason: '#$i');
+      expect(prompt, contains('Green Vale'), reason: '#$i');
+    }
+  });
+
+  // Realism off hides Group Dynamics and the committer drops them, so
+  // Generate must not send relationships seeded before the switch went off.
+  test('Generate sends no Group Dynamics while Realism is off', () {
+    final draft = GroupWizardDraft();
+    addTearDown(draft.dispose);
+    final a = CharacterCard(name: 'Aerin', description: 'First.');
+    final b = CharacterCard(name: 'Bo', description: 'Second.');
+    draft.members.addAll([a, b]);
+    draft.memberRealismSeeds[draft.stableId(a)] = {
+      'relationships': {draft.stableId(b): 60},
+    };
+    draft.realismEnabled = true;
+    expect(draft.buildDynamicsContextForGeneration(), contains('Bo'));
+    draft.realismEnabled = false;
+    expect(draft.buildDynamicsContextForGeneration(), isEmpty);
+  });
+
+  // A phone-width window: every step, Back/Next and the title fit, with
+  // Realism on and its per-member header showing.
+  testWidgets('every step fits a 400 px window', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpWizard(tester);
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bo').first);
+    await tester.pumpAndSettle();
+    var steps = 1;
+    var sawRealismHeader = false;
+    while (find.text('Create Group & Enter Chat').evaluate().isEmpty) {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      if (find.text('Group Name').evaluate().isNotEmpty) {
+        await tester.enterText(find.byType(TextField).first, 'Narrow');
+        await tester.pumpAndSettle();
+      }
+      sawRealismHeader |= find
+          .text('Initial Realism State per Member')
+          .evaluate()
+          .isNotEmpty;
+      expect(tester.takeException(), isNull, reason: 'step $steps');
+      steps++;
+    }
+    expect(steps, GroupWizardSteps.labels.length);
+    expect(sawRealismHeader, isTrue);
+  });
+}
+
+/// Pumps Create Group over fakes: Aerin and Bo in the library, [worlds] in
+/// the world repository, and [llm] as the model provider.
+Future<void> _pumpWizard(
+  WidgetTester tester, {
+  List<World> worlds = const [],
+  LLMProvider? llm,
+}) async {
+  final repo = FakeCharacterRepository([
+    CharacterCard(name: 'Aerin', description: 'First.', firstMessage: 'Hi.'),
+    CharacterCard(name: 'Bo', description: 'Second.', firstMessage: 'Yo.'),
+  ]);
+  final chat = FakeChatService();
+  final storage = FakeStorageService();
+  final worldRepo = FakeWorldRepository(worlds);
+  final folders = FakeFolderService();
+  final groups = FakeGroupChatRepository();
+  final provider = llm ?? FakeLLMProvider();
+  final tts = FakeTtsService();
+  for (final s in [
+    repo,
+    chat,
+    storage,
+    worldRepo,
+    folders,
+    groups,
+    provider,
+    tts,
+  ]) {
+    addTearDown(s.dispose);
+  }
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ChangeNotifierProvider<ChatService>.value(value: chat),
+        ChangeNotifierProvider<StorageService>.value(value: storage),
+        ChangeNotifierProvider<WorldRepository>.value(value: worldRepo),
+        ChangeNotifierProvider<FolderService>.value(value: folders),
+        ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+        ChangeNotifierProvider<LLMProvider>.value(value: provider),
+        ChangeNotifierProvider<TtsService>.value(value: tts),
+      ],
+      child: const MaterialApp(home: CreateGroupChatPage()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+class _RecordingLlm extends LLMService {
+  final List<GenerationParams> seen = [];
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    seen.add(params);
+    yield 'The rain drums on the mill roof.';
+  }
+
+  @override
+  bool get isReady => true;
+
+  @override
+  String get backendName => 'recording';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingLlmProvider extends FakeLLMProvider {
+  _RecordingLlmProvider(this._service);
+  final LLMService _service;
+
+  @override
+  LLMService get activeService => _service;
 }

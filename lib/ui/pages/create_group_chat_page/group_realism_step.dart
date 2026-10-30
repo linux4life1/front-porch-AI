@@ -247,11 +247,12 @@ class GroupRealismStep extends StatelessWidget {
         if (d.realismEnabled) ...[
           Row(
             children: [
-              Text(
-                'Initial Realism State per Member',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              Expanded(
+                child: Text(
+                  'Initial Realism State per Member',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
               ),
-              const Spacer(),
               TextButton(
                 onPressed: () => d.bulkSeedRealism('neutral'),
                 child: const Text('Neutral'),
@@ -293,6 +294,14 @@ class GroupRealismStep extends StatelessWidget {
           ),
         ],
 
+        // Group Dynamics lives here now, so no step is ever skipped.
+        if (d.realismEnabled) ...[
+          const SizedBox(height: 32),
+          if (d.members.length <= GroupWizardSteps.dynamicsMaxMembers)
+            GroupDynamicsStep(draft: d, actions: actions, showNav: false)
+          else
+            GroupDynamicsDisabledNotice(memberCount: d.members.length),
+        ],
         GroupWizardNavButtons(
           draft: d,
           actions: actions,

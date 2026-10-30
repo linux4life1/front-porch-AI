@@ -79,16 +79,21 @@ class GroupDynamicsDisabledNotice extends StatelessWidget {
   }
 }
 
-/// Intra-group relationship seeding. Only built when the roster is 4 or fewer.
+/// Intra-group relationship seeding, shown inside the Realism step. Only
+/// built when the roster is 4 or fewer.
 class GroupDynamicsStep extends StatelessWidget {
   const GroupDynamicsStep({
     super.key,
     required this.draft,
     required this.actions,
+    this.showNav = true,
   });
 
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
+
+  /// False when another step hosts this one and owns the nav buttons.
+  final bool showNav;
 
   @override
   Widget build(BuildContext context) {
@@ -136,11 +141,12 @@ class GroupDynamicsStep extends StatelessWidget {
           ),
         ),
 
-        GroupWizardNavButtons(
-          draft: draft,
-          actions: actions,
-          currentStep: GroupWizardSteps.dynamics,
-        ),
+        if (showNav)
+          GroupWizardNavButtons(
+            draft: draft,
+            actions: actions,
+            currentStep: GroupWizardSteps.realism,
+          ),
       ],
     );
   }

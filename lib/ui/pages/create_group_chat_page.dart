@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -85,14 +86,27 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     return service;
   }
 
+  /// Where the Setting step put the group, for the generator to write in.
+  String _settingBrief() {
+    final worlds = Provider.of<WorldRepository>(context, listen: false);
+    return groupSettingBrief(
+      _draft.worldChoice,
+      lookup: worlds.worldById,
+      weatherOf: groupWeatherLabels(worlds),
+    );
+  }
+
   Future<void> _generateScenario({String dynamicsContext = ''}) async {
     final service = _readyService();
     if (service == null) return;
+    final settingBrief = _settingBrief();
     _draft.update(() => _draft.isGeneratingScenario = true);
     try {
-      final result = await GroupOpeningGenerator(
-        service,
-      ).scenario(members: _draft.members, dynamicsContext: dynamicsContext);
+      final result = await GroupOpeningGenerator(service).scenario(
+        members: _draft.members,
+        dynamicsContext: dynamicsContext,
+        settingBrief: settingBrief,
+      );
       if (result.isNotEmpty) {
         _draft.scenarioController.text = result;
       }
@@ -106,6 +120,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   Future<void> _generateFirstMessage({String dynamicsContext = ''}) async {
     final service = _readyService();
     if (service == null) return;
+    final settingBrief = _settingBrief();
     _draft.update(() => _draft.isGeneratingFirst = true);
     try {
       final result = await GroupOpeningGenerator(service).firstMessage(
@@ -113,6 +128,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         scenario: _draft.scenarioController.text,
         isDirector: _draft.directorMode,
         dynamicsContext: dynamicsContext,
+        settingBrief: settingBrief,
       );
       if (result.isNotEmpty) {
         _draft.firstMessageController.text = result;
@@ -206,23 +222,14 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
       GroupWizardSteps.setting => scroll(
         GroupSettingStep(draft: d, actions: a),
       ),
-      GroupWizardSteps.prompts => scroll(
-        GroupPromptsStep(draft: d, actions: a),
+      GroupWizardSteps.opening => scroll(
+        GroupOpeningStep(draft: d, actions: a),
       ),
-      GroupWizardSteps.lore => scroll(GroupLoreStep(draft: d, actions: a)),
       GroupWizardSteps.realism => scroll(
         GroupRealismStep(draft: d, actions: a),
       ),
-      GroupWizardSteps.dynamics =>
-        d.members.length <= GroupWizardSteps.dynamicsMaxMembers
-            ? scroll(GroupDynamicsStep(draft: d, actions: a))
-            : Center(
-                child: GroupDynamicsDisabledNotice(
-                  memberCount: d.members.length,
-                ),
-              ),
-      GroupWizardSteps.opening => scroll(
-        GroupOpeningStep(draft: d, actions: a),
+      GroupWizardSteps.promptsLore => scroll(
+        GroupPromptsLoreStep(draft: d, actions: a),
       ),
       _ => scroll(GroupReviewStep(draft: d, actions: a)),
     };
@@ -253,9 +260,15 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
               size: 22,
             ),
             const SizedBox(width: 10),
-            const Text('Create Group Chat'),
+            const Flexible(
+              child: Text(
+                'Create Group Chat',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const SizedBox(width: 16),
-            // Nine dots outgrow a narrow window; they scroll instead of
+            // The dots outgrow a narrow window; they scroll instead of
             // overflowing the bar.
             Expanded(
               child: Align(
@@ -264,7 +277,6 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
                   scrollDirection: Axis.horizontal,
                   child: GroupWizardStepIndicator(
                     currentStep: _draft.currentStep,
-                    memberCount: _draft.members.length,
                   ),
                 ),
               ),
