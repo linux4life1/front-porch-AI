@@ -85,6 +85,10 @@ class NsfwService {
 
   // Owned state (moved verbatim from ChatService).
   bool _nsfwCooldownEnabled = false;
+
+  /// The group member whose Lust the scalars hold; null in a 1:1.
+  String? _loadedMemberId;
+  String? get loadedMemberId => _loadedMemberId;
   Refractory _refractory = Refractory.none;
   int _arousalLevel =
       0; // -100 to +100 scale (tier-based, matching relationship system)
@@ -322,6 +326,7 @@ class NsfwService {
   // (startNewChat, setActiveCharacter, setActiveGroup, _loadLastSession x2, ext-seed paths,
   // delete flows, empty session, regen, swipe/restore, etc.).
   void resetForFreshChat() {
+    _loadedMemberId = null;
     _nsfwCooldownEnabled = false;
     _refractory = Refractory.none;
     _arousalLevel = 0;
@@ -345,6 +350,7 @@ class NsfwService {
     required int arousalLevel,
     Refractory refractory = Refractory.none,
   }) {
+    _loadedMemberId = null;
     _nsfwCooldownEnabled = nsfwCooldownEnabled;
     _arousalLevel = arousalLevel.clamp(-100, 100);
     _refractory = refractory;
@@ -378,6 +384,7 @@ class NsfwService {
   /// them during impersonation. Includes arousal + cooldowns + nsfwEnabled
   /// per the plan (extends prior arousal-only handling for full parity).
   void loadNsfwScalarsForSpeaker(String charId) {
+    _loadedMemberId = charId;
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel' for compat.
     _arousalLevel = getGroupInt(charId, 'arousal');
 

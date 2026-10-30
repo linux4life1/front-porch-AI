@@ -9,6 +9,7 @@
 // member kept frozen bars with Needs off (maintainer, 2026-10-08: "Needs
 // bars shouldn't be visible with needs off"). A real group chat, so the
 // switches are the real ones.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -16,11 +17,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf_router/shelf_router.dart' as shelf_router;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
+import 'package:front_porch_ai/services/web/routes/routes.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
@@ -169,5 +175,76 @@ void main() {
     await tester.runAsync(() => chat.setRealismEnabled(false));
     expect(chat.needsSimEnabled, isTrue);
     await check(tester, shows: false, why: 'Realism off');
+  });
+
+  testWidgets("a group member's Lust follows Porch Life, the group chat's "
+      'switch and their own', (tester) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    Future<void> lust({required bool shows, required String why}) async {
+      final snap = ChatRealismRead(chat).participantRealism(member().id)!;
+      expect(snap['lustOn'], shows, reason: 'phone feed: $why');
+      await cardShowsBars(tester);
+      expect(
+        find.textContaining('Lust'),
+        shows ? findsWidgets : findsNothing,
+        reason: 'member card: $why',
+      );
+    }
+
+    await lust(shows: false, why: 'Porch Life Afterglow off');
+    await tester.runAsync(() async {
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+    });
+    await lust(shows: true, why: 'all three on');
+    await tester.runAsync(
+      () => chat.setMemberAfterglowEnabled(member().card, false),
+    );
+    await lust(shows: false, why: "this member's own switch off");
+    await tester.runAsync(
+      () => chat.setMemberAfterglowEnabled(member().card, true),
+    );
+    await tester.runAsync(() => chat.setAfterglowEnabled(false));
+    await lust(shows: false, why: "the group chat's switch off");
+  });
+
+  test("the phone's member switch flips that member's own Afterglow", () async {
+    await boot();
+    addTearDown(() => disposeChatThenCloseDb(chat, db));
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final facade = ChatToolsFacade(chat, storage, null);
+    final router = shelf_router.Router();
+    WebChatToolsRoutes(facade, router);
+    final card = member().card;
+    final id = groupMemberStoreId(card);
+    List<dynamic> members() =>
+        (facade.state()['nsfw'] as Map)['members'] as List<dynamic>;
+    Object? runsWhenFocused() =>
+        (facade.state(participantId: member().id)['nsfw']
+            as Map)['cooldownEnabled'];
+    expect(members().map((m) => (m as Map)['afterglow']), everyElement(true));
+    expect(runsWhenFocused(), isTrue);
+
+    final res = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/chat/tools/toggle'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'name': 'memberAfterglow', 'id': id, 'value': false}),
+      ),
+    );
+    expect(res.statusCode, 200);
+    expect(chat.afterglowRunsFor(card), isFalse);
+    expect(
+      members().firstWhere((m) => (m as Map)['id'] == id)['afterglow'],
+      isFalse,
+    );
+    expect(
+      runsWhenFocused(),
+      isFalse,
+      reason: 'focused on the member, the phone reads their own switch',
+    );
   });
 }

@@ -166,6 +166,12 @@ class GroupRealismNeedsController extends ChangeNotifier {
     chatService.setAfterglowEnabled(value);
   }
 
+  /// A member's own Afterglow switch, on their card in this group.
+  void updateMemberAfterglow(CharacterCard char, bool value) {
+    chatService.setMemberAfterglowEnabled(char, value);
+    notifyListeners();
+  }
+
   void updateChaosNsfw(bool value) {
     _chaosNsfwEnabled = value;
     notifyListeners();

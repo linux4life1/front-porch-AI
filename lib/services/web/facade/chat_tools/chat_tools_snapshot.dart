@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// The chat tools sidebar snapshot (focus-scoped), read straight off the
 /// live chat and storage the desktop sidebar reads.
@@ -105,9 +106,22 @@ class ChatToolsSnapshot {
         // The live gate: Porch Life (with 18+) allows Afterglow AND this
         // chat's own switch is on. The phone shows the switch while Porch
         // Life allows it, and Lust and recovery while the gate is on.
-        'cooldownEnabled': nsfw.nsfwCooldownEnabled,
+        // In a group, for the focused member (their own switch counts).
+        'cooldownEnabled': focusedIsMember
+            ? _chat.afterglowRunsFor(focusedCard!)
+            : nsfw.nsfwCooldownEnabled,
         'afterglowAllowed': rs.afterglowEnabled,
         'afterglowSwitch': _chat.afterglowChatSwitch,
+        // In a group, each member's own switch (additive).
+        if (_chat.isGroupMode)
+          'members': [
+            for (final c in _chat.groupCharacters)
+              {
+                'id': groupMemberStoreId(c),
+                'name': c.name,
+                'afterglow': c.frontPorchExtensions?.afterglowEnabled ?? true,
+              },
+          ],
         // The desktop chip's own words, ready-made, so the phone cannot
         // drift from them (story minutes, or replies with the clock off).
         'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,

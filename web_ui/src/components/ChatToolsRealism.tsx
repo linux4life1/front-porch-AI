@@ -152,6 +152,16 @@ export function ChatToolsNsfw({ t, toggle }: { t: ToolsState; toggle: ToolsToggl
             onChange={(v) => toggle('nsfwCooldown', v)}
           />
         )}
+        {/* In a group, each member's own switch, while the chat's is on
+            (desktop Group Settings → Realism, each member's card). */}
+        {allowed && t.nsfw.afterglowSwitch && (t.nsfw.members ?? []).map((m) => (
+          <Toggle
+            key={m.id}
+            label={m.name}
+            value={m.afterglow}
+            onChange={(v) => toggle('memberAfterglow', v, { id: m.id })}
+          />
+        ))}
         {t.nsfw.cooldownEnabled && (
           <div className="stat-line"><span>Lust</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
         )}

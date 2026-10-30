@@ -279,6 +279,12 @@ extension ChatServiceControls on ChatService {
       ? _nsfwService.storedNsfwCooldownEnabled
       : _groupStore.afterglowOn;
 
+  /// The switches over the body the scalars hold: the 1:1 chat's, or the
+  /// group chat's AND that member's own.
+  bool get _afterglowSwitchForLoadedImpl => _activeGroup == null
+      ? _nsfwService.storedNsfwCooldownEnabled
+      : _groupStore.afterglowOnFor(_nsfwService.loadedMemberId);
+
   /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or the
   /// group chat's. It counts only while Porch Life (with 18+) allows
   /// Afterglow. Either way the chat starts from calm: off zeroes Lust and
@@ -434,7 +440,9 @@ extension ChatServiceControls on ChatService {
 
     if (_characterRepository != null) {
       final v2Service = V2CardService();
-      final db = await AppDatabase.instance();
+      // The chat's own handle, which the group loads its members from (in the
+      // app the same file as AppDatabase.instance(), re-pointed on a swap).
+      final db = _db;
 
       final targets = memberId == null
           ? _groupCharacters
