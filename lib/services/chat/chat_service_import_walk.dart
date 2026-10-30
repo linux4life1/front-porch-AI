@@ -22,7 +22,7 @@ extension ChatServiceImportWalk on ChatService {
     final keepChaos = _chaosModeService.chaosModeEnabled;
     final keepChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final keepPressure = _chaosModeService.chaosPressure;
-    final keepNsfwCooldown = _nsfwService.nsfwCooldownEnabled;
+    final keepNsfwCooldown = _nsfwService.storedNsfwCooldownEnabled;
 
     _relationshipService.resetForFreshChat();
     _relationshipService.seedFromCardV2OrExt(

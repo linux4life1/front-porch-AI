@@ -105,7 +105,7 @@ extension ChatServiceCastShrink on ChatService {
     // scalar otherwise could pick up a stale impersonated value).
     final bool soleNsfwEnabled =
         _groupRealism[soleId]?.nsfwCooldownEnabled ??
-        _nsfwService.nsfwCooldownEnabled;
+        _nsfwService.storedNsfwCooldownEnabled;
     // Same reasoning for their Pockets record, and read here for the same reason:
     // step 4 re-enters as a 1:1, which clears _groupRealism. Carried regardless
     // of realism because Pockets does not depend on it — the pass is gated on

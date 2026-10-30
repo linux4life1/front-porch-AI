@@ -98,6 +98,13 @@ class NsfwService {
   // ── Public surface (ChatService delegates + direct test/UI callers) ──────
 
   bool get nsfwCooldownEnabled => _afterglowOn?.call() ?? _nsfwCooldownEnabled;
+
+  /// This chat's own Afterglow choice, as stored. Saves and every carry
+  /// between chats (fork, collapse, branch) read this, never
+  /// [nsfwCooldownEnabled]: that one answers the live Porch Life gate, and
+  /// saving it replaced each chat's choice with Porch Life's (hide, never
+  /// erase).
+  bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
   int get arousalLevel => _arousalLevel;
 
   Refractory get refractory => _refractory;
