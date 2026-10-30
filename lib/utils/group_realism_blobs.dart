@@ -76,8 +76,11 @@ GroupRealismBlobs buildGroupRealismBlobs({
       seed = Map<String, dynamic>.from(seed)..remove('needs');
     }
     (defaultMember['perChar'] as Map)[id] = seed;
+    final longTerm = (seed['longTermScore'] as num?)?.toInt();
     baseline[id] = {
       'affection': (seed['affection'] as num?)?.toInt() ?? 35,
+      // Unset, Long-Term Bond follows affection, as the engine reads it.
+      'longTermScore': ?longTerm,
       'trust': (seed['trust'] as num?)?.toInt() ?? 40,
       'emotion': (seed['emotion'] as String?) ?? 'neutral',
       'emotionIntensity': (seed['emotionIntensity'] as String?) ?? 'mild',

@@ -36,9 +36,11 @@ Map<String, dynamic> memberSeedOverrides(Object? members, String? libId) {
     if (m[key] case final bool v) out[key] = v;
   }
 
-  // Short-Term Bond, and Long-Term Bond (which Trust Level edits too).
+  // Short-Term Bond, Long-Term Bond (the engine's longTermScore) and Trust
+  // Level, each in its own key and on its own scale.
   ranged('affection', -300, 300);
-  ranged('trust', -300, 300);
+  ranged('longTermScore', -300, 300);
+  ranged('trust', -100, 100);
   if (m['emotion'] case final String e when e.trim().isNotEmpty) {
     out['emotion'] = e.trim();
   }

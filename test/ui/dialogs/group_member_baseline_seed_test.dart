@@ -192,4 +192,53 @@ void main() {
       expect(bond.trust, -90);
     });
   });
+
+  // The new-group wizard and Edit group used to save Long-Term Bond into
+  // trust. These are what their sliders now show and write.
+  group('bondSlidersFromMemberSeed', () {
+    test('Long-Term Bond reads longTermScore and Trust Level reads trust', () {
+      final b = bondSlidersFromMemberSeed({
+        'affection': 70,
+        'longTermScore': 250,
+        'trust': 60,
+      });
+      expect((b.shortTerm, b.longTerm, b.trust), (70, 250, 60));
+    });
+
+    test('an unset Long-Term Bond follows Short-Term Bond, as the engine '
+        'does', () {
+      final b = bondSlidersFromMemberSeed({'affection': -200, 'trust': 40});
+      expect((b.longTerm, b.trust), (-200, 40));
+    });
+
+    test('a seed the old editors left with Long-Term Bond in trust shows it '
+        'as Long-Term Bond and the neutral trust', () {
+      final b = bondSlidersFromMemberSeed({'affection': 35, 'trust': 250});
+      expect((b.longTerm, b.trust), (250, 40));
+    });
+  });
+
+  group('bondSliderEdit', () {
+    test('each slider writes its own key and nothing else', () {
+      final seed = {'affection': 35, 'trust': 40};
+      expect(bondSliderEdit(seed, shortTerm: 90), {'affection': 90});
+      expect(bondSliderEdit(seed, longTerm: 250), {'longTermScore': 250});
+      expect(bondSliderEdit(seed, trust: -50), {'trust': -50});
+    });
+
+    test('on a seed with Long-Term Bond in trust, a move writes all three as '
+        'shown', () {
+      final seed = {'affection': 35, 'trust': 250};
+      expect(bondSliderEdit(seed, trust: -50), {
+        'affection': 35,
+        'longTermScore': 250,
+        'trust': -50,
+      });
+      expect(bondSliderEdit(seed, longTerm: 100), {
+        'affection': 35,
+        'longTermScore': 100,
+        'trust': 40,
+      });
+    });
+  });
 }

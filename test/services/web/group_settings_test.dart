@@ -14,6 +14,7 @@ import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
@@ -705,24 +706,50 @@ void main() {
     });
   
     test('bond and trust take the desktop ranges, clamped there', () async {
+      // Changed: Long-Term Bond has its own key (longTermScore, ±300) and
+      // trust is Trust Level (±100). The old ±300 trust was Long-Term Bond
+      // saved in the wrong key.
       final (g, _, mid) = await made({
         'name': 'Wide Scale',
         'memberIds': [plainId, carded],
         'realism': {
           'members': {
-            plainId: {'affection': -250, 'trust': 280},
-            carded: {'affection': 400, 'trust': -999},
+            plainId: {'affection': -250, 'longTermScore': 280, 'trust': 90},
+            carded: {'affection': 400, 'longTermScore': -999, 'trust': -999},
           },
         },
       });
       final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
       expect(seeds[mid[plainId]], containsPair('affection', -250));
-      expect(seeds[mid[plainId]], containsPair('trust', 280));
+      expect(seeds[mid[plainId]], containsPair('longTermScore', 280));
+      expect(seeds[mid[plainId]], containsPair('trust', 90));
       expect(seeds[mid[carded]], containsPair('affection', 300));
-      expect(seeds[mid[carded]], containsPair('trust', -300));
+      expect(seeds[mid[carded]], containsPair('longTermScore', -300));
+      expect(seeds[mid[carded]], containsPair('trust', -100));
       final baseline = jsonDecode(g.baselineRealismState) as Map;
       expect(baseline[mid[plainId]], containsPair('affection', -250));
-      expect(baseline[mid[plainId]], containsPair('trust', 280));
+      expect(baseline[mid[plainId]], containsPair('longTermScore', 280));
+      expect(baseline[mid[plainId]], containsPair('trust', 90));
+    });
+  });
+
+  // The phone's new-group wizard posted Long-Term Bond into trust, as the
+  // desktop card saved it. Each bond now has its own key and scale.
+  group('memberSeedOverrides bonds', () {
+    test('Long-Term Bond rides longTermScore and Trust Level stays on its '
+        'own scale', () {
+      final out = memberSeedOverrides({
+        'c1': {'affection': 70, 'longTermScore': 250, 'trust': 60},
+      }, 'c1');
+      expect(out, containsPair('longTermScore', 250));
+      expect(out, containsPair('trust', 60));
+    });
+
+    test('a ±300 number posted as trust is held to Trust Level\'s ±100', () {
+      final out = memberSeedOverrides({
+        'c1': {'trust': 250},
+      }, 'c1');
+      expect(out['trust'], 100);
     });
   });
 }

@@ -54,6 +54,7 @@ export function MemberRealismCard({
   clockOn: boolean;
 }) {
   const patch = (p: Partial<MemberRealism>) => setSeed({ ...seed, ...p });
+  const longTerm = seed.longTermScore ?? seed.affection;
   // NeedsFormSection speaks the character form's values; the needs keys
   // are the same names in both.
   const needsValues: RealismValues = { ...REALISM_DEFAULTS, needsSimEnabled: needsEnabled };
@@ -77,8 +78,9 @@ export function MemberRealismCard({
         </span>
       </summary>
       <div className="tool-body">
-        {/* As on the desktop card, Long-Term Bond and Trust Level both edit
-            the seed's trust; Short-Term Bond is its affection. */}
+        {/* The engine's three keys, as on the desktop card: Short-Term Bond is
+            the seed's affection, Long-Term Bond its longTermScore (unset, it
+            follows Short-Term Bond) and Trust Level its trust. */}
         <Slider
           label="Short-Term Bond"
           min={-300}
@@ -91,9 +93,9 @@ export function MemberRealismCard({
           label="Long-Term Bond"
           min={-300}
           max={300}
-          value={seed.trust}
-          badge={`${longTermTier(seed.trust)} (${seed.trust})`}
-          onChange={(n) => patch({ trust: n })}
+          value={longTerm}
+          badge={`${longTermTier(longTerm)} (${longTerm})`}
+          onChange={(n) => patch({ longTermScore: n })}
         />
         <Slider
           label="Trust Level"
