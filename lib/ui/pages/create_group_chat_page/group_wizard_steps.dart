@@ -21,9 +21,9 @@
 /// a step can no longer leave one of them pointing at the wrong page.
 ///
 /// Setting and Realism come before the Opening so the generator can write
-/// the scene where chats start, with the Group Dynamics already set. Group Dynamics is a section of Realism and
-/// Prompts share a page with Lore, so every step always exists and Next
-/// and Back never skip.
+/// the scene where chats start, with the Group Dynamics already set. Group
+/// Dynamics is a section of Realism and Prompts share a page with Lore, so
+/// every step always exists and Next and Back never skip.
 abstract final class GroupWizardSteps {
   static const members = 0;
   static const identity = 1;
