@@ -122,7 +122,13 @@ class GroupChatCommitter {
           alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
-          ttsVoice: Value(source.ttsVoice),
+          // The Cast step's Voice pick for this member; no pick keeps the
+          // card's own voice. Never written to the library card.
+          ttsVoice: Value(
+            (d.characterVoices[id]?.isNotEmpty ?? false)
+                ? d.characterVoices[id]
+                : source.ttsVoice,
+          ),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())
@@ -200,21 +206,6 @@ class GroupChatCommitter {
     );
 
     await groupRepo.save(group);
-
-    // Apply voice overrides (same pattern as the old creator)
-    for (final entry in d.characterVoices.entries) {
-      final card = d.members.firstWhere(
-        (c) => d.stableId(c) == entry.key,
-        orElse: () => d.members.first,
-      );
-      if (entry.value.isNotEmpty && entry.value != card.ttsVoice) {
-        card.ttsVoice = entry.value;
-        // Library mutation intentionally skipped during group creation (private GroupMember rows
-        // already captured the voice from source card at duplicate time; avoids subtle "library pollution"
-        // side-effect per "never allow" + safety invariant. User can edit voice on the private group member later).
-        // await repo.updateCharacter(card);  -- removed to prevent library side-effect
-      }
-    }
 
     return group;
   }
