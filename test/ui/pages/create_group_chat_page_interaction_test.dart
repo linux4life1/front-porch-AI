@@ -131,12 +131,12 @@ void main() {
     await tester.pumpAndSettle();
 
     // ── Steps 2-6, each landmark owned by its part file ───────────────────
-    // Changed with the seven-step flow: Setting, then Opening (so the
-    // generator knows the place), then Realism with Group Dynamics inside
-    // it, then Prompts and Lore on one page. Dynamics and Lore no longer
-    // have steps of their own, so their landmarks share the page.
+    // Changed with the seven-step flow: Setting, then Realism with Group
+    // Dynamics inside it, then Opening (so the generator knows the place
+    // and the dynamics), then Prompts and Lore on one page. Dynamics and
+    // Lore no longer have steps of their own, so their landmarks share the
+    // page.
     await next('Where does the group meet?', 'group_setting_step');
-    await next('Opening Scene', 'steps_opening');
     await next('Day Number', 'steps_realism');
     // (Group Dynamics has no dot of its own; its prose is the landmark.)
     expect(
@@ -147,6 +147,7 @@ void main() {
       findsWidgets,
       reason: 'Group Dynamics is a section of the Realism step',
     );
+    await next('Opening Scene', 'steps_opening');
     await next('Group System Prompt', 'steps_opening (prompts)');
     expect(
       find.text('Add Entry'),
@@ -175,8 +176,8 @@ void main() {
         'Members',
         'Identity',
         'Setting',
-        'Opening',
         'Realism',
+        'Opening',
         'Prompts & Lore',
         'Review',
       ]);
