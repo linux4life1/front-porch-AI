@@ -653,4 +653,42 @@ void main() {
       expect(loads, isEmpty);
     });
   });
+
+  // A group's goal belongs to its member, and a group has no active character
+  // between turns: its steps were written for "the character".
+  test("a group goal's steps are written for its owner", () async {
+    final prompts = <String>[];
+    final llm = _FakeLlmForObjective((params) {
+      prompts.add(params.prompt);
+      return Stream.value('1. Oil the hinge\n2. Sand the arm');
+    });
+    final bea = CharacterCard(name: 'Bea', scenario: 'BEA_SCENARIO_MARKER');
+    final p = ObjectiveProposal(
+      stripThinkBlocks: (t) => t,
+      getLlmService: () => llm,
+      getActiveCharacter: () => null,
+      ownerCard: (o) => o.characterId == 'c1' ? bea : null,
+      getActiveGroup: () => GroupChat(id: 'g', name: 'Trio'),
+      getIsObserverMode: () => false,
+      getUserName: () => 'User',
+      getRealismEnabled: () => true,
+      getMessages: () => const [],
+      getActiveObjectives: () => const [],
+      tasksForObjective: (o) => const [],
+      loadActiveObjectives: () async {},
+      saveObjectiveTasks: (id, json) async {},
+      writeSyncedTasks: (obj, tasks) async {},
+      retireObjective: (obj, end) async {},
+      setObjectiveDormant: (obj, dormant) async {},
+      getIsCheckingCompletion: () => false,
+      setIsCheckingCompletion: (v) {},
+      onNotify: () {},
+    );
+
+    await p.generateObjectiveTasks(_mkObj('o1', 'Fix the porch swing'));
+
+    expect(prompts, isNotEmpty);
+    expect(prompts.last, contains('Bea'));
+    expect(prompts.last, contains('BEA_SCENARIO_MARKER'));
+  });
 }

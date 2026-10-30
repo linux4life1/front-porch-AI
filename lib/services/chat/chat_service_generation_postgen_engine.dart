@@ -37,6 +37,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // to the prior speaker; the thin delegate relies on the pointer for cbs. We restore the
     // pointer after the checks (scalars remain correct for the persist below).
     CharacterCard? prePostActiveChar;
+    // Up while the swap holds the pointer; the put-back runs once, inline or
+    // in the finally.
+    var swapHeld = false;
+    final swapEpoch = _generationEpoch;
     // The awaited post-gen critical section: mutates _activeCharacter,
     // the needs scalars and _groupRealism across two awaits
     // (_isPostGenerating has been up since the last token landed).
@@ -57,6 +61,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (_activeGroup != null) {
         prePostActiveChar = _activeCharacter;
         _activeCharacter = t.speakingCharacter;
+        swapHeld = true;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
         if (sid.isNotEmpty) {
           _realismDance.loadIntoScalars(sid);
@@ -228,8 +233,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           );
         }
 
-        if (prePostActiveChar != null) {
-          _activeCharacter = prePostActiveChar;
+        if (swapHeld) {
+          swapHeld = false;
+          _endSpeakerSwap(prePostActiveChar, swapEpoch);
         }
 
         // For group turns, persist the post-scene + long-gen-decay needs changes (and any
@@ -301,12 +307,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
     } finally {
       await _closeWorkerLane();
-      // Unconditional pointer restore on a throw. The settling flag is
-      // cleared in the OUTER finally so guest turns, stale epochs and
+      // The pointer goes back on a throw or an abort too. The settling flag
+      // is cleared in the OUTER finally so guest turns, stale epochs and
       // earlier errors are covered too.
-      if (prePostActiveChar != null) {
-        _activeCharacter = prePostActiveChar;
-      }
+      if (swapHeld) _endSpeakerSwap(prePostActiveChar, swapEpoch);
     }
 
     // [EvalTraffic]: the turn's secondary-call tally — everything since
@@ -371,11 +375,14 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     if (_postGenAbortRequested) return;
 
     CharacterCard? prior;
+    var swapHeld = false;
+    final swapEpoch = _generationEpoch;
     final sid = _getCharacterIdFromCard(t.speakingCharacter);
     try {
       await _openWorkerLane();
       prior = _activeCharacter;
       _activeCharacter = t.speakingCharacter;
+      swapHeld = true;
       if (sid.isNotEmpty) {
         _relationshipService.setWithUser(_groupRealism[sid]?.withUser);
         final meta = t.streamTarget.activeMetadata ?? <String, dynamic>{};
@@ -395,9 +402,19 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         _awayPulse.presentSpeakerTurns++;
       }
     } finally {
-      if (prior != null) _activeCharacter = prior;
+      if (swapHeld) _endSpeakerSwap(prior, swapEpoch);
       await _closeWorkerLane();
     }
+  }
+
+  /// Ends a group post-gen speaker swap: the pointer goes back to what it
+  /// held, null included, since a group has no active character between
+  /// turns. Putting back only a non-null value left whoever answered first
+  /// active for the rest of the visit: Chance Time named them on every turn
+  /// and your bubbles took their colours. A chat switch during the pass (the
+  /// epoch moved) owns the pointer now and is left alone.
+  void _endSpeakerSwap(CharacterCard? before, int epoch) {
+    if (_generationEpoch == epoch) _activeCharacter = before;
   }
 
   /// How [reply] moved the speaker's hidden feelings toward the others. The

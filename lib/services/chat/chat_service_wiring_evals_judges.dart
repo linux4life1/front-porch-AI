@@ -265,6 +265,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       stripThinkBlocks: stripEvalThinkBlocks,
       getLlmService: () => _sideLaneLlm,
       getActiveCharacter: () => _activeCharacter,
+      ownerCard: _objectiveOwnerCard,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,

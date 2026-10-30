@@ -259,8 +259,9 @@ extension ChatServiceTurnFlow on ChatService {
   }
 
   /// The speaker a Chance Time event is attributed to: the upcoming group
-  /// speaker, else the 1:1 host. Shared by the desktop wheel overlay and the
-  /// web accept path so both attribute the event identically.
+  /// speaker (a spin pins one in random turn order), else the 1:1 host.
+  /// Shared by the desktop wheel overlay and the web accept path so both
+  /// attribute the event identically.
   String get chanceTimeSpeakerName =>
       nextCharacter?.name ?? activeCharacter?.name ?? 'Character';
 
@@ -276,6 +277,8 @@ extension ChatServiceTurnFlow on ChatService {
   Future<void> acceptPendingChanceTime() async {
     final raw = _webChanceTimeEvent;
     if (raw == null) return;
+    // A turn between the spin and Accept may have taken the pinned member.
+    _pinChanceTimeSpeaker();
     await applyChanceTimeResult(raw, chanceTimeSpeakerName);
   }
 

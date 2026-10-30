@@ -47,7 +47,8 @@ extension ChatServiceChatEntry on ChatService {
         }
         // characters is an unmodifiable view; writing it throws on Save.
         _groupManager?.replaceCharacterAt(i, card);
-        if (_activeCharacter?.dbId == card.dbId) {
+        // Only while a turn's swap holds a member: null == null is no match.
+        if (_activeCharacter != null && _activeCharacter!.dbId == card.dbId) {
           _activeCharacter = card;
         }
       }

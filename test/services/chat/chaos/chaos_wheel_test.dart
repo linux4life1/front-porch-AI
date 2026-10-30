@@ -7,6 +7,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -466,5 +467,142 @@ void main() {
         chat.resolveChanceTimeEvent(plain, 'Mara'),
       );
     });
+  });
+
+  // A group has no active character between turns. Chance Time named the
+  // first member to answer on every turn after (the post-reply pass left them
+  // active), and in random turn order it could not name who answers at all:
+  // the speaker was picked only once the turn began.
+  group('Chance Time in a group names the member who answers', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    const channel = MethodChannel('plugins.flutter.io/path_provider');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method == 'getApplicationDocumentsDirectory') {
+            return Directory.systemTemp.createTempSync('fpai_chaosgrp_').path;
+          }
+          return null;
+        });
+
+    late FakeBackendServer backend;
+    late AppDatabase db;
+    late StorageService storage;
+    late ChatService chat;
+
+    setUp(() async {
+      HttpOverrides.global = null;
+      SharedPreferences.setMockInitialValues({
+        'update_auto_check': false,
+        'realism_default': false,
+      });
+      backend = await FakeBackendServer.start(replyPieces: ['She nods.']);
+      db = AppDatabase.forTesting();
+      storage = StorageService();
+      chat =
+          ChatService(
+              KoboldService(storage),
+              UserPersonaService(db),
+              storage,
+              WorldRepository(storage, db),
+            )
+            ..setDatabase(db)
+            ..setCharacterRepository(CharacterRepository(db, storage))
+            ..testLlmServiceOverride = OpenRouterService(
+              apiUrl: '${backend.baseUrl}/v1',
+              modelName: 'smoke-model',
+            );
+      await storage.initialized;
+      await db.insertGroup(GroupsCompanion.insert(id: 'grp-ct', name: 'Trio'));
+      for (final name in ['Ada', 'Bea', 'Cy']) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: 'mem-${name.toLowerCase()}',
+            groupId: 'grp-ct',
+            name: name,
+            avatarFilename: Value('${name.toLowerCase()}.png'),
+          ),
+        );
+      }
+    });
+
+    tearDown(() async {
+      await disposeChatThenCloseDb(chat, db);
+      await backend.close();
+    });
+
+    Future<void> enter(TurnOrder order) => chat.setActiveGroup(
+      GroupChat(id: 'grp-ct', name: 'Trio', turnOrder: order),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+
+    Future<void> settle() async {
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('round robin: once Ada has answered, the event and the prompt name '
+        'Bea', () async {
+      await enter(TurnOrder.roundRobin);
+      await chat.sendMessage('Evening, all.');
+      await settle();
+      expect(chat.messages.last.sender, 'Ada');
+      expect(
+        chat.activeCharacter,
+        isNull,
+        reason: 'no member stays active once they have answered',
+      );
+
+      expect(chat.chanceTimeSpeakerName, 'Bea');
+      await chat.applyChanceTimeResult('A lantern gutters out.', 'Bea');
+      await chat.triggerNextCharacter();
+      await settle();
+      expect(chat.messages.last.sender, 'Bea');
+      expect(backend.lastChatBody, contains("Write Bea's immediate reaction"));
+      expect(backend.lastChatBody, isNot(contains("Write Ada's")));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test('random order: the spin picks the member who answers', () async {
+      await enter(TurnOrder.random);
+      expect(chat.nextCharacter, isNull, reason: 'random picks at the turn');
+
+      chat.spinWheelEvents();
+      final named = chat.chanceTimeSpeakerName;
+      expect(['Ada', 'Bea', 'Cy'], contains(named));
+      expect(chat.nextCharacter?.name, named, reason: 'held as next speaker');
+
+      await chat.applyChanceTimeResult('A lantern gutters out.', named);
+      await chat.sendMessage('Evening, all.');
+      await settle();
+      expect(chat.messages.last.sender, named);
+      expect(
+        backend.lastChatBody,
+        contains("Write $named's immediate reaction"),
+      );
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test("random order: a turn between the phone's spin and Accept, and "
+        'Accept still names who answers next', () async {
+      await enter(TurnOrder.random);
+      await chat.setChaosModeEnabled(true);
+      expect(chat.requestManualChanceTime(), isTrue);
+      final first = chat.nextCharacter?.name;
+      expect(first, isNotNull);
+      await chat.triggerNextCharacter();
+      await settle();
+      expect(chat.messages.last.sender, first);
+      expect(chat.nextCharacter, isNull, reason: 'that turn took the pick');
+
+      await chat.acceptPendingChanceTime();
+      final named = chat.nextCharacter?.name;
+      expect(['Ada', 'Bea', 'Cy'], contains(named));
+      await chat.sendMessage('What was that?');
+      await settle();
+      expect(chat.messages.last.sender, named);
+      expect(
+        backend.lastChatBody,
+        contains("Write $named's immediate reaction"),
+      );
+    }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }

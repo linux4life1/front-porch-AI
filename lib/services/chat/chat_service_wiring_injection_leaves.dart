@@ -305,7 +305,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   ChaosInjection _buildChaosInjection() {
     return ChaosInjection(
       chaosModeService: _chaosModeService,
-      getActiveCharacter: () => _activeCharacter,
+      // The member pinned for the turn in a group, the host in 1:1.
+      getActiveCharacter: () => _groupStore.workSpeakerCard(),
     );
   }
 

@@ -30,6 +30,16 @@ extension ChatServiceObjectives on ChatService {
   /// split views).
   List<Objective> get activeObjectives => _activeObjectives;
 
+  /// Whose goal [obj] is: the member it belongs to in a group, the host in
+  /// 1:1. Steps are written in that character's voice and scenario.
+  CharacterCard? _objectiveOwnerCard(Objective obj) {
+    if (_activeGroup == null) return _activeCharacter;
+    for (final c in _groupCharacters) {
+      if (_getCharacterIdFromCard(c) == obj.characterId) return c;
+    }
+    return null;
+  }
+
   /// Load the active objectives for the current session from DB.
   Future<void> _loadActiveObjectives() async {
     if (_activeCharacter == null &&

@@ -278,10 +278,24 @@ extension ChatServiceControls on ChatService {
   /// Returns 8 raw events for the wheel. Pair events (`{{other}}`) need a
   /// second group member; user events need the user in the scene.
   List<String> spinWheelEvents() {
+    _pinChanceTimeSpeaker();
     return _chaosModeService.spinWheelEvents(
       allowPair: _chanceTimePartners(chanceTimeSpeakerName).isNotEmpty,
       allowUser: !observerMode,
     );
+  }
+
+  /// Random turn order picks a speaker only when the turn starts, after the
+  /// wheel has named someone. A spin picks them now instead (a member who is
+  /// With you, as the turn would) and holds them as the next speaker, so
+  /// the event, its 18+ gate and the reply follow one member. Round robin,
+  /// a hand-picked or @-named member and an Away return already name one.
+  void _pinChanceTimeSpeaker() {
+    if (_activeGroup == null || _groupCharacters.isEmpty) return;
+    if (_upcomingGroupSpeaker != null) return;
+    final head =
+        _groupCharacters[math.Random().nextInt(_groupCharacters.length)];
+    setNextCharacter(_presentFrom(head) ?? head);
   }
 
   /// PR 6: is the body Chance Time names mid a HARD refractory lock? 1:1
