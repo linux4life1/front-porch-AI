@@ -283,7 +283,7 @@ extension ChatServiceControls on ChatService {
   /// group chat's. It counts only while Porch Life (with 18+) allows
   /// Afterglow. Off zeroes Lust and any recovery, as it always has, so a
   /// chat switched on again starts from calm.
-  Future<void> setAfterglowEnabled(bool enabled) async {
+  Future<void> _setAfterglowEnabledImpl(bool enabled) async {
     if (_activeGroup == null) {
       _nsfwService.setNsfwCooldownEnabled(enabled);
     } else {

@@ -173,11 +173,11 @@ void main() {
   // here did nothing for an existing chat. Porch Life is the one switch.
   // 2026-10-25: the gear itself is gone. Needs is set on the card, and
   // One-Shot Eval moved above the tool-calling pill, so Character State
-  // carries no settings switch at all. The gear sat in the header code both
-  // modes share; the fake cannot build group mode, so 1:1 pins it.
-  testWidgets('Character State has no gear, Needs or Afterglow switch', (
-    tester,
-  ) async {
+  // carries no settings switch but Afterglow's own, on the line it controls.
+  // The gear sat in the header code both modes share; the fake cannot build
+  // group mode, so 1:1 pins it.
+  testWidgets('Character State has no gear and no Needs switch; Afterglow '
+      'has its own line', (tester) async {
     final storage = _AdultStorage();
     final chat = FakeChatService();
     addTearDown(() {
@@ -216,11 +216,15 @@ void main() {
     expect(find.byTooltip('Simulation settings'), findsNothing);
     expect(find.text('Needs Simulation'), findsNothing);
     expect(find.textContaining('NSFW'), findsNothing);
-    expect(find.textContaining('Afterglow'), findsNothing);
+    expect(
+      find.text('Afterglow'),
+      findsOneWidget,
+      reason: "Porch Life allows it: this chat's own switch, on its line",
+    );
     expect(
       find.byType(Switch),
-      findsOneWidget,
-      reason: 'only the Realism master switch',
+      findsNWidgets(2),
+      reason: 'the Realism master switch and the Afterglow line',
     );
   });
 
@@ -245,4 +249,84 @@ void main() {
       reason: "the sketch's own copy for this row",
     );
   });
+
+  group("Character State's Afterglow line", () {
+    Future<_SwitchChat> mount(
+      WidgetTester tester, {
+      required bool allowed,
+      required bool on,
+    }) async {
+      final storage = _AdultStorage();
+      final chat = _SwitchChat();
+      addTearDown(() {
+        storage.dispose();
+        chat.dispose();
+      });
+      await storage.realismSettings.setNsfwCooldownDefault(allowed);
+      chat.nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: on);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: CharacterStateGroup(
+                  chat: chat,
+                  isGroup: false,
+                  initiallyExpanded: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return chat;
+    }
+
+    Finder afterglowSwitch() => find.descendant(
+      of: find
+          .ancestor(of: find.text('Afterglow'), matching: find.byType(Row))
+          .first,
+      matching: find.byType(Switch),
+    );
+
+    testWidgets('Porch Life Afterglow off: no line and no switch', (
+      tester,
+    ) async {
+      await mount(tester, allowed: false, on: true);
+      expect(find.text('Afterglow'), findsNothing);
+      expect(
+        find.byType(Switch),
+        findsOneWidget,
+        reason: 'only the Realism master switch',
+      );
+    });
+
+    testWidgets("the switch shows this chat's own choice, and flipping it "
+        'asks the chat', (tester) async {
+      final chat = await mount(tester, allowed: true, on: false);
+      expect(tester.widget<Switch>(afterglowSwitch()).value, isFalse);
+      expect(
+        find.textContaining('Lust:'),
+        findsNothing,
+        reason: 'off: no Lust',
+      );
+
+      await tester.tap(afterglowSwitch());
+      await tester.pump();
+      expect(chat.asked, [true]);
+    });
+  });
+}
+
+/// Records what the Afterglow line asks of the chat.
+class _SwitchChat extends FakeChatService {
+  final asked = <bool>[];
+
+  @override
+  Future<void> setAfterglowEnabled(bool enabled) async => asked.add(enabled);
 }

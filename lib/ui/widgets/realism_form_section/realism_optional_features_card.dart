@@ -25,8 +25,8 @@ import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 import 'realism_form_controls.dart';
 import 'recovery_block.dart';
 
-/// Afterglow recovery, Chaos and Realism Verification (engine on). Afterglow
-/// itself has no switch here: Porch Life is the one gate.
+/// The card's Afterglow switch and its Recovery, Chaos and Realism
+/// Verification (engine on).
 class RealismOptionalFeaturesCard extends StatelessWidget {
   const RealismOptionalFeaturesCard({
     super.key,
@@ -46,6 +46,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.intimateInto = const [],
     this.intimateNotInto = const [],
     this.showChargenSuggestion = false,
+    this.afterglowEnabled = true,
+    this.onAfterglowChanged,
   });
 
   final bool chaosModeEnabled;
@@ -71,12 +73,22 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final List<String> intimateNotInto;
   final bool showChargenSuggestion;
 
+  /// How new chats with this character start Afterglow; each chat keeps its
+  /// own switch from then on. Only the character editors pass a setter. The
+  /// row is absent, not greyed, unless Porch Life (with 18+) allows
+  /// Afterglow.
+  final bool afterglowEnabled;
+  final ValueChanged<bool>? onAfterglowChanged;
+
   @override
   Widget build(BuildContext context) {
+    final allowed = afterglowEnabledOf(context);
+    final showSwitch = allowed && onAfterglowChanged != null;
     final showRecovery =
         recovery != null &&
         onRecoveryChanged != null &&
-        afterglowEnabledOf(context);
+        allowed &&
+        afterglowEnabled;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -88,6 +100,27 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (showSwitch) ...[
+            buildRealismToggleRow(
+              icon: Icons.local_fire_department,
+              label: 'Afterglow',
+              subtitle:
+                  'Lust and recovery in new chats with this character. Chats '
+                  'you already have keep their own switch.',
+              value: afterglowEnabled,
+              onChanged: onAfterglowChanged!,
+              context: context,
+            ),
+            if (showRecovery) const SizedBox(height: 12),
+            if (!showRecovery && (showChaosToggle || showVerificationToggle))
+              Divider(
+                color:
+                    (context.creatorPalette?.line ??
+                            AppColors.borderOf(context))
+                        .withValues(alpha: 0.4),
+                height: 24,
+              ),
+          ],
           if (showRecovery) ...[
             RecoveryBlock(
               recovery: recovery!,

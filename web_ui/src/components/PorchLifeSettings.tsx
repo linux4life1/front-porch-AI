@@ -701,7 +701,7 @@ export function PorchLifeSettings() {
       {error && <p className="error pl-error">{error}</p>}
 
       <div className="pl-note">
-        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
+        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives, Growth Rings and Afterglow all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
       </div>
       {/* After Dark — the approved sketch gives the 18+ feature its own group,
           "shown only when 18+ themes are enabled": absent, not greyed out, for
@@ -715,7 +715,7 @@ export function PorchLifeSettings() {
             need="needs"
             dependsOn="Realism's arousal"
             satisfied={engineOn}
-            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API. Multiorgasmic characters feel a tenderness window instead of a lock."
+            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API. Multiorgasmic characters feel a tenderness window instead of a lock. Off: no chat tracks Lust, and the Afterglow switches on characters and chats are hidden. Each chat keeps its own choice for when you turn this back on."
             value={st.nsfwCooldownDefault}
             onChange={(v) => set('nsfwCooldownDefault', v)}
           />

@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { useAdultFlags } from '../realism/useAdultThemes';
 
 export interface ForkSource {
   hostName: string | null;
@@ -19,6 +20,8 @@ export interface ForkSource {
 export interface NewChatsState {
   realism: boolean;
   needs: boolean;
+  /** How new chats start Afterglow (absent on an older desktop). */
+  afterglow?: boolean;
   inherit: boolean;
   forkSource: ForkSource | null;
 }
@@ -41,6 +44,8 @@ export function GroupNewChatsSection({
   onWorldsChanged?: () => void;
 }) {
   const [state, setState] = useState<NewChatsState | null>(null);
+  // Porch Life (with 18+) allows Afterglow: its switch for new chats shows.
+  const { afterglow: afterglowAllowed } = useAdultFlags();
   const [dismissed, setDismissed] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -145,6 +150,21 @@ export function GroupNewChatsSection({
           onChange={(e) => save({ needs: e.target.checked })}
         />
       </label>
+      {afterglowAllowed && state.realism && state.afterglow !== undefined && (
+        <label className="tool-toggle">
+          <span>
+            Afterglow
+            <small className="muted gs-sub">
+              Lust and recovery in new chats. Chats you already have keep their own switch.
+            </small>
+          </span>
+          <input
+            type="checkbox"
+            checked={state.afterglow}
+            onChange={(e) => save({ afterglow: e.target.checked })}
+          />
+        </label>
+      )}
       <label className="tool-toggle">
         <span>
           {source && host ? `Read ${host}'s lorebook` : 'Inherit character & world lorebooks'}

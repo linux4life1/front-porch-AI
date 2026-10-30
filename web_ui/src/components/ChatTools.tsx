@@ -279,7 +279,7 @@ export function ChatTools({
         </div>
       </details>
 
-      <ChatToolsNsfw t={t} />
+      <ChatToolsNsfw t={t} toggle={toggle} />
 
       {t.group && groupId && (
         <GroupSettings

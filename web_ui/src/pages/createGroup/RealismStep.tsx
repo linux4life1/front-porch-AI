@@ -33,7 +33,7 @@ export function RealismStep({
   set: (patch: Partial<GroupDraft>) => void;
   members: { id: string; name: string }[];
 }) {
-  const { adult } = useAdultFlags();
+  const { adult, afterglow: afterglowAllowed } = useAdultFlags();
   const clockOn = usePassageOfTime();
   const setMember = (id: string, seed: MemberRealism) => set({ members: { ...draft.members, [id]: seed } });
   // The desktop's Neutral, High Bond and Reset replace the member's whole
@@ -81,6 +81,21 @@ export function RealismStep({
             />
           </label>
           <NeedsClockOffNote clockOn={clockOn} />
+          {afterglowAllowed && (
+            <label className="tool-toggle">
+              <span>
+                Afterglow
+                <small className="muted gs-sub">
+                  Lust and recovery for the cast in new chats. Each chat keeps its own switch.
+                </small>
+              </span>
+              <input
+                type="checkbox"
+                checked={draft.afterglowEnabled}
+                onChange={(e) => set({ afterglowEnabled: e.target.checked })}
+              />
+            </label>
+          )}
           <div className="gw-row">
             <label className="cg-field">
               <span className="cg-field-label">Time of day</span>

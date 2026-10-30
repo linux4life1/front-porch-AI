@@ -18,10 +18,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart' show StorageService;
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+import '../../golden/support/fakes_storage.dart';
 
 /// A realism-on group blob whose stored scene time is [timeOfDay] — exactly the
 /// shape buildGroupRealismBlobs writes (and parseGroupTimeSeed reads at runtime).
@@ -106,5 +110,68 @@ void main() {
     final lateNight =
         jsonDecode(await _pump(tester, _blobs('late night'))) as Map;
     expect(lateNight['timeOfDay'], 'night');
+  });
+
+  testWidgets("Edit group's Afterglow switch sets how the group's new chats "
+      'start it', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+
+    final blobs = buildGroupRealismBlobs(
+      seeds: {'m1': defaultGroupMemberRealismSeed()},
+      needsEnabled: true,
+      afterglowEnabled: false,
+      timeOfDay: 'morning',
+      dayCount: 1,
+    );
+    var emitted = blobs.defaultMemberJson;
+    Future<void> pumpEditor() async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: MaterialApp(
+            home: Scaffold(
+              body: GroupRealismDynamicsEditor(
+                members: const [],
+                initialDefaultMemberJson: blobs.defaultMemberJson,
+                initialBaselineJson: blobs.baselineJson,
+                onChanged: (d, b) => emitted = d,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpEditor();
+    expect(
+      find.text('Afterglow'),
+      findsNothing,
+      reason: 'Porch Life Afterglow off: absent, not greyed',
+    );
+
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await pumpEditor();
+    final tile = find.widgetWithText(SwitchListTile, 'Afterglow');
+    expect(
+      tester.widget<SwitchListTile>(tile).value,
+      isFalse,
+      reason: 'read from the group',
+    );
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(groupAfterglowIn(emitted), isTrue);
+    expect((jsonDecode(emitted) as Map)['timeOfDay'], 'morning');
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(groupAfterglowIn(emitted), isFalse);
   });
 }

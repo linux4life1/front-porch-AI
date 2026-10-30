@@ -142,6 +142,9 @@ class WebChatToolsRoutes {
         await _facade.setChaosEnabled(value);
       case 'chaosNsfw':
         await _facade.setChaosNsfw(value);
+      // The name it had before October, so an older phone's switch works.
+      case 'nsfwCooldown':
+        await _facade.setAfterglow(value);
       case 'passageOfTime':
         await _facade.setPassageOfTime(value);
       case 'summaryPaused':

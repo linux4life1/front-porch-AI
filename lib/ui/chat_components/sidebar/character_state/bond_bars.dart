@@ -98,8 +98,14 @@ class BondBars extends StatelessWidget {
               'Trust: Paranoia vs absolute faith. Dictates whether the '
               'character questions your motives or readily believes you.',
         ),
-        if (nsfw.nsfwCooldownEnabled) ...[
+        // Porch Life (with 18+) allows Afterglow: the line and this chat's
+        // own switch show; Lust and recovery show while the switch is on.
+        if (afterglowEnabledOf(context)) ...[
           const SizedBox(height: 8),
+          _AfterglowLine(chat: chat, on: nsfw.storedNsfwCooldownEnabled),
+        ],
+        if (nsfw.nsfwCooldownEnabled) ...[
+          const SizedBox(height: 4),
           RealismProgressRow(
             label: 'Lust',
             value: nsfw.arousalLevel.clamp(-100, 100),
@@ -146,6 +152,45 @@ class BondBars extends StatelessWidget {
             ),
           ],
         ],
+      ],
+    );
+  }
+}
+
+/// This chat's own Afterglow switch, on the line it controls (no gear).
+class _AfterglowLine extends StatelessWidget {
+  const _AfterglowLine({required this.chat, required this.on});
+
+  final ChatService chat;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.lustAccentOf(context);
+    return Row(
+      children: [
+        Icon(Icons.local_fire_department, size: 14, color: accent),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'Afterglow',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(context),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 24,
+          child: FittedBox(
+            child: Switch(
+              value: on,
+              activeThumbColor: accent,
+              onChanged: chat.isGenerating ? null : chat.setAfterglowEnabled,
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -71,6 +71,12 @@ class ChatToolsSwitches {
     _notify();
   }
 
+  /// This chat's own Afterglow switch (1:1 or group).
+  Future<void> setAfterglow(bool v) async {
+    await _chat.setAfterglowEnabled(v);
+    _notify();
+  }
+
   Future<void> setPassageOfTime(bool v) async {
     await _chat.setPassageOfTimeEnabled(v);
     _notify();

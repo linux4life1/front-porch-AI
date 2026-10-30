@@ -70,3 +70,73 @@ class GroupRealismEngineCard extends StatelessWidget {
     );
   }
 }
+
+/// This group chat's own Afterglow switch (Lust, climax and recovery for the
+/// cast). Shown while Porch Life (with 18+) allows Afterglow.
+class GroupAfterglowCard extends StatelessWidget {
+  final GroupRealismNeedsController controller;
+
+  const GroupAfterglowCard({super.key, required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    final on = controller.afterglowEnabled;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerOf(context),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.local_fire_department,
+                size: 18,
+                color: AppColors.lustAccentOf(context),
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Afterglow',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              Switch(
+                value: on,
+                activeTrackColor: AppColors.porchAmberOf(context),
+                onChanged: controller.updateAfterglow,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Lust, climax and recovery for the cast in this chat. Off settles '
+            "everyone's Lust. Only takes effect while the Realism Engine above "
+            'is on.',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+          if (on && !controller.realismEnabled)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Turn on the Realism Engine above for this to have any '
+                'effect.',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textTertiary(context),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}

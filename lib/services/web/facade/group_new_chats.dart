@@ -50,7 +50,7 @@ class GroupNewChats {
     }
   }
 
-  /// `{realism, needs, inherit, forkSource}` for [groupId], or null when
+  /// `{realism, needs, afterglow, inherit, forkSource}` for [groupId], or null when
   /// the group is unknown. `forkSource` is null unless the group was made
   /// from a 1:1 whose settings it is missing.
   Future<Map<String, dynamic>?> stateOf(String groupId) async {
@@ -61,6 +61,7 @@ class GroupNewChats {
     return {
       'realism': r.realismOn,
       'needs': r.needsOn,
+      'afterglow': groupAfterglowIn(g.defaultMemberRealismState),
       'inherit': g.inheritCharacterLorebooks,
       'forkSource': s == null || !s.differsFrom(g)
           ? null
@@ -75,7 +76,7 @@ class GroupNewChats {
     };
   }
 
-  /// Saves the posted `realism`, `needs` and `inherit` switches, and with
+  /// Saves the posted `realism`, `needs`, `afterglow` and `inherit` switches, and with
   /// `useForkSource: true` fills in what the 1:1 the group came from had,
   /// as the desktop notice's "Use the chat's settings" then Save does.
   /// False when the group is unknown.
@@ -109,6 +110,12 @@ class GroupNewChats {
       );
       g.defaultMemberRealismState = blobs.defaultMemberJson;
       g.baselineRealismState = blobs.baselineJson;
+    }
+    if (body['afterglow'] is bool) {
+      g.defaultMemberRealismState = withGroupAfterglow(
+        g.defaultMemberRealismState,
+        body['afterglow'] as bool,
+      );
     }
     if (body['inherit'] is bool) {
       g.inheritCharacterLorebooks = body['inherit'] as bool;

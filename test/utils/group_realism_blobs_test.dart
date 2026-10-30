@@ -499,4 +499,57 @@ void main() {
       expect((baseline[memberCard.stableGroupId] as Map)['trust'], 80);
     });
   });
+
+  group("the group's Afterglow for new chats", () {
+    GroupRealismBlobs blobs({bool afterglow = true}) => buildGroupRealismBlobs(
+      seeds: {'m1': defaultGroupMemberRealismSeed()},
+      needsEnabled: true,
+      afterglowEnabled: afterglow,
+      timeOfDay: 'morning',
+      dayCount: 1,
+    );
+
+    test('a group that says nothing starts its chats on; off is written '
+        'and read back', () {
+      expect(groupAfterglowIn(null), isTrue);
+      expect(groupAfterglowIn('{}'), isTrue);
+      expect(groupAfterglowIn(blobs().defaultMemberJson), isTrue);
+      expect(
+        jsonDecode(blobs().defaultMemberJson),
+        isNot(contains(kGroupAfterglowKey)),
+        reason: 'on is the default, so it is not written',
+      );
+      expect(
+        groupAfterglowIn(blobs(afterglow: false).defaultMemberJson),
+        isFalse,
+      );
+    });
+
+    test('the switch is set on a template with Realism seeds and keeps '
+        'them', () {
+      final off = withGroupAfterglow(blobs().defaultMemberJson, false);
+      expect(groupAfterglowIn(off), isFalse);
+      expect(parseGroupRealismSeeds(off).keys, ['m1']);
+      expect(groupAfterglowIn(withGroupAfterglow(off, true)), isTrue);
+    });
+
+    test('a template without Realism seeds is left as it is', () {
+      // Its loader reads a blob with no perChar as the seed map itself, so a
+      // top-level switch there would read as a member.
+      const alts = '{"alternateGreetings":["Hi."]}';
+      expect(withGroupAfterglow('{}', false), '{}');
+      expect(withGroupAfterglow(alts, false), alts);
+    });
+
+    test("switching new chats' Needs keeps their Afterglow", () {
+      final switched = switchGroupTemplateRealism(
+        defaultMemberJson: blobs(afterglow: false).defaultMemberJson,
+        baselineJson: blobs(afterglow: false).baselineJson,
+        memberIds: const ['m1', 'm2'],
+        realismOn: true,
+        needsOn: false,
+      );
+      expect(groupAfterglowIn(switched.defaultMemberJson), isFalse);
+    });
+  });
 }

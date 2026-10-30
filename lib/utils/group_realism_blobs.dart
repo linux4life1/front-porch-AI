@@ -59,6 +59,7 @@ GroupRealismBlobs buildGroupRealismBlobs({
   String? storyStartTime,
   List<String> alternateGreetings = const [],
   List<GreetingRealismSeed?> greetingSeeds = const [],
+  bool afterglowEnabled = true,
 }) {
   final defaultMember = <String, dynamic>{
     'perChar': <String, dynamic>{},
@@ -67,6 +68,8 @@ GroupRealismBlobs buildGroupRealismBlobs({
     'storyStartDate': ?storyStartDate,
     'storyStartTime': ?storyStartTime,
     ..._groupOpeningAltsFragment(alternateGreetings, greetingSeeds),
+    // Missing reads on, so a group left on writes nothing new.
+    if (!afterglowEnabled) kGroupAfterglowKey: false,
   };
   final baseline = <String, dynamic>{};
 
@@ -265,13 +268,15 @@ bool groupAfterglowIn(String? blobJson) =>
     _decodeGroupBlob(blobJson ?? '')[kGroupAfterglowKey] != false;
 
 /// [definitionJson] with the group's Afterglow for new chats set to [on]. A
-/// definition with no Realism seeds stays as it is: its new chats start
-/// without Realism, so Afterglow has nothing to switch, and an empty blob
-/// is how the rest of the app reads "no Realism seeds".
+/// definition with no member Realism seeds stays as it is: its new chats
+/// start without Realism, so Afterglow has nothing to switch, and the rest
+/// of the app reads such a blob as "no Realism seeds".
 String withGroupAfterglow(String definitionJson, bool on) {
-  final blob = _decodeGroupBlob(definitionJson);
-  if (blob.isEmpty) return definitionJson;
-  return jsonEncode({...blob, kGroupAfterglowKey: on});
+  if (parseGroupRealismSeeds(definitionJson).isEmpty) return definitionJson;
+  return jsonEncode({
+    ..._decodeGroupBlob(definitionJson),
+    kGroupAfterglowKey: on,
+  });
 }
 
 Map<String, dynamic> _decodeGroupBlob(String json) {
@@ -440,6 +445,7 @@ GroupRealismBlobs switchGroupTemplateRealism({
   }
   final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
   return buildGroupRealismBlobs(
+    afterglowEnabled: groupAfterglowIn(defaultMemberJson),
     seeds: seeds,
     needsEnabled: needsOn,
     timeOfDay: time?.timeOfDay ?? 'morning',

@@ -52,6 +52,7 @@ class CreateCharacterSaver {
       nsfwCooldownEnabled: draft.realismNsfwCooldown,
       passageOfTimeEnabled: true, // default on; user can toggle later
       chaosModeEnabled: draft.realismChaosMode,
+      afterglowEnabled: draft.realismAfterglow,
       needsSimEnabled: draft.realismNeedsSim,
       pocketsEnabled: draft.realismPocketsEnabled,
       enjoysLowHygiene: draft.realismEnjoysLowHygiene,

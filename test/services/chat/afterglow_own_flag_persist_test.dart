@@ -345,4 +345,146 @@ void main() {
       reason: 'the group walk reset the member\'s flag along with her scalars',
     );
   });
+
+  test('a 1:1 chat stored off that still holds Lust opens on; one with none '
+      'stays off', () async {
+    await chat.setActiveCharacter(card('Mara', 'char-ownflag-mara'));
+    await chat.sendMessage('Evening.');
+    await settle();
+    final overwritten = chat.currentSessionId!;
+    await chat.startNewChat();
+    await chat.sendMessage('Evening.');
+    await settle();
+    final switchedOff = chat.currentSessionId!;
+    expect(switchedOff, isNot(overwritten));
+    // Leaving a chat saves it, so both are edited from a third.
+    await chat.startNewChat();
+    // v1.6.1 saved Porch Life's off over the first chat's own on, and left
+    // her Lust. Switching a chat off zeroes Lust, so the second never had any.
+    for (final (id, lust) in [(overwritten, 40), (switchedOff, 0)]) {
+      await db.customUpdate(
+        'UPDATE sessions SET nsfw_cooldown_enabled = 0, arousal_level = ? '
+        'WHERE id = ?',
+        variables: [Variable(lust), Variable(id)],
+      );
+    }
+
+    await chat.loadSession(overwritten);
+    expect(
+      chat.afterglowChatSwitch,
+      isTrue,
+      reason: 'a chat stored off with Lust was on: it opens on',
+    );
+    expect(chat.nsfwService.arousalLevel, 40, reason: 'and keeps her Lust');
+
+    await chat.loadSession(switchedOff);
+    expect(
+      chat.afterglowChatSwitch,
+      isFalse,
+      reason: 'switched off, stays off',
+    );
+  });
+
+  group("a group chat's own Afterglow switch, while Porch Life allows it", () {
+    setUp(() async {
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+    });
+
+    Future<Map<String, dynamic>> groupState(String sessionId) async {
+      final row = await db
+          .customSelect(
+            'SELECT group_realism_state AS v FROM sessions WHERE id = ?',
+            variables: [Variable(sessionId)],
+          )
+          .getSingle();
+      return jsonDecode(row.data['v'] as String) as Map<String, dynamic>;
+    }
+
+    /// Nia's 1:1, with her card's Afterglow switch, forked into a group.
+    Future<void> intoGroup({bool afterglow = true}) async {
+      await chat.setActiveCharacter(
+        card('Nia', 'char-gsw-nia', afterglow: afterglow, realism: true),
+      );
+      await chat.sendMessage('Evening.');
+      await settle();
+      final group = await chat.forkToGroupChat([
+        card('Rue', 'char-gsw-rue', realism: true),
+      ], groupRepo);
+      expect(group, isNotNull, reason: 'the conversion itself must succeed');
+    }
+
+    test('it gates Afterglow, saves, and comes back with the chat', () async {
+      await intoGroup();
+      final sid = chat.currentSessionId!;
+      expect(chat.nsfwService.nsfwCooldownEnabled, isTrue);
+
+      await chat.setAfterglowEnabled(false);
+      expect(
+        chat.nsfwService.nsfwCooldownEnabled,
+        isFalse,
+        reason: "the gate reads the group chat's own switch",
+      );
+      expect((await groupState(sid))[kGroupAfterglowKey], isFalse);
+
+      await chat.startNewChat();
+      expect(chat.afterglowChatSwitch, isTrue, reason: 'a new chat starts on');
+      await chat.loadSession(sid);
+      expect(
+        chat.afterglowChatSwitch,
+        isFalse,
+        reason: 'the switch came back with its chat',
+      );
+      expect(chat.nsfwService.nsfwCooldownEnabled, isFalse);
+    });
+
+    test("new chats start it as the group says, read when each "
+        "starts", () async {
+      // Nia's 1:1 had it off, so the group made from it starts chats off.
+      await intoGroup(afterglow: false);
+      expect(chat.afterglowChatSwitch, isFalse, reason: "Nia's switch came");
+      expect(
+        groupAfterglowIn(chat.activeGroup!.defaultMemberRealismState),
+        isFalse,
+      );
+
+      await chat.startNewChat();
+      expect(chat.afterglowChatSwitch, isFalse, reason: "the group's setting");
+
+      final g = chat.activeGroup!;
+      g.defaultMemberRealismState = withGroupAfterglow(
+        g.defaultMemberRealismState,
+        true,
+      );
+      await groupRepo.save(g);
+      await chat.startNewChat();
+      expect(chat.afterglowChatSwitch, isTrue, reason: "the group's new one");
+    });
+
+    test("switching it off settles every member's Lust", () async {
+      await intoGroup();
+      final sid = chat.currentSessionId!;
+      final rue = groupMemberStoreId(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      );
+      // Leaving a chat saves it, so it is edited from the group's next one.
+      await chat.startNewChat();
+      // Rue is partway up in the saved chat.
+      final state = await groupState(sid);
+      final perChar = state['perChar'] as Map<String, dynamic>;
+      perChar[rue] = {
+        ...?(perChar[rue] as Map<String, dynamic>?),
+        'arousal': 60,
+      };
+      await db.customUpdate(
+        'UPDATE sessions SET group_realism_state = ? WHERE id = ?',
+        variables: [Variable(jsonEncode(state)), Variable(sid)],
+      );
+      await chat.loadSession(sid);
+
+      await chat.setAfterglowEnabled(false);
+      final saved = (await groupState(sid))['perChar'] as Map<String, dynamic>;
+      expect((saved[rue] as Map)['arousal'], 0);
+    });
+  });
 }

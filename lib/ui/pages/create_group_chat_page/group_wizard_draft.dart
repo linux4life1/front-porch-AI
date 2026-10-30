@@ -70,6 +70,7 @@ class GroupWizardDraft extends ChangeNotifier {
     chaosModeEnabled,
     chaosNsfwEnabled,
     needsSimEnabled,
+    afterglowEnabled,
     memberNeedsBaselines,
     globalTimeOfDay,
     globalDayCount,
@@ -130,6 +131,9 @@ class GroupWizardDraft extends ChangeNotifier {
   bool chaosModeEnabled = false;
   bool chaosNsfwEnabled = false;
   bool needsSimEnabled = true;
+
+  /// How the group's new chats start Afterglow.
+  bool afterglowEnabled = true;
 
   // Per-member needs baselines (0-100) — mirrors memberRealismSeeds keys.
   final Map<String, Map<String, int>> memberNeedsBaselines = {};

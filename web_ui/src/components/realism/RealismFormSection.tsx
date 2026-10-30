@@ -168,11 +168,22 @@ export function RealismFormSection({
           {/* ── Optional features ── */}
           <h4 className="realism-head">Optional features</h4>
           <div className="card realism-card">
-            {/* Recovery block (recovery overhaul PR 2) — only when Porch Life
-                Afterglow is on (it counts only with 18+ on). No per-card
-                Afterglow switch: Porch Life is the one gate. */}
+            {/* The card's Afterglow switch: how new chats with this character
+                start. Absent, not greyed, unless Porch Life (with 18+) allows
+                Afterglow. Its Recovery block shows while the switch is on
+                (desktop RealismOptionalFeaturesCard). */}
             {showIntimate && afterglowOn && (
-              <RecoveryBlock v={v} set={set} showChargenSuggestion={showChargenSuggestion} />
+              <>
+                <ToggleRow
+                  label="Afterglow"
+                  hint="Lust and recovery in new chats with this character. Chats you already have keep their own switch."
+                  value={v.afterglowEnabled !== false}
+                  onChange={(b) => set({ afterglowEnabled: b })}
+                />
+                {v.afterglowEnabled !== false && (
+                  <RecoveryBlock v={v} set={set} showChargenSuggestion={showChargenSuggestion} />
+                )}
+              </>
             )}
             <ToggleRow
               label="Realism verification (Director/Verifier)"

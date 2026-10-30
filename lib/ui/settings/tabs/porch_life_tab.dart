@@ -417,7 +417,10 @@ class PorchLifeTab extends StatelessWidget {
                     'run without it. Uses one short extra AI request per reply '
                     'to notice a climax, so it costs a little more on a paid '
                     'API. Multiorgasmic characters feel a tenderness window '
-                    'instead of a lock.',
+                    'instead of a lock. Off: no chat tracks Lust, and the '
+                    'Afterglow switches on characters and chats are hidden. '
+                    'Each chat keeps its own choice for when you turn this '
+                    'back on.',
                 value: storage.realismSettings.nsfwCooldownDefault,
                 onChanged: storage.realismSettings.setNsfwCooldownDefault,
               ),

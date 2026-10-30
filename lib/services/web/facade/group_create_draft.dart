@@ -83,6 +83,9 @@ class GroupCreateDraft {
   bool get realismEnabled => _realism['enabled'] != false;
   bool get needsEnabled => _realism['needsEnabled'] != false;
 
+  /// How the group's new chats start Afterglow; an older phone sends none.
+  bool get afterglowEnabled => _realism['afterglow'] != false;
+
   String get timeOfDay {
     final t = _realism['timeOfDay'];
     return t is String && StoryClock.periods.contains(t) ? t : 'morning';
@@ -144,6 +147,7 @@ class GroupCreateDraft {
     return buildGroupRealismBlobs(
       seeds: remapSeedsToMemberIds(seeds, idMap),
       needsEnabled: needsEnabled,
+      afterglowEnabled: afterglowEnabled,
       timeOfDay: timeOfDay,
       dayCount: dayCount,
       storyStartDate: storyStartDate,

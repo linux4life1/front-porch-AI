@@ -118,3 +118,33 @@ describe('ChatToolsNsfw refractory', () => {
     expect(container.textContent).not.toContain('Refractory');
   });
 });
+
+// This chat's own Afterglow switch, back on the phone: it shows while Porch
+// Life (with 18+) allows Afterglow, even with the chat switched off, and posts
+// the route name it had before October. Red proof: rendering the section only
+// while Afterglow runs hides the switch in the first case.
+describe('ChatToolsNsfw Afterglow switch', () => {
+  it("shows this chat's own switch while Porch Life allows it, even off", () => {
+    const calls: Array<[string, boolean]> = [];
+    act(() => {
+      root.render(
+        createElement(ChatToolsNsfw, {
+          t: state({ cooldownEnabled: false, afterglowAllowed: true, afterglowSwitch: false }),
+          toggle: (name: string, v: boolean) => {
+            calls.push([name, v]);
+          },
+        }),
+      );
+    });
+    const box = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(box?.checked).toBe(false);
+    expect(container.textContent, 'no Lust while it is off').not.toContain('Lust');
+    act(() => box?.click());
+    expect(calls).toEqual([['nsfwCooldown', true]]);
+  });
+
+  it('shows nothing while Porch Life does not allow it', () => {
+    render(state({ cooldownEnabled: false, afterglowAllowed: false, afterglowSwitch: true }));
+    expect(container.textContent).toBe('');
+  });
+});

@@ -79,7 +79,13 @@ export interface ToolsState {
   // or "Refractory: 3 replies" with Passage of Time off), ready-made so the
   // phone cannot word it differently; '' when no refractory is running.
   nsfw: {
+    // The live gate: Porch Life (with 18+) allows Afterglow AND this chat's
+    // own switch is on.
     cooldownEnabled: boolean;
+    // Porch Life (with 18+) allows Afterglow, and this chat's own switch
+    // (additive: absent on an older desktop).
+    afterglowAllowed?: boolean;
+    afterglowSwitch?: boolean;
     refractoryMinutesRemaining: number;
     refractoryClockRunning: boolean;
     refractoryLabel: string;

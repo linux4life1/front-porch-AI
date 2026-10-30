@@ -1,11 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/character_card.dart';
@@ -14,6 +17,7 @@ import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
+import 'package:front_porch_ai/services/web/routes/routes.dart';
 
 import '../../golden/support/fakes.dart';
 
@@ -244,6 +248,47 @@ void main() {
       expect(p.worldId, 'kitchens');
     });
   });
+
+  group("the phone's Afterglow switch", () {
+    test("it is this chat's own, shown while Porch Life allows it, and the "
+        "switch's old name flips it", () async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      final chat = _AfterglowChat();
+      chat.nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: false);
+      final facade = ChatToolsFacade(chat, storage, null);
+      final router = Router();
+      WebChatToolsRoutes(facade, router);
+      Map<String, dynamic> nsfw() =>
+          facade.state()['nsfw'] as Map<String, dynamic>;
+
+      expect(nsfw()['afterglowAllowed'], isFalse, reason: '18+ is off');
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      expect(nsfw()['afterglowAllowed'], isTrue);
+      expect(nsfw()['afterglowSwitch'], isFalse);
+
+      final res = await router.call(
+        shelf.Request(
+          'POST',
+          Uri.parse('http://localhost/api/chat/tools/toggle'),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'name': 'nsfwCooldown', 'value': true}),
+        ),
+      );
+      expect(res.statusCode, 200);
+      expect(chat.asked, [true]);
+    });
+  });
+}
+
+/// Records what the phone's Afterglow switch asks of the chat.
+class _AfterglowChat extends FakeChatService {
+  final asked = <bool>[];
+
+  @override
+  Future<void> setAfterglowEnabled(bool on) async => asked.add(on);
 }
 
 /// A group chat of three, as the chat service holds it: the roster's cards

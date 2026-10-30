@@ -104,6 +104,9 @@ class EditCharacterDraft {
   bool realismPassageOfTime = true;
   bool realismChaosMode = false;
 
+  /// How new chats with this character start Afterglow.
+  bool realismAfterglow = true;
+
   /// Structured sex (read/keep — no editor for it on this page; the AI
   /// creators persist it) + the recovery profile the Realism section's
   /// Recovery block authors (recovery overhaul PR 2).
@@ -287,6 +290,7 @@ class EditCharacterDraft {
     realismNsfwCooldown,
     realismPassageOfTime,
     realismChaosMode,
+    realismAfterglow,
     sex,
     recovery.toJson(),
     realismNeedsSim,
@@ -324,6 +328,7 @@ class EditCharacterDraft {
     realismNsfwCooldown = ext.nsfwCooldownEnabled;
     realismPassageOfTime = ext.passageOfTimeEnabled;
     realismChaosMode = ext.chaosModeEnabled;
+    realismAfterglow = ext.afterglowEnabled;
     sex = ext.sex;
     recovery = ext.recovery;
     if (ext.needsSimChoice == null) {

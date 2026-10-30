@@ -4,6 +4,8 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
+    show afterglowEnabledOf;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/realism_needs_tab.dart';
 
@@ -153,6 +155,12 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
 
             // Master Realism Engine
             GroupRealismEngineCard(controller: _controller),
+
+            // Porch Life (with 18+) allows Afterglow: this chat's own switch.
+            if (afterglowEnabledOf(context)) ...[
+              const SizedBox(height: 14),
+              GroupAfterglowCard(controller: _controller),
+            ],
 
             const SizedBox(height: 14),
 
