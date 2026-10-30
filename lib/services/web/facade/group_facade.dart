@@ -409,36 +409,19 @@ class GroupFacade {
   }
 
   /// Extract every member with a usable private avatar into the library as an
-  /// independent character (the desktop "Separate to my library" action), via
-  /// [CharacterRepository.duplicateCharacter]. Returns the number extracted, or
-  /// null when the group is unknown or no repository is wired.
+  /// independent character, in the group's folder (the desktop "Extract
+  /// Characters" action, via [GroupMemberExtractor]). Returns the number
+  /// extracted, or null when the group is unknown or no repository is wired.
   Future<int?> extractMembers(String groupId) async {
     final repository = repo;
     if (repository == null) return null;
     if (_groups.getById(groupId) == null) return null;
-    final members = await _groups.getMembersForGroup(groupId);
-    var extracted = 0;
-    for (final m in members) {
-      try {
-        final resolvedPath = m.avatarFilename != null
-            ? p.join(
-                _storage.groupsDir.path,
-                groupId,
-                'avatars',
-                m.avatarFilename!,
-              )
-            : null;
-        if (resolvedPath == null || !await File(resolvedPath).exists()) {
-          continue;
-        }
-        final card = m.toCharacterCard(resolvedImagePath: resolvedPath);
-        await repository.duplicateCharacter(card);
-        extracted++;
-      } catch (_) {
-        // Best effort — skip a member that fails rather than aborting the batch.
-      }
-    }
-    return extracted;
+    return GroupMemberExtractor(
+      _groups,
+      _storage,
+      repository,
+      folders,
+    ).extract(groupId);
   }
 
   /// Resolve a group member's avatar file (stored under
