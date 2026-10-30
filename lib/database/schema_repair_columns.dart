@@ -35,6 +35,8 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     "evolved_scenario TEXT NOT NULL DEFAULT ''", // v10
     'evolution_count INTEGER NOT NULL DEFAULT 0', // v10
     'prime_avatar_index INTEGER NOT NULL DEFAULT 1', // v24
+    // v63 — lore-only worlds for new chats; NULL = never split (legacy seed)
+    'lore_world_names TEXT',
   ],
   'messages': [
     // v14 — same silent-catch pattern. Without these the whole transcript

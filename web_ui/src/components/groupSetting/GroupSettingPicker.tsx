@@ -26,6 +26,7 @@ export function GroupSettingPicker({
   worlds,
   weatherOf,
   linkedBy = new Map(),
+  owner,
 }: {
   value: WorldChoice;
   onChange: (next: WorldChoice) => void;
@@ -34,6 +35,8 @@ export function GroupSettingPicker({
   weatherOf: (id: string) => string | null;
   /** Top-level world id → the members whose cards link it. */
   linkedBy?: Map<string, string[]>;
+  /** A character's name when the picker sets up that character's 1:1 chats. */
+  owner?: string;
 }) {
   const [loreOpen, setLoreOpen] = useState(value.loreIds.length > 0);
   const cards = planWorldLibrary(worlds);
@@ -41,8 +44,8 @@ export function GroupSettingPicker({
   if (cards.length === 0) {
     return (
       <p className="muted small">
-        No worlds in your library yet. Make one on the Worlds page, then come back to set where
-        the group meets.
+        No worlds in your library yet. Make one on the Worlds page, then come back to set where{' '}
+        {owner ? `${owner}'s chats start` : 'the group meets'}.
       </p>
     );
   }

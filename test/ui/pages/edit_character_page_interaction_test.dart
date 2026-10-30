@@ -43,6 +43,9 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_save.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_worlds_tab.dart';
 
 import '../../golden/support/fakes.dart';
@@ -124,7 +127,10 @@ void main() {
     // ── Worlds (tab_worlds part) ───────────────────────────────────────────
     await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
-    expect(find.text('No places found'), findsWidgets,
+    // Changed with the one-world picker: the tab now shows the shared
+    // Setting picker, whose empty library says "No worlds in your library
+    // yet", so the old "No places found" line no longer exists.
+    expect(find.textContaining('No worlds in your library yet'), findsWidgets,
         reason: 'Worlds tab landmark (tab_worlds part) did not render — with '
             'an empty FakeWorldRepository the empty-state line is required');
 
@@ -134,21 +140,20 @@ void main() {
     expect(find.text('Description'), findsWidgets);
   });
 
-  testWidgets('the Worlds tab links worlds only, never a place inside one', (
-    tester,
-  ) async {
+  // Changed with the one-world picker: these two tests pinned the old tab,
+  // which linked any number of worlds with a switch each. The tab now picks
+  // one Setting world (a radio), a place inside it, and lore-only worlds, the
+  // way groups do, so "link the world, never a place" becomes "picking a
+  // world starts at its starred place", and an older link to a place now
+  // opens as that place picked inside its world.
+  testWidgets('picking a world on the Worlds tab starts at its starred '
+      'place, never offering a place as a world', (tester) async {
     final basin = World(
       name: 'Verdance Basin',
       lorebook: Lorebook(entries: const []),
     );
     final stilt = World(
       name: 'Stiltwater',
-      lorebook: Lorebook(entries: const []),
-      parentWorldId: basin.id,
-      climateEnabled: false,
-    );
-    final market = World(
-      name: 'Canopy Market',
       lorebook: Lorebook(entries: const []),
       parentWorldId: basin.id,
       climateEnabled: false,
@@ -158,70 +163,137 @@ void main() {
       name: 'The Cindermaw',
       lorebook: Lorebook(entries: const []),
     );
-    final linked = <String>[];
+    var choice = const GroupWorldChoice();
 
     await tester.pumpWidget(
       ChangeNotifierProvider<WorldRepository>.value(
-        value: FakeWorldRepository([cinder, basin, stilt, market]),
+        value: FakeWorldRepository([cinder, basin, stilt]),
         child: MaterialApp(
           home: Scaffold(
-            body: EditCharacterWorldsTab(
-              selectedWorldNames: linked,
-              onChanged: () {},
+            body: StatefulBuilder(
+              builder: (context, setState) => EditCharacterWorldsTab(
+                value: choice,
+                onChanged: (c) => setState(() => choice = c),
+                characterName: 'Mira',
+              ),
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('The Cindermaw'), findsOneWidget);
-    expect(find.text('Verdance Basin'), findsOneWidget);
-    expect(find.text('Stiltwater'), findsNothing);
-    expect(find.text('Canopy Market'), findsNothing);
-    expect(
-      find.text('2 places inside · chats start at Stiltwater'),
-      findsOneWidget,
-    );
-    expect(find.byType(Switch), findsNWidgets(2));
+    expect(find.byKey(ValueKey('group-setting-world-${cinder.id}')),
+        findsOneWidget);
+    expect(find.byKey(ValueKey('group-setting-world-${basin.id}')),
+        findsOneWidget);
+    expect(find.byKey(ValueKey('group-setting-world-${stilt.id}')),
+        findsNothing, reason: 'a place is never offered as a world');
+    expect(find.textContaining("Applies to Mira's new chats"), findsOneWidget);
 
-    await tester.tap(find.byType(Switch).last);
-    await tester.pump();
-    expect(linked, [basin.id]);
+    await tester.tap(find.byKey(ValueKey('group-setting-world-${basin.id}')));
+    await tester.pumpAndSettle();
+    expect(choice.settingId, basin.id);
+    expect(find.textContaining('New chats start at Stiltwater'), findsWidgets);
   });
 
-  testWidgets('an older link to a place shows its world linked at that '
-      'place, and unlinking the world drops it', (tester) async {
-    final basin = World(
-      name: 'Verdance Basin',
+  testWidgets('a card that links several worlds opens with today\'s split '
+      'and the two-roles banner', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final attic = World(
+      name: 'Attic Books',
       lorebook: Lorebook(entries: const []),
-    );
-    final stilt = World(
-      name: 'Stiltwater',
-      lorebook: Lorebook(entries: const []),
-      parentWorldId: basin.id,
       climateEnabled: false,
     );
-    final linked = <String>['Stiltwater'];
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider<WorldRepository>.value(
-        value: FakeWorldRepository([basin, stilt]),
-        child: MaterialApp(
-          home: Scaffold(
-            body: EditCharacterWorldsTab(
-              selectedWorldNames: linked,
-              onChanged: () {},
-            ),
-          ),
-        ),
-      ),
+    final reach = World(
+      name: 'Salt Reach',
+      lorebook: Lorebook(entries: const []),
+      biomeId: 'coastal',
+    );
+    final repo = _RepoWithCover();
+    final chat = FakeChatService();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository([attic, reach]);
+    for (final d in [repo, chat, storage, worlds]) {
+      addTearDown(d.dispose);
+    }
+    final card = CharacterCard(
+      name: 'Mira',
+      worldNames: ['Attic Books', 'Salt Reach'],
     );
 
-    expect(find.text('1 place inside · linked at Stiltwater'), findsOneWidget);
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ],
+        child: MaterialApp(home: EditCharacterPage(character: card)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Worlds'));
+    await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(Switch));
-    await tester.pump();
-    expect(linked, isEmpty);
+    expect(
+      find.byKey(const ValueKey('group-worlds-split-banner')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Mira linked 2 worlds'),
+      findsOneWidget,
+    );
+    // The climate picks the Setting, exactly as the flat seed does.
+    expect(find.textContaining('New chats start in Salt Reach'), findsWidgets);
+  });
+
+  test('Save keeps an untouched unsplit card as stored and writes the split '
+      'once the worlds change', () {
+    final attic = World(
+      name: 'Attic Books',
+      lorebook: Lorebook(entries: const []),
+      climateEnabled: false,
+    );
+    final reach = World(
+      name: 'Salt Reach',
+      lorebook: Lorebook(entries: const []),
+      biomeId: 'coastal',
+    );
+    final worlds = FakeWorldRepository([attic, reach]);
+    addTearDown(worlds.dispose);
+    CharacterCard legacy() =>
+        CharacterCard(name: 'Mira', worldNames: ['Attic Books', 'Salt Reach']);
+
+    final untouched = legacy();
+    final d1 = EditCharacterDraft(
+      untouched,
+      porchLifeNeedsDefault: () => true,
+      worlds: worlds,
+    );
+    addTearDown(d1.dispose);
+    EditCharacterCardWriter(character: untouched, draft: d1)
+        .writeFields(showRealismTab: false);
+    expect(untouched.worldNames, ['Attic Books', 'Salt Reach']);
+    expect(untouched.loreWorldNames, isNull);
+    expect(d1.isDirty, isFalse);
+
+    final moved = legacy();
+    final d2 = EditCharacterDraft(
+      moved,
+      porchLifeNeedsDefault: () => true,
+      worlds: worlds,
+    );
+    addTearDown(d2.dispose);
+    d2.worldChoice = GroupWorldChoice(settingId: attic.id, loreIds: [reach.id]);
+    expect(d2.isDirty, isTrue);
+    final writer = EditCharacterCardWriter(character: moved, draft: d2);
+    writer.writeFields(showRealismTab: false);
+    expect(moved.worldNames, [attic.id]);
+    expect(moved.loreWorldNames, [reach.id]);
+    // Both were linked by name before, so nothing counts as newly added.
+    expect(writer.addedWorlds.setting, isEmpty);
+    expect(writer.addedWorlds.lore, isEmpty);
   });
 }

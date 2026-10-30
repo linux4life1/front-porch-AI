@@ -22,6 +22,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -87,8 +88,17 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     _draft = EditCharacterDraft(
       widget.character,
       porchLifeNeedsDefault: _porchLifeNeedsDefault,
+      worlds: _worldsOrNull(),
     );
     _tabController = TabController(length: 4, vsync: this);
+  }
+
+  WorldRepository? _worldsOrNull() {
+    try {
+      return Provider.of<WorldRepository>(context, listen: false);
+    } on ProviderNotFoundException {
+      return null;
+    }
   }
 
   /// A card that says nothing about Needs starts its chats with the Porch
@@ -309,14 +319,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   /// a world later would otherwise keep its temperate default forever
   /// (climate, Setting prose and the Places panel all read the CHAT's
   /// attachments, never the character's list).
-  Future<void> _backfillAddedWorlds(List<String> addedWorlds) async {
+  Future<void> _backfillAddedWorlds(
+    ({List<String> setting, List<String>? lore}) added,
+  ) async {
     final charId = widget.character.dbId;
-    if (addedWorlds.isEmpty || charId == null) return;
+    if (added.setting.isEmpty && (added.lore?.isEmpty ?? true)) return;
+    if (charId == null) return;
     try {
       final worlds = Provider.of<WorldRepository>(context, listen: false);
       final touched = await worlds.applyAddedCharacterWorldsToChats(
         characterId: charId,
-        addedRefs: addedWorlds,
+        addedRefs: added.setting,
+        addedLoreRefs: added.lore,
       );
       if (touched.isNotEmpty && mounted) {
         final chatService = Provider.of<ChatService>(context, listen: false);
@@ -365,8 +379,12 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           onChanged: _rebuild,
         ),
         EditCharacterWorldsTab(
-          selectedWorldNames: _draft.selectedWorldNames,
-          onChanged: _rebuild,
+          value: _draft.worldChoice,
+          onChanged: (c) => setState(() => _draft.worldChoice = c),
+          characterName: _draft.nameController.text,
+          legacyWorldCount: characterNeedsWorldSplitNotice(widget.character)
+              ? widget.character.worldNames.length
+              : 0,
         ),
       ],
     );

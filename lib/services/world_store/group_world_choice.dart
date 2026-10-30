@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
@@ -61,23 +62,39 @@ class GroupWorldChoice {
 }
 
 /// What [group]'s new chats get today, as a choice an editor can show.
-///
-/// A split group reads its own fields. An unsplit one (loreWorldIds null)
-/// is read the way the flat seed treats it: each ref takes its starred
-/// place, the first that starts at a place or has a climate becomes the
-/// Setting, and the rest are Lore. Saving that choice unchanged therefore
-/// seeds the same slots the group seeded before.
+/// See [worldChoiceOfRefs].
 GroupWorldChoice groupWorldChoiceOf(
   GroupChat group, {
   required World? Function(String idOrName) resolve,
   required World? Function(String id) lookup,
   required World? Function(String id) climateAuthorFor,
+}) => worldChoiceOfRefs(
+  worldRefs: group.worldIds,
+  loreRefs: group.loreWorldIds,
+  resolve: resolve,
+  lookup: lookup,
+  climateAuthorFor: climateAuthorFor,
+);
+
+/// What a template's new chats get today, as a choice an editor can show.
+/// The template is a group's `worldIds`/`loreWorldIds` or a character's
+/// `worldNames`/`loreWorldNames`.
+///
+/// A split template ([loreRefs] non-null) reads its own fields. An unsplit
+/// one is read the way the flat seed treats it: each ref takes its starred
+/// place, the first that starts at a place or has a climate becomes the
+/// Setting, and the rest are Lore. Saving that choice unchanged therefore
+/// seeds the same slots the template seeded before.
+GroupWorldChoice worldChoiceOfRefs({
+  required List<String> worldRefs,
+  required List<String>? loreRefs,
+  required World? Function(String idOrName) resolve,
+  required World? Function(String id) lookup,
+  required World? Function(String id) climateAuthorFor,
 }) {
-  final lore = group.loreWorldIds;
+  final lore = loreRefs;
   if (lore != null) {
-    final setting = group.worldIds.isEmpty
-        ? null
-        : resolve(group.worldIds.first)?.id;
+    final setting = worldRefs.isEmpty ? null : resolve(worldRefs.first)?.id;
     return GroupWorldChoice(
       settingId: setting,
       loreIds: [
@@ -89,7 +106,7 @@ GroupWorldChoice groupWorldChoiceOf(
   String? setting;
   final rest = <String>[];
   final seen = <String>{};
-  for (final ref in group.worldIds) {
+  for (final ref in worldRefs) {
     final w = resolve(ref);
     if (w == null) continue;
     final start = startingPlaceOf(w, lookup);
@@ -113,6 +130,18 @@ GroupWorldChoice groupWorldChoiceIn(GroupChat group, WorldRepository repo) =>
       lookup: repo.worldById,
       climateAuthorFor: repo.climateAuthorFor,
     );
+
+/// [worldChoiceOfRefs] for a 1:1 [card] against the library in [repo].
+GroupWorldChoice characterWorldChoiceIn(
+  CharacterCard card,
+  WorldRepository repo,
+) => worldChoiceOfRefs(
+  worldRefs: card.worldNames,
+  loreRefs: card.loreWorldNames,
+  resolve: (ref) => repo.worldById(ref) ?? repo.worldByName(ref),
+  lookup: repo.worldById,
+  climateAuthorFor: repo.climateAuthorFor,
+);
 
 /// The choice that starts new chats where a chat already is: its Setting's
 /// world at that world's starred place, and the worlds of its Lore slots as
@@ -164,3 +193,7 @@ GroupWorldChoice? groupWorldChoiceFromChat({
 /// that worlds now have two roles, with today's split already filled in.
 bool groupNeedsWorldSplitNotice(GroupChat group) =>
     group.loreWorldIds == null && group.worldIds.length > 1;
+
+/// The same notice for a 1:1 card that links more than one world.
+bool characterNeedsWorldSplitNotice(CharacterCard card) =>
+    card.loreWorldNames == null && card.worldNames.length > 1;

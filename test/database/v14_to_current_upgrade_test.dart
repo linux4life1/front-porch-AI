@@ -141,9 +141,10 @@ void main() {
     // minutes / refractory_tail_total (warmth tail, recovery PR 4).
     // 2026-10-20: v61 adds worlds.parent_world_id (locations within
     // worlds, slice 1). 2026-10-29: v62 adds groups.lore_world_ids (a
-    // group's lore-only worlds apart from its Setting), so the ladder ends
-    // at 62.
-    expect(first['_meta']!['user_version'], 62);
+    // group's lore-only worlds apart from its Setting). 2026-10-30: v63
+    // adds characters.lore_world_names (the same split for 1:1 cards), so
+    // the ladder ends at 63.
+    expect(first['_meta']!['user_version'], 63);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -168,7 +169,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 62);
+    expect(second['_meta']!['user_version'], 63);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

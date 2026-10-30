@@ -284,6 +284,17 @@ class $CharactersTable extends Characters
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _loreWorldNamesMeta = const VerificationMeta(
+    'loreWorldNames',
+  );
+  @override
+  late final GeneratedColumn<String> loreWorldNames = GeneratedColumn<String>(
+    'lore_world_names',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -310,6 +321,7 @@ class $CharactersTable extends Characters
     updatedAt,
     deletedAt,
     primeAvatarIndex,
+    loreWorldNames,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -501,6 +513,15 @@ class $CharactersTable extends Characters
         ),
       );
     }
+    if (data.containsKey('lore_world_names')) {
+      context.handle(
+        _loreWorldNamesMeta,
+        loreWorldNames.isAcceptableOrUnknown(
+          data['lore_world_names']!,
+          _loreWorldNamesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -606,6 +627,10 @@ class $CharactersTable extends Characters
         DriftSqlType.int,
         data['${effectivePrefix}prime_avatar_index'],
       )!,
+      loreWorldNames: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lore_world_names'],
+      ),
     );
   }
 
@@ -640,6 +665,7 @@ class Character extends DataClass implements Insertable<Character> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final int primeAvatarIndex;
+  final String? loreWorldNames;
   const Character({
     required this.id,
     required this.name,
@@ -665,6 +691,7 @@ class Character extends DataClass implements Insertable<Character> {
     required this.updatedAt,
     this.deletedAt,
     required this.primeAvatarIndex,
+    this.loreWorldNames,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -705,6 +732,9 @@ class Character extends DataClass implements Insertable<Character> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['prime_avatar_index'] = Variable<int>(primeAvatarIndex);
+    if (!nullToAbsent || loreWorldNames != null) {
+      map['lore_world_names'] = Variable<String>(loreWorldNames);
+    }
     return map;
   }
 
@@ -744,6 +774,9 @@ class Character extends DataClass implements Insertable<Character> {
           ? const Value.absent()
           : Value(deletedAt),
       primeAvatarIndex: Value(primeAvatarIndex),
+      loreWorldNames: loreWorldNames == null && nullToAbsent
+          ? const Value.absent()
+          : Value(loreWorldNames),
     );
   }
 
@@ -783,6 +816,7 @@ class Character extends DataClass implements Insertable<Character> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       primeAvatarIndex: serializer.fromJson<int>(json['primeAvatarIndex']),
+      loreWorldNames: serializer.fromJson<String?>(json['loreWorldNames']),
     );
   }
   @override
@@ -815,6 +849,7 @@ class Character extends DataClass implements Insertable<Character> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'primeAvatarIndex': serializer.toJson<int>(primeAvatarIndex),
+      'loreWorldNames': serializer.toJson<String?>(loreWorldNames),
     };
   }
 
@@ -843,6 +878,7 @@ class Character extends DataClass implements Insertable<Character> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? primeAvatarIndex,
+    Value<String?> loreWorldNames = const Value.absent(),
   }) => Character(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -869,6 +905,9 @@ class Character extends DataClass implements Insertable<Character> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     primeAvatarIndex: primeAvatarIndex ?? this.primeAvatarIndex,
+    loreWorldNames: loreWorldNames.present
+        ? loreWorldNames.value
+        : this.loreWorldNames,
   );
   Character copyWithCompanion(CharactersCompanion data) {
     return Character(
@@ -922,6 +961,9 @@ class Character extends DataClass implements Insertable<Character> {
       primeAvatarIndex: data.primeAvatarIndex.present
           ? data.primeAvatarIndex.value
           : this.primeAvatarIndex,
+      loreWorldNames: data.loreWorldNames.present
+          ? data.loreWorldNames.value
+          : this.loreWorldNames,
     );
   }
 
@@ -951,7 +993,8 @@ class Character extends DataClass implements Insertable<Character> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('primeAvatarIndex: $primeAvatarIndex')
+          ..write('primeAvatarIndex: $primeAvatarIndex, ')
+          ..write('loreWorldNames: $loreWorldNames')
           ..write(')'))
         .toString();
   }
@@ -982,6 +1025,7 @@ class Character extends DataClass implements Insertable<Character> {
     updatedAt,
     deletedAt,
     primeAvatarIndex,
+    loreWorldNames,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1010,7 +1054,8 @@ class Character extends DataClass implements Insertable<Character> {
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
-          other.primeAvatarIndex == this.primeAvatarIndex);
+          other.primeAvatarIndex == this.primeAvatarIndex &&
+          other.loreWorldNames == this.loreWorldNames);
 }
 
 class CharactersCompanion extends UpdateCompanion<Character> {
@@ -1038,6 +1083,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> primeAvatarIndex;
+  final Value<String?> loreWorldNames;
   final Value<int> rowid;
   const CharactersCompanion({
     this.id = const Value.absent(),
@@ -1064,6 +1110,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.primeAvatarIndex = const Value.absent(),
+    this.loreWorldNames = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CharactersCompanion.insert({
@@ -1091,6 +1138,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.primeAvatarIndex = const Value.absent(),
+    this.loreWorldNames = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -1119,6 +1167,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? primeAvatarIndex,
+    Expression<String>? loreWorldNames,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1147,6 +1196,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (primeAvatarIndex != null) 'prime_avatar_index': primeAvatarIndex,
+      if (loreWorldNames != null) 'lore_world_names': loreWorldNames,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1176,6 +1226,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? primeAvatarIndex,
+    Value<String?>? loreWorldNames,
     Value<int>? rowid,
   }) {
     return CharactersCompanion(
@@ -1204,6 +1255,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       primeAvatarIndex: primeAvatarIndex ?? this.primeAvatarIndex,
+      loreWorldNames: loreWorldNames ?? this.loreWorldNames,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1285,6 +1337,9 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     if (primeAvatarIndex.present) {
       map['prime_avatar_index'] = Variable<int>(primeAvatarIndex.value);
     }
+    if (loreWorldNames.present) {
+      map['lore_world_names'] = Variable<String>(loreWorldNames.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1318,6 +1373,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('primeAvatarIndex: $primeAvatarIndex, ')
+          ..write('loreWorldNames: $loreWorldNames, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

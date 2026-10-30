@@ -158,11 +158,20 @@ class CharacterLinkedWorldPurge {
     if (charRepo != null) {
       for (final c in charRepo.characters) {
         final before = c.worldNames.length;
+        final loreBefore = c.loreWorldNames?.length;
         c.worldNames = [
           for (final ref in c.worldNames)
             if (keep(ref)) ref,
         ];
-        if (c.worldNames.length != before) {
+        final lore = c.loreWorldNames;
+        if (lore != null) {
+          c.loreWorldNames = [
+            for (final ref in lore)
+              if (keep(ref)) ref,
+          ];
+        }
+        if (c.worldNames.length != before ||
+            c.loreWorldNames?.length != loreBefore) {
           try {
             await charRepo.updateCharacter(c);
           } catch (e) {

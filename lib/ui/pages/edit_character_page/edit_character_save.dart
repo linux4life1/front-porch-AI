@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 
@@ -37,10 +38,38 @@ class EditCharacterCardWriter {
 
   const EditCharacterCardWriter({required this.character, required this.draft});
 
-  /// Worlds linked in THIS edit (not present when the editor opened).
-  List<String> get addedWorlds => draft.selectedWorldNames
-      .where((w) => !draft.initialWorldNames.contains(w))
-      .toList();
+  /// The world fields Save writes; an untouched choice keeps them as stored.
+  ({List<String> worldIds, List<String>? loreWorldIds}) get worldFields =>
+      groupWorldFieldsToSave(
+        storedWorldIds: draft.initialWorldNames,
+        storedLoreWorldIds: draft.initialLoreWorldNames,
+        chosen: draft.worldChoice,
+        asLoaded: draft.worldsAsLoaded,
+      );
+
+  /// Worlds linked in THIS edit (not present when the editor opened), in
+  /// their roles. [lore] is null for a card that stays unsplit.
+  ({List<String> setting, List<String>? lore}) get addedWorlds {
+    final before = {
+      ...draft.initialWorldNames,
+      ...?draft.initialLoreWorldNames,
+      ?draft.worldsAsLoaded.settingId,
+      ...draft.worldsAsLoaded.loreIds,
+    };
+    final f = worldFields;
+    return (
+      setting: [
+        for (final r in f.worldIds)
+          if (!before.contains(r)) r,
+      ],
+      lore: f.loreWorldIds == null
+          ? null
+          : [
+              for (final r in f.loreWorldIds!)
+                if (!before.contains(r)) r,
+            ],
+    );
+  }
 
   void writeFields({required bool showRealismTab}) {
     final d = draft;
@@ -61,7 +90,9 @@ class EditCharacterCardWriter {
     // follows the global Settings voice again (null, not '', so
     // the card round-trip omits the field entirely).
     character.ttsVoice = d.ttsVoice.isEmpty ? null : d.ttsVoice;
-    character.worldNames = d.selectedWorldNames;
+    final worlds = worldFields;
+    character.worldNames = worlds.worldIds;
+    character.loreWorldNames = worlds.loreWorldIds;
 
     // Always persist extensions — even when realism is disabled — so that
     // configured-but-disabled values survive the PNG round-trip. Skipped when

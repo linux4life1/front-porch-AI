@@ -34,6 +34,7 @@
 // chat_service_group_membership.dart and both expectations go red (image_path
 // null, realism_state null).
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -369,4 +370,103 @@ void main() {
       );
     },
   );
+
+  // A character card split into its Setting and lore-only worlds (the 1:1
+  // world picker). Proven to fail: drop the card's loreWorldNames from
+  // _seedChatWorldsForNewSession (chat_service_session_fork.dart), the
+  // loreWorldIds copy in forkToGroupChat, or allWorldNames in
+  // _createGroupMember, and the matching expectation goes red.
+  group('a character card with its Setting and lore split', () {
+    late WorldRepository worlds;
+    late ChatService splitChat;
+    late CharacterRepository repo;
+    late UserPersonaService personas;
+    late CharacterCard host;
+
+    setUp(() async {
+      repo = CharacterRepository(db, storage);
+      personas = UserPersonaService(db);
+      worlds = WorldRepository(storage, db);
+      splitChat = ChatService(KoboldService(storage), personas, storage, worlds)
+        ..setDatabase(db)
+        ..setCharacterRepository(repo)
+        ..setGroupChatRepository(GroupChatRepository(storage, db));
+      addTearDown(splitChat.dispose);
+
+      for (final w in [
+        model.World(
+          id: 'town',
+          name: 'Bletchfield',
+          lorebook: Lorebook(entries: []),
+          biomeId: 'temperate',
+        )..defaultPlaceId = 'cafe',
+        model.World(
+          id: 'cafe',
+          name: 'Tea Rooms',
+          lorebook: Lorebook(entries: []),
+          parentWorldId: 'town',
+          climateEnabled: false,
+        ),
+        model.World(
+          id: 'myth',
+          name: 'Old Songs',
+          lorebook: Lorebook(entries: []),
+          climateEnabled: false,
+        ),
+      ]) {
+        await worlds.saveWorld(w);
+      }
+      host = CharacterCard(
+        name: 'Nia',
+        description: 'Exists only inside the split-card test.',
+        firstMessage: 'The kettle whistles.',
+        worldNames: ['town'],
+        loreWorldNames: ['myth'],
+      );
+      await repo.addCharacter(host);
+      await splitChat.startFreshChatWith(
+        character: host,
+        personaId: personas.persona.id,
+      );
+    });
+
+    test('a new 1:1 chat meets at the Setting and reads the lore', () async {
+      expect(splitChat.chatPrimaryWorldId, 'cafe');
+      expect(
+        splitChat.chatLoreWorldIds,
+        contains('myth'),
+        reason: 'the card\'s lore-only world must reach the chat',
+      );
+    });
+
+    test('a fork to a group keeps the card\'s lore, in the template and '
+        'in the host\'s member row', () async {
+      // An emptied chat leaves the card as the only source of the template.
+      await splitChat.setChatPlaceSlots(primaryId: null, loreIds: const []);
+      final guest = CharacterCard(
+        name: 'Marisol',
+        description: 'Exists only inside the split-card test.',
+        firstMessage: 'Mind if I sit?',
+      );
+      await repo.addCharacter(guest);
+      final group = await splitChat.forkToGroupChat([
+        guest,
+      ], GroupChatRepository(storage, db));
+
+      expect(group, isNotNull);
+      expect(splitChat.activeGroup!.worldIds, ['town']);
+      expect(
+        splitChat.activeGroup!.loreWorldIds,
+        ['myth'],
+        reason: 'a later New chat in the group reads the card\'s lore too',
+      );
+      final rows = await db.getGroupMembers(splitChat.activeGroup!.id);
+      final hostRow = rows.firstWhere((r) => r.name == 'Nia');
+      expect(
+        (jsonDecode(hostRow.worldNames) as List).cast<String>(),
+        containsAll(['town', 'myth']),
+        reason: 'group Inherit reads the member row, which has no lore field',
+      );
+    });
+  });
 }

@@ -68,7 +68,7 @@ Future<CharacterCard?> editGroupMemberCard(
                     ? jsonEncode(card.lorebook!.toJson())
                     : null,
               ),
-              worldNames: Value(jsonEncode(card.worldNames)),
+              worldNames: Value(jsonEncode(card.allWorldNames)),
             ),
           );
         },

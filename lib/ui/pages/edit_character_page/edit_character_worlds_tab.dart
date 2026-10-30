@@ -18,204 +18,55 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
-import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 
-/// The character editor's Worlds tab. Linking a place edits
-/// [selectedWorldNames] in place and then calls [onChanged].
+/// The character editor's Worlds tab: where this character's new 1:1 chats
+/// meet, with the same picker groups use. One world sets the weather and
+/// the starting place; "Also read lore from" adds lore-only worlds.
 class EditCharacterWorldsTab extends StatelessWidget {
-  final List<String> selectedWorldNames;
-  final VoidCallback onChanged;
-
   const EditCharacterWorldsTab({
     super.key,
-    required this.selectedWorldNames,
+    required this.value,
     required this.onChanged,
+    required this.characterName,
+    this.legacyWorldCount = 0,
   });
+
+  final GroupWorldChoice value;
+  final ValueChanged<GroupWorldChoice> onChanged;
+
+  /// Names the character in the copy ("Applies to Mira's new chats").
+  final String characterName;
+
+  /// How many worlds an unsplit card links; above one, the banner explains
+  /// that worlds now have two roles. Zero hides it.
+  final int legacyWorldCount;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<WorldRepository>(
-      builder: (context, repo, child) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Linked Worlds',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary(context),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Attach worlds so their lore and climate apply in this character\'s chats. '
-                    'Chats start at the world\'s starred place. '
-                    'To copy another character\'s lore into this card, use Lorebook → From character.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary(context),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  if (repo.linkableWorlds.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(40),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardOf(context),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.borderOf(
-                            context,
-                          ).withValues(alpha: 0.45),
-                        ),
-                      ),
-                      child: Center(
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.public,
-                              size: 48,
-                              color: InkColors.washOf(context, 0.12, 0.12),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No places found',
-                              style: TextStyle(
-                                color: AppColors.textTertiary(context),
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Create places in the Worlds section.',
-                              style: TextStyle(
-                                color: AppColors.textTertiary(context),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    ...repo.linkableWorlds.map((world) {
-                      final link = linkStateOf(
-                        selectedWorldNames,
-                        world,
-                        repo.placeWorlds,
-                      );
-                      final inside = linkPickerInsideLine(
-                        world,
-                        repo.placeWorlds,
-                        linkedAt: link.linkedAt,
-                      );
-                      final isLinked = link.linked;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardOf(context),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isLinked
-                                ? AppColors.formAccentOf(
-                                    context,
-                                  ).withValues(alpha: 0.4)
-                                : AppColors.borderOf(
-                                    context,
-                                  ).withValues(alpha: 0.45),
-                          ),
-                        ),
-                        child: ListTile(
-                          leading: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isLinked
-                                  ? AppColors.formAccentOf(
-                                      context,
-                                    ).withValues(alpha: 0.2)
-                                  : InkColors.washOf(context, 0.05, 0.05),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Icon(
-                              Icons.public,
-                              size: 20,
-                              color: isLinked
-                                  ? AppColors.formAccentOf(context)
-                                  : AppColors.textTertiary(context),
-                            ),
-                          ),
-                          title: Text(
-                            world.name,
-                            style: TextStyle(
-                              color: isLinked
-                                  ? AppColors.textPrimary(context)
-                                  : AppColors.textSecondary(context),
-                              fontWeight: isLinked
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              for (final line in [
-                                world.description.isNotEmpty
-                                    ? world.description
-                                    : '${world.lorebook.entries.length} entries',
-                                ?inside,
-                              ])
-                                Text(
-                                  line,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: AppColors.textTertiary(context),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          trailing: Switch(
-                            value: isLinked,
-                            onChanged: (val) {
-                              final rest = refsWithoutWorld(
-                                selectedWorldNames,
-                                world,
-                                repo.placeWorlds,
-                              );
-                              selectedWorldNames
-                                ..clear()
-                                ..addAll(rest);
-                              if (val) selectedWorldNames.add(world.id);
-                              onChanged();
-                            },
-                            activeTrackColor: AppColors.formAccentOf(
-                              context,
-                            ).withValues(alpha: 0.5),
-                            activeThumbColor: AppColors.formAccentOf(context),
-                          ),
-                        ),
-                      );
-                    }),
-
-                  const SizedBox(height: 80),
-                ],
-              ),
+      builder: (context, repo, child) => SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: GroupWorldsSection(
+              value: value,
+              onChanged: onChanged,
+              places: repo.placeWorlds,
+              weatherOf: groupWeatherLabels(repo),
+              legacyWorldCount: legacyWorldCount,
+              owner: characterName.trim().isEmpty
+                  ? 'this character'
+                  : characterName.trim(),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
