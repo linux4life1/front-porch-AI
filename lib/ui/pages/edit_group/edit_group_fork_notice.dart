@@ -43,15 +43,23 @@ class ForkedGroupSource {
   /// Where that chat is; null when it has no worlds.
   final GroupWorldChoice? worlds;
 
+  /// The chat had realism on, but [group] saves no member seeds, so a new
+  /// chat would start with realism off.
+  bool realismMissingFrom(GroupChat group) =>
+      realismOn &&
+      parseGroupRealismSeeds(group.defaultMemberRealismState).isEmpty;
+
+  /// The chat is somewhere, but [group] starts new chats nowhere.
+  bool worldMissingFrom(GroupChat group) =>
+      worlds != null &&
+      group.worldIds.isEmpty &&
+      (group.loreWorldIds?.isEmpty ?? true);
+
   /// Whether [group]'s settings for new chats are missing something the
-  /// chat had: realism, its world, or the host's lorebook.
+  /// chat had. Inherit alone does not count: it is a choice the user can
+  /// make either way, and counting it kept the notice up for good.
   bool differsFrom(GroupChat group) =>
-      (realismOn &&
-          parseGroupRealismSeeds(group.defaultMemberRealismState).isEmpty) ||
-      (worlds != null &&
-          group.worldIds.isEmpty &&
-          (group.loreWorldIds?.isEmpty ?? true)) ||
-      !group.inheritCharacterLorebooks;
+      realismMissingFrom(group) || worldMissingFrom(group);
 }
 
 /// The first chat of [group] when the group was made from a 1:1 (its
@@ -146,8 +154,9 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
     if (source == null) return const SizedBox.shrink();
     final accent = AppColors.formAccentOf(context);
     final missing = [
-      if (source.realismOn) 'Realism${source.needsOn ? ' and Needs' : ''} off',
-      if (source.worlds != null) 'no world',
+      if (source.realismMissingFrom(widget.group))
+        'Realism${source.needsOn ? ' and Needs' : ''} off',
+      if (source.worldMissingFrom(widget.group)) 'no world',
     ];
     return Container(
       key: const ValueKey('edit-group-fork-notice'),
@@ -194,15 +203,20 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
               ),
             ),
           ],
-          SwitchListTile(
-            key: const ValueKey('edit-group-fork-inherit'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text("Read the original character's lorebook"),
-            subtitle: const Text(
-              'Turns on Inherit. Your open chats start reading it too.',
+          // A ListTile paints its ink on the nearest Material; without one
+          // here it would paint under the card colour and warn.
+          Material(
+            type: MaterialType.transparency,
+            child: SwitchListTile(
+              key: const ValueKey('edit-group-fork-inherit'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text("Read the original character's lorebook"),
+              subtitle: const Text(
+                'Turns on Inherit. Your open chats start reading it too.',
+              ),
+              value: widget.inheritOn,
+              onChanged: widget.onInheritChanged,
             ),
-            value: widget.inheritOn,
-            onChanged: widget.onInheritChanged,
           ),
         ],
       ),

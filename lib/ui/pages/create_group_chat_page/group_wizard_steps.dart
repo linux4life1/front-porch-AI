@@ -20,16 +20,16 @@
 /// wizard (dots, Next, Back, the page's switch) reads these, so inserting
 /// a step can no longer leave one of them pointing at the wrong page.
 ///
-/// The Setting comes before the Opening so the generator can write the
-/// scene where chats start. Group Dynamics is a section of Realism and
+/// Setting and Realism come before the Opening so the generator can write
+/// the scene where chats start, with the Group Dynamics already set. Group Dynamics is a section of Realism and
 /// Prompts share a page with Lore, so every step always exists and Next
 /// and Back never skip.
 abstract final class GroupWizardSteps {
   static const members = 0;
   static const identity = 1;
   static const setting = 2;
-  static const opening = 3;
-  static const realism = 4;
+  static const realism = 3;
+  static const opening = 4;
   static const promptsLore = 5;
   static const review = 6;
 
@@ -40,8 +40,8 @@ abstract final class GroupWizardSteps {
     'Members',
     'Identity',
     'Setting',
-    'Opening',
     'Realism',
+    'Opening',
     'Prompts & Lore',
     'Review',
   ];

@@ -82,9 +82,8 @@ void main() {
     await next('Group Name');
     await tester.enterText(find.byType(TextField).first, 'Pace Probe');
     await tester.pumpAndSettle();
-    // Changed with the seven-step flow: Setting, then Opening, then Realism.
+    // Changed with the seven-step flow: Setting, then Realism.
     await next('Where does the group meet?');
-    await next('Opening Scene');
     await next('Day Number');
 
     // Changed with the seven-step flow: Group Dynamics now shares the

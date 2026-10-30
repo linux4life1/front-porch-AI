@@ -247,11 +247,12 @@ class GroupRealismStep extends StatelessWidget {
         if (d.realismEnabled) ...[
           Row(
             children: [
-              Text(
-                'Initial Realism State per Member',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              Expanded(
+                child: Text(
+                  'Initial Realism State per Member',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
               ),
-              const Spacer(),
               TextButton(
                 onPressed: () => d.bulkSeedRealism('neutral'),
                 child: const Text('Neutral'),

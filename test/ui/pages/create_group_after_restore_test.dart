@@ -166,11 +166,11 @@ void main() {
     await next('Group Name');
     await tester.enterText(find.byType(TextField).first, 'Restored Porch');
     await tester.pumpAndSettle();
-    // Changed with the seven-step flow: Setting, Opening, Realism (with
-    // Group Dynamics inside), Prompts & Lore, Review.
+    // Changed with the seven-step flow: Setting, Realism (with Group
+    // Dynamics inside), Opening, Prompts & Lore, Review.
     await next('Where does the group meet?');
-    await next('Opening Scene');
     await next('Day Number');
+    await next('Opening Scene');
     await next('Group System Prompt');
     await next('Create Group & Enter Chat');
 
