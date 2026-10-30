@@ -23,77 +23,14 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-
-/// What the 1:1 chat a group was made from had switched on, so Edit Group
-/// can offer to fill in settings that groups forked before the fix were
-/// saved without.
-class ForkedGroupSource {
-  const ForkedGroupSource({
-    required this.realismOn,
-    required this.needsOn,
-    required this.worlds,
-  });
-
-  final bool realismOn;
-  final bool needsOn;
-
-  /// Where that chat is; null when it has no worlds.
-  final GroupWorldChoice? worlds;
-
-  /// The chat had realism on, but [group] saves no member seeds, so a new
-  /// chat would start with realism off.
-  bool realismMissingFrom(GroupChat group) =>
-      realismOn &&
-      parseGroupRealismSeeds(group.defaultMemberRealismState).isEmpty;
-
-  /// The chat is somewhere, but [group] starts new chats nowhere.
-  bool worldMissingFrom(GroupChat group) =>
-      worlds != null &&
-      group.worldIds.isEmpty &&
-      (group.loreWorldIds?.isEmpty ?? true);
-
-  /// Whether [group]'s settings for new chats are missing something the
-  /// chat had. Inherit alone does not count: it is a choice the user can
-  /// make either way, and counting it kept the notice up for good.
-  bool differsFrom(GroupChat group) =>
-      realismMissingFrom(group) || worldMissingFrom(group);
-}
-
-/// The first chat of [group] when the group was made from a 1:1 (its
-/// parent session has no group), read as a [ForkedGroupSource]. Null for a
-/// group made any other way.
-Future<ForkedGroupSource?> findForkedGroupSource(
-  AppDatabase db,
-  GroupChat group, {
-  required World? Function(String id) lookup,
-}) async {
-  final sessions = await db.getSessionsForGroup(group.id);
-  if (sessions.isEmpty) return null;
-  final first = sessions.last; // newest first
-  final parentId = first.parentSession;
-  if (parentId == null) return null;
-  final parent = await db.getSessionById(parentId);
-  if (parent == null || parent.groupId != null) return null;
-  final slots = await db.getChatWorldAttachments(first.id);
-  return ForkedGroupSource(
-    realismOn: first.realismEnabled,
-    needsOn: first.needsSimEnabled,
-    worlds: groupWorldChoiceFromChat(
-      primaryId: slots.primaryId,
-      loreIds: slots.loreIds,
-      lookup: lookup,
-    ),
-  );
-}
 
 /// Edit Group's banner for a group forked before the fix. It finds the chat
 /// the group came from itself and draws nothing for any other group. "Use
-/// the chat's settings" only fills the editor; Save writes it. Reading the
-/// host's lorebook is a separate switch because it is the one change that
-/// also reaches chats already running.
+/// the chat's settings" only fills the editor; Save writes it. "Leave as
+/// is" hides it for this visit. Reading the host's lorebook is a separate
+/// switch because it is the one change that also reaches chats already
+/// running.
 class EditGroupForkNotice extends StatefulWidget {
   const EditGroupForkNotice({
     super.key,
@@ -116,7 +53,9 @@ class EditGroupForkNotice extends StatefulWidget {
 
 class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
   ForkedGroupSource? _source;
+  World? Function(String id) _lookup = (_) => null;
   bool _looked = false;
+  bool _dismissed = false;
 
   @override
   void didChangeDependencies() {
@@ -132,6 +71,7 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
       return;
     }
     final worlds = Provider.of<WorldRepository>(context, listen: false);
+    _lookup = worlds.worldById;
     () async {
       try {
         final s = await findForkedGroupSource(
@@ -151,13 +91,16 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
   @override
   Widget build(BuildContext context) {
     final source = _source;
-    if (source == null) return const SizedBox.shrink();
+    if (source == null || _dismissed) return const SizedBox.shrink();
     final accent = AppColors.formAccentOf(context);
+    final host = source.hostName;
+    final realismGap = source.realismMissingFrom(widget.group);
+    final worldGap = source.worldMissingFrom(widget.group);
     final missing = [
-      if (source.realismMissingFrom(widget.group))
-        'Realism${source.needsOn ? ' and Needs' : ''} off',
-      if (source.worldMissingFrom(widget.group)) 'no world',
+      if (realismGap) 'Realism${source.needsOn ? ' and Needs' : ''} off',
+      if (worldGap) 'no world',
     ];
+    final meet = worldGap ? groupMeetLine(source.worlds!, _lookup) : null;
     return Container(
       key: const ValueKey('edit-group-fork-notice'),
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -171,7 +114,9 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'This group started from a 1:1 chat.',
+            host == null
+                ? 'This group started from a 1:1 chat.'
+                : 'This group started from your chat with $host.',
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary(context),
@@ -181,43 +126,110 @@ class _EditGroupForkNoticeState extends State<EditGroupForkNotice> {
           Text(
             widget.applied
                 ? 'Filled in from that chat. Press Save to keep it.'
-                : missing.isEmpty
-                ? "The chats you have now aren't affected."
                 : 'Its settings for new chats were never filled in, so a new '
                       'chat would start with ${missing.join(' and ')}. The '
                       "chats you have now aren't affected.",
             style: TextStyle(color: AppColors.textSecondary(context)),
           ),
-          if (missing.isNotEmpty && !widget.applied) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                key: const ValueKey('edit-group-fork-use'),
-                onPressed: () => widget.onUseSettings(source),
-                style: FilledButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: AppColors.onAccentOf(context),
-                ),
-                child: const Text("Use the chat's settings"),
-              ),
+          const SizedBox(height: 10),
+          Text(
+            'FILLED IN FROM THAT CHAT',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textTertiary(context),
             ),
-          ],
-          // A ListTile paints its ink on the nearest Material; without one
-          // here it would paint under the card colour and warn.
-          Material(
-            type: MaterialType.transparency,
-            child: SwitchListTile(
+          ),
+          if (realismGap)
+            _ForkRow(
+              title: 'Realism on · Needs ${source.needsOn ? 'on' : 'off'}',
+              subtitle: 'Neutral starting values for every member',
+            ),
+          if (meet != null)
+            _ForkRow(title: meet, subtitle: 'The world the chat is in'),
+          _ForkRow(
+            title: host == null
+                ? "Read the original character's lorebook"
+                : "Read $host's lorebook",
+            subtitle: 'Turns on Inherit. Your open chats start reading it too.',
+            trailing: Switch(
               key: const ValueKey('edit-group-fork-inherit'),
-              contentPadding: EdgeInsets.zero,
-              title: const Text("Read the original character's lorebook"),
-              subtitle: const Text(
-                'Turns on Inherit. Your open chats start reading it too.',
-              ),
               value: widget.inheritOn,
               onChanged: widget.onInheritChanged,
             ),
           ),
+          if (!widget.applied) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton(
+                  key: const ValueKey('edit-group-fork-leave'),
+                  onPressed: () => setState(() => _dismissed = true),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary(context),
+                  ),
+                  child: const Text('Leave as is'),
+                ),
+                FilledButton(
+                  key: const ValueKey('edit-group-fork-use'),
+                  onPressed: () => widget.onUseSettings(source),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: AppColors.onAccentOf(context),
+                  ),
+                  child: const Text("Use the chat's settings"),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// One line of what the notice would fill in.
+class _ForkRow extends StatelessWidget {
+  const _ForkRow({required this.title, required this.subtitle, this.trailing});
+
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.borderOf(context)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ?trailing,
         ],
       ),
     );

@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { describeActionFailure } from '../pages/chat/chatActionError';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
+import { GroupNewChatsSection } from './groupSetting/GroupNewChatsSection';
 import { GroupWorldsSection } from './groupSetting/GroupWorldsSection';
 import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
 
@@ -58,6 +59,10 @@ export function GroupSettings({
     setPrompts(Object.fromEntries(group.members.map((m) => [m.id, m.prompt])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
+
+  // Bumped when the forked-group notice sets where new chats meet, so the
+  // worlds section reloads what was saved.
+  const [worldsGen, setWorldsGen] = useState(0);
 
   // Each field saves on blur. A failed save used to vanish silently; the
   // text is still in its box, so say so and let the next blur retry.
@@ -131,7 +136,8 @@ export function GroupSettings({
             save({ alternateGreetings: paired.greetings, greetingSeeds: paired.seeds });
           }}
         />
-        <GroupWorldsSection groupId={groupId} />
+        <GroupNewChatsSection groupId={groupId} onWorldsChanged={() => setWorldsGen((n) => n + 1)} />
+        <GroupWorldsSection key={worldsGen} groupId={groupId} />
         <h4 className="section-label">Per-member prompt overrides</h4>
         {group.members.map((m) => (
           <label key={m.id}>

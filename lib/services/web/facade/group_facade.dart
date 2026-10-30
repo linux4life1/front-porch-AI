@@ -28,6 +28,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
 import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
+import 'package:front_porch_ai/services/web/facade/group_new_chats.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -53,6 +54,9 @@ class GroupFacade {
 
   /// The web wizard's Generate buttons; null when no model provider is wired.
   GroupDraftOpening? opening;
+
+  /// Group Settings' "New chats" switches and the forked-group notice.
+  late final GroupNewChats newChats = GroupNewChats(_groups, db, worlds);
 
   final GroupChatRepository _groups;
   final StorageService _storage;

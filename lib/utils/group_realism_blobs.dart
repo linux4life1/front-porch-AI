@@ -359,3 +359,72 @@ String withGroupOpeningAlts(
   map.addAll(_groupOpeningAltsFragment(alternateGreetings, greetingSeeds));
   return jsonEncode(map);
 }
+
+/// Whether a group's settings for new chats have Realism and Needs on, read
+/// the way the desktop realism editor reads them: realism is on when any
+/// member has a seed, Needs when a seed carries a needs map.
+({bool realismOn, bool needsOn}) groupTemplateRealismOf(
+  String defaultMemberJson,
+) {
+  final seeds = parseGroupRealismSeeds(defaultMemberJson);
+  return (
+    realismOn: seeds.isNotEmpty,
+    needsOn:
+        seeds.isEmpty ||
+        seeds.values.any(
+          (s) => s['needs'] is Map && (s['needs'] as Map).isNotEmpty,
+        ),
+  );
+}
+
+/// The blobs a group stores once Realism and Needs for new chats are
+/// switched to [realismOn] / [needsOn], as the desktop realism editor writes
+/// them. Off keeps only the alternate greetings. On keeps every stored seed
+/// and scene time, adds a neutral seed for each of [memberIds] that has
+/// none, and gives seeds starting needs when Needs comes on.
+GroupRealismBlobs switchGroupTemplateRealism({
+  required String defaultMemberJson,
+  required String baselineJson,
+  required Iterable<String> memberIds,
+  required bool realismOn,
+  required bool needsOn,
+}) {
+  final alts = parseGroupAlternateGreetings(defaultMemberJson);
+  final altSeeds = parseGroupGreetingSeeds(defaultMemberJson);
+  if (!realismOn) {
+    return GroupRealismBlobs(
+      defaultMemberJson: withGroupOpeningAlts(
+        '{}',
+        alternateGreetings: alts,
+        greetingSeeds: altSeeds,
+      ),
+      baselineJson: '{}',
+    );
+  }
+  final fresh = defaultGroupMemberRealismSeed();
+  final seeds = <String, Map<String, dynamic>>{
+    for (final e in parseGroupRealismSeeds(defaultMemberJson).entries)
+      e.key: Map<String, dynamic>.from(e.value),
+  };
+  for (final id in memberIds) {
+    seeds.putIfAbsent(id, () => Map<String, dynamic>.from(fresh));
+  }
+  if (needsOn) {
+    for (final s in seeds.values) {
+      if (s['needs'] is! Map || (s['needs'] as Map).isEmpty) {
+        s['needs'] = Map<String, int>.from(fresh['needs'] as Map);
+      }
+    }
+  }
+  final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
+  return buildGroupRealismBlobs(
+    seeds: seeds,
+    needsEnabled: needsOn,
+    timeOfDay: time?.timeOfDay ?? 'morning',
+    dayCount: time?.dayCount ?? 1,
+    storyStartDate: time?.storyStartDate,
+    storyStartTime: time?.storyStartTime,
+    alternateGreetings: alts,
+    greetingSeeds: altSeeds,
+  );
+}

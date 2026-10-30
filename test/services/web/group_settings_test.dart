@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -723,6 +724,154 @@ void main() {
       final baseline = jsonDecode(g.baselineRealismState) as Map;
       expect(baseline[mid[plainId]], containsPair('affection', -250));
       expect(baseline[mid[plainId]], containsPair('trust', 280));
+    });
+  });
+
+  // Web Group Settings' "New chats" section: the twin of Edit Group's notice
+  // for a group made from a 1:1 before forks saved that chat's settings, and
+  // the Realism, Needs and Inherit switches for new chats. Proven to fail:
+  // drop the useForkSource branch from GroupNewChats.update and the second
+  // test goes red; turn realism on with neutralGroupRealismBlobs instead
+  // of switchGroupTemplateRealism and the third does; drop hostName from
+  // findForkedGroupSource and the first does.
+  group('GroupFacade.newChats', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      groups = GroupChatRepository(storage, db);
+      await groups.save(GroupChat(id: 'g1', name: 'Juniper & Wren'));
+      for (final (id, name) in [('mem-j', 'Juniper'), ('mem-w', 'Wren')]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(id: id, groupId: 'g1', name: name),
+        );
+      }
+      facade = GroupFacade(groups, storage, null, db);
+    });
+
+    tearDown(() => db.close());
+
+    // A 1:1 with Juniper, realism and needs on, whose first group chat is
+    // g1's: what forkToGroupChat left before it saved honest settings.
+    Future<void> forkedFromJuniper() async {
+      await db
+          .into(db.characters)
+          .insert(CharactersCompanion.insert(id: 'char-j', name: 'Juniper'));
+      await db.insertSession(
+        SessionsCompanion.insert(id: 'one', characterId: const Value('char-j')),
+      );
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: 'forked',
+          groupId: const Value('g1'),
+          parentSession: const Value('one'),
+          realismEnabled: const Value(true),
+          needsSimEnabled: const Value(true),
+        ),
+      );
+    }
+
+    test(
+      'a blank group forked from a 1:1 names the chat it came from',
+      () async {
+        await forkedFromJuniper();
+        final state = (await facade.newChats.stateOf('g1'))!;
+        expect(state['realism'], isFalse);
+        final source = state['forkSource'] as Map<String, dynamic>;
+        expect(source['hostName'], 'Juniper');
+        expect(source['realismMissing'], isTrue);
+        expect(source['needsOn'], isTrue);
+        expect(
+          groups.getById('g1')!.defaultMemberRealismState,
+          '{}',
+          reason: 'reading the notice writes nothing',
+        );
+      },
+    );
+
+    test('"Use the chat\'s settings" saves realism and needs for every '
+        'member, and the notice goes', () async {
+      await forkedFromJuniper();
+      expect(
+        await facade.newChats.update('g1', {'useForkSource': true}),
+        isTrue,
+      );
+      final g = groups.getById('g1')!;
+      final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+      expect(seeds.keys, unorderedEquals(['mem-j', 'mem-w']));
+      expect(seeds['mem-w']!['needs'], isA<Map>());
+      expect(
+        g.inheritCharacterLorebooks,
+        isFalse,
+        reason:
+            'Inherit reaches open chats, so only its own switch '
+            'turns it on',
+      );
+      final state = (await facade.newChats.stateOf('g1'))!;
+      expect(state['realism'], isTrue);
+      expect(state['needs'], isTrue);
+      expect(state['forkSource'], isNull);
+    });
+
+    test('Needs off keeps every seed and the scene time; Realism off keeps '
+        'the greetings', () async {
+      final g = groups.getById('g1')!;
+      final on = buildGroupRealismBlobs(
+        seeds: {
+          'mem-j': {...defaultGroupMemberRealismSeed(), 'affection': 70},
+        },
+        needsEnabled: true,
+        timeOfDay: 'evening',
+        dayCount: 3,
+        alternateGreetings: const ['Rain on the porch.'],
+      );
+      g.defaultMemberRealismState = on.defaultMemberJson;
+      g.baselineRealismState = on.baselineJson;
+      g.alternateGreetings = ['Rain on the porch.'];
+      await groups.save(g);
+
+      await facade.newChats.update('g1', {'needs': false});
+      var saved = groups.getById('g1')!;
+      final seeds = parseGroupRealismSeeds(saved.defaultMemberRealismState);
+      expect(
+        seeds.keys,
+        unorderedEquals(['mem-j', 'mem-w']),
+        reason: 'a member with no seed gets a neutral one',
+      );
+      expect(seeds.values.every((s) => s['needs'] == null), isTrue);
+      expect(
+        seeds['mem-j']!['affection'],
+        70,
+        reason: 'switching Needs keeps the member\'s stored seed',
+      );
+      expect(
+        parseGroupTimeSeed(
+          saved.defaultMemberRealismState,
+          saved.baselineRealismState,
+        )?.timeOfDay,
+        'evening',
+      );
+      final state = (await facade.newChats.stateOf('g1'))!;
+      expect(state['realism'], isTrue);
+      expect(state['needs'], isFalse);
+
+      await facade.newChats.update('g1', {'realism': false});
+      saved = groups.getById('g1')!;
+      expect(parseGroupRealismSeeds(saved.defaultMemberRealismState), isEmpty);
+      expect(parseGroupAlternateGreetings(saved.defaultMemberRealismState), [
+        'Rain on the porch.',
+      ]);
+
+      await facade.newChats.update('g1', {'inherit': true});
+      expect(groups.getById('g1')!.inheritCharacterLorebooks, isTrue);
     });
   });
 }
