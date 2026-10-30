@@ -2083,17 +2083,17 @@ test(
       await expect(summary).toContainText('New chats start at Journey Meet Bridge in Journey Meet Vale.');
 
       // Changed with the seven-step web wizard: Create moved to Review, so
-      // the journey walks Opening, Realism and Prompts & Lore on the way.
+      // the journey walks Realism, Opening and Prompts & Lore on the way.
+      // ── Realism, with Group Dynamics inside for a pair ────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Realism Engine for this group')).toBeVisible();
+      await expect(page.getByTestId('group-dynamics')).toBeVisible();
       // ── Opening: set where the Setting step put the group ──────────────
       await page.getByRole('button', { name: 'Next →' }).click();
       await expect(page.getByTestId('group-opening-setting')).toContainText(
         'New chats start at Journey Meet Bridge in Journey Meet Vale.',
       );
       await page.getByPlaceholder('The scene opens with...').fill('The bridge sways in the rain.');
-      // ── Realism, with Group Dynamics inside for a pair ────────────────
-      await page.getByRole('button', { name: 'Next →' }).click();
-      await expect(page.getByText('Realism Engine for this group')).toBeVisible();
-      await expect(page.getByTestId('group-dynamics')).toBeVisible();
       // ── Prompts & Lore on one page ─────────────────────────────────────
       await page.getByRole('button', { name: 'Next →' }).click();
       await expect(page.getByText('Group System Prompt')).toBeVisible();

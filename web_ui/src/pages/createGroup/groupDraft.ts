@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The web new-group wizard's draft past Members and the Setting: Identity
-// switches, Opening, Realism (with Group Dynamics), Prompts & Lore. The
+// switches, Realism (with Group Dynamics), Opening, Prompts & Lore. The
 // relay reads the same body (lib/services/web/facade/group_create_draft.dart);
 // member keys are library character ids, which it maps to the new members.
 
@@ -14,8 +14,8 @@ export const GROUP_STEPS = [
   'Members',
   'Details',
   'Setting',
-  'Opening',
   'Realism',
+  'Opening',
   'Prompts & Lore',
   'Review',
 ] as const;
@@ -40,9 +40,27 @@ export interface LoreDraft {
   constant: boolean;
 }
 
+/** One member's starting seed, under the desktop seed's own key names
+ *  (defaultGroupMemberRealismSeed); the relay lays it over that seed and
+ *  writes the verification and needs fields to the member's extensions. */
 export interface MemberRealism {
   affection: number;
   trust: number;
+  emotion: string;
+  emotionIntensity: string;
+  verificationEnabled: boolean;
+  verificationMaxReprocesses: number;
+  verificationStrictness: number;
+  needsPace: string;
+  needsOff: string[];
+  needsBaselineHunger: number;
+  needsBaselineBladder: number;
+  needsBaselineEnergy: number;
+  needsBaselineSocial: number;
+  needsBaselineFun: number;
+  needsBaselineHygiene: number;
+  needsBaselineComfort: number;
+  enjoysLowHygiene: boolean;
 }
 
 export interface GroupDraft {
@@ -52,15 +70,23 @@ export interface GroupDraft {
   firstMessage: string;
   alternateGreetings: string[];
   greetingSeeds: (GreetingSeed | null)[];
+  /** Group Chaos (Chance Time) and its adult events; apart from Realism. */
+  chaosModeEnabled: boolean;
+  chaosNsfwEnabled: boolean;
   realismEnabled: boolean;
   needsEnabled: boolean;
   timeOfDay: string;
   dayCount: number;
-  /** Library id → starting bond and trust (0–100). */
-  members: Record<string, MemberRealism>;
+  /** Story Calendar start, "YYYY-MM-DD"; '' is the day the chat starts. */
+  storyStartDate: string;
+  /** Exact opening clock, "HH:MM"; '' is the time of day's default. */
+  storyStartTime: string;
+  /** Library id → what the member's seed changes from [NEUTRAL_MEMBER]:
+   *  affection is Short-Term Bond (−300…300), trust is Long-Term Bond
+   *  (−300…300) and Trust Level (−100…100). */
+  members: Record<string, Partial<MemberRealism>>;
   /** Library id → how it feels toward each other member (−300…300). */
   relationships: Record<string, Record<string, number>>;
-  systemPrompt: string;
   /** Library id → extra instructions for that member in this group. */
   memberPrompts: Record<string, string>;
   groupLore: LoreDraft[];
@@ -68,7 +94,57 @@ export interface GroupDraft {
 }
 
 /** The desktop's neutral member seed (defaultGroupMemberRealismSeed). */
-export const NEUTRAL_MEMBER: MemberRealism = { affection: 35, trust: 40 };
+export const NEUTRAL_MEMBER: MemberRealism = {
+  affection: 35,
+  trust: 40,
+  emotion: 'neutral',
+  emotionIntensity: 'mild',
+  verificationEnabled: false,
+  verificationMaxReprocesses: 1,
+  verificationStrictness: 3,
+  needsPace: 'normal',
+  needsOff: [],
+  needsBaselineHunger: 80,
+  needsBaselineBladder: 80,
+  needsBaselineEnergy: 80,
+  needsBaselineSocial: 80,
+  needsBaselineFun: 80,
+  needsBaselineHygiene: 80,
+  needsBaselineComfort: 80,
+  enjoysLowHygiene: false,
+};
+
+/** The desktop's High Bond preset (GroupWizardDraft.bulkSeedRealism). */
+export const HIGH_BOND_MEMBER: MemberRealism = {
+  ...NEUTRAL_MEMBER,
+  affection: 75,
+  trust: 70,
+  emotion: 'affection',
+  emotionIntensity: 'moderate',
+};
+
+/** [relationships] without how each of [memberIds] feels toward the
+ *  others; how the others feel toward them stays, as on the desktop. */
+export function withoutFeelingsOf(
+  relationships: Record<string, Record<string, number>>,
+  memberIds: string[],
+): Record<string, Record<string, number>> {
+  return Object.fromEntries(Object.entries(relationships).filter(([from]) => !memberIds.includes(from)));
+}
+
+/** [id]'s whole starting seed in [d]. */
+export function memberRealism(d: GroupDraft, id: string): MemberRealism {
+  return { ...NEUTRAL_MEMBER, ...d.members[id] };
+}
+
+/** Every member of [memberIds] set to [preset], as the desktop's Neutral
+ *  and High Bond buttons replace each member's whole seed. */
+export function membersAtPreset(
+  memberIds: string[],
+  preset: MemberRealism,
+): Record<string, Partial<MemberRealism>> {
+  return Object.fromEntries(memberIds.map((id) => [id, { ...preset }]));
+}
 
 export const EMPTY_DRAFT: GroupDraft = {
   autoAdvance: false,
@@ -77,13 +153,16 @@ export const EMPTY_DRAFT: GroupDraft = {
   firstMessage: '',
   alternateGreetings: [],
   greetingSeeds: [],
+  chaosModeEnabled: false,
+  chaosNsfwEnabled: false,
   realismEnabled: true,
   needsEnabled: true,
   timeOfDay: 'morning',
   dayCount: 1,
+  storyStartDate: '',
+  storyStartTime: '',
   members: {},
   relationships: {},
-  systemPrompt: '',
   memberPrompts: {},
   groupLore: [],
   inheritCharacterLorebooks: false,
@@ -132,7 +211,6 @@ export function createBody(args: {
     firstMessage: d.firstMessage.trim(),
     alternateGreetings: d.alternateGreetings,
     greetingSeeds: d.greetingSeeds,
-    systemPrompt: d.systemPrompt.trim(),
     memberPrompts: Object.fromEntries(
       memberIds
         .map((id) => [id, (d.memberPrompts[id] ?? '').trim()] as const)
@@ -150,12 +228,16 @@ export function createBody(args: {
         constant: e.constant,
       })),
     inheritCharacterLorebooks: d.inheritCharacterLorebooks,
+    chaosModeEnabled: d.chaosModeEnabled,
+    chaosNsfwEnabled: d.chaosNsfwEnabled,
     realism: {
       enabled: d.realismEnabled,
       needsEnabled: d.needsEnabled,
       timeOfDay: d.timeOfDay,
       dayCount: d.dayCount,
-      members: Object.fromEntries(memberIds.map((id) => [id, d.members[id] ?? NEUTRAL_MEMBER])),
+      ...(d.storyStartDate ? { storyStartDate: d.storyStartDate } : {}),
+      ...(d.storyStartTime ? { storyStartTime: d.storyStartTime } : {}),
+      members: Object.fromEntries(memberIds.map((id) => [id, memberRealism(d, id)])),
       relationships: liveRelationships(d, memberIds),
     },
   };

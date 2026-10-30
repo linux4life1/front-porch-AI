@@ -63,15 +63,15 @@ function button(label: string): HTMLButtonElement {
 const click = (label: string) => act(() => button(label).click());
 const text = () => container.textContent ?? '';
 
-it('walks Members, Details, Setting, Opening, Realism, Prompts & Lore, Review', async () => {
+it('walks Members, Details, Setting, Realism, Opening, Prompts & Lore, Review', async () => {
   click('Juniper');
   click('Marlow');
   const seen: string[] = [];
   for (const landmark of [
     'Group name',
     'Where does the group meet?',
-    'Opening Scene',
     'Realism Engine for this group',
+    'Opening Scene',
     'Group System Prompt',
     'Create & open',
   ]) {
@@ -99,4 +99,27 @@ it('walks Members, Details, Setting, Opening, Realism, Prompts & Lore, Review', 
     realism: { enabled: true, needsEnabled: true, timeOfDay: 'morning', dayCount: 1 },
     groupLore: [],
   });
+});
+
+it('each Review line names its step, and Change goes back to that step', async () => {
+  const rows: [string, string][] = [
+    ['Members', 'Juniper'],
+    ['Name', 'Group name'],
+    ['Where', 'Where does the group meet?'],
+    ['Opening', 'Opening Scene'],
+    ['Realism', 'Realism Engine for this group'],
+    ['Lore', 'Group Lorebook'],
+  ];
+  click('Juniper');
+  click('Marlow');
+  for (const [label, landmark] of rows) {
+    while (!text().includes('Create & open')) click('Next');
+    const row = [...container.querySelectorAll('.gw-review-row')].find(
+      (r) => r.querySelector('dt')?.textContent === label,
+    );
+    expect(row, `Review has a ${label} line`).toBeTruthy();
+    act(() => row!.querySelector('button')!.click());
+    expect(text(), `Change on ${label}`).toContain(landmark);
+    expect(text()).not.toContain('Create & open');
+  }
 });

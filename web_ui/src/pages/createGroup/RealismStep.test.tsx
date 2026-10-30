@@ -1,0 +1,194 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// The web new-group Realism step carries the desktop step's controls: Group
+// Chaos with its 18+ sub-switch, the Story Calendar start, the Neutral and
+// High Bond presets, and each member's emotion, verification and needs with
+// Reset to character defaults.
+
+import { act, createElement, useState } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { EMPTY_DRAFT, NEUTRAL_MEMBER, memberRealism, type GroupDraft } from './groupDraft';
+
+let adult = false;
+vi.mock('../../api/client', () => ({
+  api: {
+    get: async () => ({ realism: { adultThemesEnabled: adult, passageOfTimeDefault: true } }),
+  },
+}));
+vi.mock('../../api/ws', () => ({
+  ChatSocket: class {
+    connect() {}
+    close() {}
+  },
+}));
+
+const { RealismStep } = await import('./RealismStep');
+
+const MEMBERS = [
+  { id: 'j', name: 'Juniper' },
+  { id: 'm', name: 'Marlow' },
+];
+let draft: GroupDraft = EMPTY_DRAFT;
+function Host() {
+  const [d, setD] = useState<GroupDraft>(EMPTY_DRAFT);
+  draft = d;
+  return createElement(RealismStep, {
+    draft: d,
+    set: (p: Partial<GroupDraft>) => setD((prev) => ({ ...prev, ...p })),
+    members: MEMBERS,
+  });
+}
+
+let container: HTMLDivElement;
+let root: Root;
+async function mount() {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  await act(async () => {
+    root.render(createElement(Host));
+  });
+}
+
+beforeEach(() => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  adult = false;
+});
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+const toggle = (label: string, scope: ParentNode = container) => {
+  const row = [...scope.querySelectorAll('label.realism-toggle')].find((l) =>
+    l.textContent?.startsWith(label),
+  );
+  if (!row) throw new Error(`no toggle "${label}"`);
+  act(() => row.querySelector('input')!.click());
+};
+const button = (label: string, scope: ParentNode = container) => {
+  const b = [...scope.querySelectorAll('button')].find((el) => el.textContent === label);
+  if (!b) throw new Error(`no button "${label}"`);
+  act(() => b.click());
+};
+function type(input: HTMLInputElement | HTMLSelectElement, value: string) {
+  const proto = input instanceof HTMLSelectElement ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')!.set!.call(input, value);
+  act(() => {
+    input.dispatchEvent(new Event(input instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }));
+  });
+}
+const card = (id: string) => container.querySelector(`[data-testid="group-realism-member-${id}"]`)!;
+
+it('Group Chaos switches on, and its adult events show only with 18+ on', async () => {
+  await mount();
+  toggle('Group Chaos (Chance Time)');
+  expect(draft.chaosModeEnabled).toBe(true);
+  expect(container.textContent).not.toContain('Include NSFW events');
+  act(() => root.unmount());
+  container.remove();
+
+  adult = true;
+  await mount();
+  toggle('Group Chaos (Chance Time)');
+  toggle('Include NSFW events');
+  expect(draft).toMatchObject({ chaosModeEnabled: true, chaosNsfwEnabled: true });
+});
+
+it('sets where the story clock starts', async () => {
+  await mount();
+  type(container.querySelector('input[aria-label="Story begins"]')!, '1887-06-01');
+  type(container.querySelector('input[aria-label="Opens at"]')!, '07:30');
+  expect(draft).toMatchObject({ storyStartDate: '1887-06-01', storyStartTime: '07:30' });
+});
+
+it('High Bond and Neutral set every member, as the desktop presets do', async () => {
+  await mount();
+  button('High Bond');
+  for (const m of MEMBERS) {
+    expect(memberRealism(draft, m.id)).toMatchObject({
+      affection: 75,
+      trust: 70,
+      emotion: 'affection',
+      emotionIntensity: 'moderate',
+    });
+  }
+  button('Neutral');
+  for (const m of MEMBERS) expect(memberRealism(draft, m.id)).toEqual(NEUTRAL_MEMBER);
+});
+
+it("edits one member's emotion, verification and needs, and resets them", async () => {
+  await mount();
+  const c = card('j');
+  type(c.querySelector('input[placeholder="e.g. curious, guarded, amused"]')!, 'wistful');
+  type(c.querySelector('select')!, 'strong');
+  toggle('Realism Verification (Director/Verifier)', c);
+  const sliders = [...c.querySelectorAll('.realism-slider')];
+  const slider = (label: string) =>
+    sliders.find((s) => s.textContent?.startsWith(label))!.querySelector('input')!;
+  type(slider('Max reprocess passes'), '4');
+  type(slider('Strictness'), '5');
+  type(slider('Hunger'), '20');
+  button('Fast', c);
+  act(() => (c.querySelectorAll('.needs-row input[type="checkbox"]')[1] as HTMLInputElement).click());
+  toggle('Enjoys low hygiene', c);
+  expect(memberRealism(draft, 'j')).toMatchObject({
+    emotion: 'wistful',
+    emotionIntensity: 'strong',
+    verificationEnabled: true,
+    verificationMaxReprocesses: 4,
+    verificationStrictness: 5,
+    needsBaselineHunger: 20,
+    needsPace: 'fast',
+    needsOff: ['bladder'],
+    enjoysLowHygiene: true,
+  });
+  expect(memberRealism(draft, 'm')).toEqual(NEUTRAL_MEMBER);
+
+  toggle('Needs simulation', c);
+  expect(draft.needsEnabled, "the member card's needs switch is the group's").toBe(false);
+
+  button('Reset to character defaults', c);
+  expect(memberRealism(draft, 'j')).toEqual(NEUTRAL_MEMBER);
+});
+
+it('bonds and trust use the desktop scales; Long-Term Bond and Trust Level both set trust', async () => {
+  await mount();
+  const c = card('j');
+  const slider = (label: string) =>
+    [...c.querySelectorAll('.realism-slider')]
+      .find((s) => s.querySelector('.realism-slider-head > span')?.textContent === label)!
+      .querySelector('input')!;
+  expect([slider('Short-Term Bond').min, slider('Short-Term Bond').max]).toEqual(['-300', '300']);
+  expect([slider('Long-Term Bond').min, slider('Long-Term Bond').max]).toEqual(['-300', '300']);
+  expect([slider('Trust Level').min, slider('Trust Level').max]).toEqual(['-100', '100']);
+  type(slider('Short-Term Bond'), '-200');
+  type(slider('Long-Term Bond'), '250');
+  expect(memberRealism(draft, 'j')).toMatchObject({ affection: -200, trust: 250 });
+  type(slider('Trust Level'), '-50');
+  expect(memberRealism(draft, 'j').trust).toBe(-50);
+});
+
+it("Neutral, High Bond and Reset clear the member's Group Dynamics, as on the desktop", async () => {
+  await mount();
+  const feel = (from: string) =>
+    [...container.querySelectorAll('[data-testid="group-dynamics"] label.gw-slider')]
+      .find((l) => l.textContent?.startsWith(from))!
+      .querySelector('input')!;
+  const seedBoth = () => {
+    type(feel('Juniper → Marlow'), '120');
+    type(feel('Marlow → Juniper'), '-40');
+  };
+  seedBoth();
+  expect(draft.relationships).toEqual({ j: { m: 120 }, m: { j: -40 } });
+  button('High Bond');
+  expect(draft.relationships).toEqual({});
+  seedBoth();
+  button('Neutral');
+  expect(draft.relationships).toEqual({});
+  seedBoth();
+  button('Reset to character defaults', card('j'));
+  expect(draft.relationships, "only Juniper's own feelings go").toEqual({ m: { j: -40 } });
+});

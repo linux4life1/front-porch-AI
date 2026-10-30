@@ -1,6 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -453,7 +454,10 @@ void main() {
         expect(g.scenario, 'Rain on the porch roof.');
         expect(g.firstMessage, 'The screen door bangs.');
         expect(g.alternateGreetings, ['A second way in.']);
-        expect(g.systemPrompt, 'Keep it cosy.');
+        // The desktop wizard has no Group System Prompt (it points to Group
+        // Settings after creating), so the relay no longer reads one: a
+        // posted value is ignored rather than set.
+        expect(g.systemPrompt, isEmpty);
         expect(g.characterSystemPrompts, {midOf[ids[0]]: 'Speak in riddles.'});
         expect(g.inheritCharacterLorebooks, isTrue);
         final lore = parseGroupLorebookJson(g.groupLorebook)!.entries;
@@ -489,6 +493,236 @@ void main() {
       await groups.reload();
       final g = groups.getById(made!['id'] as String)!;
       expect(parseGroupRealismSeeds(g.defaultMemberRealismState), isEmpty);
+    });
+  });
+
+  // Realism-step parity: the desktop wizard's Chaos, Story Calendar start,
+  // per-member emotion, verification and needs land on a web-made group the
+  // way GroupChatCommitter writes them, and an old phone's body (name,
+  // members, turn order only) still gets Realism and Needs on with the
+  // desktop's neutral seeds and member extensions.
+  group('GroupFacade.createGroup Realism step parity', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+    late String plainId; // a card with no FrontPorchExtensions
+    late String carded; // a card that ships its own
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      final chars = CharacterRepository(db, storage);
+      await chars.addCharacter(
+        CharacterCard(name: 'Plain', description: 'No extensions.'),
+      );
+      await chars.addCharacter(
+        CharacterCard(
+          name: 'Carded',
+          description: 'Ships extensions.',
+          frontPorchExtensions: FrontPorchExtensions(
+            needsBaselineHunger: 50,
+            needsPace: 'sloth',
+            realismVerificationStrictness: 2,
+          ),
+        ),
+      );
+      plainId = chars.characters.firstWhere((c) => c.name == 'Plain').dbId!;
+      carded = chars.characters.firstWhere((c) => c.name == 'Carded').dbId!;
+      groups = GroupChatRepository(storage, db);
+      facade = GroupFacade(groups, storage, chars, db);
+    });
+
+    tearDown(() => db.close());
+
+    Future<(GroupChat, Map<String, FrontPorchExtensions?>, Map<String, String>)>
+    made(Map<String, dynamic> body) async {
+      final r = await facade.createGroup(body);
+      await groups.reload();
+      final g = groups.getById(r!['id'] as String)!;
+      final members = await groups.getMembersForGroup(g.id);
+      return (
+        g,
+        {
+          for (final m in members)
+            m.originLibraryDbId!: m.frontPorchExtensions == null
+                ? null
+                : FrontPorchExtensions.fromJson(m.frontPorchExtensions!),
+        },
+        {for (final m in members) m.originLibraryDbId!: m.id},
+      );
+    }
+
+    test(
+      'the old body shape gets Realism and Needs on with neutral seeds',
+      () async {
+        final (g, ext, mid) = await made({
+          'name': 'Old Phone',
+          'memberIds': [plainId, carded],
+          'turnOrder': 'roundRobin',
+        });
+        final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+        expect(seeds.keys.toSet(), mid.values.toSet());
+        for (final s in seeds.values) {
+          expect(s['affection'], 35);
+          expect(s['trust'], 40);
+          expect(s['emotion'], 'neutral');
+          expect(s['needs'], isA<Map>(), reason: 'needs on by default');
+        }
+        final baseline = jsonDecode(g.baselineRealismState) as Map;
+        expect(baseline[mid[plainId]], containsPair('affection', 35));
+        expect(baseline[mid[plainId]], containsPair('trust', 40));
+        expect(g.chaosModeEnabled, isFalse);
+        // A card with no extensions gets the desktop committer's fresh ones.
+        final plain = ext[plainId]!;
+        expect(plain.realismVerificationEnabled, isFalse);
+        expect(plain.realismVerificationMaxReprocesses, 1);
+        expect(plain.realismVerificationStrictness, 3);
+        expect(plain.needsPace, 'normal');
+        expect(plain.needsBaselineHunger, 80);
+        expect(plain.stableId, isNotNull);
+        // A card's own extensions survive a body that says nothing of them.
+        expect(ext[carded]!.needsBaselineHunger, 50);
+        expect(ext[carded]!.needsPace, 'sloth');
+        expect(ext[carded]!.realismVerificationStrictness, 2);
+      },
+    );
+
+    test('every Realism-step field lands on the group and members', () async {
+      final member = {
+        'affection': 70,
+        'trust': 65,
+        'emotion': 'wistful',
+        'emotionIntensity': 'strong',
+        'verificationEnabled': true,
+        'verificationMaxReprocesses': 4,
+        'verificationStrictness': 5,
+        'needsPace': 'fast',
+        'needsOff': ['bladder'],
+        'needsBaselineHunger': 10,
+        'needsBaselineBladder': 20,
+        'needsBaselineEnergy': 30,
+        'needsBaselineSocial': 40,
+        'needsBaselineFun': 50,
+        'needsBaselineHygiene': 60,
+        'needsBaselineComfort': 70,
+        'enjoysLowHygiene': true,
+      };
+      final (g, ext, mid) = await made({
+        'name': 'Full Porch',
+        'memberIds': [plainId, carded],
+        'chaosModeEnabled': true,
+        'chaosNsfwEnabled': true,
+        'realism': {
+          'storyStartDate': '1887-06-01',
+          'storyStartTime': '07:30',
+          'members': {plainId: member, carded: member},
+        },
+      });
+      expect(g.chaosModeEnabled, isTrue);
+      expect(g.chaosNsfwEnabled, isTrue);
+      final time = parseGroupTimeSeed(
+        g.defaultMemberRealismState,
+        g.baselineRealismState,
+      )!;
+      expect(time.storyStartDate, '1887-06-01');
+      expect(time.storyStartTime, '07:30');
+      final seed = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[plainId]]!;
+      expect(seed, containsPair('emotion', 'wistful'));
+      expect(seed, containsPair('emotionIntensity', 'strong'));
+      expect(seed, containsPair('needsBaselineComfort', 70));
+      final baseline = jsonDecode(g.baselineRealismState) as Map;
+      expect(baseline[mid[carded]], containsPair('emotion', 'wistful'));
+      expect(baseline[mid[carded]], containsPair('emotionIntensity', 'strong'));
+      for (final id in [plainId, carded]) {
+        final e = ext[id]!;
+        expect(e.realismVerificationEnabled, isTrue, reason: id);
+        expect(e.realismVerificationMaxReprocesses, 4);
+        expect(e.realismVerificationStrictness, 5);
+        expect(e.needsPace, 'fast');
+        expect(e.needsOff, ['bladder']);
+        expect(
+          [
+            e.needsBaselineHunger,
+            e.needsBaselineBladder,
+            e.needsBaselineEnergy,
+            e.needsBaselineSocial,
+            e.needsBaselineFun,
+            e.needsBaselineHygiene,
+            e.needsBaselineComfort,
+          ],
+          [10, 20, 30, 40, 50, 60, 70],
+        );
+        expect(e.enjoysLowHygiene, isTrue);
+      }
+    });
+
+    test('malformed Realism-step fields fall back to the defaults', () async {
+      final (g, ext, mid) = await made({
+        'name': 'Garbled',
+        'memberIds': [plainId, carded],
+        'chaosModeEnabled': 'yes',
+        'realism': {
+          'storyStartDate': 'someday',
+          'storyStartTime': '25:99',
+          'members': {
+            plainId: {
+              'emotion': '   ',
+              'emotionIntensity': 'volcanic',
+              'verificationEnabled': 'true',
+              'verificationMaxReprocesses': 99,
+              'needsPace': 'warp',
+              'needsOff': ['thirst', 3, 'fun'],
+              'needsBaselineHunger': '12',
+            },
+          },
+        },
+      });
+      expect(g.chaosModeEnabled, isFalse);
+      final time = parseGroupTimeSeed(
+        g.defaultMemberRealismState,
+        g.baselineRealismState,
+      )!;
+      expect(time.storyStartDate, isNull);
+      expect(time.storyStartTime, isNull);
+      final seed = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[plainId]]!;
+      expect(seed['emotion'], 'neutral');
+      expect(seed['emotionIntensity'], 'mild');
+      final e = ext[plainId]!;
+      expect(e.realismVerificationEnabled, isFalse);
+      expect(e.realismVerificationMaxReprocesses, 5, reason: 'clamped to 1-5');
+      expect(e.needsPace, 'normal');
+      expect(e.needsOff, ['fun']);
+      expect(e.needsBaselineHunger, 80);
+    });
+  
+    test('bond and trust take the desktop ranges, clamped there', () async {
+      final (g, _, mid) = await made({
+        'name': 'Wide Scale',
+        'memberIds': [plainId, carded],
+        'realism': {
+          'members': {
+            plainId: {'affection': -250, 'trust': 280},
+            carded: {'affection': 400, 'trust': -999},
+          },
+        },
+      });
+      final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+      expect(seeds[mid[plainId]], containsPair('affection', -250));
+      expect(seeds[mid[plainId]], containsPair('trust', 280));
+      expect(seeds[mid[carded]], containsPair('affection', 300));
+      expect(seeds[mid[carded]], containsPair('trust', -300));
+      final baseline = jsonDecode(g.baselineRealismState) as Map;
+      expect(baseline[mid[plainId]], containsPair('affection', -250));
+      expect(baseline[mid[plainId]], containsPair('trust', 280));
     });
   });
 }

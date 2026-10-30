@@ -4,7 +4,9 @@
 // New group, Review: what is about to be made, with Change links back to
 // the step that set it, then Create & open. Web twin of GroupReviewStep.
 
-import type { GroupDraft } from './groupDraft';
+import { GROUP_STEPS, type GroupDraft } from './groupDraft';
+
+const stepOf = (label: (typeof GROUP_STEPS)[number]) => GROUP_STEPS.indexOf(label);
 
 export function ReviewStep({
   name,
@@ -22,22 +24,22 @@ export function ReviewStep({
 }) {
   const lore = draft.groupLore.filter((e) => e.content.trim() !== '').length;
   const rows: { label: string; value: string; step: number }[] = [
-    { label: 'Members', value: memberNames.join(', '), step: 0 },
-    { label: 'Name', value: name || 'Unnamed Group', step: 1 },
-    { label: 'Where', value: whereLine, step: 2 },
+    { label: 'Members', value: memberNames.join(', '), step: stepOf('Members') },
+    { label: 'Name', value: name || 'Unnamed Group', step: stepOf('Details') },
+    { label: 'Where', value: whereLine, step: stepOf('Setting') },
     {
       label: 'Opening',
       value: draft.firstMessage.trim() ? 'Custom first message' : 'Each member’s own greeting',
-      step: 3,
+      step: stepOf('Opening'),
     },
     {
       label: 'Realism',
       value: draft.realismEnabled
         ? `On${draft.needsEnabled ? ', with Needs' : ''}`
         : 'Off for this group',
-      step: 4,
+      step: stepOf('Realism'),
     },
-    { label: 'Lore', value: `${lore} lore entr${lore === 1 ? 'y' : 'ies'}`, step: 5 },
+    { label: 'Lore', value: `${lore} lore entr${lore === 1 ? 'y' : 'ies'}`, step: stepOf('Prompts & Lore') },
   ];
   return (
     <div className="cg-config">

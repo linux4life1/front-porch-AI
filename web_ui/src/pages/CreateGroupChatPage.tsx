@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Group-chat creation — the web mirror of the desktop create_group_chat_page
-// wizard, in its seven steps: Members, Details, Setting, Opening, Realism
-// (with Group Dynamics), Prompts & Lore, Review. Posts the whole draft to
+// wizard, in its seven steps: Members, Details, Setting, Realism (with
+// Group Dynamics), Opening, Prompts & Lore, Review. Posts the whole draft to
 // POST /api/groups (which duplicates each character into private group
 // members, as the desktop persist does) and opens the new group chat.
 
@@ -196,7 +196,7 @@ export function CreateGroupChatPage() {
           </div>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <OpeningStep
             draft={draft}
             set={set}
@@ -207,7 +207,7 @@ export function CreateGroupChatPage() {
           />
         )}
 
-        {step === 4 && <RealismStep draft={draft} set={set} members={members} />}
+        {step === 3 && <RealismStep draft={draft} set={set} members={members} />}
 
         {step === 5 && <PromptsLoreStep draft={draft} set={set} members={members} />}
 

@@ -25,8 +25,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// The hidden inter-character dynamics for an opening, explained for the
 /// model (the -300..+300 scale, its tiers, and how to show it without saying
 /// it). [relationships] maps a member id to how it feels toward other member
-/// ids. Empty for groups too large for Group Dynamics and when no member
-/// feels anything toward another yet. Shared by the desktop
+/// ids; a score of 0 counts as no feeling. Empty for groups too large for
+/// Group Dynamics and when no member feels anything toward another yet. Shared by the desktop
 /// wizard and the web relay, so both send the same words.
 String groupDynamicsContext(
   List<({String id, String name})> members,
@@ -54,6 +54,9 @@ String groupDynamicsContext(
       if (target == null || target.id == source.id) continue;
 
       final value = entry.value;
+      // A slider left at (or moved back to) 0 is no feeling; the web drops
+      // those too, so the same pair gets the same words on either side.
+      if (value == 0) continue;
       final tier = relationshipTierName(value);
       lines++;
       buffer.writeln(

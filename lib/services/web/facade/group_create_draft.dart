@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// What the web's new-group wizard posts beyond name, members, turn order
@@ -36,9 +37,10 @@ class GroupCreateDraft {
     : autoAdvance = body['autoAdvance'] == true,
       directorMode = body['directorMode'] == true,
       inheritCharacterLorebooks = body['inheritCharacterLorebooks'] == true,
+      chaosModeEnabled = body['chaosModeEnabled'] == true,
+      chaosNsfwEnabled = body['chaosNsfwEnabled'] == true,
       scenario = _text(body['scenario']),
       firstMessage = _text(body['firstMessage']),
-      systemPrompt = _text(body['systemPrompt']),
       memberPrompts = _stringMap(body['memberPrompts']),
       groupLore = _lore(body['groupLore']),
       greetings = compactGreetingPairs(
@@ -52,9 +54,13 @@ class GroupCreateDraft {
   final bool autoAdvance;
   final bool directorMode;
   final bool inheritCharacterLorebooks;
+
+  /// Group Chaos (Chance Time) and its adult events, as the desktop wizard
+  /// stores them: independent of Realism.
+  final bool chaosModeEnabled;
+  final bool chaosNsfwEnabled;
   final String scenario;
   final String firstMessage;
-  final String systemPrompt;
 
   /// Library id → that member's extra instructions in this group.
   final Map<String, String> memberPrompts;
@@ -77,26 +83,45 @@ class GroupCreateDraft {
     return d is num && d >= 1 ? d.toInt() : 1;
   }
 
+  /// Story Calendar start ("YYYY-MM-DD"); null is the day the chat starts.
+  String? get storyStartDate {
+    final v = _realism['storyStartDate'];
+    return v is String && StoryClock.parse(v.trim()) != null ? v.trim() : null;
+  }
+
+  /// Exact opening clock ("HH:MM"); null is the time of day's default.
+  String? get storyStartTime {
+    final v = _realism['storyStartTime'];
+    return v is String && StoryClock.parseHHMM(v) != null ? v.trim() : null;
+  }
+
+  /// The FrontPorchExtensions JSON for [source]'s new member row, built as
+  /// the desktop committer builds it. Only the fields the body posted for
+  /// this member override the card's own, so an old body keeps them.
+  String? memberExtensionsJson(CharacterCard source) {
+    final fp = groupMemberExtensions(
+      source,
+      memberSeedOverrides(_realism['members'], source.dbId),
+      realismEnabled: realismEnabled,
+    );
+    return fp == null ? null : jsonEncode(fp.toJson());
+  }
+
   /// The realism blobs for the group, keyed by the member ids [idMap] maps
-  /// library ids to. Each member starts at the neutral seed with the posted
-  /// bond and trust; Group Dynamics rides along for groups of four or fewer.
-  /// Null when Realism is off, which stores the empty blobs.
+  /// library ids to. Each member starts at the neutral seed with what was
+  /// posted for it laid over; Group Dynamics rides along for groups of four
+  /// or fewer. Null when Realism is off, which stores the empty blobs.
   GroupRealismBlobs? realismBlobs(Map<String, String> idMap) {
     if (!realismEnabled) return null;
-    final members = _realism['members'] is Map
-        ? _realism['members'] as Map
-        : const {};
     final rels = _realism['relationships'] is Map
         ? _realism['relationships'] as Map
         : const {};
     final seeds = <String, Map<String, dynamic>>{};
     for (final libId in idMap.keys) {
-      final seed = defaultGroupMemberRealismSeed();
-      final m = members[libId];
-      if (m is Map) {
-        if (m['affection'] case final num a) seed['affection'] = _clamp(a);
-        if (m['trust'] case final num t) seed['trust'] = _clamp(t);
-      }
+      final seed = {
+        ...defaultGroupMemberRealismSeed(),
+        ...memberSeedOverrides(_realism['members'], libId),
+      };
       final r = rels[libId];
       seed['relationships'] = <String, int>{
         if (idMap.length <= 4 && r is Map)
@@ -111,6 +136,8 @@ class GroupCreateDraft {
       needsEnabled: needsEnabled,
       timeOfDay: timeOfDay,
       dayCount: dayCount,
+      storyStartDate: storyStartDate,
+      storyStartTime: storyStartTime,
     );
   }
 
@@ -125,8 +152,6 @@ class GroupCreateDraft {
   String get lorebookJson => groupLore.isEmpty
       ? ''
       : jsonEncode(Lorebook(entries: groupLore).toJson());
-
-  static int _clamp(num v) => v.toInt().clamp(0, 100);
 
   static String _text(Object? v) => v is String ? v.trim() : '';
 

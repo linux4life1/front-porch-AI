@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart';
+
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/group_opening_generator.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -33,8 +35,9 @@ class GroupDraftOpening {
 
   /// Body: {memberIds: [library ids], scenario?, directorMode?,
   /// worlds?: {settingId, loreIds}, relationships?: {id: {id: score}}}.
-  /// Returns the text, or a plain reason it could not be written.
-  Future<({String? text, String? error})> generate(
+  /// Returns the text, or a plain reason it could not be written and the
+  /// HTTP status that fits it (400 for a bad draft, 503 for the model).
+  Future<({String? text, String? error, int status})> generate(
     Map<String, dynamic> body, {
     required bool firstMessage,
   }) async {
@@ -43,6 +46,7 @@ class GroupDraftOpening {
       return (
         text: null,
         error: 'No model is ready. Start KoboldCpp or set up an API first.',
+        status: 503,
       );
     }
     final ids = body['memberIds'] is List
@@ -53,7 +57,11 @@ class GroupDraftOpening {
         ?_characters?.characters.where((c) => c.dbId == id).firstOrNull,
     ];
     if (members.length < 2) {
-      return (text: null, error: 'Pick at least 2 characters first.');
+      return (
+        text: null,
+        error: 'Pick at least 2 characters first.',
+        status: 400,
+      );
     }
     final generator = GroupOpeningGenerator(service);
     final brief = _brief(body['worlds']);
@@ -76,9 +84,10 @@ class GroupDraftOpening {
               dynamicsContext: dynamics,
               settingBrief: brief,
             );
-      return (text: text, error: null);
+      return (text: text, error: null, status: 200);
     } catch (e) {
-      return (text: null, error: 'Generation failed: $e');
+      debugPrint('[GroupDraftOpening] generation failed: $e');
+      return (text: null, error: 'Generation failed: $e', status: 503);
     }
   }
 

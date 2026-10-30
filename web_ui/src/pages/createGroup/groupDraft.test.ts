@@ -7,6 +7,7 @@
 
 import { expect, it } from 'vitest';
 import { EMPTY_DRAFT, createBody, liveRelationships, relationshipTier } from './groupDraft';
+import { HIGH_BOND_MEMBER, NEUTRAL_MEMBER, memberRealism, membersAtPreset, withoutFeelingsOf } from './groupDraft';
 
 it('posts every step, with lore keys split and blanks dropped', () => {
   const body = createBody({
@@ -65,4 +66,74 @@ it('names scores with the desktop tiers', () => {
     'Broken',
     'Nemesis',
   ]);
+});
+
+it('posts Chaos, the story start and every member seed field as the desktop seeds them', () => {
+  const body = createBody({
+    name: 'Porch',
+    memberIds: ['a', 'b'],
+    turnOrder: 'roundRobin',
+    worlds: { settingId: null, loreIds: [] },
+    draft: {
+      ...EMPTY_DRAFT,
+      chaosModeEnabled: true,
+      chaosNsfwEnabled: true,
+      storyStartDate: '1887-06-01',
+      storyStartTime: '07:30',
+      members: { a: { emotion: 'wistful', verificationEnabled: true, needsPace: 'fast', needsOff: ['fun'] } },
+    },
+  });
+  expect(body).toMatchObject({
+    chaosModeEnabled: true,
+    chaosNsfwEnabled: true,
+    realism: {
+      storyStartDate: '1887-06-01',
+      storyStartTime: '07:30',
+      members: {
+        a: { ...NEUTRAL_MEMBER, emotion: 'wistful', verificationEnabled: true, needsPace: 'fast', needsOff: ['fun'] },
+        b: NEUTRAL_MEMBER,
+      },
+    },
+  });
+  expect(body).not.toHaveProperty('systemPrompt');
+});
+
+it('leaves the story start out when unset, so the chat start day stands', () => {
+  const body = createBody({
+    name: 'Porch',
+    memberIds: ['a', 'b'],
+    turnOrder: 'roundRobin',
+    worlds: { settingId: null, loreIds: [] },
+    draft: EMPTY_DRAFT,
+  });
+  const realism = body.realism as Record<string, unknown>;
+  expect(realism).not.toHaveProperty('storyStartDate');
+  expect(realism).not.toHaveProperty('storyStartTime');
+  expect(body).toMatchObject({ chaosModeEnabled: false, chaosNsfwEnabled: false });
+});
+
+it('matches the desktop neutral seed and High Bond preset', () => {
+  expect(NEUTRAL_MEMBER).toMatchObject({
+    affection: 35,
+    trust: 40,
+    emotion: 'neutral',
+    emotionIntensity: 'mild',
+    verificationMaxReprocesses: 1,
+    verificationStrictness: 3,
+    needsPace: 'normal',
+    needsBaselineHunger: 80,
+    enjoysLowHygiene: false,
+  });
+  expect(membersAtPreset(['a'], HIGH_BOND_MEMBER).a).toEqual({
+    ...NEUTRAL_MEMBER,
+    affection: 75,
+    trust: 70,
+    emotion: 'affection',
+    emotionIntensity: 'moderate',
+  });
+  expect(memberRealism({ ...EMPTY_DRAFT, members: { a: { trust: 9 } } }, 'a')).toEqual({ ...NEUTRAL_MEMBER, trust: 9 });
+});
+
+it("drops only the named members' own Group Dynamics rows", () => {
+  expect(withoutFeelingsOf({ a: { b: 5 }, b: { a: 7 }, c: { a: 1 } }, ['a', 'c'])).toEqual({ b: { a: 7 } });
 });

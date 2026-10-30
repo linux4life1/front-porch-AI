@@ -325,6 +325,30 @@ void main() {
     draft.realismEnabled = false;
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
+
+  // The Generate button only promises Dynamics when there are some to send.
+  testWidgets('Generate says "with Dynamics" only when there are some', (
+    tester,
+  ) async {
+    Future<void> pump(bool withDynamics) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => generateWithDynamicsButton(
+              context,
+              busy: false,
+              withDynamics: withDynamics,
+              onPressed: () async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await pump(false);
+    expect(find.text('Generate'), findsOneWidget);
+    await pump(true);
+    expect(find.text('Generate with Dynamics'), findsOneWidget);
+  });
 }
 
 class _RecordingLlm extends LLMService {

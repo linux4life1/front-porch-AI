@@ -230,6 +230,7 @@ class GroupFacade {
     );
     await avDir.create(recursive: true);
 
+    final draft = GroupCreateDraft.fromBody(body);
     // Library id → the member's own id, for the draft's per-member fields.
     final idMap = <String, String>{};
     for (final source in sources) {
@@ -263,11 +264,7 @@ class GroupFacade {
                 : null,
           ),
           worldNames: Value(jsonEncode(source.worldNames)),
-          frontPorchExtensions: Value(
-            source.frontPorchExtensions != null
-                ? jsonEncode(source.frontPorchExtensions!.toJson())
-                : null,
-          ),
+          frontPorchExtensions: Value(draft.memberExtensionsJson(source)),
           rawExtensions: Value(
             source.rawExtensions != null
                 ? jsonEncode(source.rawExtensions!)
@@ -283,7 +280,6 @@ class GroupFacade {
       );
     }
 
-    final draft = GroupCreateDraft.fromBody(body);
     final realism = draft.realismBlobs(idMap);
     final where =
         (_choiceFrom(body['worlds']) ?? const GroupWorldChoice()).fields;
@@ -298,10 +294,11 @@ class GroupFacade {
         firstMessage: draft.firstMessage,
         alternateGreetings: draft.greetings.greetings,
         greetingSeeds: draft.greetings.seeds,
-        systemPrompt: draft.systemPrompt,
         characterSystemPrompts: draft.promptsFor(idMap),
         groupLorebook: draft.lorebookJson,
         inheritCharacterLorebooks: draft.inheritCharacterLorebooks,
+        chaosModeEnabled: draft.chaosModeEnabled,
+        chaosNsfwEnabled: draft.chaosNsfwEnabled,
         defaultMemberRealismState: realism?.defaultMemberJson ?? '{}',
         baselineRealismState: realism?.baselineJson ?? '{}',
         worldIds: where.worldIds,
