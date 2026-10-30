@@ -85,6 +85,7 @@ void main() {
   ) async {
     late GroupChat group;
     late String folderId;
+    late BuildContext context;
     await tester.runAsync(() async {
       folderId = (await folders.createFolder('Tavern')).id;
       group = await seedGroup('g3', folderId: folderId);
@@ -94,13 +95,21 @@ void main() {
         providers: [
           ChangeNotifierProvider<CharacterRepository>.value(value: h.repo),
           ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
-          Provider<StorageService>.value(value: h.storage),
+          ChangeNotifierProvider<StorageService>.value(value: h.storage),
           ChangeNotifierProvider<FolderService>.value(value: folders),
         ],
-        child: const MaterialApp(home: Scaffold(body: SizedBox())),
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (c) {
+                context = c;
+                return const SizedBox();
+              },
+            ),
+          ),
+        ),
       ),
     );
-    final context = tester.element(find.byType(SizedBox));
 
     await tester.runAsync(() => extractHomeGroupCharacters(context, group));
     await tester.pump();
@@ -110,5 +119,12 @@ void main() {
     expect(placed.length, 2);
     expect(placed.values, everyElement(folderId));
     expect(find.text('Extracted 2 characters as individuals.'), findsOneWidget);
+
+    // Let the snackbar time out so no timer outlives the test.
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    // The harness swaps debugPrint; put it back before the widget-test
+    // invariants check runs (tearDown is too late).
+    await tester.runAsync(h.dispose);
   });
 }
