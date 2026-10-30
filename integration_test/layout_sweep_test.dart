@@ -31,6 +31,7 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
+import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 
 import 'support/e2e_sandbox.dart';
 import 'support/fake_backend.dart';
@@ -178,6 +179,40 @@ void main() {
     );
     for (final size in _sizes.entries) {
       where = '${size.key} chat';
+      tester.view.physicalSize = size.value;
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 400));
+      scanText();
+    }
+
+    // Create Group's Setting step, with two members on the roster.
+    // ignore: use_build_context_synchronously — ctx is the root MainLayout element, alive for the whole test.
+    Navigator.of(ctx).pop();
+    await tester.pump(const Duration(milliseconds: 800));
+    await Provider.of<CharacterRepository>(ctx, listen: false).addCharacter(
+      CharacterCard(name: 'Layout Second', description: _description),
+    );
+    tester.view.physicalSize = _sizes['wide']!;
+    // ignore: use_build_context_synchronously — ctx is the root MainLayout element, alive for the whole test.
+    Navigator.of(
+      ctx,
+    ).push(MaterialPageRoute(builder: (_) => const CreateGroupChatPage()));
+    await pumpUntilFound(tester, find.text('Layout Second'));
+    for (final name in ['Layout Tester', 'Layout Second']) {
+      await tester.ensureVisible(find.text(name).first);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.text(name).first);
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    await pumpUntilFound(tester, find.text('Current Roster (2)'));
+    for (var i = 0; i < 2; i++) {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pump(const Duration(milliseconds: 800));
+    }
+    await pumpUntilFound(tester, find.text('Where does the group meet?'));
+    for (final size in _sizes.entries) {
+      where = '${size.key} group setting';
       tester.view.physicalSize = size.value;
       await tester.pump(const Duration(milliseconds: 800));
       await tester.pump(const Duration(milliseconds: 400));
