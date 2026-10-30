@@ -23,16 +23,24 @@
 //
 // - Edit Character from a group's sidebar ran the library writer: it rewrote
 //   the member's PNG, updated a `characters` row that does not exist, and
-//   re-keyed memories filed under the character's bare name.
+//   re-keyed memories filed under the character's bare name (that guard is
+//   pinned in test/services/character_repository_test.dart).
 // - UI Settings from a group's sidebar (chat colours, avatar lock) did the
 //   same through the library repository.
 // - Edit group's per-member Edit showed Voice and the greeting seeds and
 //   saved neither.
 //
-// Red proofs: drop the member branch in showEditCharacterDialog (test 1), in
-// UiSettingsDialog._updateCharacterExtension (test 3), put back Edit group's
-// content-only write (test 4, voice) or drop the Realism-hidden seed branch
-// in EditCharacterCardWriter.writeFields (test 4, seed).
+// The chat keeps its own copy of each member, so a save from the chat must
+// not put back values Edit group saved since: UI Settings writes only the
+// extensions, and Edit group replaces the chat's copy when the group is open.
+//
+// Red proofs: drop the member branch in showEditCharacterDialog (test 1) or
+// in UiSettingsDialog._updateCharacterExtension (test 2); have UI Settings
+// write the whole card (test 2); put back Edit group's content-only write
+// (test 3, voice); drop the Realism-hidden seed branch in
+// EditCharacterCardWriter.writeFields (test 3, seed); drop Edit group's
+// refresh of the chat's copy (test 4); write a null extensions column when
+// the card holds none (test 5).
 
 import 'dart:convert';
 import 'dart:io';
@@ -59,27 +67,31 @@ import '../../golden/support/fakes_storage.dart';
 const _groupId = 'grp-edits';
 const _memberId = 'mem-mara';
 
-/// A group chat open on [_members]. Records the roster refresh a save asks
-/// for instead of running ChatService's.
+/// A group chat open on [members]. Its roster refresh replaces the member by
+/// row id, as ChatService's does, and records what it was handed.
 class _OpenGroup extends FakeChatService {
-  _OpenGroup(this._members);
+  _OpenGroup(List<CharacterCard> members) : members = List.of(members);
 
-  final List<CharacterCard> _members;
+  final List<CharacterCard> members;
   final refreshed = <CharacterCard>[];
 
   @override
-  bool get isGroupMode => _members.isNotEmpty;
+  bool get isGroupMode => members.isNotEmpty;
 
   @override
-  List<CharacterCard> get groupCharacters => _members;
+  List<CharacterCard> get groupCharacters => members;
 
   @override
-  void refreshActiveCharacterCard(CharacterCard card) => refreshed.add(card);
+  void refreshActiveCharacterCard(CharacterCard card) {
+    refreshed.add(card);
+    final i = members.indexWhere((c) => c.dbId == card.dbId);
+    if (i != -1) members[i] = card;
+  }
 }
 
 /// The library. The Details tab asks it for a cover; the shared fake throws
-/// for cards it does not hold. (`updateCharacter` is an extension, so a
-/// test double cannot record it: the member's row is the evidence.)
+/// for cards it does not hold. (`updateCharacter` is an extension, so a test
+/// double cannot record it: the member's row is the evidence.)
 class _Library extends FakeCharacterRepository {
   @override
   File? coverImageFileFor(CharacterCard card) => null;
@@ -99,6 +111,7 @@ void main() {
         id: _memberId,
         groupId: _groupId,
         name: 'Mara',
+        description: const Value('Keeps the lighthouse.'),
         alternateGreetings: Value(jsonEncode(['You came back.'])),
       ),
     );
@@ -109,25 +122,44 @@ void main() {
   Future<GroupMemberRow> memberRow() async =>
       (await db.getGroupMembers(_groupId)).single;
 
-  CharacterCard member() => CharacterCard(
-    name: 'Mara',
-    description: 'Keeps the lighthouse.',
-    alternateGreetings: ['You came back.'],
-  )..dbId = _memberId;
+  CharacterCard member({String description = 'Keeps the lighthouse.'}) =>
+      CharacterCard(
+        name: 'Mara',
+        description: description,
+        alternateGreetings: ['You came back.'],
+      )..dbId = _memberId;
+
+  /// Pumps frames until [done] holds. Under runAsync, pumpAndSettle returns
+  /// as soon as no frame is scheduled, before the awaited writes behind a
+  /// save have run; each step waits real time for those writes and advances
+  /// the frame clock so route animations finish.
+  Future<void> pumpUntil(
+    WidgetTester tester,
+    bool Function() done, {
+    required String why,
+  }) async {
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (!done()) {
+      if (DateTime.now().isAfter(deadline)) fail('timed out: $why');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.pumpAndSettle();
+  }
 
   Future<void> pumpHost(
     WidgetTester tester, {
     required ChatService chat,
-    required _Library library,
     required void Function(BuildContext) onOpen,
   }) async {
     await tester.binding.setSurfaceSize(const Size(1280, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    final library = _Library();
     final storage = FakeStorageService();
     final worlds = FakeWorldRepository();
+    addTearDown(library.dispose);
     addTearDown(storage.dispose);
     addTearDown(worlds.dispose);
-    addTearDown(library.dispose);
     addTearDown(chat.dispose);
 
     await tester.pumpWidget(
@@ -155,40 +187,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Taps Save and lets the save's real async work finish: under runAsync,
-  /// pumpAndSettle returns as soon as no frame is scheduled, before the
-  /// awaited writes behind Save have run.
+  void pickVoice(WidgetTester tester, String voice) => tester
+      .widget<CharacterVoicePicker>(find.byType(CharacterVoicePicker))
+      .onChanged(voice);
+
+  /// Save closes the editor only when the save went through; an error keeps
+  /// it open behind a snackbar.
   Future<void> save(WidgetTester tester) async {
     await tester.tap(find.text('Save'));
-    for (var i = 0; i < 25; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      await tester.pump();
-    }
-    await tester.pumpAndSettle();
+    await pumpUntil(
+      tester,
+      () => find.byType(EditCharacterPage).evaluate().isEmpty,
+      why: 'Save never closed the editor (it failed)',
+    );
   }
 
-  Future<void> pickVoiceAndSave(WidgetTester tester, String voice) async {
-    tester
-        .widget<CharacterVoicePicker>(find.byType(CharacterVoicePicker))
-        .onChanged(voice);
-    await tester.pump();
-    await save(tester);
-  }
-
-  testWidgets('Edit Character on a group member saves to the member\'s row, '
-      'never the library', (tester) async {
+  testWidgets('Edit Character on a group member saves to the member\'s '
+      'row', (tester) async {
     await tester.runAsync(() async {
       final mara = member();
       final chat = _OpenGroup([mara]);
-      final library = _Library();
       await pumpHost(
         tester,
         chat: chat,
-        library: library,
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
 
-      await pickVoiceAndSave(tester, 'af_heart');
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
 
       expect(
         (await memberRow()).ttsVoice,
@@ -201,57 +228,55 @@ void main() {
     });
   });
 
-  testWidgets('Edit Character on a 1:1 character keeps the library save and '
-      'the portrait picker', (tester) async {
+  testWidgets('UI Settings on a group member saves its extensions and puts '
+      'nothing else back', (tester) async {
     await tester.runAsync(() async {
-      final wren = CharacterCard(name: 'Wren', description: 'x')
-        ..dbId = 'char-wren';
-      await pumpHost(
-        tester,
-        chat: _OpenGroup(const []),
-        library: _Library(),
-        onOpen: (context) => showEditCharacterDialog(context, wren),
+      // Edit group saved a new description and a voice since the chat
+      // loaded its copy of Mara.
+      await db.updateGroupMember(
+        const GroupMembersCompanion(
+          id: Value(_memberId),
+          description: Value('Keeps the lamp and logs the ships.'),
+          ttsVoice: Value('af_heart'),
+        ),
       );
-
-      final page = tester.widget<EditCharacterPage>(
-        find.byType(EditCharacterPage),
-      );
-      expect(page.onSaveOverride, isNull, reason: 'no member row to write');
-      expect(page.allowAvatarChange, isTrue);
-    });
-  });
-
-  testWidgets('UI Settings on a group member saves to the member\'s row, '
-      'never the library', (tester) async {
-    await tester.runAsync(() async {
-      final mara = member();
-      final chat = _OpenGroup([mara]);
-      final library = _Library();
+      final stale = member();
+      final chat = _OpenGroup([stale]);
       await pumpHost(
         tester,
         chat: chat,
-        library: library,
         onOpen: (context) => showDialog<void>(
           context: context,
-          builder: (_) => UiSettingsDialog(character: mara),
+          builder: (_) => UiSettingsDialog(character: stale),
         ),
       );
 
       tester
           .widget<AvatarLockToggle>(find.byType(AvatarLockToggle))
           .onChanged(true);
-      for (var i = 0; i < 25; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-        await tester.pump();
-      }
+      await pumpUntil(
+        tester,
+        () => chat.refreshed.isNotEmpty,
+        why: 'the lock never saved',
+      );
 
-      final json = (await memberRow()).frontPorchExtensions;
-      expect(json, isNotNull, reason: 'the lock never reached the row');
+      final row = await memberRow();
+      expect(
+        row.frontPorchExtensions,
+        isNotNull,
+        reason: 'the lock never reached the row',
+      );
       final ext = FrontPorchExtensions.fromJson(
-        jsonDecode(json!) as Map<String, dynamic>,
+        jsonDecode(row.frontPorchExtensions!) as Map<String, dynamic>,
       );
       expect(ext.avatarLocked, isTrue);
-      expect(chat.refreshed.single.frontPorchExtensions?.avatarLocked, isTrue);
+      expect(
+        (row.description, row.ttsVoice),
+        ('Keeps the lamp and logs the ships.', 'af_heart'),
+        reason:
+            'a whole-row write from the chat\'s older copy undid the '
+            'Edit group save',
+      );
     });
   });
 
@@ -261,13 +286,10 @@ void main() {
       await pumpHost(
         tester,
         chat: _OpenGroup(const []),
-        library: _Library(),
         onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
       );
 
-      tester
-          .widget<CharacterVoicePicker>(find.byType(CharacterVoicePicker))
-          .onChanged('af_heart');
+      pickVoice(tester, 'af_heart');
       await tester.pump();
       await tester.tap(find.text('Dialogue'));
       await tester.pumpAndSettle();
@@ -279,6 +301,11 @@ void main() {
 
       final row = await memberRow();
       expect(row.ttsVoice, 'af_heart', reason: 'Voice was shown, not saved');
+      expect(
+        row.frontPorchExtensions,
+        isNotNull,
+        reason: 'the greeting\'s seed was shown on Dialogue, not saved',
+      );
       final ext = FrontPorchExtensions.fromJson(
         jsonDecode(row.frontPorchExtensions!) as Map<String, dynamic>,
         alternateGreetings: const ['You came back.'],
@@ -287,6 +314,62 @@ void main() {
         ext.greetingSeeds.first?.characterEmotion,
         'wary',
         reason: 'the greeting\'s seed was shown on Dialogue, not saved',
+      );
+    });
+  });
+
+  testWidgets('Edit group\'s member Edit replaces the open chat\'s copy of '
+      'the member', (tester) async {
+    await tester.runAsync(() async {
+      final chat = _OpenGroup([member()]);
+      await pumpHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
+      );
+
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
+
+      expect(
+        chat.members.single.ttsVoice,
+        'af_heart',
+        reason:
+            'the chat kept its older copy, so its next save would put '
+            'the old voice back',
+      );
+    });
+  });
+
+  testWidgets('Edit group\'s member Edit keeps extensions it could not '
+      'read', (tester) async {
+    await tester.runAsync(() async {
+      // Imported from a foreign group card: a whole-number field stored as
+      // a decimal. The member loads with no extensions at all.
+      const foreign = '{"realism_engine":{"day_count":2.0}}';
+      await db.updateGroupMember(
+        const GroupMembersCompanion(
+          id: Value(_memberId),
+          frontPorchExtensions: Value(foreign),
+        ),
+      );
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
+      );
+
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
+
+      final row = await memberRow();
+      expect(row.ttsVoice, 'af_heart');
+      expect(
+        row.frontPorchExtensions,
+        foreign,
+        reason: 'a card that loaded without extensions wrote NULL over them',
       );
     });
   });

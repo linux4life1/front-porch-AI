@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -29,8 +30,10 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 /// the group's member row only (never the source library character): every
 /// column the editor shows, voice and greeting seeds included. The Realism
 /// section is hidden, so the member's realism and Needs settings are written
-/// back as they were. Returns the edited card, or null when the editor was
-/// backed out of.
+/// back as they were. When the group is open in the chat, its copy of the
+/// member is replaced too, so a later save from the chat cannot put the old
+/// values back. Returns the edited card, or null when the editor was backed
+/// out of.
 Future<CharacterCard?> editGroupMemberCard(
   BuildContext context,
   CharacterCard member,
@@ -39,6 +42,7 @@ Future<CharacterCard?> editGroupMemberCard(
   // The live database, not the startup snapshot `Provider<AppDatabase>`
   // holds: a backup restore closes that one.
   final database = liveDatabase(context);
+  final chat = Provider.of<ChatService>(context, listen: false);
   return Navigator.of(context).push<CharacterCard>(
     MaterialPageRoute(
       builder: (_) => EditCharacterPage(
@@ -46,8 +50,12 @@ Future<CharacterCard?> editGroupMemberCard(
         showRealismTab: false,
         allowAvatarChange: false,
         popWithCardOnSave: true,
-        onSaveOverride: (card) =>
-            saveGroupMemberCard(database, card..dbId = memberId),
+        onSaveOverride: (card) async {
+          await saveGroupMemberCard(database, card..dbId = memberId);
+          if (isOpenGroupMember(chat, card)) {
+            chat.refreshActiveCharacterCard(card);
+          }
+        },
       ),
     ),
   );

@@ -363,13 +363,15 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     final character = _characterNotifier.value;
     if (character == null) return;
     final chat = Provider.of<ChatService>(context, listen: false);
-    // A group member saves to its own row and refreshes the roster; the
-    // library writer matched no row for it, so the change was gone on reload.
+    // A group member saves its extensions to its own row and refreshes the
+    // roster; the library writer matched no row for it, so the change was
+    // gone on reload. Extensions only: the rest of this copy may be older
+    // than the row.
     final Future<void> Function(CharacterCard) persist;
     if (isOpenGroupMember(chat, character)) {
       final db = liveDatabase(context);
       persist = (card) async {
-        await saveGroupMemberCard(db, card);
+        await saveGroupMemberExtensions(db, card);
         chat.refreshActiveCharacterCard(card);
       };
     } else {

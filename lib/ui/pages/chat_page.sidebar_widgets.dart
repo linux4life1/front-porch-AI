@@ -304,9 +304,6 @@ Future<void> showEditCharacterDialog(
         height: MediaQuery.of(dialogCtx).size.height - 96,
         child: EditCharacterPage(
           character: character,
-          // A member's avatar lives in the group's folder, which the
-          // picker does not write.
-          allowAvatarChange: !member,
           onSaveOverride: db == null
               ? null
               : (card) => saveGroupMemberCard(db, card),

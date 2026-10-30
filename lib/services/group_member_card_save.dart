@@ -36,7 +36,9 @@ bool isOpenGroupMember(ChatService chat, CharacterCard card) =>
     );
 
 /// Every column of a member's row that its card carries. The avatar file,
-/// the group and the membership state are left as they are.
+/// the group and the membership state are left as they are, and so are
+/// extensions the card holds none of: a stored value the app cannot read
+/// loads as null, and writing that null would erase it.
 GroupMembersCompanion groupMemberCardColumns(CharacterCard card) {
   final ext = card.frontPorchExtensions;
   final raw = card.rawExtensions;
@@ -57,9 +59,33 @@ GroupMembersCompanion groupMemberCardColumns(CharacterCard card) {
       card.lorebook != null ? jsonEncode(card.lorebook!.toJson()) : null,
     ),
     worldNames: Value(jsonEncode(card.allWorldNames)),
-    frontPorchExtensions: Value(ext == null ? null : jsonEncode(ext.toJson())),
-    rawExtensions: Value(raw == null ? null : jsonEncode(raw)),
+    frontPorchExtensions: ext == null
+        ? const Value.absent()
+        : Value(jsonEncode(ext.toJson())),
+    rawExtensions: raw == null ? const Value.absent() : Value(jsonEncode(raw)),
     updatedAt: Value(DateTime.now()),
+  );
+}
+
+/// Saves only a group member's extensions (chat colours, avatar lock): the
+/// rest of the row may have changed since this copy was loaded, in Edit
+/// group, and a whole-row write from it would put the old values back.
+Future<void> saveGroupMemberExtensions(AppDatabase db, CharacterCard card) {
+  final id = card.dbId;
+  final ext = card.frontPorchExtensions;
+  if (id == null || id.isEmpty || ext == null) {
+    throw ArgumentError.value(
+      card.name,
+      'card',
+      'a group member\'s extensions are saved by its row id',
+    );
+  }
+  return db.updateGroupMember(
+    GroupMembersCompanion(
+      id: Value(id),
+      frontPorchExtensions: Value(jsonEncode(ext.toJson())),
+      updatedAt: Value(DateTime.now()),
+    ),
   );
 }
 

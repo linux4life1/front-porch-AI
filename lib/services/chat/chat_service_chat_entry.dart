@@ -31,9 +31,8 @@ extension ChatServiceChatEntry on ChatService {
   /// avoid.)
   void _refreshActiveCharacterCardImpl(CharacterCard card) {
     if (_activeGroup != null) {
-      // identical() first: group member cards are library-decoupled copies
-      // whose dbId is often null — the editor mutates the same instance, so
-      // identity is the reliable key; dbId covers reloaded-copy callers.
+      // identical() first: the editor mutates the roster's own instance;
+      // dbId (the member's row id) covers callers that hand back a copy.
       final i = _groupCharacters.indexWhere(
         (c) => identical(c, card) || (c.dbId != null && c.dbId == card.dbId),
       );
