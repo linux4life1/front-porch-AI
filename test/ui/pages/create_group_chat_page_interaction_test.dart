@@ -301,6 +301,29 @@ void main() {
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
 
+  // The button reads "Generate with Dynamics" exactly when its flag is set.
+  testWidgets('the Generate label follows its withDynamics flag', (
+    tester,
+  ) async {
+    Future<void> pump(bool withDynamics) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => generateWithDynamicsButton(
+              context,
+              busy: false,
+              withDynamics: withDynamics,
+              onPressed: () async {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await pump(false);
+    expect(find.text('Generate'), findsOneWidget);
+    await pump(true);
+    expect(find.text('Generate with Dynamics'), findsOneWidget);
+  });
   // A phone-width window: every step, Back/Next and the title fit, with
   // Realism on and its per-member header showing.
   testWidgets('every step fits a 400 px window', (tester) async {

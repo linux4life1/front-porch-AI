@@ -73,3 +73,17 @@
 }
 .gs-banner strong { display: block; color: var(--text); margin-bottom: 4px; }
 .gs-title-lg { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--text); }
+
+/* The new-group wizard's own rows (pages/createGroup). */
+.gw-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.gw-row > .cg-field { flex: 1 1 160px; }
+.gw-member { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.gw-slider { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.gw-slider input[type='range'] { width: 100%; accent-color: var(--accent); }
+.gw-review { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.gw-review-row {
+  display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 8px; align-items: baseline;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.gw-review-row dt { font-weight: 600; color: var(--muted); }
+.gw-review-row dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
