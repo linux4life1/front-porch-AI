@@ -301,7 +301,7 @@ void main() {
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
 
-  // The Generate button only promises Dynamics when there are some to send.
+  // The button reads "Generate with Dynamics" exactly when its flag is set.
   testWidgets('the Generate label follows its withDynamics flag', (
     tester,
   ) async {
