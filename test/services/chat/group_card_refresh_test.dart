@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/models/avatar_image.dart' as model;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -101,5 +102,42 @@ void main() {
     chat.refreshActiveCharacterCard(copy);
     final live = chat.groupCharacters.firstWhere((c) => c.name == 'Sophia');
     expect(live.description, 'Updated in the editor.');
+  });
+
+  test('a member copy from outside the chat keeps the expression images the '
+      'chat\'s own copy holds', () {
+    // Edit group builds its copy with GroupMember.toCharacterCard, which has
+    // no expression images; the chat inherits those from the library when it
+    // loads the roster. Red proof: drop the carry-over in
+    // _refreshActiveCharacterCardImpl.
+    final sophia = chat.groupCharacters.firstWhere((c) => c.name == 'Sophia');
+    expect(sophia.dbId, isNotNull, reason: 'members load with their row id');
+    sophia
+      ..avatarImages = [
+        model.AvatarImage(
+          id: 'a-joy',
+          characterId: 'sophia-library',
+          filename: 'joy.png',
+          label: 'joy',
+          displayOrder: 0,
+          createdAt: DateTime(2026),
+        ),
+      ]
+      ..primeAvatarIndex = 2;
+    final fromEditGroup = CharacterCard(
+      name: 'Sophia',
+      description: 'Fixed a typo in Edit group.',
+    )..dbId = sophia.dbId;
+
+    chat.refreshActiveCharacterCard(fromEditGroup);
+
+    final live = chat.groupCharacters.firstWhere((c) => c.name == 'Sophia');
+    expect(live.description, 'Fixed a typo in Edit group.');
+    expect(
+      live.avatarImages?.map((a) => a.id),
+      ['a-joy'],
+      reason: 'the refresh dropped her expression images',
+    );
+    expect(live.primeAvatarIndex, 2);
   });
 }

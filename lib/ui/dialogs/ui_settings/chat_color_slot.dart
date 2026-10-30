@@ -140,6 +140,8 @@ CharacterCard cloneCharacterWithExtensions(
         ? List.from(character.avatarImages!)
         : null,
   )..dbId = character.dbId;
+  // The roster keeps showing the same default face after the swap.
+  updated.primeAvatarIndex = character.primeAvatarIndex;
   return updated;
 }
 

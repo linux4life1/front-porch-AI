@@ -37,9 +37,15 @@ extension ChatServiceChatEntry on ChatService {
         (c) => identical(c, card) || (c.dbId != null && c.dbId == card.dbId),
       );
       if (i != -1) {
-        // characters is an unmodifiable view. The editor mutates the member
-        // in place, then this refresh replaces the slot when the caller
-        // handed back a copy. Writing the view throws on Save.
+        // A copy from outside the chat (Edit group) has no expression images:
+        // the chat inherits those from the library when it loads the roster.
+        final old = _groupCharacters[i];
+        if (!identical(old, card) && card.avatarImages == null) {
+          card
+            ..avatarImages = old.avatarImages
+            ..primeAvatarIndex = old.primeAvatarIndex;
+        }
+        // characters is an unmodifiable view; writing it throws on Save.
         _groupManager?.replaceCharacterAt(i, card);
         if (_activeCharacter?.dbId == card.dbId) {
           _activeCharacter = card;
