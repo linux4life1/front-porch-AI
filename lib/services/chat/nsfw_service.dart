@@ -112,6 +112,13 @@ class NsfwService {
   /// [nsfwCooldownEnabled]: that one answers the live gate, and saving it
   /// replaced each chat's choice with Porch Life's.
   bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
+
+  /// The Lust and recovery a message stamp records: none while this chat's
+  /// own switch is off, so a rewind after it is switched back on finds none
+  /// of what a receipt or a re-score left in memory meanwhile.
+  int get stampArousal => (_chatSwitchOn?.call() ?? true) ? _arousalLevel : 0;
+  Refractory get stampRefractory =>
+      (_chatSwitchOn?.call() ?? true) ? _refractory : Refractory.none;
   int get arousalLevel => _arousalLevel;
 
   Refractory get refractory => _refractory;

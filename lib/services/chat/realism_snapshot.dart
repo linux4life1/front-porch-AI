@@ -93,8 +93,8 @@ class RealismSnapshot {
       'startDayOfWeek': _timeService.startDayOfWeekAnchor,
       'storyClock': _timeService.storyClockIso,
       'storyStartDate': _timeService.storyStartDateIso,
-      'arousalLevel': _nsfwService.arousalLevel,
-      ..._nsfwService.refractory.toSnapshot(),
+      'arousalLevel': _nsfwService.stampArousal,
+      ..._nsfwService.stampRefractory.toSnapshot(),
       'trustLevel': _relationshipService.trustLevel,
       'pendingTrustRepair': _relationshipService.pendingTrustRepair,
       'activeFixation': _relationshipService.activeFixation,
@@ -241,8 +241,8 @@ class RealismSnapshot {
       );
     }
     if (rs.containsKey('arousalLevel')) {
-      rs['arousalLevel'] = _nsfwService.arousalLevel;
-      rs.addAll(_nsfwService.refractory.toSnapshot());
+      rs['arousalLevel'] = _nsfwService.stampArousal;
+      rs.addAll(_nsfwService.stampRefractory.toSnapshot());
     }
     if (rs.containsKey('spatialStance')) {
       meta!.putIfAbsent(

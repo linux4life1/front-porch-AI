@@ -486,6 +486,13 @@ void main() {
     await chat.setAfterglowEnabled(false);
     await chat.regenerateLastMessage();
     await settle();
+    // The receipt put the recovery back before the replay; the replay's
+    // stamp must not keep it, or a rewind after switching on would.
+    final stamp = Map<String, dynamic>.from(
+      chat.messages.last.activeMetadata?['realism_state'] as Map,
+    );
+    expect(Refractory.read(stamp)?.running ?? false, isFalse);
+    expect(stamp['arousalLevel'] ?? 0, 0);
     final row = await db
         .customSelect(
           'SELECT arousal_level AS a, refractory_minutes_remaining AS m, '
@@ -537,6 +544,27 @@ void main() {
       isFalse,
       reason: 'switched off, stays off',
     );
+  });
+
+  test("'Score again' while a chat is off leaves its Lust alone", () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Tove', 'char-ownflag-tove', realism: true),
+    );
+    await chat.sendMessage('Evening.');
+    await settle();
+    final i = chat.messages.length - 1;
+    // The reply moved Lust by +12 when it was first scored.
+    chat.messages[i].activeMetadata = {
+      ...?chat.messages[i].activeMetadata,
+      'arousal_delta': 12,
+    };
+    await chat.setAfterglowEnabled(false);
+
+    expect(await chat.reprocessFeelings(i), isNot(FeelingsRescore.refused));
+    await settle();
+    expect(chat.nsfwService.arousalLevel, 0, reason: 'not 0 - 12 + 0');
   });
 
   test('switching a chat back on starts it from calm, whatever was left in '

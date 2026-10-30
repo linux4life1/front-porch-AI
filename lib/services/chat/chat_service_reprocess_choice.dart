@@ -467,7 +467,10 @@ extension ChatServiceFeelingsRescore on ChatService {
       groupSpeakerId: groupSid,
     );
     _mood.restoreFromStamp(state);
-    if (arousal is num) _nsfwService.setArousalLevel(arousal.toInt());
+    // Lust is scored only while Afterglow runs; a re-score leaves it alone.
+    if (arousal is num && _nsfwService.nsfwCooldownEnabled) {
+      _nsfwService.setArousalLevel(arousal.toInt());
+    }
     if (groupSid == null) return;
     _realismDance.saveScalarsIntoGroup(groupSid);
     // The save skips an empty mood; a first-turn member had none.

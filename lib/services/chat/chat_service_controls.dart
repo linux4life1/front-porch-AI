@@ -283,7 +283,7 @@ extension ChatServiceControls on ChatService {
   /// group chat's. It counts only while Porch Life (with 18+) allows
   /// Afterglow. Either way the chat starts from calm: off zeroes Lust and
   /// any recovery, as it always has, and on starts from calm whatever a
-  /// rewind or a re-score left in memory while it was off.
+  /// receipt left in memory while it was off (stamps recorded none).
   Future<void> _setAfterglowEnabledImpl(bool enabled) async {
     if (enabled == _afterglowChatSwitchImpl) return;
     if (_activeGroup == null) {
