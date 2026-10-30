@@ -12,12 +12,19 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const posts: { path: string; body: unknown }[] = [];
 let state: Record<string, unknown>;
+// Holds the next save open until released, or fails it.
+let hold: { release: () => void; fail: boolean } | null = null;
 
 vi.mock('../../api/client', () => ({
   api: {
     get: async () => state,
     post: async (path: string, body: Record<string, unknown>) => {
       posts.push({ path, body });
+      if (hold) {
+        const h = hold;
+        await new Promise<void>((r) => (h.release = r));
+        if (h.fail) throw new Error('refused');
+      }
       state = body.useForkSource
         ? { ...state, realism: true, needs: true, forkSource: null }
         : { ...state, ...body };
@@ -102,4 +109,29 @@ it('each switch posts only what it changes', async () => {
   });
   expect(posts.map((p) => p.body)).toEqual([{ realism: true }, { inherit: true }]);
   expect(boxes()[1].disabled).toBe(false);
+});
+
+it('a switch moves when tapped, before the save answers, and moves back if it fails', async () => {
+  const realism = () => container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[0];
+  hold = { release: () => {}, fail: false };
+  await act(async () => {
+    realism().click();
+  });
+  expect(realism().checked, 'on before the relay answers').toBe(true);
+  await act(async () => {
+    hold!.release();
+  });
+  expect(realism().checked).toBe(true);
+
+  hold = { release: () => {}, fail: true };
+  await act(async () => {
+    realism().click();
+  });
+  expect(realism().checked).toBe(false);
+  await act(async () => {
+    hold!.release();
+  });
+  expect(realism().checked, 'a refused save puts it back').toBe(true);
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not save');
+  hold = null;
 });

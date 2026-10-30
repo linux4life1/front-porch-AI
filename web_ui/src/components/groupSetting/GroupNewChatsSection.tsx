@@ -57,7 +57,11 @@ export function GroupNewChatsSection({
     };
   }, [groupId]);
 
-  const save = (body: Record<string, boolean>, worldsMayChange = false) =>
+  // A switch moves as soon as it is tapped; the saved state replaces it when
+  // the relay answers, and a failed save puts the old state back.
+  const save = (body: Record<string, boolean>, worldsMayChange = false) => {
+    const before = state;
+    if (before && !body.useForkSource) setState({ ...before, ...body });
     void api
       .post<NewChatsState>(`/api/groups/${groupId}/new-chats`, body)
       .then((s) => {
@@ -67,8 +71,10 @@ export function GroupNewChatsSection({
       })
       .catch((e) => {
         console.warn('[group] new-chat settings save failed', e);
+        if (before) setState(before);
         setSaveError('Could not save the settings for new chats. Try again.');
       });
+  };
 
   if (!state) return null;
   const source = dismissed ? null : state.forkSource;
