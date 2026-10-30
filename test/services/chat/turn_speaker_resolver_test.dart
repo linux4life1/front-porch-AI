@@ -128,6 +128,16 @@ void main() {
       expect(rr.nextSpeaker?.name, 'Alice');
     });
 
+    test('a turn that wrote no reply puts the held pick back', () {
+      final mgr = GroupTurnManager()
+        ..enterGroup(_group(order: TurnOrder.random), members);
+      mgr.previewSpeaker(members[1]);
+      final before = mgr.rotation;
+      expect(mgr.pickNextSpeaker().name, 'Bob');
+      mgr.restoreRotation(before);
+      expect(mgr.nextSpeaker?.name, 'Bob', reason: 'Bob is still up next');
+    });
+
     test('a reset drops the held pick', () {
       final mgr = GroupTurnManager()
         ..enterGroup(_group(order: TurnOrder.random), members);

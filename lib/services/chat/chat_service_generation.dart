@@ -76,7 +76,7 @@ class _GenTurn {
 
   /// The group rotation before this turn picked its speaker. Put back when
   /// the turn ends before its reply bubble lands ([replyLanded]).
-  ({int index, String? forcedId})? rotationBeforePick;
+  TurnRotation? rotationBeforePick;
   bool replyLanded = false;
   late String userName;
   // Track original model for call mode swap/restore. Deliberately survives

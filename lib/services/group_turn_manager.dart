@@ -6,6 +6,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 
+/// Where the turn order stands: the round-robin index, a forced speaker and
+/// a random pick made ahead. Saved before a pick and put back when that
+/// turn wrote no reply.
+typedef TurnRotation = ({int index, String? forcedId, String? previewId});
+
 /// Manages turn order, forced speaker selection, Director Mode state,
 /// and related group chat orchestration.
 ///
@@ -173,20 +178,28 @@ class GroupTurnManager extends ChangeNotifier {
     final hold = _regenHold;
     _regenHold = null;
     if (hold == null || _forcedNextSpeakerId != hold.regenId) return;
-    restoreRotation((index: hold.index, forcedId: hold.forcedId));
+    restoreRotation((
+      index: hold.index,
+      forcedId: hold.forcedId,
+      previewId: _previewId,
+    ));
   }
 
   /// Where the rotation stands, for [restoreRotation].
-  ({int index, String? forcedId}) get rotation =>
-      (index: _turnIndex, forcedId: _forcedNextSpeakerId);
+  TurnRotation get rotation => (
+    index: _turnIndex,
+    forcedId: _forcedNextSpeakerId,
+    previewId: _previewId,
+  );
 
   /// Put back a [rotation] taken before a pick whose turn wrote no reply
   /// (stopped, refused or failed): that member is still up next.
-  void restoreRotation(({int index, String? forcedId}) r) {
+  void restoreRotation(TurnRotation r) {
     _turnIndex = _characters.isEmpty ? 0 : r.index % _characters.length;
     _forcedNextSpeakerId = _characters.any((c) => _getId(c) == r.forcedId)
         ? r.forcedId
         : null;
+    _previewId = r.previewId;
     notifyListeners();
   }
 

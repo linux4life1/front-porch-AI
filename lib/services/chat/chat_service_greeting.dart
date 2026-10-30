@@ -231,7 +231,11 @@ extension ChatServiceGreeting on ChatService {
         debugPrint('[Realism] Post-greeting eval failed: $e');
       } finally {
         // Per-eval Zone token only. Do not reintroduce a global slot.
-        if (_activeGroup != null) {
+        // A group's loan ends only while the pointer still names [evalChar]:
+        // a turn that overlapped the eval may hold it now.
+        if (_activeGroup != null &&
+            evalChar != null &&
+            stillLentTo(_activeCharacter, evalChar)) {
           _activeCharacter = previousActive;
         }
         _isProcessingGreeting = false;
