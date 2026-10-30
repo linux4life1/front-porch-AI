@@ -16,19 +16,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// A chat's own Afterglow flag survives every save and every carry between
-// chats, whatever Porch Life says. #614 made Porch Life Afterglow the live
-// gate and said the per-chat flag still rides the save wire. It did not: the
-// 1:1 save, the fork into a group, the collapse back to a 1:1 and the branch
-// from a message all read the gated getter, so each one replaced the chat's
-// own choice with Porch Life's.
+// A chat's own Afterglow flag survives its saves, a fork into a group, the
+// group's replies, the collapse back to a 1:1 and a branch from a message,
+// whatever Porch Life says. #614 made Porch Life Afterglow the live gate and
+// said the per-chat flag still rides the save wire. It did not: the 1:1 save,
+// the fork's host capture, the collapse fallback and the branch walk read the
+// gated getter, the fork put the host's flag only in the chat-level register
+// (per-speaker state in a group, so the first reply overwrote it), and the
+// group branch reset every unstamped member's flag to the seed.
 //
-// Red proofs: put `nsfwCooldownEnabled` back for `storedNsfwCooldownEnabled`
-// in the 1:1 save (chat_service_session_state_save), the fork's host capture
-// (chat_service_group_membership), the collapse fallback
-// (chat_service_cast_shrink) or the branch walk (chat_service_import_walk),
-// and the matching test fails.
+// Not covered here: .fpchat export and import. The package never carried the
+// flag, and an import seeds it from the card and Porch Life.
+//
+// Red proofs, one site at a time: put `nsfwCooldownEnabled` back for
+// `storedNsfwCooldownEnabled` in the save (chat_service_session_state_save:
+// every test fails), the fork's host capture (chat_service_group_membership),
+// the collapse fallback (chat_service_cast_shrink) or the branch walk
+// (chat_service_import_walk); drop the host-member write in
+// _carryHostStateIntoForkedGroup; or drop the kept flag in
+// _restoreGroupRealismWalkingBack. Each fails its own test.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value, Variable;
@@ -130,17 +138,49 @@ void main() {
     return v == null ? null : v == 1 || v == true;
   }
 
+  /// A group member's own flag, as the session row stores it.
+  Future<Object?> memberFlag(String sessionId, String memberName) async {
+    final row = await db
+        .customSelect(
+          'SELECT group_realism_state AS v FROM sessions WHERE id = ?',
+          variables: [Variable(sessionId)],
+        )
+        .getSingle();
+    final state = jsonDecode(row.data['v'] as String) as Map<String, dynamic>;
+    final perChar = state['perChar'] as Map<String, dynamic>? ?? const {};
+    final member = chat.groupCharacters.firstWhere((c) => c.name == memberName);
+    final entry = perChar[groupMemberStoreId(member)];
+    return entry is Map ? entry['nsfwCooldownEnabled'] : null;
+  }
+
   /// A card that asks for Afterglow seeds the chat's own flag on, even with
   /// Porch Life off (the seed ORs the card with the Porch Life default).
-  CharacterCard card(String name, String id, {bool afterglow = true}) =>
-      CharacterCard(
-        name: name,
-        description: 'Exists only inside the own-flag test.',
-        firstMessage: 'The porch light hums.',
-        frontPorchExtensions: FrontPorchExtensions(
-          nsfwCooldownEnabled: afterglow,
-        ),
-      )..dbId = id;
+  CharacterCard card(
+    String name,
+    String id, {
+    bool afterglow = true,
+    bool realism = false,
+  }) => CharacterCard(
+    name: name,
+    description: 'Exists only inside the own-flag test.',
+    firstMessage: 'The porch light hums.',
+    frontPorchExtensions: FrontPorchExtensions(
+      nsfwCooldownEnabled: afterglow,
+      realismEnabled: realism,
+    ),
+  )..dbId = id;
+
+  /// [card] in the library, so a collapse can find her again.
+  Future<CharacterCard> libraryCard(String name, {bool realism = false}) async {
+    final c = card(name, 'unused', realism: realism)..dbId = null;
+    final dir = Directory.systemTemp.createTempSync('ownflag_card_');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final png = p.join(dir.path, '${name}_1700000000.png');
+    await V2CardService().saveCardAsPng(c, png, null);
+    c.imagePath = png;
+    await repo.addCharacter(c);
+    return c;
+  }
 
   test('a 1:1 save keeps the chat\'s own flag on while Porch Life is '
       'off', () async {
@@ -182,20 +222,52 @@ void main() {
     );
   });
 
-  test('forking a 1:1 into a group carries the chat\'s own flag', () async {
-    await chat.setActiveCharacter(card('Nia', 'char-ownflag-nia'));
+  for (final realism in [false, true]) {
+    test('forking a 1:1 into a group puts the chat\'s own flag on the host '
+        'member (realism ${realism ? 'on' : 'off'})', () async {
+      await chat.setActiveCharacter(
+        card('Nia', 'char-ownflag-nia', realism: realism),
+      );
+      await chat.sendMessage('Evening.');
+      await settle();
+
+      final group = await chat.forkToGroupChat([
+        card('Marisol', 'char-ownflag-marisol'),
+      ], groupRepo);
+      expect(group, isNotNull, reason: 'the conversion itself must succeed');
+
+      expect(
+        await memberFlag(chat.currentSessionId!, 'Nia'),
+        isTrue,
+        reason:
+            'the fork put the host\'s flag only in the chat-level register, '
+            'which the first group reply overwrites',
+      );
+    });
+  }
+
+  test('a flag carried into a group survives a group reply and comes back '
+      'with the collapse to a 1:1', () async {
+    final nia = await libraryCard('Nia', realism: true);
+    await chat.setActiveCharacter(nia);
     await chat.sendMessage('Evening.');
     await settle();
 
     final group = await chat.forkToGroupChat([
-      card('Marisol', 'char-ownflag-marisol'),
+      card('Rue', 'char-ownflag-rue'),
     ], groupRepo);
-    expect(group, isNotNull, reason: 'the conversion itself must succeed');
+    expect(group, isNotNull);
+    await chat.sendMessage('Evening, both of you.');
+    await settle();
+
+    final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+    expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
+    expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
 
     expect(
       await storedFlag(chat.currentSessionId!),
       isTrue,
-      reason: 'the fork captured the gate for the host, not her own flag',
+      reason: 'Nia went into the group with Afterglow on and came out off',
     );
   });
 
@@ -203,22 +275,11 @@ void main() {
       'the survivor has none of her own', () async {
     const groupId = 'grp-ownflag';
     const sid = '1700000000777';
-
-    // The survivor's library character, so the collapse can find her.
-    final nia = CharacterCard(
-      name: 'Nia',
-      description: 'Exists only inside the own-flag test.',
-      firstMessage: 'The porch boards creak.',
-    );
-    final tmpDir = Directory.systemTemp.createTempSync('ownflag_card_');
-    final pngPath = '${tmpDir.path}/Nia_1700000000.png';
-    await V2CardService().saveCardAsPng(nia, pngPath, null);
-    nia.imagePath = pngPath;
-    await repo.addCharacter(nia);
+    final nia = await libraryCard('Nia');
 
     await db.insertGroup(GroupsCompanion.insert(id: groupId, name: 'Pair'));
-    // Realism off, so no member carries a flag of her own: the collapse
-    // falls back to the group chat's flag, stored on.
+    // Realism off and nobody has spoken, so no member carries a flag of her
+    // own: the collapse falls back to the group chat's flag, stored on.
     await db.insertSession(
       SessionsCompanion.insert(
         id: sid,
@@ -267,8 +328,7 @@ void main() {
       groupRepo: groupRepo,
     );
     final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
-    final removed = await chat.removeCharacterFromGroup(rue, groupRepo);
-    expect(removed, isTrue);
+    expect(await chat.removeCharacterFromGroup(rue, groupRepo), isTrue);
     expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
 
     expect(
@@ -278,7 +338,7 @@ void main() {
     );
   });
 
-  test('branching from a message keeps the chat\'s own flag', () async {
+  test('branching a 1:1 from a message keeps the chat\'s own flag', () async {
     await chat.setActiveCharacter(card('Ivy', 'char-ownflag-ivy'));
     await chat.sendMessage('Evening.');
     await settle();
@@ -292,6 +352,31 @@ void main() {
       await storedFlag(chat.currentSessionId!),
       isTrue,
       reason: 'the branch walk kept the gate as the chat\'s toggle',
+    );
+  });
+
+  test('branching a group from a message keeps each member\'s own '
+      'flag', () async {
+    await chat.setActiveCharacter(card('Juno', 'char-ownflag-juno'));
+    await chat.sendMessage('Evening.');
+    await settle();
+    final group = await chat.forkToGroupChat([
+      card('Sol', 'char-ownflag-sol'),
+    ], groupRepo);
+    expect(group, isNotNull);
+    final parent = chat.currentSessionId!;
+    expect(await memberFlag(parent, 'Juno'), isTrue);
+
+    // Realism is off, so no reply carries a realism stamp: the walk resets
+    // every member to the group's seed.
+    await chat.forkFromMessage(chat.messages.length - 1);
+    await settle();
+    expect(chat.currentSessionId, isNot(parent));
+
+    expect(
+      await memberFlag(chat.currentSessionId!, 'Juno'),
+      isTrue,
+      reason: 'the group walk reset the member\'s flag along with her scalars',
     );
   });
 }

@@ -306,9 +306,12 @@ extension ChatServiceCastShrink on ChatService {
 
     // Enable-flags (independent of realism; persist via _doSaveChat columns in
     // both modes) + author note + evolution + objectives carry REGARDLESS.
-    _nsfwService.seedFromV2OrExt(
-      nsfwCooldownEnabled: state['nsfwCooldownEnabled'] as bool? ?? false,
-    );
+    // The host's own Afterglow flag also goes on the host MEMBER, realism or
+    // not: in a group the chat-level register is per-speaker state, so a value
+    // left only there is gone after the first group reply.
+    final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
+    _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: hostNsfw);
+    _groupStore.memberForWrite(hostId).nsfwCooldownEnabled = hostNsfw;
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,

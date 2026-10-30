@@ -109,11 +109,17 @@ extension ChatServiceImportWalk on ChatService {
         final keptPockets = pocketsEnabledFor(sid)
             ? null
             : _groupRealism[sid]?.pockets;
+        // The member's Afterglow flag is a toggle, not a scalar: kept like
+        // the 1:1 walk keeps the chat's, never reset to the seed.
+        final keptNsfw = _groupRealism[sid]?.nsfwCooldownEnabled;
         final seed = seeds[sid];
         _groupRealism[sid] = seed != null
             ? GroupMemberRealism.fromJson(Map<String, dynamic>.from(seed))
             : GroupMemberRealism();
         if (keptPockets != null) _groupRealism[sid]!.pockets = keptPockets;
+        if (keptNsfw != null) {
+          _groupRealism[sid]!.nsfwCooldownEnabled = keptNsfw;
+        }
       }
     }
 

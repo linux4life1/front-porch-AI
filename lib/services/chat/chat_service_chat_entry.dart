@@ -418,7 +418,7 @@ extension ChatServiceChatEntry on ChatService {
                 _storageService.realismSettings.realismDefault;
             _nsfwService.seedFromV2OrExt(
               nsfwCooldownEnabled:
-                  _nsfwService.nsfwCooldownEnabled ||
+                  _nsfwService.storedNsfwCooldownEnabled ||
                   _storageService.realismSettings.nsfwCooldownDefault,
             );
             _chaosModeService.seedFromGroupOrExt(
