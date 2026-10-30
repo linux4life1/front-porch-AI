@@ -42,6 +42,7 @@ class GroupCreateDraft {
       scenario = _text(body['scenario']),
       firstMessage = _text(body['firstMessage']),
       memberPrompts = _stringMap(body['memberPrompts']),
+      memberVoices = _stringMap(body['memberVoices']),
       groupLore = _lore(body['groupLore']),
       greetings = compactGreetingPairs(
         greetingSlotsFromRaw(body['alternateGreetings']),
@@ -64,6 +65,11 @@ class GroupCreateDraft {
 
   /// Library id → that member's extra instructions in this group.
   final Map<String, String> memberPrompts;
+
+  /// Library id → the Voice picked for that member: a voice id, or '' for
+  /// the global voice. A member with no entry keeps the card's own voice
+  /// (see memberVoiceFromPick).
+  final Map<String, String> memberVoices;
   final List<LorebookEntry> groupLore;
 
   /// Alternate openings and their realism seeds, paired as the editor does.

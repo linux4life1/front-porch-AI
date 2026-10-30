@@ -261,7 +261,9 @@ class GroupFacade {
           alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
-          ttsVoice: Value(source.ttsVoice),
+          ttsVoice: Value(
+            memberVoiceFromPick(draft.memberVoices, source.dbId!, source),
+          ),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())

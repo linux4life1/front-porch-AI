@@ -122,13 +122,9 @@ class GroupChatCommitter {
           alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
-          // The Cast step's Voice pick for this member; no pick keeps the
-          // card's own voice. Never written to the library card.
-          ttsVoice: Value(
-            (d.characterVoices[id]?.isNotEmpty ?? false)
-                ? d.characterVoices[id]
-                : source.ttsVoice,
-          ),
+          // The Members step's Voice pick (characterVoices): never written
+          // to the library card.
+          ttsVoice: Value(memberVoiceFromPick(d.characterVoices, id, source)),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())

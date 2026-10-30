@@ -102,3 +102,20 @@ FrontPorchExtensions? groupMemberExtensions(
   memberFp.ensureStableId();
   return memberFp;
 }
+
+/// The voice a new group member's row carries, from the new-group wizard's
+/// per-member [picks] (library id → voice id). Shared by the desktop wizard's
+/// GroupChatCommitter and the web relay's group create.
+///
+/// No entry keeps [source]'s own voice; `''` is the picker's "Use the global
+/// voice", stored as null so the member follows Settings (as the character
+/// editor stores it); anything else is the picked voice.
+String? memberVoiceFromPick(
+  Map<String, String> picks,
+  String libraryId,
+  CharacterCard source,
+) => switch (picks[libraryId]) {
+  null => source.ttsVoice,
+  '' => null,
+  final String pick => pick,
+};

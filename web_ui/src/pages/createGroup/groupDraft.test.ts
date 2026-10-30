@@ -143,3 +143,14 @@ it('matches the desktop neutral seed and High Bond preset', () => {
 it("drops only the named members' own Group Dynamics rows", () => {
   expect(withoutFeelingsOf({ a: { b: 5 }, b: { a: 7 }, c: { a: 1 } }, ['a', 'c'])).toEqual({ b: { a: 7 } });
 });
+
+it("posts each current member's Voice pick, the global voice ('') included", () => {
+  const body = createBody({
+    name: 'Voices',
+    memberIds: ['a', 'b', 'c'],
+    turnOrder: 'roundRobin',
+    worlds: { settingId: 'vale', loreIds: [] },
+    draft: { ...EMPTY_DRAFT, memberVoices: { a: 'am_adam', b: '', gone: 'af_sky' } },
+  });
+  expect(body.memberVoices, 'c keeps its own voice; gone left the roster').toEqual({ a: 'am_adam', b: '' });
+});

@@ -112,7 +112,8 @@ class GroupWizardDraft extends ChangeNotifier {
   final Map<String, TextEditingController> characterSystemPrompts =
       {}; // charId -> prompt
 
-  // Voices (charId -> voiceId or '')
+  /// Members step Voice picks, charId → a voice id, or '' for "Use the global
+  /// voice". A member with no entry keeps the card's own voice.
   final Map<String, String> characterVoices = {};
 
   // Lore & Worlds

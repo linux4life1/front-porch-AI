@@ -89,6 +89,9 @@ export interface GroupDraft {
   relationships: Record<string, Record<string, number>>;
   /** Library id → extra instructions for that member in this group. */
   memberPrompts: Record<string, string>;
+  /** Library id → the Voice picked for that member: a voice id, or '' for
+   *  the global voice. No entry keeps the card's own voice. */
+  memberVoices: Record<string, string>;
   groupLore: LoreDraft[];
   inheritCharacterLorebooks: boolean;
 }
@@ -164,6 +167,7 @@ export const EMPTY_DRAFT: GroupDraft = {
   members: {},
   relationships: {},
   memberPrompts: {},
+  memberVoices: {},
   groupLore: [],
   inheritCharacterLorebooks: false,
 };
@@ -216,6 +220,10 @@ export function createBody(args: {
       memberIds
         .map((id) => [id, (d.memberPrompts[id] ?? '').trim()] as const)
         .filter(([, text]) => text !== ''),
+    ),
+    // '' is a pick (the global voice), so only members without one drop out.
+    memberVoices: Object.fromEntries(
+      memberIds.filter((id) => id in d.memberVoices).map((id) => [id, d.memberVoices[id]]),
     ),
     groupLore: d.groupLore
       .filter((e) => e.content.trim() !== '')

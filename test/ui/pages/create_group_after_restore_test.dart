@@ -32,6 +32,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -200,5 +201,121 @@ void main() {
       'Aerin',
       'Bo',
     ], reason: 'the member rows must land in the restored database');
+  });
+
+  // The Members step's Voice pickers reach the group: a voice goes on the
+  // member, "Use the global voice" stores none, and the library card keeps
+  // its own. The committer used to write the card's voice to the row and
+  // put the pick on the library card in memory instead.
+  testWidgets('the Members step Voice picks go on the members, never the '
+      'library cards', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final aerin = CharacterCard(
+      name: 'Aerin',
+      description: 'First roster member.',
+      firstMessage: 'Hello.',
+    )..ttsVoice = 'af_sky';
+    final bo = CharacterCard(
+      name: 'Bo',
+      description: 'Second roster member.',
+      firstMessage: 'Hi.',
+    );
+
+    final storage = _Storage(docsDir);
+    late AppDatabase live;
+    late GroupChatRepository groups;
+    late CharacterRepository repo;
+    await tester.runAsync(() async {
+      live = await AppDatabase.instance();
+      groups = GroupChatRepository(storage, live);
+      await groups.reload();
+      repo = _Library(live, storage, [aerin, bo]);
+    });
+    addTearDown(() => tester.runAsync(AppDatabase.closeAndReset));
+
+    final chat = FakeChatService();
+    final worlds = FakeWorldRepository();
+    final folders = FakeFolderService();
+    final llm = FakeLLMProvider();
+    final tts = FakeTtsService();
+    for (final s in [repo, chat, storage, worlds, folders, llm, tts, groups]) {
+      addTearDown(s.dispose);
+    }
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: live),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<FolderService>.value(value: folders),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+          ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ChangeNotifierProvider<TtsService>.value(value: tts),
+        ],
+        child: const MaterialApp(home: CreateGroupChatPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bo').first);
+    await tester.pumpAndSettle();
+
+    // One picker per Members row, in roster order.
+    final pickers = tester
+        .widgetList<CharacterVoicePicker>(find.byType(CharacterVoicePicker))
+        .toList();
+    expect(pickers, hasLength(2));
+    pickers[0].onChanged(''); // Aerin: "Use the global voice"
+    pickers[1].onChanged('am_adam'); // Bo: a voice of his own
+    await tester.pumpAndSettle();
+
+    Future<void> next(String landmark) async {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text(landmark), findsWidgets);
+    }
+
+    await next('Group Name');
+    await tester.enterText(find.byType(TextField).first, 'Voiced Porch');
+    await tester.pumpAndSettle();
+    await next('Where does the group meet?');
+    await next('Day Number');
+    await next('Opening Scene');
+    await next('Group System Prompt');
+    await next('Create Group & Enter Chat');
+
+    const createOnly = "Create Only (don't enter chat yet)";
+    await tester.ensureVisible(find.text(createOnly));
+    await tester.tap(find.text(createOnly));
+    for (var i = 0; i < 100 && groups.groups.isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+    }
+
+    final members = await tester.runAsync(
+      () => live.getGroupMembers(groups.groups.single.id),
+    );
+    expect(
+      {for (final m in members!) m.name: m.ttsVoice},
+      {'Aerin': null, 'Bo': 'am_adam'},
+      reason:
+          'THE BUG: the rows kept the cards\' voices; the global pick read '
+          'as no pick',
+    );
+    expect(
+      (aerin.ttsVoice, bo.ttsVoice),
+      ('af_sky', null),
+      reason: 'the picks were put on the library cards in memory',
+    );
   });
 }
