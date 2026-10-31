@@ -7,8 +7,12 @@
 // BYTE-IDENTICAL parity with the legacy hand-built string concatenations that
 // the plan replaced in _generateResponse.
 
+import 'dart:io';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/prompt_plan.dart';
+import 'package:front_porch_ai/ui/theme/legend_colors.dart';
 
 /// Builds a plan exactly the way _generateResponse registers its sections.
 PromptPlan buildGenerationShapedPlan({
@@ -106,7 +110,7 @@ PromptPlan buildGenerationShapedPlan({
     rendered: false,
   );
   plan.add(id: 'objectives', label: 'Objectives', text: objectiveBlock);
-  plan.add(id: 'realism', label: 'Realism Mode', text: realismBlock);
+  plan.add(id: 'realism', label: 'Realism Engine', text: realismBlock);
   plan.add(
     id: 'catastrophe',
     label: 'Needs Catastrophe',
@@ -258,5 +262,19 @@ void main() {
     turnB.section('memories').text = '\n[Exact earlier lines: - y - z]\n';
 
     expect(prefixThroughHistory(turnA), prefixThroughHistory(turnB));
+  });
+
+  // The Context Budget legend still said "Realism Mode"; the feature is the
+  // Realism Engine everywhere else. The section's label and its colour key
+  // must move together, or the row goes grey.
+  test('the Realism section is the Realism Engine, in its colour', () {
+    final source = File(
+      'lib/services/chat/chat_service_generation_plan_register.dart',
+    ).readAsStringSync();
+    final label = RegExp(
+      r"id: 'realism',\s*label: '([^']+)'",
+    ).firstMatch(source)?.group(1);
+    expect(label, 'Realism Engine');
+    expect(LegendColors.contextSections[label], const Color(0xFFEC4899));
   });
 }

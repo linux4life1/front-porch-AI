@@ -161,7 +161,7 @@ extension ChatServiceGenerationPlanRegister on ChatService {
     );
     plan.add(id: 'objectives', label: 'Objectives', text: objectiveBlock);
     plan.add(id: 'world', label: 'World / Place', text: worldBlock);
-    plan.add(id: 'realism', label: 'Realism Mode', text: realismBlock);
+    plan.add(id: 'realism', label: 'Realism Engine', text: realismBlock);
     plan.add(
       id: 'catastrophe',
       label: 'Needs Catastrophe',
