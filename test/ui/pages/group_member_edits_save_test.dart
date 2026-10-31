@@ -768,6 +768,86 @@ void main() {
       );
     });
   });
+
+  testWidgets("the chat sidebar's member Edit leaves extensions it could not "
+      "read to the open chat, setting no Afterglow", (tester) async {
+    await tester.runAsync(() async {
+      const foreign = '{"realism_engine":{"day_count":2.0}}';
+      await db.updateGroupMember(
+        const GroupMembersCompanion(
+          id: Value(_memberId),
+          frontPorchExtensions: Value(foreign),
+        ),
+      );
+      final mara = member();
+      final chat = _AfterglowGroup([mara]);
+      await pumpAfterglowHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
+        false,
+      );
+      await tester.pump();
+      await save(tester);
+
+      expect((await memberRow()).frontPorchExtensions, foreign);
+      expect(
+        mara.frontPorchExtensions,
+        isNull,
+        reason: "the chat's copy kept the editor's defaults to write later",
+      );
+      expect(
+        chat.afterglowSets,
+        isEmpty,
+        reason: 'the settle would persist the defaults over the row',
+      );
+    });
+  });
+
+  testWidgets("Edit group's member Edit on a copy with no extensions keeps "
+      "the open chat's Afterglow", (tester) async {
+    await tester.runAsync(() async {
+      // Edit group loaded Mara before she had extensions; since then the
+      // phone switched her Afterglow off.
+      final off = FrontPorchExtensions(afterglowEnabled: false);
+      await db.updateGroupMember(
+        GroupMembersCompanion(
+          id: const Value(_memberId),
+          frontPorchExtensions: Value(jsonEncode(off.toJson())),
+        ),
+      );
+      final chat = _AfterglowGroup([member()..frontPorchExtensions = off]);
+      await pumpAfterglowHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
+
+      expect((await memberRow()).ttsVoice, 'af_heart');
+      expect(rowExtensions(await memberRow())?.afterglowEnabled, isFalse);
+      expect(
+        chat.members.single.frontPorchExtensions?.afterglowEnabled,
+        isFalse,
+      );
+      expect(
+        chat.afterglowSets,
+        isEmpty,
+        reason: 'the settle switched her Afterglow back on',
+      );
+    });
+  });
 }
 
 /// An open group named Pair that records each member Afterglow it sets. Like

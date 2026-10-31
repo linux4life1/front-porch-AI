@@ -107,17 +107,13 @@ class GroupMemberEdit {
     final c = await _card(groupId, memberId);
     if (c == null) return false;
     final afterglowBefore = c.frontPorchExtensions?.afterglowEnabled ?? true;
-    // The page always posts its Realism fields; over extensions the app could
-    // not read they are only defaults, and the member keeps what is stored.
-    final unreadable =
-        c.frontPorchExtensions == null &&
-        await groupMemberExtensionsUnreadable(_db, memberId);
+    // The page always posts its Realism fields. Over extensions the app could
+    // not read they are only defaults; the save keeps what is stored.
     applyCharacterFields(
       c,
       fields,
       needsSimDefault: _storage.realismSettings.needsSimDefault,
     );
-    if (unreadable) c.frontPorchExtensions = null;
     applyCharacterWorlds(c, fields['worlds'], _worlds);
     await saveGroupMemberCard(_db, c);
     final chat = _chat;

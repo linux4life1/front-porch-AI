@@ -124,7 +124,8 @@ Future<void> saveGroupMemberExtensions(AppDatabase db, CharacterCard card) {
 /// a save from an editor that opened the switch at [opened]. An editor
 /// holding an older copy (Edit group) that left the switch alone takes the
 /// chat's value, so a change made since (Group Settings, the phone) is not
-/// put back. Returns the value [settleMemberAfterglow] starts from.
+/// put back; one that wrote no extensions at all takes the chat's whole set.
+/// Returns the value [settleMemberAfterglow] starts from.
 bool liveMemberAfterglow(ChatService chat, CharacterCard card, bool opened) {
   if (!chat.isGroupMode) return opened;
   CharacterCard? live;
@@ -134,7 +135,9 @@ bool liveMemberAfterglow(ChatService chat, CharacterCard card, bool opened) {
   if (live == null || identical(live, card)) return opened;
   final now = live.frontPorchExtensions?.afterglowEnabled ?? true;
   final ext = card.frontPorchExtensions;
-  if (ext != null && ext.afterglowEnabled == opened) {
+  if (ext == null) {
+    card.frontPorchExtensions = live.frontPorchExtensions?.copyWith();
+  } else if (ext.afterglowEnabled == opened) {
     card.frontPorchExtensions = ext.copyWith(afterglowEnabled: now);
   }
   return now;
@@ -174,7 +177,9 @@ Future<bool> groupMemberExtensionsUnreadable(AppDatabase db, String id) async {
   if (raw == null || raw.trim().isEmpty) return false;
   try {
     final decoded = jsonDecode(raw);
-    if (decoded is! Map || decoded.isEmpty) return false;
+    // The loader reads anything but a map as none, too.
+    if (decoded is! Map) return true;
+    if (decoded.isEmpty) return false;
     FrontPorchExtensions.fromJson(Map<String, dynamic>.from(decoded));
     return false;
   } catch (_) {
@@ -185,7 +190,9 @@ Future<bool> groupMemberExtensionsUnreadable(AppDatabase db, String id) async {
 /// Saves a group member's edited card to its own row. The row is what the
 /// group loads its members from, so an edit that only reached the member's
 /// PNG, or a library row, was gone the next time the group opened. Stored
-/// extensions the app cannot read are kept as they are.
+/// extensions the app cannot read are kept as they are, and [card] goes back
+/// to holding none, as it loaded, so no later write (the chat's Afterglow
+/// settle, its own saves) puts the editor's defaults over them.
 Future<void> saveGroupMemberCard(AppDatabase db, CharacterCard card) async {
   final id = card.dbId;
   if (id == null || id.isEmpty) {
@@ -195,14 +202,13 @@ Future<void> saveGroupMemberCard(AppDatabase db, CharacterCard card) async {
       'a group member is saved by its row id, and this card has none',
     );
   }
-  var columns = groupMemberCardColumns(card);
   if (card.frontPorchExtensions != null &&
       await groupMemberExtensionsUnreadable(db, id)) {
     debugPrint(
       '[GroupMember] $id keeps the extensions it could not read; this '
       "save's Realism settings were not written",
     );
-    columns = columns.copyWith(frontPorchExtensions: const Value.absent());
+    card.frontPorchExtensions = null;
   }
-  await db.updateGroupMember(columns);
+  await db.updateGroupMember(groupMemberCardColumns(card));
 }
