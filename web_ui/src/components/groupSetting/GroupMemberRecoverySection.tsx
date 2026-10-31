@@ -27,6 +27,8 @@ export function GroupMemberRecoverySection({ members }: { members: MemberRecover
   const [values, setValues] = useState<Record<string, RecoveryProfileValue>>({});
   const [error, setError] = useState('');
   const pending = useRef<Record<string, RecoveryProfileValue>>({});
+  // Sent and not yet answered: a snapshot taken before it landed is older.
+  const inFlight = useRef<Record<string, number>>({});
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const send = (id: string) => {
@@ -34,18 +36,24 @@ export function GroupMemberRecoverySection({ members }: { members: MemberRecover
     const recovery = pending.current[id];
     delete pending.current[id];
     if (!recovery) return;
+    inFlight.current[id] = (inFlight.current[id] ?? 0) + 1;
     void api
       .post('/api/chat/tools/member-recovery', { id, recovery })
       .then(() => setError(''))
       .catch((e) => {
         console.warn('[group] member recovery save failed', e);
         setError(describeActionFailure('save the Recovery block', e));
+      })
+      .finally(() => {
+        inFlight.current[id] -= 1;
       });
   };
   // A fresh snapshot is the truth again for every member not waiting to save,
   // so a change made elsewhere shows here instead of being posted over.
   useEffect(() => {
-    setValues((v) => Object.fromEntries(Object.entries(v).filter(([id]) => pending.current[id])));
+    setValues((v) =>
+      Object.fromEntries(Object.entries(v).filter(([id]) => pending.current[id] || inFlight.current[id] > 0)),
+    );
   }, [members]);
   // Leaving the panel must not drop the last change.
   useEffect(() => () => Object.keys(pending.current).forEach(send), []);

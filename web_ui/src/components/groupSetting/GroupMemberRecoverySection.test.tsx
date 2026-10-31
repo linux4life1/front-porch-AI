@@ -10,11 +10,17 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const posts: { path: string; body: unknown }[] = [];
+// Holds the next save open until released.
+let hold: { release: () => void } | null = null;
 
 vi.mock('../../api/client', () => ({
   api: {
     post: async (path: string, body: unknown) => {
       posts.push({ path, body });
+      if (hold) {
+        const h = hold;
+        await new Promise<void>((r) => (h.release = r));
+      }
       return {};
     },
   },
@@ -28,6 +34,7 @@ let root: Root;
 beforeEach(() => {
   vi.useFakeTimers();
   posts.length = 0;
+  hold = null;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -88,4 +95,31 @@ it('shows a change made elsewhere once nothing of its own is waiting to save', a
   });
   show({ recoveryMode: 'hard', recoveryMinutes: 30 });
   expect(preset().value, 'the desktop set Short (30) since').toBe('short');
+});
+
+it('keeps its own value while the save is out, whatever an older snapshot says', async () => {
+  const show = (recovery: unknown) =>
+    act(() => {
+      root.render(
+        createElement(GroupMemberRecoverySection, {
+          members: [{ id: 'mem-ana', name: 'Ana', afterglowRuns: true, recovery }],
+        }),
+      );
+    });
+  const preset = () => container.querySelector<HTMLSelectElement>('[data-testid="member-recovery-mem-ana"] select')!;
+  show({ recoveryMode: 'auto' });
+  hold = { release: () => {} };
+  const held = hold;
+  act(() => {
+    preset().value = 'none';
+    preset().dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await act(async () => {
+    vi.advanceTimersByTime(500);
+  });
+  show({ recoveryMode: 'auto' });
+  expect(preset().value, 'a snapshot from before the save landed').toBe('none');
+  await act(async () => {
+    held.release();
+  });
 });
