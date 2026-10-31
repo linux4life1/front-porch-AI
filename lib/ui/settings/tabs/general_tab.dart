@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/settings/tabs/general_tab/general_tab.dart';
@@ -182,8 +183,12 @@ class GeneralTab extends StatelessWidget {
               ),
             ),
             value: storageService.realismSettings.adultThemesEnabled,
-            onChanged: (v) =>
-                storageService.realismSettings.setAdultThemesEnabled(v),
+            onChanged: (v) async {
+              final was = storageService.realismSettings.afterglowEnabled;
+              await storageService.realismSettings.setAdultThemesEnabled(v);
+              if (!context.mounted) return;
+              await offerAfterglowInExistingChats(context, wasAllowed: was);
+            },
           ),
           const SizedBox(height: 8),
           const PorchLifePointerCard(),

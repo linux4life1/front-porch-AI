@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { ExistingChatsOffer } from './ExistingChatsOffer';
 import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 interface PorchLifeState {
@@ -379,6 +380,8 @@ function SearchKeyRow({
 export function PorchLifeSettings() {
   const [st, setSt] = useState<PorchLifeState | null>(null);
   const [error, setError] = useState('');
+  // The existing-chats question, asked once Afterglow becomes allowed.
+  const [offer, setOffer] = useState(false);
 
   useEffect(() => {
     void api
@@ -391,12 +394,20 @@ export function PorchLifeSettings() {
 
   const set = <K extends keyof PorchLifeState>(key: K, value: PorchLifeState[K]) => {
     const prev = st;
-    setSt({ ...st, [key]: value });
+    const next = { ...st, [key]: value };
+    setSt(next);
     setError('');
-    api.post('/api/settings', { realism: { [key]: value } }).catch((e) => {
-      setSt(prev);
-      setError(e instanceof ApiError ? e.message : 'Could not save that change');
-    });
+    // Afterglow is allowed by Porch Life with 18+ on (desktop afterglowEnabled).
+    const allowed = (s: PorchLifeState) => s.adultThemesEnabled && s.nsfwCooldownDefault;
+    api
+      .post('/api/settings', { realism: { [key]: value } })
+      .then(() => {
+        if (!allowed(prev) && allowed(next)) setOffer(true);
+      })
+      .catch((e) => {
+        setSt(prev);
+        setError(e instanceof ApiError ? e.message : 'Could not save that change');
+      });
   };
 
   const engineOn = st.realismDefault;
@@ -415,6 +426,7 @@ export function PorchLifeSettings() {
 
   return (
     <section className="card pl-section" data-testid="porch-life-card">
+      {offer && <ExistingChatsOffer onClose={() => setOffer(false)} />}
       <h3>Porch Life</h3>
       <p className="muted small pl-intro">
         Everything that makes a character feel like they live somewhere. Each switch says plainly what it needs — many need nothing at all.

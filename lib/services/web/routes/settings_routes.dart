@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat/existing_chats_offer.dart';
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
@@ -29,6 +30,27 @@ class WebSettingsRoutes {
     : _facade = _deps.settingsFacade! {
     router.get('/api/settings', _get);
     router.post('/api/settings', _post);
+    // The existing-chats question once Porch Life allows Afterglow: how many
+    // chats have their own switch off, and turning those on.
+    router.get(
+      '/api/settings/existing-chats',
+      (shelf.Request r) async =>
+          _offerFor(r.url.queryParameters['feature']).then(
+            (o) async => o == null
+                ? JsonResponse.badRequest('unknown feature')
+                : JsonResponse.ok({'count': await o.countAfterglowOff()}),
+          ),
+    );
+    router.post('/api/settings/existing-chats', (shelf.Request r) async {
+      final body = await RequestBody.readJsonMap(r);
+      final o = await _offerFor(body['feature']?.toString());
+      if (o == null) return JsonResponse.badRequest('unknown feature');
+      // Porch Life may have stopped allowing it since the question opened.
+      if (!_deps.storage.realismSettings.afterglowEnabled) {
+        return JsonResponse.ok({'changed': 0});
+      }
+      return JsonResponse.ok({'changed': await o.turnAfterglowOn()});
+    });
     // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).
     router.get(
       '/api/legacy-models',
@@ -42,6 +64,11 @@ class WebSettingsRoutes {
   }
 
   final WebServerDeps _deps;
+
+  Future<ExistingChatsOffer?> _offerFor(String? feature) async =>
+      feature == 'afterglow'
+      ? ExistingChatsOffer(_deps.db, _facade.boundChat)
+      : null;
   final SettingsFacade _facade;
 
   Future<shelf.Response> _get(shelf.Request request) async =>

@@ -31,15 +31,18 @@
 // nsfwCooldownDefault. Without that, shipping this group would have hidden the
 // Afterglow switch from every existing user who was already running it.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
+import 'package:front_porch_ai/ui/settings/widgets/feature_row.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -320,6 +323,91 @@ void main() {
       await tester.pump();
       expect(chat.asked, [true]);
     });
+  });
+  testWidgets('turning Porch Life Afterglow on asks about the chats that '
+      'have it off, and Done with its switch on turns it on in them', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(() => tester.runAsync(db.close));
+    await tester.runAsync(
+      () => db
+          .into(db.sessions)
+          .insert(
+            SessionsCompanion.insert(
+              id: 'one-off',
+              characterId: const Value('char-a'),
+              nsfwCooldownEnabled: const Value(false),
+            ),
+          ),
+    );
+    final storage = _AdultStorage();
+    // The open chat has its switch off too (this fake's stored flag).
+    final chat = _SwitchChat();
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: const MaterialApp(home: Scaffold(body: PorchLifeTab())),
+      ),
+    );
+    await settle(tester);
+
+    // The count and the switch-on run against the database: real I/O the
+    // test clock does not drive. A read issued after the switch-on lands only
+    // once it has.
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 300 && !done(); i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    await tester.scrollUntilVisible(
+      find.text('Afterglow'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    // As its switch does (the row is greyed while this fake's engine is off).
+    tester
+        .widget<FeatureRow>(find.widgetWithText(FeatureRow, 'Afterglow'))
+        .onChanged(true);
+    final question = find.text('Turn it on in those 2 chats too');
+    await until(() => question.evaluate().isNotEmpty);
+    expect(question, findsOneWidget);
+    expect(find.text('Afterglow is on'), findsOneWidget);
+
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, 'Turn it on in those 2 chats too'),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Done'));
+    bool? stored;
+    for (var i = 0; i < 100 && stored != true; i++) {
+      bool? read;
+      db
+          .customSelect(
+            "SELECT nsfw_cooldown_enabled AS n FROM sessions WHERE id = 'one-off'",
+          )
+          .getSingle()
+          .then((r) => read = r.read<bool>('n'));
+      await until(() => read != null);
+      stored = read;
+    }
+    expect(stored, isTrue, reason: 'the chat that had it off has it on');
+    expect(chat.asked, [true], reason: 'the open chat is switched live');
   });
 }
 
