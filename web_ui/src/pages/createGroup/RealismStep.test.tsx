@@ -10,6 +10,7 @@ import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { EMPTY_DRAFT, NEUTRAL_MEMBER, memberRealism, type GroupDraft } from './groupDraft';
+import type { MemberRealism } from './groupDraft';
 
 let adult = false;
 vi.mock('../../api/client', () => ({
@@ -38,6 +39,9 @@ function Host() {
     draft: d,
     set: (p: Partial<GroupDraft>) => setD((prev) => ({ ...prev, ...p })),
     members: MEMBERS,
+    // Changed: a member is editable once their card has loaded. These two
+    // cards say what the neutral seed says, so the checks below hold.
+    cards: { j: NEUTRAL_MEMBER, m: NEUTRAL_MEMBER },
   });
 }
 
@@ -116,7 +120,9 @@ it('High Bond and Neutral set every member, as the desktop presets do', async ()
     });
   }
   button('Neutral');
-  for (const m of MEMBERS) expect(memberRealism(draft, m.id)).toEqual(NEUTRAL_MEMBER);
+  // Changed: a preset sets Long-Term Bond to its Short-Term Bond, as the
+  // desktop's does, so the slider shows what saves.
+  for (const m of MEMBERS) expect(memberRealism(draft, m.id)).toEqual({ ...NEUTRAL_MEMBER, longTermScore: 35 });
 });
 
 it("edits one member's emotion, verification and needs, and resets them", async () => {
@@ -192,4 +198,99 @@ it("Neutral, High Bond and Reset clear the member's Group Dynamics, as on the de
   seedBoth();
   button('Reset to character defaults', card('j'));
   expect(draft.relationships, "only Juniper's own feelings go").toEqual({ m: { j: -40 } });
+});
+
+// Each member's card starts them: the step shows the card's bonds and
+// mood, Reset goes back to the card, the presets keep its Needs, and an
+// edit keeps only what it changed. The step used to show, reset to and
+// preset from the neutral seed, and posted all of it.
+const JUNIPER_CARD: MemberRealism = {
+  ...NEUTRAL_MEMBER,
+  affection: -60,
+  longTermScore: 140,
+  trust: -25,
+  emotion: 'guarded',
+  needsPace: 'fast',
+};
+const MARLOW_CARD: MemberRealism = { ...NEUTRAL_MEMBER, affection: 0, longTermScore: 0, trust: 0 };
+let retried: string[] = [];
+async function mountWithCards(cards: Record<string, MemberRealism>, failedCards: string[] = []) {
+  retried = [];
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  function CardHost() {
+    const [d, setD] = useState<GroupDraft>(EMPTY_DRAFT);
+    draft = d;
+    return createElement(RealismStep, {
+      draft: d,
+      set: (p: Partial<GroupDraft>) => setD((prev) => ({ ...prev, ...p })),
+      members: MEMBERS,
+      cards,
+      failedCards,
+      onRetryCard: (id: string) => retried.push(id),
+    });
+  }
+  await act(async () => {
+    root.render(createElement(CardHost));
+  });
+}
+
+it('starts each member at their card; an edit keeps only what it changed; Reset goes back', async () => {
+  await mountWithCards({ j: JUNIPER_CARD, m: MARLOW_CARD });
+  expect(card('j').querySelector('summary')!.textContent).toContain('guarded • Bond -60 / Trust -25');
+  expect(card('m').querySelector('summary')!.textContent).toContain('neutral • Bond 0 / Trust 0');
+  type(card('j').querySelector('input[placeholder="e.g. curious, guarded, amused"]')!, 'fond');
+  expect(draft.members.j, 'nothing the member did not change is kept').toEqual({ emotion: 'fond' });
+  expect(memberRealism(draft, 'j', JUNIPER_CARD)).toMatchObject({ emotion: 'fond', affection: -60, needsPace: 'fast' });
+  button('Reset to character defaults', card('j'));
+  expect(draft.members, 'back to the card: nothing of the wizard is left').not.toHaveProperty('j');
+  expect(card('j').querySelector('summary')!.textContent).toContain('guarded • Bond -60 / Trust -25');
+});
+
+it("Neutral and High Bond set Long-Term Bond with Short-Term Bond and keep each card's Needs", async () => {
+  await mountWithCards({ j: JUNIPER_CARD, m: MARLOW_CARD });
+  button('High Bond');
+  expect(draft.members.j).toEqual({
+    affection: 75,
+    longTermScore: 75,
+    trust: 70,
+    emotion: 'affection',
+    emotionIntensity: 'moderate',
+  });
+  expect(memberRealism(draft, 'j', JUNIPER_CARD)).toMatchObject({ longTermScore: 75, needsPace: 'fast' });
+  const longTerm = [...card('j').querySelectorAll('.realism-slider')]
+    .find((s) => s.querySelector('.realism-slider-head > span')?.textContent === 'Long-Term Bond')!
+    .querySelector('input')!;
+  expect(longTerm.value, 'the slider shows what saves').toBe('75');
+  button('Neutral');
+  expect(memberRealism(draft, 'j', JUNIPER_CARD)).toMatchObject({
+    affection: 35,
+    longTermScore: 35,
+    trust: 40,
+    emotion: 'neutral',
+    needsPace: 'fast',
+  });
+});
+
+it("a member can't be edited, nor the presets used, until their card loads", async () => {
+  await mountWithCards({ j: JUNIPER_CARD });
+  expect(container.querySelector('[data-testid="group-realism-member-m"]'), 'no editor for Marlow yet').toBeNull();
+  expect(container.querySelector('[data-testid="group-realism-member-m-pending"]')!.textContent).toContain(
+    "Loading Marlow's card",
+  );
+  const preset = (label: string) =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent === label) as HTMLButtonElement;
+  expect(preset('High Bond').disabled).toBe(true);
+  expect(preset('Neutral').disabled).toBe(true);
+  act(() => preset('High Bond').click());
+  expect(draft.members, 'a preset pressed early sets nothing').toEqual({});
+});
+
+it("a card that failed to load says so and can be asked for again", async () => {
+  await mountWithCards({ j: JUNIPER_CARD }, ['m']);
+  const pending = container.querySelector('[data-testid="group-realism-member-m-pending"]')!;
+  expect(pending.textContent).toContain("Couldn't load Marlow's card.");
+  button('Retry', pending);
+  expect(retried).toEqual(['m']);
 });

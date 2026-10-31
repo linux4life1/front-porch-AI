@@ -505,7 +505,7 @@ void main() {
   // per-member emotion, verification and needs land on a web-made group the
   // way GroupChatCommitter writes them, and an old phone's body (name,
   // members, turn order only) still gets Realism and Needs on with the
-  // desktop's neutral seeds and member extensions.
+  // desktop's card seeds and member extensions.
   group('GroupFacade.createGroup Realism step parity', () {
     late AppDatabase db;
     late GroupChatRepository groups;
@@ -563,7 +563,7 @@ void main() {
     }
 
     test(
-      'the old body shape gets Realism and Needs on with neutral seeds',
+      'the old body shape gets Realism and Needs on, members from their cards',
       () async {
         final (g, ext, mid) = await made({
           'name': 'Old Phone',
@@ -573,14 +573,27 @@ void main() {
         final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
         expect(seeds.keys.toSet(), mid.values.toSet());
         for (final s in seeds.values) {
-          expect(s['affection'], 35);
-          expect(s['trust'], 40);
-          expect(s['emotion'], 'neutral');
           expect(s['needs'], isA<Map>(), reason: 'needs on by default');
         }
+        // Changed: each member starts from their card, as New Chat starts a
+        // 1:1 with it, no longer at the neutral 35 / 40. Plain says nothing
+        // and Carded leaves its bonds alone, so both start at the card
+        // defaults; Carded keeps its own Needs.
         final baseline = jsonDecode(g.baselineRealismState) as Map;
-        expect(baseline[mid[plainId]], containsPair('affection', 35));
-        expect(baseline[mid[plainId]], containsPair('trust', 40));
+        for (final id in [plainId, carded]) {
+          final s = seeds[mid[id]]!;
+          expect(
+            [s['affection'], s['longTermScore'], s['trust'], s['emotion']],
+            [0, 0, 0, 'neutral'],
+            reason: id,
+          );
+          expect(baseline[mid[id]], containsPair('affection', 0));
+          expect(baseline[mid[id]], containsPair('longTermScore', 0));
+          expect(baseline[mid[id]], containsPair('trust', 0));
+          expect(baseline[mid[id]], containsPair('emotion', 'neutral'));
+        }
+        expect(seeds[mid[carded]]!['needs'], containsPair('hunger', 50));
+        expect(seeds[mid[carded]]!['needsPace'], 'sloth');
         expect(g.chaosModeEnabled, isFalse);
         // A card with no extensions gets the desktop committer's fresh ones.
         final plain = ext[plainId]!;
@@ -791,7 +804,7 @@ void main() {
   // for a group made from a 1:1 before forks saved that chat's settings, and
   // the Realism, Needs and Inherit switches for new chats. Proven to fail:
   // drop the useForkSource branch from GroupNewChats.update and the second
-  // test goes red; turn realism on with neutralGroupRealismBlobs instead
+  // test goes red; turn realism on with a neutral seed per member instead
   // of switchGroupTemplateRealism and the third does; drop hostName from
   // findForkedGroupSource and the first does.
   group('GroupFacade.newChats', () {
@@ -1200,6 +1213,247 @@ void main() {
         live.frontPorchExtensions,
         isNull,
         reason: "the chat's copy would write the defaults on its next save",
+      );
+    });
+  });
+
+  // A web-made group's members started at the neutral seed (bond 35, trust
+  // 40, neutral mood, every bar at the neutral needs), whatever their card
+  // said. Each member now starts from their card, as New Chat starts a 1:1
+  // with that card, with what the phone wizard set laid over it. Turning
+  // Realism for new chats on later starts a member with no seed the same
+  // way and leaves saved seeds as they are.
+  group('GroupFacade.createGroup: members start from their cards', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+    late CharacterRepository chars;
+    late String waryId;
+    late String plainId;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      chars = CharacterRepository(db, storage);
+      await chars.addCharacter(
+        CharacterCard(
+          name: 'Wary',
+          description: 'Starts guarded.',
+          frontPorchExtensions: FrontPorchExtensions(
+            shortTermBond: -60,
+            longTermBond: 140,
+            trustLevel: -25,
+            characterEmotion: 'guarded',
+            emotionIntensity: 'strong',
+            needsBaselineHunger: 30,
+            needsBaselineFun: 55,
+            needsPace: 'fast',
+            needsOff: ['bladder'],
+            enjoysLowHygiene: true,
+            realismVerificationEnabled: true,
+            realismVerificationMaxReprocesses: 4,
+            realismNeedsDirectorAuthority: true,
+          ),
+        ),
+      );
+      await chars.addCharacter(
+        CharacterCard(name: 'Plain', description: 'No extensions.'),
+      );
+      waryId = chars.characters.firstWhere((c) => c.name == 'Wary').dbId!;
+      plainId = chars.characters.firstWhere((c) => c.name == 'Plain').dbId!;
+      groups = GroupChatRepository(storage, db);
+      facade = GroupFacade(groups, storage, chars, db);
+    });
+
+    tearDown(() => db.close());
+
+    Future<(GroupChat, Map<String, String>)> made(
+      Map<String, dynamic> body,
+    ) async {
+      final r = await facade.createGroup({
+        'name': 'Porch',
+        'memberIds': [waryId, plainId],
+        ...body,
+      });
+      await groups.reload();
+      final g = groups.getById(r!['id'] as String)!;
+      final members = await groups.getMembersForGroup(g.id);
+      return (g, {for (final m in members) m.originLibraryDbId!: m.id});
+    }
+
+    test('a member the wizard left alone starts at their card\'s bonds, '
+        'mood and Needs bars', () async {
+      final (g, mid) = await made({});
+      final members = await groups.getMembersForGroup(g.id);
+      final wary = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[waryId]]!;
+      expect(
+        [
+          wary['affection'],
+          wary['longTermScore'],
+          wary['trust'],
+          wary['emotion'],
+          wary['emotionIntensity'],
+        ],
+        [-60, 140, -25, 'guarded', 'strong'],
+        reason: 'THE BUG: the neutral 35 / 40 / neutral won over the card',
+      );
+      expect(wary['needs'], containsPair('hunger', 30));
+      expect(wary['needs'], containsPair('fun', 55));
+      expect(wary['needs'], containsPair('energy', 80));
+      final baseline = jsonDecode(g.baselineRealismState) as Map;
+      expect(baseline[mid[waryId]], containsPair('affection', -60));
+      expect(baseline[mid[waryId]], containsPair('longTermScore', 140));
+      expect(baseline[mid[waryId]], containsPair('trust', -25));
+
+      final plain = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[plainId]]!;
+      expect(
+        [
+          plain['affection'],
+          plain['longTermScore'],
+          plain['trust'],
+          plain['emotion'],
+        ],
+        [0, 0, 0, 'neutral'],
+        reason: 'a card that says nothing starts where a 1:1 with it does',
+      );
+      expect(plain['needs'], containsPair('social', 80));
+
+      final row = FrontPorchExtensions.fromJson(
+        members.firstWhere((m) => m.id == mid[waryId]).frontPorchExtensions!,
+      );
+      expect(row.needsPace, 'fast');
+      expect(row.needsOff, ['bladder']);
+      expect(row.enjoysLowHygiene, isTrue);
+      expect(row.realismVerificationEnabled, isTrue);
+      expect(row.realismVerificationMaxReprocesses, 4);
+      expect(row.realismNeedsDirectorAuthority, isTrue);
+    });
+
+    test('what the wizard set wins over the card, and a moved baseline '
+        'starts its bar there', () async {
+      final (g, mid) = await made({
+        'realism': {
+          'members': {
+            waryId: {'affection': 90, 'emotion': 'fond'},
+            plainId: {'needsBaselineHunger': 40},
+          },
+        },
+      });
+      final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+      final wary = seeds[mid[waryId]]!;
+      expect(wary['affection'], 90);
+      expect(wary['emotion'], 'fond');
+      expect(wary['trust'], -25, reason: 'not posted, so the card stands');
+      final plain = seeds[mid[plainId]]!;
+      expect(plain['needsBaselineHunger'], 40);
+      expect(
+        plain['needs'],
+        containsPair('hunger', 40),
+        reason: 'THE BUG: the bar stayed where it started',
+      );
+      expect(plain['needs'], containsPair('social', 80));
+
+      final card = chars.characters.firstWhere((c) => c.dbId == waryId);
+      expect(
+        (
+          card.frontPorchExtensions!.shortTermBond,
+          card.frontPorchExtensions!.characterEmotion,
+        ),
+        (-60, 'guarded'),
+        reason: 'a group never writes the library card',
+      );
+    });
+
+    // What the phone posts for High Bond (membersAtPreset): Long-Term Bond
+    // with Short-Term Bond, so the saved seed is what the slider showed.
+    test('a posted preset saves its Long-Term Bond over the card\'s', () async {
+      final (g, mid) = await made({
+        'realism': {
+          'members': {
+            waryId: {
+              'affection': 75,
+              'longTermScore': 75,
+              'trust': 70,
+              'emotion': 'affection',
+              'emotionIntensity': 'moderate',
+            },
+          },
+        },
+      });
+      final wary = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[waryId]]!;
+      expect(
+        [wary['affection'], wary['longTermScore'], wary['trust']],
+        [75, 75, 70],
+      );
+      expect(wary['needsPace'], 'fast', reason: 'the card Needs stay');
+      final baseline = jsonDecode(g.baselineRealismState) as Map;
+      expect(baseline[mid[waryId]], containsPair('longTermScore', 75));
+    });
+
+    test('Realism for new chats coming on starts each member from their '
+        'card', () async {
+      final (g, mid) = await made({
+        'realism': {'enabled': false},
+      });
+      expect(parseGroupRealismSeeds(g.defaultMemberRealismState), isEmpty);
+      expect(await facade.newChats.update(g.id, {'realism': true}), isTrue);
+      final seeds = parseGroupRealismSeeds(
+        groups.getById(g.id)!.defaultMemberRealismState,
+      );
+      expect(
+        [
+          seeds[mid[waryId]]!['affection'],
+          seeds[mid[waryId]]!['longTermScore'],
+          seeds[mid[waryId]]!['trust'],
+          seeds[mid[waryId]]!['emotion'],
+        ],
+        [-60, 140, -25, 'guarded'],
+        reason: 'THE BUG: a member with no seed came on at 35 / 40',
+      );
+      expect(seeds[mid[waryId]]!['needs'], containsPair('hunger', 30));
+      expect(seeds[mid[plainId]]!['affection'], 0);
+    });
+
+    test('a member who already has a seed keeps it when Realism or Needs '
+        'for new chats is switched', () async {
+      final (g, mid) = await made({
+        'realism': {'needsEnabled': false},
+      });
+      final saved = parseGroupRealismSeeds(g.defaultMemberRealismState);
+      final kept = {...saved[mid[waryId]]!, 'affection': 5};
+      g.defaultMemberRealismState = buildGroupRealismBlobs(
+        seeds: {mid[waryId]!: kept},
+        needsEnabled: false,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      ).defaultMemberJson;
+      await groups.save(g);
+
+      expect(await facade.newChats.update(g.id, {'needs': true}), isTrue);
+      final seeds = parseGroupRealismSeeds(
+        groups.getById(g.id)!.defaultMemberRealismState,
+      );
+      expect(seeds[mid[waryId]]!['affection'], 5, reason: 'its saved seed');
+      expect(
+        seeds[mid[waryId]]!['needs'],
+        containsPair('hunger', 30),
+        reason: 'Needs coming on gives its card\'s starting bars',
+      );
+      expect(
+        seeds[mid[plainId]]!['affection'],
+        0,
+        reason: 'the member with no seed starts from their card',
       );
     });
   });
