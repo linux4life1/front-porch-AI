@@ -147,7 +147,8 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getUserName: () => _userPersonaService.persona.name,
       getRealismEnabled: () => _realismEnabled,
       // A Feelings re-score leaves the turn's quests as they were.
-      getObjectivesEnabled: () => objectivesActive && !_rescoringFeelings,
+      getObjectivesEnabled: () =>
+          objectivesActive && !editsDoor.reprocess.rescoringFeelings,
       getMessages: () => _session.messages,
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,

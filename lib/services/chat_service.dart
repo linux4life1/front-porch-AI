@@ -50,6 +50,8 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -70,6 +72,7 @@ export 'chat/doors/actions/actions_api.dart';
 export 'chat/doors/media/media_api.dart';
 export 'chat/doors/transfer/transfer_api.dart';
 export 'chat/doors/objectives/objectives_api.dart';
+export 'chat/doors/edits/edits_api.dart';
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
@@ -81,7 +84,6 @@ part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_reprocess_choice.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
 part 'chat/chat_service_session_state.dart';
@@ -91,7 +93,6 @@ part 'chat/chat_service_session_load.dart';
 part 'chat/chat_service_session_hydrate.dart';
 part 'chat/chat_service_session_window.dart';
 part 'chat/chat_service_speaker_objectives.dart';
-part 'chat/chat_service_impersonate.dart';
 part 'chat/chat_service_session_manage.dart';
 part 'chat/chat_service_session_fork.dart';
 part 'chat/chat_service_session_new_chat_prep.dart';
@@ -111,7 +112,6 @@ part 'chat/chat_service_cast_shrink.dart';
 part 'chat/chat_service_idle_autonomous.dart';
 part 'chat/chat_service_greeting.dart';
 part 'chat/chat_service_greeting_seed.dart';
-part 'chat/chat_service_variants.dart';
 part 'chat/chat_service_prompt_blocks.dart';
 part 'chat/chat_service_scene_guest.dart';
 part 'chat/chat_service_controls.dart';
@@ -463,11 +463,13 @@ class ChatService extends ChangeNotifier
 
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 
+  /// Edit, delete, regen, swipes, Reprocess, impersonate; old names in
+  /// edits_api.dart. The two members below forward so fakes pin them.
+  late final EditsDoor editsDoor = _buildEditsDoor();
   int? get regenerableHostBelowGuestsIndex =>
-      _regenerableHostBelowGuestsIndexImpl;
-
+      editsDoor.regen.hostBelowGuestsIndex;
   void editMessage(int index, String newText) =>
-      _editMessageImpl(index, newText);
+      editsDoor.editor.edit(index, newText);
 
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
   bool get isGrowthPassRunning => _isGrowthPassRunning;

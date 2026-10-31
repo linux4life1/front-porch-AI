@@ -38,6 +38,7 @@ import 'package:front_porch_ai/services/chat/mood_effects.dart';
 import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -606,6 +607,40 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   int? get regenerableHostBelowGuestsIndex => null;
 
+  /// The edits door the bridge members (the greet and swipe picker, the
+  /// Reprocess offers, token alternatives, …) read. Its reads answer from
+  /// this fake's own getters, as the extension bodies did; anything that
+  /// would edit the chat reaches an unwired hook and throws.
+  @override
+  late final EditsDoor editsDoor = EditsDoor(
+    EditDeps(
+      session: ChatSessionState(),
+      view: EditsView(
+        messages: () => messages,
+        activeCharacter: () => activeCharacter,
+        isGroupMode: () => isGroupMode,
+        activeGroup: () => activeGroup,
+        groupCharacters: () => groupCharacters,
+        observerMode: () => observerMode,
+        greetingIndex: () => greetingIndex,
+        isGenerating: () => isGenerating,
+        isSettlingTurn: () => isSettlingTurn,
+        isEvaluatingRealism: () => isEvaluatingRealism,
+        realismEnabled: () => realismEnabled,
+        needsActive: () => needsActive,
+      ),
+      services: _UnwiredEditHooks(),
+      characterIdFor: characterIdFor,
+      saveChat: ({replaceAll = false}) async {},
+      notify: notifyListeners,
+      turn: _UnwiredEditHooks(),
+      realism: _UnwiredEditHooks(),
+      cast: _UnwiredEditHooks(),
+      sessions: _UnwiredEditHooks(),
+      prompt: _UnwiredEditHooks(),
+    ),
+  );
+
   // Living Time weather. Null (off) by default so every pre-weather sidebar
   // baseline renders byte-identical — TimeStrip omits the chip entirely on
   // null. The dedicated weather-chip golden sets this non-null (the VALUE only
@@ -687,6 +722,20 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
 /// [TransferHost] with nothing wired: any read is a NoSuchMethodError.
 class _UnwiredTransferHost implements TransferHost {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The edits door's services and hooks with nothing wired: any read is a
+/// NoSuchMethodError, as a private member read on this fake always was.
+class _UnwiredEditHooks
+    implements
+        EditServices,
+        EditTurnHooks,
+        EditRealismHooks,
+        EditCastHooks,
+        EditSessionHooks,
+        ImpersonatePromptHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

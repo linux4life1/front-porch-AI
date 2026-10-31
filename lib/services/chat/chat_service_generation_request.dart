@@ -409,3 +409,43 @@ extension ChatServiceGenerationRequest on ChatService {
     return '';
   }
 }
+
+/// The turn side of token alternatives (store and rewrite in the edits
+/// door's TokenAlts): seed a rewrite, ask KoboldCpp for word odds, keep the
+/// reply's unsure places. Continue is never seeded and never asks.
+extension ChatServiceTokenAltTurn on ChatService {
+  /// A rewrite from a word: the reply starts with [_GenTurn.continuePrefix],
+  /// which KoboldCpp continues as a trailing assistant message.
+  bool _isSeeded(_GenTurn t) => TokenAlts.isSeeded(t.mode, t.continuePrefix);
+
+  /// Hands the pending rewrite seed to the turn being planned.
+  void _applyRegenSeed(_GenTurn t) {
+    final seed = editsDoor.tokenAlts.takeSeed();
+    if (seed != null && t.mode == GenerationMode.normal) {
+      t.continuePrefix = seed;
+    }
+  }
+
+  List<Map<String, Object>>? _seededMessages(_GenTurn t, String prompt) =>
+      _isSeeded(t)
+      ? [
+          {'role': 'user', 'content': prompt},
+          {'role': 'assistant', 'content': t.continuePrefix},
+        ]
+      : null;
+
+  /// Asks for word odds on a normal reply from KoboldCpp, and nowhere else.
+  void Function(List<Object?>)? _logprobsSink(_GenTurn t) {
+    if (!_mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
+      return null;
+    }
+    return editsDoor.tokenAlts.sinkFor(t);
+  }
+
+  /// Keeps the unsure places of the finished reply on its swipe.
+  void _stampTokenAlts(_GenTurn t) => editsDoor.tokenAlts.stamp(
+    t,
+    t.streamTarget,
+    from: _isSeeded(t) ? t.continuePrefix.length : 0,
+  );
+}

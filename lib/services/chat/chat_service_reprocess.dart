@@ -18,481 +18,255 @@
 
 part of '../chat_service.dart';
 
-/// Message reprocess / revert / regenerate flows — manualReprocessNeeds,
-/// revertNeedsReprocess, regenerateLastMessage. These replay a turn with the
-/// per-speaker realism dance (load → re-eval → save) and the time-travel
-/// realism rollback. Extracted verbatim from `chat_service.dart` (zero behaviour
-/// change) to shrink the god file; as `part of` it reaches the private services,
-/// messages, and dance helpers exactly as before.
-
-extension ChatServiceReprocess on ChatService {
+/// The regen pieces hygiene tests pin to this file: 1:1 regen's decay and
+/// judge replay (trust_repair_regen_latch_test reads the shared dispatch
+/// here). The regen itself is the edits door's RegenController
+/// (lib/services/chat/doors/edits/); [_buildEditsDoor] wires it.
+extension ChatServiceRegenReplay on ChatService {
   /// Which cast member said [msg]. See [resolveGroupSpeakerForMessage].
   CharacterCard? _resolveGroupSpeakerForMessage(ChatMessage msg) =>
       resolveGroupSpeakerForMessage(_groupCharacters, msg);
 
-  /// Regenerate the main character's (host's) most recent message when it has
-  /// been buried under Scene Guest (Lite NPC) chime-in replies — the case the
-  /// last-message-only [regenerateLastMessage] button can no longer reach (the
-  /// guest spoke last). The guest replies were reactions to the host text we are
-  /// about to discard, so they are removed from the chat (UI + context) first;
-  /// the host message is then regenerated as a new swipe via
-  /// [regenerateLastMessage] (so realism is reverted to the previous accepted
-  /// baseline exactly as for a normal regen — no parallel logic); finally the
-  /// guest chime gate is re-run against the NEW host reply, so a guest speaks
-  /// again only if it is still warranted (mention / relevance), never blindly.
-  ///
-  /// When the host message is already last (no trailing guests) this simply
-  /// delegates to [regenerateLastMessage].
-  Future<void> regenerateMainCharacter({
-    String? critique,
-    String? webQuery,
-    String? wikiQuery,
-  }) async {
-    if (_session.messages.isEmpty || _sceneGuest.busy) return;
-    if (!await _yieldSettlingTurn()) return;
-    _memoryPassEpoch++;
-    // Backend gate BEFORE any guest-tail splice — same restore problem as
-    // regenerateLastMessage (see _abortIfBackendDown).
-    if (await _abortIfBackendDown()) return;
-
-    // Walk back past the trailing guest replies to the host message beneath them.
-    int hostIndex = -1;
-    for (int i = _session.messages.length - 1; i >= 0; i--) {
-      final m = _session.messages[i];
-      if (m.isUser || m.sender == 'System') {
-        return; // user/System tail — nothing to regen
-      }
-      // Narration banners (dreams, Chance Time) look like character messages
-      // (isUser false, character-name sender) but are not regen targets —
-      // regenerating one would replace a rollover artifact with a chat reply.
-      if (m.activeMetadata?['is_dream'] == true ||
-          m.activeMetadata?['is_chance_time_narration'] == true) {
-        return;
-      }
-      if (!_isGuestAuthoredMessage(m)) {
-        hostIndex = i;
-        break;
-      }
-    }
-    if (hostIndex < 0) return; // only guest messages present — no host to regen
-
-    // Host already last → plain regen (no guests to pop).
-    if (hostIndex == _session.messages.length - 1) {
-      await regenerateLastMessage(
-        critique: critique,
-        webQuery: webQuery,
-        wikiQuery: wikiQuery,
-      );
-      return;
-    }
-
-    // Reconstruct the user text that prompted the host turn for the re-chime gate.
-    String userText = '';
-    for (int i = hostIndex - 1; i >= 0; i--) {
-      if (_session.messages[i].isUser) {
-        userText = _session.messages[i].text;
-        break;
-      }
-    }
-
-    // Remove the now-stale trailing guest replies from UI + context, then regen
-    // the (now last) host message and re-run the chime gate on the new reply.
-    _session.messages.removeRange(hostIndex + 1, _session.messages.length);
-    await _saveChat(replaceAll: true);
+  /// 1:1 regen: replay decay + the realism eval for the popped reply's user
+  /// line, from the baseline the revert restored. Groups replay inside the
+  /// generation via the per-speaker dance. False when the user cancelled:
+  /// the popped reply is then back, with the state it was accepted under.
+  Future<bool> _replayRegenJudges(ChatMessage lastMsg) async {
+    // Set UI streaming state
+    _isEvaluatingRealism = true;
+    _realismEvalStreamText = '';
     notifyListeners();
-    await regenerateLastMessage(
-      critique: critique,
-      webQuery: webQuery,
-      wikiQuery: wikiQuery,
+
+    void handleChunk(String chunk) {
+      _realismEvalStreamText += chunk;
+      // Debounce: coalesce rapid token arrivals into one rebuild per 150 ms
+      _evalChunkTimer?.cancel();
+      _evalChunkTimer = Timer(const Duration(milliseconds: 150), () {
+        try {
+          notifyListeners();
+        } catch (_) {
+          // Widget was deactivated — timer fired after navigation
+        }
+      });
+    }
+
+    // Record the (restored) needs baseline as the pre-turn vector BEFORE
+    // the decay tick below — sendMessage stamps pre-tick and the group
+    // dance stamps preDecay, so a regen's chips must count the decay the
+    // same way or they understate the turn by exactly the decay component
+    // (and deleting the regenerated reply under-refunds by it — caught by
+    // regen_chip_attach_test: the original showed a hygiene chip, the
+    // regen didn't).
+    if (_needsPass.active && _needsSimulation.vector.isNotEmpty) {
+      _pendingRealismMetadata ??= {};
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
+        _needsSimulation.vector,
+      );
+      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+        _needsSimulation.wearCarry,
+      );
+    }
+
+    // Wear waits until the clock commits on the replayed reply.
+    _applyMoodDecay();
+    _afterglow.tickPerReply();
+
+    await _realismJudges.runPreGenJudges(
+      onChunk: handleChunk,
+      logSpeakerName: _session.activeCharacter?.name,
     );
-    await _maybeRunSceneGuestChimeIns(userText: userText);
-  }
 
-  Future<void> regenerateLastMessage({
-    String? critique,
-    String? webQuery,
-    String? wikiQuery,
-  }) async {
-    if (_session.messages.isEmpty || _sceneGuest.busy) return;
-    if (!await _yieldSettlingTurn()) return;
-    _memoryPassEpoch++;
-    // Hold the settling flag across the WHOLE regen — the realism revert +
-    // eval replay before generation and the swipe-merge after it both run
-    // outside _generateResponse, and used to run with every guard open: a
-    // send/delete/chat-switch landing there operated on a timeline with the
-    // last message popped or the merge half-done (the same interleave class
-    // the in-generate settling fix closed). _generateResponse restores the
-    // caller's hold on exit instead of hard-clearing, so this survives the
-    // nested call; the finally makes a wedged flag impossible. The body is
-    // extracted (not inlined in the try) purely so its early returns and
-    // this hold compose without re-indenting the whole flow.
-    _isPostGenerating = true;
-    try {
-      await _regenerateLastMessageHeld(
-        critique: critique,
-        webQuery: webQuery,
-        wikiQuery: wikiQuery,
-      );
-    } catch (e) {
-      _clockWriter.restoreCapturedThroughReader();
-      rethrow;
-    } finally {
-      _session.groupManager?.endRegeneration();
-      _isPostGenerating = false;
-      _clearPostGenAbortFlags();
+    // Check for cancellation after evals complete
+    if (_realismEvalCancelled) {
+      debugPrint('[Realism] Evaluation cancelled during regenerate, aborting');
+      // Put the popped reply back BEFORE bailing. The regen removed it at
+      // the top so the outbound prompt wouldn't contain it, and
+      // _generateResponse — the thing that appends the replacement — is
+      // still below us. Returning without this destroys the message and
+      // every swipe it carried. It is the same hazard the backend gate
+      // further up already guards ("aborting after removeLast would drop
+      // the popped reply"); the cancel path just never learned it.
+      //
+      // Putting the TEXT back is only half of it. Everything above already
+      // un-applied the accepted turn — bond/trust/arousal reverted, needs
+      // restored from needs_pre_turn_vector, the baseline pulled from the
+      // PREVIOUS accepted message, the stance rewound, pockets rolled to
+      // the pre-turn record — and then charged a fresh decay tick. Bailing
+      // here without the same restore the two success paths run (see
+      // `if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg)`
+      // below) left the message displaying chips the sidebar and the
+      // session row no longer agreed with, and `_saveChat()` persisted the
+      // wrong scalars. 1:1-only branch, host-only (guests never get here).
+      _session.messages.add(lastMsg);
       _clockReader.applyTipClock();
-      // Listeners (web isSettlingTurn → chat_updated) only see the clear
-      // through a notification. The flag alone does not broadcast.
+      _restoreRealismStateForSpeaker(lastMsg);
+      _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
+      _pendingRealismMetadata = null;
+      _realismEvalCancelled = false;
+      _evalChunkTimer?.cancel();
+      _evalChunkTimer = null;
+      _isEvaluatingRealism = false;
       notifyListeners();
+      await _saveChat();
+      return false;
     }
+
+    // Cancel any pending debounce notify before closing the overlay
+    _evalChunkTimer?.cancel();
+    _evalChunkTimer = null;
+    _isEvaluatingRealism = false;
+    notifyListeners();
+    return true;
   }
 
-  Future<void> _regenerateLastMessageHeld({
-    String? critique,
-    String? webQuery,
-    String? wikiQuery,
-  }) async {
-    // Backend gate BEFORE the pop below — aborting after removeLast would
-    // drop the popped reply (the deep guard in _generateResponse cannot
-    // restore it; see _abortIfBackendDown).
-    if (await _abortIfBackendDown()) return;
+  /// The opening greets as the bubble shows them (body in the edits door's
+  /// SwipeVariants); the greeting seed restores the picked index from it.
+  List<String> _resolvedOpeningGreetings() =>
+      editsDoor.swipes.resolvedOpeningGreetings();
 
-    // A failed turn's banner (and empty bubble) go; the user line behind
-    // them is then answered by the last branch below, as the member who
-    // failed. Without this, regenerate after any failure did nothing.
-    final failedSpeaker = await _dropFailedTurnLeftovers();
-
-    // Check if the last message is from the character. Narration banners
-    // (dreams, Chance Time) carry a character-name sender but must never be
-    // regen targets — a regen would swipe a chat reply into the banner.
-    if (!_session.messages.last.isUser &&
-        _session.messages.last.sender != 'System' &&
-        _session.messages.last.activeMetadata?['is_dream'] != true &&
-        _session.messages.last.activeMetadata?['is_chance_time_narration'] !=
-            true) {
-      // New swipe; pop first so the cite is persist index, not window 23.
-      final lastMsg = _session.messages.removeLast();
-      // Is this a Scene Guest message? If so the whole regen must stay a
-      // parity-safe GUEST turn: skip every Realism/Needs revert + re-eval below
-      // and regenerate spoken as the guest (guestSpeaker), exactly like the
-      // normal guest turn path. A host message keeps the existing behaviour.
-      final regenGuest = _sceneGuestForMessage(lastMsg);
-      // If the message was authored by a guest who has since LEFT the scene (or
-      // had their card deleted), we can neither regenerate as them nor run the
-      // host realism block on their text (that would perturb the host's
-      // bond/trust/emotion/needs from guest-authored content). Refuse cleanly
-      // BEFORE journal invalidation — the bubble stays on screen, so its
-      // cites must stay too.
-      if (regenGuest == null && _isGuestAuthoredMessage(lastMsg)) {
-        _session.messages.add(lastMsg); // put it back untouched
-        notifyListeners();
-        _setGuestStatus(
-          'Can’t regenerate "${lastMsg.sender}" — they have left the scene.',
-          isError: true,
-        );
-        return;
-      }
-      // Snapshot the rejected swipe's metadata (e.g. manual needs reprocess) before
-      // we add a new swipe — regen must not clobber prior swipe timelines.
-      final rejectedSwipeIndex = lastMsg.swipeIndex;
-      Map<String, dynamic>? preservedRejectedMeta;
-      if (rejectedSwipeIndex >= 0) {
-        if (rejectedSwipeIndex < lastMsg.swipeMetadata.length &&
-            lastMsg.swipeMetadata[rejectedSwipeIndex] != null) {
-          preservedRejectedMeta = Map<String, dynamic>.from(
-            lastMsg.swipeMetadata[rejectedSwipeIndex]!,
-          );
-        } else if (lastMsg.activeMetadata != null) {
-          preservedRejectedMeta = Map<String, dynamic>.from(
-            lastMsg.activeMetadata!,
-          );
-        }
-      }
-      notifyListeners();
-
-      // Resolve the rejected turn's speaker once (exact name match) — used to
-      // force the turn manager AND to target the realism revert below. If the
-      // member was renamed/removed, BOTH sites skip rather than fall back to
-      // the first member: forcing or reverting the wrong character corrupts
-      // that character's state and attribution.
-      CharacterCard? regenSpeakerCard;
-      String regenSpeakerSid = '';
-      if (_activeGroup != null && regenGuest == null) {
-        regenSpeakerCard = _resolveGroupSpeakerForMessage(lastMsg);
-        if (regenSpeakerCard != null) {
-          regenSpeakerSid = _getCharacterIdFromCard(regenSpeakerCard);
-        }
-      }
-
-      // In group mode the original speaker re-speaks. The rotation is held
-      // and put back by regenerateLastMessage's finally, success or not.
-      if (regenSpeakerCard != null) {
-        _session.groupManager?.beginRegeneration(regenSpeakerCard);
-      }
-
-      // Roll back objective mutations recorded for the rejected turn (eval
-      // proposals + completion-check side effects) BEFORE the eval replay, so
-      // the new turn re-derives objectives from a clean baseline instead of
-      // stacking on the invalidated turn's (and dedup can't suppress a fresh
-      // proposal because the rejected turn's copy still exists). Runs with or
-      // without realism (completion checks also run realism-off); id-addressed
-      // ops keep 1:1 and group identical. Guest turns never touch objectives.
-      if (regenGuest == null) {
-        await objectivesDoor.revertTurn(lastMsg);
-        // Rewind the rejected turn's pockets ops to the pre-turn record, so
-        // the regenerated reply's own pass re-applies from the same base
-        // instead of stacking — "they hand you their keys", regenerate, they
-        // keeps knitting, and the keys used to be gone anyway (hostile
-        // review 2026-08-11). Group-safe: the stamp carries the speaker's
-        // own charId. The journal invalidation above already took the
-        // rejected turn's item cards with it.
-        _pocketsRewinds.restoreFromStamp(lastMsg, after: false);
-      }
-
-      // Capture the live clock first. Fail/cancel/abort put it back so
-      // a rejected regen never leaves the sidebar on the rewound before.
-      // Then rewind to the shared message-level before (every swipe).
-      _clockWriter.rewindClockToPreReply(lastMsg);
-
-      if (!_revertRegenRealismBaseline(
-        lastMsg: lastMsg,
-        regenGuest: regenGuest,
-        regenSpeakerCard: regenSpeakerCard,
-        regenSpeakerSid: regenSpeakerSid,
-      )) {
-        _session.messages.add(lastMsg);
-        _clockWriter.restoreCapturedThroughReader();
-        _restoreRealismStateForSpeaker(lastMsg);
-        _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
-        return;
-      }
-      // A long skip's reply: the revert put the pre-skip mood back.
-      final skipMeta = {...?preservedRejectedMeta, ...?lastMsg.activeMetadata};
-      final longSkip = (skipMeta[kLongSkipMinutesMeta] as num?)?.toInt() ?? 0;
-      if (longSkip > 0) LongSkipSettle(_realismScope()).settle();
-
-      // After the unreadable-baseline bail: the bubble stays, so its
-      // journal/growth cites must stay too (same rule as a departed guest).
-      _timeline.invalidateFrom(
-        persistMessagePosition(
-          base: _history.basePosition,
-          index: _session.messages.length,
+  /// The message-edits door. Each hook is debt (see edit_hooks.dart).
+  EditsDoor _buildEditsDoor() {
+    final door = EditsDoor(
+      EditDeps(
+        session: _session,
+        view: EditsView(
+          messages: () => messages,
+          activeCharacter: () => activeCharacter,
+          isGroupMode: () => isGroupMode,
+          activeGroup: () => activeGroup,
+          groupCharacters: () => groupCharacters,
+          observerMode: () => observerMode,
+          greetingIndex: () => greetingIndex,
+          isGenerating: () => isGenerating,
+          isSettlingTurn: () => isSettlingTurn,
+          isEvaluatingRealism: () => isEvaluatingRealism,
+          realismEnabled: () => realismEnabled,
+          needsActive: () => needsActive,
         ),
-      );
-
-      // 1:1 only: replay decay + the realism eval inline here (groups replay
-      // via the per-speaker dance inside _generateResponse).
-      if (_realismEnabled && _activeGroup == null && regenGuest == null) {
-        // Set UI streaming state
-        _isEvaluatingRealism = true;
-        _realismEvalStreamText = '';
-        notifyListeners();
-
-        void handleChunk(String chunk) {
-          _realismEvalStreamText += chunk;
-          // Debounce: coalesce rapid token arrivals into one rebuild per 150 ms
-          _evalChunkTimer?.cancel();
-          _evalChunkTimer = Timer(const Duration(milliseconds: 150), () {
-            try {
-              notifyListeners();
-            } catch (_) {
-              // Widget was deactivated — timer fired after navigation
-            }
-          });
-        }
-
-        // Record the (restored) needs baseline as the pre-turn vector BEFORE
-        // the decay tick below — sendMessage stamps pre-tick and the group
-        // dance stamps preDecay, so a regen's chips must count the decay the
-        // same way or they understate the turn by exactly the decay component
-        // (and deleting the regenerated reply under-refunds by it — caught by
-        // regen_chip_attach_test: the original showed a hygiene chip, the
-        // regen didn't).
-        if (_needsPass.active && _needsSimulation.vector.isNotEmpty) {
-          _pendingRealismMetadata ??= {};
-          _pendingRealismMetadata!['needs_pre_turn_vector'] =
-              Map<String, int>.from(_needsSimulation.vector);
-          _pendingRealismMetadata![kNeedsPreTurnCarry] =
-              Map<String, double>.from(_needsSimulation.wearCarry);
-        }
-
-        // Wear waits until the clock commits on the replayed reply.
-        _applyMoodDecay();
-        _afterglow.tickPerReply();
-
-        await _realismJudges.runPreGenJudges(
-          onChunk: handleChunk,
-          logSpeakerName: _session.activeCharacter?.name,
-        );
-
-        // Check for cancellation after evals complete
-        if (_realismEvalCancelled) {
-          debugPrint(
-            '[Realism] Evaluation cancelled during regenerate, aborting',
-          );
-          // Put the popped reply back BEFORE bailing. The regen removed it at
-          // the top so the outbound prompt wouldn't contain it, and
-          // _generateResponse — the thing that appends the replacement — is
-          // still below us. Returning without this destroys the message and
-          // every swipe it carried. It is the same hazard the backend gate
-          // further up already guards ("aborting after removeLast would drop
-          // the popped reply"); the cancel path just never learned it.
-          //
-          // Putting the TEXT back is only half of it. Everything above already
-          // un-applied the accepted turn — bond/trust/arousal reverted, needs
-          // restored from needs_pre_turn_vector, the baseline pulled from the
-          // PREVIOUS accepted message, the stance rewound, pockets rolled to
-          // the pre-turn record — and then charged a fresh decay tick. Bailing
-          // here without the same restore the two success paths run (see
-          // `if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg)`
-          // below) left the message displaying chips the sidebar and the
-          // session row no longer agreed with, and `_saveChat()` persisted the
-          // wrong scalars. 1:1-only branch, host-only (guests never get here).
-          _session.messages.add(lastMsg);
-          _clockReader.applyTipClock();
-          _restoreRealismStateForSpeaker(lastMsg);
-          _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
-          _pendingRealismMetadata = null;
-          _realismEvalCancelled = false;
-          _evalChunkTimer?.cancel();
-          _evalChunkTimer = null;
-          _isEvaluatingRealism = false;
-          notifyListeners();
-          await _saveChat();
-          return;
-        }
-
-        // Cancel any pending debounce notify before closing the overlay
-        _evalChunkTimer?.cancel();
-        _evalChunkTimer = null;
-        _isEvaluatingRealism = false;
-        notifyListeners();
-      }
-
-      // In group mode the per-speaker realism eval (and its metadata / needs deltas)
-      // happens inside _generateResponse via RealismDance.evaluateForUpcomingSpeaker
-      // for the correctly-forced speaker. Skip the 1:1 scalar synthesis here.
-      Map<String, int>? regenPreTurn;
-      if (_activeGroup == null && regenGuest == null) {
-        // Save pre-turn vector BEFORE _generateResponse (which clears
-        // _pendingRealismMetadata).
-        regenPreTurn =
-            _pendingRealismMetadata?['needs_pre_turn_vector']
-                as Map<String, int>?;
-
-        // Synthesize metadata after all regen evals complete — mirrors the
-        // normal path (line 4020) so emotion_label and realism_state are in
-        // _pendingRealismMetadata before _generateResponse consumes it.
-        _pendingRealismMetadata ??= {};
-        // Mood only when Realism ran. With Realism off this stamped the
-        // stale mood, and that one key lit Mood + Bond/Trust unchanged chips.
-        if (_realismEnabled) {
-          _pendingRealismMetadata!['emotion_label'] = _characterEmotion;
-        }
-        _pendingRealismMetadata!['realism_state'] = _realismSnapshot.capture(
-          preTurn: regenPreTurn,
-        );
-
-        // If cancellation was requested during realism evaluation, abort
-        // generation — restoring the popped reply first, for the same reason
-        // as the cancel point above: _generateResponse has still not run, so
-        // this local is the only place the message still exists.
-        if (_realismEvalCancelled) {
-          _session.messages.add(lastMsg);
-          // Same put-back contract as the cancel point above: the message
-          // returns WITH the state it was accepted under.
-          _clockReader.applyTipClock();
-          _restoreRealismStateForSpeaker(lastMsg);
-          _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
-          _pendingRealismMetadata = null;
-          _realismEvalCancelled = false;
-          notifyListeners();
-          await _saveChat();
-          return;
-        }
-      }
-
-      // Invalidate ONNX cache for the new response (delegated)
-      _expressionService.invalidateOnnxCacheForNewResponse();
-
-      // Generate into a new message — it will be appended by _generateResponse.
-      // For a guest message we pass guestSpeaker so the new swipe is spoken as
-      // the guest. The guest has no speaker Realism/Needs, but lite post-gen
-      // still ticks the clock and wears present bodies (the 1:1 host). The
-      // revert above restored that pre-wear snapshot so replay wears once.
-      // For a host message regenGuest is null and this is the unchanged host
-      // path: _generateResponse runs the post-gen needs checks AND the chip
-      // attach — a regen runs in normal mode, so needs_deltas land on the
-      // streamed message exactly like a fresh turn (1:1 and group alike) and
-      // ride newMetadata into the swipe-merge below.
-      // The duplicate post-generation recompute that used to live here was a
-      // second source of truth for the same numbers; deleted 2026-08-04.
-      final skipTo =
-          lastMsg.activeMetadata?['time_skip_to'] as String? ??
-          preservedRejectedMeta?['time_skip_to'] as String?;
-      if (skipTo != null && skipTo.isNotEmpty) {
-        _pendingRealismMetadata ??= {};
-        _pendingRealismMetadata!['time_skip_to'] = skipTo;
-        final passed =
-            lastMsg.activeMetadata?['time_passed'] as String? ??
-            preservedRejectedMeta?['time_passed'] as String? ??
-            _timeService.bodyTimeLabel;
-        if (passed != null && passed.isNotEmpty) {
-          _pendingRealismMetadata!['time_passed'] = passed;
-        }
-        _timeService.reclaimSkipOwnership();
-      }
-      // A skip line or a calendar jump: the replay notes the same beat, so
-      // the bodies wear (or land, for days) again as the first reply's did.
-      final skipped = longSkip > 0 || (skipTo ?? '').isEmpty
-          ? longSkip
-          : (skipMeta[kSkipMinutesMeta] as num?)?.toInt() ?? 0;
-      if (skipped > 0) {
-        final slept = skipMeta[kSkipSleptMeta] == true;
-        _timeService.renoteSkip(skipped, to: skipTo, slept: slept);
-      }
-
-      final preGenLen = _session.messages.length;
-      mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
-      await _generateResponse(
-        GenerationMode.normal,
-        directUserSend: true,
-        guestSpeaker: regenGuest,
-        forceSpeaker: regenGuest == null && _activeGroup != null
-            ? _resolveGroupSpeakerForMessage(lastMsg)
-            : null,
-        regenCritique: RegenCritiqueInjection.fragment(
-          spokenText: lastMsg.displayText,
-          reason: critique ?? '',
+        services: EditServices(
+          db: () => _db,
+          storage: () => _storageService,
+          personas: () => _userPersonaService,
+          realismScope: _realismScope,
+          history: () => _history,
+          timeline: () => _timeline,
+          clockReader: () => _clockReader,
+          clockWriter: () => _clockWriter,
+          needsRewinds: () => _needsRewinds,
+          needsReprocess: () => _needsReprocess,
+          pocketsRewinds: () => _pocketsRewinds,
+          itemCards: () => _itemCards,
+          afterglow: () => _afterglow,
+          realismDance: () => _realismDance,
+          realismJudges: () => _realismJudges,
+          realismSnapshot: () => _realismSnapshot,
+          mood: () => _mood,
+          expression: () => _expressionService,
+          lorebookInjector: () => _lorebookInjector,
+          growthDesk: () => _growthDesk,
+          macroResolver: () => _macroResolver,
+          objectives: () => objectivesDoor,
+          media: () => mediaDoor,
         ),
-      );
-
-      // After generation, merge the new response as a swipe on the original
-      // message — but ONLY when _generateResponse actually appended one. It
-      // can return empty-handed (the group per-speaker realism cancel path
-      // saves-and-returns before assembling blocks) or append a System error
-      // banner (any phase-1..4 throw). The old guard read `_session.messages.last`
-      // alone, so an empty return dropped the popped reply — with every
-      // alternate swipe it held — forever (and in a group whose previous
-      // entry was ANOTHER member's reply, it merged that member's message
-      // into the regen target instead). The length check makes "no new
-      // reply" restore the popped message at its original position.
-      await _mergeOrRestoreRegenSwipe(
-        lastMsg: lastMsg,
-        regenGuest: regenGuest,
-        preservedRejectedMeta: preservedRejectedMeta,
-        rejectedSwipeIndex: rejectedSwipeIndex,
-        preGenLen: preGenLen,
-      );
-    } else if (_session.messages.last.isUser) {
-      // No reply to swipe: rewind to the user line's stamp and score it again.
-      // A failed member is forced, not picked: the rotation already moved
-      // past them, and a pick would move it again.
-      await _generateFromTrailingUserTurn(
-        webQuery: webQuery,
-        wikiQuery: wikiQuery,
-        forceSpeaker: failedSpeaker,
-      );
-    }
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        notify: notifyListeners,
+        turn: EditTurnHooks(
+          isTurnBusy: () => _isTurnBusy,
+          setPostGenerating: (on) => _isPostGenerating = on,
+          yieldSettlingTurn: _yieldSettlingTurn,
+          clearPostGenAbortFlags: _clearPostGenAbortFlags,
+          abortIfBackendDown: _abortIfBackendDown,
+          generate: _generateResponse,
+          answerTrailingUserLine: _generateFromTrailingUserTurn,
+          bumpMemoryEpoch: () => _memoryPassEpoch++,
+          mouthIsLocal: () => _mouthIsLocal,
+          setGenerating: (on) => _isGenerating = on,
+          setPhase: (phase) => _generationPhase = phase,
+          cancelRequested: () => _cancelRequested,
+          setCancelRequested: (on) => _cancelRequested = on,
+          mouthStream: _mouthGenerateStream,
+          withWorkerLane: (work) => _withWorkerLane(work),
+          mouthIdle: () => _llmProvider?.koboldService.waitForIdle(),
+        ),
+        realism: EditRealismHooks(
+          realismActiveThisMode: () => _realismActiveThisMode,
+          evalCancelled: () => _realismEvalCancelled,
+          setEvalCancelled: (on) => _realismEvalCancelled = on,
+          setEvaluatingRealism: (on) => _isEvaluatingRealism = on,
+          clearEvalStream: () => _realismEvalStreamText = '',
+          onEvalChunk: (chunk) {
+            _realismEvalStreamText += chunk;
+            _evalChunkTimer?.cancel();
+            _evalChunkTimer = Timer(const Duration(milliseconds: 150), () {
+              try {
+                notifyListeners();
+              } catch (_) {}
+            });
+          },
+          stopEvalChunkTimer: () {
+            _evalChunkTimer?.cancel();
+            _evalChunkTimer = null;
+          },
+          restoreForSpeaker: _restoreRealismStateForSpeaker,
+          keepingLiveSpeaker: _keepingLiveSpeaker,
+          rewindToLastAcceptedReply: _rewindRelationshipToLastAcceptedReply,
+          restoreScoredRegisters: _restoreScoredRegisters,
+          applyMoodDecay: _applyMoodDecay,
+          plantTierCrossing: _plantTierCrossing,
+          revertRegenBaseline: _revertRegenRealismBaseline,
+          replayRegenJudges: _replayRegenJudges,
+          needsBeforeDelete: _needsBeforeDelete,
+          rewindPocketsForDelete: _rewindPocketsForDeletedMessage,
+        ),
+        cast: EditCastHooks(
+          guestBusy: () => _sceneGuest.busy,
+          isGuestAuthored: _isGuestAuthoredMessage,
+          guestFor: _sceneGuestForMessage,
+          setStatus: (text, {isError = false}) =>
+              _setGuestStatus(text, isError: isError),
+          guestChimeIns: _maybeRunSceneGuestChimeIns,
+          pickPresentSpeaker: _pickPresentGroupSpeaker,
+          greetingIndex: () => _greetingIndex,
+          setGreetingIndex: (index) => _greetingIndex = index,
+          greetingOwner: _greetingOwnerCard,
+          firstMessage: _buildFirstMessage,
+          invalidateGreetingEval: () async {
+            await _invalidateGreetingEval();
+            testPostGreetingEvalEntered = false;
+          },
+          stampGreetingIndex: _stampGreetingIndex,
+          isOpeningGreetingChat: () => _isOpeningGreetingChat,
+          seedGroupGreeting: _applyGroupCustomGreetingSeed,
+          seedGreeting: _applyGreetingOpeningSeed,
+        ),
+        sessions: EditSessionHooks(
+          loadSession: loadSession,
+          sessions: getSessions,
+          startNewChat: startNewChat,
+          awaitHistoryHydrated: _awaitHistoryHydrated,
+        ),
+        prompt: ImpersonatePromptHooks(
+          groupBasePrompt: () => _groupBasePrompt,
+          oneToOneBase: _resolveOneToOneBase,
+          amendmentsAllowed: () => _amendmentsAllowed,
+          sessionGenSettings: () => _sessionGenSettings,
+          userPersonaBlock: _buildUserPersonaBlock,
+          chatHistory: _buildChatHistory,
+          authorNote: () => _authorNote,
+          authorNoteBlock: _buildAuthorNoteBlock,
+          macroContext: _buildChatMacroContext,
+          countTokens: _countTokens,
+          historyWithin: (budget, depthLore) async =>
+              (await _buildChatHistoryWithBudget(
+                budget,
+                depthLore: depthLore,
+              )).history,
+          overflowHistory: () => _overflowContinuityHistory().history,
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
   }
 }

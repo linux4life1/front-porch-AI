@@ -16,112 +16,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// What Manual Reprocess can redo for a reply: its Needs (a critique pass,
-/// chat_service_needs_reprocess.dart) or its Feelings (the Realism judges
-/// asked again, [ChatServiceFeelingsRescore] below).
-///
-/// Who a Reprocess Needs pass would run as, and which needs are on.
-///
-/// Public getters only — FakeChatService implements those, and probing
-/// library-private fields from an extension would throw mid-build on a
-/// golden double (same contract as [_lastRagReceiptImpl]).
-extension ChatServiceNeedsReprocessTarget on ChatService {
-  /// Speaker + enabled keys for a reprocess of [index], or null when the
-  /// entry must stay hidden: not reprocessable, Needs off, every need off,
-  /// or a group speaker that cannot be resolved to a roster card.
-  ({String speaker, List<String> enabled, CharacterCard? card})?
-  reprocessNeedsTargetFor(int index) {
-    if (index < 0 || index >= messages.length) return null;
-    if (isGenerating) return null;
-    final msg = messages[index];
-    if (msg.isUser || msg.sender == 'System') return null;
-    final meta = msg.activeMetadata;
-    if (meta == null || !meta.containsKey('realism_state')) return null;
-    final preState = meta['realism_state'];
-    if (preState is! Map || preState['needs'] == null) return null;
-    if (!needsActive) return null;
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabaseMemoryQueries, Objective;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edit_deps.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/reprocess_targets.dart';
 
-    final isGroupTurn = activeGroup != null;
-    CharacterCard? card;
-    if (isGroupTurn) {
-      card = resolveGroupSpeakerForMessage(
-        groupCharacters,
-        msg,
-        logOnMiss: false,
-      );
-      if (card == null) return null;
-    } else {
-      card = activeCharacter;
-    }
-    final enabled = enabledNeedKeys(card);
-    if (enabled.isEmpty) return null;
-    return (
-      speaker: card?.name ?? 'the character',
-      enabled: enabled,
-      card: card,
-    );
-  }
-
-  /// Speaker name for a Feelings re-score of [index], or null when that
-  /// choice must stay hidden: not the last reply, Realism off for this chat,
-  /// a reply the judges never stamped, a line with no record of where
-  /// feelings stood before it (nothing honest to rewind to), or a speaker
-  /// who already answered that line once before this reply.
-  String? reprocessFeelingsTargetFor(int index) {
-    if (index < 0 || index != messages.length - 1) return null;
-    if (isGenerating || isEvaluatingRealism || !realismEnabled) return null;
-    final inGroup = activeGroup != null;
-    if (inGroup && observerMode) return null;
-    final msg = messages[index];
-    if (msg.isUser || msg.sender == 'System') return null;
-    final meta = msg.activeMetadata;
-    if (meta == null || meta['realism_state'] is! Map) return null;
-    if (meta['is_dream'] == true || meta['is_chance_time_narration'] == true) {
-      return null;
-    }
-    final userAt = messages.lastIndexWhere((m) => m.isUser, index - 1);
-    if (userAt < 0) return null;
-    final userMeta = messages[userAt].metadata;
-    CharacterCard? card;
-    if (!inGroup) {
-      card = activeCharacter;
-      if (userMeta?[kRealismPreTurn] is! Map) return null;
-    } else {
-      card = resolveGroupSpeakerForMessage(
-        groupCharacters,
-        msg,
-        logOnMiss: false,
-      );
-      if (card == null) return null;
-      final bySpeaker = userMeta?[kRealismPreTurnBySpeaker];
-      if (bySpeaker is! Map || bySpeaker[groupMemberStoreId(card)] is! Map) {
-        return null;
-      }
-    }
-    if (card == null) return null;
-    for (var i = userAt + 1; i < index; i++) {
-      final m = messages[i];
-      if (m.isUser || m.sender == 'System') continue;
-      final same = inGroup
-          ? identical(
-              resolveGroupSpeakerForMessage(
-                groupCharacters,
-                m,
-                logOnMiss: false,
-              ),
-              card,
-            )
-          : m.sender == msg.sender;
-      if (same) return null;
-    }
-    // Last, so golden doubles (which lack it) never get here: a turn still
-    // settling — a re-score among them — cannot be re-scored.
-    if (isSettlingTurn) return null;
-    return card.name;
-  }
-}
+export 'package:front_porch_ai/services/chat/doors/edits/reprocess_targets.dart';
 
 /// The registers the Realism judges write, as `realism_state` names them.
 /// A Feelings re-score rewinds exactly these and stamps them back.
@@ -170,29 +74,73 @@ enum FeelingsRescore {
   unreadable,
 }
 
-/// Manual Reprocess → Feelings: ask the Realism judges again about the user
-/// line the LAST reply answers, without touching the reply's text or the
-/// clock.
+/// Manual Reprocess: Needs (forwarded to [NeedsReprocess]) and Feelings.
 ///
-/// Same input, same answer, like a regen: the judged registers rewind to
-/// the stamp the user line carries (`realism_pre_turn`, per speaker in a
-/// group), the turn's mood decay replays, and the judges run through the
-/// one shared dispatch a send uses ([RealismJudges.runPreGenJudges] — one-shot or
+/// Feelings asks the Realism judges again about the user line the LAST
+/// reply answers, without touching the reply's text or the clock. Same
+/// input, same answer, like a regen: the judged registers rewind to the
+/// stamp the user line carries (`realism_pre_turn`, per speaker in a group),
+/// the turn's mood decay replays, and the judges run through the one shared
+/// dispatch a send uses ([RealismJudges.runPreGenJudges] — one-shot or
 /// three calls, tools first). What the judges do not own stays as the turn
 /// left it: needs, clock, pockets, posture, the decay cadence and the
 /// group's hidden feelings, a climax's arousal reset, and the turn's quests.
 /// A pass that cannot read an answer, or fails, puts everything back.
-extension ChatServiceFeelingsRescore on ChatService {
+class Reprocessor {
+  Reprocessor(this._d) : targets = ReprocessTargets(_d.view);
+
+  final EditDeps _d;
+
+  /// Which reprocess choices a reply offers, and as whom.
+  final ReprocessTargets targets;
+
+  /// True while Manual Reprocess → Feelings runs the judges again. They may
+  /// not start quests then, and tier crossings wait in [rescoreCrossings]
+  /// until the new score is kept.
+  bool rescoringFeelings = false;
+  final List<TierCrossing> rescoreCrossings = [];
+
+  ChatSessionState get _session => _d.session;
+  EditServices get _s => _d.services;
+  late final RealismScope _scope = _s.realismScope();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  RelationshipService get _relationshipService => _scope.relationship();
+  NsfwService get _nsfwService => _scope.nsfw();
+  GroupRealismStore get _groupStore => _scope.groups;
+  Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
+  set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
+
+  String _getCharacterIdFromCard(CharacterCard c) => _d.characterIdFor(c);
+  void notifyListeners() => _d.notify();
+
+  /// Re-evaluate a message's needs deltas under a user critique; see
+  /// [NeedsReprocess.manualReprocessNeeds] for [onlyNeeds] scoping.
+  Future<bool> manualReprocessNeeds(
+    int index,
+    String critique, {
+    Set<String> onlyNeeds = const <String>{},
+  }) => _s.needsReprocess().manualReprocessNeeds(
+    index,
+    critique,
+    onlyNeeds: onlyNeeds,
+  );
+
+  /// Revert a prior manual reprocess on the given message.
+  Future<bool> revertNeedsReprocess(int index) =>
+      _s.needsReprocess().revertNeedsReprocess(index);
+
   Future<FeelingsRescore> reprocessFeelings(int index) async {
     const refused = FeelingsRescore.refused;
-    if (_isTurnBusy || !_realismActiveThisMode) return refused;
-    if (reprocessFeelingsTargetFor(index) == null) return refused;
+    if (_d.turn.isTurnBusy() || !_d.realism.realismActiveThisMode()) {
+      return refused;
+    }
+    if (targets.reprocessFeelingsTargetFor(index) == null) return refused;
     final msg = _session.messages[index];
     final userMsg = _session
         .messages[_session.messages.lastIndexWhere((m) => m.isUser, index - 1)];
     final inGroup = _activeGroup != null;
     final speaker = inGroup
-        ? _resolveGroupSpeakerForMessage(msg)
+        ? resolveGroupSpeakerForMessage(_session.groupCharacters, msg)
         : _session.activeCharacter;
     if (speaker == null) return refused;
     final sid = inGroup ? _getCharacterIdFromCard(speaker) : '';
@@ -203,18 +151,19 @@ extension ChatServiceFeelingsRescore on ChatService {
         : (bySpeaker is Map ? bySpeaker[sid] : null);
     if (rawStamp is! Map) return refused;
 
+    final objectives = _s.objectives();
     final preActive = _session.activeCharacter;
     final prePin = _groupStore.turnSpeakerId;
-    final preObjectives = objectivesDoor.activeObjectives;
+    final preObjectives = objectives.activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
-    _isPostGenerating = true;
-    _isEvaluatingRealism = true;
-    _clearPostGenAbortFlags();
+    _d.turn.setPostGenerating(true);
+    _d.realism.setEvaluatingRealism(true);
+    _d.turn.clearPostGenAbortFlags();
     notifyListeners();
     var result = FeelingsRescore.unreadable;
     try {
-      final ok = await _withWorkerLane(
+      final ok = await _d.turn.withWorkerLane(
         () => _rescoreFeelingsHeld(
           msg,
           index: index,
@@ -228,19 +177,18 @@ extension ChatServiceFeelingsRescore on ChatService {
       // _rescoreFeelingsHeld already put the registers back.
       debugPrint('[Realism:Rescore] failed, reply kept as it was: $e\n$st');
     } finally {
-      _rescoringFeelings = false;
-      _rescoreCrossings.clear();
+      rescoringFeelings = false;
+      rescoreCrossings.clear();
       _pendingRealismMetadata = null;
       _session.activeCharacter = preActive;
       _groupStore.turnSpeakerId = prePin;
-      objectivesDoor.activeObjectives = preObjectives;
-      _evalChunkTimer?.cancel();
-      _evalChunkTimer = null;
-      _isEvaluatingRealism = false;
-      _isPostGenerating = false;
-      _clearPostGenAbortFlags();
+      objectives.activeObjectives = preObjectives;
+      _d.realism.stopEvalChunkTimer();
+      _d.realism.setEvaluatingRealism(false);
+      _d.turn.setPostGenerating(false);
+      _d.turn.clearPostGenAbortFlags();
     }
-    await _saveChat();
+    await _d.saveChat();
     notifyListeners();
     return result;
   }
@@ -257,13 +205,13 @@ extension ChatServiceFeelingsRescore on ChatService {
     _session.activeCharacter = speaker;
     if (inGroup) {
       _groupStore.turnSpeakerId = sid;
-      _realismDance.loadIntoScalars(sid);
+      _s.realismDance().loadIntoScalars(sid);
     }
-    objectivesDoor.activeObjectives = await _objectivesBeforeTurn(
+    _s.objectives().activeObjectives = await _objectivesBeforeTurn(
       speaker,
       msg.activeMetadata?['objective_turn_ops'],
     );
-    final now = _realismSnapshot.capture();
+    final now = _s.realismSnapshot().capture();
     final nowCadence = _relationshipService.captureCadenceAndFeelings();
     final nowTiers = {
       'bond': _relationshipService.relationshipTier,
@@ -311,8 +259,8 @@ extension ChatServiceFeelingsRescore on ChatService {
       stamp['arousalLevel'],
       groupSid,
     );
-    _applyMoodDecay();
-    if (groupSid != null) _realismDance.loadIntoScalars(groupSid);
+    _d.realism.applyMoodDecay();
+    if (groupSid != null) _s.realismDance().loadIntoScalars(groupSid);
     // Posture is written after the reply; the one-shot judge read the
     // position the turn began in.
     final stanceBefore =
@@ -322,29 +270,21 @@ extension ChatServiceFeelingsRescore on ChatService {
     }
 
     _pendingRealismMetadata = <String, dynamic>{};
-    _rescoringFeelings = true;
-    _isEvaluatingRealism = true;
-    _realismEvalStreamText = '';
+    rescoringFeelings = true;
+    _d.realism.setEvaluatingRealism(true);
+    _d.realism.clearEvalStream();
     notifyListeners();
-    final kobold = _llmProvider?.koboldService;
-    if (kobold != null) await kobold.waitForIdle();
-    await _realismJudges.runPreGenJudges(
-      onChunk: (chunk) {
-        _realismEvalStreamText += chunk;
-        _evalChunkTimer?.cancel();
-        _evalChunkTimer = Timer(const Duration(milliseconds: 150), () {
-          try {
-            notifyListeners();
-          } catch (_) {}
-        });
-      },
+    final idle = _d.turn.mouthIdle();
+    if (idle != null) await idle;
+    await _s.realismJudges().runPreGenJudges(
+      onChunk: _d.realism.onEvalChunk,
       logSpeakerName: speaker.name,
     );
-    _rescoringFeelings = false;
+    rescoringFeelings = false;
 
     final pending = _pendingRealismMetadata ?? const <String, dynamic>{};
     final scored =
-        !_realismEvalCancelled &&
+        !_d.realism.evalCancelled() &&
         pending[kFeelingsUnscoredMeta] != true &&
         (pending.containsKey('bond_delta') ||
             pending.containsKey('trust_delta') ||
@@ -377,8 +317,8 @@ extension ChatServiceFeelingsRescore on ChatService {
     for (final k in _kJudgedMetaKeys) {
       if (pending.containsKey(k)) meta[k] = pending[k];
     }
-    meta['emotion_label'] = _characterEmotion;
-    _mood.stampCause(meta);
+    meta['emotion_label'] = _scope.emotion();
+    _s.mood().stampCause(meta);
     final verdict = pending[RealismVerification.kMetaKey];
     if (verdict is Map) {
       meta[RealismVerification.kMetaKey] = {
@@ -386,7 +326,7 @@ extension ChatServiceFeelingsRescore on ChatService {
         ...verdict,
       };
     }
-    final live = _realismSnapshot.capture();
+    final live = _s.realismSnapshot().capture();
     meta['realism_state'] = {
       ...Map<String, dynamic>.from(meta['realism_state'] as Map),
       for (final k in [..._kJudgedRegisters, 'arousalLevel'])
@@ -394,9 +334,9 @@ extension ChatServiceFeelingsRescore on ChatService {
     };
     // Our Story cards only for a tier the old score had not already reached,
     // cited at the reply (a length one past its index).
-    for (final c in _rescoreCrossings) {
+    for (final c in rescoreCrossings) {
       if (c.newTier != nowTiers[c.axis]) {
-        _plantTierCrossing(c, citeLength: index + 1);
+        _d.realism.plantTierCrossing(c, citeLength: index + 1);
       }
     }
     // In place: the reply's metadata and its swipe slot share one map.
@@ -405,7 +345,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       ..addAll(meta);
     debugPrint(
       '[Realism:Rescore] ${speaker.name}: bond ${meta['bond_delta']} '
-      'trust ${meta['trust_delta']} mood $_characterEmotion',
+      'trust ${meta['trust_delta']} mood ${_scope.emotion()}',
     );
     return true;
   }
@@ -439,14 +379,14 @@ extension ChatServiceFeelingsRescore on ChatService {
     final List<Objective> all;
     try {
       all = setAside.isEmpty
-          ? await getActiveObjectivesFor(speaker)
-          : await _db.getObjectivesForCharacter(
+          ? await _s.objectives().getActiveObjectivesFor(speaker)
+          : await _s.db().getObjectivesForCharacter(
               _getCharacterIdFromCard(speaker),
               chatId: session,
             );
     } catch (e) {
       debugPrint('[Realism:Rescore] Could not read quests: $e');
-      return objectivesDoor.activeObjectives;
+      return _s.objectives().activeObjectives;
     }
     return [
       for (final o in all)
@@ -466,14 +406,14 @@ extension ChatServiceFeelingsRescore on ChatService {
       state,
       groupSpeakerId: groupSid,
     );
-    _mood.restoreFromStamp(state);
+    _s.mood().restoreFromStamp(state);
     // Lust is scored only while Afterglow runs; a re-score leaves it alone.
     if (arousal is num && _nsfwService.nsfwCooldownEnabled) {
       _nsfwService.setArousalLevel(arousal.toInt());
     }
     if (groupSid == null) return;
-    _realismDance.saveScalarsIntoGroup(groupSid);
+    _s.realismDance().saveScalarsIntoGroup(groupSid);
     // The save skips an empty mood; a first-turn member had none.
-    _mood.saveToMember(groupSid, evenIfEmpty: true);
+    _s.mood().saveToMember(groupSid, evenIfEmpty: true);
   }
 }

@@ -16,35 +16,59 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// User impersonation — generate a message in the user's voice. Extracted verbatim (zero behaviour change) to shrink the god file.
-extension ChatServiceImpersonate on ChatService {
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edit_deps.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+/// User impersonation: a message in the user's voice, answering the
+/// character they are talking to (the last group member who spoke, the
+/// open character in 1:1). Read-only on the chat: no lore trigger scan, no
+/// Realism, nothing saved.
+class Impersonator {
+  Impersonator(this._d);
+
+  final EditDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EditServices get _s => _d.services;
+  ImpersonatePromptHooks get _p => _d.prompt;
+  StorageService get _storage => _s.storage();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => _session.groupManager?.observerMode ?? false;
+  bool get _directing => _activeGroup != null && _observerMode;
+
+  /// Writes the user's next line in their voice, streamed to [onToken].
   Future<void> impersonateUser({
     String prefix = '',
     required Function(String accumulated) onToken,
   }) async {
     if ((_session.activeCharacter == null && _activeGroup == null) ||
-        _isTurnBusy ||
-        _sceneGuest.busy) {
+        _d.turn.isTurnBusy() ||
+        _d.cast.guestBusy()) {
       return;
     }
-    if (await _abortIfBackendDown()) return;
+    if (await _d.turn.abortIfBackendDown()) return;
 
-    _isGenerating = true;
-    _generationPhase = GenerationPhase.impersonating;
-    _cancelRequested = false;
-    notifyListeners();
+    _d.turn.setGenerating(true);
+    _d.turn.setPhase(GenerationPhase.impersonating);
+    _d.turn.setCancelRequested(false);
+    _d.notify();
 
     try {
-      final userName = _userPersonaService.persona.name;
+      final userName = _s.personas().persona.name;
 
       // The person the user is answering, not whoever happens to be first
       // on the roster. 1:1 is the open character.
       CharacterCard speakingCharacter;
       if (_activeGroup != null) {
         speakingCharacter =
-            _impersonateGroupSpeaker() ?? _pickPresentGroupSpeaker();
+            _impersonateGroupSpeaker() ?? _d.cast.pickPresentSpeaker();
       } else {
         speakingCharacter = _session.activeCharacter!;
       }
@@ -53,19 +77,20 @@ extension ChatServiceImpersonate on ChatService {
       // Path B clean hierarchy (same as the main generation path)
       String systemPrompt;
       if (_activeGroup != null) {
-        systemPrompt = _groupBasePrompt;
+        systemPrompt = _p.groupBasePrompt();
       } else {
         // All backends speak the OpenAI chat protocol now (KoboldCpp via its
         // /v1/chat/completions door), so use the chat-style default prompt.
-        systemPrompt = _resolveOneToOneBase(speakingCharacter);
+        systemPrompt = _p.oneToOneBase(speakingCharacter);
       }
 
       // A group keeps the reply path's system head (base, additions, the
       // mode's FPAI rules). The answered character's card instructions are
       // theirs, not the user's, so they stay out.
-      if (_amendmentsAllowed) {
-        systemPrompt = _storageService.generationSettings
-            .withSystemPromptAddition(systemPrompt);
+      if (_p.amendmentsAllowed()) {
+        systemPrompt = _storage.generationSettings.withSystemPromptAddition(
+          systemPrompt,
+        );
       }
       if (_activeGroup != null) {
         systemPrompt = withGroupSceneRules(systemPrompt, directing: _directing);
@@ -77,9 +102,9 @@ extension ChatServiceImpersonate on ChatService {
       // Lorebook via the shared injector — the same positioned buckets the
       // main generation path uses. Read-only: impersonation never scans or
       // mutates trigger state.
-      final loreInjection = _lorebookInjector.buildInjection(
+      final loreInjection = _s.lorebookInjector().buildInjection(
         sessionSeed: _session.currentSessionId ?? '',
-        contextSize: _sessionGenSettings.resolveContextSize(_storageService),
+        contextSize: _p.sessionGenSettings().resolveContextSize(_storage),
       );
       String loreBefore = loreInjection.beforeChar;
       String loreAfter = loreInjection.afterChar;
@@ -104,9 +129,9 @@ extension ChatServiceImpersonate on ChatService {
         );
       } else {
         personaBlock =
-            "${speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(speakingCharacter, userName)}";
+            "${speakingCharacter.name}'s Persona: ${_s.growthDesk().resolvedCardPersonality(speakingCharacter, userName)}";
       }
-      final growthBlock = _growthDesk.resolvedGrowthBlock(
+      final growthBlock = _s.growthDesk().resolvedGrowthBlock(
         speakingCharacter,
         userName,
       );
@@ -114,7 +139,7 @@ extension ChatServiceImpersonate on ChatService {
       // User persona — inject user's self-description + learned facts
       final userPersonaBlock = _directing
           ? ''
-          : await _buildUserPersonaBlock(userName);
+          : await _p.userPersonaBlock(userName);
 
       // Same shared-scene rule as the reply path: the group's scenario,
       // else the anchor member's original one.
@@ -124,11 +149,11 @@ extension ChatServiceImpersonate on ChatService {
             ? _activeGroup!.scenario
             : (_groupCharacters.firstOrNull?.scenario ?? '');
       } else {
-        rawScenario = _growthDesk.effectiveScenario(speakingCharacter);
+        rawScenario = _s.growthDesk().effectiveScenario(speakingCharacter);
       }
       String scenario = rawScenario;
 
-      String history = _buildChatHistory();
+      String history = _p.chatHistory();
 
       // Suffix + prefix rule: a typed start is an incomplete USER line
       // (Continue-shaped). Character examples / post-history few-shot the
@@ -137,28 +162,26 @@ extension ChatServiceImpersonate on ChatService {
           ? impersonateDirectorSuffix(prefix: prefix)
           : impersonateSuffix(userName: userName, prefix: prefix);
       const mesExampleBlock = '';
-      var postHistoryBlock = _amendmentsAllowed
-          ? _storageService.generationSettings.withPostHistoryAddition('')
+      var postHistoryBlock = _p.amendmentsAllowed()
+          ? _storage.generationSettings.withPostHistoryAddition('')
           : '';
 
       String authorNoteBlock = '';
-      if (_authorNote.isNotEmpty) {
-        authorNoteBlock = _buildAuthorNoteBlock();
+      if (_p.authorNote().isNotEmpty) {
+        authorNoteBlock = _p.authorNoteBlock();
       }
 
       // ── Macro resolution pass ──
       // Same full chat context the main generation path uses.
-      final macroCtx = _buildChatMacroContext(
-        speakingCharacter,
-        scenario: scenario,
-      );
-      systemPrompt = _macroResolver.resolve(
+      final macroCtx = _p.macroContext(speakingCharacter, scenario: scenario);
+      systemPrompt = _s.macroResolver().resolve(
         systemPrompt,
         macroCtx,
         section: 'systemPrompt',
       );
-      String loreMacro(String s) =>
-          s.isEmpty ? s : _macroResolver.resolve(s, macroCtx, section: 'lore');
+      String loreMacro(String s) => s.isEmpty
+          ? s
+          : _s.macroResolver().resolve(s, macroCtx, section: 'lore');
       loreBefore = loreMacro(loreBefore);
       loreAfter = loreMacro(loreAfter);
       loreAnTop = loreMacro(loreAnTop);
@@ -174,12 +197,12 @@ extension ChatServiceImpersonate on ChatService {
           ),
       ];
       final loreDepthJoined = loreDepth.map((d) => d.content).join('\n');
-      scenario = _macroResolver.resolve(
+      scenario = _s.macroResolver().resolve(
         scenario,
         macroCtx,
         section: 'scenario',
       );
-      postHistoryBlock = _macroResolver.resolve(
+      postHistoryBlock = _s.macroResolver().resolve(
         postHistoryBlock,
         macroCtx,
         section: 'postHistory',
@@ -187,7 +210,7 @@ extension ChatServiceImpersonate on ChatService {
       // Same pass as the reply path: the note is the user's text and may
       // name {{char}} or {{user}}.
       if (authorNoteBlock.isNotEmpty) {
-        authorNoteBlock = _macroResolver.resolve(
+        authorNoteBlock = _s.macroResolver().resolve(
           authorNoteBlock,
           macroCtx,
           section: 'authorNote',
@@ -265,24 +288,20 @@ extension ChatServiceImpersonate on ChatService {
       plan.add(id: 'lore.depth', text: loreDepthJoined, rendered: false);
       plan.add(id: 'impersonate', text: prefixRule);
       plan.add(id: 'suffix', text: suffix);
-      final fixedTokens = await _countTokens(plan.fixedCountText);
-      final contextBudget = _sessionGenSettings.resolveContextSize(
-        _storageService,
+      final fixedTokens = await _p.countTokens(plan.fixedCountText);
+      final contextBudget = _p.sessionGenSettings().resolveContextSize(
+        _storage,
       );
       final generationReserve =
-          _sessionGenSettings.resolveMaxLength(_storageService) + 50;
+          _p.sessionGenSettings().resolveMaxLength(_storage) + 50;
       final historyBudget = contextBudget - fixedTokens - generationReserve;
 
       if (historyBudget > 0) {
-        final result = await _buildChatHistoryWithBudget(
-          historyBudget,
-          depthLore: loreDepth,
-        );
-        history = result.history;
+        history = await _p.historyWithin(historyBudget, loreDepth);
       } else if (_session.messages.isNotEmpty) {
         // Same overflow floor as the main generate path: last user line +
         // everything after (think-stripped). Not raw .text (Nina-class hole).
-        history = _overflowContinuityHistory().history;
+        history = _p.overflowHistory();
       }
 
       // Every backend now speaks the OpenAI chat protocol (local KoboldCpp via
@@ -295,9 +314,9 @@ extension ChatServiceImpersonate on ChatService {
       // Stop sequences: character names only (not user — we ARE the user).
       // Same prioritized builder as the main generation path — no second
       // stop-assembly path (spec §5e).
-      final g = _sessionGenSettings;
+      final g = _p.sessionGenSettings();
       final stopList = buildPrioritizedStops(
-        configured: g.resolveStopSequences(_storageService),
+        configured: g.resolveStopSequences(_storage),
         userName: userName,
         impersonating: true,
         characterNames: _activeGroup != null
@@ -308,36 +327,36 @@ extension ChatServiceImpersonate on ChatService {
       final genParams = GenerationParams(
         prompt: prompt,
         systemPrompt: chatSystemPrompt,
-        maxLength: g.resolveMaxLength(_storageService),
-        minLength: g.resolveMinLength(_storageService),
-        minP: g.resolveMinP(_storageService),
-        topP: g.resolveTopP(_storageService),
-        topK: g.resolveTopK(_storageService),
-        dryMultiplier: g.resolveDryMultiplier(_storageService),
-        temperature: g.resolveTemperature(_storageService),
-        repeatPenalty: g.resolveRepeatPenalty(_storageService),
-        repPenTokens: g.resolveRepeatPenaltyTokens(_storageService),
-        dynatempRange: g.resolveDynamicTempEnabled(_storageService)
-            ? g.resolveDynamicTempRange(_storageService)
+        maxLength: g.resolveMaxLength(_storage),
+        minLength: g.resolveMinLength(_storage),
+        minP: g.resolveMinP(_storage),
+        topP: g.resolveTopP(_storage),
+        topK: g.resolveTopK(_storage),
+        dryMultiplier: g.resolveDryMultiplier(_storage),
+        temperature: g.resolveTemperature(_storage),
+        repeatPenalty: g.resolveRepeatPenalty(_storage),
+        repPenTokens: g.resolveRepeatPenaltyTokens(_storage),
+        dynatempRange: g.resolveDynamicTempEnabled(_storage)
+            ? g.resolveDynamicTempRange(_storage)
             : null,
-        xtcThreshold: g.resolveXtcThreshold(_storageService),
-        xtcProbability: g.resolveXtcProbability(_storageService),
+        xtcThreshold: g.resolveXtcThreshold(_storage),
+        xtcProbability: g.resolveXtcProbability(_storage),
         stopSequences: stopList,
         reasoningEnabled: false,
-        reasoningEffort: g.resolveReasoningEffort(_storageService),
-        bannedPhrases: g.resolveBannedPhrases(_storageService).isNotEmpty
-            ? g.resolveBannedPhrases(_storageService)
+        reasoningEffort: g.resolveReasoningEffort(_storage),
+        bannedPhrases: g.resolveBannedPhrases(_storage).isNotEmpty
+            ? g.resolveBannedPhrases(_storage)
             : null,
-        kvChat: _kvChatKey,
-        stillWant: () => !_cancelRequested,
+        kvChat: _session.currentSessionId,
+        stillWant: () => !_d.turn.cancelRequested(),
       );
 
-      final stream = _mouthGenerateStream(genParams);
+      final stream = _d.turn.mouthStream(genParams);
       String accumulated = prefix;
       bool inThinkBlock = false;
 
       await for (final token in stream) {
-        if (_cancelRequested) break;
+        if (_d.turn.cancelRequested()) break;
         // Filter out <think>...</think> reasoning blocks entirely
         if (token.contains('<think>')) {
           inThinkBlock = true;
@@ -363,9 +382,9 @@ extension ChatServiceImpersonate on ChatService {
       // During streaming the raw text is shown — acceptable because the
       // user can only edit AFTER generation finishes, at which point
       // the sanitized form is presented.
-      if (_sessionGenSettings.resolveOutputSanitizerEnabled(_storageService)) {
-        final rules = _sessionGenSettings.resolveOutputSanitizerRules(
-          _storageService,
+      if (_p.sessionGenSettings().resolveOutputSanitizerEnabled(_storage)) {
+        final rules = _p.sessionGenSettings().resolveOutputSanitizerRules(
+          _storage,
         );
         final sanitized = sanitizeOutput(accumulated, rules);
         if (sanitized != accumulated) {
@@ -378,11 +397,11 @@ extension ChatServiceImpersonate on ChatService {
         if (note != accumulated) onToken(note);
       }
     } catch (e) {
-      debugPrint('[ChatService] Impersonate error: $e');
+      debugPrint('[Chat] Impersonate error: $e');
     } finally {
-      _isGenerating = false;
-      _generationPhase = GenerationPhase.idle;
-      notifyListeners();
+      _d.turn.setGenerating(false);
+      _d.turn.setPhase(GenerationPhase.idle);
+      _d.notify();
     }
   }
 
@@ -395,7 +414,7 @@ extension ChatServiceImpersonate on ChatService {
       if (message.sender == 'System' || message.characterId == '__director__') {
         continue;
       }
-      final card = _resolveGroupSpeakerForMessage(message);
+      final card = resolveGroupSpeakerForMessage(_groupCharacters, message);
       if (card != null) return card;
     }
     return null;

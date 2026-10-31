@@ -402,15 +402,8 @@ mixin ChatServiceFieldBag {
   @visibleForTesting
   LLMService? testWorkerLlmServiceOverride;
 
-  /// True while Manual Reprocess → Feelings runs the judges again. They may
-  /// not start quests then, and tier crossings wait in [_rescoreCrossings]
-  /// until the new score is kept (see chat_service_reprocess_choice.dart).
-  bool _rescoringFeelings = false;
-  final List<TierCrossing> _rescoreCrossings = [];
-
-  /// A rewrite from a word waiting for its turn: the next normal reply
-  /// starts with this text (see chat_service_variants.dart).
-  String? _regenSeed;
+  // The Feelings rescore flag and crossings, and the word-rewrite seed, live
+  // on the edits door (editsDoor.reprocess, editsDoor.tokenAlts).
 
   /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
   final _toolProbe = ToolTransportProbe();

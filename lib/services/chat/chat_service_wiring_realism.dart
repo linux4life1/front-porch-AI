@@ -408,8 +408,8 @@ extension ChatServiceWiringRealism on ChatService {
       // Fire-and-forget; plant never throws. Owner is the current speaker.
       onTierCrossing: (crossing) {
         // A Feelings re-score holds its crossings until its score is kept.
-        if (_rescoringFeelings) {
-          _rescoreCrossings.add(crossing);
+        if (editsDoor.reprocess.rescoringFeelings) {
+          editsDoor.reprocess.rescoreCrossings.add(crossing);
           return;
         }
         _plantTierCrossing(crossing, citeLength: _session.messages.length);
