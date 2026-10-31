@@ -49,8 +49,12 @@ class ExistingChatsOffer {
   /// Switches Afterglow on in every chat that has it off; returns how many.
   Future<int> turnAfterglowOn() async {
     final off = await _afterglowOff();
+    var changed = 0;
     for (final chat in off) {
-      if (chat.id == _openSessionId) {
+      if (chat.open) {
+        // Read from memory, so it is only ever switched live: a chat left
+        // since has saved its own state, which a blind write would replace.
+        if (chat.id != _openSessionId) continue;
         await _chat!.setAfterglowEnabled(true);
       } else if (!chat.isGroup) {
         await _db.customUpdate(
@@ -66,8 +70,9 @@ class ExistingChatsOffer {
           ],
         );
       }
+      changed++;
     }
-    return off.length;
+    return changed;
   }
 
   String? get _openSessionId => _chat?.currentSessionId;
@@ -80,7 +85,7 @@ class ExistingChatsOffer {
     final open = _openSessionId;
     final off = <_OffChat>[];
     if (open != null && _chat != null && !_chat.afterglowChatSwitch) {
-      off.add(_OffChat(open, isGroup: _chat.isGroupMode));
+      off.add(_OffChat(open, isGroup: _chat.isGroupMode, open: true));
     }
     final solo =
         await (_db.select(_db.sessions)..where(
@@ -147,9 +152,17 @@ class ExistingChatsOffer {
 }
 
 class _OffChat {
-  _OffChat(this.id, {required this.isGroup, this.blob = const {}});
+  _OffChat(
+    this.id, {
+    required this.isGroup,
+    this.open = false,
+    this.blob = const {},
+  });
 
   final String id;
   final bool isGroup;
+
+  /// The chat that was open when counted, read from memory.
+  final bool open;
   final Map<String, dynamic> blob;
 }

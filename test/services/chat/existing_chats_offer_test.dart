@@ -30,6 +30,30 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../golden/support/fakes.dart';
 import '../../helpers/chat_db_teardown.dart';
 
+/// A group chat open with Afterglow off that is left the moment its switch
+/// has been read, as when the phone opens another chat mid-question.
+class _LeavingChat extends FakeChatService {
+  _LeavingChat(this._open);
+
+  String? _open;
+
+  @override
+  String? get currentSessionId => _open;
+
+  @override
+  bool get isGroupMode => true;
+
+  @override
+  bool get afterglowChatSwitch {
+    _open = 'another-chat';
+    return false;
+  }
+
+  @override
+  Future<void> setAfterglowEnabled(bool enabled) async =>
+      fail('a chat no longer open is not switched live');
+}
+
 final Directory _root = Directory.systemTemp.createTempSync('fpai_offer_');
 
 void main() {
@@ -161,6 +185,36 @@ void main() {
       'mem-a',
     ], reason: "the chat keeps reading its group's seeds");
     expect(await ExistingChatsOffer(db, null).countAfterglowOff(), 0);
+  });
+
+  test('a group chat left between the count and the switch keeps its saved '
+      'state: it is never written blind', () async {
+    final saved = jsonEncode({
+      kGroupAfterglowKey: false,
+      'perChar': {
+        'mem-a': {'affection': 40},
+      },
+    });
+    await db.insertGroup(GroupsCompanion.insert(id: 'g-open', name: 'Open'));
+    await db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: 'group-open',
+            groupId: const Value('g-open'),
+            groupRealismState: Value(saved),
+          ),
+        );
+    final chat = _LeavingChat('group-open');
+    addTearDown(chat.dispose);
+
+    expect(await ExistingChatsOffer(db, chat).turnAfterglowOn(), 0);
+    final row = await db
+        .customSelect(
+          "SELECT group_realism_state AS st FROM sessions WHERE id = 'group-open'",
+        )
+        .getSingle();
+    expect(row.read<String>('st'), saved, reason: 'what it saved on leaving');
   });
 
   test('the open chat is read and switched live, so its next save keeps it '
