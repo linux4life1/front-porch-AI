@@ -78,8 +78,9 @@ class NsfwService {
   /// per-member flag below only rides the save wire.
   final bool Function()? _afterglowOn;
 
-  /// This chat's own Afterglow switch alone, without Porch Life. While it is
-  /// off the chat holds no Lust, so a rewind (regen, swipe, delete, branch,
+  /// This chat's own Afterglow switch alone, without Porch Life (in a group,
+  /// the group chat's AND the loaded member's own). While it is off the chat
+  /// holds no Lust, so a rewind (regen, swipe, delete, branch,
   /// import) keeps it settled instead of reloading a stamp's.
   final bool Function()? _chatSwitchOn;
 
@@ -124,7 +125,8 @@ class NsfwService {
   Refractory get stampRefractory =>
       chatSwitchOn ? _refractory : Refractory.none;
 
-  /// This chat's own Afterglow switch, without Porch Life.
+  /// This chat's own Afterglow switch, without Porch Life (in a group, the
+  /// group chat's AND the loaded member's own).
   bool get chatSwitchOn => _chatSwitchOn?.call() ?? true;
   int get arousalLevel => _arousalLevel;
 

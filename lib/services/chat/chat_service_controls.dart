@@ -435,13 +435,23 @@ extension ChatServiceControls on ChatService {
   // (and its comment) is part of this task (see that site for the removed code).
   /// Write a group member's current extensions (pace, which needs are on,
   /// baselines) to the avatar and the group-members row.
-  Future<void> persistGroupMemberExtensions({String? memberId}) async {
+  Future<void> persistGroupMemberExtensions({String? memberId}) {
+    // One write at a time: two saves of one member race on its avatar PNG.
+    // The queue only orders them; each caller still sees its own error.
+    final write = _groupStore.memberExtWrites.then(
+      (_) => _writeGroupMemberExtensions(memberId),
+    );
+    _groupStore.memberExtWrites = write.catchError((Object _) {});
+    return write;
+  }
+
+  Future<void> _writeGroupMemberExtensions(String? memberId) async {
     if (_activeGroup == null) return;
 
     if (_characterRepository != null) {
       final v2Service = V2CardService();
-      // The chat's own handle, which the group loads its members from (in the
-      // app the same file as AppDatabase.instance(), re-pointed on a swap).
+      // The chat's own handle: in the app the same file as
+      // AppDatabase.instance(), re-pointed with it on a swap.
       final db = _db;
 
       final targets = memberId == null

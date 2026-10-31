@@ -71,17 +71,19 @@ extension ChatServiceGroupMembers on ChatService {
         worldNames: drift.Value(jsonEncode(character.allWorldNames)),
         frontPorchExtensions: drift.Value(
           encodeMemberFrontPorch(
-            asLite
-                ? cloneFrontPorchTier(
-                    character.frontPorchExtensions,
-                    lite: true,
-                  )
-                : character.isLite
-                ? cloneFrontPorchTier(
-                    character.frontPorchExtensions,
-                    lite: false,
-                  )
-                : character.frontPorchExtensions,
+            joiningMemberFrontPorch(
+              asLite
+                  ? cloneFrontPorchTier(
+                      character.frontPorchExtensions,
+                      lite: true,
+                    )
+                  : character.isLite
+                  ? cloneFrontPorchTier(
+                      character.frontPorchExtensions,
+                      lite: false,
+                    )
+                  : character.frontPorchExtensions,
+            ),
           ),
         ),
         rawExtensions: drift.Value(

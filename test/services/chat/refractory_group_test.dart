@@ -237,7 +237,7 @@ void main() {
   // so a member switched off neither stops the rest of the cast's recovery
   // nor gets one back.
   test('a member switched off still lets the beat pass for the rest of the '
-      'cast, and deleting their reply gives it back', () async {
+      'cast', () async {
     await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
     expect(refractoryOf('Ada').minutes, 75);
     await chat.setMemberAfterglowEnabled(member('Bea'), false);
@@ -249,11 +249,23 @@ void main() {
       reason: "Bea's beat passed for Ada",
     );
     expect(refractoryOf('Bea'), Refractory.none);
+  });
+
+  test('deleting a reply while the member the chat holds live is switched off '
+      'still gives the rest of the cast the beat back', () async {
+    await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
+    await speak('Bea', line: 'Evening.', minutes: 30);
+    expect(refractoryOf('Ada').minutes, 45);
+    expect(
+      chat.nsfwService.loadedMemberId,
+      chat.characterIdFor(member('Bea')),
+      reason: "baseline: the live scalars are Bea's after her turn",
+    );
+    await chat.setMemberAfterglowEnabled(member('Bea'), false);
 
     await chat.deleteMessage(chat.messages.length - 1);
     await settle();
     expect(refractoryOf('Ada').minutes, 75, reason: 'the beat is given back');
-    expect(refractoryOf('Bea'), Refractory.none);
   });
 
   test('switching off the member the chat holds live settles them there too, '

@@ -355,6 +355,54 @@ void main() {
     expect(chat.nsfwService.arousalLevel, 30, reason: "Rue's Lust came along");
   });
 
+  test('forking a 1:1 that runs Afterglow keeps it running for the host, '
+      'whatever their card starts new chats with', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Nia', 'char-ownflag-nia', afterglow: false, realism: true),
+    );
+    expect(chat.afterglowChatSwitch, isFalse, reason: 'the card starts it off');
+    await chat.setAfterglowEnabled(true);
+    await chat.sendMessage('Evening.');
+    await settle();
+    chat.nsfwService.setArousalLevel(60);
+
+    final group = await chat.forkToGroupChat([
+      card('Rue', 'char-ownflag-rue', realism: true),
+    ], groupRepo);
+    expect(group, isNotNull);
+    final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(chat.afterglowRunsFor(nia), isTrue);
+    expect(chat.getArousalForGroupCharacter(nia), 60, reason: 'her Lust came');
+  });
+
+  test('collapsing to the 1:1 of a member switched off in the group leaves '
+      'its Afterglow off', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(card('Nia', 'char-ownflag-nia'));
+    await chat.sendMessage('Evening.');
+    await settle();
+    final rue = await libraryCard('Rue');
+    final group = await chat.forkToGroupChat([rue], groupRepo);
+    expect(group, isNotNull);
+    await chat.setMemberAfterglowEnabled(
+      chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      false,
+    );
+
+    final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(await chat.removeCharacterFromGroup(nia, groupRepo), isTrue);
+    expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
+    expect(chat.activeCharacter?.name, 'Rue');
+    expect(
+      await storedFlag(chat.currentSessionId!),
+      isFalse,
+      reason: 'Afterglow was not running for Rue in the group',
+    );
+  });
+
   test('branching a 1:1 from a message keeps the chat\'s own flag', () async {
     await chat.setActiveCharacter(card('Ivy', 'char-ownflag-ivy'));
     await chat.sendMessage('Evening.');
