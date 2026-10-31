@@ -61,6 +61,8 @@ import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
     show MemberGroupView, memberGroupViewOfTemplate;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart'
+    show legacyCardExtSeedKeys;
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
     show GroupWideLine;
@@ -1357,8 +1359,8 @@ void main() {
     });
   });
 
-  testWidgets("a row whose new chats run without Realism is never written from "
-      "the open chat's copy", (tester) async {
+  testWidgets("the sidebar member editor reads the group's start and its "
+      "Realism line from the row, not the open chat's copy", (tester) async {
     await tester.runAsync(() async {
       // Edit group switched Realism off for new chats and saved while the
       // chat was open: the chat's copy still has the seeds until it reopens.
@@ -1374,21 +1376,76 @@ void main() {
         chat: _SeededGroup([mara], open),
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
-      form(tester).onTrustLevelChanged(-20);
+
+      expect(
+        find.text('Realism Engine · Off for this group'),
+        findsOneWidget,
+        reason: 'the same source as the start: the row',
+      );
+      expect(form(tester).showStartingState, isFalse);
+      pickVoice(tester, 'af_heart');
       await tester.pump();
       await saveTwiceFast(tester);
-
       expect(
         (await db.getGroupById(_groupId))!.defaultMemberRealismState,
         '{}',
-        reason: "THE BUG: Realism came back on for the group's new chats",
+        reason: "Realism never comes back on for the group's new chats",
       );
       expect(
-        parseGroupRealismSeeds(
-          open.defaultMemberRealismState,
-        )[_memberId]!['trust'],
-        -20,
-        reason: "the open chat's copy, which its next New Chat reads",
+        open.defaultMemberRealismState,
+        _realismOn.defaultMemberJson,
+        reason: "the open chat's copy is left as it is",
+      );
+    });
+  });
+
+  // Every reader of the blob (New Chat, Edit group, Group Settings) has a
+  // group whose only member entries carry no bonds run Realism; an older
+  // editor's card-named keys are one such shape. The editor offered no
+  // start there and so could never give one.
+  testWidgets("a group whose only member entry has an older editor's keys "
+      'offers a start and saves it', (tester) async {
+    await tester.runAsync(() async {
+      final legacy = jsonEncode({
+        'perChar': {
+          _memberId: {
+            'shortTermBond': 80,
+            'longTermBond': 60,
+            'trustLevel': 20,
+            'characterEmotion': 'shy',
+          },
+        },
+      });
+      await storeBlobs(legacy, '{}');
+      final mara = member();
+      await pumpHost(
+        tester,
+        chat: _SeededGroup(
+          [mara],
+          GroupChat(
+            id: _groupId,
+            name: 'Pair',
+            defaultMemberRealismState: legacy,
+          ),
+        ),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
+      expect(form(tester).showStartingState, isTrue);
+      form(tester).onTrustLevelChanged(30);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final seed = parseGroupRealismSeeds(
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+      )[_memberId]!;
+      expect(seed['trust'], 30);
+      expect(seed.containsKey('affection'), isTrue);
+      expect(
+        seed.keys.where(legacyCardExtSeedKeys.contains),
+        isEmpty,
+        reason: 'the dead card-named copies are dropped',
       );
     });
   });
@@ -1412,7 +1469,7 @@ void main() {
 
       final row = (await db.getGroupById(_groupId))!.defaultMemberRealismState;
       expect(
-        groupNewChatsRunRealism(row),
+        groupTemplateRealismOf(row).realismOn,
         isFalse,
         reason: 'THE BUG: the row was written from the open copy',
       );

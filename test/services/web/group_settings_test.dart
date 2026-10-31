@@ -14,7 +14,6 @@ import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
-import 'package:front_porch_ai/services/group_member_start.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
@@ -23,6 +22,8 @@ import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart'
+    show legacyCardExtSeedKeys;
 
 import '../../golden/support/fakes.dart';
 
@@ -1674,32 +1675,61 @@ void main() {
       );
     });
 
-    test("a member's Group Settings preference alone is no start: the phone "
-        'offers none and a posted one switches nothing on', () async {
-      await db.updateGroup(
-        GroupsCompanion(
-          id: const Value('g1'),
-          defaultMemberRealismState: Value(
-            jsonEncode({
-              'perChar': {
-                'mem-mara': {'enjoysLowHygiene': true},
-              },
-            }),
+    // A group whose only member entries carry no bonds runs Realism in New
+    // Chat, as every reader of the blob has it, so the phone offers and
+    // saves a start there too.
+    for (final (shape, entry) in [
+      ('a Group Settings preference', {'enjoysLowHygiene': true}),
+      (
+        "an older editor's keys",
+        {'shortTermBond': 80, 'trustLevel': 20, 'characterEmotion': 'shy'},
+      ),
+    ]) {
+      test('a group whose only member entry is $shape offers and saves a '
+          'start', () async {
+        await db.updateGroup(
+          GroupsCompanion(
+            id: const Value('g1'),
+            defaultMemberRealismState: Value(
+              jsonEncode({
+                'perChar': {'mem-mara': entry},
+              }),
+            ),
+            baselineRealismState: const Value('{}'),
           ),
-          baselineRealismState: const Value('{}'),
-        ),
-      );
-      final edit = GroupMemberEdit(db, storage, null, null);
-      expect((await edit.detail('g1', 'mem-mara'))!['start'], isNull);
-      await edit.update('g1', 'mem-mara', {
-        'groupStart': {'trustLevel': 70},
-      });
-      expect(
-        groupNewChatsRunRealism(
+        );
+        final edit = GroupMemberEdit(db, storage, null, null);
+        final d = (await edit.detail('g1', 'mem-mara'))!;
+        expect(d['start'], isNotNull);
+        expect((d['group'] as Map)['realism'], isTrue);
+        await edit.update('g1', 'mem-mara', {
+          'groupStart': {'trustLevel': 70},
+        });
+        final seed = parseGroupRealismSeeds(
           (await db.getGroupById('g1'))!.defaultMemberRealismState,
-        ),
-        isFalse,
-      );
+        )['mem-mara']!;
+        expect(seed['trust'], 70);
+        for (final k in entry.keys) {
+          if (!legacyCardExtSeedKeys.contains(k)) {
+            expect(seed[k], entry[k], reason: '$k is kept');
+          }
+        }
+      });
+    }
+
+    test("an open group's start on the phone comes from its row, not the "
+        "chat's copy", () async {
+      final chat = _OpenPair([CharacterCard(name: 'Mara')..dbId = 'mem-mara']);
+      addTearDown(chat.dispose);
+      // The chat's copy says no member entries; the row has Mara's seed.
+      final d = (await GroupMemberEdit(
+        db,
+        storage,
+        chat,
+        null,
+      ).detail('g1', 'mem-mara'))!;
+      expect((d['start'] as Map)['trustLevel'], 40);
+      expect((d['group'] as Map)['realism'], isTrue);
     });
 
     test("the detail carries Porch Life's Realism permission", () async {

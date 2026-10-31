@@ -26,6 +26,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabaseGroupQueries;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -299,6 +301,13 @@ Future<void> showEditCharacterDialog(
   final db = member ? liveDatabase(context) : null;
   final afterglowBefore =
       character.frontPorchExtensions?.afterglowEnabled ?? true;
+  // Where the member starts is read from the group's row, not the chat's
+  // copy (which can hold Group Settings edits not saved yet).
+  final groupId = chatService.activeGroup?.id;
+  final persisted = db == null || groupId == null
+      ? '{}'
+      : (await db.getGroupById(groupId))?.defaultMemberRealismState ?? '{}';
+  if (!context.mounted) return;
   final opened = showDialog<void>(
     context: context,
     builder: (dialogCtx) => Dialog(
@@ -315,6 +324,7 @@ Future<void> showEditCharacterDialog(
                   context,
                   chatService,
                   character,
+                  persisted: persisted,
                   showTab: groupSettingsTab,
                 )
               : null,
