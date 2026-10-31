@@ -1303,11 +1303,65 @@ void main() {
     });
   });
 
-  testWidgets("the open chat's Realism seeds that its row does not have yet "
-      "keep the start a member's editor saves", (tester) async {
+  /// The open chat's copy of a group whose row is [defaultMemberJson], with
+  /// a Group Settings → Needs edit not saved yet: "Enjoys low hygiene" for
+  /// [who], which that tab files under the member even in a group whose new
+  /// chats run without Realism (persistGroupMemberPref).
+  GroupChat openWithUnsavedLowHygiene(String defaultMemberJson, String who) {
+    final blob = defaultMemberJson == '{}'
+        ? <String, dynamic>{'perChar': <String, dynamic>{}}
+        : Map<String, dynamic>.from(jsonDecode(defaultMemberJson) as Map);
+    final perChar = Map<String, dynamic>.from(blob['perChar'] as Map);
+    perChar[who] = {
+      ...?(perChar[who] as Map?)?.cast<String, dynamic>(),
+      'enjoysLowHygiene': true,
+    };
+    blob['perChar'] = perChar;
+    return GroupChat(
+      id: _groupId,
+      name: 'Pair',
+      defaultMemberRealismState: jsonEncode(blob),
+    );
+  }
+
+  testWidgets("a member's start saved while the open chat holds unsaved Group "
+      "Settings edits writes only her start to the row", (tester) async {
     await tester.runAsync(() async {
-      // Group Settings turned Realism on in the open chat and has not saved
-      // the group: its row still has no seeds.
+      await seedGroupRow();
+      final mara = member();
+      final open = openWithUnsavedLowHygiene(
+        _realismOn.defaultMemberJson,
+        'mem-bo',
+      );
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], open),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+      form(tester).onTrustLevelChanged(-20);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final row = parseGroupRealismSeeds(
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+      );
+      expect(row[_memberId]!['trust'], -20);
+      expect(
+        row.containsKey('mem-bo'),
+        isFalse,
+        reason: "Group Settings' unsaved edit is not this editor's to save",
+      );
+      final live = parseGroupRealismSeeds(open.defaultMemberRealismState);
+      expect(live[_memberId]!['trust'], -20, reason: "the open chat's copy");
+      expect(live['mem-bo'], {'enjoysLowHygiene': true});
+    });
+  });
+
+  testWidgets("a row whose new chats run without Realism is never written from "
+      "the open chat's copy", (tester) async {
+    await tester.runAsync(() async {
+      // Edit group switched Realism off for new chats and saved while the
+      // chat was open: the chat's copy still has the seeds until it reopens.
       final mara = member();
       final open = GroupChat(
         id: _groupId,
@@ -1324,17 +1378,46 @@ void main() {
       await tester.pump();
       await saveTwiceFast(tester);
 
-      int? trustIn(String json) =>
-          parseGroupRealismSeeds(json)[_memberId]?['trust'] as int?;
       expect(
-        trustIn(open.defaultMemberRealismState),
-        -20,
-        reason: 'THE BUG: the start was dropped',
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+        '{}',
+        reason: "THE BUG: Realism came back on for the group's new chats",
       );
       expect(
-        trustIn((await db.getGroupById(_groupId))!.defaultMemberRealismState),
+        parseGroupRealismSeeds(
+          open.defaultMemberRealismState,
+        )[_memberId]!['trust'],
         -20,
+        reason: "the open chat's copy, which its next New Chat reads",
       );
+    });
+  });
+
+  testWidgets("a Group Settings preference in the open chat of a group whose "
+      'new chats run without Realism offers no start and switches nothing '
+      'on', (tester) async {
+    await tester.runAsync(() async {
+      // The row: new chats without Realism. The open chat: Needs → "Enjoys
+      // low hygiene" for Mara, closed with X (not saved).
+      final mara = member();
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], openWithUnsavedLowHygiene('{}', _memberId)),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+      final offered = form(tester).showStartingState;
+      form(tester).onShortTermBondChanged(90);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final row = (await db.getGroupById(_groupId))!.defaultMemberRealismState;
+      expect(
+        groupNewChatsRunRealism(row),
+        isFalse,
+        reason: 'THE BUG: the row was written from the open copy',
+      );
+      expect(row, isNot(contains('enjoysLowHygiene')));
+      expect(offered, isFalse, reason: 'no start where Realism does not run');
     });
   });
 
