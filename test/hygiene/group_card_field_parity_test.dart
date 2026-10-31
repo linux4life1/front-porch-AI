@@ -12,653 +12,424 @@
 // character: its group_members row holds a whole card and its own Front
 // Porch extensions. A field the 1:1 editor sets and a 1:1 chat reads has to
 // be editable on the member (the member editor, desktop and phone) and read
-// per member when a group turn runs, or it ships 1:1-only. An audit found
-// such fields; this ratchet keeps a new one from shipping that way.
+// per member when a group turn runs, or it ships 1:1-only.
 //
-// The fields are read from the code, never typed here: every field
-// FrontPorchExtensions declares, every key encodeFrontPorchExtensions
-// writes, and every key CharacterCard.toJson writes. Each has an entry below
-// that names where a member's value is edited and where a group reads it,
-// or says why the group's own switch owns it (groupWide), why nothing reads
-// it at chat time in 1:1 either (notRead), or why only a 1:1-only feature
-// reads it (soloOnly). Each named place must still name the field.
+// The fields come from the code, never from a list typed here: the fields
+// each card model declares and the keys its toJson writes, for
+// CharacterCard, FrontPorchExtensions and the objects nested in it
+// (RecoveryProfile, GreetingRealismSeed). Any other lib/models class a field
+// is typed with must be enumerated here too or named opaque, with a reason,
+// in the manifest.
+//
+// The manifest, docs/design/group-card-field-manifest.json, gives each field
+// the places a member's value is edited and read in a group, or one reasoned
+// exemption. A new field adds a manifest entry, not a test edit.
+//
+// WHAT A PLACE PROVES. A place is a pointer to the read or the control: the
+// named file, inside the named function, still contains the marker (comments
+// stripped; whitespace between tokens free). It is not proof of behaviour;
+// the member editor tests (group_member_edits_save_test,
+// CharacterEditPage.member.test.tsx) pin behaviour. Member-mode visibility
+// is checked at the two places it is decided in source: a web control
+// inside a `{member === undefined && …}` or `{!member && …}` block is hidden
+// for members, and a switch the member editor sets from "not a member"
+// (`showX: member == null` on desktop, `showX={!member}` on the phone) must
+// be listed with the fields it hides, none of which may claim an editor. A
+// control a shared sub-widget hides on its own, by some other condition, is
+// not seen here.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../helpers/source_ratchet.dart';
+import '../helpers/dart_source.dart';
 
-const _extModel = 'lib/models/character/front_porch_extensions.dart';
-const _extCodec = 'lib/models/character/front_porch_extensions_codec.dart';
-const _cardModel = 'lib/models/character_card.dart';
+const _manifestPath = 'docs/design/group-card-field-manifest.json';
 
-/// The one CharacterCard.toJson key that is a container: its content is the
-/// extensions, enumerated field by field from their own model and codec.
-const _cardContainers = {'extensions'};
-
-/// A place that edits or reads a field: [path] names [marker] in its code
-/// (comments and strings blanked for Dart; TypeScript is read as text). `@`
-/// in [marker] stands for the field's accessor.
-class _At {
-  const _At(this.path, [this.marker = '.@']);
-  final String path;
-  final String marker;
-}
-
-/// How a group member gets a field. A field a group reads per member lists
-/// its [reader]s and its [editor]s (or why it has none, [noEditor]). The
-/// others say who owns it instead: [groupWide], [notRead] or [soloOnly];
-/// their [editor]s, when listed, are checked too.
-class _Field {
-  const _Field({
-    this.editor = const [],
-    this.reader = const [],
-    this.noEditor,
-    this.groupWide,
-    this.notRead,
-    this.soloOnly,
+/// A card model whose fields are enumerated: its declared fields and the
+/// keys [toJson] writes. [decode], when set, must read every key [toJson]
+/// writes. Field keys are `<prefix>.<field>`.
+class _Model {
+  const _Model(
+    this.prefix,
+    this.path,
+    this.className, {
+    required this.toJson,
+    this.toJsonPath,
+    this.decode,
+    this.containers = const {},
   });
 
-  final List<_At> editor;
-  final List<_At> reader;
-  final String? noEditor;
+  final String prefix;
+  final String path;
+  final String className;
+  final String toJson;
+  final String? toJsonPath;
+  final String? decode;
 
-  /// The group's own switch owns it at chat time; the member's copy is not
-  /// read in a group.
-  final String? groupWide;
-
-  /// Read nowhere at chat time, in 1:1 either.
-  final String? notRead;
-
-  /// Read only by a feature groups do not have.
-  final String? soloOnly;
+  /// Fields whose content is a model of its own, enumerated as that model.
+  final Set<String> containers;
 }
 
-// ── Where a member is edited ─────────────────────────────────────────────
-// Desktop: the Edit Character page, opened on the member (Edit group, the
-// chat sidebar) and saved to its row. Phone: CharacterEditPage at the
-// member's route, through the relay's GroupMemberEdit. See _spine.
-const _realismTab =
-    'lib/ui/pages/edit_character_page/edit_character_realism_section.dart';
-const _detailsTab =
-    'lib/ui/pages/edit_character_page/edit_character_details_tab.dart';
-const _dialogueTab =
-    'lib/ui/pages/edit_character_page/edit_character_dialogue_tab.dart';
-const _editPage = 'lib/ui/pages/edit_character_page.dart';
-const _webRealism = 'web_ui/src/components/realism/RealismFormSection.tsx';
-const _webNeeds = 'web_ui/src/components/realism/NeedsFormSection.tsx';
-const _webStart = 'web_ui/src/components/realism/memberGroup.tsx';
-const _webPage = 'web_ui/src/pages/CharacterEditPage.tsx';
-
-/// The phone's Realism fields land on the card through the relay; a field
-/// missing from it is dropped on every phone save.
-const _relay = _At('lib/services/web/util/realism_extensions_json.dart', 'b.@');
-const _relayCard = _At(
-  'lib/services/web/facade/character/character_card_edits.dart',
-  'card.@',
-);
-
-/// The member's row: the columns a member's card saves to.
-const _rowPath = 'lib/services/group_member_card_save.dart';
-const _row = _At(_rowPath, 'card.@');
-const _webSet = _At(_webRealism, 'set({ @');
-const _webNeedsSet = _At(_webNeeds, 'set({ @');
-const _webPost = _At(_webPage, '@: c.@');
-
-// ── Where a group turn reads a member ────────────────────────────────────
-const _blocks = 'lib/services/chat/chat_service_generation_blocks.dart';
-const _judges = 'lib/services/chat/chat_service_wiring_evals_judges.dart';
-const _seed = 'lib/utils/group_member_card_seed.dart';
-const _work = 'lib/services/chat/presence_derive.dart';
-const _wear = 'lib/services/chat/needs_beat_wear.dart';
-const _baselines = 'lib/services/chat/needs_simulation.dart';
-const _prefs = 'lib/services/chat/prompt_injection/preferences_injection.dart';
-const _afterglow = 'lib/services/chat/afterglow_pass.dart';
-const _pockets = 'lib/services/chat/pockets_ledger.dart';
-const _lore = 'lib/services/chat/lorebook_collection.dart';
-const _greeting = 'lib/services/chat/chat_service_greeting.dart';
-
-/// Bubble colours and font: the chat resolves them from the card of the
-/// member who wrote the message.
-const _bubbleCard = _At(
-  'lib/ui/pages/chat_page_overlays.dart',
-  'resolveGroupSpeakerForMessage',
-);
-const _uiSettings = 'lib/services/storage/settings/ui_settings.dart';
-const _colorSlot = 'lib/ui/dialogs/ui_settings/chat_color_slot.dart';
-
-const _extFields = <String, _Field>{
-  'realismEnabled': _Field(
-    groupWide:
-        "the group chat's own Realism switch, behind Porch Life's; the "
-        'member editor shows it read-only',
-  ),
-  // A member's start is the group's seed for them, set from the member
-  // editor; their card's bonds and mood make the first seed only.
-  'shortTermBond': _Field(
-    editor: [
-      _At(_realismTab, 's.copyWith(shortTerm'),
-      _At(_webStart, 'set({ shortTermBond'),
-    ],
-    reader: [_At(_seed, 'e.shortTermBond')],
-  ),
-  'longTermBond': _Field(
-    editor: [
-      _At(_realismTab, 's.copyWith(longTerm'),
-      _At(_webStart, 'set({ longTermBond'),
-    ],
-    reader: [_At(_seed, 'e.longTermBond')],
-  ),
-  'trustLevel': _Field(
-    editor: [
-      _At(_realismTab, 's.copyWith(trust'),
-      _At(_webStart, 'set({ trustLevel'),
-    ],
-    reader: [_At(_seed, 'e.trustLevel')],
-  ),
-  'characterEmotion': _Field(
-    editor: [
-      _At(_realismTab, 's.copyWith(emotion'),
-      _At(_webStart, 'set({ characterEmotion'),
-    ],
-    reader: [
-      _At(_seed, 'e.characterEmotion'),
-      _At('lib/services/chat/long_skip_settle.dart', 'cardExt?.@'),
-    ],
-  ),
-  'emotionIntensity': _Field(
-    editor: [
-      _At(_realismTab, 's.copyWith(emotionIntensity'),
-      _At(_webStart, 'set({ emotionIntensity'),
-    ],
-    reader: [
-      _At(_seed, 'e.emotionIntensity'),
-      _At('lib/services/chat/long_skip_settle.dart', 'cardExt?.@'),
-    ],
-  ),
-  'dayCount': _Field(groupWide: "the group's one clock for the scene"),
-  'timeOfDay': _Field(groupWide: "the group's one clock for the scene"),
-  'storyStartDate': _Field(
-    groupWide: "the group's own story calendar seeds its one clock",
-  ),
-  'storyStartTime': _Field(
-    groupWide: "the group's own story calendar seeds its one clock",
-  ),
-  'nsfwCooldownEnabled': _Field(
-    soloOnly:
-        "the card's old Afterglow flag: chats start Afterglow from "
-        "afterglowEnabled. Only a 1:1 Scene Guest mint reads the host's "
-        'flag, and groups add members, not Scene Guests',
-  ),
-  'passageOfTimeEnabled': _Field(
-    notRead: "the clock follows Porch Life's Passage of Time, read live",
-  ),
-  'chaosModeEnabled': _Field(
-    groupWide: "the group's own Chaos switch, OR'd with Porch Life's default",
-  ),
-  'needsSimChoice': _Field(
-    groupWide:
-        "the group chat's Needs switch, behind NeedsPass.active; the member "
-        'editor shows it read-only',
-  ),
-  'pocketsEnabled': _Field(
-    editor: [_At(_detailsTab, 'd.realismPocketsEnabled'), _webSet, _relay],
-    reader: [_At(_pockets, 'ext.@')],
-  ),
-  'afterglowEnabled': _Field(
-    editor: [_At(_realismTab, 'd.realismAfterglow'), _webSet, _relay],
-    reader: [_At('lib/services/chat/group_realism_store.dart')],
-  ),
-  'enjoysLowHygiene': _Field(
-    editor: [
-      _At(_realismTab, 'd.realismEnjoysLowHygiene'),
-      _webNeedsSet,
-      _relay,
-    ],
-    reader: [
-      _At(_wear, 'ext?.@'),
-      _At('lib/services/chat/prompt_injection/needs_injection.dart'),
-    ],
-  ),
-  'ambitions': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At('lib/services/chat/prompt_injection/ambition_injection.dart')],
-  ),
-  'planLines': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    notRead:
-        'identity that travels with the card; no chat pass reads it yet (the '
-        'plan line reads the job and work days)',
-  ),
-  // "At work": the member's own copy first, blank fields from the library
-  // card their row's origin id resolves to.
-  'occupation': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_work, 'ext?.@')],
-  ),
-  'hours': _Field(
-    editor: [
-      _At(_detailsTab, 'd.@'),
-      _At(_webRealism, '@: formatWorkHoursRange'),
-      _relay,
-    ],
-    reader: [_At(_work, 'ext?.@')],
-  ),
-  'occupationBrief': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_work, 'ext?.@')],
-  ),
-  'workDays': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_work, 'ext?.@')],
-  ),
-  'birthday': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [
-      _At('lib/services/chat/birthday_sync.dart', 'frontPorchExtensions?.@'),
-    ],
-  ),
-  'likes': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_prefs, 'ext.@'), _At(_judges, 'ext.@')],
-  ),
-  'dislikes': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_prefs, 'ext.@'), _At(_judges, 'ext.@')],
-  ),
-  'intimateInto': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_prefs, 'ext.@'), _At(_judges, 'ext.@')],
-  ),
-  'intimateNotInto': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_prefs, 'ext.@'), _At(_judges, 'ext.@')],
-  ),
-  'sex': _Field(
-    reader: [_At(_afterglow, 'ext?.@')],
-    noEditor:
-        'the AI creators and Enhance write it; the Edit Character page keeps '
-        'it and has no control for it, in 1:1 either',
-  ),
-  'recovery': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_afterglow, 'speaker.frontPorchExtensions?.@')],
-  ),
-  'inventory': _Field(
-    editor: [_At(_detailsTab, 'd.worn'), _webSet, _relay],
-    reader: [_At(_pockets)],
-  ),
-  // Verification and the Director run on the speaker, lent to the active
-  // character for a group turn's judges.
-  'realismVerificationEnabled': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_judges)],
-  ),
-  'realismVerificationMaxReprocesses': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_judges)],
-  ),
-  'realismVerificationStrictness': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_judges)],
-  ),
-  'realismNeedsDirectorAuthority': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webSet, _relay],
-    reader: [_At(_judges)],
-  ),
-  'needsPace': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webNeedsSet, _relay],
-    reader: [_At(_wear, 'ext?.@')],
-  ),
-  'needsOff': _Field(
-    editor: [_At(_realismTab, 'd.@'), _webNeedsSet, _relay],
-    reader: [_At('lib/services/chat/chat_service_group_read.dart')],
-  ),
-  // The bars a member's body comes back to: each group member's own card,
-  // read every turn by the group's wear.
-  'needsBaselineHunger': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineBladder': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineEnergy': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineSocial': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineFun': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineHygiene': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  'needsBaselineComfort': _Field(
-    editor: [_At(_realismTab, 'd.@'), _At(_webNeeds, '@'), _relay],
-    reader: [_At(_baselines, 'ext.@'), _At(_wear, 'baselinesFromExtensions')],
-  ),
-  // Chat appearance: UI Settings on desktop, saved to a member's row
-  // (saveGroupMemberExtensions). The phone has no per-character colours,
-  // lock or font, in 1:1 either.
-  'avatarLocked': _Field(
-    editor: [_At('lib/ui/dialogs/ui_settings_dialog.dart', 'e.copyWith(@')],
-    reader: [_At('lib/ui/pages/chat_page.sidebar_widgets.dart')],
-  ),
-  'userBubbleColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'userTextColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'aiBubbleColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'aiTextColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'dialogueColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'actionColor': _Field(
-    editor: [_At(_colorSlot, 'e.copyWith(@')],
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-  ),
-  'chatFontFamily': _Field(
-    reader: [_At(_uiSettings, 'frontPorchExtensions?.@'), _bubbleCard],
-    noEditor: 'no editor writes a character\'s chat font, in 1:1 either',
-  ),
-  'currentTask': _Field(
-    reader: [_At('lib/services/chat/chat_service_speaker_objectives.dart')],
-    noEditor:
-        'the Current Task box was retired from every editor; a group still '
-        "imports a member's authored task as their objective",
-  ),
-  // When a member greets (the group has no opener of its own).
-  'greetingSeeds': _Field(
-    editor: [
-      _At(_dialogueTab, 'd.setAltGreetingSeed'),
-      _At(_webPage, '@: paired.seeds'),
-      _relay,
-    ],
-    reader: [
-      _At('lib/services/chat/chat_service_greeting_seed.dart', 'ext?.@'),
-      _At(
-        'lib/services/chat/chat_service_greeting_seed.dart',
-        '_greetingOwnerCard',
-      ),
-    ],
-  ),
-  'stableId': _Field(
-    notRead:
-        "the library card's identity across PNG rewrites and re-imports; a "
-        'chat keys a member by its row id',
-  ),
-  // Lite (soft) members: set by the group's promote and demote, read for
-  // every group turn.
-  'tier': _Field(
-    editor: [_At('lib/services/chat/group_lite.dart', 'ext.@')],
-    reader: [_At(_blocks, 'speaker.isLite')],
-  ),
-  // The face ring is the library character's: a group member's comes from
-  // the card its row's origin id resolves to.
-  'favoriteAvatarId': _Field(
-    editor: [
-      _At('lib/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart'),
-    ],
-    reader: [
-      _At('lib/ui/pages/chat_page.sidebar_widgets.dart'),
-      _At(
-        'lib/ui/pages/chat_page.sidebar_widgets.dart',
-        'originLibraryCardFor',
-      ),
-    ],
-  ),
-};
-
-const _cardFields = <String, _Field>{
-  'name': _Field(
-    editor: [_At(_detailsTab, 'd.nameController'), _webPost, _relayCard, _row],
-    reader: [_At(_blocks, 'speaker.@')],
-  ),
-  'description': _Field(
-    editor: [
-      _At(_detailsTab, 'd.descriptionController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [
-      _At('lib/services/chat/growth_service.dart', 'card.@'),
-      _At(_blocks, 'resolvedCardPersonality(speaker'),
-    ],
-  ),
-  'personality': _Field(
-    editor: [
-      _At(_detailsTab, 'd.personalityController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [
-      _At('lib/services/chat/growth_service.dart', 'card.@'),
-      _At(_blocks, 'resolvedCardPersonality(speaker'),
-    ],
-  ),
-  // A group scene shares one scenario: the group's own, else its first
-  // member's.
-  'scenario': _Field(
-    editor: [
-      _At(_detailsTab, 'd.scenarioController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_blocks, '_groupCharacters.first.@')],
-  ),
-  // When a member greets (the group has no opener of its own).
-  'firstMessage': _Field(
-    editor: [
-      _At(_dialogueTab, 'd.firstMessageController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_greeting, 'member.allGreetings')],
-  ),
-  'mesExample': _Field(
-    editor: [
-      _At(_dialogueTab, 'd.mesExampleController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_blocks, 'speaker.@')],
-  ),
-  'systemPrompt': _Field(
-    editor: [
-      _At(_detailsTab, 'd.systemPromptController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_blocks, 'speaker.@')],
-  ),
-  'postHistoryInstructions': _Field(
-    editor: [
-      _At(_detailsTab, 'd.postHistoryController'),
-      _webPost,
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_blocks, 'speaker.@')],
-  ),
-  'alternateGreetings': _Field(
-    editor: [
-      _At(_dialogueTab, 'd.altGreetingControllers'),
-      _At(_webPage, '@: paired.greetings'),
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_greeting, 'member.allGreetings')],
-  ),
-  'tags': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _At(_webPage, '@: tags'), _relayCard],
-    notRead: "library labels; no chat reads a card's tags",
-  ),
-  // Read when the group inherits its members' lorebooks; a group turn reads
-  // the speaker's.
-  'lorebook': _Field(
-    editor: [
-      _At(_editPage, '_loreEntries'),
-      _At(_webPage, '@: lore'),
-      _relayCard,
-      _row,
-    ],
-    reader: [_At(_lore, 'ch.@')],
-  ),
-  // The group's Setting is its own; a member's worlds add their lorebooks
-  // when the group inherits them. A member's row stores Setting and lore
-  // worlds as one list.
-  'worldNames': _Field(
-    editor: [
-      _At(_editPage, '_draft.worldChoice'),
-      _At(_webPage, 'worlds: worldChoice'),
-      _At(
-        'lib/services/web/facade/group_member_edit.dart',
-        'applyCharacterWorlds',
-      ),
-      _At(_rowPath, 'card.allWorldNames'),
-    ],
-    reader: [_At(_lore, 'ch.allWorldNames')],
-  ),
-  'loreWorldNames': _Field(
-    editor: [
-      _At(_editPage, '_draft.worldChoice'),
-      _At(_webPage, 'worlds: worldChoice'),
-      _At(
-        'lib/services/web/facade/group_member_edit.dart',
-        'applyCharacterWorlds',
-      ),
-      _At(_rowPath, 'card.allWorldNames'),
-    ],
-    reader: [_At(_lore, 'ch.allWorldNames')],
-  ),
-  'ttsVoice': _Field(
-    editor: [_At(_detailsTab, 'd.@'), _At(_webPage, '@'), _relayCard, _row],
-    reader: [_At('lib/services/chat/group_speaker_resolution.dart')],
-  ),
-  'creator': _Field(notRead: _credits),
-  'creatorNotes': _Field(notRead: _credits),
-  'characterVersion': _Field(notRead: _credits),
-};
-
-const _credits =
-    'V2 credits round-trip for The Stoop and Chub; no chat reads them, and a '
-    'member row keeps no copy';
-
-/// What makes the editors above a member's: each way in opens the editor on
-/// the member and saves to the member's row, and the row carries the whole
-/// extensions both ways.
-const _spine = <(String, String, String)>[
-  (
-    'lib/ui/pages/edit_group/edit_group_details_tab.dart',
-    'EditCharacterPage(',
-    'Edit group opens Edit Character on a member',
-  ),
-  (
-    'lib/ui/pages/edit_group/edit_group_details_tab.dart',
-    'saveGroupMemberCard(',
-    "and saves it to the member's row",
-  ),
-  (
-    'lib/ui/pages/chat_page.sidebar_widgets.dart',
-    'saveGroupMemberCard(',
-    "the open group chat's sidebar saves a member's edit to its row",
-  ),
-  (
-    'lib/ui/dialogs/ui_settings_dialog.dart',
-    'saveGroupMemberExtensions(',
-    "UI Settings saves a member's colours and lock to its row",
-  ),
-  (
-    'lib/services/group_member_card_save.dart',
-    'ext.toJson',
-    'the row stores the whole extensions, every field the codec writes',
-  ),
-  (
-    'lib/models/group_member.dart',
-    'FrontPorchExtensions.fromJson',
-    'and the group loads them back',
-  ),
-  (
-    'web_ui/src/pages/CharacterEditPage.tsx',
-    'members/\${params.memberId}',
-    "the phone's editor posts a member to the group's route",
-  ),
-  (
-    'lib/services/web/routes/group_routes.dart',
-    '_memberUpdate',
-    'the relay takes the member edit',
-  ),
-  (
-    'lib/services/web/facade/group_member_edit.dart',
-    'applyCharacterFields(',
-    "applies the page's fields to the member",
-  ),
-  (
-    'lib/services/web/facade/group_member_edit.dart',
-    'saveGroupMemberCard(',
-    "and saves them to the member's row",
-  ),
-  (
-    'lib/services/web/facade/group_member_edit.dart',
-    '_saveStart(',
-    "a member's start goes to the group's seed for them",
-  ),
-  (
-    'lib/services/web/facade/character/character_card_edits.dart',
-    'frontPorchFromFields(',
-    "the page's Realism fields go through the relay",
+const _models = [
+  _Model(
+    'card',
+    'lib/models/character_card.dart',
+    'CharacterCard',
+    toJson: 'CharacterCard.toJson',
+    containers: {'frontPorchExtensions', 'extensions'},
+  ),
+  _Model(
+    'ext',
+    'lib/models/character/front_porch_extensions.dart',
+    'FrontPorchExtensions',
+    toJsonPath: 'lib/models/character/front_porch_extensions_codec.dart',
+    toJson: 'encodeFrontPorchExtensions',
+    decode: 'decodeFrontPorchExtensions',
+  ),
+  _Model(
+    'ext.recovery',
+    'lib/models/character/recovery_profile.dart',
+    'RecoveryProfile',
+    toJson: 'RecoveryProfile.toJson',
+    decode: 'RecoveryProfile.fromJson',
+  ),
+  _Model(
+    'ext.greetingSeeds',
+    'lib/models/greeting_realism_seed.dart',
+    'GreetingRealismSeed',
+    toJson: 'GreetingRealismSeed.toJson',
+    decode: 'GreetingRealismSeed.fromJson',
   ),
 ];
 
-// ── Enumerating the fields from the code ─────────────────────────────────
+/// The phone's edit reaches a member through the relay: an entry with a
+/// web control also names the relay's read of the posted key (set) and its
+/// write of the key the page loads (get), in one of these functions.
+const _relays = <String, ({Set<String> set, Set<String> get})>{
+  'card': (
+    set: {'applyCharacterFields', 'GroupMemberEdit.update'},
+    get: {'GroupMemberEdit.detail'},
+  ),
+  'ext': (
+    set: {'frontPorchFromFields', 'GroupMemberStart.fromJson'},
+    get: {'frontPorchToJson', 'GroupMemberStart.toJson'},
+  ),
+  'ext.recovery': (
+    set: {'RecoveryProfile.fromFields'},
+    get: {'RecoveryProfile.toFields'},
+  ),
+  'ext.greetingSeeds': (
+    set: {'GreetingRealismSeed.fromJson'},
+    get: {'GreetingRealismSeed.toFields'},
+  ),
+};
 
-/// A `'key': value` entry of a map literal, with the `if (…)` condition
-/// that guards it, or ''.
+/// The desktop editor's Save: an entry with a control on the Edit Character
+/// page also names where Save writes the field back onto the card.
+const _desktopEditor = 'lib/ui/pages/edit_character_page';
+const _desktopSaves = <String, Set<String>>{
+  'card': {
+    'EditCharacterCardWriter.writeFields',
+    'EditCharacterCardWriter.writeLorebook',
+  },
+  // A member's start saves to the group's seed for them, from the page.
+  'ext': {'EditCharacterCardWriter._writeExtensions', '_saveCharacter'},
+};
+
+const _exemptions = [
+  'groupWide',
+  'notRead',
+  'soloOnly',
+  'origin',
+  'runtimeOnly',
+];
+const _entryKeys = {
+  'editor',
+  'reader',
+  'noEditor',
+  'noPhone',
+  'note',
+  ..._exemptions,
+};
+
+// ── Reading source ───────────────────────────────────────────────────────
+
+final _dart = <String, DartSource>{};
+DartSource _source(String path) =>
+    _dart.putIfAbsent(path, () => DartSource.read(path));
+
+final _texts = <String, String>{};
+
+/// [path] as markers see it: Dart with comments blanked and strings kept,
+/// TypeScript with comments blanked. Offsets match the file.
+String _text(String path) => _texts.putIfAbsent(path, () {
+  if (path.endsWith('.dart')) {
+    final s = _source(path);
+    final out = s.code.codeUnits.toList();
+    for (final str in s.strings) {
+      for (var i = str.start; i < str.end; i++) {
+        out[i] = s.source.codeUnitAt(i);
+      }
+    }
+    return String.fromCharCodes(out);
+  }
+  return _stripTsComments(File(path).readAsStringSync());
+});
+
+/// [ts] with `//` and `/* */` comments blanked (newlines kept), skipping
+/// string and template literals.
+String _stripTsComments(String ts) {
+  final out = ts.codeUnits.toList();
+  var i = 0;
+  String? quote;
+  while (i < ts.length) {
+    final c = ts[i];
+    if (quote != null) {
+      if (c == r'\') {
+        i += 2;
+        continue;
+      }
+      if (c == quote) quote = null;
+      i++;
+      continue;
+    }
+    if (c == "'" || c == '"' || c == '`') {
+      quote = c;
+      i++;
+      continue;
+    }
+    final next = i + 1 < ts.length ? ts[i + 1] : '';
+    if (c == '/' && (next == '/' || next == '*')) {
+      final end = next == '/'
+          ? ts.indexOf('\n', i).let((e) => e < 0 ? ts.length : e)
+          : ts.indexOf('*/', i + 2).let((e) => e < 0 ? ts.length : e + 2);
+      for (var j = i; j < end; j++) {
+        if (out[j] != 10) out[j] = 32;
+      }
+      i = end;
+      continue;
+    }
+    i++;
+  }
+  return String.fromCharCodes(out);
+}
+
+extension<T> on T {
+  R let<R>(R Function(T) f) => f(this);
+}
+
+/// The matching closer of the bracket at [open] in [code], or -1.
+int _close(String code, int open) {
+  const pairs = {'(': ')', '[': ']', '{': '}'};
+  final stack = <String>[];
+  for (var i = open; i < code.length; i++) {
+    final c = code[i];
+    if (pairs.containsKey(c)) {
+      stack.add(pairs[c]!);
+    } else if (stack.isNotEmpty && c == stack.last) {
+      stack.removeLast();
+      if (stack.isEmpty) return i;
+    }
+  }
+  return -1;
+}
+
+/// The `{…}` of `class` / `extension` / `mixin` [name] in [code].
+({int start, int end})? _typeBody(String code, String name) {
+  final head = RegExp(
+    '(?:class|extension|mixin)\\s+$name\\b[^{;]*\\{',
+  ).firstMatch(code);
+  if (head == null) return null;
+  final end = _close(code, head.end - 1);
+  return end < 0 ? null : (start: head.end - 1, end: end + 1);
+}
+
+/// The body of the function, method, getter or constructor [spec] (`fn`, or
+/// `Type.fn` for one declared in that type or as `Type.fn(`) in [path].
+({int start, int end}) _bodyOf(String path, String spec) {
+  final code = _source(path).code;
+  final dot = spec.indexOf('.');
+  final type = dot < 0 ? null : spec.substring(0, dot);
+  final name = dot < 0 ? spec : spec.substring(dot + 1);
+  final within = type == null ? null : _typeBody(code, type);
+  final candidates = RegExp(
+    '(?:(?<![\\w\$.])(?:get\\s+)?$name|'
+    '${type == null ? r'(?!)' : '(?<![\\w\$])$type\\.$name'})\\s*(?=[(=]|\\{)',
+  ).allMatches(code);
+  final found = <({int start, int end})>[];
+  for (final m in candidates) {
+    final inType =
+        within != null && m.start > within.start && m.start < within.end;
+    final qualified = type != null && m[0]!.startsWith('$type.');
+    if (type != null && !inType && !qualified) continue;
+    var i = m.end;
+    if (i < code.length && code[i] == '(') {
+      final close = _close(code, i);
+      if (close < 0) continue;
+      i = close + 1;
+    } else if (!m[0]!.startsWith('get')) {
+      continue;
+    }
+    i = _skipSpace(code, i);
+    for (final mod in ['async*', 'async', 'sync*']) {
+      if (code.startsWith(mod, i)) i = _skipSpace(code, i + mod.length);
+    }
+    if (i < code.length && code[i] == '{') {
+      found.add((start: i, end: _close(code, i) + 1));
+    } else if (code.startsWith('=>', i)) {
+      var depth = 0, j = i + 2;
+      for (; j < code.length; j++) {
+        final c = code[j];
+        if ('([{'.contains(c)) depth++;
+        if (')]}'.contains(c)) depth--;
+        if (c == ';' && depth == 0) break;
+      }
+      found.add((start: i, end: j + 1));
+    }
+  }
+  if (found.length != 1) {
+    throw StateError(
+      '$path: ${found.isEmpty ? 'no' : '${found.length}'} declarations of '
+      '$spec; name one function (Type.fn when the name repeats)',
+    );
+  }
+  return found.single;
+}
+
+int _skipSpace(String code, int i) {
+  while (i < code.length && code[i].trim().isEmpty) {
+    i++;
+  }
+  return i;
+}
+
+// ── Enumerating the fields ───────────────────────────────────────────────
+
+/// A declared field: its name and its type as written.
+typedef _Decl = ({String name, String type});
+
+/// The public instance fields [className] declares, in [code] (comments and
+/// strings blanked). Handles `T a, b;`, initializers, annotations and
+/// record types; skips methods, getters, setters, constructors and statics.
+List<_Decl> _declaredFields(String code, String className) {
+  final body = _typeBody(code, className);
+  if (body == null) throw StateError('no class $className');
+  final fields = <_Decl>[];
+  var depth = 0, start = body.start + 1;
+  for (var i = body.start + 1; i < body.end - 1; i++) {
+    final c = code[i];
+    if ('([{'.contains(c)) depth++;
+    if (')]}'.contains(c)) {
+      depth--;
+      if (c == '}' && depth == 0) start = i + 1;
+      continue;
+    }
+    if (c == '{' && depth == 1) continue;
+    if (c != ';' || depth != 0) continue;
+    final statement = _withoutAnnotations(code.substring(start, i)).trim();
+    start = i + 1;
+    fields.addAll(_fieldsOf(statement));
+  }
+  return fields;
+}
+
+String _withoutAnnotations(String s) {
+  final out = StringBuffer();
+  var i = 0;
+  while (i < s.length) {
+    if (s[i] == '@') {
+      var j = i + 1;
+      while (j < s.length && RegExp(r'[\w$.]').hasMatch(s[j])) {
+        j++;
+      }
+      final k = _skipSpace(s, j);
+      if (k < s.length && s[k] == '(') j = _close(s, k) + 1;
+      i = j;
+      continue;
+    }
+    out.write(s[i]);
+    i++;
+  }
+  return out.toString();
+}
+
+List<_Decl> _fieldsOf(String statement) {
+  if (statement.isEmpty ||
+      statement.startsWith(')') ||
+      statement.contains('=>') ||
+      RegExp(
+        r'\b(?:static|get|set|factory|operator|typedef)\b',
+      ).hasMatch(statement)) {
+    return const [];
+  }
+  final parts = _splitTopLevel(statement, ',');
+  final out = <_Decl>[];
+  String? type;
+  for (var p = 0; p < parts.length; p++) {
+    final eq = _topLevelIndex(parts[p], '=');
+    final decl = (eq < 0 ? parts[p] : parts[p].substring(0, eq)).trim();
+    // A constructor (`Name(…)`), initializer list (`) : a = b`) or method.
+    if (decl.endsWith(')') || decl.contains(':')) return const [];
+    final name = RegExp(r'([A-Za-z_$][\w$]*)$').firstMatch(decl)?[1];
+    if (name == null) return const [];
+    if (p == 0) {
+      type = decl
+          .substring(0, decl.length - name.length)
+          .replaceFirst(RegExp(r'^\s*(?:late\s+)?(?:final\s+|var\s+)?'), '')
+          .trim();
+      if (type.isEmpty) return const [];
+    } else if (decl != name) {
+      return const [];
+    }
+    if (!name.startsWith('_')) out.add((name: name, type: type!));
+  }
+  return out;
+}
+
+List<String> _splitTopLevel(String s, String sep) {
+  final parts = <String>[];
+  var depth = 0, start = 0;
+  for (var i = 0; i < s.length; i++) {
+    final c = s[i];
+    if ('([{<'.contains(c)) depth++;
+    if (')]}>'.contains(c)) depth--;
+    if (c == sep && depth == 0) {
+      parts.add(s.substring(start, i));
+      start = i + 1;
+    }
+  }
+  parts.add(s.substring(start));
+  return parts;
+}
+
+int _topLevelIndex(String s, String c) {
+  var depth = 0;
+  for (var i = 0; i < s.length; i++) {
+    final ch = s[i];
+    if ('([{<'.contains(ch)) depth++;
+    if (')]}>'.contains(ch)) depth--;
+    if (ch == c && depth == 0) {
+      final next = i + 1 < s.length ? s[i + 1] : '';
+      if (next != '=' && next != '>') return i;
+    }
+  }
+  return -1;
+}
+
+/// A `'key': value` entry of a map literal, with the `if (…)` guarding it.
 typedef _MapEntry = ({String key, String value, String guard});
 
-/// Every `'key': value` entry of the map literals in [function]'s body.
-List<_MapEntry> _mapEntries(DartSource source, String function) {
-  final fn = source.functions
-      .where((f) => f.name == function && f.body != null)
-      .firstOrNull;
-  if (fn == null) {
-    throw StateError('${source.path} has no block-bodied $function');
-  }
-  final body = fn.body!;
+List<_MapEntry> _mapEntries(String path, String function) {
+  final source = _source(path);
+  final body = _bodyOf(path, function);
   final code = source.code;
   final entries = <_MapEntry>[];
   for (final s in source.strings) {
     if (s.start <= body.start || s.end >= body.end) continue;
-    var i = s.end;
-    while (i < body.end && code[i].trim().isEmpty) {
-      i++;
-    }
-    if (code[i] != ':') continue;
+    final i = _skipSpace(code, s.end);
+    if (i >= body.end || code[i] != ':') continue;
     var depth = 0, j = i + 1;
     for (; j < body.end; j++) {
       final c = code[j];
@@ -679,7 +450,6 @@ List<_MapEntry> _mapEntries(DartSource source, String function) {
   return entries;
 }
 
-/// The condition of an `if (…)` right before [offset], or ''.
 String _guardBefore(String code, int offset) {
   var i = offset - 1;
   while (i >= 0 && code[i].trim().isEmpty) {
@@ -696,245 +466,409 @@ String _guardBefore(String code, int offset) {
   return code.substring(i + 1, close);
 }
 
-/// The public instance fields [className] declares (`Type name;`, or
-/// `Type name = value;`): its members that are not a method, getter,
-/// setter, constructor or static.
-List<String> _declaredFields(DartSource source, String className) {
-  final code = source.code;
-  final head = RegExp('class\\s+$className\\b[^{]*\\{').firstMatch(code);
-  if (head == null) throw StateError('${source.path} has no $className');
-  final fields = <String>[];
-  var depth = 1, paren = 0, start = head.end;
-  for (var i = head.end; i < code.length && depth > 0; i++) {
-    final c = code[i];
-    if (c == '{') {
-      depth++;
-    } else if (c == '}') {
-      if (--depth == 1) start = i + 1;
-    } else if (depth == 1) {
-      if (c == '(') paren++;
-      if (c == ')') paren--;
-      if (c == ';' && paren == 0) {
-        final statement = code.substring(start, i).trim();
-        start = i + 1;
-        if (statement.contains(
-          RegExp(r'=>|\b(?:static|get|set|factory|operator)\b'),
-        )) {
-          continue;
-        }
-        final eq = statement.indexOf('=');
-        final declaration = (eq < 0 ? statement : statement.substring(0, eq))
-            .trim();
-        // A constructor's initializer list (`) : a = b`) is not a field.
-        if (declaration.contains(RegExp('[()]'))) continue;
-        final name = RegExp(r'(\w+)$').firstMatch(declaration)?[1];
-        if (name != null && !name.startsWith('_')) fields.add(name);
-      }
+/// The field a toJson entry writes: the first declared field its value (or
+/// its guard) names; else the first `e.x` or name, so a getter shows up.
+String? _accessorOf(_MapEntry e, Set<String> declared) {
+  if (e.value.startsWith('{')) return null; // a nested map: its keys follow
+  for (final text in [e.value, e.guard]) {
+    final names = [
+      for (final m in RegExp(r'[A-Za-z_$][\w$]*').allMatches(text)) m[0]!,
+    ];
+    for (final n in names) {
+      if (declared.contains(n)) return n;
     }
   }
-  return fields;
+  return _codecRead.firstMatch(e.value)?[1] ??
+      _firstName.firstMatch(e.value)?[0];
 }
 
-final _extAccessor = RegExp(r'(?<![\w$.])e\.(\w+)');
-final _firstName = RegExp(r'(?<![\w$.])([A-Za-z_]\w*)');
+final _codecRead = RegExp(r'(?<![\w$.])e\.(\w+)');
+final _firstName = RegExp(r'(?<![\w$.])[A-Za-z_$][\w$]*');
 
-/// Extension field → the card JSON key the codec writes it under.
-Map<String, String> _codecKeys() {
+/// [model]'s fields: declared ∪ written by toJson, with their JSON keys.
+({List<_Decl> declared, Map<String, String> keys}) _fieldsOfModel(_Model m) {
+  final declared = _declaredFields(_source(m.path).code, m.className);
+  final names = {for (final d in declared) d.name};
   final keys = <String, String>{};
-  for (final e in _mapEntries(
-    DartSource.read(_extCodec),
-    'encodeFrontPorchExtensions',
-  )) {
-    if (e.value.startsWith('{')) continue; // a nested map: its keys follow
-    final accessor =
-        _extAccessor.firstMatch(e.value)?[1] ??
-        _extAccessor.firstMatch(e.guard)?[1];
-    if (accessor != null) keys[accessor] = e.key;
+  for (final e in _mapEntries(m.toJsonPath ?? m.path, m.toJson)) {
+    final accessor = _accessorOf(e, names);
+    if (accessor != null && accessor != 'e') keys[accessor] = e.key;
   }
-  return keys;
+  return (declared: declared, keys: keys);
 }
 
-/// Card field → the key CharacterCard.toJson writes it under.
-Map<String, String> _cardKeys() {
-  final keys = <String, String>{};
-  for (final e in _mapEntries(DartSource.read(_cardModel), 'toJson')) {
-    if (e.value.startsWith('{')) continue;
-    final accessor = _firstName.firstMatch(e.value)?[1];
-    if (accessor != null) keys[accessor] = e.key;
-  }
-  return keys;
+// ── Places ───────────────────────────────────────────────────────────────
+
+class _Place {
+  _Place(Map<String, dynamic> json)
+    : path = json['path'] as String,
+      inFn = json['in'] as String?,
+      marker = json['marker'] as String;
+  final String path;
+  final String? inFn;
+  final String marker;
+
+  @override
+  String toString() => '$path${inFn == null ? '' : ' in $inFn'} "$marker"';
 }
 
-// ── Checking a place ─────────────────────────────────────────────────────
+List<_Place> _places(Object? json) => [
+  for (final p in (json as List?) ?? const [])
+    _Place(p as Map<String, dynamic>),
+];
 
-final _code = <String, String>{};
-
-String _codeOf(String path) => _code.putIfAbsent(
-  path,
-  () => path.endsWith('.dart')
-      ? DartSource.read(path).code
-      : File(path).readAsStringSync(),
-);
-
-/// [marker] as a whole token run: `ext.likes` is not found in `ext.likesX`
-/// or `next.likes`.
+/// [marker] as a pattern: free whitespace between tokens, a word token never
+/// matched inside a longer name.
 RegExp _markerPattern(String marker) {
+  final tokens = RegExp(r'[\w$]+|\S').allMatches(marker).toList();
+  final b = StringBuffer();
+  for (var i = 0; i < tokens.length; i++) {
+    final t = tokens[i][0]!;
+    if (i > 0) {
+      final gap = marker.substring(tokens[i - 1].end, tokens[i].start);
+      final words =
+          RegExp(r'[\w$]$').hasMatch(tokens[i - 1][0]!) &&
+          RegExp(r'^[\w$]').hasMatch(t);
+      b.write(words && gap.isNotEmpty ? r'\s+' : r'\s*');
+    }
+    b.write(RegExp.escape(t));
+  }
   final head = RegExp(r'^[\w$]').hasMatch(marker) ? r'(?<![\w$])' : '';
   final tail = RegExp(r'[\w$]$').hasMatch(marker) ? r'(?![\w$])' : '';
-  return RegExp('$head${RegExp.escape(marker)}$tail');
+  return RegExp('$head$b$tail');
 }
 
-/// Why [at] does not name [field] any more, or null when it does.
-String? _missing(String field, _At at) {
-  if (!File(at.path).existsSync()) return '${at.path} does not exist';
-  final marker = at.marker.replaceAll('@', field);
-  if (_markerPattern(marker).hasMatch(_codeOf(at.path))) return null;
-  return '${at.path} no longer has "$marker"';
+final _hiddenOpen = RegExp(
+  r'\{\s*(?:member\s*===\s*undefined|!\s*member)\s*&&',
+);
+
+/// Spans of a TSX file rendered only outside a member's editor.
+List<({int start, int end})> _memberHiddenRegions(String path) {
+  if (path.endsWith('.dart')) return const [];
+  final text = _text(path);
+  return [
+    for (final m in _hiddenOpen.allMatches(text))
+      (start: m.start, end: _close(text, m.start)),
+  ];
 }
 
-List<String> _shapeProblems(String owner, Map<String, _Field> fields) => [
-  for (final MapEntry(key: name, value: f) in fields.entries) ...[
-    if ([
-          f.reader.isNotEmpty,
-          f.groupWide != null,
-          f.notRead != null,
-          f.soloOnly != null,
-        ].where((b) => b).length !=
-        1)
-      '$owner.$name: give it readers, or exactly one of groupWide, notRead '
-          'and soloOnly',
-    if (f.reader.isNotEmpty && f.editor.isEmpty && f.noEditor == null)
-      '$owner.$name: a group reads it, so name its editors or say why it has '
-          'none (noEditor)',
-    if (f.noEditor != null && (f.editor.isNotEmpty || f.reader.isEmpty))
-      '$owner.$name: noEditor is for a field a group reads and nothing edits',
-    for (final reason in [f.noEditor, f.groupWide, f.notRead, f.soloOnly])
-      if (reason != null && reason.trim().isEmpty)
-        '$owner.$name: an exemption needs its reason',
-  ],
-];
+/// Why [p] does not hold, or null. An [editor] place must also show for a
+/// member.
+String? _placeProblem(_Place p, {required bool editor}) {
+  if (!File(p.path).existsSync()) return '${p.path} does not exist';
+  if (RegExp(r'^[A-Za-z_$][\w$]*$').hasMatch(p.marker)) {
+    return '$p: a bare name proves nothing; name the read or the control';
+  }
+  if (p.inFn != null && !p.path.endsWith('.dart')) {
+    return '$p: "in" is for Dart files';
+  }
+  final text = _text(p.path);
+  ({int start, int end}) scope;
+  try {
+    scope = p.inFn == null
+        ? (start: 0, end: text.length)
+        : _bodyOf(p.path, p.inFn!);
+  } on StateError catch (e) {
+    return e.message;
+  }
+  final hits = [
+    for (final m in _markerPattern(
+      p.marker,
+    ).allMatches(text.substring(scope.start, scope.end)))
+      scope.start + m.start,
+  ];
+  if (hits.isEmpty) return '$p is not there any more';
+  if (!editor) return null;
+  final hidden = _memberHiddenRegions(p.path);
+  final shown = hits.where((h) => !hidden.any((r) => h > r.start && h < r.end));
+  return shown.isEmpty ? '$p only renders outside a member\'s editor' : null;
+}
 
-List<String> _placeProblems(String owner, Map<String, _Field> fields) => [
-  for (final MapEntry(key: name, value: f) in fields.entries) ...[
-    for (final at in f.editor)
-      if (_missing(name, at) case final why?) '$owner.$name editor: $why',
-    for (final at in f.reader)
-      if (_missing(name, at) case final why?) '$owner.$name reader: $why',
-  ],
-];
+/// A member-hiding switch: `showX: member == null` (desktop) or
+/// `showX={!member}` (phone).
+final _hidingFlag = RegExp(
+  r'(\w+)\s*:\s*member\s*==\s*null\s*(?=[,)])|(\w+)=\{\s*!\s*member\s*\}',
+);
 
-const _addAdvice =
-    'A group member is the group\'s own copy of a character. Give the field '
-    'a group editor (the member editor, desktop and phone) and a group '
-    'reader (where a group turn reads it per member) and list them here; '
-    'or, when the group\'s own switch owns it, nothing reads it at chat '
-    'time, or only a 1:1-only feature does, say so with groupWide:, '
-    'notRead: or soloOnly: and the reason.';
+// ── The test ─────────────────────────────────────────────────────────────
 
 void main() {
-  final declared = _declaredFields(
-    DartSource.read(_extModel),
-    'FrontPorchExtensions',
+  final manifest =
+      jsonDecode(File(_manifestPath).readAsStringSync())
+          as Map<String, dynamic>;
+  final entries = (manifest['fields'] as Map<String, dynamic>).map(
+    (k, v) => MapEntry(k, v as Map<String, dynamic>),
   );
-  final codec = _codecKeys();
-  final extFields = {...declared, ...codec.keys};
-  final cardKeys = _cardKeys();
-  final cardFields = {
-    for (final MapEntry(:key) in cardKeys.entries)
-      if (!_cardContainers.contains(key)) key,
-  };
 
-  test('the card fields are read from the model, the codec and toJson', () {
-    expect(declared, isNotEmpty, reason: 'no fields found in $_extModel');
-    expect(codec, isNotEmpty, reason: 'no keys found in $_extCodec');
-    expect(cardFields, isNotEmpty, reason: 'no keys found in $_cardModel');
-    expect(
-      _cardContainers.difference(cardKeys.keys.toSet()),
-      isEmpty,
-      reason: 'CharacterCard.toJson no longer writes these; drop them',
-    );
-  });
+  final fields = <String, String>{}; // field key → where it comes from
+  final declaredTypes = <String, String>{}; // field key → declared type
+  for (final m in _models) {
+    final f = _fieldsOfModel(m);
+    for (final d in f.declared) {
+      if (m.containers.contains(d.name)) continue;
+      fields['${m.prefix}.${d.name}'] = '${m.className}.${d.name}';
+      declaredTypes['${m.prefix}.${d.name}'] = d.type;
+    }
+    for (final MapEntry(key: name, value: key) in f.keys.entries) {
+      if (m.containers.contains(name)) continue;
+      fields['${m.prefix}.$name'] = '${m.className}.$name (key "$key")';
+    }
+  }
 
-  test('every extension field travels in the JSON a member row stores', () {
-    final unwritten = [
-      for (final f in declared)
-        if (!codec.containsKey(f)) f,
-    ];
-    expect(
-      unwritten,
-      isEmpty,
-      reason:
-          'A group member row stores the extensions as '
-          'encodeFrontPorchExtensions writes them, so a field the codec '
-          'leaves out never reaches a member. Write these in $_extCodec '
-          '(and read them back in decodeFrontPorchExtensions).',
-    );
+  test('the card models are found and read', () {
+    for (final m in _models) {
+      final f = _fieldsOfModel(m);
+      expect(f.declared, isNotEmpty, reason: 'no fields in ${m.className}');
+      expect(f.keys, isNotEmpty, reason: 'no keys in ${m.toJson}');
+      final names = {...f.declared.map((d) => d.name), ...f.keys.keys};
+      expect(
+        m.containers.difference(names),
+        isEmpty,
+        reason: '${m.className} no longer has these containers; drop them',
+      );
+    }
   });
 
   test('every card field says how a group member gets it', () {
     final unlisted = [
-      for (final f in extFields)
-        if (!_extFields.containsKey(f))
-          'FrontPorchExtensions.$f '
-              '(${codec[f] == null ? 'not in the card JSON' : 'key "${codec[f]}"'})',
-      for (final f in cardFields)
-        if (!_cardFields.containsKey(f))
-          'CharacterCard.$f (key "${cardKeys[f]}")',
+      for (final MapEntry(:key, :value) in fields.entries)
+        if (!entries.containsKey(key)) '$key  ($value)',
     ];
     expect(
       unlisted,
       isEmpty,
       reason:
-          'These card fields have no entry in _extFields / _cardFields. '
-          '$_addAdvice\n${unlisted.join('\n')}',
+          'These card fields have no entry in $_manifestPath. A group member '
+          "is the group's own copy of a character: give the field a group "
+          'editor (the member editor, desktop and phone) and a group reader '
+          '(where a group turn reads it per member) and list them; or say '
+          'with a reason why the group owns it (groupWide), why nothing '
+          'reads it at chat time (notRead), why only a 1:1-only feature '
+          'does (soloOnly), why it lives on the library card (origin) or why '
+          'it never leaves memory (runtimeOnly).\n${unlisted.join('\n')}',
     );
   });
 
   test('every entry names a card field that still exists', () {
     final stale = [
-      for (final f in _extFields.keys)
-        if (!extFields.contains(f)) 'FrontPorchExtensions.$f',
-      for (final f in _cardFields.keys)
-        if (!cardFields.contains(f)) 'CharacterCard.$f',
+      for (final k in entries.keys)
+        if (!fields.containsKey(k)) k,
     ];
+    expect(stale, isEmpty, reason: 'no such field any more; drop the entry');
+  });
+
+  test('every field a type names is enumerated or named opaque', () {
+    final modelClasses = <String>{
+      for (final f in Directory('lib/models').listSync(recursive: true))
+        if (f is File && f.path.endsWith('.dart'))
+          for (final m in RegExp(
+            r'^(?:abstract\s+|final\s+|sealed\s+)*class\s+(\w+)',
+            multiLine: true,
+          ).allMatches(f.readAsStringSync()))
+            m[1]!,
+    };
+    final enumerated = {for (final m in _models) m.className};
+    final opaque = (manifest['opaqueTypes'] as Map<String, dynamic>).keys
+        .toSet();
+    final problems = <String>[];
+    final used = <String>{};
+    for (final MapEntry(:key, value: type) in declaredTypes.entries) {
+      for (final m in RegExp(r'[A-Z]\w*').allMatches(type)) {
+        final t = m[0]!;
+        if (!modelClasses.contains(t) || enumerated.contains(t)) continue;
+        used.add(t);
+        if (!opaque.contains(t)) problems.add('$key is a $type');
+      }
+    }
+    for (final t in opaque.difference(used)) {
+      problems.add('opaqueTypes.$t: no card field has that type; drop it');
+    }
     expect(
-      stale,
+      problems,
       isEmpty,
       reason:
-          'No such field in $_extModel, $_extCodec or $_cardModel any more; '
-          'drop the entry (or rename it with the field).\n${stale.join('\n')}',
+          'A field typed with a lib/models class has fields of its own. '
+          'Enumerate the class in _models, or name it in opaqueTypes with '
+          'why its fields are edited and read only as a whole.\n'
+          '${problems.join('\n')}',
     );
   });
 
-  test('every entry gives a reader or one reasoned exemption', () {
-    final problems = [
-      ..._shapeProblems('FrontPorchExtensions', _extFields),
-      ..._shapeProblems('CharacterCard', _cardFields),
-    ];
+  test('the card JSON a member row stores round-trips', () {
+    final problems = <String>[];
+    for (final m in _models) {
+      final f = _fieldsOfModel(m);
+      final written = f.keys.keys.toSet();
+      if (m.prefix == 'ext') {
+        for (final d in f.declared) {
+          if (!written.contains(d.name)) {
+            problems.add(
+              '${m.className}.${d.name} is not in ${m.toJson}: a member row '
+              "stores the codec's output, so it never reaches a member",
+            );
+          }
+        }
+      }
+      final decode = m.decode;
+      if (decode == null) continue;
+      final path = m.toJsonPath ?? m.path;
+      final text = _text(path);
+      final body = _bodyOf(path, decode);
+      final read = StringBuffer(text.substring(body.start, body.end));
+      // Top-level helpers the decoder calls (`_workDays(realism)`).
+      for (final call in RegExp(
+        r'(?<![\w$.])(_\w+)\s*\(',
+      ).allMatches(read.toString())) {
+        try {
+          final h = _bodyOf(path, call[1]!);
+          read.write(text.substring(h.start, h.end));
+        } on StateError {
+          continue;
+        }
+      }
+      for (final MapEntry(key: name, value: key) in f.keys.entries) {
+        if (!read.toString().contains("'$key'")) {
+          problems.add('${m.className}.$name: $decode never reads "$key"');
+        }
+      }
+    }
     expect(problems, isEmpty, reason: problems.join('\n'));
   });
 
-  test('every named editor and reader still names its field', () {
-    final problems = [
-      ..._placeProblems('FrontPorchExtensions', _extFields),
-      ..._placeProblems('CharacterCard', _cardFields),
-    ];
+  test('every entry gives readers or one reasoned exemption', () {
+    final problems = <String>[];
+    for (final MapEntry(:key, value: e) in entries.entries) {
+      final unknown = e.keys.toSet().difference(_entryKeys);
+      if (unknown.isNotEmpty) problems.add('$key: unknown keys $unknown');
+      String? reason(String k) => e[k] as String?;
+      final exempt = [
+        for (final x in _exemptions)
+          if (e.containsKey(x)) x,
+      ];
+      final editor = _places(e['editor']);
+      final reader = _places(e['reader']);
+      for (final k in [..._exemptions, 'noEditor', 'noPhone']) {
+        if (e.containsKey(k) && (reason(k) ?? '').trim().isEmpty) {
+          problems.add('$key.$k needs its reason');
+        }
+      }
+      if (exempt.length > 1) problems.add('$key: one exemption, not $exempt');
+      if (exempt.isEmpty && reader.isEmpty) {
+        problems.add('$key: name where a group reads it, or an exemption');
+      }
+      if (exempt.isNotEmpty && exempt.single != 'origin' && reader.isNotEmpty) {
+        problems.add('$key: ${exempt.single} says no group read; drop reader');
+      }
+      if (exempt.isEmpty && editor.isEmpty && !e.containsKey('noEditor')) {
+        problems.add('$key: a group reads it; name its editor or noEditor');
+      }
+      if (e.containsKey('noEditor') && editor.isNotEmpty) {
+        problems.add('$key: noEditor with editors');
+      }
+      if (editor.isEmpty) continue;
+      final prefix = key.substring(0, key.lastIndexOf('.'));
+      final web = editor.any((p) => p.path.startsWith('web_ui/'));
+      if (!web && !e.containsKey('noPhone')) {
+        problems.add('$key: no phone control; name it, or say why (noPhone)');
+      }
+      if (web && e.containsKey('noPhone')) {
+        problems.add('$key: noPhone with a phone control');
+      }
+      final relay = _relays[prefix];
+      if (web && relay != null) {
+        for (final (side, fns) in [('set', relay.set), ('get', relay.get)]) {
+          if (!editor.any((p) => fns.contains(p.inFn))) {
+            problems.add('$key: name the relay\'s $side side, in one of $fns');
+          }
+        }
+      }
+      final save = _desktopSaves[prefix];
+      if (save != null &&
+          editor.any((p) => p.path.startsWith(_desktopEditor)) &&
+          !editor.any((p) => save.contains(p.inFn))) {
+        problems.add('$key: name where Save writes it, in one of $save');
+      }
+    }
+    expect(problems, isEmpty, reason: problems.join('\n'));
+  });
+
+  test('every named editor and reader still holds', () {
+    final problems = <String>[];
+    for (final MapEntry(:key, value: e) in entries.entries) {
+      for (final p in _places(e['editor'])) {
+        if (_placeProblem(p, editor: true) case final why?) {
+          problems.add('$key editor: $why');
+        }
+      }
+      for (final p in _places(e['reader'])) {
+        if (_placeProblem(p, editor: false) case final why?) {
+          problems.add('$key reader: $why');
+        }
+      }
+    }
     expect(
       problems,
       isEmpty,
       reason:
           'An editor or reader moved, or stopped handling the field. Point '
-          'the entry at where a group member\'s value is edited or read now; '
+          "the entry at where a group member's value is edited or read now; "
           'if nothing does, the field went 1:1-only: fix that, not the '
           'entry.\n${problems.join('\n')}',
     );
   });
 
+  test("the member editor's member-mode switches hide only group fields", () {
+    final hidden = (manifest['memberHidden'] as Map<String, dynamic>).map(
+      (path, flags) => MapEntry(
+        path,
+        (flags as Map<String, dynamic>).map(
+          (f, keys) => MapEntry(f, (keys as List).cast<String>()),
+        ),
+      ),
+    );
+    final files = {
+      ...hidden.keys,
+      for (final e in entries.values)
+        for (final p in _places(e['editor'])) p.path,
+    };
+    final problems = <String>[];
+    for (final path in files) {
+      if (!File(path).existsSync()) continue;
+      final found = {
+        for (final m in _hidingFlag.allMatches(_text(path))) m[1] ?? m[2]!,
+      };
+      final listed = hidden[path] ?? const {};
+      for (final f in found.difference(listed.keys.toSet())) {
+        problems.add(
+          '$path: $f hides something from a member; list the fields it '
+          'hides under memberHidden',
+        );
+      }
+      for (final f in listed.keys.toSet().difference(found)) {
+        problems.add('$path: no member switch $f any more; drop it');
+      }
+      for (final MapEntry(key: flag, value: keys) in listed.entries) {
+        for (final k in keys) {
+          final e = entries[k];
+          if (e == null) {
+            problems.add('$path $flag: no entry $k');
+          } else if (_places(e['editor']).isNotEmpty) {
+            problems.add(
+              '$path $flag hides $k from a member, but $k claims an editor',
+            );
+          }
+        }
+      }
+    }
+    expect(problems, isEmpty, reason: problems.join('\n'));
+  });
+
   test("the member editors save to the member's row", () {
-    final problems = [
-      for (final (path, marker, why) in _spine)
-        if (_missing('', _At(path, marker)) case final missing?)
-          '$why: $missing',
+    final problems = <String>[
+      for (final s in manifest['spine'] as List)
+        if (_placeProblem(_Place(s as Map<String, dynamic>), editor: false)
+            case final why?)
+          '${s['why']}: $why',
     ];
     expect(problems, isEmpty, reason: problems.join('\n'));
   });
