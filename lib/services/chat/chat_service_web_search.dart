@@ -31,13 +31,14 @@ extension ChatServiceWebSearch on ChatService {
 
   WikiSearchService _buildWikiSearchService() {
     return WikiSearchService(
-      getBaseUrl: () =>
-          _storageService.webSearchSettings.wikiUrlForChat(_currentSessionId),
+      getBaseUrl: () => _storageService.webSearchSettings.wikiUrlForChat(
+        _session.currentSessionId,
+      ),
     );
   }
 
-  String get _wikiBaseUrlImpl =>
-      _storageService.webSearchSettings.wikiUrlForChat(_currentSessionId);
+  String get _wikiBaseUrlImpl => _storageService.webSearchSettings
+      .wikiUrlForChat(_session.currentSessionId);
 
   bool get webSearchEnabled =>
       _storageService.webSearchSettings.webSearchDefault;
@@ -97,17 +98,17 @@ extension ChatServiceWebSearch on ChatService {
 
   Future<void> _setWikiBaseUrlImpl(String url) async {
     await _storageService.webSearchSettings.applyWikiUrlForSession(
-      _currentSessionId,
+      _session.currentSessionId,
       url,
     );
     final canonical = url.trim().isEmpty
         ? ''
         : (parseWikiBaseUrl(url)?.origin ?? '');
     if (_activeGroup == null &&
-        _activeCharacter != null &&
+        _session.activeCharacter != null &&
         canonical.isNotEmpty) {
       await _storageService.webSearchSettings.setWikiUrlForCharacter(
-        _activeCharacter!.stableGroupId,
+        _session.activeCharacter!.stableGroupId,
         canonical,
       );
     }
@@ -117,11 +118,11 @@ extension ChatServiceWebSearch on ChatService {
   /// New 1:1 session: seed this chat from the character's last picked wiki.
   /// Groups stay session-only — do not guess a host character.
   Future<void> _seedWikiForNewSession() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null || sid.isEmpty) return;
     final url = _storageService.webSearchSettings.wikiUrlToSeedForNewChat(
       isGroup: _activeGroup != null,
-      characterId: _activeCharacter?.stableGroupId,
+      characterId: _session.activeCharacter?.stableGroupId,
     );
     if (url == null) return;
     await _storageService.webSearchSettings.setChatWikiUrl(sid, url);
@@ -129,7 +130,7 @@ extension ChatServiceWebSearch on ChatService {
 
   /// Forks keep the parent's per-chat wiki (including explicit off).
   Future<void> _copyWikiForForkedSession(String oldSessionId) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null || sid.isEmpty) return;
     if (!_storageService.webSearchSettings.hasSessionWikiOverride(
       oldSessionId,

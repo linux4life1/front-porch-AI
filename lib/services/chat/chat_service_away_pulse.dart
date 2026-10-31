@@ -61,7 +61,7 @@ extension ChatServiceAwayPulse on ChatService {
           _groupRealism[_getCharacterIdFromCard(c)]?.awayHeld ?? false,
     );
     final userName = _userPersonaService.persona.name.trim();
-    final exchange = recentExchange(_messages);
+    final exchange = recentExchange(_session.messages);
     final eval = _realismJudges.makeWithUserEval();
     final flipped = <({String id, int lastSpokeIndex})>[];
 
@@ -90,7 +90,7 @@ extension ChatServiceAwayPulse on ChatService {
       alreadyUsedThisSend:
           fromUserSend && _awayPulse.returnSpeakUsedThisUserSend,
     );
-    final forcedPresent = _groupManager?.hasForcedSpeaker ?? false;
+    final forcedPresent = _session.groupManager?.hasForcedSpeaker ?? false;
     if (pick != null && !forcedPresent) {
       _awayPulse.pendingReturnSpeakId = pick;
       _awayPulse.pendingReturnForcedByAt =
@@ -154,8 +154,8 @@ extension ChatServiceAwayPulse on ChatService {
 
   int _lastSpokeIndex(String name) {
     var last = -1;
-    for (var i = 0; i < _messages.length; i++) {
-      final m = _messages[i];
+    for (var i = 0; i < _session.messages.length; i++) {
+      final m = _session.messages[i];
       if (!m.isUser && m.sender == name) last = i;
     }
     return last;

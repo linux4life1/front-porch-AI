@@ -223,8 +223,9 @@ extension ChatServiceGeneration on ChatService {
         _llmProvider?.hasAnyManagedProcessRunning == true) {
       return false;
     }
-    if (_messages.isEmpty || _messages.last.text != _kBackendDownNotice) {
-      _messages.add(statusBannerMessage(_kBackendDownNotice));
+    if (_session.messages.isEmpty ||
+        _session.messages.last.text != _kBackendDownNotice) {
+      _session.messages.add(statusBannerMessage(_kBackendDownNotice));
       notifyListeners();
     }
     return true;
@@ -301,11 +302,11 @@ extension ChatServiceGeneration on ChatService {
           );
         }
         if (forceSpeaker == null) {
-          t.rotationBeforePick = _groupManager?.rotation;
+          t.rotationBeforePick = _session.groupManager?.rotation;
         }
         speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker();
       } else {
-        speakingCharacter = _activeCharacter!;
+        speakingCharacter = _session.activeCharacter!;
       }
       t.speakingCharacter = speakingCharacter;
 
@@ -333,7 +334,7 @@ extension ChatServiceGeneration on ChatService {
             kind: SlotClockWrite.tick,
           );
         }
-        _messages.add(
+        _session.messages.add(
           ChatMessage(
             text: _presenceSkipBanner(speakingCharacter),
             sender: 'System',
@@ -362,12 +363,11 @@ extension ChatServiceGeneration on ChatService {
           ? _getCharacterIdFromCard(speakingCharacter)
           : null;
 
-      // SINGLE realism eval path (group trigger). 1:1 evals live in
-      // sendMessage so regen/_generateResponse does not re-score the host.
-      // Continue, and user-last regen on a line from before per-speaker
-      // stamps, skip the dance but still LOAD this speaker's scalars. A new
-      // group turn and a stamped user-last regen (rewound first) dance.
-      // Guests carry no realism.
+      // SINGLE realism eval path (group trigger). 1:1 evals live in sendMessage
+      // so regen/_generateResponse does not re-score the host. Continue, and
+      // user-last regen on a line from before per-speaker stamps, skip the
+      // dance but still LOAD this speaker's scalars. A new group turn and a
+      // stamped user-last regen (rewound first) dance. Guests carry no realism.
       if (guestSpeaker == null &&
           _activeGroup != null &&
           !_isLiteTurn(t) &&
@@ -447,7 +447,7 @@ extension ChatServiceGeneration on ChatService {
       // generation_error_messages.dart, not a part — zero ChatService access).
       final errorMsg = friendlyGenerationError(e.toString());
 
-      _messages.add(statusBannerMessage(errorMsg));
+      _session.messages.add(statusBannerMessage(errorMsg));
 
       // Signal error to SSE listeners
       _tokenBroadcast.add('__ERROR__');
@@ -480,7 +480,7 @@ extension ChatServiceGeneration on ChatService {
       // member never spoke, so Try again (or the next send) is theirs.
       final rotation = t.rotationBeforePick;
       if (rotation != null && !t.replyLanded) {
-        _groupManager?.restoreRotation(rotation);
+        _session.groupManager?.restoreRotation(rotation);
       }
       _awayPulse.finishTurn();
       // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps

@@ -32,8 +32,8 @@ class NeedsRewinds {
 
   bool get _needsSimEnabled => _scope.needsSimEnabled();
   NeedsSimulation get _needsSimulation => _scope.needs();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
   String _getCurrentSpeakerIdForRealism() => _scope.groups.currentSpeakerId();
   Map<String, int> _getGroupNeeds(String id) => _scope.groups.needsOf(id);

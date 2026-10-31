@@ -67,7 +67,7 @@ class RealismSnapshot {
   RelationshipService get _relationshipService => _scope.relationship();
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
   late final MoodRegisters _mood = MoodRegisters(_scope);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
 

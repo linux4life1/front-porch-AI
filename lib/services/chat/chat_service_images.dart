@@ -89,7 +89,7 @@ extension ChatServiceImages on ChatService {
             request.kind == ImageCommandKind.character,
       ),
       saveImage: (bytes) => _imageGenService!.saveImageToDisk(bytes),
-      snapshotSession: () => _currentSessionId,
+      snapshotSession: () => _session.currentSessionId,
       attachToChat: (path, prompt, request, launchToken) async {
         // The gen is slow (1-10 min locally); if the user switched chats
         // meanwhile, DON'T append this image to the now-active chat — it was
@@ -123,7 +123,7 @@ extension ChatServiceImages on ChatService {
   /// the active 1:1 character.
   CharacterCard? _resolveImageCommandCharacter(ImageCommandRequest request) {
     final candidates = <CharacterCard>[
-      ?_activeCharacter,
+      ?_session.activeCharacter,
       ..._groupCharacters,
       ..._sceneGuest.cards,
     ];
@@ -142,13 +142,13 @@ extension ChatServiceImages on ChatService {
     // Most recent AI speaker (matters in groups; in a 1:1 this resolves to
     // the active character anyway).
     final userName = _userPersonaService.persona.name;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (m.isUser || m.sender == 'System' || m.sender == userName) continue;
       for (final c in candidates) {
         if (c.name == m.sender) return c;
       }
     }
-    return _activeCharacter ??
+    return _session.activeCharacter ??
         (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
   }
 
@@ -182,7 +182,7 @@ extension ChatServiceImages on ChatService {
 
     String? lastMessage;
     final recentMessages = <String>[];
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (recentMessages.length >= 12) break;
       final txt = m.displayText;
       if (txt.isEmpty) continue;

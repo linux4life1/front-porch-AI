@@ -22,7 +22,7 @@ part of '../chat_service.dart';
 /// Chevron cycling reuses [selectGreeting] so emotion rules stay in one place.
 extension ChatServiceVariants on ChatService {
   /// The card whose greets the opening picker cycles. Public so the bubble
-  /// (and FakeChatService) can count them without `_activeCharacter` — groups
+  /// (and FakeChatService) can count them without `_session.activeCharacter` — groups
   /// have a null active character even when the opener is a member greet.
   List<String> get openingAllGreetings {
     if (isGroupMode) {
@@ -47,7 +47,7 @@ extension ChatServiceVariants on ChatService {
   /// and no stored regen swipes (those are variants, not greets).
   bool isSelectableGreeting(int messageIndex) {
     // Public accessors so FakeChatService (other library) can answer this
-    // from a bubble build. `_messages` / `_activeCharacter` are library-
+    // from a bubble build. `_session.messages` / `_session.activeCharacter` are library-
     // private and resolve as noSuchMethod on the fake.
     if (messageIndex < 0 || messageIndex >= messages.length) return false;
     final msg = messages[messageIndex];
@@ -117,7 +117,7 @@ extension ChatServiceVariants on ChatService {
           ),
       ];
     }
-    final character = _greetingOwnerCard() ?? _activeCharacter;
+    final character = _greetingOwnerCard() ?? _session.activeCharacter;
     if (character == null) return const [];
     return [
       for (final g in character.allGreetings)
@@ -126,7 +126,7 @@ extension ChatServiceVariants on ChatService {
   }
 
   Future<void> selectGreeting(int index) async {
-    if (_messages.isEmpty) return;
+    if (_session.messages.isEmpty) return;
     final allGreetings = openingAllGreetings;
     if (allGreetings.length <= 1) return;
     if (index < 0 || index >= allGreetings.length) return;
@@ -138,11 +138,11 @@ extension ChatServiceVariants on ChatService {
     _greetingIndex = index;
     final resolved = _resolvedOpeningGreetings();
     if (index >= resolved.length) return;
-    final old = _messages[0];
+    final old = _session.messages[0];
     final groupCustom =
         _activeGroup != null &&
         !greetingFirstMesEmpty(_activeGroup!.firstMessage);
-    _messages[0] = ChatMessage(
+    _session.messages[0] = ChatMessage(
       text: resolved[index],
       sender: groupCustom ? _activeGroup!.name : (old.sender),
       isUser: false,
@@ -154,7 +154,7 @@ extension ChatServiceVariants on ChatService {
       if (groupCustom) {
         await _applyGroupCustomGreetingSeed(index);
       } else {
-        final owner = _greetingOwnerCard() ?? _activeCharacter;
+        final owner = _greetingOwnerCard() ?? _session.activeCharacter;
         if (owner != null) {
           await _applyGreetingOpeningSeed(card: owner, index: index);
         }
@@ -169,8 +169,8 @@ extension ChatServiceVariants on ChatService {
   /// chevron-past-the-end path in [swipeMessage] still does). Restores
   /// that swipe's snapshot when this message is the tip — no reading-the-room.
   Future<void> selectSwipe(int messageIndex, int swipeIndex) async {
-    if (messageIndex < 0 || messageIndex >= _messages.length) return;
-    final msg = _messages[messageIndex];
+    if (messageIndex < 0 || messageIndex >= _session.messages.length) return;
+    final msg = _session.messages[messageIndex];
     if (msg.isUser || msg.sender == 'System') return;
     await _commitSwipeIndex(messageIndex, swipeIndex);
   }
@@ -239,15 +239,15 @@ extension ChatServiceTokenAlts on ChatService {
 
   /// The places in reply [index] where the model weighed other words.
   List<TokenAlternative> tokenAlternativesAt(int index) {
-    if (index < 0 || index >= _messages.length) return const [];
-    final m = _messages[index];
+    if (index < 0 || index >= _session.messages.length) return const [];
+    final m = _session.messages[index];
     return m.isUser ? const [] : tokenAlternativesOf(m);
   }
 
   /// Why reply [index] cannot be rewritten from a word now; null when it can.
   String? tokenAltsPickRefusal(int index) {
     if (isGenerating || isSettlingTurn) return 'Wait for the reply to finish.';
-    if (index != _messages.length - 1) {
+    if (index != _session.messages.length - 1) {
       return 'Only the last reply can be rewritten from a word.';
     }
     if (!_mouthIsLocal) return 'Rewriting from a word needs KoboldCpp.';
@@ -263,7 +263,7 @@ extension ChatServiceTokenAlts on ChatService {
     String pick,
   ) async {
     if (tokenAltsPickRefusal(index) != null) return false;
-    final msg = _messages[index];
+    final msg = _session.messages[index];
     final body = tokenAltsBody(msg.text);
     if (!body.startsWith(at.token, at.offset)) return false;
     final carried = [
@@ -277,7 +277,9 @@ extension ChatServiceTokenAlts on ChatService {
     } finally {
       _regenSeed = null;
     }
-    if (_messages.isEmpty || !identical(_messages.last, msg)) return false;
+    if (_session.messages.isEmpty || !identical(_session.messages.last, msg)) {
+      return false;
+    }
     if (msg.swipes.length <= before) return false;
     // The words before the pick are unchanged, so their places still hold.
     final now = tokenAltsBody(msg.text);
@@ -302,7 +304,9 @@ extension ChatServiceTokenAlts on ChatService {
   /// whether a word can be picked now.
   Map<String, dynamic> tokenAlternativesJson(int index) {
     final places = tokenAlternativesAt(index);
-    final body = places.isEmpty ? '' : tokenAltsBody(_messages[index].text);
+    final body = places.isEmpty
+        ? ''
+        : tokenAltsBody(_session.messages[index].text);
     final refusal = tokenAltsPickRefusal(index);
     return {
       'canPick': refusal == null,

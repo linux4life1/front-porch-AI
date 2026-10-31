@@ -75,8 +75,8 @@ extension ChatServiceRegenRevert on ChatService {
     CharacterCard? preRegenActiveCharacter;
     if (_realismEnabled && regenGuest == null && canRevertRealism) {
       if (isGroupHostRegen) {
-        preRegenActiveCharacter = _activeCharacter;
-        _activeCharacter = regenSpeakerCard;
+        preRegenActiveCharacter = _session.activeCharacter;
+        _session.activeCharacter = regenSpeakerCard;
         _realismDance.loadIntoScalars(regenSpeakerSid);
       }
       // CRITICAL FIX: Find the baseline realism state from the previous accepted message.
@@ -89,11 +89,12 @@ extension ChatServiceRegenRevert on ChatService {
       Map<String, dynamic>? previousMessageState;
       Map<String, dynamic>? previousSessionState;
       var unreadableBaseline = false;
-      if (_messages.isNotEmpty) {
+      if (_session.messages.isNotEmpty) {
         // Look back through messages to find the last bot message before the one we're regenerating
-        for (int i = _messages.length - 1; i >= 0; i--) {
-          if (!_messages[i].isUser && _messages[i].sender != 'System') {
-            final meta = _messages[i].activeMetadata;
+        for (int i = _session.messages.length - 1; i >= 0; i--) {
+          if (!_session.messages[i].isUser &&
+              _session.messages[i].sender != 'System') {
+            final meta = _session.messages[i].activeMetadata;
             if (meta == null || !meta.containsKey('realism_state')) continue;
             if (meta['realism_state'] is! Map) {
               unreadableBaseline = true;
@@ -103,7 +104,8 @@ extension ChatServiceRegenRevert on ChatService {
               meta['realism_state'] as Map,
             );
             previousSessionState ??= state;
-            if (!isGroupHostRegen || _messages[i].sender == lastMsg.sender) {
+            if (!isGroupHostRegen ||
+                _session.messages[i].sender == lastMsg.sender) {
               previousMessageState = state;
               debugPrint(
                 '[Realism:Regen] Found previous accepted message baseline state at message index $i',
@@ -316,7 +318,7 @@ extension ChatServiceRegenRevert on ChatService {
         // entry and drop the impersonation. The replayed reply wears
         // everyone present once, inside _generateResponse.
         _realismDance.saveScalarsIntoGroup(regenSpeakerSid);
-        _activeCharacter = preRegenActiveCharacter;
+        _session.activeCharacter = preRegenActiveCharacter;
       }
     }
     // Last, so it wins: the snapshots above are each speaker's own last turn,
@@ -337,16 +339,18 @@ extension ChatServiceRegenRevert on ChatService {
   /// Returns the failed reply's group member, who answers again: their pick
   /// already moved the rotation on, so a fresh pick would skip them.
   Future<CharacterCard?> _dropFailedTurnLeftovers() async {
-    final n = _messages.length;
-    if (n < 2 || _messages.last.isUser || _messages.last.sender != 'System') {
+    final n = _session.messages.length;
+    if (n < 2 ||
+        _session.messages.last.isUser ||
+        _session.messages.last.sender != 'System') {
       return null;
     }
-    final ghost = _isFailedReplyGhost(_messages[n - 2])
-        ? _messages[n - 2]
+    final ghost = _isFailedReplyGhost(_session.messages[n - 2])
+        ? _session.messages[n - 2]
         : null;
     final userAt = n - (ghost == null ? 2 : 3);
-    if (userAt < 0 || !_messages[userAt].isUser) return null;
-    _messages.removeRange(userAt + 1, n);
+    if (userAt < 0 || !_session.messages[userAt].isUser) return null;
+    _session.messages.removeRange(userAt + 1, n);
     // Its quests have no reply to ride on; the retry proposes them again.
     if (ghost != null) await _revertObjectiveTurnOps(ghost);
     await _saveChat(replaceAll: true);
@@ -373,19 +377,19 @@ extension ChatServiceRegenRevert on ChatService {
     required int preGenLen,
   }) async {
     final appendedReply =
-        _messages.length > preGenLen &&
-        !_messages.last.isUser &&
-        _messages.last.sender != 'System';
+        _session.messages.length > preGenLen &&
+        !_session.messages.last.isUser &&
+        _session.messages.last.sender != 'System';
     if (!appendedReply) {
       // The shell catch leaves the failed turn's EMPTY stream target in
       // place before the System banner — drop that ghost so the restored
       // reply doesn't sit next to a blank bubble of the same speaker.
-      final ghostIdx = _messages.indexWhere(
+      final ghostIdx = _session.messages.indexWhere(
         (m) => !m.isUser && m.sender != 'System' && m.text.isEmpty,
         preGenLen,
       );
-      if (ghostIdx >= 0) _messages.removeAt(ghostIdx);
-      _messages.insert(preGenLen, lastMsg);
+      if (ghostIdx >= 0) _session.messages.removeAt(ghostIdx);
+      _session.messages.insert(preGenLen, lastMsg);
       _clockReader.applyTipClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
@@ -402,17 +406,17 @@ extension ChatServiceRegenRevert on ChatService {
       await _saveChat(replaceAll: true);
       return;
     }
-    if (_messages.isNotEmpty &&
-        !_messages.last.isUser &&
-        _messages.last.sender != 'System') {
-      final newText = _messages.last.text;
-      final newMetadata = _messages.last.activeMetadata != null
-          ? Map<String, dynamic>.from(_messages.last.activeMetadata!)
+    if (_session.messages.isNotEmpty &&
+        !_session.messages.last.isUser &&
+        _session.messages.last.sender != 'System') {
+      final newText = _session.messages.last.text;
+      final newMetadata = _session.messages.last.activeMetadata != null
+          ? Map<String, dynamic>.from(_session.messages.last.activeMetadata!)
           : null;
       // This swipe's own "Thought for Ns", timed while it streamed.
-      final newThinkingMs = _messages.last.thinkingDurationMs;
-      final tempBefore = _messages.last.metadata?['pockets_before'];
-      _messages.removeLast();
+      final newThinkingMs = _session.messages.last.thinkingDurationMs;
+      final tempBefore = _session.messages.last.metadata?['pockets_before'];
+      _session.messages.removeLast();
       if (tempBefore is Map) {
         lastMsg.metadata ??= {};
         lastMsg.metadata!['pockets_before'] = tempBefore;
@@ -440,7 +444,7 @@ extension ChatServiceRegenRevert on ChatService {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
       if (_clockRunning) _clockWriter.discoverAndPersistMessageBefore(lastMsg);
-      _messages.add(lastMsg);
+      _session.messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
       // accepted swipe (in groups: the speaker's own _groupRealism entry).
       // Guest swipes wear present bodies (1:1 host); the replay just wore
@@ -465,8 +469,8 @@ extension ChatServiceRegenRevert on ChatService {
     ChatMessage deleted, {
     required bool wasTail,
   }) {
-    if (_messages.isEmpty) return;
-    final last = _messages.last;
+    if (_session.messages.isEmpty) return;
+    final last = _session.messages.last;
     final scoredReplyGone =
         wasTail &&
         _activeGroup == null &&

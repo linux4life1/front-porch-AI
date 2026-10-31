@@ -48,15 +48,17 @@ extension ChatServiceSessionLoad on ChatService {
     // of these awaits. The sanitizer below runs synchronously on already-
     // fetched local variables (swipes), so it does not introduce a new race
     // window — but it also cannot prevent pre-existing interleaving where
-    // the later load overwrites _messages.
-    if (_activeCharacter == null && _activeGroup == null) return;
+    // the later load overwrites _session.messages.
+    if (_session.activeCharacter == null && _activeGroup == null) return;
 
     // Get sessions from DB
     List<Session> sessions;
     if (_activeGroup != null) {
       sessions = await _db.getSessionsForGroup(_activeGroup!.id);
-    } else if (_activeCharacter?.dbId != null) {
-      sessions = await _db.getSessionsForCharacter(_activeCharacter!.dbId!);
+    } else if (_session.activeCharacter?.dbId != null) {
+      sessions = await _db.getSessionsForCharacter(
+        _session.activeCharacter!.dbId!,
+      );
     } else {
       return;
     }
@@ -128,7 +130,7 @@ extension ChatServiceSessionLoad on ChatService {
     final lastSession = sessions.reduce(
       (a, b) => a.updatedAt.isAfter(b.updatedAt) ? a : b,
     );
-    // Activate THIS row's persona before _currentSessionId is set and
+    // Activate THIS row's persona before _session.currentSessionId is set and
     // before overlay-reapply / any hydrate save. setActiveCharacter then
     // loadSession used to stamp the still-live previous chat (Nightowl)
     // onto the first row; loadSession then skipped flush (same id) and
@@ -139,7 +141,7 @@ extension ChatServiceSessionLoad on ChatService {
     await _invalidateGreetingEval();
     _preserveSessionPersonaOf[this] = true;
     try {
-      _currentSessionId = lastSession.id;
+      _session.currentSessionId = lastSession.id;
       // Sanitizer + first paint need gen settings and the tail ONLY.
       // Growth/worlds/scalars used to run first and kept the spinner up
       // for the same beat as loading 11k messages.
@@ -258,7 +260,7 @@ extension ChatServiceSessionLoad on ChatService {
   }
 
   Future<List<Map<String, dynamic>>> getSessions() async {
-    if (_activeCharacter == null && _activeGroup == null) return [];
+    if (_session.activeCharacter == null && _activeGroup == null) return [];
     final charId = _getCharacterId();
     return getSessionsForId(charId);
   }
@@ -292,13 +294,13 @@ extension ChatServiceSessionLoad on ChatService {
   }
 
   Future<void> _openSession(String sessionId) async {
-    if (_activeCharacter == null && _activeGroup == null) return;
+    if (_session.activeCharacter == null && _activeGroup == null) return;
 
     // A reload mid-settle reads rows the finishing turn hasn't persisted yet
     // (chip attach's _saveChat can land AFTER getMessagesForSession below),
     // and that turn's finalization would then write onto the replaced list.
     await _waitForTurnToSettle();
-    // Persist the chat we are LEAVING before replacing `_messages` from rows
+    // Persist the chat we are LEAVING before replacing `_session.messages` from rows
     // — only when this load actually switches sessions. A SAME-session
     // reload must NOT flush: flushPendingSaves is a full save, so it would
     // stamp the live scalars — the active persona above all — onto the very
@@ -307,12 +309,12 @@ extension ChatServiceSessionLoad on ChatService {
     // restores its persona" everywhere (Rawhide E2E red since 6192ddc:
     // persona_default_test + persona_folder_test; the picker flow after
     // setActiveCharacter then loadSession used to hit it because
-    // _loadLastSession set _currentSessionId before activating the
+    // _loadLastSession set _session.currentSessionId before activating the
     // persona). The same-session transcript needs no flush here: turns
     // persist when taken, and _waitForTurnToSettle has already drained
     // the save chain. _loadLastSession now activates the row persona
     // before any hydrate save; the restore below still runs.
-    if (_currentSessionId != sessionId) {
+    if (_session.currentSessionId != sessionId) {
       _timeService.clearCapturedClock();
       await flushPendingSaves();
       _clearTodayPointer();
@@ -349,17 +351,17 @@ extension ChatServiceSessionLoad on ChatService {
     // replace the live recap with whatever the row still held. A journal
     // pass or a sidebar edit can be ahead of that row. Keep the live text
     // and write it through so the next open still has it.
-    final sameSession = _currentSessionId == sessionId;
+    final sameSession = _session.currentSessionId == sessionId;
     final liveRecap = sameSession ? _summary : '';
     try {
-      // Backfill checks `_currentSessionId` so this must be set first.
-      _currentSessionId = sessionId;
+      // Backfill checks `_session.currentSessionId` so this must be set first.
+      _session.currentSessionId = sessionId;
       await _openSessionMessages(sessionId);
 
       // Post-load sanitization: force valid swipe indices. This protects
       // against any legacy corrupted rows or previous buggy saves, even if
       // the individual message constructors already clamp.
-      for (final msg in _messages) {
+      for (final msg in _session.messages) {
         if (msg.swipeIndex < 0 || msg.swipeIndex >= msg.swipes.length) {
           msg.swipeIndex = 0;
         }

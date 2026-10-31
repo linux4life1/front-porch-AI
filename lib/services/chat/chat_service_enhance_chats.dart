@@ -77,7 +77,7 @@ extension ChatServiceEnhanceChats on ChatService {
     // Here that is only a side effect of opening the card to restore into
     // it, so it goes once the restored chats are in; otherwise it stays as an
     // extra "New Conversation" beside them.
-    final opening = hadChats ? null : _currentSessionId;
+    final opening = hadChats ? null : _session.currentSessionId;
     var restored = 0;
     for (final bytes in packages.reversed) {
       final result = await importChatPackage(
@@ -87,7 +87,7 @@ extension ChatServiceEnhanceChats on ChatService {
       if (result.fullRestore) restored++;
       onProgress?.call(restored, packages.length);
     }
-    if (opening != null && opening != _currentSessionId) {
+    if (opening != null && opening != _session.currentSessionId) {
       await deleteSession(opening, startReplacement: false);
     }
     return restored;

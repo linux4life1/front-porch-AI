@@ -38,7 +38,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// Manually select which character speaks next in group mode.
   /// Delegated to GroupTurnManager.
   void setNextCharacter(CharacterCard character) {
-    _groupManager?.setNextSpeaker(character);
+    _session.groupManager?.setNextSpeaker(character);
     notifyListeners(); // ensure UI updates even if manager didn't notify
 
     // In group mode, switch the active objectives to this character's personal ones.
@@ -52,10 +52,10 @@ extension ChatServiceTurnFlow on ChatService {
   /// and works for both TurnOrder.random and roundRobin. After consumption
   /// we resume normal cycling / random behavior.
   CharacterCard _pickNextGroupCharacter() {
-    if (_groupManager == null) {
+    if (_session.groupManager == null) {
       throw StateError('No active group');
     }
-    return _groupManager!.pickNextSpeaker();
+    return _session.groupManager!.pickNextSpeaker();
   }
 
   /// At work (and Away when we know they are not in scene). 1:1 never skips.
@@ -79,7 +79,7 @@ extension ChatServiceTurnFlow on ChatService {
   CharacterCard _pickPresentGroupSpeaker() {
     // Forced / @ of a present member wins over a quiet Away return.
     // Serving pendingReturnSpeakId first stole @Bea when Ana flipped.
-    final forced = _groupManager?.hasForcedSpeaker ?? false;
+    final forced = _session.groupManager?.hasForcedSpeaker ?? false;
     if (forced) {
       return _pickNextGroupCharacter();
     }
@@ -88,7 +88,7 @@ extension ChatServiceTurnFlow on ChatService {
       for (final card in _groupCharacters) {
         if (_getCharacterIdFromCard(card) == returnId) {
           _awayPulse.consumingReturnSpeak = true;
-          _groupManager?.advanceAfterRegeneration(card);
+          _session.groupManager?.advanceAfterRegeneration(card);
           return card;
         }
       }
@@ -96,7 +96,7 @@ extension ChatServiceTurnFlow on ChatService {
     final first = _pickNextGroupCharacter();
     final present = _presentFrom(first);
     if (present == null || identical(present, first)) return first;
-    _groupManager?.advanceAfterRegeneration(present);
+    _session.groupManager?.advanceAfterRegeneration(present);
     return present;
   }
 
@@ -104,7 +104,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// The Next tooltip, sidebar badge and web cast chip read this, so they
   /// name the member who actually speaks.
   CharacterCard? get _upcomingGroupSpeaker {
-    final manager = _groupManager;
+    final manager = _session.groupManager;
     if (manager == null || !manager.isActive) return null;
     final head = manager.nextSpeaker;
     if (manager.hasForcedSpeaker) return head;
@@ -173,7 +173,7 @@ extension ChatServiceTurnFlow on ChatService {
     final judged = _groupRealism[id]?.withUser;
     if (judged != null) return judged;
     var seen = 0;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (m.isUser) continue;
       if (m.sender == card.name) return true;
       if (++seen >= 8) break;
@@ -185,23 +185,23 @@ extension ChatServiceTurnFlow on ChatService {
   /// Wait for TTS to finish speaking, then apply the configured delay before
   /// auto-play. [run] is the auto-chat run that armed the wait.
   void _waitForTtsThenContinue(int run) {
-    if (!(_groupManager?.autoPlayActive ?? false) ||
-        !(_groupManager?.observerMode ?? false)) {
+    if (!(_session.groupManager?.autoPlayActive ?? false) ||
+        !(_session.groupManager?.observerMode ?? false)) {
       return;
     }
 
     Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (!(_groupManager?.autoPlayActive ?? false) ||
-          !(_groupManager?.observerMode ?? false)) {
+      if (!(_session.groupManager?.autoPlayActive ?? false) ||
+          !(_session.groupManager?.observerMode ?? false)) {
         timer.cancel();
         return;
       }
       if (_ttsService == null || !_ttsService!.isSpeaking) {
         timer.cancel();
-        final delayMs = ((_groupManager?.directorDelaySec ?? 15.0) * 1000)
-            .round();
+        final delayMs =
+            ((_session.groupManager?.directorDelaySec ?? 15.0) * 1000).round();
         Future.delayed(Duration(milliseconds: delayMs), () {
-          if ((_groupManager?.autoPlayActive ?? false) &&
+          if ((_session.groupManager?.autoPlayActive ?? false) &&
               !_isGenerating &&
               _autoChatBudget.run == run) {
             _autoPlayNext();
@@ -288,7 +288,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// Manually set the recap text.
   void setSummary(String text) {
     _rememberRecapEdit(text);
-    final id = _currentSessionId;
+    final id = _session.currentSessionId;
     if (id != null) {
       unawaited(_journalStore.persistRecap(id, text));
     }
@@ -334,10 +334,10 @@ extension ChatServiceTurnFlow on ChatService {
       await _awaitHistoryHydrated();
       if (!_storageService.memorySettings.journalEnabled) return;
       if (_summaryPaused || _isSummaryGenerating) return;
-      final windowStart = _summaryLastIndex.clamp(0, _messages.length);
+      final windowStart = _summaryLastIndex.clamp(0, _session.messages.length);
       var userMessagesSincePass = 0;
-      for (var i = windowStart; i < _messages.length; i++) {
-        if (_messages[i].isUser) userMessagesSincePass++;
+      for (var i = windowStart; i < _session.messages.length; i++) {
+        if (_session.messages[i].isUser) userMessagesSincePass++;
       }
       if (userMessagesSincePass == 0) return;
       final due =
@@ -366,20 +366,23 @@ extension ChatServiceTurnFlow on ChatService {
     if (_memoryService == null || !_storageService.memorySettings.ragEnabled) {
       return;
     }
-    if (_currentSessionId == null) return;
+    if (_session.currentSessionId == null) return;
 
-    final sessionId = _currentSessionId!;
+    final sessionId = _session.currentSessionId!;
     final characterId = characterIdOverride ?? _getCharacterId();
     // Fire and forget — wait for the tail backfill first so we never store
     // a 24-row snapshot as positions 0..N (that permanently skips the real
     // start of a long chat, and stamps today's story-day on old lines).
     unawaited(() async {
       await _awaitHistoryHydrated();
-      if (_currentSessionId != sessionId || _memoryService == null) return;
-      if (_messages.length < _storageService.memorySettings.ragWindowSize) {
+      if (_session.currentSessionId != sessionId || _memoryService == null) {
         return;
       }
-      final formatted = _formatMessagesForRagEmbedding(_messages);
+      if (_session.messages.length <
+          _storageService.memorySettings.ragWindowSize) {
+        return;
+      }
+      final formatted = _formatMessagesForRagEmbedding(_session.messages);
       debugPrint(
         '[RAG:Chat] ▶ Triggering background embedding (session: $sessionId, '
         'char: $characterId, ${formatted.length} msgs, '
@@ -430,7 +433,7 @@ extension ChatServiceTurnFlow on ChatService {
     // still works with this off: the complaint this switch answers is being
     // interrupted by offers nobody asked for, and typing `/scan` is asking.
     if (!_storageService.realismSettings.sceneGuestDetectionEnabled) return;
-    if (_activeCharacter == null && _activeGroup == null) return;
+    if (_session.activeCharacter == null && _activeGroup == null) return;
     if (_sceneGuest.pendingDetection != null) return; // one offer at a time
 
     _sceneGuest.turnsSinceCastScan++;
@@ -448,7 +451,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// offer popup was raised. Resets the cadence counter so the automatic scan
   /// won't immediately re-fire on the next turn.
   Future<bool> runCastDetectionNow() async {
-    if (_activeCharacter == null && _activeGroup == null) return false;
+    if (_session.activeCharacter == null && _activeGroup == null) return false;
     if (_sceneGuest.pendingDetection != null) return false;
     _sceneGuest.turnsSinceCastScan = 0;
     // Re-resolve first so any guest whose library card was deleted is pruned
@@ -470,7 +473,8 @@ extension ChatServiceTurnFlow on ChatService {
   /// manual `/scan` command so there is exactly ONE detect→surface path.
   /// Returns the surfaced candidate, or null when nothing was found.
   Future<DetectedCharacter?> _performCastScan() async {
-    final token = _currentSessionId; // the scan is slow; the chat may switch
+    final token =
+        _session.currentSessionId; // the scan is slow; the chat may switch
     final detected = await _ensureCastDetector().detect();
     if (detected == null) return null;
     // Bail if the chat/character/session changed (or we were disposed) during

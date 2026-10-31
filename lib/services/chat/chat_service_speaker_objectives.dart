@@ -29,7 +29,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final charId = _getCharacterIdFromCard(character);
     final objs = await _db.getObjectivesForCharacter(
       charId,
-      chatId: _currentSessionId,
+      chatId: _session.currentSessionId,
     );
     _activeObjectives = objs.where((o) => o.active).toList();
     _objectiveTally = objectiveTallyFrom(charId, objs);
@@ -75,7 +75,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// when in group mode. This makes the existing objective UI, generation, and injection
   /// work per-character in groups without duplicating the entire objective system.
   Future<void> _loadObjectivesForCurrentSpeaker() async {
-    if (_activeGroup == null || _currentSessionId == null) return;
+    if (_activeGroup == null || _session.currentSessionId == null) return;
 
     final speaker = nextCharacter ?? _groupCharacters.firstOrNull;
     if (speaker == null) {
@@ -96,7 +96,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final charId = _getCharacterIdFromCard(speaker);
     final objs = await _db.getObjectivesForCharacter(
       charId,
-      chatId: _currentSessionId,
+      chatId: _session.currentSessionId,
     );
 
     _activeObjectives = objs.where((o) => o.active).toList();
@@ -133,7 +133,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     Future.microtask(() async {
       // Not twice: a chat that already has this goal open keeps the one it
       // has (the library had one chat holding five copies of the same task).
-      final who = target ?? _activeCharacter;
+      final who = target ?? _session.activeCharacter;
       if (who != null) {
         final open = await getActiveObjectivesFor(who);
         final same = task.toLowerCase();
@@ -155,7 +155,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// One-time seeding of objectives that were carried in an imported Group Card.
   /// Called after group state is loaded for a freshly imported group.
   Future<void> _seedImportedMemberObjectivesIfPresent() async {
-    if (_activeGroup == null || _currentSessionId == null) return;
+    if (_activeGroup == null || _session.currentSessionId == null) return;
 
     try {
       final stateJson = _activeGroup!.defaultMemberRealismState;
@@ -184,7 +184,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
             ObjectivesCompanion.insert(
               id: newId,
               characterId: charId,
-              chatId: drift.Value(_currentSessionId!),
+              chatId: drift.Value(_session.currentSessionId!),
               objective:
                   objMap['objective']?.toString() ?? 'Imported objective',
               tasks: drift.Value(objMap['tasks']?.toString() ?? '[]'),
@@ -230,7 +230,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// registers. While another member is mid-turn, put those registers
   /// back or the next save writes the deleted member onto the speaker.
   void _keepingLiveSpeaker(void Function() body) {
-    final live = _activeCharacter;
+    final live = _session.activeCharacter;
     if (_activeGroup == null || !_isTurnBusy || live == null) {
       body();
       return;
@@ -351,7 +351,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // turn ran.
     //
     // Owner key MUST be the message speaker (groupSpeakerId when rewinding a
-    // group member), never bare `_activeCharacter` — after post-gen the
+    // group member), never bare `_session.activeCharacter` — after post-gen the
     // active pointer is often someone else, so restore used to write
     // speaker A's kit onto B (audit P1.7).
     // `_pocketsRewinds.restoreFromStamp` already keys by stamp `char`; this realism_state path is the dual for no-op /
@@ -360,8 +360,8 @@ extension ChatServiceSpeakerObjectives on ChatService {
     if (pocketsSnap is Map) {
       final ownerId = (groupSpeakerId != null && groupSpeakerId.isNotEmpty)
           ? groupSpeakerId
-          : (_activeCharacter != null
-                ? _getCharacterIdFromCard(_activeCharacter!)
+          : (_session.activeCharacter != null
+                ? _getCharacterIdFromCard(_session.activeCharacter!)
                 : '');
       if (ownerId.isNotEmpty && _pocketsLedger.pocketsWriteAllowed(ownerId)) {
         setPocketsFor(ownerId, Pockets.fromJson(pocketsSnap));

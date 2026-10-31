@@ -51,7 +51,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   /// Session-scoped journal / growth / embeddings. Other chats that
   /// still key a same-name member stay put. Safe to repeat.
   Future<void> _rekeyGroupMemoryRows(Iterable<CharacterCard> members) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     var moved = false;
     try {
@@ -82,7 +82,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   Future<void> _hydrateGroupObjectivesFromDb(
     Iterable<CharacterCard> members,
   ) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     try {
       for (final member in members) {
         final id = groupMemberStoreId(member);
@@ -100,7 +100,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   /// Session-scoped rows always move. Card-level rows move only when
   /// no library character already owns that legacy key.
   Future<void> _rekeyGroupObjectiveRows(Iterable<CharacterCard> members) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     try {
       for (final member in members) {
         final dest = groupMemberStoreId(member);

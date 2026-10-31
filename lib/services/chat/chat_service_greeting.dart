@@ -128,8 +128,8 @@ extension ChatServiceGreeting on ChatService {
     // id, and skipping the mark for it is what let the seed fire on every turn
     // anyway — the exact bug, still there, just narrower.
     final key =
-        '${_currentSessionId ?? ''}|'
-        '${_activeCharacter == null ? '' : _getCharacterIdFromCard(_activeCharacter!)}';
+        '${_session.currentSessionId ?? ''}|'
+        '${_session.activeCharacter == null ? '' : _getCharacterIdFromCard(_session.activeCharacter!)}';
     if (_openingPostureSeededFor == key) return;
     _openingPostureSeededFor = key;
     debugPrint('[Realism:Posture] Seeding opening position (none on record)');
@@ -149,18 +149,18 @@ extension ChatServiceGreeting on ChatService {
   Future<void> _runPostGreetingEval() async {
     if (!_realismEnabled) return;
     final evalChar =
-        _activeCharacter ??
+        _session.activeCharacter ??
         _greetingOwnerCard() ??
         (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
-    // Groups have a null _activeCharacter; still Read the Room when an
+    // Groups have a null _session.activeCharacter; still Read the Room when an
     // unauthored opener reached this path.
     if (evalChar == null && _activeGroup == null) return;
     testPostGreetingEvalEntered = true;
     final token = _greetingEvalGen;
     final indexStamp = _greetingIndex;
-    final previousActive = _activeCharacter;
-    if (_activeCharacter == null && evalChar != null) {
-      _activeCharacter = evalChar;
+    final previousActive = _session.activeCharacter;
+    if (_session.activeCharacter == null && evalChar != null) {
+      _session.activeCharacter = evalChar;
     }
     _greetingEvalPending = false; // consume the pending flag
     debugPrint('[Realism] Running post-greeting baseline eval...');
@@ -208,13 +208,13 @@ extension ChatServiceGreeting on ChatService {
         }
 
         // Store initial emotion in metadata on the greeting message itself
-        if (_messages.isNotEmpty) {
-          _messages.first.activeMetadata ??= {};
+        if (_session.messages.isNotEmpty) {
+          _session.messages.first.activeMetadata ??= {};
           if (_characterEmotion.isNotEmpty) {
-            _messages.first.activeMetadata!['emotion_label'] =
+            _session.messages.first.activeMetadata!['emotion_label'] =
                 _characterEmotion;
-            _messages.first.activeMetadata!['realism_state'] = _realismSnapshot
-                .capture();
+            _session.messages.first.activeMetadata!['realism_state'] =
+                _realismSnapshot.capture();
           }
         }
         // Unauthored group RtR writes live scalars only unless we put them
@@ -235,8 +235,8 @@ extension ChatServiceGreeting on ChatService {
         // a turn that overlapped the eval may hold it now.
         if (_activeGroup != null &&
             evalChar != null &&
-            stillLentTo(_activeCharacter, evalChar)) {
-          _activeCharacter = previousActive;
+            stillLentTo(_session.activeCharacter, evalChar)) {
+          _session.activeCharacter = previousActive;
         }
         _isProcessingGreeting = false;
         notifyListeners();
@@ -248,9 +248,9 @@ extension ChatServiceGreeting on ChatService {
   /// with no prior state captured. Evaluates the full visible message history
   /// so the engine catches up on emotion, bond, and scene state.
   Future<void> _runRetroactiveBaselineEval() async {
-    if (!_realismEnabled || _activeCharacter == null) return;
+    if (!_realismEnabled || _session.activeCharacter == null) return;
     debugPrint(
-      '[Realism] Running retroactive baseline scan (${_messages.length} messages)...',
+      '[Realism] Running retroactive baseline scan (${_session.messages.length} messages)...',
     );
     _isProcessingGreeting = true; // reuse the greeting overlay
     notifyListeners();
@@ -301,11 +301,12 @@ extension ChatServiceGreeting on ChatService {
       await _seedOpeningPosture();
 
       // Stamp the baseline on the most recent message so it persists
-      if (_messages.isNotEmpty) {
-        _messages.last.activeMetadata ??= {};
-        _messages.last.activeMetadata!['emotion_label'] = _characterEmotion;
-        _messages.last.activeMetadata!['realism_state'] = _realismSnapshot
-            .capture();
+      if (_session.messages.isNotEmpty) {
+        _session.messages.last.activeMetadata ??= {};
+        _session.messages.last.activeMetadata!['emotion_label'] =
+            _characterEmotion;
+        _session.messages.last.activeMetadata!['realism_state'] =
+            _realismSnapshot.capture();
       }
       await _saveChat();
       notifyListeners();
@@ -334,7 +335,7 @@ extension ChatServiceGreeting on ChatService {
   /// Cycle the first message through alternate greetings.
   /// Commit-once: the same [selectGreeting] path the picker uses.
   Future<void> cycleGreeting(int direction) async {
-    if (_messages.isEmpty) return;
+    if (_session.messages.isEmpty) return;
     final allGreetings = openingAllGreetings;
     if (allGreetings.length <= 1) return;
 

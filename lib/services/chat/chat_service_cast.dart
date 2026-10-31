@@ -64,13 +64,13 @@ extension ChatServiceCast on ChatService {
     // 1. Narrate the departure in the member's own voice, reusing the one-shot
     //    hidden stage direction the entrance flow uses (injected for the next
     //    speaker, then cleared after that turn).
-    _groupManager?.setNextSpeaker(member);
+    _session.groupManager?.setNextSpeaker(member);
     _entranceDirective =
         'Stage direction (hidden — do NOT quote or copy this text into the '
         'reply): ${member.name} is leaving the conversation now. Write '
         '${member.name}\'s short, in-character goodbye / exit, in their own '
         'voice and words.';
-    final before = _messages.length;
+    final before = _session.messages.length;
     try {
       await _generateResponse(GenerationMode.normal);
     } catch (e) {
@@ -90,17 +90,17 @@ extension ChatServiceCast on ChatService {
       if (await removeCharacterFromGroup(member, groupRepo)) return true;
       // Still busy: the next send commits it, as for any exit.
     }
-    _groupManager?.refreshCharacters(remaining);
+    _session.groupManager?.refreshCharacters(remaining);
     _sceneGuest.pendingMemberExit = member;
     // 3. Arm the UNDO snackbar; the just-generated goodbye turn is what undo
     //    deletes (its realism rollback included). Mirrors armSceneGuestExitUndo
     //    but without the lite `_sceneGuest.exitUndoGuest` marker so undoLastExit takes the
     //    group branch.
     _sceneGuest.exitUndoMessage =
-        (_messages.isNotEmpty &&
-            !_messages.last.isUser &&
-            _messages.last.sender != 'System')
-        ? _messages.last
+        (_session.messages.isNotEmpty &&
+            !_session.messages.last.isUser &&
+            _session.messages.last.sender != 'System')
+        ? _session.messages.last
         : null;
     _sceneGuest.exitUndoOfferName = member.name;
     _sceneGuest.exitUndoUserStep = false; // UNDO now means this exit
@@ -127,7 +127,7 @@ extension ChatServiceCast on ChatService {
     _clearExitUndo();
     if (_activeGroup == null) return false;
     final name = _userPersonaService.persona.name;
-    final before = _messages.length;
+    final before = _session.messages.length;
     _entranceDirective = userStepsOutDirective(name);
     try {
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
@@ -137,10 +137,10 @@ extension ChatServiceCast on ChatService {
     }
     await _dropSilentStagedTurn(before);
     _observerMode = true;
-    final last = _messages.lastOrNull;
+    final last = _session.messages.lastOrNull;
     _sceneGuest.exitUndoUserStep = true;
     _sceneGuest.exitUndoMessage =
-        (_messages.length > before &&
+        (_session.messages.length > before &&
             last != null &&
             !last.isUser &&
             last.sender != 'System')
@@ -161,7 +161,7 @@ extension ChatServiceCast on ChatService {
     _clearExitUndo();
     _observerMode = false;
     _entranceDirective = userReturnsDirective(_userPersonaService.persona.name);
-    final before = _messages.length;
+    final before = _session.messages.length;
     try {
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
     } catch (e) {
@@ -182,7 +182,7 @@ extension ChatServiceCast on ChatService {
     final goodbye = _sceneGuest.exitUndoMessage;
     _clearExitUndo();
     if (goodbye != null) {
-      final idx = _messages.indexOf(goodbye);
+      final idx = _session.messages.indexOf(goodbye);
       if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
     }
     _observerMode = false;
@@ -237,7 +237,7 @@ extension ChatServiceCast on ChatService {
   /// dropped.
   Future<bool> narrateScene(String hint) async {
     if (!_directing || _isTurnBusy) return false;
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     // The beat closes the undo window the way a note does.
     await _commitPendingMemberExit();
     _clearExitUndo();
@@ -246,9 +246,11 @@ extension ChatServiceCast on ChatService {
     var landed = '';
     try {
       _setGuestStatus('The narrator sets the scene…', sticky: true);
-      final recent = _messages.length > kNarrationHistoryLines
-          ? _messages.sublist(_messages.length - kNarrationHistoryLines)
-          : _messages;
+      final recent = _session.messages.length > kNarrationHistoryLines
+          ? _session.messages.sublist(
+              _session.messages.length - kNarrationHistoryLines,
+            )
+          : _session.messages;
       final raw = await _llmEvalEngine.fireLLMEval(
         narrationPrompt(
           recentLines: [
@@ -276,7 +278,7 @@ extension ChatServiceCast on ChatService {
         return true;
       }
       _setGuestStatus(null);
-      _messages.add(narrationMessage(beat));
+      _session.messages.add(narrationMessage(beat));
       await _saveChat();
       landed = beat;
     } catch (e) {
@@ -323,7 +325,7 @@ extension ChatServiceCast on ChatService {
     _setGuestStatus('The narrator fills in the time skip…', sticky: true);
     try {
       final scene = [
-        for (final m in _messages)
+        for (final m in _session.messages)
           if (!identical(m, skipLine)) m,
       ];
       final recent = scene.length > kNarrationHistoryLines
@@ -338,7 +340,7 @@ extension ChatServiceCast on ChatService {
           ],
           castNames: _activeGroup != null
               ? [for (final c in _groupCharacters) c.name]
-              : [?_activeCharacter?.name],
+              : [?_session.activeCharacter?.name],
           userName: _userPersonaService.persona.name,
           skipLine: skipLine.text,
           from: '${skipMomentWords(from)} (${StoryClock.formatClock(from)})',
@@ -370,9 +372,9 @@ extension ChatServiceCast on ChatService {
       // Stored before the skip line, so the line that skipped stays the
       // user's turn for every pass that looks for it. The prompt reads it
       // after that line (bridgesAfterSkipLines).
-      final at = _messages.indexOf(skipLine);
-      _messages.insert(
-        at < 0 ? _messages.length : at,
+      final at = _session.messages.indexOf(skipLine);
+      _session.messages.insert(
+        at < 0 ? _session.messages.length : at,
         timeSkipBridgeMessage(beat),
       );
       await _saveChat();
@@ -390,11 +392,13 @@ extension ChatServiceCast on ChatService {
   /// thought) is not a turn: it goes, rather than staying as an empty
   /// "only thoughts" bubble. [before] is the transcript length before it.
   Future<void> _dropSilentStagedTurn(int before) async {
-    final last = _messages.lastOrNull;
-    if (_messages.length <= before || last == null || last.isUser) return;
+    final last = _session.messages.lastOrNull;
+    if (_session.messages.length <= before || last == null || last.isUser) {
+      return;
+    }
     if (last.displayText.trim().isNotEmpty) return;
     await _waitForTurnToSettle();
-    final idx = _messages.indexOf(last);
+    final idx = _session.messages.indexOf(last);
     if (idx >= 0) await deleteMessage(idx); // + reverts realism, saves
   }
 
@@ -451,11 +455,11 @@ extension ChatServiceCast on ChatService {
     // Growth rings — a hard-removed member leaves no growth residue behind
     // (mirrors the objectives/embeddings deletes above; charId is the unique
     // member instance id, so this never touches another character's rings).
-    if (_currentSessionId != null) {
-      await _growthStore.deleteAllFor(_currentSessionId!, charId);
+    if (_session.currentSessionId != null) {
+      await _growthStore.deleteAllFor(_session.currentSessionId!, charId);
       // Same reasoning for the diary: the removed member's journal cards are
       // keyed by this instance id, so nothing would ever read them again.
-      await _moveJournalCards(_currentSessionId!, charId, null);
+      await _moveJournalCards(_session.currentSessionId!, charId, null);
       await _growthDesk.refreshCache();
     }
   }

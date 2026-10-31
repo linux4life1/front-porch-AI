@@ -95,7 +95,7 @@ extension ChatServiceAccessors on ChatService {
   /// turn. Sidebar dots and the web facade read this so they never show an
   /// inclusion-group loser as active.
   Set<LorebookEntry> currentlyActiveLoreEntries() => _lorebookInjector
-      .activeEntries(sessionSeed: _currentSessionId ?? '')
+      .activeEntries(sessionSeed: _session.currentSessionId ?? '')
       .toSet();
 
   /// Public attach surface for chat tools / UI (Living Worlds).
@@ -248,9 +248,10 @@ extension ChatServiceAccessors on ChatService {
     // preference carried in from a previous 1:1 (e.g. a "enjoys being dirty"
     // character) would stay stale and invert every group member's hygiene.
     if (_activeGroup != null) {
-      return _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+      return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+          false;
     }
-    return _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+    return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
         _enjoysLowHygiene;
   }
 
@@ -259,9 +260,10 @@ extension ChatServiceAccessors on ChatService {
   /// so that existing chats immediately pick up the new setting without a
   /// database change.
   void refreshEnjoysLowHygieneFromActiveCharacter() {
-    if (_activeCharacter != null) {
+    if (_session.activeCharacter != null) {
       _enjoysLowHygiene =
-          _activeCharacter!.frontPorchExtensions?.enjoysLowHygiene ?? false;
+          _session.activeCharacter!.frontPorchExtensions?.enjoysLowHygiene ??
+          false;
       notifyListeners();
     }
   }
@@ -286,7 +288,7 @@ extension ChatServiceAccessors on ChatService {
     // from inside its in-progress write/transaction; re-check guards (and that
     // the chat hasn't switched) on the microtask. _resolveSceneGuestCards also
     // self-guards on the token, so a stale resolve can't write the wrong chat.
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     scheduleMicrotask(() {
       if (_sceneChanged(token) || _sceneGuest.busy || _sceneGuest.ids.isEmpty) {
         return;
@@ -341,7 +343,7 @@ extension ChatServiceAccessors on ChatService {
   /// Body for the class-pinned [lastRagReceipt] (fakes override the class
   /// member; see chat_service.dart). Reads the PUBLIC [messages] getter so
   /// a FakeChatService that implements ChatService from outside this library
-  /// is never probed for `_messages`.
+  /// is never probed for `_session.messages`.
   Map<String, dynamic>? get _lastRagReceiptImpl {
     for (final m in messages.reversed) {
       if (m.isUser || m.sender == 'System') continue;
@@ -385,8 +387,8 @@ extension ChatServiceAccessors on ChatService {
     if (_activeGroup != null) {
       return 'group_${_activeGroup!.id}';
     }
-    if (_activeCharacter == null) return "unknown";
-    return _getCharacterIdFromCard(_activeCharacter!);
+    if (_session.activeCharacter == null) return "unknown";
+    return _getCharacterIdFromCard(_session.activeCharacter!);
   }
 
   /// Helper used when constructing messages.
@@ -427,11 +429,11 @@ extension ChatServiceAccessors on ChatService {
     String? senderName,
     String? characterId,
   }) async {
-    if (_activeCharacter == null && _activeGroup == null) return;
-    _messages.add(
+    if (_session.activeCharacter == null && _activeGroup == null) return;
+    _session.messages.add(
       ChatMessage(
         text: '',
-        sender: senderName ?? _activeCharacter?.name ?? 'Narrator',
+        sender: senderName ?? _session.activeCharacter?.name ?? 'Narrator',
         isUser: false,
         characterId: characterId,
         metadata: {

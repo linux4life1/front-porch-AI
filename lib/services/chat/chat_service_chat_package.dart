@@ -7,21 +7,21 @@ part of '../chat_service.dart';
 extension ChatServiceChatPackage on ChatService {
   /// Export current chat as a `.fpchat` zip (full timeline). Returns null if empty.
   Future<Uint8List?> exportToFpchat() async {
-    if (_messages.isEmpty) return null;
-    if (_activeCharacter == null && _activeGroup == null) return null;
+    if (_session.messages.isEmpty) return null;
+    if (_session.activeCharacter == null && _activeGroup == null) return null;
 
     final laneA = <Map<String, dynamic>>[];
     final extras = <Map<String, dynamic>>[];
     final images = <String, List<int>>{};
 
-    for (var i = 0; i < _messages.length; i++) {
-      final m = _messages[i];
+    for (var i = 0; i < _session.messages.length; i++) {
+      final m = _session.messages[i];
       laneA.add(laneAMessage(m));
       extras.add(messagesExtraEntry(i, m));
       await _collectMessageImages(m, images);
     }
 
-    final char = _activeCharacter;
+    final char = _session.activeCharacter;
     final growth = await _exportGrowthForPackage();
     final objectives = await _exportObjectivesForPackage();
     final fpai = <String, dynamic>{
@@ -86,10 +86,11 @@ extension ChatServiceChatPackage on ChatService {
   }
 
   Future<List<Map<String, dynamic>>> _exportJournalCardsForPackage() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return const [];
     final owners = <String>{
-      if (_activeCharacter != null) _getCharacterIdFromCard(_activeCharacter!),
+      if (_session.activeCharacter != null)
+        _getCharacterIdFromCard(_session.activeCharacter!),
       for (final c in _groupCharacters) _getCharacterIdFromCard(c),
     }..removeWhere((e) => e.isEmpty);
     final out = <Map<String, dynamic>>[];

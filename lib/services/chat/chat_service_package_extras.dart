@@ -6,7 +6,7 @@ part of '../chat_service.dart';
 /// Phase 2 package payload: Growth rings + Objectives (export/import).
 extension ChatServicePackageExtras on ChatService {
   Future<Map<String, dynamic>> _exportGrowthForPackage() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return const {};
     final rings = await _db.getGrowthRingsForSession(sid);
     final cursor = await _db.getGrowthCursor(sid);
@@ -30,10 +30,11 @@ extension ChatServicePackageExtras on ChatService {
   }
 
   Future<List<Map<String, dynamic>>> _exportObjectivesForPackage() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return const [];
     final owners = <String>{
-      if (_activeCharacter != null) _getCharacterIdFromCard(_activeCharacter!),
+      if (_session.activeCharacter != null)
+        _getCharacterIdFromCard(_session.activeCharacter!),
       for (final c in _groupCharacters) _getCharacterIdFromCard(c),
     }..removeWhere((e) => e.isEmpty);
 
@@ -60,7 +61,7 @@ extension ChatServicePackageExtras on ChatService {
   }
 
   Future<void> _importGrowthFromPackage(Map<String, dynamic> growth) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     final cursor = (growth['cursor'] as num?)?.toInt() ?? 0;
     final rings = growth['rings'] as List? ?? const [];
@@ -95,7 +96,7 @@ extension ChatServicePackageExtras on ChatService {
         ),
       );
     }
-    await _db.setGrowthCursor(sid, cursor.clamp(0, _messages.length));
+    await _db.setGrowthCursor(sid, cursor.clamp(0, _session.messages.length));
     // Canonical roster refresh (group + 1:1). Scene guests are cleared on
     // import seed, so guest-owned rings from the package stay in DB for
     // that session id but are not injected until a guest re-enters.
@@ -103,7 +104,7 @@ extension ChatServicePackageExtras on ChatService {
   }
 
   Future<void> _importObjectivesFromPackage(List<dynamic> list) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     for (final raw in list) {
       if (raw is! Map) continue;

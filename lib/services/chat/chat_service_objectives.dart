@@ -33,7 +33,7 @@ extension ChatServiceObjectives on ChatService {
   /// Whose goal [obj] is: the member it belongs to in a group, the host in
   /// 1:1. Steps are written in that character's voice and scenario.
   CharacterCard? _objectiveOwnerCard(Objective obj) {
-    if (_activeGroup == null) return _activeCharacter;
+    if (_activeGroup == null) return _session.activeCharacter;
     for (final c in _groupCharacters) {
       if (_getCharacterIdFromCard(c) == obj.characterId) return c;
     }
@@ -42,15 +42,15 @@ extension ChatServiceObjectives on ChatService {
 
   /// Load the active objectives for the current session from DB.
   Future<void> _loadActiveObjectives() async {
-    if (_activeCharacter == null &&
+    if (_session.activeCharacter == null &&
         _activeGroup != null &&
-        _currentSessionId != null) {
+        _session.currentSessionId != null) {
       // A group has no active character between turns. Its lists load per
       // speaker, and the today line belongs to the chat: never "no chat".
       await _loadObjectivesForCurrentSpeaker();
       return;
     }
-    if (_activeCharacter == null || _currentSessionId == null) {
+    if (_session.activeCharacter == null || _session.currentSessionId == null) {
       _activeObjectives = [];
       _objectiveTally = ObjectiveTally.none;
       _messagesSinceLastCheck = 0;
@@ -64,15 +64,18 @@ extension ChatServiceObjectives on ChatService {
       _clearTodayPointer();
       return;
     }
-    final charId = _getCharacterIdFromCard(_activeCharacter!);
+    final charId = _getCharacterIdFromCard(_session.activeCharacter!);
     try {
       _activeObjectives = await _db.getActiveObjectives(
         charId,
-        chatId: _currentSessionId!,
+        chatId: _session.currentSessionId!,
       );
       _objectiveTally = objectiveTallyFrom(
         charId,
-        await _db.getObjectivesForCharacter(charId, chatId: _currentSessionId),
+        await _db.getObjectivesForCharacter(
+          charId,
+          chatId: _session.currentSessionId,
+        ),
       );
       for (final obj in _activeObjectives) {
         debugPrint(
@@ -127,28 +130,28 @@ extension ChatServiceObjectives on ChatService {
     String origin = kObjectiveOriginUser,
   }) async {
     if (goal.trim().isEmpty) return;
-    if (_currentSessionId == null) return;
+    if (_session.currentSessionId == null) return;
 
     CharacterCard? target = targetCharacter;
     if (target == null) {
       if (_activeGroup != null) {
         // During per-speaker group realism evals (which propose autonomous objectives),
-        // _activeCharacter is temporarily impersonated to the evaluated speaker. Prefer it
+        // _session.activeCharacter is temporarily impersonated to the evaluated speaker. Prefer it
         // so the character's own internal goal attaches to *them*, not nextCharacter.
         final currentIsGroupMember =
-            _activeCharacter != null &&
+            _session.activeCharacter != null &&
             _groupCharacters.any(
               (c) =>
                   _getCharacterIdFromCard(c) ==
-                  _getCharacterIdFromCard(_activeCharacter!),
+                  _getCharacterIdFromCard(_session.activeCharacter!),
             );
         if (currentIsGroupMember) {
-          target = _activeCharacter;
+          target = _session.activeCharacter;
         } else {
           target = nextCharacter ?? _groupCharacters.firstOrNull;
         }
       } else {
-        target = _activeCharacter;
+        target = _session.activeCharacter;
       }
     }
     if (target == null) return;
@@ -158,7 +161,7 @@ extension ChatServiceObjectives on ChatService {
     if (isPrimary) {
       final existing = await _db.getObjectivesForCharacter(
         charId,
-        chatId: _currentSessionId,
+        chatId: _session.currentSessionId,
       );
       for (final obj in existing) {
         if (obj.active && obj.isPrimary) {
@@ -207,7 +210,7 @@ extension ChatServiceObjectives on ChatService {
         id: newId,
         characterId: charId,
         objective: goal.trim(),
-        chatId: drift.Value(_currentSessionId),
+        chatId: drift.Value(_session.currentSessionId),
         active: const drift.Value(true),
         isPrimary: drift.Value(isPrimary),
         servedAmbition: drift.Value(servedAmbition),
@@ -252,32 +255,32 @@ extension ChatServiceObjectives on ChatService {
 
   /// Planner today line: one secondary, no tasks, no ambition, no eviction.
   Future<String?> _insertTodaySideQuest(String goal, {String? id}) async {
-    if (goal.trim().isEmpty || _currentSessionId == null) return null;
+    if (goal.trim().isEmpty || _session.currentSessionId == null) return null;
     CharacterCard? target;
     if (_activeGroup != null) {
       // The line comes from the reply just written, so it is that
       // speaker's. Director turns run without the speaker stand-in, and by
       // then the turn order already names the next member.
-      final replyId = _messages.reversed
+      final replyId = _session.messages.reversed
           .where((m) => !m.isUser && m.sender != 'System')
           .firstOrNull
           ?.characterId;
       final currentIsGroupMember =
-          _activeCharacter != null &&
+          _session.activeCharacter != null &&
           _groupCharacters.any(
             (c) =>
                 _getCharacterIdFromCard(c) ==
-                _getCharacterIdFromCard(_activeCharacter!),
+                _getCharacterIdFromCard(_session.activeCharacter!),
           );
       target =
           _groupCharacters
               .where((c) => _getCharacterIdFromCard(c) == replyId)
               .firstOrNull ??
           (currentIsGroupMember
-              ? _activeCharacter
+              ? _session.activeCharacter
               : (nextCharacter ?? _groupCharacters.firstOrNull));
     } else {
-      target = _activeCharacter;
+      target = _session.activeCharacter;
     }
     if (target == null) return null;
     final newId = id ?? const Uuid().v4();
@@ -286,7 +289,7 @@ extension ChatServiceObjectives on ChatService {
         id: newId,
         characterId: _getCharacterIdFromCard(target),
         objective: goal.trim(),
-        chatId: drift.Value(_currentSessionId),
+        chatId: drift.Value(_session.currentSessionId),
         active: const drift.Value(true),
         isPrimary: const drift.Value(false),
         servedAmbition: const drift.Value(null),
@@ -307,10 +310,10 @@ extension ChatServiceObjectives on ChatService {
   /// generated task progress, and cannot leave a duplicate copy of the goal
   /// behind as a still-active side quest.
   Future<void> promoteObjective(Objective obj) async {
-    if (_currentSessionId == null) return;
+    if (_session.currentSessionId == null) return;
     final existing = await _db.getObjectivesForCharacter(
       obj.characterId,
-      chatId: _currentSessionId,
+      chatId: _session.currentSessionId,
     );
     for (final o in existing) {
       if (o.active && o.isPrimary && o.id != obj.id) {
@@ -365,10 +368,13 @@ extension ChatServiceObjectives on ChatService {
   Future<List<Objective>> _getActiveObjectivesForImpl(
     CharacterCard character,
   ) async {
-    if (_currentSessionId == null) return const [];
+    if (_session.currentSessionId == null) return const [];
     final charId = _getCharacterIdFromCard(character);
     try {
-      return await _db.getActiveObjectives(charId, chatId: _currentSessionId!);
+      return await _db.getActiveObjectives(
+        charId,
+        chatId: _session.currentSessionId!,
+      );
     } catch (e) {
       debugPrint('[Objective] Failed to load for ${character.name}: $e');
       return const [];
@@ -379,7 +385,7 @@ extension ChatServiceObjectives on ChatService {
   /// so counting them would make the mention gate always-on and make every
   /// goal about the same person look like a duplicate to the proposal gate.
   Set<String> _objectiveIgnoreTokens() => <String>{
-    for (final c in [?_activeCharacter, ..._groupCharacters])
+    for (final c in [?_session.activeCharacter, ..._groupCharacters])
       ...c.name.toLowerCase().split(RegExp(r'[^a-z0-9]+')),
     ..._userPersonaService.persona.name.toLowerCase().split(
       RegExp(r'[^a-z0-9]+'),
@@ -389,8 +395,8 @@ extension ChatServiceObjectives on ChatService {
   /// The last few goals this character finished or let go in this chat, for
   /// the narrative judge ("finished: X", "let go: Y").
   Future<List<String>> _recentEndedObjectiveLines() async {
-    final sid = _currentSessionId;
-    final card = _activeCharacter;
+    final sid = _session.currentSessionId;
+    final card = _session.activeCharacter;
     if (sid == null || card == null) return const [];
     try {
       final rows = await _db.getObjectivesForCharacter(

@@ -173,8 +173,8 @@ extension ChatServiceGenerationPostGen on ChatService {
       };
 
       if (finalResponse.isNotEmpty &&
-          _messages.isNotEmpty &&
-          identical(_messages.last, t.streamTarget)) {
+          _session.messages.isNotEmpty &&
+          identical(_session.messages.last, t.streamTarget)) {
         // scanLatest reads the LAST message — only valid while the streamed
         // message still holds that position (a mid-turn insert/delete can
         // shift it; scanning someone else's text would trigger wrong lore).
@@ -254,15 +254,15 @@ extension ChatServiceGenerationPostGen on ChatService {
           _storageService.ttsSettings.ttsEnabled &&
           _storageService.ttsSettings.ttsAutoPlay &&
           !t.streamTarget.isUser &&
-          _messages.contains(t.streamTarget)) {
+          _session.messages.contains(t.streamTarget)) {
         final lastMsg = t.streamTarget;
-        final msgId = 'msg_${_messages.indexOf(t.streamTarget)}';
+        final msgId = 'msg_${_session.messages.indexOf(t.streamTarget)}';
         _ttsService!.speak(
           lastMsg.displayText,
           voiceKey: ttsVoiceForMessage(
             lastMsg,
             groupCast: _activeGroup != null ? _groupCharacters : null,
-            host: _activeCharacter,
+            host: _session.activeCharacter,
             sceneGuests: _sceneGuest.cards,
           ),
           messageId: msgId,

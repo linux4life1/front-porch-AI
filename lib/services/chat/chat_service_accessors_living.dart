@@ -86,7 +86,7 @@ extension ChatServiceAccessorsLiving on ChatService {
     if (!chainAllowsClimate(chain)) {
       return null;
     }
-    final seed = _currentSessionId;
+    final seed = _session.currentSessionId;
     if (seed == null) return null;
     return WeatherEngine.weatherFor(
       sessionSeed: seed,
@@ -107,7 +107,7 @@ extension ChatServiceAccessorsLiving on ChatService {
   DailyWeather? get _upcomingWeatherImpl {
     if (currentWeather == null) return null;
     return WeatherEngine.weatherFor(
-      sessionSeed: _currentSessionId!,
+      sessionSeed: _session.currentSessionId!,
       dayCount: _timeService.dayCount + 1,
       date: _timeService.clock.add(const Duration(days: 1)),
       biomeAtDay: _biomeAtDay,
@@ -122,7 +122,7 @@ extension ChatServiceAccessorsLiving on ChatService {
   SegmentWeather? get _currentSegmentWeatherImpl {
     if (currentWeather == null) return null;
     return WeatherSegments.segmentWeatherFor(
-      sessionSeed: _currentSessionId!,
+      sessionSeed: _session.currentSessionId!,
       dayCount: _timeService.dayCount,
       date: _timeService.clock,
       hour: _timeService.clock.hour,
@@ -136,7 +136,7 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// card-authored definitions + per-chat progress; desktop and web both
   /// read through it so they can't drift.
   List<({String text, int progress})> _ambitionsForImpl(CharacterCard card) {
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     final list = card.frontPorchExtensions?.ambitions ?? const [];
     if (sessionId == null || list.isEmpty) return const [];
     final cid = _getCharacterIdFromCard(card);
@@ -161,7 +161,7 @@ extension ChatServiceAccessorsLiving on ChatService {
           ChatParticipant(card: c, isHost: false),
       ];
     }
-    final host = _activeCharacter;
+    final host = _session.activeCharacter;
     return [
       if (host != null) ChatParticipant(card: host, isHost: true),
       for (final g in _sceneGuest.cards)
@@ -177,10 +177,10 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// scene. The UI uses this to offer "regenerate the main character" on a host
   /// bubble that the last-message-only regen button can no longer reach.
   int? get _regenerableHostBelowGuestsIndexImpl {
-    if (_activeGroup != null || _messages.isEmpty) return null;
-    if (!_isGuestAuthoredMessage(_messages.last)) return null;
-    for (int i = _messages.length - 1; i >= 0; i--) {
-      final m = _messages[i];
+    if (_activeGroup != null || _session.messages.isEmpty) return null;
+    if (!_isGuestAuthoredMessage(_session.messages.last)) return null;
+    for (int i = _session.messages.length - 1; i >= 0; i--) {
+      final m = _session.messages[i];
       if (m.isUser || m.sender == 'System') return null;
       if (!_isGuestAuthoredMessage(m)) return i;
     }
@@ -188,8 +188,8 @@ extension ChatServiceAccessorsLiving on ChatService {
   }
 
   void _editMessageImpl(int index, String newText) async {
-    if (index >= 0 && index < _messages.length) {
-      final msg = _messages[index];
+    if (index >= 0 && index < _session.messages.length) {
+      final msg = _session.messages[index];
       // text setter keeps swipe + realism metadata (chips survive edit).
       msg.text = newText;
       // Persist index — on-screen 0..23 is a tail window, not the diary cite.
@@ -210,9 +210,9 @@ extension ChatServiceAccessorsLiving on ChatService {
   void _setSessionThemeOverridesImpl(ChatThemeOverrides value) {
     _sessionThemeOverrides = value;
     // Persist only when a chat is actually open. The web facade already guards
-    // this, but a bare `_currentSessionId!` would crash any other caller that
+    // this, but a bare `_session.currentSessionId!` would crash any other caller that
     // sets the theme with no active session (session close mid-save, tests).
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid != null) {
       _db.setThemeOverrides(sid, value.toJsonString());
     }
@@ -250,7 +250,7 @@ extension ChatServiceRealismDoors on ChatService {
       _needsReprocess.revertNeedsReprocess(index);
 
   /// Test-only: pin the group speaker the same way `_generateResponse` does
-  /// ([GroupRealismStore.turnSpeakerId]). Do not assign `_activeCharacter`.
+  /// ([GroupRealismStore.turnSpeakerId]). Do not assign `_session.activeCharacter`.
   @visibleForTesting
   void debugPinTurnSpeakerForRealism(String? charId) {
     _groupStore.turnSpeakerId = charId;
@@ -433,25 +433,25 @@ extension ChatServiceMemoryDoors on ChatService {
   Future<void> forceGrowthPass() => _growthDesk.forceGrowthPass();
 
   ItemCardJournal _buildItemCardJournal() => ItemCardJournal(
-    messages: _messages,
+    messages: _session.messages,
     history: _history,
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     journalStore: () => _journalStore,
     db: () => _db,
     time: () => _timeService,
     memorySettings: () => _storageService.memorySettings,
-    activeCharacterName: () => _activeCharacter?.name,
+    activeCharacterName: () => _session.activeCharacter?.name,
   );
 
   GrowthDesk _buildGrowthDesk() => GrowthDesk(
-    messages: _messages,
+    messages: _session.messages,
     macroResolver: _macroResolver,
     store: () => _growthStore,
     review: () => _growthReview,
     service: () => _growthService,
     journalMaintenance: () => _journalMaintenance,
-    currentSessionId: () => _currentSessionId,
-    activeCharacter: () => _activeCharacter,
+    currentSessionId: () => _session.currentSessionId,
+    activeCharacter: () => _session.activeCharacter,
     activeGroup: () => _activeGroup,
     groupCharacters: () => _groupCharacters,
     sceneGuestCards: () => _sceneGuest.cards,
@@ -465,8 +465,8 @@ extension ChatServiceMemoryDoors on ChatService {
   );
 
   TimelineInvalidator _buildTimelineInvalidator() => TimelineInvalidator(
-    messages: _messages,
-    currentSessionId: () => _currentSessionId,
+    messages: _session.messages,
+    currentSessionId: () => _session.currentSessionId,
     summary: () => _summary,
     setSummary: (v) => _summary = v,
     armRecapClear: () => _recapClearArmed = true,

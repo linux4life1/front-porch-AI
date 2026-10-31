@@ -51,9 +51,9 @@ class PocketsLedger {
   /// Pending-intro queues, charId → intros.
   final Map<String, List<PendingItemIntro>> _pendingItemIntros = {};
 
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
 
   /// The one Pockets switch (`ChatService.pocketsFeatureEnabled`).
   bool get pocketsFeatureEnabled => _scope.realismSettings().pocketsEnabled;

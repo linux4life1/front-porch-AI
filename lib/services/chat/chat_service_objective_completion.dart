@@ -79,7 +79,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     // nothing; only the answer does.
     final charId = _activeObjectives.first.characterId;
     final replanMinutes = objectiveReplanMinutes(
-      stamp: lastObjectiveSyncStamp(_messages, charId),
+      stamp: lastObjectiveSyncStamp(_session.messages, charId),
       dayNow: _timeService.dayCount,
       clockNow: _timeService.clock,
     );
@@ -100,7 +100,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
       // interval check, never lost. Cast + user name tokens are excluded or
       // "get Jennifer to admit her fear" would match every line Jennifer
       // speaks.
-      final recentLower = _messages.reversed
+      final recentLower = _session.messages.reversed
           .take(8)
           .map((m) => m.promptText)
           .join('\n')
@@ -203,11 +203,13 @@ extension ChatServiceObjectiveCompletion on ChatService {
     final base = _history.basePosition;
     final reply = _objectiveTurnReply;
     if (reply != null) {
-      final i = _messages.lastIndexWhere((m) => identical(m, reply));
+      final i = _session.messages.lastIndexWhere((m) => identical(m, reply));
       return i < 0 ? const [] : [persistMessagePosition(base: base, index: i)];
     }
     if (_objectiveTurnOpsArmed) {
-      return [persistMessagePosition(base: base, index: _messages.length)];
+      return [
+        persistMessagePosition(base: base, index: _session.messages.length),
+      ];
     }
     return const [];
   }
@@ -304,7 +306,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
             if (charId != null && charId.isNotEmpty) {
               final current = await _db.getObjectivesForCharacter(
                 charId,
-                chatId: _currentSessionId,
+                chatId: _session.currentSessionId,
               );
               otherPrimaryExists = current.any(
                 (o) => o.active && o.isPrimary && o.id != id,
@@ -345,7 +347,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     required String cardId,
     required bool kept,
   }) async {
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return false;
     // Never mid-turn: the scalar dance below would fight the active
     // speaker's own load/save.
@@ -387,12 +389,12 @@ extension ChatServiceObjectiveCompletion on ChatService {
   void _maybeRunPromiseDebtPass() {
     if (!_storageService.realismSettings.promiseLedgerEnabled) return;
     if (!_storageService.memorySettings.journalEnabled) return;
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return;
     final charId = _groupStore.currentSpeakerId();
     if (charId.isEmpty) return;
 
-    String characterName = _activeCharacter?.name ?? 'the character';
+    String characterName = _session.activeCharacter?.name ?? 'the character';
     if (_activeGroup != null) {
       final card = _groupCharacters
           .where((c) => _getCharacterIdFromCard(c) == charId)
@@ -403,7 +405,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     // 6, not the judges' 4: a promise often spans a couple of exchanges
     // (missed KEPT if it scrolls out — 2026-08-04). recentExchange is the
     // one window builder (clamp, photo markers, think-strip).
-    final recent = recentExchange(_messages, take: 6);
+    final recent = recentExchange(_session.messages, take: 6);
     if (recent.trim().isEmpty) return;
 
     unawaited(
@@ -415,7 +417,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
         recentExchange: recent,
         receiptPosition: persistTipCite(
           base: _history.basePosition,
-          length: _messages.length,
+          length: _session.messages.length,
         ).firstOrNull,
         storyDay: _timeService.dayCount,
         storyClock: _timeService.storyClockIso,

@@ -30,7 +30,7 @@ extension ChatServiceChatPackageImport on ChatService {
     Future<bool> Function(String packageName, String activeName)?
     onCharacterMismatch,
   }) async {
-    if (_activeCharacter == null && _activeGroup == null) {
+    if (_session.activeCharacter == null && _activeGroup == null) {
       throw Exception('No active character or group');
     }
     if (_isTurnBusy) throw ChatImportBusy();
@@ -49,7 +49,7 @@ extension ChatServiceChatPackageImport on ChatService {
     onCharacterMismatch,
   ) async {
     // Preserve the currently open chat before replacing in-memory messages.
-    if (_currentSessionId != null && _messages.isNotEmpty) {
+    if (_session.currentSessionId != null && _session.messages.isNotEmpty) {
       await _saveChat();
     }
 
@@ -121,17 +121,19 @@ extension ChatServiceChatPackageImport on ChatService {
               'Package was exported for group '
               '"${pkgChar['group_name'] ?? pkgGroupId}" but open group is '
               '"${_activeGroup!.name}" — importing dialogue only.';
-        } else if (!openIsGroup && _activeCharacter != null && !pkgIsGroup) {
-          final activeId = _activeCharacter!.stableGroupId;
+        } else if (!openIsGroup &&
+            _session.activeCharacter != null &&
+            !pkgIsGroup) {
+          final activeId = _session.activeCharacter!.stableGroupId;
           final mismatch =
               (pkgId.isNotEmpty && pkgId != activeId) ||
               (pkgName.isNotEmpty &&
                   pkgName.toLowerCase() !=
-                      _activeCharacter!.name.toLowerCase());
+                      _session.activeCharacter!.name.toLowerCase());
           if (mismatch && onCharacterMismatch != null) {
             final cont = await onCharacterMismatch(
               pkgName.isEmpty ? pkgId : pkgName,
-              _activeCharacter!.name,
+              _session.activeCharacter!.name,
             );
             if (!cont) {
               full = false;
@@ -140,7 +142,7 @@ extension ChatServiceChatPackageImport on ChatService {
           } else if (mismatch) {
             warning =
                 'Package was exported for "$pkgName" but active card is '
-                '"${_activeCharacter!.name}". Restoring stamps anyway.';
+                '"${_session.activeCharacter!.name}". Restoring stamps anyway.';
           }
           if (full && pkgId.isNotEmpty && pkgId != activeId) {
             ownerRemapFrom = pkgId;
@@ -151,7 +153,7 @@ extension ChatServiceChatPackageImport on ChatService {
 
     final remapTo = ownerRemapFrom == null
         ? null
-        : _getCharacterIdFromCard(_activeCharacter!);
+        : _getCharacterIdFromCard(_session.activeCharacter!);
 
     // Phase 0: seed card defaults so save never bleeds prior live state.
     await _seedLiveRealismForImportedSession();
@@ -169,16 +171,17 @@ extension ChatServiceChatPackageImport on ChatService {
     final msgs = messagesFromPackage(laneA: laneA, extras: extras);
 
     // Mint session id BEFORE materializing images so paths land under it.
-    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+        .toString();
     if (full && decoded.images.isNotEmpty) {
       await _materializePackageImages(msgs, decoded.images);
     }
 
-    _messages
+    _session.messages
       ..clear()
       ..addAll(msgs);
     // Imported history is not a virgin chat — RAG retrieval must not skip.
-    _isNewChat = _messages.isEmpty;
+    _isNewChat = _session.messages.isEmpty;
     _computeAbsenceGap(const []);
     await _seedChatWorldsForNewSession();
 
@@ -188,8 +191,10 @@ extension ChatServiceChatPackageImport on ChatService {
           : null;
       if (session != null) {
         await _applySessionHeadFromPackage(session);
-      } else if (_messages.isNotEmpty) {
-        await _restoreRealismStateWalkingBack(fromIndex: _messages.length - 1);
+      } else if (_session.messages.isNotEmpty) {
+        await _restoreRealismStateWalkingBack(
+          fromIndex: _session.messages.length - 1,
+        );
       }
       // After seed wiped guests: restore `fpai.cast` on a matching open
       // chat. Mismatched / dialogue-only never reaches here (`full` is false).
@@ -220,7 +225,7 @@ extension ChatServiceChatPackageImport on ChatService {
     } else {
       // Transcript-only: journal cursor caught up, blank memory (no thrash).
       _summary = '';
-      _summaryLastIndex = _messages.length;
+      _summaryLastIndex = _session.messages.length;
     }
 
     await _saveChat();
@@ -235,7 +240,7 @@ extension ChatServiceChatPackageImport on ChatService {
   ) async {
     if (images.isEmpty) return;
     final igs = _imageGenService;
-    final sid = _currentSessionId ?? 'import';
+    final sid = _session.currentSessionId ?? 'import';
     var seq = 0;
     for (final m in msgs) {
       final md = m.activeMetadata;
@@ -295,7 +300,7 @@ extension ChatServiceChatPackageImport on ChatService {
   }
 
   Future<void> _importJournalCardsFromPackage(List<dynamic> journal) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     final maxCards = _storageService.memorySettings.journalMaxCards;
     for (final raw in journal) {
@@ -342,7 +347,7 @@ extension ChatServiceChatPackageImport on ChatService {
   /// windows stay missing until this loop resumes or the live post-gen path
   /// fills gaps (idempotent). Half-embedded is safe — never blocks Send.
   Future<void> _scheduleRagBackfillAfterImport() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     final mem = _memoryService;
     if (sid == null || mem == null) return;
     if (!mem.isOperational) return;
@@ -350,8 +355,8 @@ extension ChatServiceChatPackageImport on ChatService {
     if (charId.isEmpty) return;
 
     await _awaitHistoryHydrated();
-    if (_currentSessionId != sid) return;
-    final formatted = _formatMessagesForRagEmbedding(_messages);
+    if (_session.currentSessionId != sid) return;
+    final formatted = _formatMessagesForRagEmbedding(_session.messages);
     final offset = _history.basePosition;
     // Bound wall-clock work: each successful window resets stall; null-embed
     // / abort only retry a limited number of times so we never busy-spin the
@@ -360,7 +365,7 @@ extension ChatServiceChatPackageImport on ChatService {
     const maxStall = 40;
     for (var i = 0; i < 50000; i++) {
       // User left this chat / imported another — stop writing orphans.
-      if (_currentSessionId != sid) {
+      if (_session.currentSessionId != sid) {
         debugPrint(
           '[fpchat] RAG backfill stopped — session changed away from $sid',
         );
@@ -386,7 +391,8 @@ extension ChatServiceChatPackageImport on ChatService {
           totalMessageCount: formatted.length,
           positionOffset: offset,
           maxWindows: 1,
-          shouldContinue: () => !_isGenerating && _currentSessionId == sid,
+          shouldContinue: () =>
+              !_isGenerating && _session.currentSessionId == sid,
         );
         if (pass.aborted) {
           stallStreak++;

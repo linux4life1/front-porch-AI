@@ -24,12 +24,12 @@ extension ChatServiceActions on ChatService {
   // ── Action Suggestions ────────────────────────────────────────────────
 
   /// True while [anchor] is still the last message — same chat, same turn.
-  /// Every switch / load / fork / tail-delete path rebuilds `_messages`, so
+  /// Every switch / load / fork / tail-delete path rebuilds `_session.messages`, so
   /// this one check is what keeps suggestions off another chat's bubble.
   bool _suggestionsStillFor(ChatMessage? anchor) =>
       anchor != null &&
-      _messages.isNotEmpty &&
-      identical(_messages.last, anchor);
+      _session.messages.isNotEmpty &&
+      identical(_session.messages.last, anchor);
 
   List<String> get _anchoredSuggestedActions =>
       _suggestionsStillFor(_suggestedActionsAnchor)
@@ -53,8 +53,8 @@ extension ChatServiceActions on ChatService {
 
   /// Generate action suggestions on demand (called from UI button).
   Future<void> generateActions() async {
-    if (_messages.isEmpty) return;
-    final anchor = _messages.last;
+    if (_session.messages.isEmpty) return;
+    final anchor = _session.messages.last;
     // A double tap on the same message is ignored; a run left behind by
     // another chat is superseded (it checks the anchor before landing).
     if (_isGeneratingActions && identical(_suggestedActionsAnchor, anchor)) {
@@ -73,9 +73,9 @@ extension ChatServiceActions on ChatService {
       }
 
       // Build context from recent messages (last 6)
-      final recentMessages = _messages.length > 6
-          ? _messages.sublist(_messages.length - 6)
-          : _messages;
+      final recentMessages = _session.messages.length > 6
+          ? _session.messages.sublist(_session.messages.length - 6)
+          : _session.messages;
 
       final contextText = recentMessages
           .map((m) {

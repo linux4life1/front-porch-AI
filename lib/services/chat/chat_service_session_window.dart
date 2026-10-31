@@ -31,13 +31,15 @@ extension ChatServiceSessionWindow on ChatService {
   /// absolute position *before* awaiting so a fork/delete tap during the
   /// window still addresses the same row after older lines prepend.
   Future<int?> _resolveHydratedIndex(int messageIndex) async {
-    if (messageIndex < 0 || messageIndex >= _messages.length) return null;
+    if (messageIndex < 0 || messageIndex >= _session.messages.length) {
+      return null;
+    }
     final abs = persistMessagePosition(
       base: _history.basePosition,
       index: messageIndex,
     );
     await _awaitHistoryHydrated();
-    if (abs < 0 || abs >= _messages.length) return null;
+    if (abs < 0 || abs >= _session.messages.length) return null;
     return abs;
   }
 
@@ -48,10 +50,10 @@ extension ChatServiceSessionWindow on ChatService {
   Future<void> _openSessionMessages(String sessionId) async {
     if (_history.backfill != null &&
         _history.backfillSessionId == sessionId &&
-        _messages.isNotEmpty) {
+        _session.messages.isNotEmpty) {
       debugPrint(
         '[ChatOpen] keep tail; archive load already running '
-        'session=$sessionId n=${_messages.length}',
+        'session=$sessionId n=${_session.messages.length}',
       );
       return;
     }
@@ -62,7 +64,7 @@ extension ChatServiceSessionWindow on ChatService {
       kSessionOpenWindow,
     );
     _computeAbsenceGap(tail);
-    _messages.clear();
+    _session.messages.clear();
     _hydrateMessagesFromRows(tail);
     if (tail.isNotEmpty) {
       _history.basePosition = tail.first.position;
@@ -86,10 +88,12 @@ extension ChatServiceSessionWindow on ChatService {
     // message reads and holds the loading cover over the whole chat.
     while (_isLoadingSession &&
         epoch == _history.epoch &&
-        _currentSessionId == sessionId) {
+        _session.currentSessionId == sessionId) {
       await Future<void>.delayed(Duration.zero);
     }
-    if (epoch != _history.epoch || _currentSessionId != sessionId) return;
+    if (epoch != _history.epoch || _session.currentSessionId != sessionId) {
+      return;
+    }
     // One frame so ChatPage paints the tail before we decode the archive.
     await Future<void>.delayed(Duration.zero);
     final sw = Stopwatch()..start();
@@ -97,7 +101,7 @@ extension ChatServiceSessionWindow on ChatService {
     try {
       while (_history.hasMore &&
           epoch == _history.epoch &&
-          _currentSessionId == sessionId) {
+          _session.currentSessionId == sessionId) {
         final more = await _prependOlderPage(sessionId, epoch);
         if (!more) break;
         pages++;
@@ -110,7 +114,7 @@ extension ChatServiceSessionWindow on ChatService {
       }
       debugPrint(
         '[ChatOpen] backfill ${sw.elapsedMilliseconds}ms '
-        'pages=$pages n=${_messages.length} session=$sessionId',
+        'pages=$pages n=${_session.messages.length} session=$sessionId',
       );
     }
   }
@@ -125,7 +129,7 @@ extension ChatServiceSessionWindow on ChatService {
       _history.basePosition,
       limit: kSessionOlderPage,
     );
-    if (epoch != _history.epoch || _currentSessionId != sessionId) {
+    if (epoch != _history.epoch || _session.currentSessionId != sessionId) {
       return false;
     }
     if (older.isEmpty) {
@@ -133,10 +137,10 @@ extension ChatServiceSessionWindow on ChatService {
       _history.basePosition = 0;
       return false;
     }
-    final kept = List<ChatMessage>.from(_messages);
-    _messages.clear();
+    final kept = List<ChatMessage>.from(_session.messages);
+    _session.messages.clear();
     _hydrateMessagesFromRows(older);
-    _messages.addAll(kept);
+    _session.messages.addAll(kept);
     _history.basePosition = older.first.position;
     _history.hasMore =
         older.length == kSessionOlderPage && older.first.position > 0;
@@ -154,7 +158,7 @@ extension ChatServiceSessionWindow on ChatService {
   /// is already paging newest → older, or when the prefix is done.
   Future<void> loadOlderHistory({int count = kSessionOlderPage}) async {
     if (_history.isBackfilling) return;
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null || !_history.hasMore) return;
     await _prependOlderPage(sid, _history.epoch);
     notifyListeners();
@@ -176,7 +180,7 @@ extension ChatServiceFind on ChatService {
     bool caseSensitive = false,
   }) async {
     final epoch = _history.epoch;
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return const ChatFindOutcome();
     final spec = compileChatQuery(
       query,
@@ -185,11 +189,11 @@ extension ChatServiceFind on ChatService {
     );
     if (spec.bad) return const ChatFindOutcome(badPattern: true);
     await _awaitHistoryHydrated();
-    if (epoch != _history.epoch || _currentSessionId != sessionId) {
+    if (epoch != _history.epoch || _session.currentSessionId != sessionId) {
       return const ChatFindOutcome(stale: true);
     }
     final visible = [
-      for (final m in _messages)
+      for (final m in _session.messages)
         (text: m.isStatusBanner ? '' : m.displayText, sender: m.sender),
     ];
     // A plain query is an escaped literal and cannot backtrack. A raw regex
@@ -211,7 +215,7 @@ extension ChatServiceFind on ChatService {
       debugPrint('find-in-chat: $e');
       return const ChatFindOutcome(badPattern: true);
     }
-    if (epoch != _history.epoch || _currentSessionId != sessionId) {
+    if (epoch != _history.epoch || _session.currentSessionId != sessionId) {
       return const ChatFindOutcome(stale: true);
     }
     if (matches == null) {
@@ -228,7 +232,7 @@ extension ChatServiceFind on ChatService {
   /// Cheap COUNT; the backfill itself only notifies when it finishes, so the
   /// bar polls loaded-vs-total while it waits.
   Future<int> countAllMessages() async {
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return 0;
     return _db.countMessagesForSession(sessionId);
   }

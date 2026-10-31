@@ -317,8 +317,8 @@ class ChatService extends ChangeNotifier
   late final _growthDesk = _buildGrowthDesk();
   late final _timeline = _buildTimelineInvalidator();
 
-  CharacterCard? get activeCharacter => _activeCharacter;
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  CharacterCard? get activeCharacter => _session.activeCharacter;
+  List<ChatMessage> get messages => List.unmodifiable(_session.messages);
 
   /// Token streaming — deliberately the NARROW sense. It drives the send
   /// button, and widening it to cover post-generation was tried and REVERTED:
@@ -333,7 +333,7 @@ class ChatService extends ChangeNotifier
   /// A reply, its post-gen settle, an import or narration is running: the
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
   bool get isTurnBusy => _isTurnBusy;
-  String? get currentSessionId => _currentSessionId;
+  String? get currentSessionId => _session.currentSessionId;
 
   double get generationProgress => _generationProgress;
   int get tokensGenerated => _tokensGenerated;
@@ -362,11 +362,11 @@ class ChatService extends ChangeNotifier
   /// are not — the status bar must not print a chars/4 guess as tokens.
   bool get prefillMetricsAreMeasured =>
       _llmProvider == null || _llmProvider!.isLocal;
-  bool get isGroupMode => _groupManager?.isActive ?? false;
-  GroupChat? get activeGroup => _groupManager?.activeGroup;
-  bool get observerMode => _groupManager?.observerMode ?? false;
+  bool get isGroupMode => _session.groupManager?.isActive ?? false;
+  GroupChat? get activeGroup => _session.groupManager?.activeGroup;
+  bool get observerMode => _session.groupManager?.observerMode ?? false;
   List<CharacterCard> get groupCharacters =>
-      _groupManager?.characters ?? const <CharacterCard>[];
+      _session.groupManager?.characters ?? const <CharacterCard>[];
 
   /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_accessors.dart.
   List<ChatParticipant> get cast => _castImpl;

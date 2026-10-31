@@ -145,7 +145,10 @@ extension ChatServiceIdleAutonomous on ChatService {
   }
 
   String _buildAutonomousCue(CharacterCard? speaker) {
-    final who = AfkCueSpeaker.resolve(picked: speaker, host: _activeCharacter);
+    final who = AfkCueSpeaker.resolve(
+      picked: speaker,
+      host: _session.activeCharacter,
+    );
     final charName = who.name;
     // Ambitions give off-screen time direction (Living Time §6): a character
     // with a long-term end sometimes spends AFK moments working toward it

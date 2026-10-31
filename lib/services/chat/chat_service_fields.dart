@@ -49,7 +49,7 @@ mixin ChatServiceFieldBag {
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;
   // The message the suggestions (or the in-flight generation) were made for.
-  // Every chat switch / load / fork / tail-delete path rebuilds `_messages`,
+  // Every chat switch / load / fork / tail-delete path rebuilds `_session.messages`,
   // so "anchor is still the last message" is the one check that keeps
   // suggestions from leaking onto another chat's latest bubble (#329).
   ChatMessage? _suggestedActionsAnchor;
@@ -95,7 +95,6 @@ mixin ChatServiceFieldBag {
   // The consecutive-response cap lives in the persisted
   // generationSettings.dynamicResponseMaxMessages (default 3) so the sidebar
   // flyout, /afk --messages, and the settings all share one source of truth.
-  CharacterCard? _activeCharacter;
 
   // ── Scene Guests (Lite NPCs) ────────────────────────────────────────────
   // Every field lives in SceneGuestState (documented there); behaviour stays
@@ -126,7 +125,6 @@ mixin ChatServiceFieldBag {
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
   // (read in _maybeRunCastDetection). _castScanInterval → chat_service_defaults.
 
-  final List<ChatMessage> _messages = [];
   Future<void> _saveChain = Future.value();
 
   /// Serializes [sendMessage] so two composer taps during settle cannot
@@ -142,7 +140,7 @@ mixin ChatServiceFieldBag {
   /// is not finished there: the needs-impact eval, the realism-state re-stamp,
   /// the `RealismDance.saveScalarsIntoGroup` persist and the chip attach all run
   /// afterwards, and in a group they run under an impersonation dance that
-  /// reassigns `_activeCharacter` and loads that member's scalars. For those
+  /// reassigns `_session.activeCharacter` and loads that member's scalars. For those
   /// seconds the app used to report "not generating" while the engine was
   /// still mutating state, so every re-entrancy guard stood open: a delete
   /// could shift the timeline under a running eval, and a new turn could
@@ -182,18 +180,9 @@ mixin ChatServiceFieldBag {
   bool _cancelRequested = false;
   int _generationEpoch = 0;
 
-  String? _sessionId;
-
-  /// The chat open now. Every change goes through here, so KoboldCpp's saved
-  /// cache follows it: the chat left is let go unless Settings keeps recent
-  /// chats ready. A switch passes through no chat (null) on its way; only
-  /// the chat it lands on is told.
-  String? get _currentSessionId => _sessionId;
-  set _currentSessionId(String? id) {
-    if (id == _sessionId) return;
-    _sessionId = id;
-    if (id != null) _keeperFollows(id);
-  }
+  /// The open chat every domain reads (messages, session id, character,
+  /// group manager). Its session id setter tells KoboldCpp which chat is open.
+  late final _session = ChatSessionState(onChatOpened: _keeperFollows);
 
   /// Chat screens open on the desktop ([chatScreenOpened]).
   int _chatScreens = 0;
@@ -205,7 +194,7 @@ mixin ChatServiceFieldBag {
 
   /// The desktop's chat page opened: the chat it shows is the open one.
   void chatScreenOpened() {
-    if (_chatScreens++ == 0) _keeperFollows(_sessionId);
+    if (_chatScreens++ == 0) _keeperFollows(_session.currentSessionId);
   }
 
   /// The desktop's chat page closed. With none left the user went back to
@@ -274,7 +263,6 @@ mixin ChatServiceFieldBag {
   /// Main model parked by the pre-turn call-model swap (sendMessage enters,
   /// the request phase adopts into the turn carrier — see the request part).
   String? _callEvalModelOriginal;
-  GroupTurnManager? _groupManager;
 
   // Wired for decoupled group member loading (so setActiveGroup works even if caller
   // doesn't explicitly pass groupRepo every time). Set from main.dart provider setup.
@@ -322,7 +310,7 @@ mixin ChatServiceFieldBag {
   double _groupMemoryBudgetPercent = 10.0;
   Map<String, double> _groupCharacterRAGPriorities = {};
 
-  // Director Mode state is now owned by _groupManager when active.
+  // Director Mode state is now owned by _session.groupManager when active.
   // The public getters below delegate to it.
   // ── Author's Note ──
   String _authorNote = '';

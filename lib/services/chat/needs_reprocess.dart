@@ -67,11 +67,11 @@ class NeedsReprocess {
   /// Waits for the local engine to finish what it is doing.
   final Future<void> Function() waitForEvalIdle;
 
-  List<ChatMessage> get _messages => _scope.messages;
+  List<ChatMessage> get _messages => _scope.session.messages;
   bool get _isTurnBusy => isTurnBusy();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  set _activeCharacter(CharacterCard? c) => _scope.setActiveCharacter(c);
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  set _activeCharacter(CharacterCard? c) => _scope.session.activeCharacter = c;
   NeedsSimulation get _needsSimulation => _scope.needs();
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);

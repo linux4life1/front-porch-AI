@@ -31,10 +31,10 @@ extension ChatServiceGuestFlow on ChatService {
   /// just-generated host message (if any) is the departure to delete on undo.
   void armSceneGuestExitUndo(CharacterCard guest) {
     final departure =
-        (_messages.isNotEmpty &&
-            !_messages.last.isUser &&
-            _messages.last.sender != 'System')
-        ? _messages.last
+        (_session.messages.isNotEmpty &&
+            !_session.messages.last.isUser &&
+            _session.messages.last.sender != 'System')
+        ? _session.messages.last
         : null;
     _sceneGuest.exitUndoGuest = guest;
     _sceneGuest.exitUndoMessage = departure;
@@ -72,7 +72,7 @@ extension ChatServiceGuestFlow on ChatService {
       _sceneGuest.pendingMemberExit = null;
       _clearExitUndo();
       if (departure != null) {
-        final idx = _messages.indexOf(departure);
+        final idx = _session.messages.indexOf(departure);
         if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
       }
       await _reloadGroupRoster();
@@ -86,7 +86,7 @@ extension ChatServiceGuestFlow on ChatService {
     if (guest == null) return;
     _clearExitUndo();
     if (departure != null) {
-      final idx = _messages.indexOf(departure);
+      final idx = _session.messages.indexOf(departure);
       if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
     }
     final id = guest.dbId;
@@ -107,8 +107,8 @@ extension ChatServiceGuestFlow on ChatService {
     final repo = _characterRepository;
     if (repo == null) return const [];
     if (_activeGroup != null) return joinableGroupCharacters;
-    if (_activeCharacter == null) return const [];
-    final hostId = _activeCharacter!.dbId;
+    if (_session.activeCharacter == null) return const [];
+    final hostId = _session.activeCharacter!.dbId;
     final present = _sceneGuest.ids.toSet();
     return repo.characters.where((c) {
       final id = c.dbId;
@@ -165,7 +165,7 @@ extension ChatServiceGuestFlow on ChatService {
       );
       return;
     }
-    if (_activeGroup == null && _messages.isEmpty) {
+    if (_activeGroup == null && _session.messages.isEmpty) {
       _setGuestStatus(
         '⚠ Wait for the greeting, or send a line first — '
         'there is no scene to convert yet.',
@@ -322,7 +322,7 @@ extension ChatServiceGuestFlow on ChatService {
         .replaceAll(']', ')')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    _groupManager?.setNextSpeaker(resolved);
+    _session.groupManager?.setNextSpeaker(resolved);
     _entranceDirective =
         'Stage direction (hidden — do NOT quote, repeat, or copy this '
         'text into the reply): ${resolved.name} enters the scene now, '
@@ -424,7 +424,7 @@ extension ChatServiceGuestFlow on ChatService {
       caseSensitive: false,
     );
     final hits = <String>[];
-    for (final m in _messages) {
+    for (final m in _session.messages) {
       if (m.sender == 'System') continue;
       final t = m.displayText.trim();
       if (t.isEmpty || !re.hasMatch(t)) continue;
@@ -439,10 +439,11 @@ extension ChatServiceGuestFlow on ChatService {
   }
 
   /// True when the active 1:1 scene changed (chat/character/session switched)
-  /// or the service was disposed since [token] (a `_currentSessionId` snapshot)
+  /// or the service was disposed since [token] (a `_session.currentSessionId` snapshot)
   /// was captured. Fire-and-forget guest async work must bail — no state
   /// mutation, no DB, no UI signal — when this returns true after an `await`.
-  bool _sceneChanged(String? token) => _disposed || _currentSessionId != token;
+  bool _sceneChanged(String? token) =>
+      _disposed || _session.currentSessionId != token;
 
   /// Re-resolve `_sceneGuest.cards` from `_sceneGuest.ids` using the repository.
   /// Called whenever the id list changes or on session load. Drops ids that no
@@ -464,7 +465,7 @@ extension ChatServiceGuestFlow on ChatService {
       _sceneGuest.resolvePending = true;
       return;
     }
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     _sceneGuest.resolving = true;
     try {
       do {

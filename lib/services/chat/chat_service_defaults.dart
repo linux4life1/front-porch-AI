@@ -174,7 +174,7 @@ bool _isStaleGreetingEval() {
 }
 
 /// Set when [_runPostGreetingEval] passes its guards (not skipped solely
-/// because [_activeCharacter] is null). Tests prove group unauthored alts
+/// because [_session.activeCharacter] is null). Tests prove group unauthored alts
 /// reach the eval path.
 @visibleForTesting
 bool testPostGreetingEvalEntered = false;

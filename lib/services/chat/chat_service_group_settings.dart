@@ -123,9 +123,10 @@ extension ChatServiceGroupSettings on ChatService {
     if (group == null) return;
     group.turnOrder = random ? TurnOrder.random : TurnOrder.roundRobin;
     if (!random && customOrder != null && customOrder.isNotEmpty) {
-      _groupManager?.refreshCharacters(customOrder);
+      _session.groupManager?.refreshCharacters(customOrder);
     }
-    _groupManager?.resetTurnState(); // fresh pointer so the order starts at #1
+    _session.groupManager
+        ?.resetTurnState(); // fresh pointer so the order starts at #1
     await _groupChatRepository?.save(group);
     await _saveChat();
     notifyListeners();

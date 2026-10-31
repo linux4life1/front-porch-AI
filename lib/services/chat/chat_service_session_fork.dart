@@ -29,20 +29,20 @@ extension ChatServiceSessionFork on ChatService {
   /// list. Called at every session-creation site: fresh 1:1/group entry,
   /// forkSession, both startNewChat branches, and SillyTavern import.
   Future<void> _seedChatWorldsForNewSession({List<String>? carryRefs}) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     final refs =
         carryRefs ??
         (_activeGroup != null
             ? _activeGroup!.worldIds
-            : (_activeCharacter?.worldNames ?? const <String>[]));
+            : (_session.activeCharacter?.worldNames ?? const <String>[]));
     // A split group or card names its Setting and Lore apart; null keeps the
     // flat legacy seed for templates nobody has re-saved.
     final loreRefs = carryRefs != null
         ? null
         : (_activeGroup != null
               ? _activeGroup!.loreWorldIds
-              : _activeCharacter?.loreWorldNames);
+              : _session.activeCharacter?.loreWorldNames);
     try {
       if (refs.isNotEmpty || (loreRefs?.isNotEmpty ?? false)) {
         // A fork carries the parent's slots as they stand: a scene the
@@ -86,7 +86,7 @@ extension ChatServiceSessionFork on ChatService {
     );
 
     // Update in-memory if this is the current session
-    if (sessionId == _currentSessionId) {
+    if (sessionId == _session.currentSessionId) {
       _sessionName = name.isEmpty ? null : name;
       notifyListeners();
     }
@@ -109,7 +109,7 @@ extension ChatServiceSessionFork on ChatService {
     );
 
     // Update in-memory if this is the current session
-    if (sessionId == _currentSessionId) {
+    if (sessionId == _session.currentSessionId) {
       _sessionDescription = description.isEmpty ? null : description;
       notifyListeners();
     }
@@ -118,8 +118,8 @@ extension ChatServiceSessionFork on ChatService {
   /// Create a new session by forking from message at [messageIndex].
   /// Copies messages 0..messageIndex into a new session and switches to it.
   Future<void> forkFromMessage(int messageIndex) async {
-    if ((_activeCharacter == null && _activeGroup == null) ||
-        _currentSessionId == null) {
+    if ((_session.activeCharacter == null && _activeGroup == null) ||
+        _session.currentSessionId == null) {
       return;
     }
     final tip = await _resolveHydratedIndex(messageIndex);
@@ -131,9 +131,9 @@ extension ChatServiceSessionFork on ChatService {
     // forked transcript is live.
     await _invalidateGreetingEval();
 
-    final oldSessionId = _currentSessionId!;
+    final oldSessionId = _session.currentSessionId!;
     _clearTodayPointer();
-    final forkedMessages = _messages
+    final forkedMessages = _session.messages
         .sublist(0, tip + 1)
         .map(
           (m) => ChatMessage(
@@ -159,10 +159,11 @@ extension ChatServiceSessionFork on ChatService {
     debugPrint(
       '[ChatService] 🟡 forkSession: clearing messages for fork at index $messageIndex',
     );
-    _messages.clear();
-    _messages.addAll(forkedMessages);
+    _session.messages.clear();
+    _session.messages.addAll(forkedMessages);
     _history.reset();
-    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+        .toString();
     _computeAbsenceGap(
       const [],
     ); // fresh session — no real-world gap (Living Time §2)
@@ -179,7 +180,7 @@ extension ChatServiceSessionFork on ChatService {
     // Cards were copied for the kept prefix; start the cursor at the
     // fork tip so the next pass does not re-digest those same messages
     // (import uses the same rule).
-    _summaryLastIndex = _messages.length;
+    _summaryLastIndex = _session.messages.length;
     _selectedLooks
         .clear(); // fork starts with no per-chat look selection (keep reset blocks in sync)
     _summaryPaused =
@@ -193,9 +194,9 @@ extension ChatServiceSessionFork on ChatService {
     // before. Unstamped Carmen tip keeps the live clock. Stamp-less
     // (legacy/ST): rewind bond/emotion/arousal from the card but keep
     // per-chat feature toggles and fork lineage.
-    if (_messages.isNotEmpty) {
+    if (_session.messages.isNotEmpty) {
       await _restoreRealismStateWalkingBack(
-        fromIndex: _messages.length - 1,
+        fromIndex: _session.messages.length - 1,
         seedClockIfUnstamped: true,
       );
       _clockWriter.applyForkPointClock(parentStartDate: parentStart);
@@ -207,13 +208,13 @@ extension ChatServiceSessionFork on ChatService {
     // _saveChat so the new session row exists for the legacy-blob copy.
     await _growthStore.copySessionTo(
       oldSessionId,
-      _currentSessionId!,
-      cursor: _messages.length,
+      _session.currentSessionId!,
+      cursor: _session.messages.length,
     );
     await _journalStore.copySessionTo(
       oldSessionId,
-      _currentSessionId!,
-      cursor: _messages.length,
+      _session.currentSessionId!,
+      cursor: _session.messages.length,
     );
     await _growthDesk.refreshCache();
     notifyListeners();

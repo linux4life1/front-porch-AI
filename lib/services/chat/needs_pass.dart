@@ -57,10 +57,10 @@ class NeedsPass {
   bool get _clockRunning => _scope.clockRunning();
   NeedsSimulation get _needsSimulation => _scope.needs();
   TimeService get _timeService => _scope.time();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
-  List<ChatMessage> get _messages => _scope.messages;
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
+  List<ChatMessage> get _messages => _scope.session.messages;
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);

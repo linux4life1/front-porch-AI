@@ -31,17 +31,15 @@ extension ChatServiceSillyTavern on ChatService {
   /// Phase 2: real `.jsonl` rather than a single JSON wrapper so ST and other
   /// tools that expect JSONL chats can import without conversion.
   String? exportToSillyTavern() {
-    if (_messages.isEmpty) return null;
+    if (_session.messages.isEmpty) return null;
     final personaName = _userPersonaService.persona.name.trim();
     final userName = personaName.isEmpty ? 'User' : personaName;
-    final charName = _activeCharacter?.name ??
-        _activeGroup?.name ??
-        'Character';
+    final charName =
+        _session.activeCharacter?.name ?? _activeGroup?.name ?? 'Character';
     return encodeSillyTavernJsonl(
-      List<ChatMessage>.from(_messages),
+      List<ChatMessage>.from(_session.messages),
       userName: userName,
       characterName: charName,
     );
   }
-
 }

@@ -68,7 +68,7 @@ extension ChatServiceWiringMemory on ChatService {
   JournalReview _buildJournalReview() {
     return JournalReview(
       store: _journalStore,
-      getSessionId: () => _currentSessionId,
+      getSessionId: () => _session.currentSessionId,
       setRecap: (t) => _summary = t,
       setCursor: (i) => _summaryLastIndex = i,
       onSaveChat: _saveChat,
@@ -89,12 +89,12 @@ extension ChatServiceWiringMemory on ChatService {
       getReviewFirst: () => _storageService.memorySettings.journalReviewFirst,
       getBackendIdentity: () => _evalBackendIdentity,
       stripThinkBlocks: stripEvalThinkBlocks,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getUserName: () => _userPersonaService.persona.name,
       getCursor: () => _summaryLastIndex,
       setCursor: (i) => _summaryLastIndex = i,
@@ -113,10 +113,11 @@ extension ChatServiceWiringMemory on ChatService {
   JournalInjection _buildJournalInjection() {
     return JournalInjection(
       store: _journalStore,
-      getSessionId: () => _currentSessionId,
+      getSessionId: () => _session.currentSessionId,
       // Two-tier memory: receipts → live verbatim lines (positions are the
       // stable indices cards already store).
-      getMessageAt: (p) => p >= 0 && p < _messages.length ? _messages[p] : null,
+      getMessageAt: (p) =>
+          p >= 0 && p < _session.messages.length ? _session.messages[p] : null,
       // Same scalar EmotionInjection reads — in group non-obs the pre-gen
       // load-into-scalars dance has set it to the upcoming speaker's emotion
       // by assembly time, so mood-congruent recall is per-speaker (parity).
@@ -147,9 +148,9 @@ extension ChatServiceWiringMemory on ChatService {
       // guessing, and {{user}} always resolves to the persona.
       resolveMacros: (charId, text) {
         String? name;
-        if (_activeCharacter != null &&
-            _getCharacterIdFromCard(_activeCharacter!) == charId) {
-          name = _activeCharacter!.name;
+        if (_session.activeCharacter != null &&
+            _getCharacterIdFromCard(_session.activeCharacter!) == charId) {
+          name = _session.activeCharacter!.name;
         }
         if (name == null) {
           for (final c in _groupCharacters) {
@@ -179,7 +180,7 @@ extension ChatServiceWiringMemory on ChatService {
   GrowthReview _buildGrowthReview() {
     return GrowthReview(
       store: _growthStore,
-      getSessionId: () => _currentSessionId,
+      getSessionId: () => _session.currentSessionId,
       getIsGroup: () => _activeGroup != null,
       onApplied: () => _growthDesk.refreshCache(),
       onNotify: notifyListeners,
@@ -197,13 +198,13 @@ extension ChatServiceWiringMemory on ChatService {
       getPassEpoch: () => _memoryPassEpoch,
       stripThinkBlocks: stripEvalThinkBlocks,
       getBackendIdentity: () => _evalBackendIdentity,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getGroupCharacters: () => _groupCharacters,
       getSceneGuestCards: () => _sceneGuest.cards,
       getCharacterIdFromCard: _getCharacterIdFromCard,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getUserName: () => _userPersonaService.persona.name,
       getRecap: () => _summary,
       getJournalCards: (sessionId, charId) async => [
@@ -292,7 +293,7 @@ extension ChatServiceWiringMemory on ChatService {
     return _commandHandler ??= ChatCommandHandler(
       setExpression: (label) => _expressionService.setManualExpression(label),
       activeCharacterIsSet: () =>
-          _activeCharacter != null && _activeGroup == null,
+          _session.activeCharacter != null && _activeGroup == null,
       getSceneGuestCards: () => _sceneGuest.cards,
       setPendingGuestDeparture: (name) => _sceneGuest.pendingDeparture = name,
       onSystemMessage: (message) =>
@@ -320,7 +321,7 @@ extension ChatServiceWiringMemory on ChatService {
       },
       runCastScan: runCastDetectionNow,
       speakGuest: speakGuestNow,
-      getHostCharacter: () => _activeCharacter,
+      getHostCharacter: () => _session.activeCharacter,
       isTurnBusy: () => _isTurnBusy || _sceneGuest.busy,
       armExitUndo: armSceneGuestExitUndo,
       getGroupMembers: () =>
@@ -346,13 +347,13 @@ extension ChatServiceWiringMemory on ChatService {
           return;
         }
         _releaseHeldAway(member);
-        _groupManager?.setNextSpeaker(member);
-        final tipBefore = _messages.lastOrNull;
+        _session.groupManager?.setNextSpeaker(member);
+        final tipBefore = _session.messages.lastOrNull;
         await _generateResponse(GenerationMode.normal, forceSpeaker: member);
         // forceSpeaker skips the pick, so close the turn here once the
         // member's reply landed: the rotation carries on after them. A
         // refused or failed turn keeps them up next for the retry.
-        final tip = _messages.lastOrNull;
+        final tip = _session.messages.lastOrNull;
         final said = tip == null || identical(tip, tipBefore) || tip.isUser
             ? null
             : _resolveGroupSpeakerForMessage(tip);
@@ -360,8 +361,8 @@ extension ChatServiceWiringMemory on ChatService {
             said != null &&
             _getCharacterIdFromCard(said) == _getCharacterIdFromCard(member);
         if (spoke) {
-          _groupManager?.clearForcedSpeaker();
-          _groupManager?.advanceAfterRegeneration(member);
+          _session.groupManager?.clearForcedSpeaker();
+          _session.groupManager?.advanceAfterRegeneration(member);
         }
       },
       isGroupTurnOrderRandom: () => isGroupTurnOrderRandom,
@@ -423,7 +424,7 @@ extension ChatServiceWiringMemory on ChatService {
       getSceneGuestCards: () => _sceneGuest.cards,
       generateGuestTurn: generateGuestTurn,
       getLatestAssistantText: () {
-        for (final m in _messages.reversed) {
+        for (final m in _session.messages.reversed) {
           if (!m.isUser && m.sender != 'System') return m.displayText;
         }
         return '';
@@ -435,7 +436,7 @@ extension ChatServiceWiringMemory on ChatService {
       ),
       stripThinkBlocks: stripEvalThinkBlocks,
       extractJsonBool: evalJsonBool,
-      getHostName: () => _activeCharacter?.name ?? 'the character',
+      getHostName: () => _session.activeCharacter?.name ?? 'the character',
       isEnabled: () => autoChimeEnabled,
     );
   }
@@ -455,7 +456,7 @@ extension ChatServiceWiringMemory on ChatService {
         // guest's lines would let a guest "introduce" a character or get a guest
         // misattributed to the host.
         final out = <String>[];
-        for (final m in _messages.reversed) {
+        for (final m in _session.messages.reversed) {
           if (!m.isUser &&
               m.sender != 'System' &&
               !_isGuestAuthoredMessage(m)) {
@@ -472,7 +473,7 @@ extension ChatServiceWiringMemory on ChatService {
       ),
       stripThinkBlocks: stripEvalThinkBlocks,
       getHostName: () =>
-          _activeCharacter?.name ??
+          _session.activeCharacter?.name ??
           nextCharacter?.name ??
           _groupCharacters.firstOrNull?.name ??
           '',
@@ -489,5 +490,5 @@ extension ChatServiceWiringMemory on ChatService {
   /// over data already persisted; the journal dialog's timeline tab and the
   /// web facade both read through this one instance.
   MilestoneFeed _buildMilestoneFeed() =>
-      MilestoneFeed(getDb: () => _db, getMessages: () => _messages);
+      MilestoneFeed(getDb: () => _db, getMessages: () => _session.messages);
 }

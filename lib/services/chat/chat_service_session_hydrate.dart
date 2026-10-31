@@ -20,9 +20,9 @@ part of '../chat_service.dart';
 
 /// Session hydrate — messages, scalars, persona, Porch diary import.
 extension ChatServiceSessionHydrate on ChatService {
-  /// Decode DB [Message] rows into [_messages], applying retroactive output
+  /// Decode DB [Message] rows into [_session.messages], applying retroactive output
   /// sanitisation when the per-chat or global setting requests it.
-  /// Caller must clear `_messages` and set `_sessionGenSettings` beforehand.
+  /// Caller must clear `_session.messages` and set `_sessionGenSettings` beforehand.
   void _hydrateMessagesFromRows(List<Message> dbMessages) {
     // Output sanitizer: apply configured replacements to loaded swipes
     // so legacy messages (saved before this feature) are also normalised.
@@ -75,7 +75,7 @@ extension ChatServiceSessionHydrate on ChatService {
           ? m.swipeIndex
           : 0;
 
-      _messages.add(
+      _session.messages.add(
         ChatMessage(
           text: swipes.isNotEmpty ? swipes[safeSwipeIndex] : '',
           sender: m.sender,
@@ -100,7 +100,7 @@ extension ChatServiceSessionHydrate on ChatService {
       );
     }
 
-    if (_messages.isNotEmpty) {
+    if (_session.messages.isNotEmpty) {
       _lorebookScanner.scanLatest();
     }
     _restoreGreetingIndex();
@@ -256,7 +256,7 @@ extension ChatServiceSessionHydrate on ChatService {
     final cardWantsNeeds =
         _activeGroup == null &&
         _needsPass.seedNeedsSim(
-          _activeCharacter?.frontPorchExtensions?.needsSimChoice,
+          _session.activeCharacter?.frontPorchExtensions?.needsSimChoice,
         );
     // The session flag is the chat's own switch, column default FALSE. A row
     // saved before chats recorded their choice (no vector at all) still
@@ -273,7 +273,7 @@ extension ChatServiceSessionHydrate on ChatService {
       // Seed defaults first, then overlay the saved vector ONLY when it has
       // values. A blank saved vector (e.g. needs was toggled on mid-chat before
       // it seeded) must NOT clobber the defaults, or the sidebar shows no scores.
-      final ext = _activeCharacter?.frontPorchExtensions;
+      final ext = _session.activeCharacter?.frontPorchExtensions;
       if (ext != null && _activeGroup == null) {
         _needsSimulation.initializeFreshWithDefaults(
           NeedsSimulation.baselinesFromExtensions(ext),
@@ -311,7 +311,8 @@ extension ChatServiceSessionHydrate on ChatService {
     // Re-sync from the character's current setting so that toggling
     // "Enjoys low hygiene" on the character affects existing chats on next load.
     _enjoysLowHygiene =
-        _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+        _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+        false;
 
     // Load per-chat theme overrides.
     try {
@@ -368,8 +369,8 @@ extension ChatServiceSessionHydrate on ChatService {
   /// journal characterId (plant key). 1:1 uses the same id for both; group
   /// members match on originStableId and plant under the live card id.
   Future<List<PorchDiaryTarget>> _buildPorchDiaryTargets() async {
-    if (_activeGroup == null && _activeCharacter != null) {
-      final id = _getCharacterIdFromCard(_activeCharacter!);
+    if (_activeGroup == null && _session.activeCharacter != null) {
+      final id = _getCharacterIdFromCard(_session.activeCharacter!);
       return [PorchDiaryTarget(libraryStableGroupId: id, diaryCharacterId: id)];
     }
     if (_activeGroup == null) return const [];
@@ -420,7 +421,7 @@ extension ChatServiceSessionHydrate on ChatService {
 
   /// Scan mailbox and plant into this session; never throws into open path.
   Future<void> _maybeImportPorchMemories() async {
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return;
     final personaId = _userPersonaService.persona.id;
     if (personaId.isEmpty) return;

@@ -96,7 +96,7 @@ class NeedsBeatWear {
     required bool lived,
     bool rested = false,
   }) {
-    final card = _scope.activeCharacter();
+    final card = _scope.session.activeCharacter;
     final ext = card?.frontPorchExtensions;
     final hostId = card != null ? _idFor(card) : '';
     final before = Map<String, int>.from(_needsSimulation.vector);
@@ -131,11 +131,10 @@ class NeedsBeatWear {
   /// the carry left as it was for when the clock comes back. Version 1
   /// ticked the speaker, not the room, so the room is left alone here too.
   BeatWear tickSpeaker() {
-    final group = _scope.activeGroup();
+    final group = _scope.session.activeGroup;
     final card = group == null
-        ? _scope.activeCharacter()
-        : _scope
-              .groupCharacters()
+        ? _scope.session.activeCharacter
+        : _scope.session.groupCharacters
               .where((c) => _idFor(c) == _scope.groups.currentSpeakerId())
               .firstOrNull;
     if (card == null) return BeatWear.none;
@@ -206,7 +205,7 @@ class NeedsBeatWear {
     final after = <String, Map<String, int>>{};
     final carryBefore = <String, Map<String, double>>{};
     var speakerTaken = const <String, int>{};
-    for (final card in _scope.groupCharacters()) {
+    for (final card in _scope.session.groupCharacters) {
       final id = _idFor(card);
       final stored = _scope.groups.needsOf(id);
       if (stored.isEmpty) continue;

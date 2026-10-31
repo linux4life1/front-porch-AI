@@ -81,7 +81,7 @@ extension ChatServiceSessionState on ChatService {
     // Director Mode is per chat once a chat has saved it; the group's
     // "start in Director Mode" default only seeds chats that never did.
     final directing = directingFromSessionBlob(stateJson);
-    if (directing != null) _groupManager?.setObserverMode(directing);
+    if (directing != null) _session.groupManager?.setObserverMode(directing);
 
     // Fall back to group definition defaults (crucial for imported Group Cards and split-to-solo)
     if (stateJson == null || stateJson.isEmpty || stateJson == '{}') {
@@ -215,7 +215,7 @@ extension ChatServiceSessionState on ChatService {
   /// selected-look column, and repaint. Never touches `imagePath` — the library
   /// face is independent of which look shows in a given chat.
   Future<void> setLookForCharacter(String characterId, String? lookId) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null || characterId.isEmpty) return; // never key by a blank id
     // decodeSelectedLooks also drops empty keys, so a blank would silently fail
     // to round-trip; refuse it here so the caller notices instead.

@@ -25,10 +25,9 @@ extension ChatServiceChatEntry on ChatService {
   /// repaint — WITHOUT the full chat-entry dance. Never cancels an in-flight
   /// generation, never reloads the session, and is group-safe: editing a
   /// focused group member updates that member's reference instead of tearing
-  /// the group down. (The deleted EditCharacterDialog called
-  /// setActiveCharacter for this, which cancels generation, full-reloads on
-  /// rename, and leaves the group — the exact failure modes this exists to
-  /// avoid.)
+  /// the group down. (The deleted EditCharacterDialog called setActiveCharacter
+  /// for this, which cancels generation, full-reloads on rename, and leaves the
+  /// group — the exact failure modes this exists to avoid.)
   void _refreshActiveCharacterCardImpl(CharacterCard card) {
     if (_activeGroup != null) {
       // identical() first: the editor mutates the roster's own instance;
@@ -54,14 +53,16 @@ extension ChatServiceChatEntry on ChatService {
             ..originStableId = old.originStableId;
         }
         // characters is an unmodifiable view; writing it throws on Save.
-        _groupManager?.replaceCharacterAt(i, card);
+        _session.groupManager?.replaceCharacterAt(i, card);
         // Only while a turn's pass has lent the pointer to this member.
-        if (identical(_activeCharacter, old)) _activeCharacter = card;
+        if (identical(_session.activeCharacter, old)) {
+          _session.activeCharacter = card;
+        }
       }
-    } else if (_activeCharacter != null &&
-        (_activeCharacter!.dbId == null ||
-            _activeCharacter!.dbId == card.dbId)) {
-      _activeCharacter = card;
+    } else if (_session.activeCharacter != null &&
+        (_session.activeCharacter!.dbId == null ||
+            _session.activeCharacter!.dbId == card.dbId)) {
+      _session.activeCharacter = card;
     }
     refreshEnjoysLowHygieneFromActiveCharacter();
     unawaited(_birthdaySync.ensure());
@@ -103,10 +104,9 @@ extension ChatServiceChatEntry on ChatService {
       await Future.delayed(const Duration(milliseconds: 50));
     }
     // Persist is not `_isTurnBusy`: `_isPostGenerating` drops in
-    // `_generateResponse`'s finally, and fire-and-forget `_saveChat()`
-    // calls can still be on `_saveChain`. A reload that does not wait
-    // here hydrates the pre-turn row and a later write can then persist
-    // that shorter list.
+    // `_generateResponse`'s finally, and fire-and-forget `_saveChat()` calls
+    // can still be on `_saveChain`. A reload that does not wait here hydrates
+    // the pre-turn row and a later write can then persist that shorter list.
     await _saveChain;
   }
 
@@ -130,17 +130,18 @@ extension ChatServiceChatEntry on ChatService {
       // session — the last exchange (and sometimes the whole chat) vanished.
       final sameCharacter =
           character != null &&
-          _activeCharacter != null &&
+          _session.activeCharacter != null &&
           ((character.dbId != null &&
-                  _activeCharacter!.dbId != null &&
-                  character.dbId == _activeCharacter!.dbId) ||
-              (character.name == _activeCharacter!.name &&
-                  (character.dbId == null || _activeCharacter!.dbId == null)));
-      if (sameCharacter && _messages.isNotEmpty) {
+                  _session.activeCharacter!.dbId != null &&
+                  character.dbId == _session.activeCharacter!.dbId) ||
+              (character.name == _session.activeCharacter!.name &&
+                  (character.dbId == null ||
+                      _session.activeCharacter!.dbId == null)));
+      if (sameCharacter && _session.messages.isNotEmpty) {
         // Keep the dbId-bearing instance when the grid card is missing one
         // so a later save still stamps sessions.character_id.
         if (character.dbId != null) {
-          _activeCharacter = character;
+          _session.activeCharacter = character;
         }
         notifyListeners();
         return;
@@ -150,9 +151,9 @@ extension ChatServiceChatEntry on ChatService {
       // reload cannot hydrate a row that is still missing this turn.
       await flushPendingSaves();
       // Detach before swapping the owner. Anything that saves between
-      // `_activeCharacter =` and `_loadLastSession` used to rebind this
+      // `_session.activeCharacter =` and `_loadLastSession` used to rebind this
       // row to the incoming card (history/E2E then loadSession-ed Nightowl).
-      _currentSessionId = null;
+      _session.currentSessionId = null;
 
       // Reset AFK idle state when switching to a different chat
       _cancelIdleTimer();
@@ -162,8 +163,8 @@ extension ChatServiceChatEntry on ChatService {
       // Clear group mode when switching to 1:1 AND reset author note for new session context
       _authorNote = '';
       _authorNoteStrength = 4;
-      _groupManager?.leaveGroup();
-      _groupManager = null;
+      _session.groupManager?.leaveGroup();
+      _session.groupManager = null;
       _groupRealism = {};
       _groupAuthorNotes = {};
       _groupAuthorNoteStrengths = {};
@@ -187,7 +188,7 @@ extension ChatServiceChatEntry on ChatService {
       _sceneGuest.offeredOrIgnoredNames.clear();
       _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
-      _activeCharacter = character;
+      _session.activeCharacter = character;
 
       // Auto-start the local Kobold backend (native or a .kcpps preset) when
       // entering a chat so the user never has to manually start it just to talk.
@@ -200,20 +201,20 @@ extension ChatServiceChatEntry on ChatService {
 
       // If extensions are missing (e.g., app was restarted after DB load that
       // didn't carry over PNG extensions), reload the PNG to get V2.5 card data.
-      if (_activeCharacter != null &&
-          _activeCharacter!.frontPorchExtensions == null &&
-          _activeCharacter!.imagePath != null) {
+      if (_session.activeCharacter != null &&
+          _session.activeCharacter!.frontPorchExtensions == null &&
+          _session.activeCharacter!.imagePath != null) {
         try {
           final v2Service = V2CardService();
           final reloaded = await v2Service.readCard(
-            _activeCharacter!.imagePath!,
+            _session.activeCharacter!.imagePath!,
           );
           if (reloaded != null && reloaded.frontPorchExtensions != null) {
-            _activeCharacter!.frontPorchExtensions =
+            _session.activeCharacter!.frontPorchExtensions =
                 reloaded.frontPorchExtensions;
-            _activeCharacter!.rawExtensions = reloaded.rawExtensions;
+            _session.activeCharacter!.rawExtensions = reloaded.rawExtensions;
             debugPrint(
-              '[ChatService] Reloaded frontPorchExtensions from PNG for ${_activeCharacter!.name}',
+              '[ChatService] Reloaded frontPorchExtensions from PNG for ${_session.activeCharacter!.name}',
             );
           }
         } catch (e) {
@@ -225,13 +226,13 @@ extension ChatServiceChatEntry on ChatService {
       // below) so they are scoped to the session, not the character.
       debugPrint(
         '[ChatService] 🟡 setActiveCharacter: clearing messages '
-        '(had ${_messages.length}) for ${character?.name}, loading session...',
+        '(had ${_session.messages.length}) for ${character?.name}, loading session...',
       );
       await _invalidateGreetingEval();
-      _messages.clear();
+      _session.messages.clear();
       _greetingIndex = 0;
       _history.reset();
-      _currentSessionId = null;
+      _session.currentSessionId = null;
       _clearTodayPointer();
       _summary = '';
       _summaryLastIndex = 0;
@@ -246,7 +247,7 @@ extension ChatServiceChatEntry on ChatService {
       _parentSessionId = null;
       _forkIndex = null;
 
-      if (_activeCharacter != null) {
+      if (_session.activeCharacter != null) {
         // Lorebook trigger reset via extracted service (keeps the keep-sync reset sites correct
         // without god privates; constants skipped, non-const zeroed for char + attached worlds).
         // See lorebook_scanner.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
@@ -301,7 +302,6 @@ extension ChatServiceChatEntry on ChatService {
           '[ChatService] setActiveCharacter: Reset realism state (baseline + runtime transients cleared; was: arousal=$prevArousal, fixation=$prevFixation/$prevFixationLife)',
         );
 
-        // Try to load last session
         await _loadLastSession();
 
         // Message 0 needs their wardrobe too. AFTER the load, so a restored
@@ -312,23 +312,23 @@ extension ChatServiceChatEntry on ChatService {
         seedPocketsFromCards();
 
         // If no session loaded, start fresh
-        if (_messages.isEmpty) {
+        if (_session.messages.isEmpty) {
           // #328: a never-opened character has no row to restore a persona
           // from, so _loadLastSession's _activateSessionPersona never ran and
           // the PREVIOUS chat's in-chat persona was still live — the greeting
           // resolved {{user}} as them and the _saveChat below bound the new
           // session to them. A fresh chat starts as the default, same as
           // startNewChat. Done before the greeting is built so the macro sees
-          // it too. `_currentSessionId == null` is load-bearing: a stored
+          // it too. `_session.currentSessionId == null` is load-bearing: a stored
           // zero-message chat also lands here, and it keeps its own persona.
-          if (_currentSessionId == null) {
+          if (_session.currentSessionId == null) {
             await _userPersonaService.setActivePersona(
               _userPersonaService.defaultPersonaId,
             );
           }
           // Seed Realism Engine state from V2.5 card extensions (new conversations only)
-          if (_activeCharacter!.frontPorchExtensions != null) {
-            final ext = _activeCharacter!.frontPorchExtensions!;
+          if (_session.activeCharacter!.frontPorchExtensions != null) {
+            final ext = _session.activeCharacter!.frontPorchExtensions!;
             // Global "Enable Realism Mode" default is an OR override (not a gate
             // like passage-of-time): its whole purpose is to force realism ON for
             // imported cards (Chub/V2 PNG/BYAF) that carry no realism setup, so
@@ -399,7 +399,7 @@ extension ChatServiceChatEntry on ChatService {
             );
 
             _importAuthoredTask(ext);
-          } else if (_currentSessionId == null) {
+          } else if (_session.currentSessionId == null) {
             // A PLAIN IMPORTED CARD — no `frontPorchExtensions` at all, which is
             // every PNG downloaded from Chub or exported from another app — and
             // no prior session. Until 2026-08-08 it got NOTHING from this block,
@@ -415,9 +415,9 @@ extension ChatServiceChatEntry on ChatService {
             // trust, day, needs baselines): a plain card has no opinion about
             // those, and the defaults are already in place.
             //
-            // `_currentSessionId == null` is the load-bearing part, and the first
+            // `_session.currentSessionId == null` is the load-bearing part, and the first
             // draft of this fix got it wrong by reusing a default-constructed
-            // extensions object for the whole block above. `_messages.isEmpty` is
+            // extensions object for the whole block above. `_session.messages.isEmpty` is
             // NOT "no session was loaded" — a session row with zero messages
             // still hydrates every stored scalar, so that version let card
             // defaults overwrite a saved chat's bond of 77 with 0. Seven existing
@@ -438,27 +438,27 @@ extension ChatServiceChatEntry on ChatService {
                 _storageService.realismSettings.objectivesEnabled;
           }
 
-          final opening = _activeCharacter!.allGreetings;
+          final opening = _session.activeCharacter!.allGreetings;
           if (opening.isNotEmpty) {
-            _messages.add(
+            _session.messages.add(
               ChatMessage(
                 text: _buildFirstMessage(
-                  _activeCharacter!,
+                  _session.activeCharacter!,
                   greetingText: opening.first,
                 ),
-                sender: _activeCharacter!.name,
+                sender: _session.activeCharacter!.name,
                 isUser: false,
               ),
             );
             // Scan first message for lore (thin delegation to extracted scanner).
             _lorebookScanner.scanLatest();
             _clockWriter.writeSlotClock(
-              _messages.isEmpty ? null : _messages.first,
+              _session.messages.isEmpty ? null : _session.messages.first,
               kind: SlotClockWrite.seed,
             );
-            if (_activeCharacter!.firstMessage.trim().isEmpty) {
+            if (_session.activeCharacter!.firstMessage.trim().isEmpty) {
               await _applyGreetingOpeningSeed(
-                card: _activeCharacter!,
+                card: _session.activeCharacter!,
                 index: 0,
               );
             }
@@ -470,7 +470,8 @@ extension ChatServiceChatEntry on ChatService {
           // This matches pre-existing behavior for the import entry point; the critical bleed fix
           // ensures the baseline check is now correctly false for no-ext cards.
           // Save the initial message session
-          _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+          _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+              .toString();
           // Seed chat worlds from the character's attached worlds (Living
           // Worlds) — a paired world's climate/setting applies from turn one.
           await _seedChatWorldsForNewSession();
@@ -488,7 +489,7 @@ extension ChatServiceChatEntry on ChatService {
               .refreshCache(); // fresh session id → scope the injection cache to it
         }
         // Load active objectives for this session (must be after _loadLastSession
-        // so _currentSessionId is set)
+        // so _session.currentSessionId is set)
         await _loadActiveObjectives(); // Awaited (was fire-and-forget); root fix for post-dispose notify races in tests + rapid switches. Central _disposed + notifyListeners override (rec 2) now protects residual unawaited/microtask paths + any other notify-after-async in god/services (see _disposed decl, overrides at end of class, and cleaned per-site guard in _loadActiveObjectives).
       }
     } finally {

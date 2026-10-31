@@ -53,9 +53,9 @@ extension ChatServiceGroupLite on ChatService {
     ).contains(wanted);
   }
 
-  /// Host used when minting a guest from a group (no 1:1 `_activeCharacter`).
+  /// Host used when minting a guest from a group (no 1:1 `_session.activeCharacter`).
   CharacterCard? get _mintHost =>
-      _activeCharacter ?? nextCharacter ?? _groupCharacters.firstOrNull;
+      _session.activeCharacter ?? nextCharacter ?? _groupCharacters.firstOrNull;
 
   CharacterCard? _presentSoftMatching(CharacterCard card) {
     final id = _getCharacterIdFromCard(card);

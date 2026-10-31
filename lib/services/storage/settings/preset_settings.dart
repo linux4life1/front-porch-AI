@@ -16,9 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/prefs_recovery.dart';
+
 import 'settings_base.dart';
 
 /// Saved system prompts, kcpps presets, model preset map.
@@ -57,23 +60,10 @@ class PresetSettings with SettingsBase {
     // write) must never escape: StorageService._init is fire-and-forget, so a
     // throw here leaves its `initialized` completer unresolved forever and the
     // app comes up half-booted (no web server, no groups/worlds) with no way
-    // for the user to recover. Fall back to the default set, exactly like the
-    // two map decodes below.
+    // for the user to recover. Readable entries survive; the rest is kept
+    // aside by _decodePrompts.
     final promptsJson = prefs?.getString(k('saved_prompts'));
-    if (promptsJson != null) {
-      try {
-        final decoded = jsonDecode(promptsJson) as List;
-        _savedPrompts = decoded
-            .map((e) => Map<String, String>.from(e as Map))
-            .toList();
-      } catch (e) {
-        debugPrint(
-          '[Settings] saved_prompts is unreadable ($e) — starting from the '
-          'default prompt set.',
-        );
-        _savedPrompts = [];
-      }
-    }
+    if (promptsJson != null) _savedPrompts = _decodePrompts(promptsJson);
     _oneToOneSlotName = _nonEmpty(prefs?.getString(k('system_prompt_name')));
     _groupSlotName = _nonEmpty(prefs?.getString(k('group_system_prompt_name')));
 
@@ -101,6 +91,51 @@ class PresetSettings with SettingsBase {
         _modelMmprojMap = {};
       }
     }
+  }
+
+  /// Key that holds the raw `saved_prompts` text when it could not be read
+  /// in full. Startup seeds Immersive Roleplay right after [load] and that
+  /// write replaces `saved_prompts`, so without this copy one bad byte would
+  /// erase every custom prompt for good.
+  static const String unreadablePromptsKey = 'saved_prompts_unreadable';
+
+  /// Keeps every entry that still decodes. Whatever cannot be read is copied
+  /// to [unreadablePromptsKey] before anything can overwrite it.
+  List<Map<String, String>> _decodePrompts(String raw) {
+    final kept = <Map<String, String>>[];
+    var lossy = false;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        for (final e in decoded) {
+          final name = e is Map ? e['name'] : null;
+          final content = e is Map ? e['content'] : null;
+          if (name is String && content is String) {
+            kept.add({'name': name, 'content': content});
+          } else {
+            lossy = true;
+          }
+        }
+      } else {
+        lossy = true;
+      }
+    } catch (e) {
+      debugPrint('[Settings] saved_prompts is unreadable: $e');
+      lossy = true;
+    }
+    if (lossy) {
+      debugPrint(
+        '[Settings] saved_prompts could not be read in full; kept '
+        '${kept.length} prompt(s) and copied the raw value to '
+        '$unreadablePromptsKey.',
+      );
+      final stash = prefs?.setString(k(unreadablePromptsKey), raw);
+      stash?.catchError((Object e) {
+        debugPrint('[Settings] could not keep the unreadable prompts: $e');
+        return false;
+      });
+    }
+    return kept;
   }
 
   Future<void> savePrompt(String name, String content) async {
@@ -147,6 +182,10 @@ class PresetSettings with SettingsBase {
 
   Future<void> _persistPrompts() async {
     await prefs?.setString(k('saved_prompts'), jsonEncode(_savedPrompts));
+    // Saved prompts are the settings users can least afford to lose, so a
+    // prompt edit refreshes the known-good copy straight away. The save does
+    // not wait on it: the copy is a backstop, and it never throws.
+    unawaited(PrefsRecovery.snapshotGood());
   }
 
   Future<void> setModelPreset(String modelPath, String? kcppsPath) async {

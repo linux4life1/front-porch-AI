@@ -21,23 +21,28 @@ extension ChatServiceWiringEvalJudges on ChatService {
       stripThinkBlocks: stripEvalThinkBlocks,
       extractJsonInt: evalJsonInt,
       extractJsonBool: evalJsonBool,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getRealismVerificationEnabled: () =>
-          (_activeCharacter?.frontPorchExtensions?.realismVerificationEnabled ??
+          (_session
+                  .activeCharacter
+                  ?.frontPorchExtensions
+                  ?.realismVerificationEnabled ??
               false) &&
           _realismEnabled &&
           (_activeGroup == null || !_observerMode),
       getVerificationMaxReprocesses: () =>
-          _activeCharacter
+          _session
+              .activeCharacter
               ?.frontPorchExtensions
               ?.realismVerificationMaxReprocesses ??
           1,
       getVerificationStrictness: () =>
-          _activeCharacter
+          _session
+              .activeCharacter
               ?.frontPorchExtensions
               ?.realismVerificationStrictness ??
           3,
@@ -68,7 +73,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       ),
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
@@ -77,12 +82,13 @@ extension ChatServiceWiringEvalJudges on ChatService {
       setGroupNeeds: _groupStore.setNeeds,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       needsSimulation: _needsSimulation,
       getNeedsSimEnabled: () => _needsPass.active,
       getRealismEnabled: () => _realismEnabled,
       getNeedsModelAuthorityEnabled: () =>
-          (_activeCharacter
+          (_session
+              .activeCharacter
               ?.frontPorchExtensions
               ?.realismNeedsDirectorAuthority ??
           false),
@@ -135,14 +141,14 @@ extension ChatServiceWiringEvalJudges on ChatService {
       stripThinkBlocks: stripEvalThinkBlocks,
       extractJsonInt: evalJsonInt,
       extractJsonBool: evalJsonBool,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,
       getRealismEnabled: () => _realismEnabled,
       // A Feelings re-score leaves the turn's quests as they were.
       getObjectivesEnabled: () => objectivesActive && !_rescoringFeelings,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,
       captureRealismState: _realismSnapshot.capture,
@@ -172,7 +178,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getPrimaryObjective: () => primaryObjective,
       getActiveObjectives: () => _activeObjectives,
       // The EVALUATED speaker's ambitions. Realism evals run under speaker
-      // impersonation (_activeCharacter is temporarily whoever is being
+      // impersonation (_session.activeCharacter is temporarily whoever is being
       // scored), so this reads the right character in a group without a
       // second code path — and it goes through the same public ambitionsFor
       // merge the sidebar and the web read, so the model and the user can
@@ -185,11 +191,11 @@ extension ChatServiceWiringEvalJudges on ChatService {
       // mechanism they turned off. Empty here removes the roster, the steering
       // paragraph and the serves_ambition field from the prompt entirely.
       getAmbitions: () =>
-          _activeCharacter == null ||
+          _session.activeCharacter == null ||
               !_storageService.realismSettings.ambitionsEnabled ||
               !objectivesActive
           ? const []
-          : ambitionsFor(_activeCharacter!),
+          : ambitionsFor(_session.activeCharacter!),
       // PR 5: one shared source for the mutual opening — the ladder and the
       // refractory note read the identical stamp-backed truth.
       getMutualOpening: _mutualAfterglowOpening,
@@ -205,15 +211,15 @@ extension ChatServiceWiringEvalJudges on ChatService {
       // This is also the ONE place the 18+ switch is consulted for scoring:
       // with adult themes off the intimate pair is not passed, so it cannot
       // reach a prompt no matter which path runs. Reads the same
-      // `_activeCharacter` the ambition roster above does — during the realism
+      // `_session.activeCharacter` the ambition roster above does — during the realism
       // dance that is the speaker being evaluated, and the two must not
       // disagree about whose card they describe.
       getPreferences: () {
-        final ext = _activeCharacter?.frontPorchExtensions;
+        final ext = _session.activeCharacter?.frontPorchExtensions;
         if (ext == null) return '';
         final adult = _storageService.realismSettings.adultThemesEnabled;
         return RealismPromptBuilder.preferencesBlock(
-          charName: _activeCharacter!.name,
+          charName: _session.activeCharacter!.name,
           likes: ext.likes,
           dislikes: ext.dislikes,
           intimateInto: adult ? ext.intimateInto : const [],
@@ -229,13 +235,16 @@ extension ChatServiceWiringEvalJudges on ChatService {
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       // The proposal gate (objectives-that-keep-up.md part 3). During the
-      // realism dance `_activeCharacter` is the speaker being evaluated.
+      // realism dance `_session.activeCharacter` is the speaker being evaluated.
       getRecentEndedObjectives: _recentEndedObjectiveLines,
       getObjectiveIgnoreTokens: _objectiveIgnoreTokens,
       isSideQuestCooldownActive: () {
-        final card = _activeCharacter;
+        final card = _session.activeCharacter;
         return card != null &&
-            sideQuestCooldownActive(_messages, _getCharacterIdFromCard(card));
+            sideQuestCooldownActive(
+              _session.messages,
+              _getCharacterIdFromCard(card),
+            );
       },
       getSideQuestCap: () => kMaxSecondaryObjectives,
       setObjective:
@@ -264,13 +273,13 @@ extension ChatServiceWiringEvalJudges on ChatService {
     return ObjectiveProposal(
       stripThinkBlocks: stripEvalThinkBlocks,
       getLlmService: () => _sideLaneLlm,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       ownerCard: _objectiveOwnerCard,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,
       getRealismEnabled: () => _realismEnabled,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getActiveObjectives: () => _activeObjectives,
       tasksForObjective: tasksForObjective,
       loadActiveObjectives: _loadActiveObjectives,
@@ -315,16 +324,16 @@ extension ChatServiceWiringEvalJudges on ChatService {
         // every quest completion — a switch that hid the feature while
         // continuing to bill for it.
         if (!_storageService.realismSettings.ambitionsEnabled) return;
-        final sessionId = _currentSessionId;
+        final sessionId = _session.currentSessionId;
         if (sessionId == null) return;
         final card =
             _groupCharacters
                 .where((c) => _getCharacterIdFromCard(c) == obj.characterId)
                 .firstOrNull ??
-            (_activeCharacter != null &&
-                    _getCharacterIdFromCard(_activeCharacter!) ==
+            (_session.activeCharacter != null &&
+                    _getCharacterIdFromCard(_session.activeCharacter!) ==
                         obj.characterId
-                ? _activeCharacter
+                ? _session.activeCharacter
                 : null);
         final ambitions = card?.frontPorchExtensions?.ambitions ?? const [];
         if (card == null || ambitions.isEmpty) return;

@@ -45,7 +45,7 @@ extension ChatServiceGenerationStream on ChatService {
 
     // Determine message identity. The stream target is captured ONCE by
     // reference — every later write (flush, think timestamps, sanitizer,
-    // needs re-stamp, TTS) goes through it instead of _messages.last. The
+    // needs re-stamp, TTS) goes through it instead of _session.messages.last. The
     // list can shift under a long turn (dream insert, deletes, another
     // send: none of those are hard-blocked while a turn winds down), and
     // positional writes are how an aborted reply overwrote a dream banner
@@ -66,7 +66,7 @@ extension ChatServiceGenerationStream on ChatService {
     }
 
     if (t.mode == GenerationMode.continue_) {
-      t.streamTarget = _messages.last;
+      t.streamTarget = _session.messages.last;
       // Capture before any tokens arrive — postgen re-merges this with
       // accumulatedResponse (new tokens only) after strip/sanitize.
       t.continuePrefix = closeOpenThink(t.streamTarget.text);
@@ -95,8 +95,8 @@ extension ChatServiceGenerationStream on ChatService {
       if (_isLiteTurn(t)) {
         var skip = _pendingRealismMetadata?['time_skip_to'] as String? ?? '';
         if (skip.isEmpty) {
-          for (var i = _messages.length - 1; i >= 0; i--) {
-            final m = _messages[i];
+          for (var i = _session.messages.length - 1; i >= 0; i--) {
+            final m = _session.messages[i];
             if (m.isUser || m.sender == 'System') continue;
             skip = m.activeMetadata?['time_skip_to'] as String? ?? '';
             break;
@@ -130,7 +130,7 @@ extension ChatServiceGenerationStream on ChatService {
         metadata: initialMetadata,
         swipeMetadata: initialMetadata != null ? [initialMetadata] : null,
       );
-      _messages.add(t.streamTarget);
+      _session.messages.add(t.streamTarget);
       t.replyLanded = true;
       _pendingRealismMetadata = null;
     }
@@ -184,7 +184,7 @@ extension ChatServiceGenerationStream on ChatService {
         displayText = (originalText + displayTokens).trimLeft();
       }
       // CRITICAL: Modify the captured stream target in place (never
-      // _messages.last — the list can shift mid-turn) to preserve
+      // _session.messages.last — the list can shift mid-turn) to preserve
       // thinkingStartTime and other metadata.
       streamTarget.text = displayText;
       _notifyStreamListeners();
