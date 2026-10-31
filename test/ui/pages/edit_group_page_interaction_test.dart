@@ -23,6 +23,8 @@
 // flips the inherit switch, and saves — asserting the round-trip through
 // the repo (name + stableId + the flipped flag).
 
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,7 @@ import 'package:front_porch_ai/database/database.dart' as db;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
+import 'package:front_porch_ai/utils/utils.dart' show parseGroupRealismSeeds;
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -393,4 +396,116 @@ void main() {
       expect(groups.saved, isNull);
     });
   });
+
+  // A group made from a 1:1 with Realism on, before forks saved it: "Use
+  // the chat's settings" turned Realism on with every member at the neutral
+  // 35 / 40. Each member now starts from their own row's card.
+  testWidgets('"Use the chat\'s settings" starts each member from their card', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final root = Directory.systemTemp.createTempSync('fpai_edit_cards_');
+    final storage = _GroupsAt(root);
+    final groups = _MemberGroups([
+      GroupMember(
+        id: 'mem-nia',
+        groupId: 'g-carded',
+        name: 'Nia',
+        avatarFilename: 'mem-nia.png',
+        frontPorchExtensions: FrontPorchExtensions(
+          shortTermBond: 90,
+          longTermBond: 150,
+          trustLevel: -30,
+          characterEmotion: 'wary',
+          needsBaselineHunger: 35,
+        ).toJson(),
+      ),
+    ]);
+    final chat = FakeChatService();
+    final worlds = FakeWorldRepository();
+    final characters = FakeCharacterRepository([]);
+    for (final s in [groups, chat, storage, worlds, characters]) {
+      addTearDown(s.dispose);
+    }
+    final database = db.AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(database.close);
+    await tester.runAsync(() async {
+      final avatars = Directory('${root.path}/groups/g-carded/avatars')
+        ..createSync(recursive: true);
+      File('${avatars.path}/mem-nia.png').writeAsBytesSync(const [0]);
+      await database.insertSession(
+        db.SessionsCompanion.insert(
+          id: 'one',
+          characterId: const Value('char-nia'),
+        ),
+      );
+      await database.insertSession(
+        db.SessionsCompanion.insert(
+          id: 'forked',
+          groupId: const Value('g-carded'),
+          parentSession: const Value('one'),
+          realismEnabled: const Value(true),
+          needsSimEnabled: const Value(true),
+        ),
+      );
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+            ChangeNotifierProvider<CharacterRepository>.value(
+              value: characters,
+            ),
+            Provider<db.AppDatabase>.value(value: database),
+          ],
+          child: MaterialApp(
+            home: EditGroupPage(
+              group: GroupChat(id: 'g-carded', name: 'Nia and Marisol'),
+            ),
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+    });
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    await tester.tap(find.byKey(const ValueKey('edit-group-fork-use')));
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.tap(find.text('Save'));
+    await tester.pump(const Duration(milliseconds: 400));
+
+    final nia = parseGroupRealismSeeds(
+      groups.saved!.defaultMemberRealismState,
+    )['mem-nia']!;
+    expect(
+      [nia['affection'], nia['longTermScore'], nia['trust'], nia['emotion']],
+      [90, 150, -30, 'wary'],
+      reason: 'THE BUG: the member came on at the neutral 35 / 40',
+    );
+    expect(nia['needs'], containsPair('hunger', 35));
+  });
+}
+
+/// Group avatars under [root], so the roster finds each member's picture.
+class _GroupsAt extends FakeStorageService {
+  _GroupsAt(this.root);
+
+  final Directory root;
+
+  @override
+  Directory get groupsDir => Directory('${root.path}/groups');
+}
+
+/// A recording repository whose group has [members].
+class _MemberGroups extends _RecordingGroups {
+  _MemberGroups(this.members);
+
+  final List<GroupMember> members;
+
+  @override
+  Future<List<GroupMember>> getMembersForGroup(String groupId) async => members;
 }

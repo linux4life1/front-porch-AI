@@ -16,6 +16,7 @@ import {
   HIGH_BOND_MEMBER,
   NEUTRAL_MEMBER,
   TIME_OF_DAY,
+  changedKeys,
   memberRealism,
   membersAtPreset,
   relationshipTier,
@@ -28,23 +29,42 @@ export function RealismStep({
   draft,
   set,
   members,
+  cards,
+  failedCards = [],
+  onRetryCard,
 }: {
   draft: GroupDraft;
   set: (patch: Partial<GroupDraft>) => void;
   members: { id: string; name: string }[];
+  /** Library id → that member's card seed; a member starts there and can
+   *  be edited once it has loaded. */
+  cards: Record<string, MemberRealism>;
+  /** Library ids whose card could not be read. */
+  failedCards?: string[];
+  onRetryCard?: (id: string) => void;
 }) {
   const { adult, afterglow: afterglowAllowed } = useAdultFlags();
   const clockOn = usePassageOfTime();
-  const setMember = (id: string, seed: MemberRealism) => set({ members: { ...draft.members, [id]: seed } });
+  // Keeps only what this edit changed against the seed shown, so a default
+  // the member never saw is never posted over their card.
+  const setMember = (id: string, next: MemberRealism) =>
+    set({
+      members: {
+        ...draft.members,
+        [id]: { ...draft.members[id], ...changedKeys(memberRealism(draft, id, cards[id]), next) },
+      },
+    });
+  const allLoaded = members.every((m) => cards[m.id] !== undefined);
   // The desktop's Neutral, High Bond and Reset replace the member's whole
   // seed, its Group Dynamics row included.
   const preset = (p: MemberRealism) => {
     const ids = members.map((m) => m.id);
     set({ members: membersAtPreset(ids, p), relationships: withoutFeelingsOf(draft.relationships, ids) });
   };
+  // Back to the card: the member has no entry, so they start from it.
   const reset = (id: string) =>
     set({
-      members: { ...draft.members, [id]: { ...NEUTRAL_MEMBER } },
+      members: Object.fromEntries(Object.entries(draft.members).filter(([k]) => k !== id)),
       relationships: withoutFeelingsOf(draft.relationships, [id]),
     });
   const feel = (from: string, to: string) => draft.relationships[from]?.[to] ?? 0;
@@ -144,27 +164,47 @@ export function RealismStep({
           <div className="gw-row">
             <h4 className="section-label">Initial Realism State per Member</h4>
             <span>
-              <button type="button" className="ghost" onClick={() => preset(NEUTRAL_MEMBER)}>
+              <button type="button" className="ghost" disabled={!allLoaded} onClick={() => preset(NEUTRAL_MEMBER)}>
                 Neutral
               </button>
-              <button type="button" className="ghost" onClick={() => preset(HIGH_BOND_MEMBER)}>
+              <button
+                type="button"
+                className="ghost"
+                disabled={!allLoaded}
+                onClick={() => preset(HIGH_BOND_MEMBER)}
+              >
                 High Bond
               </button>
             </span>
           </div>
-          {members.map((m) => (
-            <MemberRealismCard
-              key={m.id}
-              id={m.id}
-              name={m.name}
-              seed={memberRealism(draft, m.id)}
-              setSeed={(seed) => setMember(m.id, seed)}
-              onReset={() => reset(m.id)}
-              needsEnabled={draft.needsEnabled}
-              setNeedsEnabled={(on) => set({ needsEnabled: on })}
-              clockOn={clockOn}
-            />
-          ))}
+          {members.map((m) =>
+            cards[m.id] === undefined ? (
+              <div className="tool-section" key={m.id} data-testid={`group-realism-member-${m.id}-pending`}>
+                {failedCards.includes(m.id) ? (
+                  <p className="muted small">
+                    Couldn't load {m.name}'s card.{' '}
+                    <button type="button" className="ghost" onClick={() => onRetryCard?.(m.id)}>
+                      Retry
+                    </button>
+                  </p>
+                ) : (
+                  <p className="muted small">Loading {m.name}'s card…</p>
+                )}
+              </div>
+            ) : (
+              <MemberRealismCard
+                key={m.id}
+                id={m.id}
+                name={m.name}
+                seed={memberRealism(draft, m.id, cards[m.id])}
+                setSeed={(seed) => setMember(m.id, seed)}
+                onReset={() => reset(m.id)}
+                needsEnabled={draft.needsEnabled}
+                setNeedsEnabled={(on) => set({ needsEnabled: on })}
+                clockOn={clockOn}
+              />
+            ),
+          )}
 
           <h4 className="section-label">Group Dynamics</h4>
           {members.length > DYNAMICS_MAX_MEMBERS ? (

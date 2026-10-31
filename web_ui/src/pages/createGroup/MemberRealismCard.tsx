@@ -47,7 +47,7 @@ export function MemberRealismCard({
   name: string;
   seed: MemberRealism;
   setSeed: (next: MemberRealism) => void;
-  /** Back to the neutral seed, clearing this member's Group Dynamics. */
+  /** Back to the card's seed, clearing this member's Group Dynamics. */
   onReset: () => void;
   needsEnabled: boolean;
   setNeedsEnabled: (on: boolean) => void;
