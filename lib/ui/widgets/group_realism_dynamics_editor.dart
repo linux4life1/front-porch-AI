@@ -15,6 +15,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/group_member_start.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_summary_row.dart';
+import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
     show afterglowEnabledOf;
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor/group_realism_dynamics_editor.dart';
@@ -280,16 +281,25 @@ class _GroupRealismDynamicsEditorState
                   color: AppColors.textPrimary(context),
                 ),
               ),
-              subtitle: Text(
-                'Hunger, energy and the rest for every member in new chats '
-                "of this group. Each member's own bars are in their editor.",
-                style: TextStyle(color: AppColors.textSecondary(context)),
-              ),
+              // Greyed at the group's own choice while Porch Life's Needs
+              // is off, as every chat's Needs switch is.
+              subtitle: porchLifeAllowsNeedsOf(context)
+                  ? Text(
+                      'Hunger, energy and the rest for every member in new '
+                      "chats of this group. Each member's own bars are in "
+                      'their editor.',
+                      style: TextStyle(color: AppColors.textSecondary(context)),
+                    )
+                  : const NeedsOffInPorchLifeNote(
+                      kept: "This group's choice for new chats is kept.",
+                    ),
               value: _needsEnabled,
-              onChanged: (v) {
-                setState(() => _needsEnabled = v);
-                _emit();
-              },
+              onChanged: porchLifeAllowsNeedsOf(context)
+                  ? (v) {
+                      setState(() => _needsEnabled = v);
+                      _emit();
+                    }
+                  : null,
             ),
             const SizedBox(height: 16),
             _buildSceneTimeCard(),

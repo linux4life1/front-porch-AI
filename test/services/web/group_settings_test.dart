@@ -853,6 +853,18 @@ void main() {
       );
     }
 
+    test("the new-chats state carries Porch Life's Needs, so the phone "
+        'greys the group\'s Needs switch', () async {
+      expect((await facade.newChats.stateOf('g1'))!['needsAllowed'], isTrue);
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      await storage.realismSettings.setNeedsSimDefault(false);
+      final off = GroupFacade(groups, storage, null, db);
+      expect((await off.newChats.stateOf('g1'))!['needsAllowed'], isFalse);
+    });
+
     test(
       'a blank group forked from a 1:1 names the chat it came from',
       () async {

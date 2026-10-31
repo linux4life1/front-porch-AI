@@ -326,4 +326,44 @@ void main() {
       reason: 'the members keep their seeds',
     );
   });
+
+  testWidgets("Edit group's Needs switch greys at the group's own choice while "
+      "Porch Life's Needs is off", (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    await storage.realismSettings.setNeedsSimDefault(false);
+    final blobs = _blobs('morning');
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismDynamicsEditor(
+              members: const [GroupRealismMember(mid: 'm1', name: 'Ada')],
+              initialDefaultMemberJson: blobs.defaultMemberJson,
+              initialBaselineJson: blobs.baselineJson,
+              onChanged: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tile = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, 'Needs'),
+    );
+    expect(tile.value, isTrue, reason: "the group's own choice");
+    expect(tile.onChanged, isNull);
+    expect(
+      find.text(
+        'Off in Porch Life, so no chat runs Needs. This group\'s choice for '
+        'new chats is kept.',
+      ),
+      findsOneWidget,
+    );
+  });
 }

@@ -60,7 +60,12 @@ class GroupFacade {
   GroupMemberEdit? memberEdit;
 
   /// Group Settings' "New chats" switches and the forked-group notice.
-  late final GroupNewChats newChats = GroupNewChats(_groups, db, worlds);
+  late final GroupNewChats newChats = GroupNewChats(
+    _groups,
+    db,
+    worlds,
+    _storage,
+  );
 
   final GroupChatRepository _groups;
   final StorageService _storage;

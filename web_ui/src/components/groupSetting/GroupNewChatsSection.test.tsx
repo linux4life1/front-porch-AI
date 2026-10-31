@@ -73,6 +73,23 @@ function button(label: string): HTMLButtonElement {
   return b;
 }
 
+it("greys the group's Needs at its own choice while Porch Life's Needs is off", async () => {
+  state = { realism: true, needs: true, needsAllowed: false, inherit: false, forkSource: null };
+  await act(async () => {
+    root.render(
+      createElement(GroupNewChatsSection, { groupId: 'g2', onWorldsChanged: () => worldsReloaded++ }),
+    );
+  });
+  const needs = [...container.querySelectorAll('label.tool-toggle')]
+    .find((l) => l.querySelector('span')?.textContent === 'Needs')!
+    .querySelector('input') as HTMLInputElement;
+  expect(needs.checked, "the group's own choice").toBe(true);
+  expect(needs.disabled).toBe(true);
+  expect(container.querySelector('[data-testid="group-needs-off-note"]')?.textContent).toBe(
+    "Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept.",
+  );
+});
+
 it('names the chat the group came from and what it would fill in', () => {
   expect(notice()?.textContent).toContain('This group started from your chat with Juniper.');
   expect(notice()?.textContent).toContain('Realism on · Needs on');

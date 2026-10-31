@@ -20,6 +20,9 @@ export interface ForkSource {
 export interface NewChatsState {
   realism: boolean;
   needs: boolean;
+  /** Porch Life's Needs; false greys the switch at the group's own choice
+   *  (absent from an older app: allowed). */
+  needsAllowed?: boolean;
   /** How new chats start Afterglow (absent on an older desktop). */
   afterglow?: boolean;
   inherit: boolean;
@@ -146,10 +149,15 @@ export function GroupNewChatsSection({
         <input
           type="checkbox"
           checked={state.realism && state.needs}
-          disabled={!state.realism}
+          disabled={!state.realism || state.needsAllowed === false}
           onChange={(e) => save({ needs: e.target.checked })}
         />
       </label>
+      {state.realism && state.needsAllowed === false && (
+        <p className="muted small" data-testid="group-needs-off-note">
+          Off in Porch Life, so no chat runs Needs. This group&apos;s choice for new chats is kept.
+        </p>
+      )}
       {afterglowAllowed && state.realism && state.afterglow !== undefined && (
         <label className="tool-toggle">
           <span>
