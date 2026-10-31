@@ -176,6 +176,7 @@ export 'fused_eval_fire.dart';
 export 'group_realism_store.dart';
 export 'realism_dance.dart';
 export 'realism_judges.dart';
+export 'realism_permission_watch.dart';
 export 'realism_scope.dart';
 export 'realism_snapshot.dart';
 export 'standing_mood.dart';

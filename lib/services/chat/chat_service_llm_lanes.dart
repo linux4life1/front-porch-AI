@@ -89,6 +89,14 @@ extension ChatServiceLlmLanes on ChatService {
     } on Object catch (e) {
       debugPrint('[Chat] letting go of a deleted chat\'s cache failed: $e');
     }
+    // A deleted chat is owed no starting-point scan any more.
+    unawaited(
+      _storageService.realismSettings.settleRealismStart(chat).catchError((
+        Object e,
+      ) {
+        debugPrint('[Realism] forgetting a deleted chat\'s scan failed: $e');
+      }),
+    );
   }
 
   bool get _workerLaneActive =>

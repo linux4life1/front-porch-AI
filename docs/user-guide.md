@@ -244,7 +244,7 @@ Outside of full auto-play, a **next character** button in the toolbar shows who'
 
 Each member keeps their own lorebooks, relationship scores, needs, expression images, and voice. It's a real ensemble, not one AI wearing different name tags.
 
-**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Per-member Realism and Needs live on the member cards.
+**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Most per-member settings live in the member's editor (**Edit Character** on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. Each member's Needs starting values, Pace and per-need switches are in Group Settings → Needs. See [Realism Engine → In groups](realism-engine.md#in-groups).
 
 Groups sit on the home screen next to your characters, and (since 1.2) can be filed into folders the same way.
 
@@ -286,7 +286,7 @@ The feature that makes characters feel alive instead of stateless. When it's on,
 
 Everything shows up in the chat sidebar under **Character State** — relationship bars, current mood, needs, the scene clock, the weather chip, ambitions — and small chips under each reply show what changed and why.
 
-You can switch the engine (or individual parts of it) on and off globally in **Settings → Porch Life** and per character in the editor. For a single conversation: in a one-on-one chat the switch sits on the **Character State** card in the sidebar; in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle. (The tune icon on the Character State card opens the finer simulation settings in both.)
+The engine, Needs and Afterglow each have three layers. **Settings → Porch Life** allows them for every chat (off there, no chat runs them, and each chat keeps its own choice). The character editor, or a group's wizard and Edit group, sets how **new** chats start; editing a card never changes a chat you already have. And each chat has its own switch: in a one-on-one chat the Realism switch sits on the **Character State** card in the sidebar, with Needs and Afterglow on their own lines below it (they only appear while that chat's Realism is on, so switch Realism on first); in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle, and Group Settings → Needs. On the phone, they're in the chat tools, where Needs and Afterglow also wait for Realism.
 
 **The full deep-dive — every system, number, and tuning knob — lives in the [Realism Engine guide](realism-engine.md).**
 
@@ -298,15 +298,17 @@ You can switch the engine (or individual parts of it) on and off globally in **S
 
 The important bit since 1.3: **Realism Engine is no longer the master key.** Journal, the story clock, Chaos / Chance Time, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults; an open chat can still overrule most of them in the sidebar. **Passage of Time** is the exception: Settings → Porch Life is the only live clock switch.
 
+**Realism Engine** on this tab *allows* the engine in every chat; it doesn't switch it on in them. Each chat has its own switch. Under it, **Start every new chat with Realism** starts new one-on-one chats with it on even when the card doesn't ask. Turning **Realism Engine**, **Needs** or **Afterglow** on asks whether to turn it on in the chats that have it off.
+
 Other rows on that tab, in plain English:
 
-- **Needs** — Sims-style hunger/energy/etc. Needs the engine to turn a need into a mood.
+- **Needs** — Sims-style hunger/energy/etc. Needs the engine to turn a need into a mood. This row allows Needs; each chat has its own Needs switch.
 - **Story Weather** — rides on the clock.
 - **Dreams / Promises / Growth Rings / Ambitions / Standing Mood** — each says what it needs on the row itself.
 - **Notice new characters** — every few messages, offer to bring in someone the story named. `/scan` still works if you turn this off.
 - **Planner** — they keep a short plan (needs Time + Objectives + Journal). You can add or delete lines.
 - **Welcome-back recap** / **Character notices your absence** — after a long gap, a banner and (optional) one in-character mention. Coarse (“a few days”), never guesses what you were doing.
-- **Afterglow** (18+ themes on) — desire settles after a scene instead of snapping to zero. Older docs called this NSFW Cooldown; same thing, new name.
+- **Afterglow** (18+ themes on) — desire settles after a scene instead of snapping to zero. This row allows Afterglow; each chat has its own Afterglow switch. Older docs called this NSFW Cooldown; same thing, new name.
 - **Acts on desires** — card intimate preferences are *said and acted on*, not only scored.
 
 **18+ themes** itself is Settings → **General**, not Porch Life. Off hides After Dark and intimate card fields; it does not erase what you already set.

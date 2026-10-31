@@ -50,7 +50,21 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.chaosLine,
+    this.afterglowLine,
+    this.needsDirectorAuthority = false,
+    this.onNeedsDirectorAuthorityChanged,
   });
+
+  /// A group member's editor: the group's Chaos and Afterglow, read-only,
+  /// above the member's own rows.
+  final Widget? chaosLine;
+  final Widget? afterglowLine;
+
+  /// The Director's authority over Needs scores; it acts only with
+  /// Verification on.
+  final bool needsDirectorAuthority;
+  final ValueChanged<bool>? onNeedsDirectorAuthorityChanged;
 
   final bool chaosModeEnabled;
   final ValueChanged<bool> onChaosModeChanged;
@@ -107,6 +121,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          ?chaosLine,
+          if (allowed) ?afterglowLine,
           if (showSwitch) ...[
             buildRealismToggleRow(
               icon: Icons.local_fire_department,
@@ -230,6 +246,20 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         onRealismVerificationStrictnessChanged?.call(d.round())
                   : null,
             ),
+            // It acts only through Verification, so it shows with it on (as
+            // the web editor and Group Settings show it).
+            if (onNeedsDirectorAuthorityChanged != null &&
+                realismVerificationEnabled)
+              buildRealismToggleRow(
+                icon: Icons.gavel,
+                label: 'Director authority (needs)',
+                subtitle:
+                    "The director's corrections to Needs scores are the ones "
+                    'used.',
+                value: needsDirectorAuthority,
+                onChanged: onNeedsDirectorAuthorityChanged!,
+                context: context,
+              ),
           ],
         ],
       ),

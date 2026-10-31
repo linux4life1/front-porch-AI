@@ -111,7 +111,7 @@ extension ChatServiceSessionManage on ChatService {
       // cards (no realism setup) get realism + baseline generation without the
       // user editing each card. Defaults false → no change until opted in.
       // Mirrors the setActiveCharacter fresh-seed path (chat_entry).
-      _realismEnabled =
+      _realismChatSwitch =
           extSeed.realismEnabled ||
           _storageService.realismSettings.realismDefault;
       // Card-seed bypass (rec 1 from PR #47; keeps startNewChat parity with setActive ext seed):

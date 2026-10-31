@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabaseGroupQueries;
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
@@ -12,10 +14,21 @@ import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/reali
 class GroupRealismNeedsTab extends StatefulWidget {
   final ChatService chatService;
   final GroupChatRepository? groupRepo;
+
+  /// Switches the Group Settings dialog holding this tab to another tab: a
+  /// member's editor opened from here links back to it, not to a second
+  /// Group Settings.
+  final void Function(int tab)? onShowTab;
+
+  /// Fires when the dialog's Save has written the group's row, so the
+  /// members' summaries read it again.
+  final Listenable? rowSaved;
   const GroupRealismNeedsTab({
     super.key,
     required this.chatService,
     this.groupRepo,
+    this.onShowTab,
+    this.rowSaved,
   });
 
   @override
@@ -25,12 +38,30 @@ class GroupRealismNeedsTab extends StatefulWidget {
 class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   late final GroupRealismNeedsController _controller;
 
+  /// The group's saved realism definition, for the members' summaries of
+  /// where each starts in its new chats.
+  String _persisted = '{}';
+
   @override
   void initState() {
     super.initState();
     widget.chatService.addListener(_onServiceChanged);
     _controller = GroupRealismNeedsController(widget.chatService)
       ..addListener(_onControllerChanged);
+    widget.rowSaved?.addListener(_readPersisted);
+    _readPersisted();
+  }
+
+  Future<void> _readPersisted() async {
+    final id = widget.chatService.activeGroup?.id;
+    if (id == null || !mounted) return;
+    try {
+      final row = await liveDatabase(context).getGroupById(id);
+      if (!mounted) return;
+      setState(() => _persisted = row?.defaultMemberRealismState ?? '{}');
+    } catch (e) {
+      debugPrint('[GroupSettings] could not read the group: $e');
+    }
   }
 
   void _onServiceChanged() {
@@ -44,6 +75,7 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   @override
   void dispose() {
     widget.chatService.removeListener(_onServiceChanged);
+    widget.rowSaved?.removeListener(_readPersisted);
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();
@@ -233,6 +265,9 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
                   cs: cs,
                   isRealismActive: isRealismActive,
                   controller: _controller,
+                  persisted: _persisted,
+                  onShowTab: widget.onShowTab,
+                  onEdited: _readPersisted,
                 ),
               ),
 

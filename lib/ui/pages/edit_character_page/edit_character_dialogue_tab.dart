@@ -21,6 +21,7 @@ import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 
 /// The character editor's Dialogue tab: first message, alternate greetings
 /// (each with its realism seed) and example dialogue.
@@ -28,10 +29,14 @@ class EditCharacterDialogueTab extends StatelessWidget {
   final EditCharacterDraft draft;
   final VoidCallback onChanged;
 
+  /// A group member's editor: what the group does with a greeting's seed.
+  final String? greetingNote;
+
   const EditCharacterDialogueTab({
     super.key,
     required this.draft,
     required this.onChanged,
+    this.greetingNote,
   });
 
   @override
@@ -149,6 +154,8 @@ class EditCharacterDialogueTab extends StatelessWidget {
                                 onChanged();
                               },
                             ),
+                            if (greetingNote != null)
+                              MemberEditorNote(greetingNote!),
                           ],
                         ),
                       );

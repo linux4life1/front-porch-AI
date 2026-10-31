@@ -351,7 +351,7 @@ mixin ChatServiceFieldBag {
   bool _summaryPaused = false;
   bool _isSummaryGenerating = false;
   // ── Realism Mode ──
-  bool _realismEnabled = false; // master toggle
+  bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
   bool _isEvaluatingRealism = false;
   bool _isCancellingRealismEval = false;
   bool _isProcessingGreeting =

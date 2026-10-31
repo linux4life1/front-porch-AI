@@ -12,7 +12,13 @@ import { type ObjectiveView } from './ObjectivesPanel';
 export interface ToolsState {
   wikiBaseUrl?: string;
   wikiSavedUrls?: string[];
+  /** Realism runs: Porch Life allows it AND this chat's own switch. */
   realismEnabled: boolean;
+  /** Porch Life allows Realism (additive: absent on an older desktop). */
+  realismAllowed?: boolean;
+  /** This chat's own Realism switch, kept while Porch Life blocks it
+   *  (additive: an older desktop sends only realismEnabled). */
+  realismSwitch?: boolean;
   needsEnabled: boolean;
   /** Porch Life allows Needs (additive: absent on an older desktop). */
   needsAllowed?: boolean;

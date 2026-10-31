@@ -19,7 +19,7 @@ import { MilestonesPanel } from './MilestonesPanel';
 import { ChatToolsMemory, ChatToolsRecap, ChatToolsWiki } from './ChatToolsMemory';
 import { ChatToolsChaos, ChatToolsNsfw, ChatToolsPockets } from './ChatToolsRealism';
 import { ChatToolsAmbitions, ChatToolsObjectives } from './ChatToolsObjectives';
-import { Toggle, type ToolsState } from './ChatToolsShared';
+import { type ToolsState } from './ChatToolsShared';
 
 export { TextField } from './SummaryRecapField';
 export type { ToolsState } from './ChatToolsShared';
@@ -112,7 +112,22 @@ export function ChatTools({
 
   return (
     <div className="chat-tools">
-      <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
+      {/* This chat's own Realism switch (desktop: the Character State header,
+          or Group Settings for a group). It greys while Porch Life's Realism
+          Engine is off; the chat's choice is kept. */}
+      <label className="tool-toggle">
+        <span>Realism engine</span>
+        <input
+          type="checkbox"
+          aria-label="Realism engine"
+          checked={t.realismSwitch ?? t.realismEnabled}
+          disabled={t.realismAllowed === false}
+          onChange={(e) => toggle('realism', e.target.checked)}
+        />
+      </label>
+      {t.realismAllowed === false && (
+        <p className="muted small">The Realism Engine is off in Porch Life, so no chat runs it. This chat&apos;s own choice is kept.</p>
+      )}
       {/* This chat's own Needs switch (desktop: the sidebar's Needs line). It
           greys while Porch Life's Needs is off; the chat's choice is kept. */}
       {t.realismEnabled && (

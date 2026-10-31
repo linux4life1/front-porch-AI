@@ -307,7 +307,8 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                 ),
               ),
 
-            // Needs Simulation master toggle
+            // This group chat's own Needs switch. It greys at the chat's own
+            // value while Porch Life's Needs is off, as the 1:1 line does.
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -338,10 +339,14 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                       Switch(
                         value: _needsSimEnabled,
                         activeTrackColor: AppColors.porchAmberOf(context),
-                        onChanged: _updateNeedsSim,
+                        onChanged: porchLifeAllowsNeedsOf(context)
+                            ? _updateNeedsSim
+                            : null,
                       ),
                     ],
                   ),
+                  if (!porchLifeAllowsNeedsOf(context))
+                    const NeedsOffInPorchLifeNote(),
                   const SizedBox(height: 4),
                   Text(
                     'Simulates need satisfaction (hunger, bladder, energy, social, fun, hygiene, comfort). Higher = more sated (100=full, 0=critical). Low values influence AI behavior and prompt injections.',

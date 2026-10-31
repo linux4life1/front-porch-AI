@@ -239,7 +239,7 @@ extension ChatServiceSessionStateSave on ChatService {
         shortTermDeltasSummary: drift.Value(
           _relationshipService.shortTermDeltasSummary,
         ),
-        realismEnabled: drift.Value(_realismEnabled),
+        realismEnabled: drift.Value(_realismChatSwitch),
         characterEmotion: drift.Value(_characterEmotion),
         emotionIntensity: drift.Value(_emotionIntensity),
         emotionCause: drift.Value(_emotionCause),

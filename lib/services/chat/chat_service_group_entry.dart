@@ -76,7 +76,7 @@ extension ChatServiceGroupEntry on ChatService {
       _sceneGuest.turnsSinceCastScan = 0;
       _sceneGuest.pendingDetection = null;
       _sceneGuest.offeredOrIgnoredNames.clear();
-      _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+      _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
       if (_characterRepository == null) return;
 
@@ -93,7 +93,7 @@ extension ChatServiceGroupEntry on ChatService {
       // method baked them onto the group's first session row for good. Same
       // zeros the 1:1 twin does in setActiveCharacter; a stored session still
       // wins, because _loadLastSession hydrates both flags below.
-      _realismEnabled = false;
+      _realismChatSwitch = false;
       _needsSimEnabled = false;
       _enjoysLowHygiene = false;
       _needsSimulation.clearVector();
@@ -221,7 +221,7 @@ extension ChatServiceGroupEntry on ChatService {
         // (its Dart initializer), the first session is saved with realism off, and both
         // isGroupRealismActive and all per-char getters return nothing.
         if (_groupRealism.isNotEmpty) {
-          _realismEnabled = true;
+          _realismChatSwitch = true;
           // Infer needs from whether the seeded per-char states actually contain needs data.
           // (Creator omits the 'needs' sub-map entirely when the user disabled Needs in the wizard.)
           // Presence-inference — see the matching note in
@@ -403,7 +403,11 @@ extension ChatServiceGroupEntry on ChatService {
       if (m.avatarImages != null && m.avatarImages!.isNotEmpty) continue;
       final origin = originLibraryCardFor(m);
       if (origin?.avatarImages != null && origin!.avatarImages!.isNotEmpty) {
-        m.avatarImages = List<AvatarImage>.from(origin.avatarImages!);
+        // The prime index belongs with the images: it names the face a
+        // label with no match falls back on.
+        m
+          ..avatarImages = List<AvatarImage>.from(origin.avatarImages!)
+          ..primeAvatarIndex = origin.primeAvatarIndex;
       }
     }
   }

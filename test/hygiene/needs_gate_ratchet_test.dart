@@ -63,8 +63,6 @@ const _stateAndRewinds = <String, String>{
       'rewinds a regen to its stamp',
   'lib/services/chat/chat_service_message_ops.dart':
       'rewinds a delete to its stamp',
-  'lib/services/chat/standing_mood.dart':
-      'reads the bars into the realism snapshot',
 };
 
 /// Files where only one function may read the stored switch, because the

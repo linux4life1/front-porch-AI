@@ -34,12 +34,19 @@ import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 
 class NeedsPass {
-  NeedsPass(this._scope, {required this.loadIntoScalars});
+  NeedsPass(
+    this._scope, {
+    required this.loadIntoScalars,
+    required this.chatRealism,
+  });
 
   final RealismScope _scope;
 
   /// The group dance's load of a member into the live scalars.
   final void Function(String charId) loadIntoScalars;
+
+  /// This chat's own Realism switch, not the gate [active] reads.
+  final bool Function() chatRealism;
 
   /// The gate every Needs run reads. [_needsActive] keeps its name: the
   /// ratchet pins the one definition here.
@@ -88,9 +95,10 @@ class NeedsPass {
   /// filling in Needs where it cannot run would only flip a stored switch.
   /// Porch Life is not part of it: it vetoes every chat live through
   /// [active] (maintainer ruling, 2026-10-10), so a chat started while it is
-  /// off keeps its card's choice for when it comes back on. Reads
-  /// `_realismEnabled`, so callers set Realism first.
-  bool seedNeedsSim(bool? cardChoice) => cardChoice ?? _realismEnabled;
+  /// off keeps its card's choice for when it comes back on. A silent card
+  /// reads the chat's own Realism switch, not the gate, for the same reason
+  /// (Porch Life's Realism vetoes live too), so callers set Realism first.
+  bool seedNeedsSim(bool? cardChoice) => cardChoice ?? chatRealism();
 
   /// The pre-turn stamp: the body as it is before this reply, with the
   /// carried fraction, on the pending map, so regen and the chip rewind to

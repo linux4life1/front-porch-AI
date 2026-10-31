@@ -12,8 +12,10 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/group_member_start.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
+import 'package:front_porch_ai/ui/widgets/group_member_summary_row.dart';
+import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
     show afterglowEnabledOf;
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor/group_realism_dynamics_editor.dart';
@@ -22,10 +24,10 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 export 'group_realism_dynamics_editor/group_realism_member.dart';
 
-/// The "Realism & Dynamics" editor for an existing group: per-member base
-/// realism/needs (via the shared [GroupMemberRealismEditor]) plus the intragroup
-/// dynamics sliders — the same controls the create wizard exposes, so there is
-/// one UX standard for seeding a group's realism.
+/// The "Realism & Dynamics" editor for an existing group: the group's own
+/// switches for new chats (Realism, Afterglow, Needs, scene time), a summary
+/// of each member with an Edit that opens their editor (where their start,
+/// Needs and Afterglow are), and the intragroup dynamics sliders.
 ///
 /// Everything is keyed by the member `mid` (what the runtime reads). On load it
 /// falls back to a member's `originStableId` to recover seeds written by the old
@@ -40,8 +42,8 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
   /// Called with (defaultMemberRealismState, baselineRealismState) on every edit.
   final void Function(String defaultMemberJson, String baselineJson) onChanged;
 
-  /// Shown under the members while the group's Realism and Afterglow are on.
-  final Widget? footer;
+  /// Opens member [mid]'s editor; the summaries have no Edit without it.
+  final void Function(String mid)? onEditMember;
 
   const GroupRealismDynamicsEditor({
     super.key,
@@ -49,7 +51,7 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
     required this.initialDefaultMemberJson,
     required this.initialBaselineJson,
     required this.onChanged,
-    this.footer,
+    this.onEditMember,
   });
 
   @override
@@ -171,13 +173,6 @@ class _GroupRealismDynamicsEditorState
     widget.onChanged(blobs.defaultMemberJson, blobs.baselineJson);
   }
 
-  void _updateMember(String mid, Map<String, dynamic> delta) {
-    setState(() {
-      _seedsByMid[mid] = {...?_seedsByMid[mid], ...delta};
-    });
-    _emit();
-  }
-
   void _updateRelationship(String fromMid, String toMid, int value) {
     setState(() {
       final seed = _seedsByMid[fromMid] ??= groupMemberStartingSeed(
@@ -269,16 +264,54 @@ class _GroupRealismDynamicsEditorState
               ),
             ],
             const SizedBox(height: 16),
+            SwitchListTile(
+              tileColor: AppColors.cardOf(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: AppColors.borderOf(context)),
+              ),
+              secondary: Icon(
+                Icons.battery_std,
+                color: AppColors.iconSecondary(context),
+              ),
+              title: Text(
+                'Needs',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary(context),
+                ),
+              ),
+              // Greyed at the group's own choice while Porch Life's Needs
+              // is off, as every chat's Needs switch is.
+              subtitle: porchLifeAllowsNeedsOf(context)
+                  ? Text(
+                      'Hunger, energy and the rest for every member in new '
+                      "chats of this group. Each member's own bars are in "
+                      'their editor.',
+                      style: TextStyle(color: AppColors.textSecondary(context)),
+                    )
+                  : const NeedsOffInPorchLifeNote(
+                      kept: "This group's choice for new chats is kept.",
+                    ),
+              value: _needsEnabled,
+              onChanged: porchLifeAllowsNeedsOf(context)
+                  ? (v) {
+                      setState(() => _needsEnabled = v);
+                      _emit();
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 16),
             _buildSceneTimeCard(),
             const SizedBox(height: 16),
-            ...widget.members.map(_buildMemberCard),
+            ...widget.members.map(_buildMemberSummary),
+            const SizedBox(height: 8),
             GroupDynamicsSection(
               members: widget.members,
               seedsByMid: _seedsByMid,
               avatar: _avatar,
               onRelationshipChanged: _updateRelationship,
             ),
-            if (_afterglow) ?widget.footer,
           ],
         ],
       ),
@@ -379,45 +412,23 @@ class _GroupRealismDynamicsEditorState
     );
   }
 
-  Widget _buildMemberCard(GroupRealismMember m) {
+  /// The member's start, read from the seed this tab holds, and their own
+  /// Afterglow; Edit opens their editor, which saves the start to the group.
+  Widget _buildMemberSummary(GroupRealismMember m) {
     final seed = _seedsByMid[m.mid] ?? groupMemberStartingSeed(m.extensions);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderOf(context)),
+    final edit = widget.onEditMember;
+    return GroupMemberSummaryRow(
+      key: ValueKey('member-summary-${m.mid}'),
+      leading: _avatar(m, 16),
+      name: m.name,
+      detail: groupMemberSummaryDetail(
+        start: groupMemberStartOfSeed(seed),
+        afterglow: afterglowEnabledOf(context) && _afterglow
+            ? m.extensions?.afterglowEnabled ?? true
+            : null,
+        lite: m.extensions?.tier == 'lite',
       ),
-      // The tile's ink paints on the nearest Material; without this one it
-      // would sit under the card's colour (Flutter asserts on that).
-      child: Material(
-        type: MaterialType.transparency,
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            leading: _avatar(m, 18),
-            title: Text(
-              m.name,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary(context),
-              ),
-            ),
-            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            children: [
-              GroupMemberRealismEditor(
-                seed: seed,
-                needsEnabled: _needsEnabled,
-                onNeedsEnabledChanged: (v) {
-                  setState(() => _needsEnabled = v);
-                  _emit();
-                },
-                onUpdate: (delta) => _updateMember(m.mid, delta),
-              ),
-            ],
-          ),
-        ),
-      ),
+      onEdit: edit == null ? null : () => edit(m.mid),
     );
   }
 }

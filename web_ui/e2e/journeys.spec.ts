@@ -2181,6 +2181,53 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
   }
 });
 
+// Porch Life's Realism Engine is the permission: off, the chat's own Realism
+// switch greys out at the chat's choice and says where to look; back on, the
+// existing-chats question offers to switch it on where it is off.
+test('Porch Life Realism off greys the chat\'s Realism switch; on again asks about chats that have it off', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  type S = { realism?: { realismAllowed?: boolean } };
+  type T = { realismEnabled: boolean; realismSwitch?: boolean };
+  const allowedBefore = ((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed ?? true;
+  const setAllowed = (on: boolean) => request.post('/api/settings', { data: { realism: { realismAllowed: on } } });
+  const setOwn = (on: boolean) => request.post('/api/chat/tools/toggle', { data: { name: 'realism', value: on } });
+  await openPorchChat(page);
+  const tools = (await (await request.get('/api/chat/tools')).json()) as T;
+  const ownBefore = tools.realismSwitch ?? tools.realismEnabled;
+  try {
+    // This chat's own switch off, so turning the engine back on has a chat to ask about.
+    expect((await setOwn(false)).ok()).toBe(true);
+    expect((await setAllowed(false)).ok()).toBe(true);
+    await openPorchChat(page);
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    const own = panel.getByRole('checkbox', { name: 'Realism engine', exact: true });
+    await expect(own).toBeDisabled();
+    await expect(own).not.toBeChecked();
+    await expect(panel).toContainText('The Realism Engine is off in Porch Life');
+
+    await openRoute(page, '/settings');
+    const card = page.getByTestId('porch-life-card');
+    const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
+    await expect(engine).not.toBeChecked();
+    await engine.check();
+    const dialog = page.getByRole('dialog', { name: 'Realism is on' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(/Turn it on in (that chat|those \d+ chats) too/);
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed).toBe(true);
+    const after = (await (await request.get('/api/chat/tools')).json()) as T;
+    expect(after.realismSwitch, 'Done with the switch off changes no chat').toBe(false);
+  } finally {
+    await setAllowed(allowedBefore);
+    await setOwn(ownBefore);
+  }
+});
+
 // New group on the phone: each member's Realism card starts at what their
 // character card says, not the neutral seed (bond 35, trust 40), and the
 // group's first chat starts them there. Two characters are made for this
@@ -2255,5 +2302,44 @@ test('a new group starts each member from their character card', { tag: SERIAL }
       if (!before.includes(id)) await page.request.post(`/api/groups/${id}/delete`);
     }
     for (const id of ids) await page.request.post(`/api/characters/${id}/delete`);
+  }
+});
+
+// A group member's editor on the phone shows the group's own switches as
+// read-only lines, and where the member starts in the group's new chats
+// saves to the group's seed for them (Long-Term Bond under its own key),
+// never to their card.
+test("a member's start in the group's new chats saves to the group", { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+  const name = `Start Crew ${test.info().project.name}`;
+  const created = await request.post('/api/groups', { data: { name, memberIds } });
+  expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+  const groupId = ((await created.json()) as { id: string }).id;
+  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
+  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
+  type Start = { longTermBond: number; trustLevel: number };
+  const detail = async () =>
+    (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
+      start: Start | null;
+      group: { realism: boolean } | null;
+    };
+  try {
+    const before = (await detail()).start!;
+    expect((await detail()).group?.realism).toBe(true);
+    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
+    await expect(page.getByTestId('group-line-realism')).toContainText("Realism Engine · On for this group's new chats");
+    await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
+
+    const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');
+    await longTerm.focus();
+    await longTerm.press('End');
+    await page.getByRole('button', { name: 'Save character' }).click();
+    await expect.poll(async () => (await detail()).start?.longTermBond).toBe(300);
+    expect((await detail()).start?.trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+  } finally {
+    await request.post(`/api/groups/${groupId}/delete`);
   }
 });

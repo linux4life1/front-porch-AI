@@ -156,7 +156,7 @@ extension ChatServiceSessionHydrate on ChatService {
     // The fixation coming out of the LLM can sometimes be a full paragraph
     // instead of a short topic — truncate to keep the UI and prompts sane.
     _relationshipService.sanitizeFixationIfTooLong();
-    _realismEnabled = s.realismEnabled;
+    _realismChatSwitch = s.realismEnabled;
     _characterEmotion = s.characterEmotion;
     _emotionIntensity = s.emotionIntensity;
     _emotionCause = s.emotionCause;

@@ -35,6 +35,8 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
+    show memberGroupViewOfChat, readMemberEditorDefinition;
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 
@@ -287,6 +289,7 @@ Future<void> showEditCharacterDialog(
   BuildContext context,
   CharacterCard character, {
   bool ensureRelationshipVisible = false,
+  void Function(int tab)? groupSettingsTab,
 }) async {
   final chatService = Provider.of<ChatService>(context, listen: false);
   // A group member is the group's own copy: Save writes its row, never the
@@ -296,6 +299,26 @@ Future<void> showEditCharacterDialog(
   final db = member ? liveDatabase(context) : null;
   final afterglowBefore =
       character.frontPorchExtensions?.afterglowEnabled ?? true;
+  // Where the member starts is read from the group's row, not the chat's
+  // copy (which can hold Group Settings edits not saved yet).
+  final groupId = chatService.activeGroup?.id;
+  var persisted = '{}';
+  if (db != null && groupId != null) {
+    final read = await readMemberEditorDefinition(context, db, groupId);
+    if (read == null) return; // a second tap while the first reads
+    persisted = read;
+  }
+  if (!context.mounted) return;
+  // Built once, outside the builder, and released when the editor closes.
+  final view = member
+      ? memberGroupViewOfChat(
+          context,
+          chatService,
+          character,
+          persisted: persisted,
+          showTab: groupSettingsTab,
+        )
+      : null;
   final opened = showDialog<void>(
     context: context,
     builder: (dialogCtx) => Dialog(
@@ -307,6 +330,7 @@ Future<void> showEditCharacterDialog(
         child: EditCharacterPage(
           character: character,
           memberOfGroup: member ? chatService.activeGroup?.name : null,
+          memberGroup: view,
           onSaveOverride: db == null
               ? null
               : (card) => saveGroupMemberCard(db, card),
@@ -332,6 +356,7 @@ Future<void> showEditCharacterDialog(
     });
   }
   await opened;
+  view?.dispose();
 }
 
 /// The "Main Settings" popup button.

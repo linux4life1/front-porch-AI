@@ -15,7 +15,7 @@ extension ChatServiceImportWalk on ChatService {
 
     final ext =
         _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-    final keepRealism = _realismEnabled;
+    final keepRealism = _realismChatSwitch;
     final keepNeeds = _needsSimEnabled;
     final keepObj = _objectivesEnabled;
     final keepHyg = _enjoysLowHygiene;
@@ -62,7 +62,7 @@ extension ChatServiceImportWalk on ChatService {
       seedPocketsFromCards();
     }
 
-    _realismEnabled = keepRealism;
+    _realismChatSwitch = keepRealism;
     _needsSimEnabled = keepNeeds;
     _objectivesEnabled = keepObj;
     _enjoysLowHygiene = keepHyg;

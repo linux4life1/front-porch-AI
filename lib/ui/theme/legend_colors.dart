@@ -29,6 +29,8 @@ class LegendColors {
     'Chat History': Color(0xFF6366F1),
     'Post-History': Color(0xFFEF4444),
     'Journal': Color(0xFFF97316),
+    'Realism Engine': Color(0xFFEC4899),
+    // A send saved before the section was renamed keeps its colour.
     'Realism Mode': Color(0xFFEC4899),
     'Memories': Color(0xFF14B8A6),
     'Speaker Card': Color(0xFF7C3AED),
