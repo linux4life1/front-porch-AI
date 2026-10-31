@@ -54,7 +54,8 @@ Future<void> offerAfterglowInExistingChats(
     width: 380,
     content: ExistingChatsOfferBody(count: count),
   );
-  if (turnOn != true) return;
+  // Porch Life may have stopped allowing it while the question was open.
+  if (turnOn != true || !storage.realismSettings.afterglowEnabled) return;
   try {
     await offer.turnAfterglowOn();
   } catch (e) {
@@ -84,8 +85,8 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "New chats start with Afterglow unless their character's card "
-          'says otherwise.',
+          "New chats start with Afterglow unless their character's card, "
+          "or a group chat's group, says otherwise.",
           style: TextStyle(color: AppColors.textSecondary(context)),
         ),
         const SizedBox(height: 12),
@@ -113,6 +114,9 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.lustAccentOf(context),
+            ),
             onPressed: () => Navigator.of(context).pop(_turnOn),
             child: const Text('Done'),
           ),

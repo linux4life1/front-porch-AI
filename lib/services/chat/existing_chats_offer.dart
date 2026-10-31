@@ -18,16 +18,19 @@
 
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Refractory, RefractoryKeys;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// The existing-chats question: when Porch Life starts allowing Afterglow,
 /// the chats whose own switch is off are counted and, only if asked, switched
-/// on. Nothing else in those chats changes, and no card or group template is
-/// touched. A chat in the trash is left alone.
+/// on. Nothing else in those chats changes (a group chat that never saved
+/// its own blob takes its group's, see [_afterglowOff]), and no card or group
+/// template is touched. A chat in the trash is left alone.
 ///
 /// A 1:1 chat's switch is its `nsfw_cooldown_enabled` column; a group chat's
 /// is the `afterglow` key of its realism blob, which falls back to the
@@ -49,7 +52,7 @@ class ExistingChatsOffer {
     for (final chat in off) {
       if (chat.id == _openSessionId) {
         await _chat!.setAfterglowEnabled(true);
-      } else if (chat.blob == null) {
+      } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',
           variables: [Variable(chat.id)],
@@ -58,7 +61,7 @@ class ExistingChatsOffer {
         await _db.customUpdate(
           'UPDATE sessions SET group_realism_state = ? WHERE id = ?',
           variables: [
-            Variable(jsonEncode({...chat.blob!, kGroupAfterglowKey: true})),
+            Variable(jsonEncode({...chat.blob, kGroupAfterglowKey: true})),
             Variable(chat.id),
           ],
         );
@@ -69,39 +72,68 @@ class ExistingChatsOffer {
 
   String? get _openSessionId => _chat?.currentSessionId;
 
-  /// Each chat that has its switch off: its id, and for a group chat the
-  /// blob it reads (so turning it on keeps every other key).
-  Future<List<({String id, Map<String, dynamic>? blob})>>
-  _afterglowOff() async {
-    final rows = await _db
+  /// Each chat that has its switch off. A group chat carries the blob it
+  /// reads, so turning it on keeps every other key. A group chat that never
+  /// saved its own blob reads its group's; turning it on gives it that blob
+  /// as its own, so it stops following later edits to the group's template.
+  Future<List<_OffChat>> _afterglowOff() async {
+    final open = _openSessionId;
+    final off = <_OffChat>[];
+    if (open != null && _chat != null && !_chat.afterglowChatSwitch) {
+      off.add(_OffChat(open, isGroup: _chat.isGroupMode));
+    }
+    final solo =
+        await (_db.select(_db.sessions)..where(
+              (t) =>
+                  t.deletedAt.isNull() &
+                  t.groupId.isNull() &
+                  t.nsfwCooldownEnabled.equals(false),
+            ))
+            .get();
+    for (final r in solo) {
+      if (r.id == open || _opensOn(r)) continue;
+      off.add(_OffChat(r.id, isGroup: false));
+    }
+    final groups = await _db
         .customSelect(
-          'SELECT s.id AS id, s.group_id AS g, '
-          's.nsfw_cooldown_enabled AS n, s.group_realism_state AS st, '
+          'SELECT s.id AS id, s.group_realism_state AS st, '
           'gr.default_member_realism_state AS d '
-          'FROM sessions s LEFT JOIN groups gr ON gr.id = s.group_id '
+          'FROM sessions s JOIN groups gr ON gr.id = s.group_id '
           'WHERE s.deleted_at IS NULL',
         )
         .get();
-    final off = <({String id, Map<String, dynamic>? blob})>[];
-    for (final r in rows) {
+    for (final r in groups) {
       final id = r.read<String>('id');
-      final isGroup = r.readNullable<String>('g') != null;
-      if (id == _openSessionId) {
-        if (!_chat!.afterglowChatSwitch) off.add((id: id, blob: null));
-        continue;
-      }
-      if (!isGroup) {
-        if (r.readNullable<bool>('n') != true) off.add((id: id, blob: null));
-        continue;
-      }
+      if (id == open) continue;
       final own = r.readNullable<String>('st') ?? '';
       final blob = own.isEmpty || own == '{}'
           ? r.readNullable<String>('d') ?? ''
           : own;
       if (groupAfterglowIn(blob)) continue;
-      off.add((id: id, blob: _decode(blob)));
+      off.add(_OffChat(id, isGroup: true, blob: _decode(blob)));
     }
     return off;
+  }
+
+  /// A 1:1 chat stored off that still holds Lust, a recovery or a warmth
+  /// tail opens with Afterglow on (the on-open repair in session hydrate),
+  /// so it does not have Afterglow off and is not asked about.
+  static bool _opensOn(Session s) {
+    final body = Refractory.read({
+      RefractoryKeys.minutes: s.refractoryMinutesRemaining,
+      RefractoryKeys.total: s.refractoryMinutesTotal,
+      if (s.refractoryTailMinutes != null)
+        RefractoryKeys.tail: {
+          RefractoryKeys.minutes: s.refractoryTailMinutes,
+          RefractoryKeys.total:
+              s.refractoryTailTotal ?? s.refractoryTailMinutes,
+        },
+      RefractoryKeys.legacyTurns: s.cooldownTurnsRemaining,
+      RefractoryKeys.legacyTotal: s.cooldownTurnsTotal,
+    });
+    return s.arousalLevel != 0 ||
+        (body?.running ?? false) ||
+        (body?.tailRunning ?? false);
   }
 
   static Map<String, dynamic> _decode(String json) {
@@ -112,4 +144,12 @@ class ExistingChatsOffer {
       return <String, dynamic>{};
     }
   }
+}
+
+class _OffChat {
+  _OffChat(this.id, {required this.isGroup, this.blob = const {}});
+
+  final String id;
+  final bool isGroup;
+  final Map<String, dynamic> blob;
 }

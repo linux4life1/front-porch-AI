@@ -344,7 +344,8 @@ void main() {
           ),
     );
     final storage = _AdultStorage();
-    final chat = FakeChatService();
+    // The open chat has its switch off too (this fake's stored flag).
+    final chat = _SwitchChat();
     addTearDown(() {
       storage.dispose();
       chat.dispose();
@@ -383,27 +384,30 @@ void main() {
     tester
         .widget<FeatureRow>(find.widgetWithText(FeatureRow, 'Afterglow'))
         .onChanged(true);
-    final question = find.text('Turn it on in that chat too');
+    final question = find.text('Turn it on in those 2 chats too');
     await until(() => question.evaluate().isNotEmpty);
     expect(question, findsOneWidget);
     expect(find.text('Afterglow is on'), findsOneWidget);
 
     await tester.tap(
-      find.widgetWithText(SwitchListTile, 'Turn it on in that chat too'),
+      find.widgetWithText(SwitchListTile, 'Turn it on in those 2 chats too'),
     );
     await tester.pump();
     await tester.tap(find.text('Done'));
     bool? stored;
-    await until(() {
+    for (var i = 0; i < 100 && stored != true; i++) {
+      bool? read;
       db
           .customSelect(
             "SELECT nsfw_cooldown_enabled AS n FROM sessions WHERE id = 'one-off'",
           )
           .getSingle()
-          .then((r) => stored = r.read<bool>('n'));
-      return stored == true;
-    });
+          .then((r) => read = r.read<bool>('n'));
+      await until(() => read != null);
+      stored = read;
+    }
     expect(stored, isTrue, reason: 'the chat that had it off has it on');
+    expect(chat.asked, [true], reason: 'the open chat is switched live');
   });
 }
 

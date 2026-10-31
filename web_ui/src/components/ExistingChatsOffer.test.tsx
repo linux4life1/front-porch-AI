@@ -11,13 +11,14 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const posts: { path: string; body: unknown }[] = [];
+const gets: string[] = [];
 let count = 2;
 
 vi.mock('../api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     get: async (path: string) =>
-      path.startsWith('/api/settings/existing-chats')
+      gets.push(path) && path.startsWith('/api/settings/existing-chats')
         ? { count }
         : { realism: { realismDefault: true, adultThemesEnabled: true, nsfwCooldownDefault: false } },
     post: async (path: string, body: unknown) => {
@@ -35,6 +36,7 @@ let root: Root;
 beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   posts.length = 0;
+  gets.length = 0;
   count = 2;
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -100,5 +102,6 @@ it('Done with the switch left off changes nothing', async () => {
 it('asks nothing when every chat already has it on', async () => {
   count = 0;
   await turnAfterglowOn();
+  expect(gets, 'it asked how many').toContain('/api/settings/existing-chats?feature=afterglow');
   expect(dialog()).toBeNull();
 });

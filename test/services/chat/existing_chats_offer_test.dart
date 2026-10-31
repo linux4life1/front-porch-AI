@@ -81,6 +81,7 @@ void main() {
       bool afterglow = true,
       String? blob,
       bool deleted = false,
+      int lust = 0,
     }) => db
         .into(db.sessions)
         .insert(
@@ -91,11 +92,19 @@ void main() {
             nsfwCooldownEnabled: Value(afterglow),
             groupRealismState: Value(blob ?? '{}'),
             characterEmotion: const Value('wistful'),
+            arousalLevel: Value(lust),
             deletedAt: Value(deleted ? DateTime(2026, 10, 1) : null),
           ),
         );
     await session('one-off', character: 'char-a', afterglow: false);
     await session('one-on', character: 'char-b');
+    // Stored off but holding Lust: the October overwrite, which opens on.
+    await session(
+      'one-repaired',
+      character: 'char-d',
+      afterglow: false,
+      lust: 30,
+    );
     await session(
       'one-trash',
       character: 'char-c',
@@ -136,7 +145,7 @@ void main() {
     expect(after['one-off']!['nsfw_cooldown_enabled'], 1);
     expect(changed('group-off'), {'group_realism_state'});
     expect(changed('group-template-off'), {'group_realism_state'});
-    for (final id in ['one-on', 'group-on', 'one-trash']) {
+    for (final id in ['one-on', 'group-on', 'one-trash', 'one-repaired']) {
       expect(changed(id), isEmpty, reason: '$id was not asked about');
     }
 
@@ -237,6 +246,12 @@ void main() {
       reason: 'and nothing changed',
     );
     expect(await ExistingChatsOffer(db, null).countAfterglowOff(), 3);
+    expect(await ok(await call('POST', path, {'feature': 'afterglow'})), {
+      'changed': 0,
+    }, reason: 'Porch Life does not allow Afterglow here');
+    expect(await ExistingChatsOffer(db, null).countAfterglowOff(), 3);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
     expect(await ok(await call('POST', path, {'feature': 'afterglow'})), {
       'changed': 3,
     });

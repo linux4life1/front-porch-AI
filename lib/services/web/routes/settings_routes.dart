@@ -45,6 +45,10 @@ class WebSettingsRoutes {
       final body = await RequestBody.readJsonMap(r);
       final o = await _offerFor(body['feature']?.toString());
       if (o == null) return JsonResponse.badRequest('unknown feature');
+      // Porch Life may have stopped allowing it since the question opened.
+      if (!_deps.storage.realismSettings.afterglowEnabled) {
+        return JsonResponse.ok({'changed': 0});
+      }
       return JsonResponse.ok({'changed': await o.turnAfterglowOn()});
     });
     // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).

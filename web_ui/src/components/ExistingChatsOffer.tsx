@@ -43,7 +43,8 @@ export function ExistingChatsOffer({ onClose }: { onClose: () => void }) {
           <span>Afterglow is on</span>
         </div>
         <p className="muted dialog-msg">
-          New chats start with Afterglow unless their character&apos;s card says otherwise.
+          New chats start with Afterglow unless their character&apos;s card, or a group chat&apos;s group, says
+          otherwise.
         </p>
         <label className="tool-toggle">
           <span>{count === 1 ? 'Turn it on in that chat too' : `Turn it on in those ${count} chats too`}</span>
