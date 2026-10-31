@@ -640,11 +640,22 @@ void main() {
     chat!.addListener(flipOnUserLine);
     addTearDown(() => chat?.removeListener(flipOnUserLine));
     llm.turnBusy = turnBusy;
+    // What the phone's insight panel is sent while the change waits.
+    Map<String, dynamic>? phoneDuring;
+    llm.onReply = () => phoneDuring = ChatRealismRead(chat!).snapshot();
     await send(line);
 
     expect(flipped, isTrue);
     expect(llm.realismCallsDuringTurn, isEmpty, reason: 'nothing beside it');
     expect(scans, [false], reason: 'one scan, after sendMessage settled');
+    expect(phoneDuring, isNotNull);
+    expect(phoneDuring!['realismEnabled'], isFalse, reason: 'the turn gate');
+    expect(phoneDuring!['realismAllowed'], isTrue);
+    expect(
+      phoneDuring!['realismSwitch'],
+      isTrue,
+      reason: 'so the phone says Realism starts again when the reply ends',
+    );
   });
 
   test("the chat's own switch turned on just after the user line lands (the "
@@ -697,6 +708,37 @@ void main() {
     await send('And now?');
     expect(llm.realismCalls, isEmpty);
   });
+
+  test(
+    'Generate reply on a trailing user line, Porch Life blocking Realism '
+    'on its first pre-reply judge: that turn keeps Realism to its end',
+    () async {
+      await boot();
+      await chat!.setActiveCharacter(await card('Mara', realism: true));
+      await send('Hello there.');
+      await send('Still here.');
+      await chat!.deleteMessage(chat!.messages.length - 1);
+      await drain();
+      expect(chat!.messages.last.isUser, isTrue, reason: 'a trailing line');
+
+      llm.calls.clear();
+      llm.turnBusy = turnBusy;
+      llm.gate = () => chat!.realismEnabled;
+      llm.onFirstJudge = () => unawaited(rs().setRealismAllowed(false));
+      sending = true;
+      try {
+        await chat!.regenerateLastMessage();
+      } finally {
+        sending = false;
+      }
+      await drain();
+
+      expect(llm.calls, contains('chat'), reason: 'the reply was generated');
+      expect(llm.calls, contains('emotion'), reason: 'every judge still ran');
+      expect(llm.gateAtCallsDuringTurn, everyElement(isTrue));
+      expect(chat!.realismEnabled, isFalse, reason: 'it lands after the turn');
+    },
+  );
 
   test("the chat's own switch turned on mid-reply (the phone) scores its "
       'starting point after the turn, not beside it', () async {
