@@ -374,6 +374,15 @@ describe('the group member editor while its group is open in the chat', () => {
     );
   });
 
+  it("keeps this chat's Needs choice in view and says Porch Life runs no Needs", async () => {
+    detailIs({ ...OPEN, group: { ...OPEN.group, needs: true, needsOffInPorchLife: true } });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    const needs = container.querySelector('[data-testid="group-line-needs"]')?.textContent;
+    expect(needs).toContain('Needs · On in this chat');
+    expect(needs).toContain("· Off in Porch Life, so no chat runs Needs. This chat's choice is kept.");
+  });
+
   it("says there is no start to set while the group's new chats run without Realism", async () => {
     detailIs({ ...OPEN, start: null });
     await mountAt('/groups/g1/members/mem-mara/edit', <></>);

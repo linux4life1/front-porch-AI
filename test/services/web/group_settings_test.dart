@@ -1734,6 +1734,26 @@ void main() {
     // The lines beside the start say what each describes: for a group open
     // in the chat, that chat's own switches, worded "in this chat" by the
     // page; the start is still the group's new chats', from its row.
+    // While Porch Life runs no Needs, the open chat's Needs line keeps the
+    // chat's own choice and says no chat runs Needs.
+    test("an open group's Needs line on the phone says when Porch Life runs "
+        'no Needs', () async {
+      final chat = _OpenPair([CharacterCard(name: 'Mara')..dbId = 'mem-mara']);
+      addTearDown(chat.dispose);
+      await storage.realismSettings.setNeedsSimDefault(false);
+      final d = (await GroupMemberEdit(
+        db,
+        storage,
+        chat,
+        null,
+      ).detail('g1', 'mem-mara'))!;
+      final group = d['group'] as Map;
+      expect(
+        [group['open'], group['needs'], group['needsOffInPorchLife']],
+        [true, true, true],
+      );
+    });
+
     test("an open group's lines on the phone are the chat's own switches, "
         "and its start the row's", () async {
       final chat = _OpenPairWithoutRealism([

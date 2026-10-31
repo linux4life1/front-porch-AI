@@ -96,7 +96,13 @@ class GroupMemberEdit {
   /// new chats. The start is separate, always from the group's row.
   GroupWideValues? _values(String groupId, GroupChat? g) {
     if (g == null) return null;
-    if (_open(groupId)) return groupWideValuesOfChat(_chat!, worlds: _worlds);
+    if (_open(groupId)) {
+      return groupWideValuesOfChat(
+        _chat!,
+        worlds: _worlds,
+        needsSimDefault: _storage.realismSettings.needsSimDefault,
+      );
+    }
     return groupWideValuesOfTemplate(
       defaultMemberJson: g.defaultMemberRealismState,
       baselineJson: g.baselineRealismState,
