@@ -41,7 +41,6 @@ import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -54,6 +53,8 @@ import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_api.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -76,11 +77,10 @@ export 'chat/doors/media/media_api.dart';
 export 'chat/doors/transfer/transfer_api.dart';
 export 'chat/doors/objectives/objectives_api.dart';
 export 'chat/doors/edits/edits_api.dart';
+export 'chat/doors/session/session_api.dart';
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
-part 'chat/chat_service_import_seed.dart';
-part 'chat/chat_service_import_walk.dart';
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_group_membership.dart';
 part 'chat/chat_service_group_members.dart';
@@ -89,16 +89,8 @@ part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
-part 'chat/chat_service_session_state.dart';
 part 'chat/chat_service_group_store_migrate.dart';
-part 'chat/chat_service_session_state_save.dart';
-part 'chat/chat_service_session_load.dart';
-part 'chat/chat_service_session_hydrate.dart';
-part 'chat/chat_service_session_window.dart';
 part 'chat/chat_service_speaker_objectives.dart';
-part 'chat/chat_service_session_manage.dart';
-part 'chat/chat_service_session_fork.dart';
-part 'chat/chat_service_session_new_chat_prep.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_entry.dart';
 part 'chat/chat_service_generation_blocks.dart';
@@ -130,13 +122,11 @@ part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_message_ops.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_accessors_living.dart';
-part 'chat/chat_service_today_sentence.dart';
 part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
 
-class ChatService extends ChangeNotifier
-    with ChatServiceTodaySentence, ChatServiceFieldBag {
+class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -375,8 +365,16 @@ class ChatService extends ChangeNotifier
     _initImpl();
   }
 
-  String get authorNote => _authorNote;
-  int get authorNoteStrength => _authorNoteStrength;
+  /// The open chat's row: load, save, fork, new chat, history window and
+  /// today line; old names in session_api.dart. Fakes pin the members below.
+  late final SessionStore sessionStore = _buildSessionStore();
+  String get authorNote => sessionStore.authorNote;
+  int get authorNoteStrength => sessionStore.authorNoteStrength;
+  int get historyBasePosition => sessionStore.history.basePosition;
+  String? get todaySentence => sessionStore.today.todaySentence;
+  String? get todayLine => sessionStore.today.todayLine;
+  void setTodaySentence(String? v) => sessionStore.today.setTodaySentence(v);
+  void abandonToday() => sessionStore.today.abandonToday();
 
   Map<String, int> get lastPromptBudget => _contextBudget.budget;
   Map<String, String> get lastPromptSections => _contextBudget.sections;
@@ -385,24 +383,24 @@ class ChatService extends ChangeNotifier
   int get promptDroppedMessages => _contextBudget.droppedMessages;
   Future<void> estimateContextBudgetNow() => _estimateContextBudgetNow();
   int get contextSize =>
-      _sessionGenSettings.resolveContextSize(_storageService);
+      sessionStore.genSettings.resolveContextSize(_storageService);
 
   /// Per-session generation parameter overrides. The dialog reads/writes this.
-  ChatGenerationSettings get sessionGenSettings => _sessionGenSettings;
+  ChatGenerationSettings get sessionGenSettings => sessionStore.genSettings;
   set sessionGenSettings(ChatGenerationSettings value) =>
-      _setSessionGenSettingsImpl(value);
+      sessionStore.setGenSettings(value);
 
   /// Per-chat theme overrides (preset + customized colors/font/background/border).
-  ChatThemeOverrides get sessionThemeOverrides => _sessionThemeOverrides;
+  ChatThemeOverrides get sessionThemeOverrides => sessionStore.themeOverrides;
   set sessionThemeOverrides(ChatThemeOverrides value) =>
-      _setSessionThemeOverridesImpl(value);
+      sessionStore.setThemeOverrides(value);
   void refreshActiveCharacterCard(CharacterCard card) =>
       _refreshActiveCharacterCardImpl(card);
 
-  String get summary => _summary;
-  bool get summaryPaused => _summaryPaused;
-  int get summaryLastIndex => _summaryLastIndex;
-  bool get isSummaryGenerating => _isSummaryGenerating;
+  String get summary => sessionStore.summary;
+  bool get summaryPaused => sessionStore.summaryPaused;
+  int get summaryLastIndex => sessionStore.summaryLastIndex;
+  bool get isSummaryGenerating => sessionStore.isSummaryGenerating;
   RelationshipService get relationshipService => _relationshipService;
   TimeService get timeService => _timeService;
   NsfwService get nsfwService => _nsfwService;

@@ -120,7 +120,7 @@ class ChatPackager {
         if (group != null) 'group_id': group.id,
         if (group != null) 'group_name': group.name,
       },
-      'session': _host.captureSessionHead(),
+      'session': _host.sessions().seed.captureHead(),
       kFpchatCastKey: _captureCastForPackage(),
       'messages_extra': extras,
       'journal': await _extras.exportJournalCards(),
@@ -198,14 +198,16 @@ class ChatPackager {
   /// happen under a reply that is still streaming or settling.
   Future<List<Uint8List>> exportChatPackagesOf(CharacterCard card) async {
     if (_host.isTurnBusy()) throw ChatImportBusy();
-    final sessions = await _host.sessionsFor(card.stableGroupId);
+    final sessions = await _host.sessions().loader.getSessionsForId(
+      card.stableGroupId,
+    );
     if (sessions.isEmpty) return const [];
     // Kept in memory: each package is bounded by the codec's own unpacked
     // ceiling, and a typical character has a handful of chats.
     final packages = <Uint8List>[];
     await _host.setActiveCharacter(card);
     for (final s in sessions) {
-      await _host.loadSession(s['id'] as String);
+      await _host.sessions().loader.loadSession(s['id'] as String);
       final bytes = await exportToFpchat();
       if (bytes != null) packages.add(bytes);
     }
@@ -223,7 +225,9 @@ class ChatPackager {
     void Function(int done, int total)? onProgress,
   }) async {
     if (packages.isEmpty) return 0;
-    final hadChats = (await _host.sessionsFor(card.stableGroupId)).isNotEmpty;
+    final hadChats = (await _host.sessions().loader.getSessionsForId(
+      card.stableGroupId,
+    )).isNotEmpty;
     await _host.setActiveCharacter(card);
     // A card with no chats opens on a greeting chat it saves on the spot.
     // Here that is only a side effect of opening the card to restore into

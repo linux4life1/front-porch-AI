@@ -16,21 +16,45 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:convert';
 
-/// Session persist: enqueue, write, and replace-all.
-/// Guest / group-realism hydrate stays on [ChatServiceSessionState].
-extension ChatServiceSessionStateSave on ChatService {
-  /// An edit of the open chat's recap. Binds the row so the following
-  /// save writes this text, including a deliberate clear.
-  void _rememberRecapEdit(String text) {
-    _summary = text;
-    final id = _session.currentSessionId;
-    if (id != null) _recapBoundSessionId = id;
-    _recapClearArmed = text.trim().isEmpty;
-  }
+import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
 
-  Future<void> _saveChat({bool replaceAll = false}) async {
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'session_store.dart';
+
+/// Session persist: enqueue, write, and replace-all. The row carries the
+/// live scalars of the chat it was queued for and never another's.
+class SessionSaver {
+  SessionSaver(this._d, this._store);
+
+  final SessionDeps _d;
+  final SessionStore _store;
+
+  ChatSessionState get _session => _d.session;
+  SessionServices get _s => _d.services;
+  RealismScope get _scope => _s.realism();
+  AppDatabase get _db => _s.db();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  SessionHistoryWindow get _history => _store.history;
+  GroupSessionConfig get _group => _store.groupConfig;
+  RelationshipService get _relationshipService => _scope.relationship();
+  NsfwService get _nsfwService => _scope.nsfw();
+  TimeService get _timeService => _scope.time();
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  ChaosModeService get _chaosModeService => _s.chaos();
+  GroupRealismStore get _groupStore => _scope.groups;
+
+  /// The chat's own Realism switch, saved, never the gate.
+  bool get _realismChatSwitch => _d.hooks.chatRealism();
+
+  Future<void> save({bool replaceAll = false}) async {
     // Turn taken = this write. Snapshot at enqueue so a later reload
     // cannot shrink the queued transcript. [replaceAll] is only for
     // delete/regen-pop — the default upsert cannot erase a landed turn.
@@ -38,10 +62,10 @@ extension ChatServiceSessionStateSave on ChatService {
         _session.currentSessionId == null) {
       return;
     }
-    if (replaceAll) await _awaitHistoryHydrated();
+    if (replaceAll) await _store.window.awaitHistoryHydrated();
     if (_session.messages.isEmpty) {
       debugPrint(
-        '[ChatService] ⚠ _saveChat called with empty messages for '
+        '[Chat] ⚠ _saveChat called with empty messages for '
         'session ${_session.currentSessionId} — skipping to protect existing data.',
       );
       return;
@@ -49,10 +73,10 @@ extension ChatServiceSessionStateSave on ChatService {
     final sessionId = _session.currentSessionId!;
     final snapshot = List<ChatMessage>.from(_session.messages);
     final positionBase = _history.basePosition;
-    _saveChain = _saveChain.then((_) async {
+    _store.saveChain = _store.saveChain.then((_) async {
       for (var i = 0; i < 3; i++) {
         try {
-          await _doSaveChat(
+          await writeRow(
             sessionId,
             snapshot,
             replaceAll: replaceAll,
@@ -60,19 +84,16 @@ extension ChatServiceSessionStateSave on ChatService {
           );
           return;
         } catch (e) {
-          debugPrint('[ChatService] ⚠ persist ${i + 1}/3 failed: $e');
+          debugPrint('[Chat] ⚠ persist ${i + 1}/3 failed: $e');
           if (i == 2) return; // keep the chain healthy
           await Future<void>.delayed(Duration(milliseconds: 40 * (i + 1)));
         }
       }
     });
-    await _saveChain;
+    await _store.saveChain;
   }
 
-  /// Drain `_saveChain` and write live state (window-close + session swap).
-  Future<void> flushPendingSaves() => _saveChat();
-
-  Future<void> _doSaveChat(
+  Future<void> writeRow(
     String sessionId,
     List<ChatMessage> snapshot, {
     bool replaceAll = false,
@@ -85,76 +106,15 @@ extension ChatServiceSessionStateSave on ChatService {
     // scalars onto that row (that is the inverse of the cross-chat wipe
     // this method's sessionId local was introduced to stop).
     if (_session.currentSessionId != sessionId) {
-      await _replaceSessionMessages(
-        sessionId,
-        snapshot,
-        positionBase: positionBase,
-      );
+      await replaceMessages(sessionId, snapshot, positionBase: positionBase);
       return;
     }
 
     // Per-session gen settings captured with the still-this-session check
     // so a switch after this line cannot bleed the new chat's overrides.
-    final genSettingsJson = _sessionGenSettings.toJsonString();
+    final genSettingsJson = _store.genSettings.toJsonString();
 
-    // v30: For group chats, serialize current per-character realism state into the
-    // new group_realism_state column (clean replacement for hidden checkpoint).
-    // The lorebook timed-effect fragment rides the same blob additively at the
-    // end (any mode); old app versions ignore the unknown key.
-    String groupRealismJson = '{}';
-    if (_activeGroup != null) {
-      // Include per-char objectives so each group member carries independent tasks.
-      final perCharObjectives = <String, List<Map<String, dynamic>>>{};
-      objectivesDoor.groupObjectives.forEach((charId, list) {
-        perCharObjectives[charId] = list
-            .map(
-              (o) => {
-                'id': o.id,
-                'objective': o.objective,
-                'isPrimary': o.isPrimary,
-                'active': o.active,
-                // tasks and other fields are stored in the objectives table; we keep lightweight here
-              },
-            )
-            .toList();
-      });
-
-      groupRealismJson = jsonEncode({
-        'perChar': _groupRealism,
-        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
-        'authorNotes': _groupAuthorNotes,
-        'authorNoteStrengths': _groupAuthorNoteStrengths,
-        'characterSystemPrompts': _groupCharacterSystemPrompts,
-        'ragEnabled': _groupRagEnabled,
-        'retrievalCount': _groupRetrievalCount,
-        'memoryBudgetPercent': _groupMemoryBudgetPercent,
-        'characterRAGPriorities': _groupCharacterRAGPriorities,
-        'objectives': perCharObjectives,
-        kDirectingSessionKey: _observerMode,
-        kGroupAfterglowKey: _groupStore.afterglowOn,
-        ..._directorScene.toJsonFragment(),
-        'savedAt': DateTime.now().toIso8601String(),
-      });
-    } else if (_activeGroup == null && _sceneGuest.ids.isNotEmpty) {
-      // 1:1 with Scene Guests (Lite NPCs): reuse the (otherwise '{}') group
-      // realism column to persist the guest dbIds. No schema change needed.
-      // (Guest growth lives in the growth_rings table — nothing co-located.)
-      groupRealismJson = jsonEncode({'sceneGuests': _sceneGuest.ids});
-    }
-
-    // Merge the lorebook timed-effect + macro-variable fragments into
-    // whatever state map the branches above produced. When all are empty
-    // this stays the literal '{}' older app versions expect.
-    final loreTimers = _loreTimedEffects.toJsonFragment();
-    final macroVars = _loreTimedEffects.macroVarsFragment();
-    final chatBook = _loreTimedEffects.chatLorebookFragment();
-    if (loreTimers != null || macroVars != null || chatBook != null) {
-      final stateMap = jsonDecode(groupRealismJson) as Map<String, dynamic>;
-      if (loreTimers != null) stateMap['lorebookTimers'] = loreTimers;
-      if (macroVars != null) stateMap['macroVars'] = macroVars;
-      if (chatBook != null) stateMap['chatLorebook'] = chatBook;
-      groupRealismJson = jsonEncode(stateMap);
-    }
+    final groupRealismJson = _groupRealismJson();
 
     // Look up character DB id if in 1:1 mode
     String? characterDbId;
@@ -170,9 +130,9 @@ extension ChatServiceSessionStateSave on ChatService {
     // update (absent → default null), so keep the existing id when set.
     // Same for character/group: a save after `_session.activeCharacter =` but
     // before session detach used to rebind chat A onto the incoming card.
-    var personaId = _userPersonaService.persona.id;
+    var personaId = _s.personas.persona.id;
     final existing = await _db.getSessionById(sessionId);
-    if (_preserveSessionPersonaOf[this] == true) {
+    if (_store.preserveSessionPersona) {
       final kept = existing?.userPersonaId;
       if (kept != null && kept.isNotEmpty) {
         personaId = kept;
@@ -190,15 +150,16 @@ extension ChatServiceSessionStateSave on ChatService {
     // Opening a chat, a model switch, and quit all save while the live
     // recap is still empty. That empty copy must not null the row.
     final kept = recapColumnsForSave(
-      boundToThisSession: _recapBoundSessionId == sessionId,
-      clearArmed: _recapClearArmed,
-      memory: _summary,
-      memoryCursor: _summaryLastIndex,
+      boundToThisSession: _store.recapBoundSessionId == sessionId,
+      clearArmed: _store.recapClearArmed,
+      memory: _store.summary,
+      memoryCursor: _store.summaryLastIndex,
       stored: existing?.summary,
       storedCursor: existing?.summaryLastIndex,
     );
-    if (_recapBoundSessionId == sessionId && _summary.trim().isNotEmpty) {
-      _recapClearArmed = false;
+    if (_store.recapBoundSessionId == sessionId &&
+        _store.summary.trim().isNotEmpty) {
+      _store.recapClearArmed = false;
     }
     final summaryText = kept.text ?? '';
     final summaryIndex = kept.cursor ?? 0;
@@ -209,6 +170,7 @@ extension ChatServiceSessionStateSave on ChatService {
     final settled =
         _activeGroup == null && !_nsfwService.storedNsfwCooldownEnabled;
     final body = settled ? Refractory.none : _nsfwService.refractory;
+    final pockets = _d.hooks.hostPockets();
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;
@@ -220,15 +182,15 @@ extension ChatServiceSessionStateSave on ChatService {
         id: sessionId,
         characterId: drift.Value(characterDbId),
         groupId: drift.Value(groupDbId),
-        name: drift.Value(_sessionName),
-        description: drift.Value(_sessionDescription),
+        name: drift.Value(_store.sessionName),
+        description: drift.Value(_store.sessionDescription),
         userPersonaId: drift.Value(personaId),
-        authorNote: drift.Value(_authorNote),
-        authorNoteDepth: drift.Value(_authorNoteStrength),
+        authorNote: drift.Value(_store.authorNote),
+        authorNoteDepth: drift.Value(_store.authorNoteStrength),
         summary: drift.Value(summaryText.isEmpty ? null : summaryText),
         summaryLastIndex: drift.Value(summaryIndex > 0 ? summaryIndex : null),
-        parentSession: drift.Value(_parentSessionId),
-        forkIndex: drift.Value(_forkIndex),
+        parentSession: drift.Value(_store.parentSessionId),
+        forkIndex: drift.Value(_store.forkIndex),
         affectionScore: drift.Value(_relationshipService.affectionScore),
         relationshipTier: drift.Value(_relationshipService.relationshipTier),
         longTermScore: drift.Value(_relationshipService.longTermScore),
@@ -240,10 +202,10 @@ extension ChatServiceSessionStateSave on ChatService {
           _relationshipService.shortTermDeltasSummary,
         ),
         realismEnabled: drift.Value(_realismChatSwitch),
-        characterEmotion: drift.Value(_characterEmotion),
-        emotionIntensity: drift.Value(_emotionIntensity),
-        emotionCause: drift.Value(_emotionCause),
-        emotionHeldTurns: drift.Value(_emotionHeldTurns),
+        characterEmotion: drift.Value(_scope.emotion()),
+        emotionIntensity: drift.Value(_scope.intensity()),
+        emotionCause: drift.Value(_scope.cause()),
+        emotionHeldTurns: drift.Value(_scope.heldTurns()),
         timeOfDay: drift.Value(_timeService.timeOfDay),
         dayCount: drift.Value(_timeService.dayCount),
         startDayOfWeek: drift.Value(_timeService.startDayOfWeekAnchor),
@@ -254,8 +216,8 @@ extension ChatServiceSessionStateSave on ChatService {
         nsfwCooldownEnabled: drift.Value(
           _nsfwService.storedNsfwCooldownEnabled,
         ),
-        needsSimEnabled: drift.Value(_needsSimEnabled),
-        objectivesEnabled: drift.Value(_objectivesEnabled),
+        needsSimEnabled: drift.Value(_scope.needsSimEnabled()),
+        objectivesEnabled: drift.Value(_d.hooks.objectivesEnabled()),
         // Persist the kit even when the chat-gear switch is off (hide ≠
         // erase). An empty map is a chat that made its choice with no kit
         // yet, so a card edit or Porch Life never re-decides it; only rows
@@ -277,8 +239,8 @@ extension ChatServiceSessionStateSave on ChatService {
         // and load + seedPocketsFromCards would re-apply the card kit.
         // Groups already store empty maps; 1:1 must match.
         pockets: drift.Value(
-          _activeGroup == null && _pockets != null
-              ? jsonEncode(_pockets!.toJson())
+          _activeGroup == null && pockets != null
+              ? jsonEncode(pockets.toJson())
               : null,
         ),
         groupRealismState: drift.Value(groupRealismJson),
@@ -325,13 +287,13 @@ extension ChatServiceSessionStateSave on ChatService {
     // Per-chat theme overrides — saved via raw SQL (no build_runner needed).
     await _db.setThemeOverrides(
       sessionId,
-      _sessionThemeOverrides.toJsonString(),
+      _store.themeOverrides.toJsonString(),
     );
 
     // Context Budget snapshot (last real send) — raw SQL, schema v44.
-    await _persistContextBudgetForSession(sessionId);
+    await _d.hooks.persistContextBudget(sessionId);
 
-    await _replaceSessionMessages(
+    await replaceMessages(
       sessionId,
       snapshot,
       replaceAll: replaceAll,
@@ -339,9 +301,74 @@ extension ChatServiceSessionStateSave on ChatService {
     );
   }
 
+  /// v30: For group chats, serialize current per-character realism state
+  /// into the group_realism_state column (clean replacement for hidden
+  /// checkpoint). The lorebook timed-effect fragment rides the same blob
+  /// additively at the end (any mode); old app versions ignore the key.
+  String _groupRealismJson() {
+    String groupRealismJson = '{}';
+    if (_activeGroup != null) {
+      // Include per-char objectives so each group member carries independent tasks.
+      final perCharObjectives = <String, List<Map<String, dynamic>>>{};
+      _s.objectives().groupObjectives.forEach((charId, list) {
+        perCharObjectives[charId] = list
+            .map(
+              (o) => {
+                'id': o.id,
+                'objective': o.objective,
+                'isPrimary': o.isPrimary,
+                'active': o.active,
+                // tasks and other fields are stored in the objectives table; we keep lightweight here
+              },
+            )
+            .toList();
+      });
+
+      groupRealismJson = jsonEncode({
+        'perChar': _groupStore.members,
+        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
+        'authorNotes': _group.authorNotes,
+        'authorNoteStrengths': _group.authorNoteStrengths,
+        'characterSystemPrompts': _group.characterSystemPrompts,
+        'ragEnabled': _group.ragEnabled,
+        'retrievalCount': _group.retrievalCount,
+        'memoryBudgetPercent': _group.memoryBudgetPercent,
+        'characterRAGPriorities': _group.characterRAGPriorities,
+        'objectives': perCharObjectives,
+        kDirectingSessionKey: _scope.observerMode(),
+        kGroupAfterglowKey: _groupStore.afterglowOn,
+        ..._s.cast().directorScene.toJsonFragment(),
+        'savedAt': DateTime.now().toIso8601String(),
+      });
+    } else if (_activeGroup == null && _s.cast().guests.state.ids.isNotEmpty) {
+      // 1:1 with Scene Guests (Lite NPCs): reuse the (otherwise '{}') group
+      // realism column to persist the guest dbIds. No schema change needed.
+      // (Guest growth lives in the growth_rings table — nothing co-located.)
+      groupRealismJson = jsonEncode({
+        'sceneGuests': _s.cast().guests.state.ids,
+      });
+    }
+
+    // Merge the lorebook timed-effect + macro-variable fragments into
+    // whatever state map the branches above produced. When all are empty
+    // this stays the literal '{}' older app versions expect.
+    final loreTimedEffects = _s.loreTimers();
+    final loreTimers = loreTimedEffects.toJsonFragment();
+    final macroVars = loreTimedEffects.macroVarsFragment();
+    final chatBook = loreTimedEffects.chatLorebookFragment();
+    if (loreTimers != null || macroVars != null || chatBook != null) {
+      final stateMap = jsonDecode(groupRealismJson) as Map<String, dynamic>;
+      if (loreTimers != null) stateMap['lorebookTimers'] = loreTimers;
+      if (macroVars != null) stateMap['macroVars'] = macroVars;
+      if (chatBook != null) stateMap['chatLorebook'] = chatBook;
+      groupRealismJson = jsonEncode(stateMap);
+    }
+    return groupRealismJson;
+  }
+
   /// Persist [snapshot]. Default upsert cannot shrink a longer on-disk
   /// transcript. [replaceAll] is delete+insert for delete/regen-pop.
-  Future<void> _replaceSessionMessages(
+  Future<void> replaceMessages(
     String sessionId,
     List<ChatMessage> snapshot, {
     bool replaceAll = false,

@@ -246,25 +246,6 @@ class EditCastHooks {
   seedGreeting;
 }
 
-/// Chat switching and the history window (WP7).
-class EditSessionHooks {
-  const EditSessionHooks({
-    required this.loadSession,
-    required this.sessions,
-    required this.startNewChat,
-    required this.awaitHistoryHydrated,
-  });
-
-  final Future<void> Function(String sessionId) loadSession;
-
-  /// The open character's or group's chats, newest first.
-  final Future<List<Map<String, dynamic>>> Function() sessions;
-  final Future<void> Function() startNewChat;
-
-  /// Waits for older rows still loading behind the window.
-  final Future<void> Function() awaitHistoryHydrated;
-}
-
 /// The prompt pieces impersonate shares with the reply path (WP10a).
 class ImpersonatePromptHooks {
   const ImpersonatePromptHooks({

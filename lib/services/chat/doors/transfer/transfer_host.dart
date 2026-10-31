@@ -20,6 +20,7 @@ import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/growth_desk.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_state.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -35,8 +36,9 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 /// the shell is built, so a door asks each time. **Debt** is every member
 /// of another shell part, and every field of the shared bag, that import
 /// and export still reach. Each is one typed call the shell implements
-/// inside its library. The session store (WP7) and the Realism graph (WP9)
-/// retire them: a door then calls those doors instead.
+/// inside its library. The session store (WP7) retired the session and
+/// scalar ones: the doors call [sessions] for those. The Realism graph (WP9)
+/// and the turn engine (WP10) retire the rest.
 class TransferHost {
   TransferHost({
     required this.db,
@@ -48,30 +50,19 @@ class TransferHost {
     required this.journalStore,
     required this.growthDesk,
     required this.sceneGuests,
-    required this.seedScalars,
-    required this.captureSessionHead,
-    required this.applySessionHead,
-    required this.restoreWalkingBack,
+    required this.sessions,
     required this.isTurnBusy,
     required this.isGenerating,
     required this.characterIdFor,
     required this.ragCharacterId,
     required this.invalidateGreetingEval,
-    required this.markNewChat,
-    required this.computeAbsenceGap,
-    required this.seedChatWorlds,
-    required this.catchUpRecap,
     required this.reloadGroupRoster,
     required this.enterSceneGuestSilently,
     required this.loadActiveObjectives,
     required this.loadSpeakerObjectives,
-    required this.awaitHistoryHydrated,
-    required this.historyBasePosition,
     required this.formatForRagEmbedding,
     required this.captureRealismState,
-    required this.sessionsFor,
     required this.setActiveCharacter,
-    required this.loadSession,
     required this.deleteSessionQuietly,
   });
 
@@ -89,25 +80,14 @@ class TransferHost {
   /// The 1:1 chat's Scene Guests (the cast a package carries).
   final SceneGuestState sceneGuests;
 
-  // ── Debt: Realism and clock scalars (WP7 / WP9) ───────────────────────
+  /// The open chat's session: the imported chat's seed, the package head,
+  /// the walk-back, the history window and chat switching.
+  final SessionStore Function() sessions;
 
-  /// Reseeds every live scalar of a freshly imported chat from its card or
-  /// group, so a save never carries the previous chat's state over.
-  final Future<void> Function() seedScalars;
-
-  /// The scalars an `.fpchat` export writes as its `session` head.
-  final Map<String, dynamic> Function() captureSessionHead;
-
-  /// Puts a package's `session` head back onto the live scalars.
-  final Future<void> Function(Map<String, dynamic> head) applySessionHead;
-
-  /// Head-less package: walks back from [fromIndex] for the nearest stamp.
-  final Future<void> Function(int fromIndex) restoreWalkingBack;
+  // ── Debt: the Realism capture (WP9a) and turn flags (WP10) ────────────
 
   /// The live `realism_state` capture, for the stamp-contract test hook.
   final Map<String, dynamic> Function() captureRealismState;
-
-  // ── Debt: turn and session flags (WP7 / WP10) ─────────────────────────
 
   /// The turn-busy predicate the composer and the window cast edits share.
   final bool Function() isTurnBusy;
@@ -115,20 +95,8 @@ class TransferHost {
   /// Tokens are streaming (the narrow generating flag).
   final bool Function() isGenerating;
 
-  /// Marks the open chat new (RAG retrieval skips a virgin chat).
-  final void Function(bool fresh) markNewChat;
-
-  /// No real-absence gap for a chat that was just imported.
-  final void Function() computeAbsenceGap;
-
-  /// Blank recap, caught up to [lastIndex] (a transcript-only import).
-  final void Function(int lastIndex) catchUpRecap;
-
   /// Drops a stale greeting eval before an import replaces the opening.
   final Future<void> Function() invalidateGreetingEval;
-
-  /// Seeds the new session's attached worlds (Living Worlds).
-  final Future<void> Function() seedChatWorlds;
 
   // ── Debt: identity, cast and objectives (WP4 / WP6 / WP8) ─────────────
 
@@ -150,20 +118,11 @@ class TransferHost {
   /// Group objectives reload for the current speaker.
   final Future<void> Function() loadSpeakerObjectives;
 
-  // ── Debt: history window and RAG (WP7 / WP10) ─────────────────────────
-
-  final Future<void> Function() awaitHistoryHydrated;
-
-  /// Saved position of `messages[0]`.
-  final int Function() historyBasePosition;
-
   final List<String> Function(List<ChatMessage> messages) formatForRagEmbedding;
 
-  // ── Debt: chat switching (WP7 / WP8) ──────────────────────────────────
+  // ── Debt: chat entry (WP8) and the edits door ─────────────────────────
 
-  final Future<List<Map<String, dynamic>>> Function(String charId) sessionsFor;
   final Future<void> Function(CharacterCard card) setActiveCharacter;
-  final Future<void> Function(String sessionId) loadSession;
 
   /// Deletes a chat without opening a replacement.
   final Future<void> Function(String sessionId) deleteSessionQuietly;

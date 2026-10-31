@@ -164,3 +164,144 @@ extension ChatServiceCastShrink on ChatService {
     }
   }
 }
+
+/// The cast door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.castDoor] itself (WP5, WP7 to WP10).
+extension _ChatServiceCastNames on ChatService {
+  SceneGuestState get _sceneGuest => castDoor.guests.state;
+  AwayPulseState get _awayPulse => castDoor.away.state;
+  DirectorScene get _directorScene => castDoor.directorScene;
+  bool get _narrating => castDoor.narrating;
+  String? get _entranceDirective => castDoor.entranceDirective;
+  set _entranceDirective(String? v) => castDoor.entranceDirective = v;
+  set _stoppedReplyAnchor(ChatMessage? v) =>
+      castDoor.guests.stoppedReplyAnchor = v;
+  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
+  int get _greetingIndex => castDoor.greetings.greetingIndex;
+  bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
+  set _greetingEvalPending(bool v) => castDoor.baseline.greetingEvalPending = v;
+  bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
+  set _isProcessingGreeting(bool v) =>
+      castDoor.baseline.isProcessingGreeting = v;
+  String? get _pendingIdleCue => castDoor.idle.pendingIdleCue;
+  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
+  bool get _autoResponseInProgress => castDoor.idle.autoResponseInProgress;
+  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
+  int get _consecutiveAutoResponses => castDoor.idle.consecutiveAutoResponses;
+  set _consecutiveAutoResponses(int v) =>
+      castDoor.idle.consecutiveAutoResponses = v;
+
+  bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
+  void _setGuestStatus(
+    String? msg, {
+    bool isError = false,
+    bool sticky = false,
+  }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
+  void _noteStoppedReply({required bool replyKept}) =>
+      castDoor.guests.noteStoppedReply(replyKept: replyKept);
+  void _resetGuestActivityState() => castDoor.guests.resetActivityState();
+  void _clearExitUndo() => castDoor.guests.clearExitUndo();
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      castDoor.guests.isGuestAuthoredMessage(m);
+  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
+      castDoor.guests.sceneGuestForMessage(m);
+  CharacterCard? _directAddressRoutedGuest(String promptText) =>
+      castDoor.guests.directAddressRoutedGuest(promptText);
+  Future<void> _resolveSceneGuestCards() =>
+      castDoor.guests.resolveSceneGuestCards();
+  Future<void> _addGuestWithStatus({
+    required String displayName,
+    CharacterCard? existing,
+    Future<GuestMintResult> Function(void Function(String step) onStatus)? mint,
+  }) => castDoor.guests.addGuestWithStatus(
+    displayName: displayName,
+    existing: existing,
+    mint: mint,
+  );
+  Future<GuestMintResult> _mintSceneGuest(
+    String name,
+    String concept, {
+    void Function(String step)? onStatus,
+  }) => castDoor.joins.mintSceneGuest(name, concept, onStatus: onStatus);
+  Future<bool> _generateMemberEntrance(CharacterCard card, String intent) =>
+      castDoor.joins.generateMemberEntrance(card, intent);
+
+  Future<void> _commitPendingMemberExit() =>
+      castDoor.roster.commitPendingMemberExit();
+  Future<void> _deleteMemberCleanup(String charId, String? avatarFilename) =>
+      castDoor.roster.deleteMemberCleanup(charId, avatarFilename);
+  bool _speakerIsSoft(CharacterCard speaker) =>
+      castDoor.roster.speakerIsSoft(speaker);
+  Future<bool> _collapseGroupToSolo(GroupChatRepository repo) =>
+      castDoor.collapse.collapseGroupToSolo(repo);
+  Future<void> _carryHostStateIntoForkedGroup(
+    String hostName,
+    String originalCharId,
+    String? hostSessionId,
+    Map<String, dynamic> state,
+  ) => castDoor.collapse.carryHostStateIntoForkedGroup(
+    hostName,
+    originalCharId,
+    hostSessionId,
+    state,
+  );
+  Future<bool> _bridgeLongSkip({
+    required DateTime from,
+    required int skipped,
+    required ChatMessage skipLine,
+    required String? token,
+  }) => castDoor.stage.bridgeLongSkip(
+    from: from,
+    skipped: skipped,
+    skipLine: skipLine,
+    token: token,
+  );
+
+  Future<void> _seedOpeningPosture() => castDoor.baseline.seedOpeningPosture();
+  Future<void> _runPostGreetingEval() =>
+      castDoor.baseline.runPostGreetingEval();
+  Future<void> _runRetroactiveBaselineEval() =>
+      castDoor.baseline.runRetroactiveBaselineEval();
+  Future<void> _invalidateGreetingEval() =>
+      castDoor.greetings.invalidateGreetingEval();
+  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
+      castDoor.greetings.buildFirstMessage(
+        character,
+        greetingText: greetingText,
+      );
+  String _memberOpeningGreetingText(CharacterCard member) =>
+      castDoor.greetings.memberOpeningGreetingText(member);
+  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
+  bool get _isOpeningGreetingChat => castDoor.greetings.isOpeningGreetingChat;
+  Future<void> _applyGreetingOpeningSeed({
+    required CharacterCard card,
+    required int index,
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGreetingOpeningSeed(
+    card: card,
+    index: index,
+    scheduleEval: scheduleEval,
+  );
+  Future<void> _applyGroupCustomGreetingSeed(
+    int index, {
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
+    index,
+    scheduleEval: scheduleEval,
+  );
+  void _stampGreetingIndex(int index) =>
+      castDoor.greetings.stampGreetingIndex(index);
+
+  Future<void> _runAwayPulse({
+    required String userText,
+    required bool fromUserSend,
+  }) => castDoor.away.runAwayPulse(
+    userText: userText,
+    fromUserSend: fromUserSend,
+  );
+  void _releaseHeldAway(CharacterCard card) =>
+      castDoor.away.releaseHeldAway(card);
+  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
+  void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
+}

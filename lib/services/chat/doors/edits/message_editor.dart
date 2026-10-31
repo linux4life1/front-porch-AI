@@ -75,7 +75,7 @@ class MessageEditor {
       '[Chat] 🔄 reloadCurrentSession: reloading session ${_session.currentSessionId} '
       '(currently ${_session.messages.length} messages in memory)',
     );
-    await _d.sessions.loadSession(_session.currentSessionId!);
+    await _d.sessions().loader.loadSession(_session.currentSessionId!);
   }
 
   void clearChat() async {
@@ -103,10 +103,10 @@ class MessageEditor {
 
     // If we deleted the current session, switch to another
     if (sessionId == _session.currentSessionId) {
-      final remaining = await _d.sessions.sessions();
+      final remaining = await _d.sessions().loader.getSessions();
       if (remaining.isNotEmpty) {
         if (startReplacement) {
-          await _d.sessions.loadSession(remaining.first['id']);
+          await _d.sessions().loader.loadSession(remaining.first['id']);
         } else {
           _session.messages.clear();
           _session.currentSessionId = null;
@@ -119,7 +119,7 @@ class MessageEditor {
         _session.messages.clear();
         _session.currentSessionId = null;
         if (startReplacement) {
-          await _d.sessions.startNewChat();
+          await _d.sessions().loader.startNewChat();
         }
       }
     }
@@ -142,7 +142,7 @@ class MessageEditor {
     // Middle-of-history delete needs the full prefix so replaceAll
     // cannot drop the 11k rows we have not loaded yet.
     if (!wasTail && _history.hasMore) {
-      await _d.sessions.awaitHistoryHydrated();
+      await _d.sessions().window.awaitHistoryHydrated();
       index = dbPos;
       if (index < 0 || index >= _session.messages.length) return;
       if (_isTurnBusy && index == _session.messages.length - 1) return;

@@ -217,7 +217,7 @@ extension ChatServiceDoorWiring on ChatService {
     },
     seedPromotedNeeds: _seedPromotedNeeds,
     setActiveCharacter: setActiveCharacter,
-    loadSession: loadSession,
+    loadSession: (id) => sessionStore.loader.loadSession(id),
     ragCharacterId: _getCharacterId,
     parseJsonMap: _tryParseJsonMap,
     captureSurvivor: _captureSurvivorScalars,
@@ -264,146 +264,206 @@ extension ChatServiceDoorWiring on ChatService {
   bool get isPhotoTurnInFlight => mediaDoor.photoTurnInFlight;
 }
 
-/// The cast door's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt its caller's package retires by
-/// calling [ChatService.castDoor] itself (WP5, WP7 to WP10).
-extension _ChatServiceCastNames on ChatService {
-  SceneGuestState get _sceneGuest => castDoor.guests.state;
-  AwayPulseState get _awayPulse => castDoor.away.state;
-  DirectorScene get _directorScene => castDoor.directorScene;
-  bool get _narrating => castDoor.narrating;
-  String? get _entranceDirective => castDoor.entranceDirective;
-  set _entranceDirective(String? v) => castDoor.entranceDirective = v;
-  set _stoppedReplyAnchor(ChatMessage? v) =>
-      castDoor.guests.stoppedReplyAnchor = v;
-  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
-  int get _greetingIndex => castDoor.greetings.greetingIndex;
-  bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
-  set _greetingEvalPending(bool v) => castDoor.baseline.greetingEvalPending = v;
-  bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
-  set _isProcessingGreeting(bool v) =>
-      castDoor.baseline.isProcessingGreeting = v;
-  String? get _pendingIdleCue => castDoor.idle.pendingIdleCue;
-  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
-  bool get _autoResponseInProgress => castDoor.idle.autoResponseInProgress;
-  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
-  int get _consecutiveAutoResponses => castDoor.idle.consecutiveAutoResponses;
-  set _consecutiveAutoResponses(int v) =>
-      castDoor.idle.consecutiveAutoResponses = v;
-
-  bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
-  void _setGuestStatus(
-    String? msg, {
-    bool isError = false,
-    bool sticky = false,
-  }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
-  void _noteStoppedReply({required bool replyKept}) =>
-      castDoor.guests.noteStoppedReply(replyKept: replyKept);
-  void _resetGuestActivityState() => castDoor.guests.resetActivityState();
-  void _clearExitUndo() => castDoor.guests.clearExitUndo();
-  bool _isGuestAuthoredMessage(ChatMessage m) =>
-      castDoor.guests.isGuestAuthoredMessage(m);
-  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
-      castDoor.guests.sceneGuestForMessage(m);
-  CharacterCard? _directAddressRoutedGuest(String promptText) =>
-      castDoor.guests.directAddressRoutedGuest(promptText);
-  Future<void> _resolveSceneGuestCards() =>
-      castDoor.guests.resolveSceneGuestCards();
-  Future<void> _addGuestWithStatus({
-    required String displayName,
-    CharacterCard? existing,
-    Future<GuestMintResult> Function(void Function(String step) onStatus)? mint,
-  }) => castDoor.guests.addGuestWithStatus(
-    displayName: displayName,
-    existing: existing,
-    mint: mint,
-  );
-  Future<GuestMintResult> _mintSceneGuest(
-    String name,
-    String concept, {
-    void Function(String step)? onStatus,
-  }) => castDoor.joins.mintSceneGuest(name, concept, onStatus: onStatus);
-  Future<bool> _generateMemberEntrance(CharacterCard card, String intent) =>
-      castDoor.joins.generateMemberEntrance(card, intent);
-
-  Future<void> _commitPendingMemberExit() =>
-      castDoor.roster.commitPendingMemberExit();
-  Future<void> _deleteMemberCleanup(String charId, String? avatarFilename) =>
-      castDoor.roster.deleteMemberCleanup(charId, avatarFilename);
-  bool _speakerIsSoft(CharacterCard speaker) =>
-      castDoor.roster.speakerIsSoft(speaker);
-  Future<bool> _collapseGroupToSolo(GroupChatRepository repo) =>
-      castDoor.collapse.collapseGroupToSolo(repo);
-  Future<void> _carryHostStateIntoForkedGroup(
-    String hostName,
-    String originalCharId,
-    String? hostSessionId,
-    Map<String, dynamic> state,
-  ) => castDoor.collapse.carryHostStateIntoForkedGroup(
-    hostName,
-    originalCharId,
-    hostSessionId,
-    state,
-  );
-  Future<bool> _bridgeLongSkip({
-    required DateTime from,
-    required int skipped,
-    required ChatMessage skipLine,
-    required String? token,
-  }) => castDoor.stage.bridgeLongSkip(
-    from: from,
-    skipped: skipped,
-    skipLine: skipLine,
-    token: token,
+/// Builds the session store and the transfer doors that call it. Each
+/// session hook stands in for a private member of another part.
+extension ChatServiceSessionWiring on ChatService {
+  SessionStore _buildSessionStore() => SessionStore(
+    SessionDeps(
+      session: _session,
+      services: SessionServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: _macroResolver,
+        characters: () => _characterRepository,
+        groupRepository: () => _groupChatRepository,
+        realism: _realismScope,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        lorebook: () => _lorebookScanner,
+        loreTimers: () => _loreTimedEffects,
+        expression: () => _expressionService,
+        clockReader: () => _clockReader,
+        clockWriter: () => _clockWriter,
+        growthStore: () => _growthStore,
+        growthDesk: () => _growthDesk,
+        journal: () => _journalStore,
+        porchImport: () => _porchMemoryImport,
+        birthdays: () => _birthdaySync,
+        chaos: () => _chaosModeService,
+        needsPass: () => _needsPass,
+        pocketsRewinds: () => _pocketsRewinds,
+        dance: () => _realismDance,
+        mood: () => _mood,
+        sceneMoves: _sceneMoves,
+        autoChat: _autoChatBudget,
+      ),
+      hooks: SessionShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+        waitForTurnToSettle: _waitForTurnToSettle,
+        cancelAndWaitForGeneration: _cancelAndWaitForGeneration,
+        realismEnabled: () => _realismEnabled,
+        chatRealism: () => _realismChatSwitch,
+        setChatRealism: (on) => _realismChatSwitch = on,
+        setNeedsSimEnabled: (on) => _needsSimEnabled = on,
+        objectivesEnabled: () => _objectivesEnabled,
+        setObjectivesEnabled: (on) => _objectivesEnabled = on,
+        enjoysLowHygiene: () => _enjoysLowHygiene,
+        setEnjoysLowHygiene: (on) => _enjoysLowHygiene = on,
+        afterglowChatSwitch: () => _afterglowChatSwitchImpl,
+        applySeededPassageOfTime: _applySeededPassageOfTime,
+        onRealismStarted: _onRealismStarted,
+        setGrowthPassRunning: (on) => _isGrowthPassRunning = on,
+        restoreForSpeaker: (msg, {restoreClock = false}) =>
+            _restoreRealismStateForSpeaker(msg, restoreClock: restoreClock),
+        restoreFromMessage: (msg, {restoreClock = false}) =>
+            _restoreRealismStateFromMessage(msg, restoreClock: restoreClock),
+        hostPockets: () => _pockets,
+        setHostPockets: (record) => _pockets = record,
+        seedPocketsFromCards: seedPocketsFromCards,
+        setPocketsFor: setPocketsFor,
+        pocketsEnabledFor: pocketsEnabledFor,
+        resetDirectorModeToDefault: _resetDirectorModeToDefault,
+        rekeyGroupStores: _rekeyGroupStores,
+        reloadChatWorldIds: _reloadChatWorldIds,
+        chatPlaceIds: () => _chatPlaceSlots.allIds,
+        clearContextBudget: _clearContextBudget,
+        loadContextBudget: _loadContextBudgetForSession,
+        persistContextBudget: _persistContextBudgetForSession,
+        armPromptPicker: _armPromptPickerIfDue,
+        setActiveCharacter: setActiveCharacter,
+        setActiveGroup: setActiveGroup,
+        beginSessionLoad: beginSessionLoad,
+        endSessionLoad: endSessionLoad,
+      ),
+      notify: notifyListeners,
+    ),
   );
 
-  Future<void> _seedOpeningPosture() => castDoor.baseline.seedOpeningPosture();
-  Future<void> _runPostGreetingEval() =>
-      castDoor.baseline.runPostGreetingEval();
-  Future<void> _runRetroactiveBaselineEval() =>
-      castDoor.baseline.runRetroactiveBaselineEval();
-  Future<void> _invalidateGreetingEval() =>
-      castDoor.greetings.invalidateGreetingEval();
-  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
-      castDoor.greetings.buildFirstMessage(
-        character,
-        greetingText: greetingText,
-      );
-  String _memberOpeningGreetingText(CharacterCard member) =>
-      castDoor.greetings.memberOpeningGreetingText(member);
-  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
-  bool get _isOpeningGreetingChat => castDoor.greetings.isOpeningGreetingChat;
-  Future<void> _applyGreetingOpeningSeed({
-    required CharacterCard card,
-    required int index,
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGreetingOpeningSeed(
-    card: card,
-    index: index,
-    scheduleEval: scheduleEval,
+  ChatImporter _buildChatImporter() => ChatImporter(
+    _session,
+    _buildTransferHost(),
+    saveChat: _saveChat,
+    notify: notifyListeners,
   );
-  Future<void> _applyGroupCustomGreetingSeed(
-    int index, {
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
-    index,
-    scheduleEval: scheduleEval,
-  );
-  void _stampGreetingIndex(int index) =>
-      castDoor.greetings.stampGreetingIndex(index);
-  void _restoreGreetingIndex() => castDoor.greetings.restoreGreetingIndex();
-  Future<void> _reapplyOpeningOverlayIfNeeded() =>
-      castDoor.greetings.reapplyOpeningOverlayIfNeeded();
 
-  Future<void> _runAwayPulse({
-    required String userText,
-    required bool fromUserSend,
-  }) => castDoor.away.runAwayPulse(
-    userText: userText,
-    fromUserSend: fromUserSend,
+  ChatPackager _buildChatPackager() =>
+      ChatPackager(_session, _buildTransferHost(), importer: chatImporter);
+
+  /// What the transfer doors reach besides the session store. Every entry
+  /// past the services is debt the Realism graph (WP9) and the turn engine
+  /// (WP10) retire.
+  TransferHost _buildTransferHost() => TransferHost(
+    db: () => _db,
+    storage: _storageService,
+    personas: _userPersonaService,
+    imageGen: () => _imageGenService,
+    memory: () => _memoryService,
+    characters: () => _characterRepository,
+    journalStore: () => _journalStore,
+    growthDesk: () => _growthDesk,
+    sceneGuests: castDoor.guests.state,
+    sessions: () => sessionStore,
+    captureRealismState: () => _realismSnapshot.capture(),
+    isTurnBusy: () => _isTurnBusy,
+    isGenerating: () => _isGenerating,
+    invalidateGreetingEval: castDoor.greetings.invalidateGreetingEval,
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    reloadGroupRoster: _reloadGroupRoster,
+    enterSceneGuestSilently: (guest) =>
+        castDoor.guests.enterSceneGuest(guest, speak: false),
+    loadActiveObjectives: objectivesDoor.loadActiveObjectives,
+    loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
+    formatForRagEmbedding: _formatMessagesForRagEmbedding,
+    setActiveCharacter: setActiveCharacter,
+    deleteSessionQuietly: (id) =>
+        editsDoor.editor.deleteSession(id, startReplacement: false),
   );
-  void _releaseHeldAway(CharacterCard card) =>
-      castDoor.away.releaseHeldAway(card);
-  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
-  void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
+}
+
+/// The session store's state and behaviour under the names the rest of
+/// this library still uses. Each line is debt its caller's package retires
+/// by calling [ChatService.sessionStore] itself (WP8 to WP10).
+extension _ChatServiceSessionNames on ChatService {
+  SessionHistoryWindow get _history => sessionStore.history;
+  String get _summary => sessionStore.summary;
+  set _summary(String v) => sessionStore.summary = v;
+  int get _summaryLastIndex => sessionStore.summaryLastIndex;
+  set _summaryLastIndex(int v) => sessionStore.summaryLastIndex = v;
+  bool get _summaryPaused => sessionStore.summaryPaused;
+  set _summaryPaused(bool v) => sessionStore.summaryPaused = v;
+  bool get _isSummaryGenerating => sessionStore.isSummaryGenerating;
+  set _isSummaryGenerating(bool v) => sessionStore.isSummaryGenerating = v;
+  set _recapClearArmed(bool v) => sessionStore.recapClearArmed = v;
+  String get _authorNote => sessionStore.authorNote;
+  set _authorNote(String v) => sessionStore.authorNote = v;
+  int get _authorNoteStrength => sessionStore.authorNoteStrength;
+  set _authorNoteStrength(int v) => sessionStore.authorNoteStrength = v;
+  ChatGenerationSettings get _sessionGenSettings => sessionStore.genSettings;
+  Map<String, String> get _selectedLooks => sessionStore.selectedLooks;
+  String? get _sessionName => sessionStore.sessionName;
+  String? get _sessionDescription => sessionStore.sessionDescription;
+  set _parentSessionId(String? v) => sessionStore.parentSessionId = v;
+  set _forkIndex(int? v) => sessionStore.forkIndex = v;
+  bool get _isNewChat => sessionStore.isNewChat;
+  set _isNewChat(bool v) => sessionStore.isNewChat = v;
+  bool get _isLoadingSession => sessionStore.isLoadingSession;
+  set _isLoadingSession(bool v) => sessionStore.isLoadingSession = v;
+  int get _chatSwitches => sessionStore.chatSwitches;
+  Future<void> get _saveChain => sessionStore.saveChain;
+  bool get _absenceAckPending => sessionStore.absenceAckPending;
+  set _absenceAckPending(bool v) => sessionStore.absenceAckPending = v;
+  bool get _absenceAckConsumed => sessionStore.absenceAckConsumed;
+  set _absenceAckConsumed(bool v) => sessionStore.absenceAckConsumed = v;
+
+  // The today line (TodaySentence).
+  String? get _todaySentence => sessionStore.today.todaySentence;
+  String? get _todayObjectiveId => sessionStore.today.todayObjectiveId;
+  set _todayObjectiveId(String? v) => sessionStore.today.todayObjectiveId = v;
+  String? get _todayObjectiveText => sessionStore.today.todayObjectiveText;
+  set _todayObjectiveText(String? v) =>
+      sessionStore.today.todayObjectiveText = v;
+  set _onTodayAbandoned(void Function(String? held)? v) =>
+      sessionStore.today.onTodayAbandoned = v;
+  void _clearTodayPointer() => sessionStore.today.clearTodayPointer();
+
+  // A group's per-member settings (GroupSessionConfig).
+  GroupSessionConfig get _groupConfig => sessionStore.groupConfig;
+  Map<String, String> get _groupAuthorNotes => _groupConfig.authorNotes;
+  set _groupAuthorNotes(Map<String, String> v) => _groupConfig.authorNotes = v;
+  Map<String, int> get _groupAuthorNoteStrengths =>
+      _groupConfig.authorNoteStrengths;
+  set _groupAuthorNoteStrengths(Map<String, int> v) =>
+      _groupConfig.authorNoteStrengths = v;
+  Map<String, String> get _groupCharacterSystemPrompts =>
+      _groupConfig.characterSystemPrompts;
+  set _groupCharacterSystemPrompts(Map<String, String> v) =>
+      _groupConfig.characterSystemPrompts = v;
+  bool get _groupRagEnabled => _groupConfig.ragEnabled;
+  set _groupRagEnabled(bool v) => _groupConfig.ragEnabled = v;
+  int get _groupRetrievalCount => _groupConfig.retrievalCount;
+  set _groupRetrievalCount(int v) => _groupConfig.retrievalCount = v;
+  double get _groupMemoryBudgetPercent => _groupConfig.memoryBudgetPercent;
+  set _groupMemoryBudgetPercent(double v) =>
+      _groupConfig.memoryBudgetPercent = v;
+  Map<String, double> get _groupCharacterRAGPriorities =>
+      _groupConfig.characterRAGPriorities;
+  set _groupCharacterRAGPriorities(Map<String, double> v) =>
+      _groupConfig.characterRAGPriorities = v;
+
+  // Load, save and the window.
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      sessionStore.save(replaceAll: replaceAll);
+  void _rememberRecapEdit(String text) => sessionStore.rememberRecapEdit(text);
+  Future<void> _loadLastSession() => sessionStore.loader.loadLastSession();
+  Future<bool> _loadGroupRealismStateFromSession(Session? session) =>
+      sessionStore.groupState.loadGroupRealismState(session);
+  Future<void> _awaitHistoryHydrated() =>
+      sessionStore.window.awaitHistoryHydrated();
+  Future<void> _seedChatWorldsForNewSession({List<String>? carryRefs}) =>
+      sessionStore.forker.seedChatWorldsForNewSession(carryRefs: carryRefs);
 }

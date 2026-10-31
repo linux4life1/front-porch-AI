@@ -240,12 +240,7 @@ extension ChatServiceRegenReplay on ChatService {
           seedGroupGreeting: _applyGroupCustomGreetingSeed,
           seedGreeting: _applyGreetingOpeningSeed,
         ),
-        sessions: EditSessionHooks(
-          loadSession: loadSession,
-          sessions: getSessions,
-          startNewChat: startNewChat,
-          awaitHistoryHydrated: _awaitHistoryHydrated,
-        ),
+        sessions: () => sessionStore,
         prompt: ImpersonatePromptHooks(
           groupBasePrompt: () => _groupBasePrompt,
           oneToOneBase: _resolveOneToOneBase,

@@ -339,6 +339,7 @@
   "sessionDescription",
   "sessionGenSettings",
   "sessionName",
+  "sessionStore",
   "sessionThemeOverrides",
   "setActiveCharacter",
   "setActiveGroup",

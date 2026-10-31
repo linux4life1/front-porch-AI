@@ -1,10 +1,55 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Fork/import walk-back: 1:1 card rewind + group per-member stamp/seed.
-extension ChatServiceImportWalk on ChatService {
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'session_deps.dart';
+
+/// Fork/import walk-back: the nearest stamp restores, a stamp-less prefix
+/// rewinds the scalars from the 1:1 card or each group member's seed, and
+/// the chat's feature toggles are kept either way.
+class WalkBack {
+  WalkBack(this._d);
+
+  final SessionDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  SessionServices get _s => _d.services;
+  SessionShellHooks get _h => _d.hooks;
+  RealismScope get _scope => _s.realism();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  RelationshipService get _relationshipService => _scope.relationship();
+  NsfwService get _nsfwService => _scope.nsfw();
+  TimeService get _timeService => _scope.time();
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  ChaosModeService get _chaosModeService => _s.chaos();
+  Map<String, GroupMemberRealism> get _groupRealism => _scope.groups.members;
+  String _getCharacterIdFromCard(CharacterCard c) => _h.characterIdFor(c);
+
+  /// The chat's own Realism switch, kept across the walk.
+  bool get _realismChatSwitch => _h.chatRealism();
+  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+
   /// 1:1 stamp-less fork: rewind bond/trust/time/emotion/arousal/needs vector
   /// from the card; keep Realism/Needs/Objectives/Chaos toggles (Opus eae4e8f2).
   /// Pockets reset to card seed so stamp-less matches stamped restore.
@@ -17,9 +62,9 @@ extension ChatServiceImportWalk on ChatService {
         _session.activeCharacter!.frontPorchExtensions ??
         FrontPorchExtensions();
     final keepRealism = _realismChatSwitch;
-    final keepNeeds = _needsSimEnabled;
-    final keepObj = _objectivesEnabled;
-    final keepHyg = _enjoysLowHygiene;
+    final keepNeeds = _scope.needsSimEnabled();
+    final keepObj = _h.objectivesEnabled();
+    final keepHyg = _h.enjoysLowHygiene();
     final keepChaos = _chaosModeService.chaosModeEnabled;
     final keepChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final keepPressure = _chaosModeService.chaosPressure;
@@ -31,7 +76,7 @@ extension ChatServiceImportWalk on ChatService {
       longTermBond: ext.longTermBond,
       trustLevel: ext.trustLevel,
     );
-    _expressionService.resetForFreshChat();
+    _s.expression().resetForFreshChat();
     if (seedClock) {
       _timeService.seedFromV2OrExt(
         dayCount: ext.dayCount.clamp(1, 9999),
@@ -39,9 +84,9 @@ extension ChatServiceImportWalk on ChatService {
         storyStartDate: _timeService.storyStartDateIso,
         storyStartTime: ext.storyStartTime,
       );
-      _applySeededPassageOfTime();
+      _h.applySeededPassageOfTime();
     }
-    _mood.seed(ext.characterEmotion, ext.emotionIntensity);
+    _s.mood().seed(ext.characterEmotion, ext.emotionIntensity);
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: keepNsfwCooldown);
     _nsfwService.resetRuntimeArousalAndCooldown();
 
@@ -58,15 +103,15 @@ extension ChatServiceImportWalk on ChatService {
     // Global on + this card off must leave the hidden kit alone; seed
     // already skips off characters, so a wipe here would be permanent.
     final charId = _getCharacterIdFromCard(_session.activeCharacter!);
-    if (pocketsEnabledFor(charId)) {
-      _pockets = null;
-      seedPocketsFromCards();
+    if (_h.pocketsEnabledFor(charId)) {
+      _h.setHostPockets(null);
+      _h.seedPocketsFromCards();
     }
 
     _realismChatSwitch = keepRealism;
-    _needsSimEnabled = keepNeeds;
-    _objectivesEnabled = keepObj;
-    _enjoysLowHygiene = keepHyg;
+    _h.setNeedsSimEnabled(keepNeeds);
+    _h.setObjectivesEnabled(keepObj);
+    _h.setEnjoysLowHygiene(keepHyg);
     _chaosModeService.seedFromGroupOrExt(keepChaos, keepChaosNsfw);
     _chaosModeService.setPressure(keepPressure);
   }
@@ -79,7 +124,7 @@ extension ChatServiceImportWalk on ChatService {
     final keepPressure = _chaosModeService.chaosPressure;
 
     _relationshipService.resetForFreshChat();
-    _expressionService.resetForFreshChat();
+    _s.expression().resetForFreshChat();
     _needsSimulation.resetBuffers();
 
     final seeds = parseGroupRealismSeeds(
@@ -93,7 +138,7 @@ extension ChatServiceImportWalk on ChatService {
       for (var i = start; i >= 0 && i < _session.messages.length; i--) {
         final m = _session.messages[i];
         if (m.isUser) continue;
-        final speaker = _resolveGroupSpeakerForMessage(m);
+        final speaker = resolveGroupSpeakerForMessage(_groupCharacters, m);
         if (speaker == null || _getCharacterIdFromCard(speaker) != sid) {
           continue;
         }
@@ -103,11 +148,11 @@ extension ChatServiceImportWalk on ChatService {
         }
       }
       if (stamp != null) {
-        _restoreRealismStateForSpeaker(stamp);
+        _h.restoreForSpeaker(stamp);
       } else {
         // Keep a per-char-off (or global-off) kit — HIDES≠erase. Wiping
         // then seed-skipping is how import erased authored-off members.
-        final keptPockets = pocketsEnabledFor(sid)
+        final keptPockets = _h.pocketsEnabledFor(sid)
             ? null
             : _groupRealism[sid]?.pockets;
         // The member's Afterglow flag is a toggle, not a scalar: kept like
@@ -128,11 +173,11 @@ extension ChatServiceImportWalk on ChatService {
     // who never spoke after the handoff have no own stamp of the item.
     // Apply EVERY stamp oldest → newest: a later giver-only move has no
     // `others`, so it must not wipe Sam's keys from an earlier give.
-    _pocketsRewinds.restoreChronologically(start);
+    _s.pocketsRewinds().restoreChronologically(start);
 
-    _clockWriter.syncLoadedSlotClocks();
+    _s.clockWriter().syncLoadedSlotClocks();
 
-    seedPocketsFromCards();
+    _h.seedPocketsFromCards();
 
     CharacterCard? scratch;
     if (_session.messages.isNotEmpty) {
@@ -148,7 +193,7 @@ extension ChatServiceImportWalk on ChatService {
     scratch ??= _groupCharacters.isNotEmpty ? _groupCharacters.first : null;
     if (scratch != null) {
       final id = _getCharacterIdFromCard(scratch);
-      if (id.isNotEmpty) _realismDance.loadIntoScalars(id);
+      if (id.isNotEmpty) _s.dance().loadIntoScalars(id);
     }
 
     _chaosModeService.seedFromGroupOrExt(keepChaos, keepChaosNsfw);
@@ -157,11 +202,11 @@ extension ChatServiceImportWalk on ChatService {
 
   /// Walk backward for stamps; stamp-less rewinds scalars (1:1 card / group
   /// per-member seeds) while keeping feature toggles.
-  Future<void> _restoreRealismStateWalkingBack({
+  Future<void> restoreWalkingBack({
     required int fromIndex,
     bool seedClockIfUnstamped = true,
   }) async {
-    _cancelIdleTimer();
+    _s.cast().idle.cancelIdleTimer();
 
     if (_session.messages.isEmpty) {
       if (_activeGroup != null) {
@@ -188,9 +233,9 @@ extension ChatServiceImportWalk on ChatService {
       final m = _session.messages[i];
       final meta = m.activeMetadata;
       if (meta?['realism_state'] is Map) {
-        _restoreRealismStateForSpeaker(m, restoreClock: false);
+        _h.restoreForSpeaker(m, restoreClock: false);
         if (m.metadata?['pockets_before'] is Map) {
-          _pocketsRewinds.restoreFromStamp(m, after: true);
+          _s.pocketsRewinds().restoreFromStamp(m, after: true);
         }
         restored = true;
         break;
@@ -205,6 +250,6 @@ extension ChatServiceImportWalk on ChatService {
         seedClock: seedClockIfUnstamped,
       );
     }
-    _clockWriter.syncLoadedSlotClocks();
+    _s.clockWriter().syncLoadedSlotClocks();
   }
 }

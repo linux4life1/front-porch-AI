@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edit_hooks.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -63,7 +64,9 @@ class EditDeps {
   final EditTurnHooks turn;
   final EditRealismHooks realism;
   final EditCastHooks cast;
-  final EditSessionHooks sessions;
+
+  /// Chat switching and the history window: the session store's own.
+  final SessionStore Function() sessions;
   final ImpersonatePromptHooks prompt;
 }
 

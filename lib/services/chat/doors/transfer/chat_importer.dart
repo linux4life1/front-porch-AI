@@ -202,7 +202,7 @@ class ChatImporter {
         : _host.characterIdFor(_session.activeCharacter!);
 
     // Phase 0: seed card defaults so save never bleeds prior live state.
-    await _host.seedScalars();
+    await _host.sessions().seed.seedImported();
 
     // The messages move too: a reply still stamped with the exporting card's
     // id reads as a scene guest who left, so Regenerate and Continue refuse
@@ -233,18 +233,20 @@ class ChatImporter {
       ..clear()
       ..addAll(msgs);
     // Imported history is not a virgin chat — RAG retrieval must not skip.
-    _host.markNewChat(_session.messages.isEmpty);
-    _host.computeAbsenceGap();
-    await _host.seedChatWorlds();
+    _host.sessions().isNewChat = _session.messages.isEmpty;
+    _host.sessions().computeAbsenceGap(const []);
+    await _host.sessions().forker.seedChatWorldsForNewSession();
 
     if (full && fpai != null) {
       final session = fpai['session'] is Map
           ? Map<String, dynamic>.from(fpai['session'] as Map)
           : null;
       if (session != null) {
-        await _host.applySessionHead(session);
+        await _host.sessions().seed.applyHead(session);
       } else if (_session.messages.isNotEmpty) {
-        await _host.restoreWalkingBack(_session.messages.length - 1);
+        await _host.sessions().walk.restoreWalkingBack(
+          fromIndex: _session.messages.length - 1,
+        );
       }
       // After seed wiped guests: restore `fpai.cast` on a matching open
       // chat. Mismatched / dialogue-only never reaches here (`full` is false).
@@ -274,7 +276,7 @@ class ChatImporter {
       }
     } else {
       // Transcript-only: journal cursor caught up, blank memory (no thrash).
-      _host.catchUpRecap(_session.messages.length);
+      _host.sessions().catchUpRecap(_session.messages.length);
     }
 
     await _saveChat();

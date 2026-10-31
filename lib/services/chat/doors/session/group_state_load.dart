@@ -16,31 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:convert';
 
-/// While [_loadLastSession] hydrates, [_doSaveChat] must not stamp the
-/// still-live previous chat's persona onto the row being loaded.
-final Expando<bool> _preserveSessionPersonaOf = Expando();
+import 'package:flutter/foundation.dart';
 
-/// Scene-guest and group-realism hydrate, plus small session accessors.
-/// Persist lives in chat_service_session_state_save.dart (same library).
-extension ChatServiceSessionState on ChatService {
-  // v30: Load per-character group realism/needs state.
-  // Priority:
-  // 1. Live state from the current session's group_realism_state column (if present and non-empty).
-  // 2. Default state from the group's default_member_realism_state (important for Group Card imports and new sessions).
-  //
-  // Pass null for `session` to force-load from group defaults only (used for brand-new group chats).
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'session_store.dart';
+
+/// The session blob's live half: a 1:1 chat's Scene Guests and a group
+/// chat's per-member realism, notes, prompts, RAG knobs and quests, read
+/// from the session's `group_realism_state` column.
+class GroupStateLoad {
+  GroupStateLoad(this._d, this._store);
+
+  final SessionDeps _d;
+  final SessionStore _store;
+
+  SessionServices get _s => _d.services;
+  RealismScope get _scope => _s.realism();
+  GroupChat? get _activeGroup => _d.session.activeGroup;
+  GroupSessionConfig get _group => _store.groupConfig;
+  SceneGuestState get _sceneGuest => _s.cast().guests.state;
+
   /// Restore Scene Guest (Lite NPC) dbIds for a 1:1 session from the reused
   /// group realism column, then resolve their cards. Tolerant of missing,
   /// empty, '{}', legacy group state, or malformed JSON (clears guests).
-  void _loadSceneGuestsFromSession(Session? session) {
+  void loadSceneGuests(Session? session) {
     _sceneGuest.ids.clear();
     _sceneGuest.cards.clear();
     final stateJson = session?.groupRealismState;
     // Timed lorebook effects ride the same blob — hydrate (resets first, so
     // a null/empty session clears any prior chat's timers).
-    _loreTimedEffects.hydrate(stateJson);
+    _s.loreTimers().hydrate(stateJson);
     if (stateJson == null || stateJson.isEmpty || stateJson == '{}') return;
     try {
       final decoded = jsonDecode(stateJson);
@@ -58,42 +69,50 @@ extension ChatServiceSessionState on ChatService {
     }
     if (_sceneGuest.ids.isNotEmpty) {
       // Fire-and-forget resolve; UI updates via notifyListeners inside.
-      _resolveSceneGuestCards();
+      _s.cast().guests.resolveSceneGuestCards();
     }
   }
 
-  /// Returns true when a session-scoped map moved. Caller persists
-  /// once after [_hydrateSessionScalars] — a save here races the
-  /// history-drawer path, which hydrates after this load.
-  Future<bool> _loadGroupRealismStateFromSession(Session? session) async {
+  /// v30: Load per-character group realism/needs state.
+  /// Priority:
+  /// 1. Live state from the current session's group_realism_state column (if
+  ///    present and non-empty).
+  /// 2. Default state from the group's default_member_realism_state
+  ///    (important for Group Card imports and new sessions).
+  ///
+  /// Returns true when a session-scoped map moved. Caller persists once
+  /// after the scalar hydrate — a save here races the history-drawer path,
+  /// which hydrates after this load.
+  Future<bool> loadGroupRealismState(Session? session) async {
     // Directions are per chat: a chat without a group has none.
-    _directorScene.hydrate(
+    _s.cast().directorScene.hydrate(
       _activeGroup == null ? null : session?.groupRealismState,
     );
-    _autoChatBudget.clear(); // a paused run belongs to the chat it ran in
+    _s.autoChat.clear(); // a paused run belongs to the chat it ran in
     if (_activeGroup == null) return false;
+    final groupStore = _scope.groups;
 
     String? stateJson = session?.groupRealismState;
 
     // Timed lorebook effects ride the SESSION blob only (never the group's
     // default-member-state fallback below — defaults carry no chat timers).
-    _loreTimedEffects.hydrate(stateJson);
+    _s.loreTimers().hydrate(stateJson);
     // Director Mode is per chat once a chat has saved it; the group's
     // "start in Director Mode" default only seeds chats that never did.
     final directing = directingFromSessionBlob(stateJson);
-    if (directing != null) _session.groupManager?.setObserverMode(directing);
+    if (directing != null) _d.session.groupManager?.setObserverMode(directing);
 
     // Fall back to group definition defaults (crucial for imported Group Cards and split-to-solo)
     if (stateJson == null || stateJson.isEmpty || stateJson == '{}') {
       stateJson = _activeGroup!.defaultMemberRealismState;
     }
-    _groupStore.afterglowOn = groupAfterglowIn(stateJson);
+    groupStore.afterglowOn = groupAfterglowIn(stateJson);
 
-    _groupRealism = {};
-    _groupAuthorNotes = {};
-    _groupAuthorNoteStrengths = {};
-    _groupCharacterSystemPrompts = {};
-    _groupCharacterRAGPriorities = {};
+    groupStore.members = {};
+    _group.authorNotes = {};
+    _group.authorNoteStrengths = {};
+    _group.characterSystemPrompts = {};
+    _group.characterRAGPriorities = {};
 
     if (stateJson.isNotEmpty && stateJson != '{}') {
       try {
@@ -106,15 +125,16 @@ extension ChatServiceSessionState on ChatService {
               map['perChar'] ??
               map; // support both wrapped and direct formats during transition
           if (perChar is Map) {
-            _groupRealism = perChar.map(
+            groupStore.members = perChar.map(
               (k, v) =>
                   MapEntry(k.toString(), GroupMemberRealism.fromJson(v as Map)),
             );
           }
           final hygieneAck = map['hygiene_crisis_acked'];
           if (hygieneAck is List) {
-            applyNeedsPersist(_needsSimulation, {
-              'vector': _needsSimulation.vector,
+            final needsSimulation = _scope.needs();
+            applyNeedsPersist(needsSimulation, {
+              'vector': needsSimulation.vector,
               'hygiene_crisis_acked': hygieneAck,
             });
           }
@@ -122,64 +142,66 @@ extension ChatServiceSessionState on ChatService {
           // Per-char author notes (scoped to this group)
           final notes = map['authorNotes'];
           if (notes is Map) {
-            _groupAuthorNotes = notes.map(
+            _group.authorNotes = notes.map(
               (k, v) => MapEntry(k.toString(), (v ?? '').toString()),
             );
           }
 
           final strengths = map['authorNoteStrengths'];
           if (strengths is Map) {
-            _groupAuthorNoteStrengths = strengths.map(
+            _group.authorNoteStrengths = strengths.map(
               (k, v) => MapEntry(
                 k.toString(),
-                (v as num?)?.toInt() ?? _authorNoteStrength,
+                (v as num?)?.toInt() ?? _store.authorNoteStrength,
               ),
             );
           }
 
           final sysPrompts = map['characterSystemPrompts'];
           if (sysPrompts is Map) {
-            _groupCharacterSystemPrompts = sysPrompts.map(
+            _group.characterSystemPrompts = sysPrompts.map(
               (k, v) => MapEntry(k.toString(), (v ?? '').toString()),
             );
           }
 
           // RAG settings (now also in the column)
           if (map.containsKey('ragEnabled')) {
-            _groupRagEnabled = map['ragEnabled'] as bool? ?? true;
+            _group.ragEnabled = map['ragEnabled'] as bool? ?? true;
           }
           if (map.containsKey('retrievalCount')) {
-            _groupRetrievalCount =
+            _group.retrievalCount =
                 (map['retrievalCount'] as num?)?.toInt() ?? 4;
           }
           if (map.containsKey('memoryBudgetPercent')) {
-            _groupMemoryBudgetPercent =
+            _group.memoryBudgetPercent =
                 (map['memoryBudgetPercent'] as num?)?.toDouble() ?? 10.0;
           }
 
           final ragPrios = map['characterRAGPriorities'];
           if (ragPrios is Map) {
-            _groupCharacterRAGPriorities = ragPrios.map(
+            _group.characterRAGPriorities = ragPrios.map(
               (k, v) => MapEntry(k.toString(), (v as num).toDouble()),
             );
           }
 
           // Per-char objectives for group mode (each member has independent tasks)
-          objectivesDoor.groupObjectives.clear();
+          final objectives = _s.objectives();
+          objectives.groupObjectives.clear();
           final objMap = map['objectives'];
           if (objMap is Map) {
             objMap.forEach((charId, list) {
               if (list is List) {
-                objectivesDoor.groupObjectives[charId.toString()] = [];
+                objectives.groupObjectives[charId.toString()] = [];
               }
             });
           }
 
-          // One-time seeding of objectives from an imported Group Card is handled
-          // asynchronously after this state load completes (see callers of this method).
+          // One-time seeding of objectives from an imported Group Card is
+          // handled asynchronously after this state load completes (see
+          // callers of this method).
 
           debugPrint(
-            '[GroupState v30] Loaded realism state for ${_groupRealism.length} characters '
+            '[GroupState v30] Loaded realism state for ${groupStore.members.length} characters '
             '(session + group defaults) for group ${_activeGroup!.name}',
           );
         }
@@ -187,47 +209,9 @@ extension ChatServiceSessionState on ChatService {
         debugPrint(
           '[GroupState v30] Failed to parse group realism state JSON: $e',
         );
-        _groupRealism = {};
+        groupStore.members = {};
       }
     }
-    return _rekeyGroupStores();
-  }
-
-  /// Evaluates emotion + relationship baseline from the greeting message only.
-
-  // ── Small session-state accessors, moved verbatim from the god file's
-  // field block (zero behaviour change) ──
-  bool get isLoadingSession => _isLoadingSession;
-
-  String? get parentSessionId => _parentSessionId;
-  int? get forkIndex => _forkIndex;
-  String? get sessionName => _sessionName;
-  String? get sessionDescription => _sessionDescription;
-
-  /// The per-chat gallery look selected for [characterId] in the active session,
-  /// or null (no look chosen → the character's library face shows). Keyed by the
-  /// character's library id so the same character shares one selection across a
-  /// group cast.
-  String? selectedLookFor(String characterId) => _selectedLooks[characterId];
-
-  /// Set (or clear, when [lookId] is null) the per-chat gallery look for
-  /// [characterId] in the active session, persist the whole map to the session's
-  /// selected-look column, and repaint. Never touches `imagePath` — the library
-  /// face is independent of which look shows in a given chat.
-  Future<void> setLookForCharacter(String characterId, String? lookId) async {
-    final sid = _session.currentSessionId;
-    if (sid == null || characterId.isEmpty) return; // never key by a blank id
-    // decodeSelectedLooks also drops empty keys, so a blank would silently fail
-    // to round-trip; refuse it here so the caller notices instead.
-    if (lookId == null) {
-      _selectedLooks.remove(characterId);
-    } else {
-      _selectedLooks[characterId] = lookId;
-    }
-    notifyListeners();
-    await _db.setSelectedLookForSession(
-      sid,
-      encodeSelectedLooks(_selectedLooks),
-    );
+    return _d.hooks.rekeyGroupStores();
   }
 }

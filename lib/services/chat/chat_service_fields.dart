@@ -36,8 +36,6 @@ mixin ChatServiceFieldBag {
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
 
-  bool _isNewChat = false;
-
   bool _disposed = false;
   // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
   // live on the cast door (ChatService.castDoor, doors/cast/).
@@ -49,8 +47,6 @@ mixin ChatServiceFieldBag {
 
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
   // (read in _maybeRunCastDetection). _castScanInterval → chat_service_defaults.
-
-  Future<void> _saveChain = Future.value();
 
   /// Serializes [sendMessage] so two composer taps during settle cannot
   /// both pass `_isGenerating` and then both run after the wait.
@@ -89,15 +85,8 @@ mixin ChatServiceFieldBag {
   // turn. (Follow-up: pass the directive as a local into _generateResponse to
   // drop the shared field entirely.)
   bool _entrancesInFlight = false;
-  bool _isLoadingSession = false;
-  // New chat / loadSession runs in flight; sends wait them out.
-  int _chatSwitches = 0;
-  final _history = SessionHistoryWindow();
-
-  /// Saved position of `messages[0]`. Older rows still loading sit
-  /// before it, so a row's place in the whole chat is this plus its index.
-  /// A class member (not an extension) so test fakes can pin it.
-  int get historyBasePosition => _history.basePosition;
+  // The session-load and chat-switch flags, the history window and the
+  // save chain live on the session store (ChatService.sessionStore).
   bool _cancelRequested = false;
   int _generationEpoch = 0;
 
@@ -137,13 +126,7 @@ mixin ChatServiceFieldBag {
 
   double _generationProgress = 0.0;
 
-  // ── Real-absence awareness (Living Time §2) ──
-  // Computed in-memory at session load from the last saved message's
-  // updatedAt; nothing is stored or transmitted (privacy-by-design contract
-  // in absence_tracker.dart). Story clock untouched.
-  Duration _absenceGap = Duration.zero;
-  bool _absenceAckPending = false;
-  bool _absenceAckConsumed = false;
+  // Real-absence awareness (Living Time §2) lives on the session store.
   int _tokensGenerated = 0;
   int _maxTokens = 0;
   DateTime? _generationStartTime;
@@ -195,53 +178,10 @@ mixin ChatServiceFieldBag {
   /// The char→char judge, built on first use.
   CastFeelingsJudge? _castFeelingsJudgeCache;
 
-  /// Per-character Author's Notes for group chats (independent of group-level _authorNote).
-  /// Keyed by stable charId (from _getCharacterIdFromCard). Populated from the
-  /// (legacy comment — now persisted via sessions.group_realism_state column)
-  Map<String, String> _groupAuthorNotes = {};
-  Map<String, int> _groupAuthorNoteStrengths = {};
-
-  /// Per-character system prompts scoped to the *current group only*.
-  /// These are completely independent of each character's normal `systemPrompt`
-  /// (the one used in 1:1 chats). When present and non-empty for the speaking
-  /// character, they take full precedence over the character's card-level prompt
-  /// inside this group. Now persisted via the sessions.group_realism_state column.
-  Map<String, String> _groupCharacterSystemPrompts = {};
-
-  // RAG settings for the active group (stored in the hidden checkpoint, no DB schema change)
-  bool _groupRagEnabled = true;
-  int _groupRetrievalCount = 4;
-  double _groupMemoryBudgetPercent = 10.0;
-  Map<String, double> _groupCharacterRAGPriorities = {};
-
-  // Director Mode state is now owned by _session.groupManager when active.
-  // The public getters below delegate to it.
-  // ── Author's Note ──
-  String _authorNote = '';
-  int _authorNoteStrength = 4;
-
-  // ── Per-chat avatar gallery ("looks") selection ──
-  // {characterId: selectedLookAvatarId} for THIS session, decoded from the
-  // session's selectedLookAvatarId column on load. A map (not one id) so a group
-  // chat remembers a look per participant; 1:1 is just a one-entry map. Reset
-  // per session in loadSession; empty when no session.
-  Map<String, String> _selectedLooks = {};
-
-  // ── Chat Summary ──
-  String _summary = '';
-  int _summaryLastIndex = 0;
-
-  /// Session id whose in-memory recap matches the row. Until hydrate,
-  /// a save must not blank or replace `sessions.summary`.
-  String? _recapBoundSessionId;
-
-  /// The editor or a timeline rewrite cleared "Where we are" on purpose.
-  bool _recapClearArmed = false;
-  // Secondary runtime flag (like _isSummaryGenerating); must be defensively
-  // zeroed on *all* reset/new-chat/0-session/group/setActive/load/delete
-  // paths or pause state leaks across contexts (see CLAUDE.md keep-sync).
-  bool _summaryPaused = false;
-  bool _isSummaryGenerating = false;
+  // A group's per-member notes, prompts and RAG knobs, the Author's Note,
+  // the gallery looks and the recap ("Where we are") live on the session
+  // store (sessionStore.groupConfig and the store's own fields).
+  // Director Mode state is owned by _session.groupManager when active.
   // ── Realism Mode ──
   bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
   bool _isEvaluatingRealism = false;
@@ -331,21 +271,11 @@ mixin ChatServiceFieldBag {
   _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
 
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
-  // ── Session Metadata ──
-  String? _sessionName;
-  String? _sessionDescription;
-
-  // ── Per-session generation overrides ──
-  ChatGenerationSettings _sessionGenSettings = ChatGenerationSettings();
+  // Session name, description, per-chat generation settings and theme, and
+  // the fork lineage live on the session store.
   ({String key, ChatGenerationSettings chat})?
   _promptPickerPending; // prompt-picker SOW: the new 1:1 awaiting the picker
 
-  // ── Per-chat theme ──
-  ChatThemeOverrides _sessionThemeOverrides = ChatThemeOverrides();
-
-  // ── Chat Branching ──
-  String? _parentSessionId;
-  int? _forkIndex;
   String? _evalCleanSrc, _evalCleanOut;
   bool _isGrowthPassRunning = false;
 

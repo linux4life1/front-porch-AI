@@ -39,6 +39,7 @@ import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -673,7 +674,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       turn: _UnwiredEditHooks(),
       realism: _UnwiredEditHooks(),
       cast: _UnwiredEditHooks(),
-      sessions: _UnwiredEditHooks(),
+      sessions: () => sessionStore,
       prompt: _UnwiredEditHooks(),
     ),
   );
@@ -737,6 +738,20 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get isTurnBusy => false;
 
+  /// The session store behind the session bridge (load, fork, the history
+  /// window, the today line's held quest). Empty chat, unwired services and
+  /// hooks: a state read answers empty (no name, no fork, nothing loading),
+  /// and anything that would load, save or fork throws.
+  @override
+  late final SessionStore sessionStore = SessionStore(
+    SessionDeps(
+      session: ChatSessionState(),
+      services: _UnwiredSessionHooks(),
+      hooks: _UnwiredSessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
   /// Transfer doors over an empty session and an unwired host: goldens never
   /// import or export, so no database or LLM stands behind them.
   @override
@@ -763,6 +778,13 @@ class _UnwiredCastHooks implements CastShellHooks {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+/// The session store's services and hooks with nothing wired: any read is a
+/// NoSuchMethodError, as a private member read on this fake always was.
+class _UnwiredSessionHooks implements SessionServices, SessionShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 /// [TransferHost] with nothing wired: any read is a NoSuchMethodError.
 class _UnwiredTransferHost implements TransferHost {
   @override
@@ -777,7 +799,6 @@ class _UnwiredEditHooks
         EditTurnHooks,
         EditRealismHooks,
         EditCastHooks,
-        EditSessionHooks,
         ImpersonatePromptHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

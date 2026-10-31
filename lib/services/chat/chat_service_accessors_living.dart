@@ -169,24 +169,6 @@ extension ChatServiceAccessorsLiving on ChatService {
     ];
   }
 
-  void _setSessionGenSettingsImpl(ChatGenerationSettings value) {
-    _sessionGenSettings = value;
-    _saveChat();
-    notifyListeners();
-  }
-
-  void _setSessionThemeOverridesImpl(ChatThemeOverrides value) {
-    _sessionThemeOverrides = value;
-    // Persist only when a chat is actually open. The web facade already guards
-    // this, but a bare `_session.currentSessionId!` would crash any other caller that
-    // sets the theme with no active session (session close mid-save, tests).
-    final sid = _session.currentSessionId;
-    if (sid != null) {
-      _db.setThemeOverrides(sid, value.toJsonString());
-    }
-    notifyListeners();
-  }
-
   /// Stream text with think blocks stripped (for display) — memoized on
   /// string identity (the overlay + web broadcast read it every notify).
   /// The `_evalCleanSrc`/`_evalCleanOut` memo fields stay on the class body.

@@ -16,17 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Session-scoped today sentence. Day-clear is on the clock advance.
-mixin ChatServiceTodaySentence on ChangeNotifier {
+/// The session-scoped today line (Planner V2). Day-clear is on the clock
+/// advance, never in the getter. A mixin so a test harness can carry the
+/// same behaviour the chat's [TodaySentence] does.
+mixin TodayLine on ChangeNotifier {
   String? _todaySentence;
-  String? _todayObjectiveId;
-  String? _todayObjectiveText;
-  void Function(String? held)? _onTodayAbandoned;
+
+  /// The objective row the today line is held as, if any.
+  String? todayObjectiveId;
+
+  /// The text that row was written with (planner resolve compares it).
+  String? todayObjectiveText;
+
+  /// Called with the dropped line when the user abandons it.
+  void Function(String? held)? onTodayAbandoned;
 
   String? get todaySentence => _todaySentence;
-  String? get todayObjectiveId => _todayObjectiveId;
 
   void setTodaySentence(String? value) {
     final next = value?.trim();
@@ -38,16 +45,21 @@ mixin ChatServiceTodaySentence on ChangeNotifier {
   void abandonToday() {
     final held = todaySentence;
     setTodaySentence(null);
-    _onTodayAbandoned?.call(held);
+    onTodayAbandoned?.call(held);
   }
 
   String? get todayLine => todaySentence;
 
   /// Drop the RAM hold. Does not touch the DB row.
-  void _clearTodayPointer() {
+  void clearTodayPointer() {
     _todaySentence = null;
-    _todayObjectiveId = null;
-    _todayObjectiveText = null;
+    todayObjectiveId = null;
+    todayObjectiveText = null;
     notifyListeners();
   }
 }
+
+/// The open chat's today line. The session store owns one; the chat
+/// service forwards its notifies synchronously, as the mixin it replaces
+/// notified the service itself.
+class TodaySentence extends ChangeNotifier with TodayLine {}

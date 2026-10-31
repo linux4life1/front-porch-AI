@@ -111,10 +111,7 @@ extension ChatServiceAccessors on ChatService {
 
   /// Coarse absence bucket ("a few days"), or null under the threshold /
   /// fresh chat. Words only — never digits (see AbsenceTracker).
-  String? get absencePhrase => AbsenceTracker.bucketPhrase(
-    _absenceGap,
-    thresholdHours: _storageService.realismSettings.absenceThresholdHours,
-  );
+  String? get absencePhrase => sessionStore.absencePhrase;
 
   /// [absencePhrase] gated by the welcome-back-banner setting — the ONE gate
   /// both the desktop banner and the web facade read, so they can't drift.
