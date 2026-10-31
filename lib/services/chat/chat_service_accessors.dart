@@ -419,34 +419,6 @@ extension ChatServiceAccessors on ChatService {
   // cannot be overridden via `implements`/`extends`. Verbatim bodies, moved
   // as part of the round-4b god-file shrink (docs/design/god-file-elimination.md).
 
-  /// Append an already-saved generated image to the conversation as a
-  /// character message (empty text; the bubble renders the image from
-  /// metadata). Shared by the /image slash command, the Image Studio's
-  /// "Send to chat", and the web insert-image endpoint.
-  Future<void> _addGeneratedImageMessageImpl(
-    String path,
-    String prompt, {
-    String? senderName,
-    String? characterId,
-  }) async {
-    if (_session.activeCharacter == null && _activeGroup == null) return;
-    _session.messages.add(
-      ChatMessage(
-        text: '',
-        sender: senderName ?? _session.activeCharacter?.name ?? 'Narrator',
-        isUser: false,
-        characterId: characterId,
-        metadata: {
-          'is_generated_image': true,
-          'image_path': path,
-          'image_prompt': prompt,
-        },
-      ),
-    );
-    await _saveChat();
-    notifyListeners();
-  }
-
   /// Everything [ChatService.dispose] does except the mandatory
   /// `super.dispose()` call, which only the class body can make.
   void _disposeCleanupImpl() {
@@ -464,6 +436,21 @@ extension ChatServiceAccessors on ChatService {
     unawaited(_deletedChats?.cancel());
   }
 
+  /// Re-emits [door]'s changes as this service's, coalesced: however many
+  /// times the door notifies in one synchronous run, listeners here hear
+  /// one notify, on the next microtask.
+  void _forwardDoorNotify(ChangeNotifier door) {
+    var queued = false;
+    door.addListener(() {
+      if (queued) return;
+      queued = true;
+      scheduleMicrotask(() {
+        queued = false;
+        notifyListeners();
+      });
+    });
+  }
+
   /// Everything the [ChatService] constructor does. Called as the
   /// constructor's single statement (round-4b shrink).
   ///
@@ -475,6 +462,8 @@ extension ChatServiceAccessors on ChatService {
   /// comment that used to sit here claimed both were canonicalized; the
   /// removals it blessed were silently doing nothing.
   void _initImpl() {
+    _forwardDoorNotify(mediaDoor);
+    _forwardDoorNotify(actionsDoor);
     // Probe verdicts land from background passes and the manual test alike —
     // rebroadcast so the sidebar's tool-calling pill repaints live.
     _toolProbe.addListener(notifyListeners);

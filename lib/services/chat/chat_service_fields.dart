@@ -32,27 +32,15 @@ mixin ChatServiceFieldBag {
   /// model and per engine load.
   final _modelKeys = LocalModelKeys();
 
-  /// Named lookup for the next reply only. Cleared when that reply starts.
-  String? _pendingForcedWebQuery;
-  String? _pendingForcedWikiQuery;
-
   /// The last message when the user stopped a reply from the Realism
   /// overlay. The "you stopped this reply" notice shows while it is still
-  /// the chat's last message (same anchor rule as the suggestions below).
+  /// the chat's last message (same anchor rule as ActionsDoor's suggestions).
   ChatMessage? _stoppedReplyAnchor;
 
   /// True while Try again (regenerate on a trailing user line) runs. That
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
 
-  // Action suggestions
-  List<String> _suggestedActions = [];
-  bool _isGeneratingActions = false;
-  // The message the suggestions (or the in-flight generation) were made for.
-  // Every chat switch / load / fork / tail-delete path rebuilds `_session.messages`,
-  // so "anchor is still the last message" is the one check that keeps
-  // suggestions from leaking onto another chat's latest bubble (#329).
-  ChatMessage? _suggestedActionsAnchor;
   // Objective/quest system
   List<Objective> _activeObjectives = [];
   ObjectiveTally _objectiveTally = ObjectiveTally.none;
@@ -105,21 +93,7 @@ mixin ChatServiceFieldBag {
   final SceneMoveState _sceneMoves = SceneMoveState();
   final AwayPulseState _awayPulse = AwayPulseState();
 
-  bool _photoTurnInFlight = false;
-
   ChatCommandHandler? _commandHandler;
-
-  /// `/image` slash-command orchestrator (lazily built in
-  /// chat_service_images.dart; callbacks read live state, so it survives
-  /// chat switches like [_commandHandler] does).
-  ImageCommandService? _imageCommand;
-
-  /// Prompt-review pause for /image (Chance-Time-style pending flag +
-  /// completer): when the review setting is on, the crafted prompt parks
-  /// here until the UI (desktop dialog / web modal) resolves it via
-  /// [resolveImagePromptReview] — see chat_service_images.dart.
-  String? _pendingImagePromptReview;
-  Completer<String?>? _imageReviewCompleter;
   bool autoChimeEnabled = true;
 
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled

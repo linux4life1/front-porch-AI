@@ -453,7 +453,7 @@ extension ChatServiceReprocess on ChatService {
       }
 
       final preGenLen = _session.messages.length;
-      _armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
+      mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
       await _generateResponse(
         GenerationMode.normal,
         directUserSend: true,

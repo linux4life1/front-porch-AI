@@ -244,7 +244,9 @@ extension ChatServiceGroupMembership on ChatService {
     await setActiveGroup(group, groupRepo: groupRepo);
 
     // Writes to _session.currentSessionId, so only once the group session is live.
-    if (hostSessionId != null) await _copyWikiForForkedSession(hostSessionId);
+    if (hostSessionId != null) {
+      await mediaDoor.copyWikiForForkedSession(hostSessionId);
+    }
 
     // Carry the captured 1:1 host realism into the host member's per-character
     // store now that group mode is active (the group-scoped writes are gated on

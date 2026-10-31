@@ -67,7 +67,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
         (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
     if (forcedLookup ||
-        ((_webSearchService.isActive || _wikiSearchService.isActive) &&
+        (mediaDoor.lookupsActive &&
             t.directUserSend &&
             !t.autonomous &&
             t.mode != GenerationMode.continue_)) {

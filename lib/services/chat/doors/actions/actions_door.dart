@@ -7,36 +7,57 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Action Suggestions — clear + LLM-generated quick-reply actions.
-/// Extracted verbatim (zero behaviour change) to shrink the god file.
-extension ChatServiceActions on ChatService {
-  // ── Action Suggestions ────────────────────────────────────────────────
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+
+/// Action Suggestions: the LLM-generated quick-reply actions under the last
+/// bubble, and their clear.
+///
+/// Suggestions belong to the message they were made for (#329). Every chat
+/// switch / load / fork / tail-delete path rebuilds the session's message
+/// list, so "the anchor is still the last message" is the one check that
+/// keeps suggestions from leaking onto another chat's latest bubble.
+class ActionsDoor extends ChangeNotifier {
+  ActionsDoor({
+    required ChatSessionState session,
+    required UserPersonaService personas,
+    required LLMService Function() mouthLlm,
+    required Stream<String> Function(GenerationParams params) mouthStream,
+  }) : _session = session,
+       _personas = personas,
+       _mouthLlm = mouthLlm,
+       _mouthStream = mouthStream;
+
+  final ChatSessionState _session;
+  final UserPersonaService _personas;
+
+  /// The spoken-reply lane, and its stream (which waits out a GPU swap).
+  final LLMService Function() _mouthLlm;
+  final Stream<String> Function(GenerationParams params) _mouthStream;
+
+  List<String> _suggestedActions = [];
+  bool _isGeneratingActions = false;
+  // The message the suggestions (or the in-flight generation) were made for.
+  ChatMessage? _suggestedActionsAnchor;
 
   /// True while [anchor] is still the last message — same chat, same turn.
-  /// Every switch / load / fork / tail-delete path rebuilds `_session.messages`, so
-  /// this one check is what keeps suggestions off another chat's bubble.
   bool _suggestionsStillFor(ChatMessage? anchor) =>
       anchor != null &&
       _session.messages.isNotEmpty &&
       identical(_session.messages.last, anchor);
 
-  List<String> get _anchoredSuggestedActions =>
+  /// The suggestions for the chat's last message; empty once it moved on.
+  List<String> get suggestedActions =>
       _suggestionsStillFor(_suggestedActionsAnchor)
       ? _suggestedActions
       : const [];
 
-  bool get _anchoredIsGeneratingActions =>
+  bool get isGeneratingActions =>
       _isGeneratingActions && _suggestionsStillFor(_suggestedActionsAnchor);
 
   /// Clear suggestions (called when user sends any message).
@@ -67,7 +88,7 @@ extension ChatServiceActions on ChatService {
     notifyListeners();
 
     try {
-      if (!_mouthLlm.isReady) {
+      if (!_mouthLlm().isReady) {
         debugPrint('[Actions] ✗ LLM not ready');
         return;
       }
@@ -83,7 +104,7 @@ extension ChatServiceActions on ChatService {
           })
           .join('\n');
 
-      final userName = _userPersonaService.persona.name;
+      final userName = _personas.persona.name;
 
       final prompt =
           'Suggest 4 short actions $userName could do next. '
@@ -110,7 +131,7 @@ extension ChatServiceActions on ChatService {
       );
 
       String responseText = '';
-      await for (final chunk in _mouthGenerateStream(params)) {
+      await for (final chunk in _mouthStream(params)) {
         responseText += chunk;
       }
       responseText = responseText.trim();

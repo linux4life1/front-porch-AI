@@ -60,7 +60,7 @@ extension ChatServiceSend on ChatService {
     if (_entrancesInFlight || _sceneGuest.busy) {
       return 'A character is still joining the scene.';
     }
-    if (_photoTurnInFlight) return 'The last photo is still being read.';
+    if (isPhotoTurnInFlight) return 'The last photo is still being read.';
     if (_isGenerating) return 'A reply is still being written.';
     if (_narrating) return 'The narrator is still setting the scene.';
     if (_skipAsked) return kSkipAskPending;
@@ -90,7 +90,7 @@ extension ChatServiceSend on ChatService {
     if (_sceneGuest.busy) return;
     // A photo turn's captioning windows run while _isGenerating is false; this
     // guard stops a second send from interleaving them (see isPhotoTurnInFlight).
-    if (_photoTurnInFlight) return;
+    if (isPhotoTurnInFlight) return;
     // Import clears `_session.messages` and remints the session. A Send during that
     // window appends into a list the import is about to throw away.
     if (isImporting) return;
@@ -136,10 +136,10 @@ extension ChatServiceSend on ChatService {
             webQuery: lookup.webQuery,
             wikiQuery: lookup.wikiQuery,
             webEnabled: _storageService.webSearchSettings.webSearchDefault,
-            hasWiki: parseWikiBaseUrl(_wikiBaseUrlImpl) != null,
+            hasWiki: mediaDoor.wikiLookupAvailable,
           );
       if (block != null) {
-        announceLookupForce(block);
+        mediaDoor.announceLookupForce(block);
         return;
       }
     }
@@ -210,7 +210,7 @@ extension ChatServiceSend on ChatService {
     // set flag can never bleed into THIS turn and abort a reply the user did
     // not cancel.
     _realismEvalCancelled = false;
-    clearSuggestions();
+    actionsDoor.clearSuggestions();
     // Before ANY prompt is built for this turn. Counting the greeting as
     // turn 0, this is what puts an authored wardrobe into turn 1's prompt —
     // the pass that used to do it runs after the reply exists, so the first
@@ -224,7 +224,7 @@ extension ChatServiceSend on ChatService {
 
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.
-    resolveImagePromptReview(null);
+    mediaDoor.resolveImagePromptReview(null);
 
     // User is interacting — clear any pending auto-response state
     _pendingIdleCue = null;
@@ -253,8 +253,7 @@ extension ChatServiceSend on ChatService {
     }
 
     _toolProbe.beginUserSend();
-    _webSearchService.beginUserSend();
-    _wikiSearchService.beginUserSend();
+    mediaDoor.beginUserSend();
     try {
       _userTurn.open(); // Porch Life's Realism waits for the whole turn.
       // Sending a real message ends the /exit undo window. A pending full-member
@@ -271,7 +270,9 @@ extension ChatServiceSend on ChatService {
       // @Name cues, Needs, the clock); only the judges that score the user's
       // message stand down, because there is no user message to score.
       final directing = _directing;
-      final imagePath = directing ? null : await _persistTurnImage(imageBytes);
+      final imagePath = directing
+          ? null
+          : await mediaDoor.persistTurnImage(imageBytes);
 
       final userMsg = directing
           ? directorNoteMessage(outbound)
@@ -353,7 +354,7 @@ extension ChatServiceSend on ChatService {
       // when the scene changed during the (multi-second) caption await — abort
       // rather than run decay/realism/generation against a newly loaded chat.
       if (imagePath != null) {
-        final stillHere = await runBlindPhotoCaption(
+        final stillHere = await mediaDoor.runBlindPhotoCaption(
           userMsg,
           imagePath,
           sessionToken,

@@ -149,7 +149,7 @@ extension ChatServiceGenerationRequest on ChatService {
     // regenerate, first group speaker, or continue of that reply) and never
     // on a later idle/AFK, group auto-advance, or guest turn. Blind backends
     // get null and rely on the history marker from _formatHistoryLine.
-    final turnImages = await buildTurnImages(t.mode);
+    final turnImages = await mediaDoor.buildTurnImages(t.mode);
 
     GenerationParams paramsOf(
       String p, {
@@ -237,7 +237,7 @@ extension ChatServiceGenerationRequest on ChatService {
     final includeWiki =
         t.forcedWikiQuery == null &&
         shouldAdvertiseWikiSearch(
-          wikiUrl: _wikiBaseUrlImpl,
+          wikiUrl: mediaDoor.wikiBaseUrl,
           directUserSend: t.directUserSend,
           continueMode: t.mode == GenerationMode.continue_,
           toolsUnsupported: xmlOnly,
@@ -281,8 +281,8 @@ extension ChatServiceGenerationRequest on ChatService {
               llm: sideLaneLlm,
               params: job.params,
               catalog: job.catalog,
-              search: _webSearchService,
-              wiki: _wikiSearchService,
+              search: mediaDoor.webSearchService,
+              wiki: mediaDoor.wikiSearchService,
               backendIdentity: _evalBackendIdentity,
             );
             if (round.searchReceipt != null) {
@@ -299,7 +299,16 @@ extension ChatServiceGenerationRequest on ChatService {
         });
       }
     }
-    await _applyForcedLookup(t, scraps);
+    final forced = await mediaDoor.runForcedLookup(
+      webQuery: t.forcedWebQuery,
+      wikiQuery: t.forcedWikiQuery,
+    );
+    if (forced != null) {
+      final injection = forced.injection;
+      if (injection != null && injection.isNotEmpty) scraps.add(injection);
+      if (forced.searchReceipt != null) t.searchReceipt = forced.searchReceipt;
+      if (forced.wikiReceipt != null) t.wikiReceipt = forced.wikiReceipt;
+    }
     final joined = collateCatalogInjections(scraps);
     if (joined != null && joined.isNotEmpty) {
       t.plan.section('web_search').text = joined;

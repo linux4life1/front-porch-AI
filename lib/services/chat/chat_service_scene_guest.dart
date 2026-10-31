@@ -400,7 +400,7 @@ extension ChatServiceSceneGuest on ChatService {
   /// a second sendMessage from interleaving during those windows — the UI and
   /// sendMessage entry both check it. Photo turns only; text turns are
   /// unaffected (they are covered by `_isGenerating`).
-  bool get isPhotoTurnInFlight => _photoTurnInFlight;
+  bool get isPhotoTurnInFlight => mediaDoor.photoTurnInFlight;
 
   /// A guest card image path whose cache the UI should evict (then call
   /// [consumeGuestAvatarEvict]); null when there is nothing to refresh.

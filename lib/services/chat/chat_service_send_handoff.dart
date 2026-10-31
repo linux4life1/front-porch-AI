@@ -39,7 +39,10 @@ extension ChatServiceSendHandoff on ChatService {
     }
 
     if (addressedGuest != null) {
-      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
+      mediaDoor.armForcedLookup(
+        webQuery: forcedWebQuery,
+        wikiQuery: forcedWikiQuery,
+      );
       await generateGuestTurn(addressedGuest);
     } else {
       if (_activeGroup != null) {
@@ -50,7 +53,10 @@ extension ChatServiceSendHandoff on ChatService {
       // guest, cast, regen, idle, and command generation keeps the default
       // false and therefore cannot advertise or reach search HTTP.
       // A named /search or /wiki is armed for this first reply only.
-      _armForcedLookup(webQuery: forcedWebQuery, wikiQuery: forcedWikiQuery);
+      mediaDoor.armForcedLookup(
+        webQuery: forcedWebQuery,
+        wikiQuery: forcedWikiQuery,
+      );
       await _generateResponse(GenerationMode.normal, directUserSend: true);
     }
     // Backend-down abort: no response was generated, so none of the
@@ -97,7 +103,7 @@ extension ChatServiceSendHandoff on ChatService {
     // eval never delays the response or guest turns; this turn already saw the
     // pixels, so the caption just lets later turns' history describe the photo.
     if (imagePath != null) {
-      await runVisionPhotoCaption(userMsg, imagePath, sessionToken);
+      await mediaDoor.runVisionPhotoCaption(userMsg, imagePath, sessionToken);
     }
   }
 
@@ -397,7 +403,7 @@ extension ChatServiceSendHandoff on ChatService {
       await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
     }
     if (!cancelled) {
-      _armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
+      mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
       await _generateResponse(
         GenerationMode.normal,
         directUserSend: true,

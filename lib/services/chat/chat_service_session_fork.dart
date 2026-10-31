@@ -171,7 +171,7 @@ extension ChatServiceSessionFork on ChatService {
     // the climate/setting follow (mid-chat climate spans reset to the world
     // default, like every other new session).
     await _seedChatWorldsForNewSession(carryRefs: _chatPlaceSlots.allIds);
-    await _copyWikiForForkedSession(oldSessionId);
+    await mediaDoor.copyWikiForForkedSession(oldSessionId);
     _parentSessionId = oldSessionId;
     _forkIndex = tip;
     _sessionGenSettings = _sessionGenSettings

@@ -240,9 +240,7 @@ extension ChatServiceGeneration on ChatService {
     bool skipSpeakerEval = false,
     String regenCritique = '',
   }) async {
-    final forcedWeb = _pendingForcedWebQuery;
-    final forcedWiki = _pendingForcedWikiQuery;
-    _clearForcedLookup();
+    final (forcedWeb, forcedWiki) = mediaDoor.takeForcedLookup();
     // Raise before the first await so an unawaited caller (AFK idle)
     // is visible to drain / _isTurnBusy immediately. A refused turn is
     // lowered inside _admitTurn (chat_service_generation_entry.dart).

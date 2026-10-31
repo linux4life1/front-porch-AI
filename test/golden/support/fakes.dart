@@ -49,6 +49,8 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
@@ -68,6 +70,8 @@ import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+
+import 'fakes_storage.dart';
 
 /// A timer-free, IO-free [LLMProvider] double. Exposes the backend-type surface
 /// screens read (e.g. the shared AvatarGenerationPanel's vision peek checks
@@ -523,6 +527,35 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   bool get isGeneratingActions => false;
   @override
   List<String> get suggestedActions => const [];
+
+  // The doors behind the media and Action Suggestions bridges. Goldens read
+  // the class forwarders above; a bridge call on this fake reaches a real
+  // door over an empty chat and inert services, which does nothing.
+  @override
+  late final MediaDoor mediaDoor = MediaDoor(
+    session: ChatSessionState(),
+    storage: FakeStorageService(),
+    personas: FakeUserPersonaService(),
+    worlds: FakeWorldRepository(),
+    imageGen: () => null,
+    llmProvider: () => null,
+    craftLlm: () => null,
+    saveChat: () async {},
+    isBusy: () => false,
+    setStatus: (_, {isError = false, sticky = false}) {},
+    sceneChanged: (_) => false,
+    guestCards: () => const [],
+    characterIdFor: characterIdFor,
+    expressionLabel: () => null,
+    timeOfDay: () => _time.timeOfDay,
+  );
+  @override
+  late final ActionsDoor actionsDoor = ActionsDoor(
+    session: ChatSessionState(),
+    personas: FakeUserPersonaService(),
+    mouthLlm: () => throw StateError('goldens run no model'),
+    mouthStream: (_) => const Stream<String>.empty(),
+  );
 
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no

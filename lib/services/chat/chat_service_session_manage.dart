@@ -442,7 +442,7 @@ extension ChatServiceSessionManage on ChatService {
     // Seed chat worlds for the fresh session (group template or the
     // character's attached worlds — Living Worlds).
     await _seedChatWorldsForNewSession();
-    await _seedWikiForNewSession();
+    await mediaDoor.seedWikiForNewSession();
 
     // Inherit theme from the most recent prior session with this character/group.
     _sessionThemeOverrides = ChatThemeOverrides();

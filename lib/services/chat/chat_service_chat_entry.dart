@@ -281,8 +281,7 @@ extension ChatServiceChatEntry on ChatService {
         // Chaos reset via extracted service (keeps multiple reset blocks in sync).
         // See chaos_mode_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _chaosModeService.resetForFreshChat();
-        _webSearchService.resetForFreshChat();
-        _wikiSearchService.resetForFreshChat();
+        mediaDoor.resetForFreshChat();
         // Nsfw reset via extracted service (keeps multiple reset blocks in sync).
         // See nsfw_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _nsfwService.resetForFreshChat();
@@ -475,7 +474,7 @@ extension ChatServiceChatEntry on ChatService {
           // Seed chat worlds from the character's attached worlds (Living
           // Worlds) — a paired world's climate/setting applies from turn one.
           await _seedChatWorldsForNewSession();
-          await _seedWikiForNewSession();
+          await mediaDoor.seedWikiForNewSession();
           await _saveChat();
           _activeObjectives = [];
           _messagesSinceLastCheck = 0;

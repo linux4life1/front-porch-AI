@@ -5,7 +5,8 @@
 // proposal, hand it to PlaceFactory on the tap, remember ignores.
 // Split from wiring_injection (the 500-line ratchet and one-responsibility
 // per seam file); the move seam stayed there because it is two methods
-// deep in the slots law.
+// deep in the slots law. The door builders (WP2 of
+// docs/design/chat-service-decomposition.md) sit at the end.
 
 part of '../chat_service.dart';
 
@@ -98,4 +99,33 @@ extension ChatServicePlaceMint on ChatService {
     _sceneMoves.mints.ignore(proposal.name);
     notifyListeners();
   }
+}
+
+/// Builds the doors the shell owns. Each callback below stands in for a
+/// private member of another part until that part becomes a door too.
+extension ChatServiceDoorWiring on ChatService {
+  MediaDoor _buildMediaDoor() => MediaDoor(
+    session: _session,
+    storage: _storageService,
+    personas: _userPersonaService,
+    worlds: _worldRepository,
+    imageGen: () => _imageGenService,
+    llmProvider: () => _llmProvider,
+    craftLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+    saveChat: _saveChat,
+    isBusy: () => _isTurnBusy || _sceneGuest.busy,
+    setStatus: _setGuestStatus,
+    sceneChanged: _sceneChanged,
+    guestCards: () => _sceneGuest.cards,
+    characterIdFor: _getCharacterIdFromCard,
+    expressionLabel: () => currentExpressionLabel,
+    timeOfDay: () => _timeService.timeOfDay,
+  );
+
+  ActionsDoor _buildActionsDoor() => ActionsDoor(
+    session: _session,
+    personas: _userPersonaService,
+    mouthLlm: () => _mouthLlm,
+    mouthStream: _mouthGenerateStream,
+  );
 }

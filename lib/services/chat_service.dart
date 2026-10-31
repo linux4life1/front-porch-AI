@@ -30,8 +30,6 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
-import 'package:front_porch_ai/services/caption/local_caption_service.dart';
-import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -47,6 +45,8 @@ import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
@@ -64,6 +64,8 @@ import 'package:drift/drift.dart' as drift;
 
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
+export 'chat/doors/actions/actions_api.dart';
+export 'chat/doors/media/media_api.dart';
 export 'chat/doors/transfer/transfer_api.dart';
 
 part 'chat/chat_service_group_read.dart';
@@ -85,7 +87,6 @@ part 'chat/chat_service_session_state_save.dart';
 part 'chat/chat_service_session_load.dart';
 part 'chat/chat_service_session_hydrate.dart';
 part 'chat/chat_service_session_window.dart';
-part 'chat/chat_service_actions.dart';
 part 'chat/chat_service_objectives.dart';
 part 'chat/chat_service_objective_tasks.dart';
 part 'chat/chat_service_objective_completion.dart';
@@ -107,8 +108,6 @@ part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_cast_shrink.dart';
-part 'chat/chat_service_images.dart';
-part 'chat/chat_service_photo.dart';
 part 'chat/chat_service_idle_autonomous.dart';
 part 'chat/chat_service_greeting.dart';
 part 'chat/chat_service_greeting_seed.dart';
@@ -118,7 +117,6 @@ part 'chat/chat_service_scene_guest.dart';
 part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
-part 'chat/chat_service_web_search.dart';
 part 'chat/chat_service_wiring_evals.dart';
 part 'chat/chat_service_wiring_evals_judges.dart';
 part 'chat/chat_service_llm_lanes.dart';
@@ -153,8 +151,10 @@ class ChatService extends ChangeNotifier
   ImageGenService? _imageGenService;
   MemoryService? _memoryService;
 
-  List<String> get suggestedActions => _anchoredSuggestedActions;
-  bool get isGeneratingActions => _anchoredIsGeneratingActions;
+  late final MediaDoor mediaDoor = _buildMediaDoor();
+  late final ActionsDoor actionsDoor = _buildActionsDoor();
+  List<String> get suggestedActions => actionsDoor.suggestedActions;
+  bool get isGeneratingActions => actionsDoor.isGeneratingActions;
 
   Objective? get primaryObjective =>
       _activeObjectives.where((o) => o.isPrimary).firstOrNull;
@@ -170,13 +170,13 @@ class ChatService extends ChangeNotifier
   bool get isCheckingCompletion => _isCheckingCompletion;
   void skipObjectiveCheck() => _skipObjectiveCheckImpl();
 
-  /// Web-facade fakes override this; body in chat_service_accessors.dart.
+  /// Web-facade fakes override this; body in [MediaDoor].
   Future<void> addGeneratedImageMessage(
     String path,
     String prompt, {
     String? senderName,
     String? characterId,
-  }) => _addGeneratedImageMessageImpl(
+  }) => mediaDoor.addGeneratedImageMessage(
     path,
     prompt,
     senderName: senderName,
@@ -205,8 +205,6 @@ class ChatService extends ChangeNotifier
 
   Biome get activeChatBiome => _biomeSchedule.biomeAt(_timeService.dayCount);
   late final _chaosModeService = _buildChaosModeService();
-  late final _webSearchService = _buildWebSearchService();
-  late final _wikiSearchService = _buildWikiSearchService();
   late final _nsfwService = _buildNsfwService();
   late final _needsSimulation = _buildNeedsSimulation();
   late final _groupStore = _buildGroupStore();
@@ -415,11 +413,11 @@ class ChatService extends ChangeNotifier
   TimeService get timeService => _timeService;
   NsfwService get nsfwService => _nsfwService;
   ChaosModeService get chaosModeService => _chaosModeService;
-  WebSearchService get webSearchService => _webSearchService;
-  bool get webSearchEnabled => _webSearchService.isActive;
-  WikiSearchService get wikiSearchService => _wikiSearchService;
-  String get wikiBaseUrl => _wikiBaseUrlImpl;
-  Future<void> setWikiBaseUrl(String url) => _setWikiBaseUrlImpl(url);
+  WebSearchService get webSearchService => mediaDoor.webSearchService;
+  bool get webSearchEnabled => mediaDoor.webSearchService.isActive;
+  WikiSearchService get wikiSearchService => mediaDoor.wikiSearchService;
+  String get wikiBaseUrl => mediaDoor.wikiBaseUrl;
+  Future<void> setWikiBaseUrl(String url) => mediaDoor.setWikiBaseUrl(url);
   NeedsSimulation get needsSimulation => _needsSimulation;
   Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;

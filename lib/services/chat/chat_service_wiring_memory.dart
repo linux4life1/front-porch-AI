@@ -397,7 +397,7 @@ extension ChatServiceWiringMemory on ChatService {
           intervalSeconds: gen.dynamicResponseInterval,
         );
       },
-      generateImage: (args) => _ensureImageCommand().handle(args),
+      generateImage: (args) => mediaDoor.ensureImageCommand().handle(args),
       director: DirectorCommands(
         isGroup: () => _activeGroup != null,
         hasSceneGuests: () => _sceneGuest.cards.isNotEmpty,
