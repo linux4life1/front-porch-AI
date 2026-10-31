@@ -124,7 +124,6 @@ void main() {
         needsSimAfterHydrate(
           sessionEnabled: false,
           cardEnabled: true,
-          globalDefault: true,
           hasSavedVector: false,
           isGroup: false,
         ),
@@ -135,7 +134,6 @@ void main() {
         needsSimAfterHydrate(
           sessionEnabled: false,
           cardEnabled: true,
-          globalDefault: true,
           hasSavedVector: true,
           isGroup: false,
         ),
@@ -148,7 +146,6 @@ void main() {
         needsSimAfterHydrate(
           sessionEnabled: true,
           cardEnabled: false,
-          globalDefault: false,
           hasSavedVector: true,
           isGroup: false,
         ),
@@ -159,7 +156,6 @@ void main() {
         needsSimAfterHydrate(
           sessionEnabled: false,
           cardEnabled: false,
-          globalDefault: true,
           hasSavedVector: false,
           isGroup: false,
         ),
@@ -169,17 +165,6 @@ void main() {
         needsSimAfterHydrate(
           sessionEnabled: false,
           cardEnabled: true,
-          globalDefault: false,
-          hasSavedVector: false,
-          isGroup: false,
-        ),
-        isFalse,
-      );
-      expect(
-        needsSimAfterHydrate(
-          sessionEnabled: false,
-          cardEnabled: true,
-          globalDefault: true,
           hasSavedVector: false,
           isGroup: true,
         ),

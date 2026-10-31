@@ -257,22 +257,21 @@ extension ChatServiceSessionHydrate on ChatService {
     final hasSavedNeeds = nv is String && nv.isNotEmpty;
     final savedKit = hasSavedNeeds ? jsonDecode(nv) : null;
     final hasKit = savedKit is Map && savedKit.isNotEmpty;
-    // A card that says nothing asks for Needs when Porch Life does and this
-    // chat's Realism (hydrated above) is on — the seed rule, NeedsPass.seedNeedsSim.
-    // An explicit card choice is read as before.
+    // A card that says nothing asks for Needs when this chat's Realism
+    // (hydrated above) is on — the seed rule, NeedsPass.seedNeedsSim. An
+    // explicit card choice is read as before.
     final cardWantsNeeds =
         _activeGroup == null &&
         _needsPass.seedNeedsSim(
           _activeCharacter?.frontPorchExtensions?.needsSimChoice,
         );
-    // Session flag is seed-time AND, column default FALSE. A lived-in 1:1
-    // that never flipped the column (no saved vector) still promotes ON
-    // when card + Porch Life ask for Needs. Explicit OFF keeps its vector
-    // so false+kit is not that stale row. Explicit ON stays ON.
+    // The session flag is the chat's own switch, column default FALSE. A row
+    // saved before chats recorded their choice (no vector at all) still
+    // promotes ON when its card asks for Needs. Explicit OFF keeps its
+    // vector (or an empty one) so it is not that stale row. ON stays ON.
     _needsSimEnabled = needsSimAfterHydrate(
       sessionEnabled: s.needsSimEnabled,
       cardEnabled: cardWantsNeeds,
-      globalDefault: _storageService.realismSettings.needsSimDefault,
       hasSavedVector: hasSavedNeeds,
       isGroup: _activeGroup != null,
     );

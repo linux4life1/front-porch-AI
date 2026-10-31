@@ -149,7 +149,8 @@ void main() {
       );
       await repo!.addCharacter(yes);
       await chat!.setActiveCharacter(yes);
-      expect(chat!.needsSimEnabled, isFalse);
+      // The chat keeps its card's choice; Porch Life vetoes it live.
+      expect(chat!.needsSimEnabled, isTrue);
       expect(chat!.needsActive, isFalse);
 
       final quiet = card('Quinn', FrontPorchExtensions(realismEnabled: true));
@@ -178,16 +179,15 @@ void main() {
       await chat!.setActiveCharacter(c);
       final sid = chat!.currentSessionId;
       expect(sid, isNotNull, reason: 'opening saves the greeting chat');
-      final row = await db!.getSessionById(sid!);
-      expect(row?.needsSimEnabled, isFalse);
 
       await storage!.realismSettings.setNeedsSimDefault(true);
       await chat!.setActiveCharacter(other);
       if (legacyRow) {
-        // Saved before chats recorded their choice: no vector at all.
+        // Saved before chats recorded their choice: off, no vector at all.
         await db!.customUpdate(
-          'UPDATE sessions SET needs_vector = NULL WHERE id = ?',
-          variables: [Variable(sid)],
+          'UPDATE sessions SET needs_sim_enabled = 0, needs_vector = NULL '
+          'WHERE id = ?',
+          variables: [Variable(sid!)],
         );
       }
       await chat!.setActiveCharacter(c);
@@ -233,13 +233,13 @@ void main() {
       expect(chat!.needsSimEnabled, isFalse);
     });
 
-    test('a chat that recorded its own off keeps it when Porch Life turns '
-        'Needs on: its switch is its own', () async {
+    test("a chat started while Porch Life had Needs off keeps its card's "
+        'choice, and runs once Porch Life turns Needs on', () async {
       await savedOffThenReopen(
         FrontPorchExtensions(realismEnabled: true),
         legacyRow: false,
       );
-      expect(chat!.needsSimEnabled, isFalse);
+      expectNeedsOn("the chat's own switch, from its card");
     });
   });
 
