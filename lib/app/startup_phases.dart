@@ -24,11 +24,13 @@ import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/atomic_prefs_store.dart';
+import 'package:front_porch_ai/services/backup/pending_restore.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 import 'package:front_porch_ai/ui/widgets/db_init_error_app.dart';
 import 'package:front_porch_ai/utils/native_exit.dart';
 import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 // Pre-`runApp` startup phases. `main()` calls them in a fixed order and owns
@@ -109,6 +111,26 @@ Future<void> healPrefsAndConsolidateFiles() async {
     debugPrint('Fatal error during file consolidation: $e');
   }
   StartupTrace.mark('FileConsolidationService.consolidate');
+
+  // A restore that brings back settings or files waits for this point:
+  // after the settings store is healed, before the database or any
+  // setting is read. See PendingRestore.
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final layout = await PendingRestore.startupLayout(
+      prefs,
+      nightly: isPreRelease,
+    );
+    await PendingRestore.applyAtStartup(
+      root: layout.root,
+      dbFile: layout.dbFile,
+      prefs: prefs,
+      nightly: isPreRelease,
+    );
+  } catch (e) {
+    debugPrint('[Restore] pending restore check failed: $e');
+  }
+  StartupTrace.mark('PendingRestore.applyAtStartup');
 }
 
 Future<({AppDatabase db, bool needsMigration})?> openDatabaseGuarded() async {
