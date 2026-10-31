@@ -38,7 +38,10 @@
 // marker is spaced, must say why it is shared, so an entry copied from
 // another field, or pointed at the codec or the editor's own draft, fails.
 // A noPhone reason says the phone has no such control in 1:1 either, or
-// what the phone uses, sends or reaches instead. A read that happens
+// what the phone uses, sends or reaches instead. That wording check only
+// catches a bare reason: a noPhone reason, like every exemption reason
+// (groupWide, notRead, soloOnly, origin, runtimeOnly, noEditor, shared,
+// hop), still needs a human read in review. A read that happens
 // in a helper is a chain: the group read first, then each `hop` the place
 // before it calls.
 //
@@ -48,7 +51,11 @@
 // and the inverses), and a Dart collection-if on one (and its else). A
 // switch the member editor sets from "not a member" (`showX: member == null`
 // on desktop, `showX={!member}` on the phone) must be listed with the fields
-// it hides, none of which may claim an editor. Not seen: a control a shared
+// it hides, none of which may claim an editor. Where such a switch is read
+// (`if (showTimeAndDay) ...[`, `showSwitch ? A : B`, `{flag && …}`), its
+// branch is hidden too, and an editor place in a Dart file that reads one
+// must name the rendering function (`in`), so a constructor parameter alone
+// never counts as the control. Not seen: a control a shared
 // sub-widget hides by some other condition, dead code after a return, and a
 // 1:1-only branch the place's function takes on its own.
 
@@ -727,10 +734,17 @@ int _expressionEnd(String code, int i, {required bool stopAtColon}) {
 List<({int start, int end})> _memberHiddenRegions(String path) {
   final code = _read(path).code;
   final regions = <({int start, int end})>[];
-  for (final m in RegExp('\\{\\s*$_notMember\\s*&&').allMatches(code)) {
+  // A member-hiding switch (memberHidden) is "not a member" where it is
+  // read: `if (showTimeAndDay) ...[`, `showSwitch ? A : B`, `{flag && …}`.
+  final flags = _hidingFlagNames.isEmpty
+      ? r'(?!)'
+      : '(?:widget\\.|this\\.)?(?:${_hidingFlagNames.join('|')})';
+  final notMember = '(?:$_notMember|(?<![\\w\$.!])$flags(?![\\w\$]))';
+  final isMember = '(?:$_isMember|!\\s*$flags(?![\\w\$]))';
+  for (final m in RegExp('\\{\\s*$notMember\\s*&&').allMatches(code)) {
     regions.add((start: m.start, end: _close(code, m.start)));
   }
-  final ternary = RegExp('(?:($_notMember)|$_isMember)\\s*\\?(?![.?\\[])');
+  final ternary = RegExp('(?:($notMember)|$isMember)\\s*\\?(?![.?\\[])');
   for (final m in ternary.allMatches(code)) {
     final thenStart = m.end;
     final colon = _expressionEnd(code, thenStart, stopAtColon: true);
@@ -743,8 +757,11 @@ List<({int start, int end})> _memberHiddenRegions(String path) {
     );
   }
   if (path.endsWith('.dart')) {
+    // `if (notMember)` and `if (notMember && …)` hide their branch; `if
+    // (isMember)` hides its else.
     final collectionIf = RegExp(
-      '\\bif\\s*\\(\\s*(?:($_notMember)|$_isMember)\\s*\\)',
+      '\\bif\\s*\\(\\s*(?:($notMember)\\s*(?:\\)|&&[^)]*\\))|'
+      '$isMember\\s*\\))',
     );
     // The branch after `if (…)` or `else`: a `{…}` block, or an element
     // up to the next `,`, `;`, `else` or closer.
@@ -771,6 +788,10 @@ List<({int start, int end})> _memberHiddenRegions(String path) {
   }
   return regions;
 }
+
+/// The member-hiding switches the manifest lists (memberHidden), set from
+/// the manifest before the tests run.
+var _hidingFlagNames = <String>{};
 
 /// Why [p] does not hold, or null. An [editor] place must also show for a
 /// member. A marker without a quote is matched against code alone; one with
@@ -799,6 +820,16 @@ String? _placeProblem(_Place p, {required bool editor}) {
   ];
   if (hits.isEmpty) return '$p is not there any more';
   if (!editor) return null;
+  // In a file that reads a member-hiding switch, a constructor parameter or
+  // field is only wiring: name the function that renders the control.
+  if (p.inFn == null &&
+      p.path.endsWith('.dart') &&
+      _hidingFlagNames.any(
+        (f) => RegExp('(?<![\\w\$])$f(?![\\w\$])').hasMatch(read.code),
+      )) {
+    return '$p: this file switches controls off for members; name the '
+        'function that renders the control ("in")';
+  }
   final hidden = _memberHiddenRegions(p.path);
   final shown = hits.where(
     (h) => !hidden.any((r) => h >= r.start && h < r.end),
@@ -831,6 +862,11 @@ void main() {
   final entries = (manifest['fields'] as Map<String, dynamic>).map(
     (k, v) => MapEntry(k, v as Map<String, dynamic>),
   );
+  _hidingFlagNames = {
+    for (final flags
+        in (manifest['memberHidden'] as Map<String, dynamic>).values)
+      ...(flags as Map<String, dynamic>).keys,
+  };
 
   final fields = <String, String>{}; // field key → where it comes from
   final declaredTypes = <String, String>{}; // field key → declared type
