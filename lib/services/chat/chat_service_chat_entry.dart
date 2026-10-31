@@ -291,10 +291,7 @@ extension ChatServiceChatEntry on ChatService {
         _greetingEvalPending = false;
         _isProcessingGreeting = false;
         _pendingRealismMetadata = null;
-        _activeObjectives = [];
-        _messagesSinceLastCheck = 0;
-        _isCheckingCompletion =
-            false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
+        objectivesDoor.resetForChatSwitch();
         _isGrowthPassRunning =
             false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _growthDesk.refreshCache in _loadLastSession)
         debugPrint(
@@ -397,7 +394,7 @@ extension ChatServiceChatEntry on ChatService {
               'bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}, day=${_timeService.dayCount}, time=${_timeService.timeOfDay}',
             );
 
-            _importAuthoredTask(ext);
+            objectivesDoor.writer.importAuthoredTask(ext);
           } else if (_session.currentSessionId == null) {
             // A PLAIN IMPORTED CARD — no `frontPorchExtensions` at all, which is
             // every PNG downloaded from Chub or exported from another app — and
@@ -476,10 +473,7 @@ extension ChatServiceChatEntry on ChatService {
           await _seedChatWorldsForNewSession();
           await mediaDoor.seedWikiForNewSession();
           await _saveChat();
-          _activeObjectives = [];
-          _messagesSinceLastCheck = 0;
-          _isCheckingCompletion =
-              false; // zero secondary in empty session subpath of setActiveCharacter (per incomplete zeroing fix)
+          objectivesDoor.resetForChatSwitch();
           _isSummaryGenerating =
               false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
           _isGrowthPassRunning =
@@ -489,7 +483,8 @@ extension ChatServiceChatEntry on ChatService {
         }
         // Load active objectives for this session (must be after _loadLastSession
         // so _session.currentSessionId is set)
-        await _loadActiveObjectives(); // Awaited (was fire-and-forget); root fix for post-dispose notify races in tests + rapid switches. Central _disposed + notifyListeners override (rec 2) now protects residual unawaited/microtask paths + any other notify-after-async in god/services (see _disposed decl, overrides at end of class, and cleaned per-site guard in _loadActiveObjectives).
+        // Awaited (was fire-and-forget); root fix for post-dispose notify races in tests + rapid switches. Central _disposed + notifyListeners override (rec 2) now protects residual unawaited/microtask paths + any other notify-after-async in god/services (see _disposed decl and the overrides at end of class).
+        await objectivesDoor.loadActiveObjectives();
       }
     } finally {
       if (ownedLoad) endSessionLoad();

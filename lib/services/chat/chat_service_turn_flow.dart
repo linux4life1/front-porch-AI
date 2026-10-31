@@ -43,7 +43,7 @@ extension ChatServiceTurnFlow on ChatService {
 
     // In group mode, switch the active objectives to this character's personal ones.
     if (_activeGroup != null) {
-      _loadObjectivesForCurrentSpeaker();
+      objectivesDoor.loadObjectivesForCurrentSpeaker();
     }
   }
 

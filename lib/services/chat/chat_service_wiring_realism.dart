@@ -154,7 +154,7 @@ extension ChatServiceWiringRealism on ChatService {
     journalStore: () => _journalStore,
     objectivesActive: () => objectivesActive,
     db: () => _db,
-    reloadActiveObjectives: _loadActiveObjectives,
+    reloadActiveObjectives: objectivesDoor.loadActiveObjectives,
     maxSecondaryObjectives: kMaxSecondaryObjectives,
   );
 

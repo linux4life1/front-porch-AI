@@ -438,7 +438,7 @@ extension ChatServiceControls on ChatService {
   // Overrides protect every notifyListeners() call (many direct + after async DB/repo
   // work) from post-dispose use. Placed here (not a new void _ private) to obey god
   // rules (void _ count must stay exactly 15 live grep after every edit + final).
-  // Deletion of the now-redundant per-site try/catch guard in _loadActiveObjectives
+  // Deletion of the now-redundant per-site try/catch guard in loadActiveObjectives
   // (and its comment) is part of this task (see that site for the removed code).
   /// Write a group member's current extensions (pace, which needs are on,
   /// baselines) to the avatar and the group-members row.

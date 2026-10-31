@@ -41,36 +41,6 @@ mixin ChatServiceFieldBag {
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
 
-  // Objective/quest system
-  List<Objective> _activeObjectives = [];
-  ObjectiveTally _objectiveTally = ObjectiveTally.none;
-
-  // Sidebar task-generation prefs, hoisted from ObjectivePanel widget state:
-  // the panel's State is recreated on sidebar rebuilds (every realism turn),
-  // which reset the NSFW toggle each message (field report). Session-held on
-  // purpose — NOT persisted, so NSFW tasks default OFF on a fresh launch.
-  bool objectiveNsfwTasks = false;
-  int objectiveTaskCount = 5;
-
-  /// Armed only while the TURN-path completion check runs (see
-  /// _maybeCheckTaskCompletionSync try/finally): check-driven objective
-  /// mutations record regen turn-ops only when armed, so the UI's manual
-  /// "Check now" (forceCheckCompletion) never records — a regen must not
-  /// undo a user-triggered check. Scoped by try/finally; no reset needed.
-  bool _objectiveTurnOpsArmed = false;
-
-  /// The reply the post-reply clock pass belongs to, set only around that
-  /// pass. Planner writes made there (a new today quest, a finished one's
-  /// card) record onto THIS reply, so deleting or regenerating it undoes them.
-  ChatMessage? _objectiveTurnReply;
-  int _messagesSinceLastCheck = 0;
-  // God-side runtime flag mirroring objective_proposal's get/setIsChecking
-  // (early guard in the completion check). Must be defensively zeroed on
-  // *all* reset/new-chat/0-session/group/setActive/load/delete paths — like
-  // _activeObjectives and _messagesSinceLastCheck — or an in-flight reset
-  // permanently skips future task checks. See CLAUDE.md "keep reset blocks
-  // in sync".
-  bool _isCheckingCompletion = false;
   bool _isNewChat = false;
 
   bool _disposed = false;
@@ -267,12 +237,6 @@ mixin ChatServiceFieldBag {
   /// character, they take full precedence over the character's card-level prompt
   /// inside this group. Now persisted via the sessions.group_realism_state column.
   Map<String, String> _groupCharacterSystemPrompts = {};
-
-  /// Per-character objectives when in group mode.
-  /// Each member carries their own independent personal objectives/tasks.
-  /// Keyed by stable charId. Stored inside the group state JSON for now
-  /// (consistent with other per-char group data like realism/needs).
-  Map<String, List<Objective>> _groupObjectives = {};
 
   // RAG settings for the active group (stored in the hidden checkpoint, no DB schema change)
   bool _groupRagEnabled = true;

@@ -26,7 +26,10 @@ extension ChatServiceGroupStoreMigrate on ChatService {
       _groupCharacterRAGPriorities,
       members,
     );
-    sessionChanged |= migrateGroupStoreKeys(_groupObjectives, members);
+    sessionChanged |= migrateGroupStoreKeys(
+      objectivesDoor.groupObjectives,
+      members,
+    );
     sessionChanged |= _rekeyGroupMemberRelationships(members);
 
     if (_rekeyGroupDefinitionBlobs(members)) {
@@ -77,7 +80,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
     if (moved) await _growthDesk.refreshCache();
   }
 
-  /// Fill the existing [_groupObjectives] map from DB after rekey.
+  /// Fill the existing [ObjectivesDoor.groupObjectives] map from DB after rekey.
   /// Session-scoped rows and card-level (`chat_id IS NULL`) rows.
   Future<void> _hydrateGroupObjectivesFromDb(
     Iterable<CharacterCard> members,
@@ -90,7 +93,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
             ? await _db.getObjectivesForCharacter(id, chatId: sid)
             : const <Objective>[];
         final cardRows = await _db.getObjectivesForCharacter(id);
-        _groupObjectives[id] = [...sessionRows, ...cardRows];
+        objectivesDoor.groupObjectives[id] = [...sessionRows, ...cardRows];
       }
     } catch (e) {
       debugPrint('[GroupStore] Failed to hydrate objectives: $e');

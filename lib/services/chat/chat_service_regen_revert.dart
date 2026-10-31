@@ -352,7 +352,7 @@ extension ChatServiceRegenRevert on ChatService {
     if (userAt < 0 || !_session.messages[userAt].isUser) return null;
     _session.messages.removeRange(userAt + 1, n);
     // Its quests have no reply to ride on; the retry proposes them again.
-    if (ghost != null) await _revertObjectiveTurnOps(ghost);
+    if (ghost != null) await objectivesDoor.revertTurn(ghost);
     await _saveChat(replaceAll: true);
     if (ghost == null || _activeGroup == null) return null;
     return _resolveGroupSpeakerForMessage(ghost);

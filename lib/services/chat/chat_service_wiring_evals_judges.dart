@@ -176,7 +176,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
         growth: _growthService.growthLinesFor(card),
       ),
       getPrimaryObjective: () => primaryObjective,
-      getActiveObjectives: () => _activeObjectives,
+      getActiveObjectives: () => objectivesDoor.activeObjectives,
       // The EVALUATED speaker's ambitions. Realism evals run under speaker
       // impersonation (_session.activeCharacter is temporarily whoever is being
       // scored), so this reads the right character in a group without a
@@ -236,8 +236,8 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       // The proposal gate (objectives-that-keep-up.md part 3). During the
       // realism dance `_session.activeCharacter` is the speaker being evaluated.
-      getRecentEndedObjectives: _recentEndedObjectiveLines,
-      getObjectiveIgnoreTokens: _objectiveIgnoreTokens,
+      getRecentEndedObjectives: objectivesDoor.recentEndedLines,
+      getObjectiveIgnoreTokens: objectivesDoor.objectiveIgnoreTokens,
       isSideQuestCooldownActive: () {
         final card = _session.activeCharacter;
         return card != null &&
@@ -253,7 +253,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
             isPrimary = false,
             autoGenerateTasks = false,
             servedAmbition,
-          }) => setObjective(
+          }) => objectivesDoor.writer.setObjective(
             text,
             isPrimary: isPrimary,
             autoGenerateTasks: autoGenerateTasks,
@@ -274,15 +274,15 @@ extension ChatServiceWiringEvalJudges on ChatService {
       stripThinkBlocks: stripEvalThinkBlocks,
       getLlmService: () => _sideLaneLlm,
       getActiveCharacter: () => _session.activeCharacter,
-      ownerCard: _objectiveOwnerCard,
+      ownerCard: objectivesDoor.ownerCard,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,
       getRealismEnabled: () => _realismEnabled,
       getMessages: () => _session.messages,
-      getActiveObjectives: () => _activeObjectives,
-      tasksForObjective: tasksForObjective,
-      loadActiveObjectives: _loadActiveObjectives,
+      getActiveObjectives: () => objectivesDoor.activeObjectives,
+      tasksForObjective: objectivesDoor.tasks.tasksFor,
+      loadActiveObjectives: objectivesDoor.loadActiveObjectives,
       saveObjectiveTasks: (id, json) async {
         await _db.updateObjective(
           ObjectivesCompanion(id: drift.Value(id), tasks: drift.Value(json)),
@@ -290,15 +290,15 @@ extension ChatServiceWiringEvalJudges on ChatService {
       },
       // The goal sync's writes; each records its turn op only while the
       // turn-path check is armed, so a manual "Check now" stays the user's.
-      writeSyncedTasks: _writeSyncedTasks,
-      retireObjective: _retireObjectiveFromSync,
-      setObjectiveDormant: _setObjectiveDormant,
+      writeSyncedTasks: objectivesDoor.completion.writeSyncedTasks,
+      retireObjective: objectivesDoor.completion.retireFromSync,
+      setObjectiveDormant: objectivesDoor.completion.setDormant,
       isHeldToday: _isHeldTodayObjective,
-      getIsCheckingCompletion: () => _isCheckingCompletion,
+      getIsCheckingCompletion: () => objectivesDoor.isCheckingCompletion,
       // Every flip notifies: the web relay pushes the phone's goal-check
       // overlay (and its Skip) from it. The pre-reply check had no notify.
       setIsCheckingCompletion: (v) {
-        _isCheckingCompletion = v;
+        objectivesDoor.isCheckingCompletion = v;
         notifyListeners();
       },
       onNotify: notifyListeners,
@@ -422,8 +422,8 @@ extension ChatServiceWiringEvalJudges on ChatService {
     stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
     applyMoodDecay: _applyMoodDecay,
     seedOpeningPosture: _seedOpeningPosture,
-    objectives: () => _activeObjectives,
-    setObjectives: (v) => _activeObjectives = v,
+    objectives: () => objectivesDoor.activeObjectives,
+    setObjectives: (v) => objectivesDoor.activeObjectives = v,
     objectivesFor: getActiveObjectivesFor,
     evalCancelled: () => _realismEvalCancelled,
     setEvaluating: (v) => _isEvaluatingRealism = v,

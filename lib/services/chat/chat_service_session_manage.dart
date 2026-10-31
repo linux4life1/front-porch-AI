@@ -214,7 +214,7 @@ extension ChatServiceSessionManage on ChatService {
       // Tiers are maintained inside RelationshipService after the seed, so
       // there is nothing to recalculate here.
 
-      _importAuthoredTask(extSeed);
+      objectivesDoor.writer.importAuthoredTask(extSeed);
     } else {
       // Group mode or no active character: reset to defaults but preserve existing extensions-based values
       // (pending covered by service.resetForFreshChat below)
@@ -324,10 +324,7 @@ extension ChatServiceSessionManage on ChatService {
             _activeGroup!.chaosNsfwEnabled,
           );
         }
-        _activeObjectives = [];
-        _messagesSinceLastCheck = 0;
-        _isCheckingCompletion =
-            false; // explicit in non-ext/group/0-session else branch of startNew (both branches now; incomplete zeroing ... now complete)
+        objectivesDoor.resetForChatSwitch();
         _summaryPaused =
             false; // explicit secondary zero for _summaryPaused (symmetric to generating; non-ext/group/0-session startNew path + now complete)
         _isSummaryGenerating =

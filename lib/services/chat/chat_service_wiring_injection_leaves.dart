@@ -11,15 +11,16 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   AuthorNoteBuilder _buildAuthorNoteBuilder() {
     return AuthorNoteBuilder(
       // Objectives off ⇒ nothing about quests reaches the model. Reading the
-      // gate here rather than clearing _activeObjectives keeps the rows intact
+      // gate here rather than clearing the loaded list keeps the rows intact
       // for when the switch comes back on.
       getActiveObjectives: () =>
-          objectivesActive ? _activeObjectives : const [],
+          objectivesActive ? objectivesDoor.activeObjectives : const [],
       getPrimaryObjective: () => primaryObjective,
-      tasksForObjective: (o) => tasksForObjective(o),
+      tasksForObjective: (o) => objectivesDoor.tasks.tasksFor(o),
       getSecondaryObjectives: () => secondaryObjectives,
-      getStreakLine: () =>
-          objectivesActive ? objectiveStreakLine(_objectiveTally.recent) : null,
+      getStreakLine: () => objectivesActive
+          ? objectiveStreakLine(objectivesDoor.objectiveTally.recent)
+          : null,
       // In a group only the goal owner's replies count; the ids match because
       // both are _getCharacterIdFromCard.
       isResting: (o) =>
@@ -28,12 +29,53 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
             messages: _session.messages,
             questTexts: openQuestMentionTexts(
               o.objective,
-              tasksForObjective(o),
+              objectivesDoor.tasks.tasksFor(o),
             ),
             speakerId: _activeGroup != null ? o.characterId : null,
-            ignore: _objectiveIgnoreTokens(),
+            ignore: objectivesDoor.objectiveIgnoreTokens(),
           ),
     );
+  }
+
+  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
+  ObjectivesDoor _buildObjectivesDoor() {
+    final door = ObjectivesDoor(
+      ObjectiveDeps(
+        session: _session,
+        database: () => _db,
+        personas: () => _userPersonaService,
+        storage: () => _storageService,
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        proposal: () => _objectiveProposal,
+        mood: () => _mood,
+        journal: () => _journalStore,
+        time: () => _timeService,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        hooks: ObjectiveShellHooks(
+          objectivesActive: () => objectivesActive,
+          nextSpeaker: () => nextCharacter,
+          hasChatModel: () => _llmProvider != null,
+          pendingMetadata: () => _pendingRealismMetadata ??= {},
+          historyBase: () => _history.basePosition,
+          realismActiveThisMode: () => _realismActiveThisMode,
+          setStatus: (text) => _setGuestStatus(text),
+          zeroSessionFlags: () {
+            _summaryPaused = false;
+            _isSummaryGenerating = false;
+            _isGrowthPassRunning = false;
+          },
+          groupRepository: () => _groupChatRepository,
+          rebindToday: _rebindTodayObjectiveFromDb,
+          clearToday: _clearTodayPointer,
+          holdToday: _persistTodayObjectiveId,
+          releaseToday: _releaseHeldToday,
+          revertToday: _revertTodayPointer,
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
   }
 
   RelationshipInjection _buildRelationshipInjection() {

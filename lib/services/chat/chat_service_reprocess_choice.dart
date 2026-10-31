@@ -205,7 +205,7 @@ extension ChatServiceFeelingsRescore on ChatService {
 
     final preActive = _session.activeCharacter;
     final prePin = _groupStore.turnSpeakerId;
-    final preObjectives = _activeObjectives;
+    final preObjectives = objectivesDoor.activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
     _isPostGenerating = true;
@@ -233,7 +233,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       _pendingRealismMetadata = null;
       _session.activeCharacter = preActive;
       _groupStore.turnSpeakerId = prePin;
-      _activeObjectives = preObjectives;
+      objectivesDoor.activeObjectives = preObjectives;
       _evalChunkTimer?.cancel();
       _evalChunkTimer = null;
       _isEvaluatingRealism = false;
@@ -259,7 +259,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       _groupStore.turnSpeakerId = sid;
       _realismDance.loadIntoScalars(sid);
     }
-    _activeObjectives = await _objectivesBeforeTurn(
+    objectivesDoor.activeObjectives = await _objectivesBeforeTurn(
       speaker,
       msg.activeMetadata?['objective_turn_ops'],
     );
@@ -446,7 +446,7 @@ extension ChatServiceFeelingsRescore on ChatService {
             );
     } catch (e) {
       debugPrint('[Realism:Rescore] Could not read quests: $e');
-      return _activeObjectives;
+      return objectivesDoor.activeObjectives;
     }
     return [
       for (final o in all)

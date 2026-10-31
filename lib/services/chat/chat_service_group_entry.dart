@@ -268,17 +268,15 @@ extension ChatServiceGroupEntry on ChatService {
       _groupCharacterSystemPrompts.addAll(group.characterSystemPrompts);
 
       // Seed objectives that came from an imported Group Card (one-time)
-      await _seedImportedMemberObjectivesIfPresent();
+      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
 
       // Lorebook trigger reset via extracted service (group path; see setActiveCharacter for the 1:1 counterpart + keep-sync cross-refs).
       // See "keep reset blocks in sync" comments (now explicitly lists needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) alongside prior services; incomplete zeroing now complete).
       // (cross-ref setActiveCharacter:1572)
       _lorebookScanner.resetLorebookTriggerState();
 
-      // Zero secondary objective config on group fresh entry (before loadLast + _loadObjectivesForCurrentSpeaker); see decl + keep reset + incomplete zeroing now complete.
-      _activeObjectives = [];
-      _messagesSinceLastCheck = 0;
-      _isCheckingCompletion = false;
+      // Zero secondary objective config on group fresh entry (before loadLast + the speaker's objectives load); see decl + keep reset + incomplete zeroing now complete.
+      objectivesDoor.resetForChatSwitch();
       _summaryPaused =
           false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
       _isSummaryGenerating =
@@ -297,11 +295,11 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Load the objectives for whoever is the initial next speaker (or first char)
       if (_activeGroup != null) {
-        await _loadObjectivesForCurrentSpeaker();
+        await objectivesDoor.loadObjectivesForCurrentSpeaker();
       }
 
       // Seed objectives that came from an imported Group Card (one-time), in case it wasn't caught above
-      await _seedImportedMemberObjectivesIfPresent();
+      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
 
       // If no session, create a greeting
       if (_session.messages.isEmpty && _groupCharacters.isNotEmpty) {
@@ -317,7 +315,10 @@ extension ChatServiceGroupEntry on ChatService {
         }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {
-          _importAuthoredTask(c.frontPorchExtensions, target: c);
+          objectivesDoor.writer.importAuthoredTask(
+            c.frontPorchExtensions,
+            target: c,
+          );
         }
 
         String greetingText;

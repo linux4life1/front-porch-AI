@@ -348,7 +348,7 @@ extension ChatServiceMessageOps on ChatService {
       if (!deleted.isUser && deleted.sender != 'System') {
         _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
         // Tail turn undone, as regen does: Generate reply re-proposes.
-        if (wasTail && !duringTurn) await _revertObjectiveTurnOps(deleted);
+        if (wasTail && !duringTurn) await objectivesDoor.revertTurn(deleted);
         // The live tip is the reply still being written. Applying the
         // clock from it mid-turn would move story time under that speaker.
         if (!duringTurn) {

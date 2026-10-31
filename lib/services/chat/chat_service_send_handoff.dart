@@ -385,7 +385,7 @@ extension ChatServiceSendHandoff on ChatService {
       cancelled = _realismEvalCancelled;
       if (cancelled) {
         // Quests the cancelled score proposed have no reply to ride on.
-        await _revertObjectiveTurnOps(
+        await objectivesDoor.revertTurn(
           ChatMessage(
             text: '',
             sender: '',

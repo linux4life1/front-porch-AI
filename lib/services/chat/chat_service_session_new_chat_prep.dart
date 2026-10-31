@@ -147,10 +147,7 @@ extension ChatServiceSessionNewChatPrep on ChatService {
     }
 
     // Clear objectives for fresh session start
-    _activeObjectives = [];
-    _messagesSinceLastCheck = 0;
-    _isCheckingCompletion =
-        false; // see decl + keep reset blocks (incomplete zeroing... now complete (see CLAUDE.md); explicit in both startNew branches)
+    objectivesDoor.resetForChatSwitch();
     _isGrowthPassRunning =
         false; // growth-pass flag zero in startNew 1:1/ext-seed branch (both startNew explicit; keep reset blocks in sync)
 

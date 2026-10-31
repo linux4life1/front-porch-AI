@@ -76,3 +76,91 @@ extension ChatServiceGenerationEntry on ChatService {
     }
   }
 }
+
+/// The promise ledger: the post-reply commitment pass and the diary's
+/// manual "Mark kept / broken".
+extension ChatServicePromiseLedger on ChatService {
+  /// Manual "Mark kept / broken" from the diary's Promises tab (desktop) and
+  /// the web Promises panel. Same applier as automatic detection — the
+  /// trust/bond effects apply too, restoring what a missed detection should
+  /// have done.
+  Future<bool> resolvePromiseManually({
+    required String characterId,
+    required String cardId,
+    required bool kept,
+  }) async {
+    final sessionId = _session.currentSessionId;
+    if (sessionId == null) return false;
+    // Never mid-turn: the scalar dance below would fight the active
+    // speaker's own load/save.
+    if (_isTurnBusy) return false;
+    // Group parity: the service's trust/bond callbacks land on whichever
+    // member's scalars are LOADED. Manual resolution can come from any
+    // member's diary at any time, so run the same load → apply → save
+    // dance the post-gen checks use, scoped to that member.
+    final isGroupMember =
+        _activeGroup != null &&
+        _groupCharacters.any((c) => _getCharacterIdFromCard(c) == characterId);
+    if (isGroupMember) _realismDance.loadIntoScalars(characterId);
+    final ok = await _promiseDebtService.resolveManually(
+      sessionId: sessionId,
+      characterId: characterId,
+      cardId: cardId,
+      kept: kept,
+      storyDay: _timeService.dayCount,
+      storyClock: _timeService.storyClockIso,
+    );
+    if (isGroupMember) _realismDance.saveScalarsIntoGroup(characterId);
+    if (ok) await _saveChat();
+    return ok;
+  }
+
+  /// Train B — promise/debt ledger pass (fire-and-forget). Detects new
+  /// commitments or kept/broken resolutions for the current speaker's diary.
+  /// Gated on the Journal and its own switch, NOT on the Realism Engine. It
+  /// used to require realism, but nothing here consumes realism state: the pass
+  /// reads the recent exchange text and writes a journal card. The story day
+  /// and clock it stamps are nullable and nothing reads them back, so a frozen
+  /// clock costs nothing. The Journal genuinely is required — a commitment IS a
+  /// journal card — and the separate switch exists because this is one extra
+  /// model call per reply, which a user who turned realism off to save calls
+  /// deserves to opt into rather than inherit.
+  void _maybeRunPromiseDebtPass() {
+    if (!_storageService.realismSettings.promiseLedgerEnabled) return;
+    if (!_storageService.memorySettings.journalEnabled) return;
+    final sessionId = _session.currentSessionId;
+    if (sessionId == null) return;
+    final charId = _groupStore.currentSpeakerId();
+    if (charId.isEmpty) return;
+
+    String characterName = _session.activeCharacter?.name ?? 'the character';
+    if (_activeGroup != null) {
+      final card = _groupCharacters
+          .where((c) => _getCharacterIdFromCard(c) == charId)
+          .firstOrNull;
+      if (card != null) characterName = card.name;
+    }
+
+    // 6, not the judges' 4: a promise often spans a couple of exchanges
+    // (missed KEPT if it scrolls out — 2026-08-04). recentExchange is the
+    // one window builder (clamp, photo markers, think-strip).
+    final recent = recentExchange(_session.messages, take: 6);
+    if (recent.trim().isEmpty) return;
+
+    unawaited(
+      _promiseDebtService.evaluateTurn(
+        sessionId: sessionId,
+        characterId: charId,
+        characterName: characterName,
+        userName: _userPersonaService.persona.name,
+        recentExchange: recent,
+        receiptPosition: persistTipCite(
+          base: _history.basePosition,
+          length: _session.messages.length,
+        ).firstOrNull,
+        storyDay: _timeService.dayCount,
+        storyClock: _timeService.storyClockIso,
+      ),
+    );
+  }
+}

@@ -105,7 +105,7 @@ extension ChatServiceSessionStateSave on ChatService {
     if (_activeGroup != null) {
       // Include per-char objectives so each group member carries independent tasks.
       final perCharObjectives = <String, List<Map<String, dynamic>>>{};
-      _groupObjectives.forEach((charId, list) {
+      objectivesDoor.groupObjectives.forEach((charId, list) {
         perCharObjectives[charId] = list
             .map(
               (o) => {

@@ -451,7 +451,7 @@ extension ChatServiceCast on ChatService {
     _groupAuthorNoteStrengths.remove(charId);
     _groupCharacterSystemPrompts.remove(charId);
     _groupCharacterRAGPriorities.remove(charId);
-    _groupObjectives.remove(charId);
+    objectivesDoor.groupObjectives.remove(charId);
     // Growth rings — a hard-removed member leaves no growth residue behind
     // (mirrors the objectives/embeddings deletes above; charId is the unique
     // member instance id, so this never touches another character's rings).

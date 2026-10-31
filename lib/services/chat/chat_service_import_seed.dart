@@ -18,7 +18,7 @@ extension ChatServiceImportSeed on ChatService {
   /// previous open chat's bond/trust/arousal into the new row.
   ///
   /// Does **not** set `_isNewChat` (importer sets it after messages land).
-  /// Does **not** call `_importAuthoredTask` (card currentTask is for fresh chats).
+  /// Does **not** call `ObjectiveWriter.importAuthoredTask` (card currentTask is for fresh chats).
   Future<void> _seedLiveRealismForImportedSession() async {
     _cancelIdleTimer();
 
@@ -38,9 +38,7 @@ extension ChatServiceImportSeed on ChatService {
     _summaryPaused = false;
     _isSummaryGenerating = false;
     _isGrowthPassRunning = false;
-    _activeObjectives = [];
-    _messagesSinceLastCheck = 0;
-    _isCheckingCompletion = false;
+    objectivesDoor.resetForChatSwitch();
     _sceneGuest.ids.clear();
     _sceneGuest.cards.clear();
     _sceneGuest.pendingDeparture = null;
@@ -447,8 +445,8 @@ extension ChatServiceImportSeed on ChatService {
     ragCharacterId: _getCharacterId,
     reloadGroupRoster: _reloadGroupRoster,
     enterSceneGuestSilently: (guest) => _enterSceneGuest(guest, speak: false),
-    loadActiveObjectives: _loadActiveObjectives,
-    loadSpeakerObjectives: _loadObjectivesForCurrentSpeaker,
+    loadActiveObjectives: objectivesDoor.loadActiveObjectives,
+    loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
     awaitHistoryHydrated: _awaitHistoryHydrated,
     historyBasePosition: () => _history.basePosition,
     formatForRagEmbedding: _formatMessagesForRagEmbedding,

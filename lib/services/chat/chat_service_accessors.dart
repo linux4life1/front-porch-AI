@@ -436,21 +436,6 @@ extension ChatServiceAccessors on ChatService {
     unawaited(_deletedChats?.cancel());
   }
 
-  /// Re-emits [door]'s changes as this service's, coalesced: however many
-  /// times the door notifies in one synchronous run, listeners here hear
-  /// one notify, on the next microtask.
-  void _forwardDoorNotify(ChangeNotifier door) {
-    var queued = false;
-    door.addListener(() {
-      if (queued) return;
-      queued = true;
-      scheduleMicrotask(() {
-        queued = false;
-        notifyListeners();
-      });
-    });
-  }
-
   /// Everything the [ChatService] constructor does. Called as the
   /// constructor's single statement (round-4b shrink).
   ///

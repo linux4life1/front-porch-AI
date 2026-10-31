@@ -102,10 +102,7 @@ extension ChatServiceSessionLoad on ChatService {
       }
       _nsfwService.resetForFreshChat();
       _lorebookScanner.resetLorebookTriggerState();
-      _activeObjectives = [];
-      _messagesSinceLastCheck = 0;
-      _isCheckingCompletion =
-          false; // zero in _loadLast empty early return (0-session path hygiene)
+      objectivesDoor.resetForChatSwitch();
       _summaryPaused =
           false; // explicit secondary zero for _summaryPaused (symmetric; _loadLast empty early return 0-session)
       _isSummaryGenerating =
@@ -175,14 +172,12 @@ extension ChatServiceSessionLoad on ChatService {
     }
 
     // Load messages
-    // Zero secondary objective flags in loaded path of _loadLast (before callers do _loadActiveObjectives / _loadObjectivesForCurrentSpeaker); incomplete zeroing hygiene.
+    // Zero secondary objective flags in loaded path of _loadLast (before callers load the objectives); incomplete zeroing hygiene.
     // (loadSession zeroes + reloads this trio itself, right after
     // _hydrateSessionScalars — it used to leave them alone on the belief that
     // "its own callers" would, and none did. Keep the trio out of the shared
     // hydrate: the two paths differ in WHEN the loader runs, not whether.)
-    _activeObjectives = [];
-    _messagesSinceLastCheck = 0;
-    _isCheckingCompletion = false;
+    objectivesDoor.resetForChatSwitch();
 
     // Load per-chat generation settings override for this session.
     // LLMerta porch memories on last-session open (same as loadSession).
@@ -417,7 +412,7 @@ extension ChatServiceSessionLoad on ChatService {
       await _clockWriter.reloadSessionClockThenSync(session);
 
       // Quests are keyed (character, CHAT) — so switching chats has to reload
-      // them, exactly like the scalars above. Nothing did: `_activeObjectives`
+      // them, exactly like the scalars above. Nothing did: the loaded objectives
       // kept the PREVIOUS chat's rows, which the prompt then injected here
       // while the pre-send completion check wrote (deactivate / task updates,
       // by primary key) back into that other chat's quests. This chat's own
@@ -427,13 +422,11 @@ extension ChatServiceSessionLoad on ChatService {
       // home page, delete-session switch, the web facade). Same both-paths
       // loader block as every other objective entry point; the trio of
       // per-chat counters is zeroed first, matching `_loadLastSession`.
-      _activeObjectives = [];
-      _messagesSinceLastCheck = 0;
-      _isCheckingCompletion = false;
+      objectivesDoor.resetForChatSwitch();
       if (_activeGroup != null) {
-        await _loadObjectivesForCurrentSpeaker();
+        await objectivesDoor.loadObjectivesForCurrentSpeaker();
       } else {
-        await _loadActiveObjectives();
+        await objectivesDoor.loadActiveObjectives();
       }
 
       // (Lorebook scanLatest already ran inside _hydrateMessagesFromRows —

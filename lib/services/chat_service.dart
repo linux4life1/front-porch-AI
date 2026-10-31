@@ -48,6 +48,8 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
+import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -67,6 +69,7 @@ export 'chat/realism_snapshot.dart'
 export 'chat/doors/actions/actions_api.dart';
 export 'chat/doors/media/media_api.dart';
 export 'chat/doors/transfer/transfer_api.dart';
+export 'chat/doors/objectives/objectives_api.dart';
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
@@ -87,9 +90,6 @@ part 'chat/chat_service_session_state_save.dart';
 part 'chat/chat_service_session_load.dart';
 part 'chat/chat_service_session_hydrate.dart';
 part 'chat/chat_service_session_window.dart';
-part 'chat/chat_service_objectives.dart';
-part 'chat/chat_service_objective_tasks.dart';
-part 'chat/chat_service_objective_completion.dart';
 part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_impersonate.dart';
 part 'chat/chat_service_session_manage.dart';
@@ -156,19 +156,13 @@ class ChatService extends ChangeNotifier
   List<String> get suggestedActions => actionsDoor.suggestedActions;
   bool get isGeneratingActions => actionsDoor.isGeneratingActions;
 
-  Objective? get primaryObjective =>
-      _activeObjectives.where((o) => o.isPrimary).firstOrNull;
-  List<Objective> get secondaryObjectives =>
-      _activeObjectives.where((o) => !o.isPrimary).toList();
-
-  /// The loaded character's goals won and let go in this chat. On the class
-  /// so [FakeChatService] can override it.
-  ObjectiveTally get objectiveTally => _objectiveTally;
-
-  /// Whether a completion check runs, and the overlay's Skip for it. Class
-  /// members, not extension ones, so [FakeChatService] can override them.
-  bool get isCheckingCompletion => _isCheckingCompletion;
-  void skipObjectiveCheck() => _skipObjectiveCheckImpl();
+  /// Quests and the goal check; the members below forward so fakes pin them.
+  late final ObjectivesDoor objectivesDoor = _buildObjectivesDoor();
+  Objective? get primaryObjective => objectivesDoor.primaryObjective;
+  List<Objective> get secondaryObjectives => objectivesDoor.secondaryObjectives;
+  ObjectiveTally get objectiveTally => objectivesDoor.objectiveTally;
+  bool get isCheckingCompletion => objectivesDoor.isCheckingCompletion;
+  void skipObjectiveCheck() => objectivesDoor.completion.skip();
 
   /// Web-facade fakes override this; body in [MediaDoor].
   Future<void> addGeneratedImageMessage(
@@ -193,7 +187,7 @@ class ChatService extends ChangeNotifier
   }
 
   List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
-      _getObjectivesForGroupCharacterImpl(character);
+      objectivesDoor.getObjectivesForGroupCharacter(character);
 
   late final _lorebookScanner = _buildLorebookScanner();
   late final _lorebookInjector = _buildLorebookInjector();
@@ -217,7 +211,7 @@ class ChatService extends ChangeNotifier
   // rides the reply's capture, never a patch of the previous reply.
   late final _mood = MoodRegisters(
     _realismScope(),
-    isTurnBusy: () => _isTurnBusy || _inObjectiveTurn,
+    isTurnBusy: () => _isTurnBusy || objectivesDoor.inObjectiveTurn,
   );
   late final _realismSnapshot = _buildRealismSnapshot();
   late final _realismJudges = _buildRealismJudges();
@@ -478,9 +472,15 @@ class ChatService extends ChangeNotifier
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
   bool get isGrowthPassRunning => _isGrowthPassRunning;
 
-  /// Active objectives for [character] in the current session; body in chat_service_objectives.dart.
+  /// Active objectives for [character] in the current session.
   Future<List<Objective>> getActiveObjectivesFor(CharacterCard character) =>
-      _getActiveObjectivesForImpl(character);
+      objectivesDoor.getActiveObjectivesFor(character);
+
+  late final _doorNotify = CoalescedNotify(notifyListeners);
+
+  /// Re-emits a door's changes as this service's, once per microtask.
+  void _forwardDoorNotify(ChangeNotifier door) =>
+      door.addListener(_doorNotify.call);
 
   @override
   void notifyListeners() {

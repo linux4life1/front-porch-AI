@@ -37,6 +37,8 @@ import 'package:front_porch_ai/services/chat/context_viewer_snapshot.dart';
 import 'package:front_porch_ai/services/chat/mood_effects.dart';
 import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
@@ -47,7 +49,6 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
-import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
@@ -118,6 +119,10 @@ class FakeLLMProvider extends ChangeNotifier implements LLMProvider {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+/// What [FakeChatService.objectivesDoor] has instead of a database or model.
+Never _noDoorDep() =>
+    throw UnsupportedError('Golden fakes have no database or model.');
 
 /// A `ChatService` double for sidebar/chat/overlay goldens. `ChatService` is a
 /// large god class, so this implements only the surface a rendered widget reads
@@ -471,6 +476,42 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   bool get isCheckingCompletion => false;
   @override
   ObjectiveTally get objectiveTally => ObjectiveTally.none;
+
+  /// The objectives door the bridge members (activeObjectives, the task
+  /// prefs, tasksForObjective, …) read. Empty chat, no database, no model:
+  /// every read answers empty, and a write throws UnsupportedError.
+  @override
+  late final ObjectivesDoor objectivesDoor = ObjectivesDoor(
+    ObjectiveDeps(
+      session: ChatSessionState(),
+      database: _noDoorDep,
+      personas: _noDoorDep,
+      storage: _noDoorDep,
+      characterIdFor: (c) => c.name,
+      saveChat: () async {},
+      proposal: _noDoorDep,
+      mood: _noDoorDep,
+      journal: _noDoorDep,
+      time: _noDoorDep,
+      maxSecondaryObjectives: 4,
+      hooks: ObjectiveShellHooks(
+        objectivesActive: () => true,
+        nextSpeaker: () => null,
+        hasChatModel: () => false,
+        pendingMetadata: _noDoorDep,
+        historyBase: () => 0,
+        realismActiveThisMode: () => false,
+        setStatus: (_) {},
+        zeroSessionFlags: () {},
+        groupRepository: () => null,
+        rebindToday: () async {},
+        clearToday: () {},
+        holdToday: (_) async {},
+        releaseToday: (_) async {},
+        revertToday: (_) async {},
+      ),
+    ),
+  );
 
   // Context viewer surface.
   @override

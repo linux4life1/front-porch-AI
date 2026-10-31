@@ -238,7 +238,7 @@ extension ChatServiceReprocess on ChatService {
       // without realism (completion checks also run realism-off); id-addressed
       // ops keep 1:1 and group identical. Guest turns never touch objectives.
       if (regenGuest == null) {
-        await _revertObjectiveTurnOps(lastMsg);
+        await objectivesDoor.revertTurn(lastMsg);
         // Rewind the rejected turn's pockets ops to the pre-turn record, so
         // the regenerated reply's own pass re-applies from the same base
         // instead of stacking — "they hand you their keys", regenerate, they

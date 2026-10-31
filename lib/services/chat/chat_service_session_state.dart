@@ -165,12 +165,12 @@ extension ChatServiceSessionState on ChatService {
           }
 
           // Per-char objectives for group mode (each member has independent tasks)
-          _groupObjectives.clear();
+          objectivesDoor.groupObjectives.clear();
           final objMap = map['objectives'];
           if (objMap is Map) {
             objMap.forEach((charId, list) {
               if (list is List) {
-                _groupObjectives[charId.toString()] = [];
+                objectivesDoor.groupObjectives[charId.toString()] = [];
               }
             });
           }

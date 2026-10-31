@@ -14,7 +14,7 @@ The question is what happens to a long chat when it hits the context limit. The 
 | The pass reads a bounded tail from the cursor, so a cursor left far behind is caught up in bounded steps; the recap owner is whichever character's call comes back first. | `journal_maintenance.dart` window cap and recap-owner comments |
 | The recap is dropped only when every message is visible; it stays whenever anything was dropped. | `recapIsRedundant` |
 | A send that dropped messages triggers RAG retrieval of dropped windows by a cued query, when RAG is on and the engine is operational. Otherwise a warning is logged and nothing is retrieved. | `chat_service_generation_rag.dart` |
-| Objectives, Journal cards, Growth rings and the world are not in the transcript. Trimming and compaction cannot evict them; the goal check reads the full in-memory message list, not the trimmed window. | `objectives` table; `chat_service_objective_completion.dart` |
+| Objectives, Journal cards, Growth rings and the world are not in the transcript. Trimming and compaction cannot evict them; the goal check reads the full in-memory message list, not the trimmed window. | `objectives` table; `doors/objectives/objective_completion_check.dart` |
 | Continue budgets as the send before it did and drops nothing new. | `_stripContinuePlanSections` runs after the count |
 
 **The gap.** Between two passes, up to the interval's worth of exchanges can fall out of the window before the recap has read them. With RAG off they are gone until the next pass; with RAG on they come back only as retrieved windows, by query, not as story.

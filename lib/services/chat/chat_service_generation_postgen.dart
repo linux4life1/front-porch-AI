@@ -313,11 +313,13 @@ extension ChatServiceGenerationPostGen on ChatService {
   Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
     // The planner's today line moves here (and a day that rolls retires it):
     // those writes belong to this reply and rewind with it.
-    _objectiveTurnReply = t.streamTarget.isUser ? null : t.streamTarget;
+    objectivesDoor.turnOps.reply = t.streamTarget.isUser
+        ? null
+        : t.streamTarget;
     try {
       await _advanceStoryClockAfterReply(t);
     } finally {
-      _objectiveTurnReply = null;
+      objectivesDoor.turnOps.reply = null;
     }
   }
 

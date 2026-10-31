@@ -970,8 +970,8 @@
     "ext.currentTask": {
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_speaker_objectives.dart",
-          "in": "_importAuthoredTask",
+          "path": "lib/services/chat/doors/objectives/objective_writer.dart",
+          "in": "importAuthoredTask",
           "marker": "ext?.currentTask"
         }
       ],

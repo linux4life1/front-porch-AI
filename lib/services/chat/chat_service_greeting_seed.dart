@@ -172,8 +172,8 @@ extension ChatServiceGreetingSeed on ChatService {
       _realismDance.saveScalarsIntoGroup(memberId);
     }
 
-    _activeObjectives = [];
-    _importAuthoredTask(
+    objectivesDoor.activeObjectives = [];
+    objectivesDoor.writer.importAuthoredTask(
       FrontPorchExtensions(currentTask: resolved.currentTask),
       target: card,
     );
