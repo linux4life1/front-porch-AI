@@ -43,6 +43,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/ui_settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -293,5 +294,27 @@ void main() {
     expect(chat.groupMemberPresence('mem-new'), PresenceWhere.withYou);
     chat.debugPinTurnSpeakerForRealism('mem-new');
     expect(chat.debugBuildPositionInjection(), isNot(contains('At work')));
+
+    // Saving the member's chat colours (UI Settings) or an Edit group copy
+    // swaps a fresh card into the roster. Without the row's provenance on it
+    // the old Bea matched the new Bea by name until the group reloaded.
+    final recoloured = cloneCharacterWithExtensions(
+      member('mem-old'),
+      FrontPorchExtensions(),
+    );
+    expect(recoloured.originLibraryDbId, 'lib-bea', reason: 'colour copy');
+    expect(recoloured.originStableId, 'bea', reason: 'colour copy');
+    final bare = CharacterCard(
+      name: 'Bea',
+      imagePath: member('mem-old').imagePath,
+    )..dbId = 'mem-old';
+    await tester.runAsync(() async => chat.refreshActiveCharacterCard(bare));
+    expect(identical(member('mem-old'), bare), isTrue);
+    expect(
+      chat.originLibraryCardFor(member('mem-old'))?.dbId,
+      'lib-bea',
+      reason: 'a copy with no provenance keeps the roster card\'s',
+    );
+    expect(await cardWord('mem-old'), 'At work', reason: 'after the swap');
   });
 }
