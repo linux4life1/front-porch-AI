@@ -2,8 +2,9 @@
 
 The ChatService shell (`lib/services/chat_service.dart`) is one 26,000-line
 class spread across 77 `part` files. Every part is a public
-`extension … on ChatService` that reads and writes a mixin of 164 private
-fields (`ChatServiceFieldBag`, `lib/services/chat/chat_service_fields.dart`).
+`extension … on ChatService` that reads and writes a mixin of 154 private
+fields (`ChatServiceFieldBag`, `lib/services/chat/chat_service_fields.dart`)
+plus 74 more `late final` and plain fields on the class body.
 The parts are the symptom. The shared private namespace is the problem: no
 boundary exists between domains, so every change can touch every field.
 
@@ -18,7 +19,7 @@ source of truth once work starts.
 | Measure | Value |
 |---|---|
 | `part` directives on the shell | 77 (75 extensions, 2 mixins) |
-| Fields in `ChatServiceFieldBag` | 164 |
+| Instance fields, bag plus shell | 228 (154 in the mixin, 74 on the class) |
 | Public members declared in parts | 341 |
 | Private members declared in parts | 438 |
 | `notifyListeners()` calls in parts | 181 |
@@ -145,6 +146,7 @@ Add two test files and two baselines. Model both on
   `ChatService` class body. Baseline `test/baselines/chat_service_fields.json`
   records the count. The count may only go down; a decrease must lower the
   baseline in the same change. `FPAI_TIGHTEN_BASELINES=1` lowers it.
+  Landed at 228 on Rawhide.
 - `test/hygiene/chat_service_api_manifest_test.dart` lists every public
   member name reachable on a `ChatService` value: class members, mixin
   members, and members of every public `extension … on ChatService` in the
