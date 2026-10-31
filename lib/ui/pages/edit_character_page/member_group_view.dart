@@ -168,8 +168,9 @@ Widget memberGroupNeedsLine(
   MemberGroupView view,
   GroupWideValues values,
 ) {
-  // Porch Life off keeps the group's own Needs switch greyed: no link to it.
-  final offInPorchLife = !values.open && values.needsOffInPorchLife;
+  // Porch Life off keeps every Needs switch greyed at its own choice: no
+  // link to one, and the note the switches carry.
+  final offInPorchLife = values.needsOffInPorchLife;
   return GroupWideLine(
     icon: Icons.battery_std,
     text:
@@ -179,10 +180,13 @@ Widget memberGroupNeedsLine(
     onOpen: view.onOpenNeeds == null || offInPorchLife
         ? null
         : () => view.onOpenNeeds!(context),
-    where: offInPorchLife
-        ? "Off in Porch Life, so no chat runs Needs. This group's choice for "
-              'new chats is kept.'
-        : null,
+    where: !offInPorchLife
+        ? null
+        : values.open
+        ? "Off in Porch Life, so no chat runs Needs. This chat's choice is "
+              'kept.'
+        : "Off in Porch Life, so no chat runs Needs. This group's choice for "
+              'new chats is kept.',
   );
 }
 

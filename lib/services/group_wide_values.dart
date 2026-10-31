@@ -63,8 +63,8 @@ class GroupWideValues {
   /// whatever the group was made with.
   final bool chaosFromPorchLife;
 
-  /// New chats: Porch Life runs no Needs, so they start without it whatever
-  /// the group chose (its choice is kept).
+  /// Porch Life runs no Needs: no chat runs it, whatever this chat (or the
+  /// group, for its new chats) chose; that choice is kept.
   final bool needsOffInPorchLife;
 
   /// "Late morning, Day 3".
@@ -104,8 +104,11 @@ String? groupSettingNameIn(GroupChat group, WorldRepository? worlds) {
 }
 
 /// The open group chat's own switches and clock: what its next turn runs.
+/// While Porch Life's [needsSimDefault] is off no chat runs Needs; the chat's
+/// own choice still shows, with that said.
 GroupWideValues groupWideValuesOfChat(
   ChatService chat, {
+  required bool needsSimDefault,
   WorldRepository? worlds,
 }) {
   final group = chat.activeGroup;
@@ -119,6 +122,7 @@ GroupWideValues groupWideValuesOfChat(
     settingName: group == null ? null : groupSettingNameIn(group, worlds),
     readsMemberLorebooks: group?.inheritCharacterLorebooks ?? false,
     open: true,
+    needsOffInPorchLife: !needsSimDefault,
   );
 }
 

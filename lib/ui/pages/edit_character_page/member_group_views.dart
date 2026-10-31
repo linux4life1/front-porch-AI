@@ -67,6 +67,20 @@ WorldRepository? _worlds(BuildContext context) {
   }
 }
 
+/// A member's start, read again while their editor is open; [disposed]
+/// once the editor has closed, so a read that lands later is dropped.
+class _StartUpdates extends ValueNotifier<GroupMemberStart?> {
+  _StartUpdates(super.value);
+
+  bool disposed = false;
+
+  @override
+  void dispose() {
+    disposed = true;
+    super.dispose();
+  }
+}
+
 /// A member editor is being opened (its group's row is being read).
 bool _memberEditorOpening = false;
 
@@ -129,9 +143,10 @@ MemberGroupView memberGroupViewOfChat(
     canOpen = false;
   }
   final back = showTab;
+  final porchLife = _porchLife(context);
   final legacy = [member.stableGroupId];
   final db = liveDatabase(context);
-  final updates = ValueNotifier<GroupMemberStart?>(
+  final updates = _StartUpdates(
     groupMemberStartIn(persisted, mid, card: ext, legacyIds: legacy),
   );
   // Group Settings' Done can write the group's row; read it again once the
@@ -140,6 +155,7 @@ MemberGroupView memberGroupViewOfChat(
     if (group == null) return;
     try {
       final row = await db.getGroupById(group.id);
+      if (updates.disposed) return; // the editor closed meanwhile
       updates.value = groupMemberStartIn(
         row?.defaultMemberRealismState ?? '{}',
         mid,
@@ -160,7 +176,11 @@ MemberGroupView memberGroupViewOfChat(
           await reread();
         };
   return MemberGroupView(
-    read: () => groupWideValuesOfChat(chat, worlds: worlds),
+    read: () => groupWideValuesOfChat(
+      chat,
+      worlds: worlds,
+      needsSimDefault: porchLife?.needsSimDefault ?? true,
+    ),
     changes: chat,
     startUpdates: updates,
     realismAllowed: _realismAllowed(context),

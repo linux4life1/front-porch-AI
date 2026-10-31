@@ -25,7 +25,7 @@ export interface GroupLines {
   open: boolean;
   /** New chats: Porch Life's Chaos default is on, so they start with Chaos. */
   chaosFromPorchLife: boolean;
-  /** New chats: Porch Life runs no Needs (the group's choice is kept). */
+  /** Porch Life runs no Needs: no chat runs it (the choice shown is kept). */
   needsOffInPorchLife: boolean;
 }
 
@@ -136,10 +136,12 @@ export function groupLineTexts(g: GroupLines): Record<'realism' | 'time' | 'chao
     afterglow: { text: `Afterglow · ${on(g.afterglow)}`, where: settings },
     needs: {
       text: `Needs · ${on(g.needs)}`,
-      where:
-        !g.open && g.needsOffInPorchLife
-          ? "Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept."
-          : settings,
+      // Porch Life off: no chat runs Needs; the choice shown is kept.
+      where: !g.needsOffInPorchLife
+        ? settings
+        : g.open
+          ? "Off in Porch Life, so no chat runs Needs. This chat's choice is kept."
+          : "Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept.",
     },
   };
 }

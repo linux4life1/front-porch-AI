@@ -245,18 +245,34 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                       onPressed: () {
                         // General tab edits live in controllers until Save.
                         if (_commitEdits()) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Group settings saved.'),
-                              backgroundColor: AccentColors.emeraldFill,
-                            ),
-                          );
-                          // The dialog stays open: its summaries follow the
-                          // row once written.
+                          final messenger = ScaffoldMessenger.of(context);
+                          // Said once the row is written (the dialog stays
+                          // open, and its summaries follow the row), or that
+                          // it was not, so Save can be tried again.
                           unawaited(
-                            _write!.then((_) {
-                              if (mounted) _rowSaved.value++;
-                            }),
+                            _write!.then(
+                              (_) {
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Group settings saved.'),
+                                    backgroundColor: AccentColors.emeraldFill,
+                                  ),
+                                );
+                                if (mounted) _rowSaved.value++;
+                              },
+                              onError: (Object e) {
+                                debugPrint('[GroupSettings] save failed: $e');
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: const Text(
+                                      "Couldn't save the group settings. "
+                                      'Try Save again.',
+                                    ),
+                                    backgroundColor: StatusColors.errorFill,
+                                  ),
+                                );
+                              },
+                            ),
                           );
                         }
                       },
