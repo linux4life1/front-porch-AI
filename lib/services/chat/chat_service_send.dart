@@ -256,6 +256,7 @@ extension ChatServiceSend on ChatService {
     _webSearchService.beginUserSend();
     _wikiSearchService.beginUserSend();
     try {
+      _userTurn.open(); // Porch Life's Realism waits for the whole turn.
       // Sending a real message ends the /exit undo window. A pending full-member
       // exit commits now (real removal + any collapse to a 1:1) so this turn runs
       // in the settled cast; lite-guest undo state is just cleared.
@@ -491,6 +492,7 @@ extension ChatServiceSend on ChatService {
       );
     } finally {
       _toolProbe.endUserSend(_evalBackendIdentity);
+      _userTurn.close();
     }
   }
 }

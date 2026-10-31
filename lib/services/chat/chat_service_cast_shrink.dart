@@ -91,7 +91,7 @@ extension ChatServiceCastShrink on ChatService {
     //    the enable-flags, author note, and evolution (carried regardless of
     //    realism). originId = the id the collapsed 1:1 will key realism/memory by.
     final originId = _getCharacterIdFromCard(origin);
-    final bool wasRealismOn = _realismEnabled;
+    final bool wasRealismOn = _realismChatSwitch;
     final bool wasNeedsOn = _needsSimEnabled;
     Map<String, dynamic>? snapshot;
     if (wasRealismOn) {
@@ -198,7 +198,7 @@ extension ChatServiceCastShrink on ChatService {
     // the restore below reads the switch the 1:1 keeps.
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: soleNsfwEnabled);
     if (wasRealismOn && snapshot != null) {
-      _realismEnabled = true;
+      _realismChatSwitch = true;
       _needsSimEnabled = wasNeedsOn;
       _relationshipService.restoreFromMessageState(snapshot);
       _mood.restoreFromStamp(snapshot);
@@ -282,7 +282,7 @@ extension ChatServiceCastShrink on ChatService {
     // emotion + nsfw + time via the regenerate restore path, then the canonical
     // _groupRealism write for the host member.
     if (realismOn) {
-      _realismEnabled = true;
+      _realismChatSwitch = true;
       _relationshipService.restoreFromMessageState(state);
       _mood.restoreFromStamp(state);
       _nsfwService.restoreNsfwFromMessageState(state);

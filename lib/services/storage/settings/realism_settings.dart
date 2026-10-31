@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/one_shot_mode.dart';
+import 'package:front_porch_ai/services/storage/settings/realism/realism_allowed_setting.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/realism_prefs_snapshot.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/time_skip_bridge_setting.dart';
 
@@ -30,10 +31,9 @@ export 'package:front_porch_ai/services/storage/settings/realism/realism_import_
 
 /// Realism Engine + Needs simulation + related defaults (oneShot, banned
 /// phrases, per-char enjoys hygiene is in CharacterCard / group member
-/// JSON, not here).
-///
-/// Lifted Stage 7.
-class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
+/// JSON, not here). [realismAllowed] is the Porch Life permission.
+class RealismSettings
+    with SettingsBase, TimeSkipBridgeSetting, RealismAllowedSetting {
   bool _realismDefault = false;
   bool _nsfwCooldownDefault = false;
   bool _passageOfTimeDefault = true;

@@ -18,42 +18,57 @@
 
 part of '../chat_service.dart';
 
+/// One permission watch, start queue and user-turn hold per service.
+final Expando<RealismPermissionWatch> _realismPermissionWatch = Expando();
+final Expando<RealismStartQueue> _realismStartQueue = Expando();
+final Expando<UserTurnHold> _userTurnHold = Expando();
+
 /// Public runtime toggle/control surface for the Realism, Needs, Chaos and
 /// Chance-Time systems: the feature enable switches (realism, NSFW cooldown,
 /// passage of time, needs sim, chaos mode/NSFW), time nudging, the chance-time
 /// wheel + apply, chaos-pressure tick, and the per-need decay-rate setters
-/// (1:1 and group). Extracted verbatim from the god file (zero behaviour
-/// change). The decay-rate setters keep their existing 1:1-vs-group branch, so
-/// Realism/Needs parity is unchanged by the move.
+/// (1:1 and group). The decay-rate setters keep their 1:1-vs-group branch.
 extension ChatServiceControls on ChatService {
   // ── Public Toggle Methods ──
 
-  Future<void> setRealismEnabled(bool enabled) async {
-    _realismEnabled = enabled;
-    // (The story clock is always anchored — the old ensureStartDayOfWeekAnchored
-    // legacy-0 repair died with the modulo-7 weekday math.)
+  /// The Realism gate every reader goes through: Porch Life allows Realism
+  /// (as of this turn's start) AND this chat's own switch. Saves, seeds and
+  /// carries keep the raw [_realismChatSwitch], so Porch Life off never
+  /// overwrites a chat's choice (test/hygiene/realism_gate_ratchet_test.dart).
+  bool get _realismEnabled => _realismPermission.allowed && _realismChatSwitch;
 
-    if (enabled && _activeGroup == null && _activeCharacter != null) {
-      // ── Solution 1: Pending greeting flag ────────────────────────────
-      // The greeting was placed while realism was off. Fire the baseline
-      // eval now that the user has explicitly enabled it.
-      if (_greetingEvalPending && !_realismDance.hasBaseline) {
-        debugPrint(
-          '[Realism] Consuming pending greeting eval (user enabled realism after load).',
-        );
-        _runPostGreetingEval();
-      }
-      // ── Solution 3: Retroactive scan on enable ────────────────────────
-      // Realism was enabled mid-conversation with no baseline captured yet
-      // (emotion is blank, affection is zero, multiple messages exist).
-      // Run a full retrospective eval against all visible messages.
-      else if (!_realismDance.hasBaseline && _messages.length > 1) {
-        debugPrint(
-          '[Realism] No baseline detected — running retroactive scan on enable.',
-        );
-        _runRetroactiveBaselineEval();
-      }
-    }
+  /// Porch Life's permission, landing between turns.
+  RealismPermissionWatch get _realismPermission =>
+      _realismPermissionWatch[this] ??= RealismPermissionWatch(
+        allowed: () => _storageService.realismSettings.realismAllowed,
+        turnBusy: () => _realismTurnBusy,
+        turn: this,
+        onChange: _onRealismPermissionChanged,
+        ready: _storageService.initialized,
+      );
+
+  /// A turn in flight, the user's line and its pre-reply judges included.
+  bool get _realismTurnBusy => _isTurnBusy || _userTurn.held;
+  UserTurnHold get _userTurn =>
+      _userTurnHold[this] ??= UserTurnHold(notifyListeners);
+
+  RealismStartQueue get _realismStart =>
+      _realismStartQueue[this] ??= RealismStartQueue(
+        busy: () => _realismTurnBusy || _isProcessingGreeting,
+        turn: this,
+        chatId: () => _currentSessionId,
+        start: _startRealismNow,
+      );
+
+  void _onRealismPermissionChanged(bool allowed) {
+    if (_disposed) return;
+    notifyListeners();
+    if (allowed) _onRealismStarted();
+  }
+
+  Future<void> setRealismEnabled(bool enabled) async {
+    _realismChatSwitch = enabled;
+    if (enabled) _onRealismStarted();
 
     if (!enabled) {
       // IMPORTANT: Do NOT zero out realism state when disabling!
@@ -65,6 +80,29 @@ extension ChatServiceControls on ChatService {
     }
     await _saveChat();
     notifyListeners();
+  }
+
+  /// A 1:1 chat's Realism has started running: its switch turned on, Porch
+  /// Life allowing it again, or [_scoreStartIfSavedBlocked]. With no
+  /// baseline yet it scores its starting point, once, from the greeting
+  /// placed while Realism was off or from the history so far: between
+  /// turns, never beside one or a second scan ([RealismStartQueue]). A
+  /// group scores from its next turn, as it always has.
+  void _onRealismStarted() => _realismStart.request();
+
+  void _startRealismNow() {
+    if (!_realismEnabled || _activeGroup != null || _activeCharacter == null) {
+      return;
+    }
+    if (_greetingEvalPending && !_realismDance.hasBaseline) {
+      debugPrint(
+        '[Realism] Consuming pending greeting eval (Realism started).',
+      );
+      _runPostGreetingEval();
+    } else if (!_realismDance.hasBaseline && _messages.length > 1) {
+      debugPrint('[Realism] No baseline detected — running retroactive scan.');
+      _runRetroactiveBaselineEval();
+    }
   }
 
   Future<void> _setPassageOfTimeEnabledImpl(bool enabled) async {

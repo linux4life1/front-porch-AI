@@ -21,11 +21,17 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// "The Engine" group — extracted when the tab grew past its comfort size
 /// (it once also held the Model transport card, since moved to Generation
 /// settings on both surfaces).
+///
+/// The Realism Engine row is the permission ([engineOn] is
+/// `realismAllowed`): off, no chat runs Realism and each chat keeps its own
+/// switch. Under it, "Start every new chat with Realism" is the old
+/// `realismDefault` switch with the name of what it does.
 class PorchLifeEngineCard extends StatelessWidget {
   const PorchLifeEngineCard({
     super.key,
@@ -47,13 +53,21 @@ class PorchLifeEngineCard extends StatelessWidget {
           label: 'Realism Engine',
           need: FeatureNeed.core,
           blurb:
-              'Bond and trust, moods that carry between turns, physical '
-              'state — how the character feels about what you just did. '
-              'Needs, the story clock and desire all read from it; the '
-              'rest of Porch Life runs with or without it, and every row '
-              'says which it is.',
+              'Allows bond and trust, moods that carry between turns, '
+              'physical state — how the character feels about what you just '
+              'did. Needs and desire read from it; the rest of Porch Life '
+              'runs with or without it, and every row says which it is. '
+              'Off: no chat runs the engine, and Needs and Afterglow stop '
+              'with it. Each chat keeps its own choice for when you turn '
+              'this back on.',
           value: engineOn,
-          onChanged: storage.realismSettings.setRealismDefault,
+          onChanged: (v) async {
+            final was = storage.realismSettings.realismAllowed;
+            await storage.realismSettings.setRealismAllowed(v);
+            if (!context.mounted) return;
+            await offerRealismInExistingChats(context, wasAllowed: was);
+          },
+          child: _StartWithRealismRow(storage: storage),
         ),
         FeatureRow(
           icon: Icons.favorite_outline,
@@ -81,6 +95,48 @@ class PorchLifeEngineCard extends StatelessWidget {
                   clockOn: false,
                   padding: EdgeInsets.zero,
                 ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Start every new chat with Realism", nested under the permission:
+/// `realismDefault`, the OR every new 1:1 chat's switch is seeded with.
+class _StartWithRealismRow extends StatelessWidget {
+  const _StartWithRealismRow({required this.storage});
+
+  final StorageService storage;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Start every new chat with Realism',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "Even when the character's card doesn't turn it on, such as "
+                'an imported card. Chats you already have keep their own '
+                'switch.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Switch(
+          value: storage.realismSettings.realismDefault,
+          onChanged: storage.realismSettings.setRealismDefault,
         ),
       ],
     );

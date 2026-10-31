@@ -58,8 +58,8 @@ extension ChatServiceGroupMembership on ChatService {
     // note with realism disabled). Only the realism snapshot itself is
     // realism-gated.
     final Map<String, dynamic> hostState = <String, dynamic>{
-      'realismOn': _realismEnabled,
-      if (_realismEnabled) ..._realismSnapshot.capture(),
+      'realismOn': _realismChatSwitch,
+      if (_realismChatSwitch) ..._realismSnapshot.capture(),
       'needsSimEnabled': _needsSimEnabled,
       'nsfwCooldownEnabled': _nsfwService.storedNsfwCooldownEnabled,
       'passageOfTimeEnabled': _timeService.passageOfTimeEnabled,

@@ -115,6 +115,18 @@
       "dartMarker": "Porch Life",
       "webMarker": "Porch Life"
     },
+    "realismAllowed": {
+      "section": "porch-life",
+      "dart": "lib/ui/settings/tabs/porch_life_engine_card.dart",
+      "dartMarker": "setRealismAllowed",
+      "webMarker": "Porch Life"
+    },
+    "realismDefault": {
+      "section": "porch-life",
+      "dart": "lib/ui/settings/tabs/porch_life_engine_card.dart",
+      "dartMarker": "Start every new chat with Realism",
+      "webMarker": "Porch Life"
+    },
     "generationParameters": {
       "section": "generation",
       "dart": "lib/ui/settings/tabs/generation_tab.dart",
