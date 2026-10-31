@@ -46,6 +46,9 @@ export interface LoreDraft {
  *  writes the verification and needs fields to the member's extensions. */
 export interface MemberRealism {
   affection: number;
+  /** Long-Term Bond; unset, it follows Short-Term Bond, as the engine reads
+   *  it on a member's first entry. */
+  longTermScore?: number;
   trust: number;
   emotion: string;
   emotionIntensity: string;
@@ -85,8 +88,8 @@ export interface GroupDraft {
   /** Exact opening clock, "HH:MM"; '' is the time of day's default. */
   storyStartTime: string;
   /** Library id → what the member's seed changes from [NEUTRAL_MEMBER]:
-   *  affection is Short-Term Bond (−300…300), trust is Long-Term Bond
-   *  (−300…300) and Trust Level (−100…100). */
+   *  affection is Short-Term Bond (−300…300), longTermScore is Long-Term
+   *  Bond (−300…300) and trust is Trust Level (−100…100). */
   members: Record<string, Partial<MemberRealism>>;
   /** Library id → how it feels toward each other member (−300…300). */
   relationships: Record<string, Record<string, number>>;

@@ -114,6 +114,61 @@ Map<String, dynamic> applyBaselineToMemberSeed(
   return seed;
 }
 
+/// What the new-group wizard's and Edit group's Relationship sliders show for
+/// one member's seed (`defaultMemberRealismState.perChar`, the blob a new
+/// chat seeds from). Long-Term Bond reads the engine's `longTermScore` and,
+/// unset, follows Short-Term Bond, which is what the engine reads on a
+/// member's first entry. Both editors used to save Long-Term Bond into
+/// `trust`; a seed left with a number past ±100 in that field and no
+/// `longTermScore` shows the number as Long-Term Bond and trust 50, the
+/// default Group Settings' own repair gives it (see [bondSliderEdit]). A
+/// Long-Term Bond within ±100 saved that way cannot be told from a trust.
+MemberBondBaseline bondSlidersFromMemberSeed(Map<String, dynamic> seed) {
+  final affection = _int(seed, GroupRealismKeys.affection) ?? 35;
+  final longTerm = _int(seed, GroupRealismKeys.longTermScore);
+  final trust = _int(seed, GroupRealismKeys.trust);
+  final mixedUp = _longTermInTrust(seed);
+  return (
+    shortTerm: affection.clamp(-300, 300),
+    longTerm: (longTerm ?? (mixedUp ? trust! : affection)).clamp(-300, 300),
+    trust: (mixedUp ? 50 : trust ?? 40).clamp(-100, 100),
+  );
+}
+
+/// The seed keys one Relationship slider move writes: the moved slider's own
+/// key, or, on a seed where Long-Term Bond went into `trust`, all three as
+/// [bondSlidersFromMemberSeed] showed them, so the seed then says what the
+/// sliders did.
+Map<String, int> bondSliderEdit(
+  Map<String, dynamic> seed, {
+  int? shortTerm,
+  int? longTerm,
+  int? trust,
+}) {
+  if (!_longTermInTrust(seed)) {
+    return {
+      GroupRealismKeys.affection: ?shortTerm,
+      GroupRealismKeys.longTermScore: ?longTerm,
+      GroupRealismKeys.trust: ?trust,
+    };
+  }
+  final shown = bondSlidersFromMemberSeed(seed);
+  return {
+    GroupRealismKeys.affection: shortTerm ?? shown.shortTerm,
+    GroupRealismKeys.longTermScore: longTerm ?? shown.longTerm,
+    GroupRealismKeys.trust: trust ?? shown.trust,
+  };
+}
+
+/// No `longTermScore` and a trust no real trust can be: the old editors'
+/// Long-Term Bond, saved in the wrong key.
+bool _longTermInTrust(Map<String, dynamic> seed) {
+  final trust = _int(seed, GroupRealismKeys.trust);
+  return _int(seed, GroupRealismKeys.longTermScore) == null &&
+      trust != null &&
+      trust.abs() > 100;
+}
+
 /// The engine's mood strengths, the same three every other realism editor
 /// offers.
 const emotionIntensities = ['mild', 'moderate', 'strong'];

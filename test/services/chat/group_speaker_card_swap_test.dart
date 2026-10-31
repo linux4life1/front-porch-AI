@@ -10,15 +10,20 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 
 import '../../../integration_test/support/fake_backend.dart';
+import '../../golden/support/fakes.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -322,6 +327,136 @@ void main() {
       expect(w.system, isNot(contains('AYLA_CARD_PROMPT_MARKER')));
       expect(w.system, isNot(contains('The card below')));
       expect(w.user, contains('PORCH_SCENE_MARKER'));
+    }, timeout: const Timeout(Duration(minutes: 2)));
+  });
+
+  // A group has no active character between turns. The post-reply pass put
+  // the pointer back only when there had been one, so whoever answered first
+  // stayed active for the rest of the visit: the chat page dressed your
+  // bubbles in their colours and font, and the phone's panels with nobody
+  // focused read whoever that was, or nobody.
+  group('once a member has answered, none stays active', () {
+    Future<void> drain() async {
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    testWidgets('your bubbles keep your own colours and font', (tester) async {
+      const zinnaInk = Color(0xFFE53935);
+      late ChatMessage yours;
+      await tester.runAsync(() async {
+        await bootGroup();
+        member('Zinna').frontPorchExtensions!
+          ..userTextColor = zinnaInk
+          ..chatFontFamily = 'Zinna Hand';
+        await chat.sendMessage('Evening, both of you.');
+        await drain();
+        yours = chat.messages.lastWhere((m) => m.isUser);
+      });
+      expect(chat.messages.last.sender, 'Zinna');
+      expect(chat.activeCharacter, isNull);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<TtsService>.value(value: FakeTtsService()),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+            ChangeNotifierProvider<UserPersonaService>.value(
+              value: FakeUserPersonaService(),
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: MessageBubble(
+                message: yours,
+                index: chat.messages.indexOf(yours),
+                chatService: chat,
+              ),
+            ),
+          ),
+        ),
+      );
+      // The style your words are drawn in, as the bubble's spans resolve it.
+      TextStyle? drawn;
+      void walk(InlineSpan span, TextStyle? outer) {
+        final style = outer?.merge(span.style) ?? span.style;
+        if (span is! TextSpan) return;
+        if ((span.text ?? '').contains('Evening')) drawn ??= style;
+        for (final child in span.children ?? const <InlineSpan>[]) {
+          walk(child, style);
+        }
+      }
+
+      walk(
+        tester
+            .widget<RichText>(
+              find.textContaining('Evening, both of you.', findRichText: true),
+            )
+            .text,
+        null,
+      );
+      expect(drawn?.color, storage.uiSettings.getUserTextColor(null));
+      expect(drawn?.color, isNot(zinnaInk));
+      expect(drawn?.fontFamily, isNot('Zinna Hand'));
+    });
+
+    test("a goal set on the phone with nobody focused is the first member's, "
+        'as its header shows', () async {
+      await bootGroup();
+      // A third member, so the first member, the one who answers and the
+      // next speaker are three different people.
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-third',
+          groupId: 'grp-swap',
+          name: 'Tamsin',
+          avatarFilename: const Value('tamsin.png'),
+          frontPorchExtensions: const Value(_off),
+        ),
+      );
+      await chat.setActiveGroup(
+        GroupChat(id: 'grp-swap', name: 'The Cast'),
+        groupRepo: GroupChatRepository(storage, db),
+      );
+      chat.setNextCharacter(member('Senjumaru'));
+      await chat.sendMessage('Evening, all of you.');
+      await drain();
+      expect(chat.messages.last.sender, 'Senjumaru');
+      expect(chat.nextCharacter?.name, 'Tamsin');
+
+      await ChatToolsFacade(
+        chat,
+        storage,
+        null,
+      ).setObjective('Mend the porch rail');
+      Future<List<String>> goalsOf(String name) async => [
+        for (final o in await chat.getActiveObjectivesFor(member(name)))
+          o.objective,
+      ];
+      expect(await goalsOf('Zinna'), ['Mend the porch rail']);
+      expect(await goalsOf('Senjumaru'), isEmpty);
+      expect(await goalsOf('Tamsin'), isEmpty);
+    }, timeout: const Timeout(Duration(minutes: 2)));
+
+    test("the phone's pockets with nobody focused are the first "
+        "member's", () async {
+      await storage.realismSettings.setPocketsEnabled(true);
+      await bootGroup();
+      final tools = ChatToolsFacade(chat, storage, null);
+      expect(tools.state()['pockets'], isNotNull, reason: "Zinna's kit shows");
+
+      await tools.addPocketItem(section: 'carrying', name: 'a brass key');
+      List<String>? carried() => chat
+          .pocketsFor(chat.characterIdFor(member('Zinna')))
+          ?.carrying
+          .map((i) => i.name)
+          .toList();
+      expect(carried(), ['a brass key']);
+
+      await tools.removePocketItem(section: 'carrying', index: 0);
+      expect(carried(), isEmpty);
     }, timeout: const Timeout(Duration(minutes: 2)));
   });
 }

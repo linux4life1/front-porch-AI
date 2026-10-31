@@ -254,13 +254,15 @@ extension ChatServiceTurnFlow on ChatService {
     final wheel = spinWheelEvents();
     if (wheel.isEmpty) return false;
     _webChanceTimeEvent = wheel.first;
+    _webChanceTimeName = chanceTimeSpeakerName;
     notifyListeners();
     return true;
   }
 
   /// The speaker a Chance Time event is attributed to: the upcoming group
-  /// speaker, else the 1:1 host. Shared by the desktop wheel overlay and the
-  /// web accept path so both attribute the event identically.
+  /// speaker (a spin picks one ahead in random turn order), else the 1:1 host.
+  /// Shared by the desktop wheel overlay and the web accept path so both
+  /// attribute the event identically.
   String get chanceTimeSpeakerName =>
       nextCharacter?.name ?? activeCharacter?.name ?? 'Character';
 
@@ -268,7 +270,10 @@ extension ChatServiceTurnFlow on ChatService {
   /// modal. Null when nothing is parked.
   String? get webChanceTimeDisplay => _webChanceTimeEvent == null
       ? null
-      : resolveChanceTimeEvent(_webChanceTimeEvent!, chanceTimeSpeakerName);
+      : resolveChanceTimeEvent(
+          _webChanceTimeEvent!,
+          _webChanceTimeName ?? chanceTimeSpeakerName,
+        );
 
   /// Web/mobile "Accept Your Fate": applies the pre-picked pending event using
   /// the same attribution the desktop wheel uses, then lets generation resume.
@@ -276,7 +281,11 @@ extension ChatServiceTurnFlow on ChatService {
   Future<void> acceptPendingChanceTime() async {
     final raw = _webChanceTimeEvent;
     if (raw == null) return;
-    await applyChanceTimeResult(raw, chanceTimeSpeakerName);
+    // The name the reveal showed, even if a turn has passed since the spin.
+    await applyChanceTimeResult(
+      raw,
+      _webChanceTimeName ?? chanceTimeSpeakerName,
+    );
   }
 
   // ── The Journal recap ("Where we are") ──────────────────────────────

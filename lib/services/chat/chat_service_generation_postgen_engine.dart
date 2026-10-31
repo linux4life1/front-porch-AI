@@ -36,7 +36,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // (incl. needs vector) loaded for this speaker but restored the _activeCharacter pointer
     // to the prior speaker; the thin delegate relies on the pointer for cbs. We restore the
     // pointer after the checks (scalars remain correct for the persist below).
-    CharacterCard? prePostActiveChar;
+    // Who the pointer is lent to; the loan ends once, inline or in the
+    // finally.
+    CharacterCard? lentTo;
     // The awaited post-gen critical section: mutates _activeCharacter,
     // the needs scalars and _groupRealism across two awaits
     // (_isPostGenerating has been up since the last token landed).
@@ -55,8 +57,8 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         await _scoreCastFeelings(t.speakingCharacter, finalResponse);
       }
       if (_activeGroup != null) {
-        prePostActiveChar = _activeCharacter;
         _activeCharacter = t.speakingCharacter;
+        lentTo = t.speakingCharacter;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
         if (sid.isNotEmpty) {
           _realismDance.loadIntoScalars(sid);
@@ -228,8 +230,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           );
         }
 
-        if (prePostActiveChar != null) {
-          _activeCharacter = prePostActiveChar;
+        if (lentTo != null) {
+          _endSpeakerLoan(lentTo);
+          lentTo = null;
         }
 
         // For group turns, persist the post-scene + long-gen-decay needs changes (and any
@@ -301,12 +304,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
     } finally {
       await _closeWorkerLane();
-      // Unconditional pointer restore on a throw. The settling flag is
-      // cleared in the OUTER finally so guest turns, stale epochs and
+      // The pointer goes back on a throw or an abort too. The settling flag
+      // is cleared in the OUTER finally so guest turns, stale epochs and
       // earlier errors are covered too.
-      if (prePostActiveChar != null) {
-        _activeCharacter = prePostActiveChar;
-      }
+      if (lentTo != null) _endSpeakerLoan(lentTo);
     }
 
     // [EvalTraffic]: the turn's secondary-call tally — everything since
@@ -318,7 +319,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
 
     // Journal maintenance pass if due (fire-and-forget): memory cards +
     // recap in one call. Card ownership is derived from the window's
-    // message characterIds (immune to the prePostActiveChar restore
+    // message characterIds (immune to the speaker loan
     // dance above); only the recap voice is best-effort at trigger time
     // in group non-obs (same caveat the old summary had).
     // Skip when regen aborted this scoring — do not diary a rejected reply.
@@ -370,12 +371,16 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     if (!_realismEnabled) return;
     if (_postGenAbortRequested) return;
 
-    CharacterCard? prior;
+    CharacterCard? lentTo;
     final sid = _getCharacterIdFromCard(t.speakingCharacter);
     try {
       await _openWorkerLane();
-      prior = _activeCharacter;
+      // A chat opened while the lane opened owns the pointer now.
+      if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
+        return;
+      }
       _activeCharacter = t.speakingCharacter;
+      lentTo = t.speakingCharacter;
       if (sid.isNotEmpty) {
         _relationshipService.setWithUser(_groupRealism[sid]?.withUser);
         final meta = t.streamTarget.activeMetadata ?? <String, dynamic>{};
@@ -395,9 +400,20 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         _awayPulse.presentSpeakerTurns++;
       }
     } finally {
-      if (prior != null) _activeCharacter = prior;
+      if (lentTo != null) _endSpeakerLoan(lentTo);
       await _closeWorkerLane();
     }
+  }
+
+  /// Ends a group pass's loan of the active character to [speaker]. A group
+  /// has none between turns, so the loan ends at null, and only while the
+  /// pointer still names [speaker]: a chat opened during the pass, or the
+  /// next turn's own pass, owns it otherwise. Ending the loan only when the
+  /// pointer had held someone left whoever answered first active for the
+  /// rest of the visit: Chance Time named them on every turn and your
+  /// bubbles took their colours.
+  void _endSpeakerLoan(CharacterCard speaker) {
+    if (stillLentTo(_activeCharacter, speaker)) _activeCharacter = null;
   }
 
   /// How [reply] moved the speaker's hidden feelings toward the others. The

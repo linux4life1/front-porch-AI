@@ -395,6 +395,7 @@ mixin ChatServiceFieldBag {
   // from the same pool. Lives only during the park (set at the gate, cleared on
   // resume) — see [isAwaitingChanceTime] / [acceptPendingChanceTime].
   String? _webChanceTimeEvent;
+  String? _webChanceTimeName; // who it names, fixed at the spin
 
   // ── Needs simulation + scene-impact evaluator ──
   bool _needsSimEnabled = false;

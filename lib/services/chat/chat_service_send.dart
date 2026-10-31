@@ -411,11 +411,13 @@ extension ChatServiceSend on ChatService {
           _webChanceTimeEvent = webWheel.isNotEmpty
               ? webWheel.first
               : 'Fate intervenes in an unexpected way.';
+          _webChanceTimeName = chanceTimeSpeakerName;
           notifyListeners(); // UI observes this to show the wheel
           // Wait for the user to spin + accept fate (completes in applyChanceTimeResult)
           await _chanceTimeCompleter!.future;
           _chanceTimeCompleter = null;
           _webChanceTimeEvent = null;
+          _webChanceTimeName = null;
         }
       }
 
