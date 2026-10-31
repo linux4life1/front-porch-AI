@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
@@ -38,6 +39,8 @@ class MemberGroupView {
         'Group Settings → Lorebook & Worlds has "Inherit character lorebooks"',
     this.worldsWhere = 'Group Settings',
     this.start,
+    this.startUpdates,
+    this.noStartWhere = 'Edit group → Realism & Dynamics',
     this.saveStart,
     this.realismAllowed = true,
   });
@@ -67,9 +70,19 @@ class MemberGroupView {
   final String loreWhere;
   final String worldsWhere;
 
-  /// Where the member starts in new chats of the group. Null when the
-  /// group's new chats start without Realism (no member seeds).
+  /// Where the member starts in new chats of the group, read from the
+  /// persisted definition. Null when the group's new chats start without
+  /// Realism (no member entries); [noStartWhere] then says where that is set.
   final GroupMemberStart? start;
+
+  /// A fresh [start] after the persisted definition was read again (the
+  /// editor's Group Settings link closed); the editor takes it unless the
+  /// user has moved the start since.
+  final ValueListenable<GroupMemberStart?>? startUpdates;
+
+  /// Where the group's Realism for new chats is set, for the line shown in
+  /// place of the start when there is none.
+  final String noStartWhere;
 
   /// Saves a changed [start] to the group's seed for this member.
   final Future<void> Function(GroupMemberStart start)? saveStart;
@@ -87,7 +100,10 @@ MemberGroupRows memberGroupRows(
   GroupWideValues values, {
   required String memberName,
 }) {
-  String on(bool v) => v ? 'On' : 'Off';
+  // Each line says what it describes: opened from a chat, that chat's own
+  // switches; from Edit group, how the group's new chats start.
+  final scope = values.open ? 'in this chat' : "for this group's new chats";
+  String on(bool v) => '${v ? 'On' : 'Off'} $scope';
   void Function()? link(void Function(BuildContext)? open) =>
       open == null ? null : () => open(context);
   final realismLink = link(view.onOpenRealism);
@@ -98,13 +114,16 @@ MemberGroupRows memberGroupRows(
       children: [
         GroupWideLine(
           icon: Icons.psychology_alt_outlined,
-          text: 'Realism Engine · ${on(values.realism)} for this group',
+          text: 'Realism Engine · ${on(values.realism)}',
           linkLabel: view.linkLabel,
           onOpen: realismLink,
         ),
         GroupWideLine(
           icon: Icons.schedule,
-          text: 'Time & Day · shared by the group: ${values.timeLabel}',
+          text: values.open
+              ? 'Time & Day · in this chat: ${values.timeLabel}'
+              : "Time & Day · this group's new chats start at: "
+                    '${values.timeLabel}',
           linkLabel: view.linkLabel,
           onOpen: realismLink,
         ),
@@ -112,18 +131,21 @@ MemberGroupRows memberGroupRows(
     ),
     chaos: GroupWideLine(
       icon: Icons.casino,
-      text: 'Chaos Mode · ${on(values.chaos)} for this group',
+      text: 'Chaos Mode · ${on(values.chaos)}',
       linkLabel: view.onOpenChaos == null ? null : 'Group Settings',
       onOpen: link(view.onOpenChaos),
       where: view.chaosWhere,
     ),
     afterglow: GroupWideLine(
       icon: Icons.local_fire_department,
-      text: 'Afterglow · ${on(values.afterglow)} for this group',
+      text: 'Afterglow · ${on(values.afterglow)}',
       linkLabel: view.linkLabel,
       onOpen: realismLink,
     ),
-    startNote: 'Where $memberName starts in new chats of this group.',
+    startNote: "Where $memberName starts in this group's new chats.",
+    noStartNote:
+        "This group's new chats start without Realism, so there's no start "
+        'to set. Set in ${view.noStartWhere}.',
   );
 }
 
@@ -134,7 +156,9 @@ Widget memberGroupNeedsLine(
   GroupWideValues values,
 ) => GroupWideLine(
   icon: Icons.battery_std,
-  text: 'Needs · ${values.needs ? 'On' : 'Off'} for this group',
+  text:
+      'Needs · ${values.needs ? 'On' : 'Off'} '
+      '${values.open ? 'in this chat' : "for this group's new chats"}',
   linkLabel: view.linkLabel,
   onOpen: view.onOpenNeeds == null ? null : () => view.onOpenNeeds!(context),
 );

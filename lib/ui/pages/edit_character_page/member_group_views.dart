@@ -19,6 +19,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabase, AppDatabaseGroupQueries;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
@@ -26,6 +28,7 @@ import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
     show leaveCharacterEditor;
 import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
+import 'package:front_porch_ai/ui/widgets/porch_snack_bar.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Group Settings' Realism and Needs tabs (see `GroupSettingsDialog`).
@@ -53,14 +56,48 @@ WorldRepository? _worlds(BuildContext context) {
   }
 }
 
+/// A member editor is being opened (its group's row is being read).
+bool _memberEditorOpening = false;
+
+/// Group [groupId]'s persisted realism definition, for a member's editor
+/// about to open. Null while another one is being read: a second tap in
+/// that window opens nothing. A failed read is logged and said in a
+/// snackbar, and reads as no member entries (no start offered).
+Future<String?> readMemberEditorDefinition(
+  BuildContext context,
+  AppDatabase db,
+  String groupId,
+) async {
+  if (_memberEditorOpening) return null;
+  _memberEditorOpening = true;
+  try {
+    return (await db.getGroupById(groupId))?.defaultMemberRealismState ?? '{}';
+  } catch (e) {
+    debugPrint('[MemberEditor] could not read the group: $e');
+    if (context.mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        porchSnackBar(
+          context,
+          "Couldn't read this group's settings, so where the member starts "
+          'is not shown.',
+        ),
+      );
+    }
+    return '{}';
+  } finally {
+    _memberEditorOpening = false;
+  }
+}
+
 /// The member editor's view of the group open in [chat]: the chat's own
-/// switches, links to Group Settings, and [member]'s start in the group's
-/// new chats. The start, and the Realism line beside it, come from
-/// [persisted]: the group's row as the editor opened (`defaultMemberRealismState`),
-/// never the chat's copy, which can hold Group Settings edits not saved
-/// yet. Opened from inside Group Settings ([showTab] is its tab switch), a
-/// link closes the editor back to that dialog's tab instead of opening a
-/// second one.
+/// switches (its lines say "in this chat"), links to Group Settings, and
+/// [member]'s start in the group's new chats. The start comes from
+/// [persisted], the group's row as the editor opened
+/// (`defaultMemberRealismState`), never the chat's copy, which can hold
+/// Group Settings edits not saved yet; it is read again when a link's Group
+/// Settings closes. Opened from inside Group Settings ([showTab] is its tab
+/// switch), a link closes the editor back to that dialog's tab instead of
+/// opening a second one.
 MemberGroupView memberGroupViewOfChat(
   BuildContext context,
   ChatService chat,
@@ -81,29 +118,49 @@ MemberGroupView memberGroupViewOfChat(
     canOpen = false;
   }
   final back = showTab;
+  final legacy = [member.stableGroupId];
+  final db = liveDatabase(context);
+  final updates = ValueNotifier<GroupMemberStart?>(
+    groupMemberStartIn(persisted, mid, card: ext, legacyIds: legacy),
+  );
+  // Group Settings' Done can write the group's row; read it again once the
+  // dialog closes so the start the editor shows is the saved one.
+  Future<void> reread() async {
+    if (group == null) return;
+    try {
+      final row = await db.getGroupById(group.id);
+      updates.value = groupMemberStartIn(
+        row?.defaultMemberRealismState ?? '{}',
+        mid,
+        card: ext,
+        legacyIds: legacy,
+      );
+    } catch (e) {
+      debugPrint('[MemberEditor] could not read the group again: $e');
+    }
+  }
+
   void Function(BuildContext)? open(int tab) => back != null
       ? (ctx) => leaveCharacterEditor(ctx, onLeave: () => back(tab))
       : !canOpen
       ? null
-      : (ctx) => showGroupSettings(ctx, chat, initialTab: tab);
-  final legacy = [member.stableGroupId];
+      : (ctx) async {
+          await showGroupSettings(ctx, chat, initialTab: tab);
+          await reread();
+        };
   return MemberGroupView(
-    read: () => groupWideValuesOfChat(
-      chat,
-      worlds: worlds,
-    ).withRealism(groupTemplateRealismOf(persisted).realismOn),
+    read: () => groupWideValuesOfChat(chat, worlds: worlds),
     changes: chat,
+    startUpdates: updates,
     realismAllowed: _realismAllowed(context),
     onOpenRealism: open(kGroupSettingsRealismTab),
     onOpenChaos: open(kGroupSettingsRealismTab),
     onOpenNeeds: open(kGroupSettingsNeedsTab),
-    start: group == null
-        ? null
-        : groupMemberStartIn(persisted, mid, card: ext, legacyIds: legacy),
+    start: group == null ? null : updates.value,
     saveStart: group == null
         ? null
         : (start) => saveGroupMemberStart(
-            liveDatabase(context),
+            db,
             groupId: group.id,
             mid: mid,
             start: start,
@@ -147,6 +204,7 @@ MemberGroupView memberGroupViewOfTemplate(
           readsMemberLorebooks ?? group.inheritCharacterLorebooks,
     ),
     linkLabel: 'Realism & Dynamics',
+    noStartWhere: 'the Realism & Dynamics tab',
     realismAllowed: _realismAllowed(context),
     onOpenRealism: onOpenRealism,
     onOpenNeeds: onOpenRealism,

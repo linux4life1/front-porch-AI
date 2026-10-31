@@ -2330,7 +2330,7 @@ test("a member's start in the group's new chats saves to the group", { tag: SERI
     const before = (await detail()).start!;
     expect((await detail()).group?.realism).toBe(true);
     await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
-    await expect(page.getByTestId('group-line-realism')).toContainText('Realism Engine · On for this group');
+    await expect(page.getByTestId('group-line-realism')).toContainText("Realism Engine · On for this group's new chats");
     await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
 
     const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');

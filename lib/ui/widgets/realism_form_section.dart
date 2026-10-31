@@ -331,6 +331,10 @@ class RealismFormSection extends StatelessWidget {
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
           if (needsFormSection != null) needsFormSection!,
 
+          if (!showStartingState && memberRows?.noStartNote != null) ...[
+            const SizedBox(height: sectionHeaderGap),
+            MemberEditorNote(memberRows!.noStartNote!),
+          ],
           // Relationship Section — one [sectionHeaderGap] above the header.
           if (showStartingState) ...[
             Column(

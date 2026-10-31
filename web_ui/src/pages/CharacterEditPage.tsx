@@ -32,6 +32,7 @@ import {
   GroupLine,
   groupLineTexts,
   memberSectionNotes,
+  noStartNote,
   parseGroupLines,
   parseMemberStart,
 } from '../components/realism/memberGroup';
@@ -432,6 +433,7 @@ export function CharacterEditPage() {
         start={start}
         setStart={setStart}
         hiddenNote={hiddenNote}
+        noStartNote={member ? noStartNote() : undefined}
       />
 
       {(member ? !hiddenNote : rv.realismEnabled) && (

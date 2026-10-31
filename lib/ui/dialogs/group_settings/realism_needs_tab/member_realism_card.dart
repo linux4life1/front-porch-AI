@@ -31,6 +31,13 @@ class GroupMemberRealismCard extends StatelessWidget {
   /// The holding Group Settings dialog's tab switch, for the editor's links.
   final void Function(int tab)? onShowTab;
 
+  /// The group's saved realism definition, which the summary reads: never
+  /// this chat's copy, which holds edits Done has not saved yet.
+  final String persisted;
+
+  /// The member's editor closed (it may have saved their start).
+  final VoidCallback? onEdited;
+
   const GroupMemberRealismCard({
     super.key,
     required this.index,
@@ -38,7 +45,9 @@ class GroupMemberRealismCard extends StatelessWidget {
     required this.cs,
     required this.isRealismActive,
     required this.controller,
+    required this.persisted,
     this.onShowTab,
+    this.onEdited,
   });
 
   Widget _afterglowRow(BuildContext context) => Row(
@@ -90,7 +99,6 @@ class GroupMemberRealismCard extends StatelessWidget {
         : null;
     final emo = liveState?['emotion'] as String?;
     final bond = isRealismActive ? cs.getAffectionForGroupCharacter(char) : 0;
-    final group = cs.activeGroup;
     final afterglowShown =
         afterglowEnabledOf(context) && cs.afterglowChatSwitch;
     final ownAfterglow = char.frontPorchExtensions?.afterglowEnabled ?? true;
@@ -100,19 +108,23 @@ class GroupMemberRealismCard extends StatelessWidget {
       leading: _avatar(),
       name: char.name,
       detail: groupMemberSummaryDetail(
-        start: group == null
-            ? null
-            : groupMemberStartIn(
-                group.defaultMemberRealismState,
-                groupMemberStoreId(char),
-                card: char.frontPorchExtensions,
-                legacyIds: [char.stableGroupId],
-              ),
+        start: groupMemberStartIn(
+          persisted,
+          groupMemberStoreId(char),
+          card: char.frontPorchExtensions,
+          legacyIds: [char.stableGroupId],
+        ),
         afterglow: afterglowShown ? ownAfterglow : null,
         lite: char.isLite,
       ),
-      onEdit: () =>
-          showEditCharacterDialog(context, char, groupSettingsTab: onShowTab),
+      onEdit: () async {
+        await showEditCharacterDialog(
+          context,
+          char,
+          groupSettingsTab: onShowTab,
+        );
+        onEdited?.call();
+      },
       below: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -26,8 +26,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/database/database.dart'
-    show AppDatabaseGroupQueries;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -38,7 +36,7 @@ import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controll
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
-    show memberGroupViewOfChat;
+    show memberGroupViewOfChat, readMemberEditorDefinition;
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 
@@ -304,9 +302,12 @@ Future<void> showEditCharacterDialog(
   // Where the member starts is read from the group's row, not the chat's
   // copy (which can hold Group Settings edits not saved yet).
   final groupId = chatService.activeGroup?.id;
-  final persisted = db == null || groupId == null
-      ? '{}'
-      : (await db.getGroupById(groupId))?.defaultMemberRealismState ?? '{}';
+  var persisted = '{}';
+  if (db != null && groupId != null) {
+    final read = await readMemberEditorDefinition(context, db, groupId);
+    if (read == null) return; // a second tap while the first reads
+    persisted = read;
+  }
   if (!context.mounted) return;
   final opened = showDialog<void>(
     context: context,

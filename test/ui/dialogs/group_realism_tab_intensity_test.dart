@@ -25,6 +25,8 @@ import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section.dart'
+    show RealismFormSection;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -191,7 +193,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.byType(EditCharacterPage), findsOneWidget);
     expect(
-      find.text('Where Ada starts in new chats of this group.'),
+      find.text("Where Ada starts in this group's new chats."),
       findsOneWidget,
     );
 
@@ -443,5 +445,138 @@ void main() {
       await tester.pump();
       expect(adaBlock, findsNothing, reason: 'her own switch is off');
     });
+  });
+
+  /// The group's blobs with Ada starting at [affection] / [trust].
+  String adaAt(int affection, int trust) => buildGroupRealismBlobs(
+    seeds: {
+      'mem-ada': {
+        ...defaultGroupMemberRealismSeed(),
+        'affection': affection,
+        'longTermScore': affection,
+        'trust': trust,
+      },
+      'mem-bex': defaultGroupMemberRealismSeed(),
+    },
+    needsEnabled: true,
+    timeOfDay: 'morning',
+    dayCount: 1,
+  ).defaultMemberJson;
+
+  // The summary read this chat's copy of the group, which holds Group
+  // Settings edits Done has not saved; the group's next New Chat starts
+  // from its saved row, as the phone's summary says.
+  testWidgets("each member's summary reads the group's saved row, not this "
+      "chat's unsaved copy", (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    chat.activeGroup!.defaultMemberRealismState = adaAt(300, 100);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.widgetWithText(GroupMemberRealismCard, 'Ada'),
+        matching: find.text(' · Close / Trusting'),
+      ),
+      findsOneWidget,
+      reason: "the saved row: 35 / 40, not the copy's 300 / 100",
+    );
+  });
+
+  // Group Settings opened from a member's editor can save the group (Done).
+  // The editor kept the start it read as it opened, so its Save wrote that
+  // back over the one just saved.
+  testWidgets("a member's editor reads her start again when its Group "
+      'Settings link closes', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    RealismFormSection form() =>
+        tester.widget<RealismFormSection>(find.byType(RealismFormSection));
+    expect(form().shortTermBond, 35);
+
+    // The group's row moves after the editor read it, as Group Settings'
+    // Done writes it. One plain statement: a write that wakes the table's
+    // watchers waits on their reads, which only a frame moves on.
+    await tester.runAsync(
+      () => db.customStatement(
+        'UPDATE groups SET default_member_realism_state = ? WHERE id = ?',
+        [adaAt(90, 10), 'grp-mood'],
+      ),
+    );
+    await tester.pump();
+    expect(form().shortTermBond, 35, reason: 'nothing read it yet');
+
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    Navigator.of(tester.element(find.byType(GroupSettingsDialog))).pop();
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      (form().shortTermBond, form().trustLevel),
+      (90, 10),
+      reason: 'the start the group saved',
+    );
+    Navigator.of(tester.element(find.byType(EditCharacterPage))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
   });
 }

@@ -42,6 +42,7 @@
 // refresh of the chat's copy (test 4); write a null extensions column when
 // the card holds none (test 5).
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -778,11 +779,11 @@ void main() {
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
 
-      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
-      expect(find.text('Chaos Mode · Off for this group'), findsOneWidget);
-      expect(find.text('Needs · On for this group'), findsOneWidget);
+      expect(find.text('Realism Engine · On in this chat'), findsOneWidget);
+      expect(find.text('Chaos Mode · Off in this chat'), findsOneWidget);
+      expect(find.text('Needs · On in this chat'), findsOneWidget);
       expect(
-        find.textContaining('Time & Day · shared by the group: '),
+        find.textContaining('Time & Day · in this chat: '),
         findsOneWidget,
       );
       expect(
@@ -791,7 +792,7 @@ void main() {
         reason: 'the group never gets a second Realism switch',
       );
       expect(
-        find.text('Where Mara starts in new chats of this group.'),
+        find.text("Where Mara starts in this group's new chats."),
         findsOneWidget,
       );
       expect(
@@ -876,7 +877,10 @@ void main() {
         ),
       );
 
-      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
+      expect(
+        find.text("Realism Engine · On for this group's new chats"),
+        findsOneWidget,
+      );
       form(tester).onLongTermBondChanged(120);
       await tester.pump();
       final groupWrites = countWrites(db.groups);
@@ -921,11 +925,21 @@ void main() {
         ),
       );
 
-      expect(find.text('Realism Engine · Off for this group'), findsOneWidget);
+      expect(
+        find.text("Realism Engine · Off for this group's new chats"),
+        findsOneWidget,
+      );
       expect(
         find.text('Short-Term Bond'),
         findsNothing,
         reason: 'a seed written here would switch Realism on for the group',
+      );
+      expect(
+        find.text(
+          "This group's new chats start without Realism, so there's no start "
+          'to set. Set in the Realism & Dynamics tab.',
+        ),
+        findsOneWidget,
       );
       final groupWrites = countWrites(db.groups);
       pickVoice(tester, 'af_heart');
@@ -1066,7 +1080,7 @@ void main() {
       expect(find.text('Short-Term Bond'), findsNothing);
       expect(find.text('Needs Simulation'), findsNothing);
       expect(find.text('Afterglow for Mara'), findsNothing);
-      expect(find.text('Chaos Mode · Off for this group'), findsOneWidget);
+      expect(find.text('Chaos Mode · Off in this chat'), findsOneWidget);
     });
   });
 
@@ -1117,7 +1131,9 @@ void main() {
         findsNothing,
       );
       expect(
-        find.text('Time & Day · shared by the group: Evening, Day 3'),
+        find.text(
+          "Time & Day · this group's new chats start at: Evening, Day 3",
+        ),
         findsOneWidget,
       );
       await saveTwiceFast(tester);
@@ -1385,11 +1401,12 @@ void main() {
     });
   });
 
-  testWidgets("the sidebar member editor reads the group's start and its "
-      "Realism line from the row, not the open chat's copy", (tester) async {
+  testWidgets("the sidebar member editor shows this chat's Realism, and no "
+      "start when the group's saved new chats run without it", (tester) async {
     await tester.runAsync(() async {
       // Edit group switched Realism off for new chats and saved while the
-      // chat was open: the chat's copy still has the seeds until it reopens.
+      // chat was open: the chat runs Realism, and its copy still has the
+      // seeds until it reopens.
       final mara = member();
       final open = GroupChat(
         id: _groupId,
@@ -1404,11 +1421,18 @@ void main() {
       );
 
       expect(
-        find.text('Realism Engine · Off for this group'),
+        find.text('Realism Engine · On in this chat'),
         findsOneWidget,
-        reason: 'the same source as the start: the row',
+        reason: "the line is this chat's own switch, and says so",
       );
       expect(form(tester).showStartingState, isFalse);
+      expect(
+        find.text(
+          "This group's new chats start without Realism, so there's no start "
+          'to set. Set in Edit group → Realism & Dynamics.',
+        ),
+        findsOneWidget,
+      );
       pickVoice(tester, 'af_heart');
       await tester.pump();
       await saveTwiceFast(tester);
@@ -1457,7 +1481,7 @@ void main() {
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
 
-      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
+      expect(find.text('Realism Engine · On in this chat'), findsOneWidget);
       expect(form(tester).showStartingState, isTrue);
       form(tester).onTrustLevelChanged(30);
       await tester.pump();
@@ -1540,7 +1564,7 @@ void main() {
         baselineJson: _realismOn.baselineJson,
       );
       final chaos = find.ancestor(
-        of: find.text('Chaos Mode · Off for this group'),
+        of: find.text("Chaos Mode · Off for this group's new chats"),
         matching: find.byType(GroupWideLine),
       );
       expect(
@@ -1654,6 +1678,99 @@ void main() {
       });
     });
   }
+
+  // Opening a member's editor from the chat reads the group's row first. A
+  // second tap while it read opened a second editor, and a read that threw
+  // left the tap doing nothing, with no word why.
+  group("opening a member's editor from the chat", () {
+    Future<void> pumpOpener(WidgetTester tester, AppDatabase database) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final mara = member();
+      final chat = _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair'));
+      final library = _Library();
+      final storage = FakeStorageService();
+      final worlds = FakeWorldRepository();
+      addTearDown(library.dispose);
+      addTearDown(storage.dispose);
+      addTearDown(worlds.dispose);
+      addTearDown(chat.dispose);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<AppDatabase>.value(value: database),
+            ChangeNotifierProvider<CharacterRepository>.value(value: library),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showEditCharacterDialog(context, mara),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> settle(WidgetTester tester) async {
+      await pumpUntil(
+        tester,
+        () => find.byType(EditCharacterPage).evaluate().isNotEmpty,
+        why: 'the editor never opened',
+      );
+      // Let a second read (if any) land and its dialog open.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('a double tap opens one editor', (tester) async {
+      await tester.runAsync(seedGroupRow);
+      await pumpOpener(tester, db);
+      // A slow disk: the group's read waits behind a transaction, so the
+      // second tap lands while the first read is still in flight.
+      final release = Completer<void>();
+      late Future<void> held;
+      await tester.runAsync(() async {
+        held = db.transaction(() => release.future);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await doubleTapNoFrame(tester, find.text('Open'));
+      release.complete();
+      await tester.runAsync(() async {
+        await held;
+        await settle(tester);
+      });
+      expect(find.byType(EditCharacterPage), findsOneWidget);
+    });
+
+    testWidgets("a group read that fails still opens her editor, offering no "
+        'start, and says so', (tester) async {
+      await tester.runAsync(() async {
+        final broken = AppDatabase.forTesting(sameIsolate: true);
+        addTearDown(broken.close);
+        await broken.customStatement('DROP TABLE groups');
+        await pumpOpener(tester, broken);
+        await tester.tap(find.text('Open'));
+        await settle(tester);
+        expect(
+          find.text(
+            "Couldn't read this group's settings, so where the member starts "
+            'is not shown.',
+          ),
+          findsWidgets,
+          reason: 'the messenger shows it on every Scaffold, the editor too',
+        );
+        expect(form(tester).showStartingState, isFalse);
+      });
+    });
+  });
 }
 
 /// An open group named Pair that records each member Afterglow it sets. Like

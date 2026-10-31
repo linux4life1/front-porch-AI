@@ -219,12 +219,12 @@ describe("the group member editor and the member's group", () => {
     await mountAt('/groups/g1/members/mem-mara/edit', <></>);
 
     for (const line of [
-      'Realism Engine · On for this group',
-      'Time & Day · shared by the group: Evening, Day 3',
-      'Chaos Mode · On for this group',
-      'Afterglow · On for this group',
-      'Needs · Off for this group',
-      'Where Mara starts in new chats of this group.',
+      "Realism Engine · On for this group's new chats",
+      "Time & Day · this group's new chats start at: Evening, Day 3",
+      "Chaos Mode · On for this group's new chats",
+      "Afterglow · On for this group's new chats",
+      "Needs · Off for this group's new chats",
+      "Where Mara starts in this group's new chats.",
       'Used when a greeting opens a chat of this group.',
       "This group meets in Harborside: the group's world sets the place and weather",
       'While Group settings has "Inherit character & world lorebooks" on, Mara\'s own worlds add their lore when Mara speaks; it is on for this group.',
@@ -237,7 +237,7 @@ describe("the group member editor and the member's group", () => {
     // A closed group: its new-chat settings are in Group settings, its Chaos
     // only in a chat of the group (the phone's Chaos is in the chat's tools).
     expect(container.querySelector('[data-testid="group-line-realism"]')?.textContent).toContain(
-      'set in Group settings, in a chat of this group',
+      'set in Group settings → Realism for new chats, in a chat of this group',
     );
     expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
       '· set in a chat of this group',
@@ -271,7 +271,7 @@ describe("the group member editor and the member's group", () => {
     for (const hidden of ['Short-term bond', 'Needs Simulation', 'Afterglow for Mara']) {
       expect(text(), hidden).not.toContain(hidden);
     }
-    expect(text()).toContain('Chaos Mode · On for this group');
+    expect(text()).toContain("Chaos Mode · On for this group's new chats");
   });
 
   it('hides Realism, Needs and Afterglow while Porch Life does not allow Realism', async () => {
@@ -327,5 +327,42 @@ describe("the group member editor and the member's group", () => {
     expect(
       container.querySelector('[data-testid="member-summary-mem-mara"]')?.textContent,
     ).toBe('Mara · Close / Trusting · Afterglow on');
+  });
+});
+
+// Each line says what it describes. While the group is open in the chat the
+// lines are that chat's own switches; the start beside them is how the
+// group's new chats begin, and when those run without Realism there is none
+// to set, and the editor says where that is set.
+describe('the group member editor while its group is open in the chat', () => {
+  const OPEN = { ...IN_GROUP, group: { ...IN_GROUP.group, open: true } };
+
+  it("words the group's lines as this chat's own switches", async () => {
+    detailIs(OPEN);
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    for (const line of [
+      'Realism Engine · On in this chat',
+      'Time & Day · in this chat: Evening, Day 3',
+      'Chaos Mode · On in this chat',
+      'Needs · Off in this chat',
+      "Where Mara starts in this group's new chats.",
+    ]) {
+      expect(text(), line).toContain(line);
+    }
+    expect(container.querySelector('[data-testid="group-line-realism"]')?.textContent).toContain(
+      "set in this chat's tools",
+    );
+  });
+
+  it("says there is no start to set while the group's new chats run without Realism", async () => {
+    detailIs({ ...OPEN, start: null });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(text()).toContain('Realism Engine · On in this chat');
+    expect(container.querySelector('[data-testid="member-no-start-note"]')?.textContent).toBe(
+      "This group's new chats start without Realism, so there's no start to set. Set in Group settings → Realism for new chats, in a chat of this group.",
+    );
+    expect(text()).not.toContain('Short-term bond');
   });
 });
