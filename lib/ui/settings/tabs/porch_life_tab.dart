@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 
 import 'porch_life_defaults_note.dart';
 import 'porch_life_engine_card.dart';
@@ -422,7 +423,12 @@ class PorchLifeTab extends StatelessWidget {
                     'Each chat keeps its own choice for when you turn this '
                     'back on.',
                 value: storage.realismSettings.nsfwCooldownDefault,
-                onChanged: storage.realismSettings.setNsfwCooldownDefault,
+                onChanged: (v) async {
+                  final was = storage.realismSettings.afterglowEnabled;
+                  await storage.realismSettings.setNsfwCooldownDefault(v);
+                  if (!context.mounted) return;
+                  await offerAfterglowInExistingChats(context, wasAllowed: was);
+                },
               ),
               FeatureRow(
                 icon: Icons.favorite,
