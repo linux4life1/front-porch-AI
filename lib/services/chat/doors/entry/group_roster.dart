@@ -16,29 +16,65 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:convert';
+import 'dart:io';
 
-/// Live add / remove / create-member. 1:1→group fork stays on
-/// [ChatServiceGroupMembership].
-extension ChatServiceGroupMembers on ChatService {
+import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as path;
+import 'package:uuid/uuid.dart';
+
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'entry_door.dart';
+
+/// A group's live roster: a member joins (their card copied into the
+/// group's private storage under a new member row), leaves (row, avatar
+/// and every per-member store, collapsing to a 1:1 when one is left), and
+/// the roster re-read from the member table. Members borrow their library
+/// character's expression images.
+class GroupRoster {
+  GroupRoster(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  CastDoor get _cast => _s.cast();
+  AppDatabase get _db => _s.db();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  GroupRealismStore get _groupStore => _s.realism().groups;
+  bool get _isTurnBusy => _d.hooks.isTurnBusy();
+  String _getCharacterIdFromCard(CharacterCard c) =>
+      _d.shared.characterIdFor(c);
+
+  /// The chat's stored Needs switch: a member who joins is seeded under it.
+  bool get _needsSimEnabled => _s.realism().needsSimEnabled();
+
   /// Create a group member (decoupled model): copy the character's avatar into
   /// the group's private storage and insert a group_members row.
-  /// Shared by [addCharacterToGroup] (live add) and [forkToGroupChat] (initial
+  /// Shared by [addCharacterToGroup] (live add) and [GroupFork.forkToGroupChat] (initial
   /// membership when forking a 1:1 chat into a group).
   ///
   /// This is the core of the fix originally contributed in PR #44 by @MisterLotto.
-  Future<String> _createGroupMember(
+  Future<String> createGroupMember(
     String groupId,
     CharacterCard character, {
     bool asLite = false,
   }) async {
     final mid = const Uuid().v4();
     final avDir = Directory(
-      path.join(_storageService.groupsDir.path, groupId, 'avatars'),
+      path.join(_s.storage.groupsDir.path, groupId, 'avatars'),
     );
     await avDir.create(recursive: true);
 
-    await _characterRepository!.duplicateCharacter(
+    await _s.characters()!.duplicateCharacter(
       character,
       targetDirOverride: avDir.path,
       forcedBasename: mid,
@@ -110,7 +146,7 @@ extension ChatServiceGroupMembers on ChatService {
     GroupChatRepository groupRepo, {
     bool asLite = false,
   }) async {
-    if (_activeGroup == null || _characterRepository == null) return false;
+    if (_activeGroup == null || _s.characters() == null) return false;
     if (_isTurnBusy) return false;
 
     // D5 — one instance per library character per chat. Refuse to add a
@@ -128,7 +164,7 @@ extension ChatServiceGroupMembers on ChatService {
       return m.name.trim().toLowerCase() == incomingName;
     });
     if (alreadyPresent) {
-      _setGuestStatus(
+      _cast.guests.setStatus(
         '⚠ ${character.name} is already in this chat.',
         isError: true,
       );
@@ -139,7 +175,7 @@ extension ChatServiceGroupMembers on ChatService {
     // storage and insert a group_members row. Shared with forkToGroupChat
     // via _createGroupMember (ported from the fix originally contributed in
     // PR #44 by @MisterLotto).
-    final mid = await _createGroupMember(
+    final mid = await createGroupMember(
       _activeGroup!.id,
       character,
       asLite: asLite,
@@ -153,7 +189,7 @@ extension ChatServiceGroupMembers on ChatService {
     for (final m in memberRows) {
       if (m.avatarFilename != null) {
         final p = path.join(
-          _storageService.groupsDir.path,
+          _s.storage.groupsDir.path,
           _activeGroup!.id,
           'avatars',
           m.avatarFilename!,
@@ -163,7 +199,7 @@ extension ChatServiceGroupMembers on ChatService {
         resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }
     }
-    _inheritGroupExpressionAvatars(resolved);
+    inheritGroupExpressionAvatars(resolved);
     _session.groupManager?.refreshCharacters(resolved);
     if (!asLite && _needsSimEnabled && _groupStore.needsOf(mid).isEmpty) {
       _groupStore.setNeeds(
@@ -173,26 +209,26 @@ extension ChatServiceGroupMembers on ChatService {
     }
 
     debugPrint(
-      '[ChatService] \u{2795} Added ${character.name} to group ${_activeGroup!.name}',
+      '[Chat] \u{2795} Added ${character.name} to group ${_activeGroup!.name}',
     );
-    notifyListeners();
+    _d.notify();
     return true;
   }
 
   /// Re-resolve the group's live roster from the member table and push it to the
   /// turn manager, returning the resolved cards. Missing avatars still keep the
-  /// member on the roster (same rule as [setActiveGroup]). Shared by member
+  /// member on the roster (same rule as [GroupEntry.setActiveGroup]). Shared by member
   /// removal (after the delete) and the deferred-exit undo (after a soft-remove,
   /// where the row still exists so the member comes straight back).
-  Future<List<CharacterCard>> _reloadGroupRoster() async {
-    final repo = _groupChatRepository;
+  Future<List<CharacterCard>> reloadGroupRoster() async {
+    final repo = _door.groupRepository;
     if (_activeGroup == null || repo == null) return const <CharacterCard>[];
     final rows = await repo.getMembersForGroup(_activeGroup!.id);
     final resolved = <CharacterCard>[];
     for (final m in rows) {
       if (m.avatarFilename != null) {
         final p = path.join(
-          _storageService.groupsDir.path,
+          _s.storage.groupsDir.path,
           _activeGroup!.id,
           'avatars',
           m.avatarFilename!,
@@ -202,7 +238,7 @@ extension ChatServiceGroupMembers on ChatService {
         resolved.add(m.toCharacterCard(resolvedImagePath: ''));
       }
     }
-    _inheritGroupExpressionAvatars(resolved);
+    inheritGroupExpressionAvatars(resolved);
     _session.groupManager?.refreshCharacters(resolved);
     return resolved;
   }
@@ -212,12 +248,12 @@ extension ChatServiceGroupMembers on ChatService {
   /// objectives / embeddings / data-bank), then re-resolves the surviving cast.
   /// When the removal leaves exactly ONE member the group auto-collapses back
   /// into a 1:1 with that member's ORIGINAL library character (a one-character
-  /// group is nonsense) — see [_collapseGroupToSolo].
+  /// group is nonsense) — see [CastCollapse.collapseGroupToSolo].
   Future<bool> removeCharacterFromGroup(
     CharacterCard character,
     GroupChatRepository groupRepo,
   ) async {
-    if (_activeGroup == null || _characterRepository == null) return false;
+    if (_activeGroup == null || _s.characters() == null) return false;
     if (_isTurnBusy) return false;
 
     final charId = _getCharacterIdFromCard(
@@ -235,21 +271,21 @@ extension ChatServiceGroupMembers on ChatService {
     }
 
     // Delete the row + avatar + per-member DB state + in-memory maps.
-    await _deleteMemberCleanup(charId, removedAvatar);
+    await _cast.roster.deleteMemberCleanup(charId, removedAvatar);
     await groupRepo.save(_activeGroup!);
 
     // Re-resolve the surviving members from the (now smaller) member table.
-    final resolved = await _reloadGroupRoster();
+    final resolved = await reloadGroupRoster();
 
     debugPrint(
-      '[ChatService] \u{2796} Removed ${character.name} from group '
+      '[Chat] \u{2796} Removed ${character.name} from group '
       '${_activeGroup!.name} (${resolved.length} left)',
     );
 
     // Persist the cleaned per-character maps to the session now, so the removed
     // member's realism/notes/etc. can't re-enter the group_realism_state blob on
     // a later save.
-    await _saveChat();
+    await _d.sessions().save();
 
     // A one-character group is nonsense — collapse straight back to a 1:1 with
     // the survivor's original library character (auto, no prompt). If the collapse
@@ -257,11 +293,44 @@ extension ChatServiceGroupMembers on ChatService {
     // conversations), _collapseGroupToSolo surfaces a banner and we stay a
     // one-member cast.
     if (resolved.length == 1) {
-      await _collapseGroupToSolo(groupRepo);
+      await _cast.collapse.collapseGroupToSolo(groupRepo);
       return true;
     }
 
-    notifyListeners();
+    _d.notify();
     return true;
+  }
+
+  /// The LIBRARY character this card came from. Identity first (dbId, then
+  /// stableGroupId), name only when it is unique — two "Rachel"s must not
+  /// share a face. Null when there is no confident match (imported-only
+  /// member, or two library cards with the same name and no stamp).
+  /// Used to inherit expressions and to route the in-chat Expression
+  /// Images editor at the member's real library home.
+  CharacterCard? originLibraryCardFor(CharacterCard member) {
+    final lib = _s.characters()?.characters;
+    if (lib == null) return null;
+    return MemberOriginResolver.resolveForCard(member, lib);
+  }
+
+  /// Group members are single-avatar copies of LIBRARY characters (the decoupled
+  /// model stores one PNG per member, no expression set). For the expression
+  /// display, inherit the origin library character's expression images. No
+  /// per-member storage: a character that has expressions set up in your library
+  /// shows them in the group; a member with no library match keeps its single
+  /// avatar. Mutates each card's `avatarImages` in place (defensive copy so the
+  /// member can never mutate the shared library list).
+  void inheritGroupExpressionAvatars(List<CharacterCard> members) {
+    for (final m in members) {
+      if (m.avatarImages != null && m.avatarImages!.isNotEmpty) continue;
+      final origin = originLibraryCardFor(m);
+      if (origin?.avatarImages != null && origin!.avatarImages!.isNotEmpty) {
+        // The prime index belongs with the images: it names the face a
+        // label with no match falls back on.
+        m
+          ..avatarImages = List<AvatarImage>.from(origin.avatarImages!)
+          ..primeAvatarIndex = origin.primeAvatarIndex;
+      }
+    }
   }
 }

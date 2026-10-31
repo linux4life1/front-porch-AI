@@ -177,46 +177,41 @@ extension ChatServiceDoorWiring on ChatService {
           autonomous: autonomous,
           skipSpeakerEval: skipSpeakerEval,
         ),
-    waitForTurnToSettle: _waitForTurnToSettle,
+    waitForTurnToSettle: () => entryDoor.cover.waitForTurnToSettle(),
     deleteMessage: deleteMessage,
     embedFor: (id) => _maybeEmbedMessages(characterIdOverride: id),
     isEvaluatingRealism: () => _isEvaluatingRealism,
     ttsSpeaking: () => _ttsService != null && _ttsService!.isSpeaking,
     mouthReady: () => _mouthLlm.isReady,
     needsActive: () => _needsPass.active,
-    directing: () => _directing,
-    setObserverMode: (on) => _observerMode = on,
+    directing: () => entryDoor.director.directing,
+    setObserverMode: (on) => entryDoor.director.observerMode = on,
     groupSpeakerSkips: _groupSpeakerSkips,
     setNextCharacter: setNextCharacter,
-    nextCharacter: () => nextCharacter,
+    nextCharacter: () => entryDoor.director.nextCharacter,
     pickPresentSpeaker: _pickPresentGroupSpeaker,
     workFieldsFor: _workFieldsFor,
     memberInScene: _memberInScene,
-    reloadGroupRoster: _reloadGroupRoster,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
     addToGroup: (card, repo, {asLite = false}) =>
-        addCharacterToGroup(card, repo, asLite: asLite),
-    removeFromGroup: removeCharacterFromGroup,
+        entryDoor.roster.addCharacterToGroup(card, repo, asLite: asLite),
+    removeFromGroup: (card, repo) =>
+        entryDoor.roster.removeCharacterFromGroup(card, repo),
     forkToGroup:
         (
           additional,
           repo, {
           entrances = const {},
           liteArrivalKeys = const {},
-        }) => forkToGroupChat(
+        }) => entryDoor.fork.forkToGroupChat(
           additional,
           repo,
           entrances: entrances,
           liteArrivalKeys: liteArrivalKeys,
         ),
-    forgetMember: (id) {
-      _groupRealism.remove(id);
-      _groupAuthorNotes.remove(id);
-      _groupAuthorNoteStrengths.remove(id);
-      _groupCharacterSystemPrompts.remove(id);
-      _groupCharacterRAGPriorities.remove(id);
-    },
+    forgetMember: (id) => entryDoor.forgetMember(id),
     seedPromotedNeeds: _seedPromotedNeeds,
-    setActiveCharacter: setActiveCharacter,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
     loadSession: (id) => sessionStore.loader.loadSession(id),
     ragCharacterId: _getCharacterId,
     parseJsonMap: _tryParseJsonMap,
@@ -256,7 +251,7 @@ extension ChatServiceDoorWiring on ChatService {
   /// True while forked-in character entrances are still playing. The
   /// composer mirrors sendMessage's early return on it, so it does not
   /// consume an attached photo for a turn sendMessage would drop.
-  bool get entrancesInFlight => _entrancesInFlight;
+  bool get entrancesInFlight => entryDoor.entrancesInFlight;
 
   /// From the start of a photo turn's captioning through the end of its send
   /// flow: the captions run while the generating flag is down, so this keeps
@@ -277,7 +272,7 @@ extension ChatServiceSessionWiring on ChatService {
         worlds: _worldRepository,
         macros: _macroResolver,
         characters: () => _characterRepository,
-        groupRepository: () => _groupChatRepository,
+        groupRepository: () => entryDoor.groupRepository,
         realism: _realismScope,
         cast: () => castDoor,
         objectives: () => objectivesDoor,
@@ -298,49 +293,54 @@ extension ChatServiceSessionWiring on ChatService {
         dance: () => _realismDance,
         mood: () => _mood,
         sceneMoves: _sceneMoves,
-        autoChat: _autoChatBudget,
+        autoChat: entryDoor.autoChat,
       ),
-      hooks: SessionShellHooks(
-        characterIdFor: _getCharacterIdFromCard,
-        ragCharacterId: _getCharacterId,
-        waitForTurnToSettle: _waitForTurnToSettle,
-        cancelAndWaitForGeneration: _cancelAndWaitForGeneration,
-        realismEnabled: () => _realismEnabled,
-        chatRealism: () => _realismChatSwitch,
-        setChatRealism: (on) => _realismChatSwitch = on,
-        setNeedsSimEnabled: (on) => _needsSimEnabled = on,
-        objectivesEnabled: () => _objectivesEnabled,
-        setObjectivesEnabled: (on) => _objectivesEnabled = on,
-        enjoysLowHygiene: () => _enjoysLowHygiene,
-        setEnjoysLowHygiene: (on) => _enjoysLowHygiene = on,
-        afterglowChatSwitch: () => _afterglowChatSwitchImpl,
-        applySeededPassageOfTime: _applySeededPassageOfTime,
-        onRealismStarted: _onRealismStarted,
-        setGrowthPassRunning: (on) => _isGrowthPassRunning = on,
-        restoreForSpeaker: (msg, {restoreClock = false}) =>
-            _restoreRealismStateForSpeaker(msg, restoreClock: restoreClock),
-        restoreFromMessage: (msg, {restoreClock = false}) =>
-            _restoreRealismStateFromMessage(msg, restoreClock: restoreClock),
-        hostPockets: () => _pockets,
-        setHostPockets: (record) => _pockets = record,
-        seedPocketsFromCards: seedPocketsFromCards,
-        setPocketsFor: setPocketsFor,
-        pocketsEnabledFor: pocketsEnabledFor,
-        resetDirectorModeToDefault: _resetDirectorModeToDefault,
-        rekeyGroupStores: _rekeyGroupStores,
-        reloadChatWorldIds: _reloadChatWorldIds,
-        chatPlaceIds: () => _chatPlaceSlots.allIds,
-        clearContextBudget: _clearContextBudget,
-        loadContextBudget: _loadContextBudgetForSession,
-        persistContextBudget: _persistContextBudgetForSession,
-        armPromptPicker: _armPromptPickerIfDue,
-        setActiveCharacter: setActiveCharacter,
-        setActiveGroup: setActiveGroup,
-        beginSessionLoad: beginSessionLoad,
-        endSessionLoad: endSessionLoad,
-      ),
+      hooks: _sessionHooks(),
       notify: notifyListeners,
     ),
+  );
+
+  /// The session store's hooks; the entry door takes the same ones.
+  SessionShellHooks _sessionHooks() => SessionShellHooks(
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    waitForTurnToSettle: () => entryDoor.cover.waitForTurnToSettle(),
+    cancelAndWaitForGeneration: _cancelAndWaitForGeneration,
+    realismEnabled: () => _realismEnabled,
+    chatRealism: () => _realismChatSwitch,
+    setChatRealism: (on) => _realismChatSwitch = on,
+    setNeedsSimEnabled: (on) => _needsSimEnabled = on,
+    objectivesEnabled: () => _objectivesEnabled,
+    setObjectivesEnabled: (on) => _objectivesEnabled = on,
+    enjoysLowHygiene: () => _enjoysLowHygiene,
+    setEnjoysLowHygiene: (on) => _enjoysLowHygiene = on,
+    afterglowChatSwitch: () => _afterglowChatSwitchImpl,
+    applySeededPassageOfTime: _applySeededPassageOfTime,
+    onRealismStarted: _onRealismStarted,
+    setGrowthPassRunning: (on) => _isGrowthPassRunning = on,
+    restoreForSpeaker: (msg, {restoreClock = false}) =>
+        _restoreRealismStateForSpeaker(msg, restoreClock: restoreClock),
+    restoreFromMessage: (msg, {restoreClock = false}) =>
+        _restoreRealismStateFromMessage(msg, restoreClock: restoreClock),
+    hostPockets: () => _pockets,
+    setHostPockets: (record) => _pockets = record,
+    seedPocketsFromCards: seedPocketsFromCards,
+    setPocketsFor: setPocketsFor,
+    pocketsEnabledFor: pocketsEnabledFor,
+    resetDirectorModeToDefault: () =>
+        entryDoor.director.resetDirectorModeToDefault(),
+    rekeyGroupStores: () => entryDoor.rekey.rekeyGroupStores(),
+    reloadChatWorldIds: _reloadChatWorldIds,
+    chatPlaceIds: () => _chatPlaceSlots.allIds,
+    clearContextBudget: _clearContextBudget,
+    loadContextBudget: _loadContextBudgetForSession,
+    persistContextBudget: _persistContextBudgetForSession,
+    armPromptPicker: _armPromptPickerIfDue,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    setActiveGroup: (group, {groupRepo}) =>
+        entryDoor.group.setActiveGroup(group, groupRepo: groupRepo),
+    beginSessionLoad: () => entryDoor.cover.beginSessionLoad(),
+    endSessionLoad: () => entryDoor.cover.endSessionLoad(),
   );
 
   ChatImporter _buildChatImporter() => ChatImporter(
@@ -373,13 +373,13 @@ extension ChatServiceSessionWiring on ChatService {
     invalidateGreetingEval: castDoor.greetings.invalidateGreetingEval,
     characterIdFor: _getCharacterIdFromCard,
     ragCharacterId: _getCharacterId,
-    reloadGroupRoster: _reloadGroupRoster,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
     enterSceneGuestSilently: (guest) =>
         castDoor.guests.enterSceneGuest(guest, speak: false),
     loadActiveObjectives: objectivesDoor.loadActiveObjectives,
     loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
     formatForRagEmbedding: _formatMessagesForRagEmbedding,
-    setActiveCharacter: setActiveCharacter,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
     deleteSessionQuietly: (id) =>
         editsDoor.editor.deleteSession(id, startReplacement: false),
   );
@@ -404,17 +404,10 @@ extension _ChatServiceSessionNames on ChatService {
   int get _authorNoteStrength => sessionStore.authorNoteStrength;
   set _authorNoteStrength(int v) => sessionStore.authorNoteStrength = v;
   ChatGenerationSettings get _sessionGenSettings => sessionStore.genSettings;
-  Map<String, String> get _selectedLooks => sessionStore.selectedLooks;
-  String? get _sessionName => sessionStore.sessionName;
-  String? get _sessionDescription => sessionStore.sessionDescription;
-  set _parentSessionId(String? v) => sessionStore.parentSessionId = v;
-  set _forkIndex(int? v) => sessionStore.forkIndex = v;
   bool get _isNewChat => sessionStore.isNewChat;
   set _isNewChat(bool v) => sessionStore.isNewChat = v;
   bool get _isLoadingSession => sessionStore.isLoadingSession;
-  set _isLoadingSession(bool v) => sessionStore.isLoadingSession = v;
   int get _chatSwitches => sessionStore.chatSwitches;
-  Future<void> get _saveChain => sessionStore.saveChain;
   bool get _absenceAckPending => sessionStore.absenceAckPending;
   set _absenceAckPending(bool v) => sessionStore.absenceAckPending = v;
   bool get _absenceAckConsumed => sessionStore.absenceAckConsumed;
@@ -434,36 +427,13 @@ extension _ChatServiceSessionNames on ChatService {
   // A group's per-member settings (GroupSessionConfig).
   GroupSessionConfig get _groupConfig => sessionStore.groupConfig;
   Map<String, String> get _groupAuthorNotes => _groupConfig.authorNotes;
-  set _groupAuthorNotes(Map<String, String> v) => _groupConfig.authorNotes = v;
   Map<String, int> get _groupAuthorNoteStrengths =>
       _groupConfig.authorNoteStrengths;
-  set _groupAuthorNoteStrengths(Map<String, int> v) =>
-      _groupConfig.authorNoteStrengths = v;
-  Map<String, String> get _groupCharacterSystemPrompts =>
-      _groupConfig.characterSystemPrompts;
-  set _groupCharacterSystemPrompts(Map<String, String> v) =>
-      _groupConfig.characterSystemPrompts = v;
-  bool get _groupRagEnabled => _groupConfig.ragEnabled;
-  set _groupRagEnabled(bool v) => _groupConfig.ragEnabled = v;
-  int get _groupRetrievalCount => _groupConfig.retrievalCount;
-  set _groupRetrievalCount(int v) => _groupConfig.retrievalCount = v;
-  double get _groupMemoryBudgetPercent => _groupConfig.memoryBudgetPercent;
-  set _groupMemoryBudgetPercent(double v) =>
-      _groupConfig.memoryBudgetPercent = v;
-  Map<String, double> get _groupCharacterRAGPriorities =>
-      _groupConfig.characterRAGPriorities;
-  set _groupCharacterRAGPriorities(Map<String, double> v) =>
-      _groupConfig.characterRAGPriorities = v;
 
   // Load, save and the window.
   Future<void> _saveChat({bool replaceAll = false}) =>
       sessionStore.save(replaceAll: replaceAll);
   void _rememberRecapEdit(String text) => sessionStore.rememberRecapEdit(text);
-  Future<void> _loadLastSession() => sessionStore.loader.loadLastSession();
-  Future<bool> _loadGroupRealismStateFromSession(Session? session) =>
-      sessionStore.groupState.loadGroupRealismState(session);
   Future<void> _awaitHistoryHydrated() =>
       sessionStore.window.awaitHistoryHydrated();
-  Future<void> _seedChatWorldsForNewSession({List<String>? carryRefs}) =>
-      sessionStore.forker.seedChatWorldsForNewSession(carryRefs: carryRefs);
 }

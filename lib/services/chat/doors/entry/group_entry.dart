@@ -16,69 +16,129 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:io';
 
-/// Chat-entry point — setActiveGroup (open/seed a group chat). Extracted verbatim (zero behaviour change) to shrink the god file.
-extension ChatServiceGroupEntry on ChatService {
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as path;
+
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/group_turn_manager.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+
+import 'entry_door.dart';
+
+/// Open a group: the departing chat flushed and detached, every per-chat
+/// register reset, the roster resolved from the member table, Chaos seeded
+/// from the group OR-ed with the Porch Life default, the group's realism
+/// seeds promoted on a fresh chat, the last session loaded through the
+/// session store (the group blob, each member's stores, the legacy
+/// re-key), or, with none, the group's greeting placed and saved.
+class GroupEntry {
+  GroupEntry(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  EntryShellHooks get _h => _d.hooks;
+  SessionShellHooks get _sh => _d.shared;
+  SessionStore get _store => _d.sessions();
+  GroupSessionConfig get _group => _store.groupConfig;
+  RealismScope get _scope => _s.realism();
+  CastDoor get _cast => _s.cast();
+  SceneGuestState get _sceneGuest => _cast.guests.state;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  GroupRealismStore get _groupStore => _scope.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => _groupStore.members;
+  RelationshipService get _relationshipService => _scope.relationship();
+  NsfwService get _nsfwService => _scope.nsfw();
+  TimeService get _timeService => _scope.time();
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  ChaosModeService get _chaosModeService => _s.chaos();
+  LorebookScanner get _lorebookScanner => _s.lorebook();
+  ExpressionService get _expressionService => _s.expression();
+  MoodRegisters get _mood => _s.mood();
+  StoryClockWriter get _clockWriter => _s.clockWriter();
+  GrowthDesk get _growthDesk => _s.growthDesk();
+  MacroResolver get _macroResolver => _s.macros;
+  bool get _realismEnabled => _scope.realismEnabled();
+  String _getCharacterIdFromCard(CharacterCard c) => _sh.characterIdFor(c);
+
+  /// The chat's own Realism switch: reset, then seeded from the group.
+  set _realismChatSwitch(bool on) => _sh.setChatRealism(on);
+
+  /// The chat's stored Needs switch: seeded here, never a gate.
+  bool get _needsSimEnabled => _scope.needsSimEnabled();
+  set _needsSimEnabled(bool on) => _sh.setNeedsSimEnabled(on);
+  set _enjoysLowHygiene(bool on) => _sh.setEnjoysLowHygiene(on);
+  set _isGrowthPassRunning(bool on) => _sh.setGrowthPassRunning(on);
+
   /// Enter group chat mode with the given GroupChat definition.
   Future<void> setActiveGroup(
     GroupChat group, {
     GroupChatRepository? groupRepo,
   }) async {
-    final ownedLoad = !_isLoadingSession;
-    beginSessionLoad();
+    final ownedLoad = !_store.isLoadingSession;
+    _door.cover.beginSessionLoad();
     try {
       // Cancel any in-flight generation before switching context AND reset author note for new session context
-      await _cancelAndWaitForGeneration();
-      await _waitForTurnToSettle();
+      await _sh.cancelAndWaitForGeneration();
+      await _door.cover.waitForTurnToSettle();
       // Groups have no same-cast fast path — every re-enter clears
       // `_session.messages`. Persist first or the last exchange dies the same
       // way as the 1:1 slow path.
-      await flushPendingSaves();
-      _generationEpoch++;
+      await _store.save();
+      _h.bumpGenerationEpoch();
       // Detach before clearing the recap. A save during the awaits below
       // used to stamp an empty "Where we are" onto the chat being left.
       _session.currentSessionId = null;
 
       // Reset AFK idle state when switching to a different group
-      _cancelIdleTimer();
-      _hasCompletedExchange = false;
-      _awayPulse.reset();
+      _cast.idle.cancelIdleTimer();
+      _cast.idle.hasCompletedExchange = false;
+      _cast.away.state.reset();
 
       // Reset author notes and summary when starting fresh chat/group (will be overridden if loading existing session)
-      _authorNote = '';
-      _authorNoteStrength = 4;
-      _summary = '';
-      _summaryLastIndex = 0;
-      _selectedLooks
+      _store.authorNote = '';
+      _store.authorNoteStrength = 4;
+      _store.summary = '';
+      _store.summaryLastIndex = 0;
+      _store.selectedLooks
           .clear(); // fresh group: drop prior chat's per-chat look selection (keep reset blocks in sync)
-      _summaryPaused =
+      _store.summaryPaused =
           false; // explicit secondary zero for _summaryPaused (symmetric; incomplete zeroing... now complete (see CLAUDE.md); see keep-sync + journal_maintenance)
-      _isSummaryGenerating =
+      _store.isSummaryGenerating =
           false; // explicit secondary zero on setActiveGroup (incomplete zeroing ... now complete; keep-sync lists + journal_maintenance + " ; authority for needs deltas thin path)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)"
-      _groupRealism = {};
-      _groupAuthorNotes = {};
-      _groupAuthorNoteStrengths = {};
-      _groupCharacterSystemPrompts = {};
-      _groupRagEnabled = true;
-      _groupRetrievalCount = 4;
-      _groupMemoryBudgetPercent = 10.0;
-      _groupCharacterRAGPriorities = {};
+      _groupStore.members = {};
+      _group.authorNotes = {};
+      _group.authorNoteStrengths = {};
+      _group.characterSystemPrompts = {};
+      _group.ragEnabled = true;
+      _group.retrievalCount = 4;
+      _group.memoryBudgetPercent = 10.0;
+      _group.characterRAGPriorities = {};
 
       // Scene Guests are 1:1-only — clear them when entering a group.
       _sceneGuest.ids.clear();
       _sceneGuest.cards.clear();
       _sceneGuest.pendingDeparture = null;
       _sceneGuest.pendingPickerFilter = null;
-      _resetGuestActivityState();
+      _cast.guests.resetActivityState();
       // Phase 2 cast detection: reset the scan cadence + pending/debounce state
       // for the new 1:1 context (kept in sync with the Scene Guest clears).
       _sceneGuest.turnsSinceCastScan = 0;
       _sceneGuest.pendingDetection = null;
       _sceneGuest.offeredOrIgnoredNames.clear();
-      _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
+      _s.sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
-      if (_characterRepository == null) return;
+      if (_s.characters() == null) return;
 
       // Clear 1:1 mode
       _session.activeCharacter = null;
@@ -114,30 +174,30 @@ extension ChatServiceGroupEntry on ChatService {
       // Gated by autostartOnChatOpen — when off, the user must start manually.
       // A start that is refused is kept by the provider, and the composer's
       // connection hint says why.
-      if (_storageService.backendSettings.autostartOnChatOpen) {
-        _llmProvider?.ensureManagedBackendIsRunning();
+      if (_s.storage.backendSettings.autostartOnChatOpen) {
+        _s.llmProvider()?.ensureManagedBackendIsRunning();
       }
 
       debugPrint(
-        '[ChatService] 🟡 setActiveGroup: clearing messages '
+        '[Chat] 🟡 setActiveGroup: clearing messages '
         '(had ${_session.messages.length}) for group ${group.name}',
       );
-      await _invalidateGreetingEval();
+      await _cast.greetings.invalidateGreetingEval();
       _session.messages.clear();
-      _greetingIndex = 0;
-      _history.reset();
-      _clearTodayPointer();
+      _cast.greetings.greetingIndex = 0;
+      _store.history.reset();
+      _store.today.clearTodayPointer();
       // Clear fork/branch state so it doesn't leak across group switches
       // (see startNewChat and setActiveCharacter for rationale).
-      _parentSessionId = null;
-      _forkIndex = null;
+      _store.parentSessionId = null;
+      _store.forkIndex = null;
 
       // Resolve characters from decoupled private members (GroupMembers table + private avatars dir).
       // Prefer passed repo, then wired one, then direct DB query as ultimate fallback
       // (ensures members appear in chat even if DI wiring or caller is incomplete).
       List<GroupMember> memberRows = const [];
       try {
-        final effectiveGroupRepo = groupRepo ?? _groupChatRepository;
+        final effectiveGroupRepo = groupRepo ?? _door.groupRepository;
         if (effectiveGroupRepo != null) {
           memberRows = await effectiveGroupRepo.getMembersForGroup(group.id);
         } else {
@@ -146,9 +206,7 @@ extension ChatServiceGroupEntry on ChatService {
           memberRows = rows.map(GroupMember.fromRow).toList();
         }
       } catch (e) {
-        debugPrint(
-          '[ChatService] Failed to load group members for ${group.id}: $e',
-        );
+        debugPrint('[Chat] Failed to load group members for ${group.id}: $e');
         memberRows = const [];
       }
 
@@ -156,7 +214,7 @@ extension ChatServiceGroupEntry on ChatService {
       for (final m in memberRows) {
         if (m.avatarFilename != null) {
           final p = path.join(
-            _storageService.groupsDir.path,
+            _s.storage.groupsDir.path,
             group.id,
             'avatars',
             m.avatarFilename!,
@@ -168,7 +226,7 @@ extension ChatServiceGroupEntry on ChatService {
           // member identity. Widgets must not FileImage a missing file.
           if (!await File(p).exists()) {
             debugPrint(
-              '[ChatService] Group member ${m.name} has no avatar file at $p — including without image',
+              '[Chat] Group member ${m.name} has no avatar file at $p — including without image',
             );
           }
           resolved.add(m.toCharacterCard(resolvedImagePath: p));
@@ -180,7 +238,7 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Group members are single-avatar copies; let them borrow their origin
       // library character's expression images so expressions work in groups.
-      _inheritGroupExpressionAvatars(resolved);
+      _door.roster.inheritGroupExpressionAvatars(resolved);
 
       // Hand off to the turn manager (single source of truth for group turn state)
       _session.groupManager ??= GroupTurnManager();
@@ -199,20 +257,19 @@ extension ChatServiceGroupEntry on ChatService {
       // un-delivered manual "SPIN NOW" event, which injects as CANON with no
       // chaos-enabled gate — walked into the group.
       _chaosModeService.resetForFreshChat();
-      mediaDoor.resetForFreshChat();
+      _s.media().resetForFreshChat();
       _chaosModeService.seedFromGroupOrExt(
         // OR-override, matching the two 1:1 seed sites: the group asks, or the
         // Porch Life global default does. A user who switched Chaos on globally
         // means it for groups too — this is the third of three seed sites and
         // missing it would have made the global switch quietly 1:1-only.
-        group.chaosModeEnabled ||
-            _storageService.realismSettings.chaosModeDefault,
+        group.chaosModeEnabled || _s.storage.realismSettings.chaosModeDefault,
         group.chaosNsfwEnabled,
       );
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_session.messages.isEmpty && _activeGroup != null) {
-        await _loadGroupRealismStateFromSession(null);
+        await _store.groupState.loadGroupRealismState(null);
 
         // Promote the group definition's realism/needs intent on first entry.
         // The creator (and Group Card import) express "realism on" by writing non-empty
@@ -230,7 +287,7 @@ extension ChatServiceGroupEntry on ChatService {
           // 1:1/import seed sites. Without it the global was quietly 1:1-only:
           // every group still ran the full simulation and its per-turn eval.
           _needsSimEnabled =
-              _storageService.realismSettings.needsSimDefault &&
+              _s.storage.realismSettings.needsSimDefault &&
               _groupRealism.values.any((state) {
                 final n = state.needs;
                 return n != null && n.isNotEmpty;
@@ -265,10 +322,10 @@ extension ChatServiceGroupEntry on ChatService {
       // the life of the chat. (startNewChat avoids the same trap by not calling
       // that loader at all; see its group branch.) `addAll`, not assign, so a
       // legacy blob that did carry entries keeps them.
-      _groupCharacterSystemPrompts.addAll(group.characterSystemPrompts);
+      _group.characterSystemPrompts.addAll(group.characterSystemPrompts);
 
       // Seed objectives that came from an imported Group Card (one-time)
-      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
+      await _s.objectives().writer.seedImportedMemberObjectivesIfPresent();
 
       // Lorebook trigger reset via extracted service (group path; see setActiveCharacter for the 1:1 counterpart + keep-sync cross-refs).
       // See "keep reset blocks in sync" comments (now explicitly lists needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) alongside prior services; incomplete zeroing now complete).
@@ -276,30 +333,30 @@ extension ChatServiceGroupEntry on ChatService {
       _lorebookScanner.resetLorebookTriggerState();
 
       // Zero secondary objective config on group fresh entry (before loadLast + the speaker's objectives load); see decl + keep reset + incomplete zeroing now complete.
-      objectivesDoor.resetForChatSwitch();
-      _summaryPaused =
+      _s.objectives().resetForChatSwitch();
+      _store.summaryPaused =
           false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
-      _isSummaryGenerating =
+      _store.isSummaryGenerating =
           false; // secondary flag zero for the journal recap state (stateless/prompt-only; see incomplete zeroing ... now complete + keep-sync lists)
       _isGrowthPassRunning =
           false; // growth-pass flag zero on group fresh entry (transient guard; keep reset blocks in sync)
 
       // Try to load last session for this group
-      await _loadLastSession();
+      await _store.loader.loadLastSession();
 
-      // Same as the 1:1 twin in chat_service_chat_entry: message 0 needs every
+      // Same as the 1:1 twin in ChatEntry (chat_entry.dart): message 0 needs every
       // member's authored wardrobe in place, and after the load so a restored
       // session wins. Parity is not optional here — a group member dressed by their
       // author must arrive dressed exactly as they would in a 1:1.
-      seedPocketsFromCards();
+      _sh.seedPocketsFromCards();
 
       // Load the objectives for whoever is the initial next speaker (or first char)
       if (_activeGroup != null) {
-        await objectivesDoor.loadObjectivesForCurrentSpeaker();
+        await _s.objectives().loadObjectivesForCurrentSpeaker();
       }
 
       // Seed objectives that came from an imported Group Card (one-time), in case it wasn't caught above
-      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
+      await _s.objectives().writer.seedImportedMemberObjectivesIfPresent();
 
       // If no session, create a greeting
       if (_session.messages.isEmpty && _groupCharacters.isNotEmpty) {
@@ -309,13 +366,11 @@ extension ChatServiceGroupEntry on ChatService {
         // new session's binding. Start as the default; a stored zero-message
         // group chat (`_session.currentSessionId` already set) keeps its own.
         if (_session.currentSessionId == null) {
-          await _userPersonaService.setActivePersona(
-            _userPersonaService.defaultPersonaId,
-          );
+          await _s.personas.setActivePersona(_s.personas.defaultPersonaId);
         }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {
-          objectivesDoor.writer.importAuthoredTask(
+          _s.objectives().writer.importAuthoredTask(
             c.frontPorchExtensions,
             target: c,
           );
@@ -329,7 +384,7 @@ extension ChatServiceGroupEntry on ChatService {
           // Use custom group first message — attribute to "Narrator" or group name
           greetingText = _macroResolver.resolve(
             group.firstMessage,
-            MacroContext(userName: _userPersonaService.persona.name),
+            MacroContext(userName: _s.personas.persona.name),
             section: 'greeting',
           );
           greetingSender = group.name;
@@ -337,7 +392,7 @@ extension ChatServiceGroupEntry on ChatService {
         } else {
           // Fall back to first member's allGreetings (same pairing as 1:1).
           final first = _groupCharacters.first;
-          greetingText = _memberOpeningGreetingText(first);
+          greetingText = _cast.greetings.memberOpeningGreetingText(first);
           greetingSender = first.name;
           greetingCharId = _getCharacterIdFromCard(first);
         }
@@ -359,7 +414,7 @@ extension ChatServiceGroupEntry on ChatService {
           );
           if (greetingFirstMesEmpty(group.firstMessage) &&
               greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {
-            await _applyGreetingOpeningSeed(
+            await _cast.greetings.applyGreetingOpeningSeed(
               card: _groupCharacters.first,
               index: 0,
             );
@@ -368,48 +423,15 @@ extension ChatServiceGroupEntry on ChatService {
         _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
             .toString();
         // Seed chat worlds from the group's template (Living Worlds).
-        await _seedChatWorldsForNewSession();
-        await _saveChat();
+        await _store.forker.seedChatWorldsForNewSession();
+        await _store.save();
       }
 
       // Cache growth rings (and any not-yet-distilled legacy evolved blobs)
       // for all group characters so the injection layer can read them sync.
       await _growthDesk.refreshCache();
     } finally {
-      if (ownedLoad) endSessionLoad();
-    }
-  }
-
-  /// The LIBRARY character this card came from. Identity first (dbId, then
-  /// stableGroupId), name only when it is unique — two "Rachel"s must not
-  /// share a face. Null when there is no confident match (imported-only
-  /// member, or two library cards with the same name and no stamp).
-  /// Used to inherit expressions and to route the in-chat Expression
-  /// Images editor at the member's real library home.
-  CharacterCard? originLibraryCardFor(CharacterCard member) {
-    final lib = _characterRepository?.characters;
-    if (lib == null) return null;
-    return MemberOriginResolver.resolveForCard(member, lib);
-  }
-
-  /// Group members are single-avatar copies of LIBRARY characters (the decoupled
-  /// model stores one PNG per member, no expression set). For the expression
-  /// display, inherit the origin library character's expression images. No
-  /// per-member storage: a character that has expressions set up in your library
-  /// shows them in the group; a member with no library match keeps its single
-  /// avatar. Mutates each card's `avatarImages` in place (defensive copy so the
-  /// member can never mutate the shared library list).
-  void _inheritGroupExpressionAvatars(List<CharacterCard> members) {
-    for (final m in members) {
-      if (m.avatarImages != null && m.avatarImages!.isNotEmpty) continue;
-      final origin = originLibraryCardFor(m);
-      if (origin?.avatarImages != null && origin!.avatarImages!.isNotEmpty) {
-        // The prime index belongs with the images: it names the face a
-        // label with no match falls back on.
-        m
-          ..avatarImages = List<AvatarImage>.from(origin.avatarImages!)
-          ..primeAvatarIndex = origin.primeAvatarIndex;
-      }
+      if (ownedLoad) _door.cover.endSessionLoad();
     }
   }
 }

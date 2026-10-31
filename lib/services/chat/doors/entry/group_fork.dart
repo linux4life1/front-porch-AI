@@ -16,11 +16,56 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
+import 'dart:convert';
 
-/// 1:1→group fork. Live add / remove / create-member live in
-/// chat_service_group_members.dart (same library).
-extension ChatServiceGroupMembership on ChatService {
+import 'package:drift/drift.dart' as drift;
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/world_store/group_world_choice.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'entry_door.dart';
+
+/// A 1:1 becomes a group: the group and its members made, the transcript
+/// copied onto a new session (stamps and images kept), the Setting, Lore
+/// and climate carried, the group opened, the host's own state planted on
+/// the host member, the group's template for new chats saved, and any
+/// arrivals' entrances played.
+class GroupFork {
+  GroupFork(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  SessionStore get _store => _d.sessions();
+  CastDoor get _cast => _s.cast();
+  AppDatabase get _db => _s.db();
+  RealismScope get _scope => _s.realism();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  RelationshipService get _relationshipService => _scope.relationship();
+  NsfwService get _nsfwService => _scope.nsfw();
+  TimeService get _timeService => _scope.time();
+  ChaosModeService get _chaosModeService => _s.chaos();
+  ChatPlaceSlots get _places => _d.hooks.chatPlaceSlots();
+  Pockets? get _pockets => _d.shared.hostPockets();
+  bool get _isTurnBusy => _d.hooks.isTurnBusy();
+  String _getCharacterIdFromCard(CharacterCard c) =>
+      _d.shared.characterIdFor(c);
+
+  /// The chat's own Realism switch, carried into the group it becomes.
+  bool get _realismChatSwitch => _d.shared.chatRealism();
+  bool get _needsSimEnabled => _scope.needsSimEnabled();
+
   /// Fork the current 1:1 chat into a new group chat, copying all messages.
   /// The original 1:1 session remains untouched.
   Future<GroupChat?> forkToGroupChat(
@@ -33,7 +78,7 @@ extension ChatServiceGroupMembership on ChatService {
     Set<String> liteArrivalKeys = const {},
   }) async {
     if (_isTurnBusy) return null;
-    if (_session.activeCharacter == null || _characterRepository == null) {
+    if (_session.activeCharacter == null || _s.characters() == null) {
       return null;
     }
     if (_session.messages.isEmpty) return null;
@@ -61,15 +106,15 @@ extension ChatServiceGroupMembership on ChatService {
     // realism-gated.
     final Map<String, dynamic> hostState = <String, dynamic>{
       'realismOn': _realismChatSwitch,
-      if (_realismChatSwitch) ..._realismSnapshot.capture(),
+      if (_realismChatSwitch) ..._s.snapshot().capture(),
       'needsSimEnabled': _needsSimEnabled,
       'nsfwCooldownEnabled': _nsfwService.storedNsfwCooldownEnabled,
       'passageOfTimeEnabled': _timeService.passageOfTimeEnabled,
       'chaosModeEnabled': _chaosModeService.chaosModeEnabled,
       'chaosPressure': _chaosModeService.chaosPressure,
       'chaosNsfwEnabled': _chaosModeService.chaosNsfwEnabled,
-      'authorNote': _authorNote,
-      'authorNoteStrength': _authorNoteStrength,
+      'authorNote': _store.authorNote,
+      'authorNoteStrength': _store.authorNoteStrength,
       // Live kit, regardless of realism — collapse copies this back onto
       // `_pockets`; the fork must plant it on the host member the same way.
       if (_pockets != null) 'pockets': _pockets!.toJson(),
@@ -132,13 +177,13 @@ extension ChatServiceGroupMembership on ChatService {
     // and every additional character. Without this, the group loads empty
     // (setActiveGroup / GroupTurnManager will have no one to speak).
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
-    await _createGroupMember(group.id, _session.activeCharacter!);
+    await _door.roster.createGroupMember(group.id, _session.activeCharacter!);
     for (final c in orderedArrivals) {
       final key = _getCharacterIdFromCard(c);
       final asLite =
           liteArrivalKeys.contains(key) ||
           (c.dbId != null && liteArrivalKeys.contains(c.dbId));
-      await _createGroupMember(group.id, c, asLite: asLite);
+      await _door.roster.createGroupMember(group.id, c, asLite: asLite);
     }
 
     // Create a new session for the group and copy all messages
@@ -187,21 +232,19 @@ extension ChatServiceGroupMembership on ChatService {
       SessionsCompanion.insert(
         id: newSessionId,
         groupId: drift.Value(group.id),
-        name: drift.Value(_sessionName),
-        description: drift.Value(_sessionDescription),
-        authorNote: drift.Value(_authorNote),
-        authorNoteDepth: drift.Value(_authorNoteStrength),
-        summary: drift.Value(_summary.isEmpty ? null : _summary),
+        name: drift.Value(_store.sessionName),
+        description: drift.Value(_store.sessionDescription),
+        authorNote: drift.Value(_store.authorNote),
+        authorNoteDepth: drift.Value(_store.authorNoteStrength),
+        summary: drift.Value(_store.summary.isEmpty ? null : _store.summary),
         summaryLastIndex: drift.Value(
-          _summaryLastIndex > 0 ? _summaryLastIndex : null,
+          _store.summaryLastIndex > 0 ? _store.summaryLastIndex : null,
         ),
         parentSession: drift.Value(_session.currentSessionId),
         // setActiveGroup re-activates the persona from this row; without it
         // the group fell back to the default persona instead of the 1:1's.
         userPersonaId: drift.Value(
-          _userPersonaService.persona.id.isEmpty
-              ? null
-              : _userPersonaService.persona.id,
+          _s.personas.persona.id.isEmpty ? null : _s.personas.persona.id,
         ),
         forkIndex: drift.Value(_session.messages.length - 1),
         trustLevel: drift.Value(_relationshipService.trustLevel),
@@ -223,36 +266,36 @@ extension ChatServiceGroupMembership on ChatService {
     // climate changeovers. setActiveGroup loads these rows; with none written
     // the converted group opened with no world or place at all.
     try {
-      await _worldRepository.setChatWorldAttachments(
+      await _s.worlds.setChatWorldAttachments(
         newSessionId,
-        primaryId: _chatPlaceSlots.primaryId,
-        loreIds: _chatPlaceSlots.loreIds,
+        primaryId: _places.primaryId,
+        loreIds: _places.loreIds,
       );
       if (hostSessionId != null) {
-        await _worldRepository.copyChatBiomeSpans(hostSessionId, newSessionId);
+        await _s.worlds.copyChatBiomeSpans(hostSessionId, newSessionId);
       }
     } catch (e) {
-      debugPrint('[ChatService] fork world carry failed: $e');
+      debugPrint('[Chat] fork world carry failed: $e');
     }
 
     debugPrint(
-      '[ChatService] \u{1F500} Forked 1:1 chat to group "${group.name}" '
+      '[Chat] \u{1F500} Forked 1:1 chat to group "${group.name}" '
       '(${_session.messages.length} messages copied)',
     );
 
     // Switch to the new group (this loads the session we just created)
-    await setActiveGroup(group, groupRepo: groupRepo);
+    await _door.group.setActiveGroup(group, groupRepo: groupRepo);
 
     // Writes to _session.currentSessionId, so only once the group session is live.
     if (hostSessionId != null) {
-      await mediaDoor.copyWikiForForkedSession(hostSessionId);
+      await _s.media().copyWikiForForkedSession(hostSessionId);
     }
 
     // Carry the captured 1:1 host realism into the host member's per-character
     // store now that group mode is active (the group-scoped writes are gated on
     // _activeGroup != null). Without this the converted group opens realism-off
     // with the host's relationship/needs reset to defaults (the /promote bug).
-    await _carryHostStateIntoForkedGroup(
+    await _cast.collapse.carryHostStateIntoForkedGroup(
       hostName,
       originalCharId,
       hostSessionId,
@@ -268,7 +311,8 @@ extension ChatServiceGroupMembership on ChatService {
     // the now-visible chat instead of waiting behind a spinner. Entrants cut in
     // one-by-one in the order they were added.
     if (entranceArrivals.isNotEmpty) {
-      _entrancesInFlight = true; // block user turns until the sequence finishes
+      // Block user turns until the sequence finishes.
+      _door.entrancesInFlight = true;
       unawaited(() async {
         try {
           for (final addCard in entranceArrivals) {
@@ -287,7 +331,10 @@ extension ChatServiceGroupMembership on ChatService {
             if (entry.creative) {
               // Hidden one-shot directive; the member writes their own entrance.
               // Shared with live /join --full + sidebar adds via the helper.
-              final ok = await _generateMemberEntrance(resolved, text);
+              final ok = await _cast.joins.generateMemberEntrance(
+                resolved,
+                text,
+              );
               if (!ok) {
                 // Surface the failure so the user isn't left wondering why the
                 // group loaded with no entrance.
@@ -296,8 +343,8 @@ extension ChatServiceGroupMembership on ChatService {
                     '⚠ ${resolved.name}\'s entrance could not be generated.',
                   ),
                 );
-                await _saveChat();
-                notifyListeners();
+                await _store.save();
+                _d.notify();
               }
             } else {
               // Opening line: the entrance IS the user's text, verbatim — it
@@ -310,8 +357,8 @@ extension ChatServiceGroupMembership on ChatService {
                   characterId: resolvedId,
                 ),
               );
-              await _saveChat();
-              notifyListeners();
+              await _store.save();
+              _d.notify();
             }
           }
         } catch (e) {
@@ -332,12 +379,13 @@ extension ChatServiceGroupMembership on ChatService {
             );
             _session.groupManager?.advanceAfterRegeneration(lastEntrant);
           }
-          _entrancesInFlight = false; // user turns allowed again
+          _door.entrancesInFlight = false; // user turns allowed again
           // The turn pointer changed after generation finished. GroupTurnManager
-          // notifies its own listeners, but the chat UI watches ChatService, so
-          // we must propagate here — otherwise the next-speaker indicator keeps
-          // showing the (stale) entrant even though the pointer is correct.
-          notifyListeners();
+          // notifies its own listeners, but the chat UI watches the chat
+          // service, so we must propagate here — otherwise the next-speaker
+          // indicator keeps showing the (stale) entrant even though the
+          // pointer is correct.
+          _d.notify();
         }
       }());
     }
@@ -374,9 +422,9 @@ extension ChatServiceGroupMembership on ChatService {
       group.chaosModeEnabled = hostState['chaosModeEnabled'] as bool? ?? false;
       group.chaosNsfwEnabled = hostState['chaosNsfwEnabled'] as bool? ?? false;
       final worlds = groupWorldChoiceFromChat(
-        primaryId: _chatPlaceSlots.primaryId,
-        loreIds: _chatPlaceSlots.loreIds,
-        lookup: _worldRepository.worldById,
+        primaryId: _places.primaryId,
+        loreIds: _places.loreIds,
+        lookup: _s.worlds.worldById,
       );
       if (worlds != null) {
         group.worldIds = worlds.fields.worldIds;
@@ -384,7 +432,7 @@ extension ChatServiceGroupMembership on ChatService {
       }
       await groupRepo.save(group);
     } catch (e) {
-      debugPrint('[ChatService] fork group settings not saved: $e');
+      debugPrint('[Chat] fork group settings not saved: $e');
     }
   }
 }

@@ -260,7 +260,7 @@ class NewChatOpener {
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
           await _h.rekeyGroupStores();
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
-          // does (chat_service_group_entry.dart — presence-inference: the
+          // does (doors/entry/group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off
           // in the wizard). The zeroing above is the right starting point for
           // the no-group path, but for a group it was the FINAL word: "New

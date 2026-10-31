@@ -21,7 +21,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -53,13 +52,13 @@ import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
-import 'package:front_porch_ai/services/chat/doors/session/session_api.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_api.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
-import 'package:front_porch_ai/services/world_store/group_world_choice.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
@@ -78,18 +77,12 @@ export 'chat/doors/transfer/transfer_api.dart';
 export 'chat/doors/objectives/objectives_api.dart';
 export 'chat/doors/edits/edits_api.dart';
 export 'chat/doors/session/session_api.dart';
+export 'chat/doors/entry/entry_api.dart';
 
-part 'chat/chat_service_group_read.dart';
-part 'chat/chat_service_group_settings.dart';
 part 'chat/chat_service_history.dart';
-part 'chat/chat_service_group_membership.dart';
-part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_chat_entry.dart';
-part 'chat/chat_service_group_entry.dart';
-part 'chat/chat_service_group_store_migrate.dart';
 part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_entry.dart';
@@ -343,6 +336,10 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// are not — the status bar must not print a chars/4 guess as tokens.
   bool get prefillMetricsAreMeasured =>
       _llmProvider == null || _llmProvider!.isLocal;
+
+  /// Opening a 1:1 or a group, the group roster and its per-member reads
+  /// and switches; old names in entry_api.dart. Fakes pin the members below.
+  late final EntryDoor entryDoor = _buildEntryDoor();
   bool get isGroupMode => _session.groupManager?.isActive ?? false;
   GroupChat? get activeGroup => _session.groupManager?.activeGroup;
   bool get observerMode => _session.groupManager?.observerMode ?? false;
@@ -395,7 +392,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   set sessionThemeOverrides(ChatThemeOverrides value) =>
       sessionStore.setThemeOverrides(value);
   void refreshActiveCharacterCard(CharacterCard card) =>
-      _refreshActiveCharacterCardImpl(card);
+      entryDoor.refreshActiveCharacterCard(card);
 
   String get summary => sessionStore.summary;
   bool get summaryPaused => sessionStore.summaryPaused;
@@ -416,9 +413,9 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   bool get realismChatSwitch => _realismChatSwitch;
   bool get realismAllowed => _storageService.realismSettings.realismAllowed;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
-      _spatialStanceForGroupCharacterImpl(c);
+      entryDoor.reads.spatialStanceForGroupCharacter(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>
-      _withUserForGroupCharacterImpl(c);
+      entryDoor.reads.withUserForGroupCharacter(c);
   bool get objectivesActive => _objectivesActiveImpl;
   bool get afterglowChatSwitch => _afterglowChatSwitchImpl;
   Future<void> setAfterglowEnabled(bool on) => _setAfterglowEnabledImpl(on);
@@ -455,9 +452,9 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   Future<void> setPassageOfTimeEnabled(bool enabled) =>
       _setPassageOfTimeEnabledImpl(enabled);
 
-  /// A group member's own Afterglow switch (body in the group settings part).
+  /// A group member's own Afterglow switch (body in [GroupMemberSettings]).
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>
-      _setMemberAfterglowEnabledImpl(member, on);
+      entryDoor.members.setMemberAfterglowEnabled(member, on);
 
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 

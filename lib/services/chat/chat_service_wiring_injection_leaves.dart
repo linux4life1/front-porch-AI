@@ -54,7 +54,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
         maxSecondaryObjectives: kMaxSecondaryObjectives,
         hooks: ObjectiveShellHooks(
           objectivesActive: () => objectivesActive,
-          nextSpeaker: () => nextCharacter,
+          nextSpeaker: () => entryDoor.director.nextCharacter,
           hasChatModel: () => _llmProvider != null,
           pendingMetadata: () => _pendingRealismMetadata ??= {},
           historyBase: () => _history.basePosition,
@@ -65,7 +65,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
             _isSummaryGenerating = false;
             _isGrowthPassRunning = false;
           },
-          groupRepository: () => _groupChatRepository,
+          groupRepository: () => entryDoor.groupRepository,
           rebindToday: _rebindTodayObjectiveFromDb,
           clearToday: _clearTodayPointer,
           holdToday: _persistTodayObjectiveId,

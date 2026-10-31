@@ -22,7 +22,9 @@ part of '../chat_service.dart';
 /// member's entrance are [CastController] (doors/cast/cast_controller.dart).
 /// What stays: the two checks that take the library-private turn record
 /// `_GenTurn` (the turn engine's, WP10b), and the promoted member's bars,
-/// which test/hygiene/needs_gate_ratchet_test.dart pins to this file.
+/// which test/hygiene/needs_gate_ratchet_test.dart pins to this file. The
+/// entry door (doors/entry/) is wired below, beside the group roster names
+/// other parts still reach it by.
 extension ChatServiceGroupLite on ChatService {
   /// 1:1 guest turn **or** a soft group member speaking. Do not set
   /// `guestSpeaker` for the latter — that skip would drop Away / pick.
@@ -50,4 +52,74 @@ extension ChatServiceGroupLite on ChatService {
       );
     }
   }
+}
+
+/// Builds the entry door. Each hook is debt (see [EntryShellHooks]); the
+/// shared hooks are the session store's own ([_sessionHooks]).
+extension ChatServiceEntryWiring on ChatService {
+  EntryDoor _buildEntryDoor() => EntryDoor(
+    EntryDeps(
+      session: _session,
+      sessions: () => sessionStore,
+      services: EntryServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: _macroResolver,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        realism: _realismScope,
+        snapshot: () => _realismSnapshot,
+        mood: () => _mood,
+        chaos: () => _chaosModeService,
+        needsPass: () => _needsPass,
+        expression: () => _expressionService,
+        lorebook: () => _lorebookScanner,
+        clockWriter: () => _clockWriter,
+        growthDesk: () => _growthDesk,
+        birthdays: () => _birthdaySync,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        sceneMoves: _sceneMoves,
+      ),
+      hooks: EntryShellHooks(
+        isTurnBusy: () => _isTurnBusy,
+        bumpGenerationEpoch: () => _generationEpoch++,
+        generate: () => _generateResponse(GenerationMode.normal),
+        skipAsked: () => _skipAsked,
+        upcomingSpeaker: () => _upcomingGroupSpeaker,
+        refreshEnjoysLowHygiene: refreshEnjoysLowHygieneFromActiveCharacter,
+        persistMemberExtensions: (id) =>
+            persistGroupMemberExtensions(memberId: id),
+        chatPlaceSlots: () => _chatPlaceSlots,
+      ),
+      shared: _sessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+}
+
+/// The entry door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.entryDoor] itself (WP9a to WP10c).
+extension _ChatServiceEntryNames on ChatService {
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => entryDoor.director.observerMode;
+  bool get _directing => entryDoor.director.directing;
+  bool get _autoPlayActive => entryDoor.director.autoPlayActive;
+  bool get _shouldTrackInterCharacterRelationships =>
+      entryDoor.reads.shouldTrackInterCharacterRelationships;
+  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
+  AutoChatBudget get _autoChatBudget => entryDoor.autoChat;
+  GroupChatRepository? get _groupChatRepository => entryDoor.groupRepository;
+  set _groupChatRepository(GroupChatRepository? repo) =>
+      entryDoor.groupRepository = repo;
+
+  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
+  Future<void> _autoPlayNext() => entryDoor.director.autoPlayNext();
+  bool _autoChatPausesAfter(ChatMessage reply) =>
+      entryDoor.director.autoChatPausesAfter(reply);
 }

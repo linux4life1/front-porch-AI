@@ -162,8 +162,8 @@
       "origin": "expression images live on the library card; the group copies them from the card the member's origin id resolves to when it loads the roster",
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_group_entry.dart",
-          "in": "_inheritGroupExpressionAvatars",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
+          "in": "inheritGroupExpressionAvatars",
           "marker": "..avatarImages = List<AvatarImage>.from(origin.avatarImages!)"
         }
       ]
@@ -561,8 +561,8 @@
       "origin": "the starred expression is set in the library gallery; the group copies it with the expression images, and a label with no picture falls back on it",
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_group_entry.dart",
-          "in": "_inheritGroupExpressionAvatars",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
+          "in": "inheritGroupExpressionAvatars",
           "marker": "..primeAvatarIndex = origin.primeAvatarIndex"
         },
         {
@@ -2293,7 +2293,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2353,7 +2353,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2413,7 +2413,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2473,7 +2473,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2533,7 +2533,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2593,7 +2593,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2653,7 +2653,7 @@
           "shared": "the group wear reads all seven baselines in one call"
         },
         {
-          "path": "lib/services/chat/chat_service_group_members.dart",
+          "path": "lib/services/chat/doors/entry/group_roster.dart",
           "in": "addCharacterToGroup",
           "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
           "shared": "a member who joins starts all seven bars in one call"
@@ -2700,7 +2700,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_group_read.dart",
+          "path": "lib/services/chat/doors/entry/group_member_reads.dart",
           "in": "getTopUrgentNeedsForGroupCharacter",
           "marker": "character.frontPorchExtensions?.needsOff"
         },
