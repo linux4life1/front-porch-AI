@@ -174,9 +174,9 @@ void main() {
   // 2026-10-24: the chat sidebar gear carried an old per-chat "NSFW
   // Enhancements" switch that overrode Porch Life, so Afterglow turned on
   // here did nothing for an existing chat. Porch Life is the one switch.
-  // 2026-10-25: the gear itself is gone. Needs is set on the card, and
-  // One-Shot Eval moved above the tool-calling pill, so Character State
-  // carries no settings switch but Afterglow's own, on the line it controls.
+  // 2026-10-25: the gear itself is gone, and One-Shot Eval moved above the
+  // tool-calling pill. Each chat's Needs and Afterglow switches are back,
+  // each on the line it controls, so those are the only switches here.
   // The gear sat in the header code both modes share; the fake cannot build
   // group mode, so 1:1 pins it.
   testWidgets('Character State has no gear; Needs and Afterglow each have '

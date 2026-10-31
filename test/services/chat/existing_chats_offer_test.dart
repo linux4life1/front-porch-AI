@@ -321,6 +321,7 @@ void main() {
       String? group,
       String? vector,
       bool deleted = false,
+      bool realism = false,
     }) => db
         .into(db.sessions)
         .insert(
@@ -330,14 +331,17 @@ void main() {
             groupId: Value(group),
             needsSimEnabled: const Value(false),
             needsVector: Value(vector),
+            realismEnabled: Value(realism),
             deletedAt: Value(deleted ? DateTime(2026, 10, 1) : null),
           ),
         );
     await db.insertGroup(GroupsCompanion.insert(id: 'g-n', name: 'N'));
     await session('lived-in', character: 'char-a', vector: '{"hunger":70}');
     await session('card-off', character: 'char-off');
-    // No vector and a card that says nothing: it opens on as it is.
-    await session('card-silent', character: 'char-a');
+    // No vector and a card that says nothing: it opens on with its Realism.
+    await session('card-silent', character: 'char-a', realism: true);
+    // The same with its Realism off: it opens off.
+    await session('card-silent-off', character: 'char-a');
     await session('group-off', group: 'g-n');
     await session(
       'trash',
@@ -363,10 +367,10 @@ void main() {
     ];
     final offer = ExistingChatsOffer(db, null, cards: cards);
     const needs = ExistingChatsFeature.needs;
-    expect(await offer.countOff(needs), 3);
+    expect(await offer.countOff(needs), 4);
 
     final before = await rows();
-    expect(await offer.turnOn(needs), 3);
+    expect(await offer.turnOn(needs), 4);
     final after = await rows();
     for (final id in before.keys) {
       final changed = {
@@ -375,7 +379,7 @@ void main() {
       };
       expect(
         changed,
-        ['lived-in', 'card-off', 'group-off'].contains(id)
+        ['lived-in', 'card-off', 'card-silent-off', 'group-off'].contains(id)
             ? {'needs_sim_enabled'}
             : isEmpty,
         reason: id,

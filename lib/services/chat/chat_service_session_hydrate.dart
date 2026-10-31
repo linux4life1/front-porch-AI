@@ -252,7 +252,11 @@ extension ChatServiceSessionHydrate on ChatService {
       _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);
     }
     final nv = s.needsVector;
+    // Any saved value is the chat's own choice; only one with values is a
+    // kit to restore (an empty map must not wipe the seeded defaults).
     final hasSavedNeeds = nv is String && nv.isNotEmpty;
+    final savedKit = hasSavedNeeds ? jsonDecode(nv) : null;
+    final hasKit = savedKit is Map && savedKit.isNotEmpty;
     // A card that says nothing asks for Needs when Porch Life does and this
     // chat's Realism (hydrated above) is on — the seed rule, NeedsPass.seedNeedsSim.
     // An explicit card choice is read as before.
@@ -285,11 +289,9 @@ extension ChatServiceSessionHydrate on ChatService {
       } else {
         _needsSimulation.initializeFresh();
       }
-      if (hasSavedNeeds) {
-        applyNeedsPersist(_needsSimulation, jsonDecode(nv));
-      }
-    } else if (hasSavedNeeds) {
-      applyNeedsPersist(_needsSimulation, jsonDecode(nv));
+      if (hasKit) applyNeedsPersist(_needsSimulation, savedKit);
+    } else if (hasKit) {
+      applyNeedsPersist(_needsSimulation, savedKit);
     } else {
       _needsSimulation.clearVector();
     }

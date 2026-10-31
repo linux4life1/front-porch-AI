@@ -170,13 +170,13 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               ),
             ],
           ],
-          // The bars show while Needs run: the gate (Realism, this chat's
-          // Needs switch, the Porch Life one), not the stored switch, or
-          // they sit frozen with Needs off and read as live.
           if (!widget.isGroup && realismOn) ...[
             const SizedBox(height: 10),
             NeedsLine(chat: chat),
           ],
+          // The bars show while Needs run: the gate (Realism, this chat's
+          // Needs switch, the Porch Life one), not the stored switch, or
+          // they sit frozen with Needs off and read as live.
           if (!widget.isGroup &&
               chat.needsActive &&
               chat.needsSimulation.vector.isNotEmpty) ...[

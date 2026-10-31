@@ -218,7 +218,7 @@ A few practical notes:
 
 ## The Needs Simulation
 
-The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor, and changing that switch also turns Needs on or off in your existing one-on-one chats with that character (a group has its own switch in Group Settings → Needs). Each character tracks **seven needs**, each on a 0–100 scale:
+The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor, which sets how that character's new chats start; each chat then has its own switch on the Needs line in Character State (a group's is in Group Settings → Needs). Each character tracks **seven needs**, each on a 0–100 scale:
 
 | Need | When it runs low... |
 |---|---|

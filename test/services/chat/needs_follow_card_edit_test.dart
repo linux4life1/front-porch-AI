@@ -9,7 +9,7 @@
 
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -101,4 +101,48 @@ void main() {
     await chat.loadSession('closed');
     expect(chat.needsSimEnabled, isFalse, reason: 'the closed chat opens off');
   });
+
+  test(
+    'a chat started from a card with Needs off keeps it off after the '
+    'card is switched on, and turning that chat on later seeds its bars',
+    () async {
+      final made = await chars.create({
+        'name': 'Wren',
+        'firstMessage': 'The porch light hums.',
+        'needsSimEnabled': false,
+      });
+      final wren = made!['id'] as String;
+      final card = chars.cardByDbId(wren)!;
+      await chat.setActiveCharacter(card);
+      final started = chat.currentSessionId!;
+      expect(chat.needsSimEnabled, isFalse, reason: 'the card starts it off');
+      await chat.flushPendingSaves();
+      // Another of Wren's chats, to leave and come back to this one.
+      await db.insertSession(
+        SessionsCompanion.insert(id: 'wren-other', characterId: Value(wren)),
+      );
+      Future<void> reopen() async {
+        await chat.loadSession('wren-other');
+        await chat.loadSession(started);
+      }
+
+      expect(await chars.update(wren, {'needsSimEnabled': true}), isTrue);
+      await reopen();
+      expect(chat.needsSimEnabled, isFalse, reason: 'it kept its own choice');
+
+      // Switched on while closed, as the existing-chats question does.
+      await chat.loadSession('wren-other');
+      await db.customUpdate(
+        'UPDATE sessions SET needs_sim_enabled = 1 WHERE id = ?',
+        variables: [Variable(started)],
+      );
+      await chat.loadSession(started);
+      expect(chat.needsSimEnabled, isTrue);
+      expect(
+        chat.needsSimulation.vector,
+        isNotEmpty,
+        reason: 'bars, not blank',
+      );
+    },
+  );
 }

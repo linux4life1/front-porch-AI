@@ -107,9 +107,11 @@ class ExistingChatsOffer {
   Future<List<_OffChat>> _off(ExistingChatsFeature feature) =>
       feature == ExistingChatsFeature.needs ? _needsOff() : _afterglowOff();
 
-  /// Each chat with Needs off. A 1:1 chat stored off with no saved vector
-  /// opens on unless its card says off (the hydrate rule with Porch Life's
-  /// Needs on, `needsSimAfterHydrate`), so only those count.
+  /// Each chat with Needs off. A 1:1 chat stored off with no saved vector at
+  /// all (saved before chats recorded their choice) is decided when it opens
+  /// by its card's choice, or its own Realism when the card says nothing
+  /// (`needsSimAfterHydrate` with Porch Life's Needs on), so it counts only
+  /// when that would open it off.
   Future<List<_OffChat>> _needsOff() async {
     final open = _openSessionId;
     final off = <_OffChat>[];
@@ -127,7 +129,9 @@ class ExistingChatsOffer {
       final vector = r.needsVector;
       if (!isGroup && (vector == null || vector.isEmpty)) {
         final card = _cards.where((c) => c.dbId == r.characterId).firstOrNull;
-        if (card?.frontPorchExtensions?.needsSimChoice != false) continue;
+        if (card?.frontPorchExtensions?.needsSimChoice ?? r.realismEnabled) {
+          continue;
+        }
       }
       off.add(_OffChat(r.id, isGroup: isGroup));
     }

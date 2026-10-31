@@ -14,7 +14,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -160,13 +160,15 @@ void main() {
   });
 
   group('reopening a chat saved with Needs off and no bars', () {
-    // The chat was started while the Porch Life switch was off, so its row
-    // says off with no saved bars: the stale row the hydrate promotion is
-    // for. With the switch back on, a card that asks gets Needs on reopen;
-    // a silent card must too, and a card that chose off must not.
+    // The chat was started while the Porch Life switch was off and saved
+    // before chats recorded their own choice, so its row says off with no
+    // saved bars at all: the stale row the hydrate promotion is for. With the
+    // switch back on, a card that asks gets Needs on reopen; a silent card
+    // must too, and a card that chose off must not.
     Future<CharacterCard> savedOffThenReopen(
       FrontPorchExtensions ext, {
       bool realismGlobal = true,
+      bool legacyRow = true,
     }) async {
       await boot(needsGlobal: false, realismGlobal: realismGlobal);
       final c = card('Carmen', ext);
@@ -178,10 +180,16 @@ void main() {
       expect(sid, isNotNull, reason: 'opening saves the greeting chat');
       final row = await db!.getSessionById(sid!);
       expect(row?.needsSimEnabled, isFalse);
-      expect(row?.needsVector ?? '', isEmpty);
 
       await storage!.realismSettings.setNeedsSimDefault(true);
       await chat!.setActiveCharacter(other);
+      if (legacyRow) {
+        // Saved before chats recorded their choice: no vector at all.
+        await db!.customUpdate(
+          'UPDATE sessions SET needs_vector = NULL WHERE id = ?',
+          variables: [Variable(sid)],
+        );
+      }
       await chat!.setActiveCharacter(c);
       expect(chat!.currentSessionId, sid, reason: 'the saved chat reopened');
       return c;
@@ -221,6 +229,15 @@ void main() {
     test('a card that chose off stays off', () async {
       await savedOffThenReopen(
         FrontPorchExtensions(realismEnabled: true, needsSimEnabled: false),
+      );
+      expect(chat!.needsSimEnabled, isFalse);
+    });
+
+    test('a chat that recorded its own off keeps it when Porch Life turns '
+        'Needs on: its switch is its own', () async {
+      await savedOffThenReopen(
+        FrontPorchExtensions(realismEnabled: true),
+        legacyRow: false,
       );
       expect(chat!.needsSimEnabled, isFalse);
     });

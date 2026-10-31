@@ -45,7 +45,8 @@ Future<void> offerNeedsInExistingChats(
 List<CharacterCard> _libraryOf(BuildContext context) {
   try {
     return Provider.of<CharacterRepository>(context, listen: false).characters;
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[PorchLife] no character library here: $e');
     return const [];
   }
 }
