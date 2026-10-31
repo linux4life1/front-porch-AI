@@ -77,11 +77,14 @@ class PrefsRecovery {
 
   /// Windows builds before this one named the settings folder
   /// `%APPDATA%\com.antigravity\Front Porch AI` (the old `CompanyName` in
-  /// Runner.rc). It is now `%APPDATA%\Front Porch AI`. Copies the old
-  /// folder across on the first launch that finds the new one without a
-  /// settings file, so moving the folder costs nobody their settings or
-  /// stored keys. The old folder is left in place as a fallback.
-  static Future<void> moveLegacyWindowsFolder() async {
+  /// Runner.rc). It is now `%APPDATA%\Front Porch AI`. On the first launch
+  /// of each channel this carries the old folder across, so moving it costs
+  /// nobody their settings or stored keys. The old folder is left in place.
+  ///
+  /// Stable and nightly share the one settings file (nightly keys carry
+  /// `beta_`), so the move is per channel: whichever channel launches first
+  /// must not stop the other from bringing its own settings later.
+  static Future<void> moveLegacyWindowsFolder({required bool nightly}) async {
     if (!Platform.isWindows) return;
     try {
       final appData = Platform.environment['APPDATA'];
@@ -90,38 +93,85 @@ class PrefsRecovery {
         p.join(appData, 'com.antigravity', 'Front Porch AI'),
       );
       final current = await getApplicationSupportDirectory();
-      if (p.equals(legacy.path, current.path)) return;
-      final copied = await copyLegacyFolder(legacy, current);
-      if (copied > 0) {
-        debugPrint(
-          '[Prefs] moved $copied file(s) from ${legacy.path} to '
-          '${current.path}',
-        );
+      if (p.equals(legacy.path, current.path) || !await legacy.exists()) {
+        return;
       }
+      final copied = await copyLegacyFiles(legacy, current);
+      final merged = await mergeLegacySettingsFile(
+        File(p.join(legacy.path, _prefsName)),
+        File(p.join(current.path, _prefsName)),
+        nightly: nightly,
+      );
+      debugPrint(
+        '[Prefs] old Windows folder: $copied file(s) copied, '
+        '${merged ? 'settings brought across' : 'settings already here'}',
+      );
     } catch (e) {
       debugPrint('[Prefs] could not move the old settings folder: $e');
     }
   }
 
-  /// Copies every file of [from] into [to] that [to] does not have yet,
-  /// but only while [to] has no settings file of its own: once the new
-  /// folder holds settings, they are the user's and nothing is copied over
-  /// them. Returns how many files were copied. Pure file I/O for tests.
-  static Future<int> copyLegacyFolder(Directory from, Directory to) async {
+  static const String _prefsName = 'shared_preferences.json';
+
+  /// Marks, per channel, that the old folder's settings were brought over.
+  static String _movedMarker(bool nightly) =>
+      'flutter.${nightly ? 'beta_' : ''}moved_from_legacy_windows_folder';
+
+  /// Copies the files of [from] that [to] does not have (stored keys and
+  /// anything else the app keeps there). The settings file and its own
+  /// copies are left to [mergeLegacySettingsFile]; an existing file is
+  /// never overwritten. Returns how many files were copied.
+  static Future<int> copyLegacyFiles(Directory from, Directory to) async {
     if (!await from.exists()) return 0;
-    final settings = File(p.join(to.path, 'shared_preferences.json'));
-    if (await settings.exists() && await settings.length() > 0) return 0;
     var copied = 0;
     await for (final entity in from.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
       final rel = p.relative(entity.path, from: from.path);
+      if (rel.startsWith(_prefsName)) continue;
       final target = File(p.join(to.path, rel));
-      if (await target.exists() && await target.length() > 0) continue;
+      if (await target.exists()) continue;
       await target.parent.create(recursive: true);
       await entity.copy(target.path);
       copied++;
     }
     return copied;
+  }
+
+  /// Brings this channel's settings from the old settings file into the
+  /// new one, once per channel. The old values win for this channel's keys:
+  /// before this runs, the only ones in the new file are stray writes from
+  /// the other channel's build. The other channel's keys are left exactly as
+  /// they are. Returns whether anything was written.
+  static Future<bool> mergeLegacySettingsFile(
+    File legacy,
+    File current, {
+    required bool nightly,
+  }) async {
+    if (!await legacy.exists()) return false;
+    final old = jsonDecode(await legacy.readAsString());
+    if (old is! Map) return false;
+    var now = <String, Object?>{};
+    if (await current.exists()) {
+      final text = await current.readAsString();
+      if (text.trim().isNotEmpty) {
+        final decoded = jsonDecode(text);
+        if (decoded is Map) now = decoded.cast<String, Object?>();
+      }
+    }
+    final marker = _movedMarker(nightly);
+    if (now[marker] == true) return false;
+    for (final e in old.entries) {
+      final key = e.key;
+      if (key is! String || !key.startsWith('flutter.')) continue;
+      final beta = key.startsWith('flutter.beta_');
+      if (beta == nightly) now[key] = e.value;
+    }
+    now[marker] = true;
+    await current.parent.create(recursive: true);
+    final tmp = File('${current.path}.move.tmp');
+    await tmp.writeAsString(jsonEncode(now), flush: true);
+    await tmp.rename(current.path);
+    return true;
   }
 
   /// Probes SharedPreferences and heals the JSON store if it is corrupt.

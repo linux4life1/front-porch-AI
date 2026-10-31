@@ -21,6 +21,7 @@
 // deleted, and a missing or immovable file must return false rather than
 // throw — startup calls this before any error UI exists.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -137,56 +138,91 @@ void main() {
     });
   });
 
-  group('PrefsRecovery.copyLegacyFolder', () {
-    Future<void> put(String path, String text) async {
+  group('PrefsRecovery old Windows folder', () {
+    Future<File> put(String path, String text) async {
       final f = File(path);
       await f.parent.create(recursive: true);
-      await f.writeAsString(text);
+      return f.writeAsString(text);
     }
 
-    test('copies the old Windows folder into a new one without settings',
-        () async {
+    test('stored key files are copied, never over an existing one', () async {
       final legacy = p.join(tmp.path, 'com.antigravity', 'FPAI');
-      await put(p.join(legacy, 'shared_preferences.json'), '{"flutter.a":1}');
-      await put(p.join(legacy, 'k.secure'), 'sealed');
+      await put(p.join(legacy, 'a.secure'), 'old a');
+      await put(p.join(legacy, 'b.secure'), 'old b');
+      await put(p.join(legacy, 'shared_preferences.json'), '{}');
       final current = p.join(tmp.path, 'FPAI');
+      await put(p.join(current, 'b.secure'), 'new b');
 
-      expect(
-        await PrefsRecovery.copyLegacyFolder(
-          Directory(legacy),
-          Directory(current),
-        ),
-        2,
+      final copied = await PrefsRecovery.copyLegacyFiles(
+        Directory(legacy),
+        Directory(current),
       );
+
+      expect(copied, 1);
+      expect(await File(p.join(current, 'a.secure')).readAsString(), 'old a');
+      expect(await File(p.join(current, 'b.secure')).readAsString(), 'new b');
       expect(
-        await File(p.join(current, 'shared_preferences.json')).readAsString(),
-        '{"flutter.a":1}',
-      );
-      expect(await File(p.join(current, 'k.secure')).exists(), isTrue);
-      expect(
-        await File(p.join(legacy, 'shared_preferences.json')).exists(),
-        isTrue,
-        reason: 'the old folder stays as a fallback',
+        await File(p.join(current, 'shared_preferences.json')).exists(),
+        isFalse,
+        reason: 'the settings file is merged per channel, not copied',
       );
     });
 
-    test('never copies over settings the new folder already has', () async {
-      final legacy = p.join(tmp.path, 'old');
-      await put(p.join(legacy, 'shared_preferences.json'), '{"flutter.a":1}');
-      final current = p.join(tmp.path, 'new');
-      await put(p.join(current, 'shared_preferences.json'), '{"flutter.a":2}');
+    test('each channel brings its own settings across, whichever launches '
+        'first', () async {
+      final legacy = await put(
+        p.join(tmp.path, 'old', 'shared_preferences.json'),
+        jsonEncode({
+          'flutter.saved_prompts': 'stable prompts',
+          'flutter.beta_saved_prompts': 'nightly prompts',
+        }),
+      );
+      final current = File(p.join(tmp.path, 'new', 'shared_preferences.json'));
 
+      // Nightly launches first and later writes a stray unprefixed key.
       expect(
-        await PrefsRecovery.copyLegacyFolder(
-          Directory(legacy),
-          Directory(current),
+        await PrefsRecovery.mergeLegacySettingsFile(
+          legacy,
+          current,
+          nightly: true,
         ),
-        0,
+        isTrue,
       );
+      final afterNightly =
+          jsonDecode(await current.readAsString()) as Map<String, dynamic>;
+      expect(afterNightly['flutter.beta_saved_prompts'], 'nightly prompts');
+      expect(afterNightly.containsKey('flutter.saved_prompts'), isFalse);
+      afterNightly['flutter.saved_prompts'] = 'stray';
+      await current.writeAsString(jsonEncode(afterNightly));
+
+      // Stable's first launch still brings its own settings over.
       expect(
-        await File(p.join(current, 'shared_preferences.json')).readAsString(),
-        '{"flutter.a":2}',
+        await PrefsRecovery.mergeLegacySettingsFile(
+          legacy,
+          current,
+          nightly: false,
+        ),
+        isTrue,
       );
+      final both =
+          jsonDecode(await current.readAsString()) as Map<String, dynamic>;
+      expect(both['flutter.saved_prompts'], 'stable prompts');
+      expect(both['flutter.beta_saved_prompts'], 'nightly prompts');
+
+      // Once per channel: later launches leave the new file alone.
+      both['flutter.saved_prompts'] = 'edited since';
+      await current.writeAsString(jsonEncode(both));
+      expect(
+        await PrefsRecovery.mergeLegacySettingsFile(
+          legacy,
+          current,
+          nightly: false,
+        ),
+        isFalse,
+      );
+      final later =
+          jsonDecode(await current.readAsString()) as Map<String, dynamic>;
+      expect(later['flutter.saved_prompts'], 'edited since');
     });
   });
 }

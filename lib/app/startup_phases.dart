@@ -20,6 +20,7 @@ import 'dart:ffi';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/atomic_prefs_store.dart';
@@ -94,7 +95,7 @@ Future<void> healPrefsAndConsolidateFiles() async {
   // The atomic store goes in first so no prefs read or write ever goes
   // through the stock truncate-then-write store.
   AtomicPrefsStore.install();
-  await PrefsRecovery.moveLegacyWindowsFolder();
+  await PrefsRecovery.moveLegacyWindowsFolder(nightly: isPreRelease);
   await PrefsRecovery.healIfCorrupt();
   StartupTrace.mark('PrefsRecovery.healIfCorrupt');
 
