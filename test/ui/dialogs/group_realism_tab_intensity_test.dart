@@ -267,12 +267,21 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
+    // Read, then close whatever is still open before checking: a check
+    // failing over open dialogs would leave the chat unable to close.
+    final stacked = find.byType(GroupSettingsDialog).evaluate().length;
+    final editorOpen = find.byType(EditCharacterPage).evaluate().isNotEmpty;
+    Navigator.of(
+      tester.element(find.byType(GroupRealismNeedsTab).first),
+    ).popUntil((r) => r.isFirst);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(
-      find.byType(GroupSettingsDialog),
-      findsNothing,
+      stacked,
+      0,
       reason: 'THE BUG: a second Group Settings opened over the first',
     );
-    expect(find.byType(EditCharacterPage), findsNothing);
+    expect(editorOpen, isFalse);
     expect(shown, [2], reason: 'back on Group Settings → Realism');
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
