@@ -141,21 +141,39 @@ void main() {
   });
 
   testWidgets('a library read that fails is logged and leaves the section '
-      'empty, with no uncaught error', (tester) async {
+      'empty, and never reaches the platform', (tester) async {
     final logged = <String>[];
     final print = debugPrint;
     debugPrint = (String? message, {int? wrapWidth}) {
       logged.add(message ?? '');
       print(message, wrapWidth: wrapWidth);
     };
+    // The singleton's first open asks these channels; the page's database
+    // needs neither. Each call is counted and left unanswered.
+    const channels = [
+      'plugins.flutter.io/shared_preferences',
+      'plugins.flutter.io/path_provider',
+    ];
+    final calls = <String>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    for (final channel in channels) {
+      messenger.setMockMessageHandler(channel, (message) async {
+        calls.add(channel);
+        return null;
+      });
+    }
     // No database above it: the read throws.
     await tester.runAsync(() async {
       await pumpFromLibrary(tester);
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
     await tester.pump();
+    for (final channel in channels) {
+      messenger.setMockMessageHandler(channel, null);
+    }
     debugPrint = print; // the binding checks it is back before the test ends
 
+    expect(calls, isEmpty, reason: 'the section opened the startup singleton');
     expect(tester.takeException(), isNull);
     expect(find.byType(CharacterStatsSection), findsOneWidget);
     expect(find.text('Your chats together'), findsNothing);
