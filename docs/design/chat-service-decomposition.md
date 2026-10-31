@@ -177,6 +177,12 @@ every later door has something to take.
   closures it replaces (`messages`, `activeCharacter`, `activeGroup`,
   `groupCharacters`). Their leaf consumers read through it.
 
+Landed as 228 → 225 fields: `_session` is one field replacing four. Debt
+left for WP9a: the old closure-taking `RealismScope(...)` survives as a
+factory because `test/services/chat/afterglow_independence_test.dart` builds
+the scope that way; WP9a rebuilds the scope and retires the factory with an
+`approved-test-change` on that test.
+
 Done when: field bag baseline drops by four, part count unchanged, API
 manifest unchanged, full unit suite green, and these suites pass:
 `integration_test/app_smoke_test.dart`, `chat_switch_smoke_test.dart`,
@@ -360,7 +366,8 @@ Parts retired (7, ~2,900 lines): `chat_service_wiring_realism`,
 - `lib/services/chat/doors/realism/realism_graph.dart` builds, once, every
   object the 62 `_build*` factories build today, from `ChatSessionState`,
   the storage service and the door getters. The shell's `late final`
-  fields become one `late final _realism = RealismGraph(...)` and the
+  fields become one `late final _realism = RealismGraph(...)`, the
+  closure-taking `RealismScope(...)` factory WP1 left behind goes, and the
   public getters (`relationshipService`, `timeService`, `needsSimulation`,
   `journalStore`, `pocketsFor`, `milestoneFeed` and the rest) forward to it.
 - Eval transport contract: native tool call first, then the text floor,
