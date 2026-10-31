@@ -180,7 +180,9 @@ class _GroupRealismDynamicsEditorState
 
   void _updateRelationship(String fromMid, String toMid, int value) {
     setState(() {
-      final seed = _seedsByMid[fromMid] ??= defaultGroupMemberRealismSeed();
+      final seed = _seedsByMid[fromMid] ??= groupMemberStartingSeed(
+        widget.members.where((m) => m.mid == fromMid).firstOrNull?.extensions,
+      );
       final rels = <String, int>{
         ...((seed['relationships'] as Map?)?.map(
               (k, v) => MapEntry(k.toString(), (v as num).toInt()),
@@ -378,7 +380,7 @@ class _GroupRealismDynamicsEditorState
   }
 
   Widget _buildMemberCard(GroupRealismMember m) {
-    final seed = _seedsByMid[m.mid] ?? defaultGroupMemberRealismSeed();
+    final seed = _seedsByMid[m.mid] ?? groupMemberStartingSeed(m.extensions);
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
