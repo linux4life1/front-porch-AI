@@ -624,7 +624,7 @@ void main() {
     expect(
       chat.nsfwService.arousalLevel,
       40,
-      reason: "the stamp of a reply written while off recorded none",
+      reason: 'the stamp of a reply written while off records the kept Lust',
     );
     chat.nsfwService.setArousalLevel(70);
     await chat.swipeMessage(last, -1);
@@ -1054,6 +1054,39 @@ void main() {
         jsonDecode(row.data['e'] as String) as Map<String, dynamic>,
       );
       expect(ext.afterglowEnabled, isFalse, reason: "kept on Rue's own row");
+    });
+
+    // A branch is a copy of the chat at that reply, not a rewind: with the
+    // group chat's switch off it still takes the reply's stamped Lust, as
+    // the 1:1 branch does.
+    test('branching a group chat switched off from an earlier reply copies '
+        "the Lust that reply's speaker had there", () async {
+      await intoGroup();
+      final rueId = groupMemberStoreId(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      );
+      chat.debugSeedGroupSpeakerState(rueId, arousal: 20);
+      await chat.sendMessage('@Rue Evening.');
+      await settle();
+      expect(chat.messages.last.sender, 'Rue');
+      final at = chat.messages.length - 1;
+      chat.debugSeedGroupSpeakerState(rueId, arousal: 35);
+      await chat.sendMessage('@Rue Still up?');
+      await settle();
+      expect(chat.messages.last.sender, 'Rue');
+      await chat.setAfterglowEnabled(false);
+      final parent = chat.currentSessionId!;
+
+      await chat.forkFromMessage(at);
+      await settle();
+      expect(chat.currentSessionId, isNot(parent));
+      expect(chat.isGroupMode, isTrue);
+      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+      expect(
+        chat.getArousalForGroupCharacter(rue),
+        20,
+        reason: "the branch point's stamp, not the parent's live 35",
+      );
     });
 
     test('a member switched off takes no climax; the rest of the cast still '

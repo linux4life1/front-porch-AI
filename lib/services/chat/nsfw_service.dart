@@ -80,9 +80,11 @@ class NsfwService {
 
   /// This chat's own Afterglow switch alone, without Porch Life (in a group,
   /// the group chat's AND the loaded member's own). Off hides Lust and
-  /// recovery and holds them where they were: no rewind (regen, swipe,
-  /// delete) moves them, and switching back on shows them again. A copy into
-  /// another chat ([carry]) still brings them along.
+  /// recovery and holds them where they were: while it reads off, a snapshot
+  /// restore (regen, swipe, delete, a cancelled send) leaves them as they
+  /// are, and switching back on shows them again. The fork, collapse, branch
+  /// and package import restores run inside [carry], which skips this gate,
+  /// so a copy into another chat lands whatever switch it reads mid-copy.
   final bool Function()? _chatSwitchOn;
 
   /// Inside [carry]: a fork, collapse, branch or package import copying a

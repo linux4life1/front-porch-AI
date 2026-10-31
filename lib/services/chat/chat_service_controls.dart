@@ -342,19 +342,20 @@ extension ChatServiceControls on ChatService {
   /// refractory — never the live scalars, which may still hold the
   /// previous speaker's. No match answers false: chaos fails open and
   /// spins today's wheel. Soft bodies answer false by decision — their
-  /// desire is honest. A body whose own switch is off answers false too: it
-  /// keeps its recovery hidden, and a hidden lock must not steer the wheel.
+  /// desire is honest. A body Afterglow does not run for answers false too
+  /// (Porch Life, the chat's switch or the member's): its recovery is kept
+  /// hidden, and a hidden lock must not steer the wheel.
   bool _hardLockForSpeakerNamed(String name) {
     if (_activeGroup == null) {
-      if (!_nsfwService.storedNsfwCooldownEnabled) return false;
+      if (!_nsfwService.nsfwCooldownEnabled) return false;
       final r = _nsfwService.refractory;
       return r.running && !r.soft;
     }
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
-    if (card == null) return false;
-    final id = _getCharacterIdFromCard(card);
-    if (!_groupStore.afterglowOnFor(id)) return false;
-    final r = _groupStore.members[id]?.refractory ?? Refractory.none;
+    if (card == null || !afterglowRunsFor(card)) return false;
+    final r =
+        _groupStore.members[_getCharacterIdFromCard(card)]?.refractory ??
+        Refractory.none;
     return r.running && !r.soft;
   }
 

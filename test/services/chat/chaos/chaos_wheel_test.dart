@@ -618,5 +618,72 @@ void main() {
         contains("Write $named's immediate reaction"),
       );
     }, timeout: const Timeout(Duration(minutes: 2)));
+
+    // A recovery Afterglow does not run for is kept and hidden: whichever
+    // layer hides it (Porch Life, the group chat's switch, the member's own),
+    // its hard lock must not pull the desire events off the wheel.
+    group('a hidden hard lock does not steer the wheel', () {
+      Set<String> seenLockedOver(int spins) {
+        final seen = <String>{};
+        for (var i = 0; i < spins; i++) {
+          seen.addAll(chat.spinWheelEvents().where(_locked.contains));
+        }
+        return seen;
+      }
+
+      /// The named speaker, locked, with every layer on: the lock holds.
+      Future<CharacterCard> lockedSpeaker() async {
+        await storage.realismSettings.setAdultThemesEnabled(true);
+        await storage.realismSettings.setNsfwCooldownDefault(true);
+        await enter(TurnOrder.roundRobin);
+        await chat.setChaosNsfwEnabled(true);
+        final name = chat.chanceTimeSpeakerName;
+        final card = chat.groupCharacters.firstWhere((c) => c.name == name);
+        chat.debugSeedGroupSpeakerState(
+          chat.characterIdFor(card),
+          refractory: Refractory.fromJudgeTurns(6),
+        );
+        expect(chat.afterglowRunsFor(card), isTrue);
+        expect(seenLockedOver(100), isEmpty, reason: 'baseline: it locks');
+        return card;
+      }
+
+      test("the member's own switch off", () async {
+        final card = await lockedSpeaker();
+        await chat.setMemberAfterglowEnabled(card, false);
+        expect(seenLockedOver(300), isNotEmpty);
+      });
+
+      test("the group chat's switch off", () async {
+        await lockedSpeaker();
+        await chat.setAfterglowEnabled(false);
+        expect(seenLockedOver(300), isNotEmpty);
+      });
+
+      test('Porch Life Afterglow off, in a group', () async {
+        await lockedSpeaker();
+        await storage.realismSettings.setNsfwCooldownDefault(false);
+        expect(seenLockedOver(300), isNotEmpty);
+      });
+
+      test('Porch Life Afterglow off, in a 1:1', () async {
+        await storage.realismSettings.setAdultThemesEnabled(true);
+        await storage.realismSettings.setNsfwCooldownDefault(true);
+        await chat.setActiveCharacter(
+          CharacterCard(
+            name: 'Mara',
+            description: 'Exists only inside the hidden-lock test.',
+            firstMessage: 'The porch light hums.',
+            frontPorchExtensions: FrontPorchExtensions(chaosModeEnabled: true),
+          )..dbId = 'char-chaos-hidden',
+        );
+        await chat.setChaosNsfwEnabled(true);
+        chat.nsfwService.setRefractory(Refractory.fromJudgeTurns(6));
+        expect(seenLockedOver(100), isEmpty, reason: 'baseline: it locks');
+        await storage.realismSettings.setNsfwCooldownDefault(false);
+        expect(chat.nsfwService.refractory.running, isTrue, reason: 'kept');
+        expect(seenLockedOver(300), isNotEmpty);
+      });
+    });
   });
 }
