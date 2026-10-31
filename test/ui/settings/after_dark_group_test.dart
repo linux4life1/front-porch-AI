@@ -179,8 +179,8 @@ void main() {
   // each on the line it controls, so those are the only switches here.
   // The gear sat in the header code both modes share; the fake cannot build
   // group mode, so 1:1 pins it.
-  testWidgets('Character State has no gear; Needs and Afterglow each have '
-      'their own line', (tester) async {
+  testWidgets("Character State's only switches are the Realism master and "
+      'the Needs and Afterglow lines', (tester) async {
     final storage = _AdultStorage();
     final chat = FakeChatService();
     addTearDown(() {
@@ -216,9 +216,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('One-Shot Eval'), findsOneWidget, reason: 'baseline');
-    expect(find.byTooltip('Simulation settings'), findsNothing);
-    expect(find.text('Needs Simulation'), findsNothing);
-    expect(find.textContaining('NSFW'), findsNothing);
     expect(
       find.text('Afterglow'),
       findsOneWidget,

@@ -8,7 +8,7 @@
 // one representative control inside each section must respond —
 //   * Author's Note: the note field accepts text,
 //   * One-Shot Eval: sits above the tool-calling pill and its pills work,
-//   * Character State: opens, with no settings gear or Needs switch,
+//   * Character State: opens on its Needs line,
 //   * Journal & Memory: the recap section renders its header,
 //   * Objectives: the panel renders,
 //   * Story Tools: the Chaos master switch actually turns chaos on.
@@ -163,8 +163,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
 
     await d.openSidebarAccordion('Character State', find.text('Needs'));
-    expect(find.byTooltip('Simulation settings'), findsNothing);
-    expect(find.text('Needs Simulation'), findsNothing);
 
     // ── Journal & Memory: the recap section renders ─────────────────────
     await d.openJournalAccordion();

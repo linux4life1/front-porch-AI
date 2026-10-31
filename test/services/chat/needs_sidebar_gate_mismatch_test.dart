@@ -359,19 +359,15 @@ void main() {
     expect(sidebarWouldShowBars(), isFalse);
   });
 
-  test('1:1 does not invent Needs when Porch Life Needs is off', () async {
+  test('1:1 runs no Needs while Porch Life Needs is off', () async {
     await boot(needsGlobal: false);
     await plantSession(sessionNeeds: false);
     final c = chat!;
     await c.setActiveCharacter(_carmen(cardNeeds: true));
 
-    expect(
-      c.needsSimEnabled,
-      isFalse,
-      reason:
-          'Porch Life is the seed AND — a stale false row stays off '
-          'when the global veto is on',
-    );
+    // The chat's own switch takes its card's choice; Porch Life vetoes it
+    // live.
+    expect(c.needsActive, isFalse);
     expect(sidebarWouldShowBars(), isFalse);
   });
 

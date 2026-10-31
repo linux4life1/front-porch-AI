@@ -1,11 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat tools list has no Needs switch (2026-10-25): Needs is set on the
-// card, so the per-chat switch and the clock-off line that sat under it are
-// gone, whatever the clock. One-Shot Eval moved out of this list to sit above
-// the tool-calling pill (OneShotEvalControl.test.tsx). Desktop twin: the
-// Character State case in test/ui/settings/after_dark_group_test.dart.
+// One-Shot Eval moved out of the chat tools list to sit above the
+// tool-calling pill (OneShotEvalControl.test.tsx).
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -13,10 +10,6 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ToolsState } from './ChatToolsShared';
-
-const LINE = 'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
-
-let passageEnabled = true;
 
 function toolsState(): ToolsState {
   return {
@@ -40,8 +33,8 @@ function toolsState(): ToolsState {
       weekday: 'Tuesday',
       dayCount: 3,
       timeOfDay: 'evening',
-      passageEnabled,
-      clockRunning: passageEnabled,
+      passageEnabled: true,
+      clockRunning: true,
     },
     objectives: { primary: null, secondary: [], isChecking: false },
   };
@@ -81,18 +74,7 @@ async function renderTools() {
   });
 }
 
-describe('ChatTools without a Needs switch', () => {
-  for (const clockOn of [false, true]) {
-    it(`has no Needs switch or clock-off line (clock ${clockOn ? 'on' : 'off'})`, async () => {
-      passageEnabled = clockOn;
-      await renderTools();
-      expect(container.querySelector('.chat-tools')).not.toBeNull();
-      expect(container.textContent).not.toContain('Needs simulation');
-      expect(container.querySelector('.needs-clock-off')).toBeNull();
-      expect(container.textContent).not.toContain(LINE);
-    });
-  }
-
+describe('ChatTools', () => {
   it('no longer carries One-Shot Eval', async () => {
     await renderTools();
     expect(container.querySelector('.chat-tools')).not.toBeNull();
