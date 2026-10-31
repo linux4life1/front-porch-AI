@@ -495,11 +495,13 @@ Groups work the same way. Edit group and the new-group wizard set how the group'
 
 ### How do I change a group member's settings?
 
-Open **Edit Character** on that member. In a group chat, open Group Settings and press **Edit** on that member's summary. Or focus the member in the sidebar (tap their face) and pick Edit Character from the sidebar's **Main Settings** menu. Edit group's member **Edit** opens the same thing. On the phone: **Edit** in the chat header (for the member you're looking at), or the Edit link by each member in Group Settings.
+Open **Edit Character** on that member. In a group chat, open Group Settings → **Realism** and press **Edit** on that member's summary. Or focus the member in the sidebar (tap their face) and pick Edit Character from the sidebar's **Main Settings** menu. Edit group's member **Edit** opens the same thing. On the phone: **Edit** in the chat header (for the member you're looking at), or the Edit link by each member in Group Settings.
 
 It edits that member in this group only. Their library card and their other chats stay as they are.
 
-Realism on or off, time and day, Chaos, Needs and the chat's Afterglow belong to the whole group. The member's editor shows them as lines that point to where the group sets them (Group Settings in a chat, or Edit group's Realism & Dynamics).
+Realism on or off, time and day, Chaos, Needs and the chat's Afterglow belong to the whole group. The member's editor shows them as read-only lines that say where each one is set. Opened from a chat, they show that chat's switches ("… in this chat"). Opened from Edit group, they show how the group's new chats start ("… for this group's new chats").
+
+Where the member starts in the group's new chats (bonds, trust, mood) has its own section in their editor: "Where *name* starts in this group's new chats".
 
 ### Does Realism make chat slow?
 

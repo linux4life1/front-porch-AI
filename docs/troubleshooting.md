@@ -256,11 +256,11 @@ More: [FAQ → I turned it on in Porch Life but my chat doesn't show it](faq.md#
 
 ### A group member's edits don't stick
 
-A group member is the group's own copy of a character. Edit them with **Edit Character** opened on that member: from the **Edit** on their summary in Group Settings, from the sidebar's **Main Settings** menu while they're focused, from their **Edit** in Edit group, or on the phone from the chat header's Edit or the Edit link by each member in Group Settings. Those edits save to that member in this group.
+A group member is the group's own copy of a character. Edit them with **Edit Character** opened on that member: from the **Edit** on their summary in Group Settings → Realism, from the sidebar's **Main Settings** menu while they're focused, from their **Edit** in Edit group, or on the phone from the chat header's Edit or the Edit link by each member in Group Settings. Those edits save to that member in this group.
 
 Editing the character from your library changes the library card and how its new chats start. The member's settings in a group you already have stay as they were. (Their expression pictures still come from the library.)
 
-Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) are set by the group, not in the member's editor. The editor shows them as lines that point to where the group sets them (Group Settings in a chat, or Edit group's Realism & Dynamics).
+Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) are set by the group, not in the member's editor. The editor shows them as read-only lines that say where each one is set: "… in this chat" when opened from a chat, "… for this group's new chats" when opened from Edit group.
 
 ---
 
