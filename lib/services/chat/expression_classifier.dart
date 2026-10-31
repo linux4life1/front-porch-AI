@@ -197,13 +197,16 @@ class ExpressionService {
         'onnx') {
       return 'neutral';
     }
-    // Neutral until an answer lands. Asked once while in flight; a skipped
-    // or failed ask is asked again on a later read.
+    // Neutral until an answer lands. Asked once while in flight. A skip that
+    // made no call is asked again on a later read; a call that came back
+    // with no valid label (or failed) keeps neutral, so a word the model
+    // cannot label costs one call, not one per rebuild.
     if (_reclassifying.add(lower)) {
-      _reclassifyEmotionAsync(
-        lower,
-        onLabel: (l) => _reclassified[lower] = l,
-      ).whenComplete(() => _reclassifying.remove(lower));
+      _reclassifyEmotionAsync(lower, onLabel: (l) => _reclassified[lower] = l)
+          .then((asked) {
+            if (asked) _reclassified.putIfAbsent(lower, () => 'neutral');
+          })
+          .whenComplete(() => _reclassifying.remove(lower));
     }
     return 'neutral';
   }
@@ -350,6 +353,7 @@ class ExpressionService {
     _cachedExpressionLabel = null;
     _cachedForEmotion = null;
     _reclassified.clear();
+    _reclassifying.clear();
     _onnx.reset();
   }
 
@@ -358,7 +362,7 @@ class ExpressionService {
   /// Fire-and-forget: ask the LLM to map an unknown emotion word to a
   /// standard label (see [ExpressionReclassifier]). The answer lands in the
   /// live label's cache unless [onLabel] takes it.
-  Future<void> _reclassifyEmotionAsync(
+  Future<bool> _reclassifyEmotionAsync(
     String unknownEmotion, {
     void Function(String label)? onLabel,
   }) =>

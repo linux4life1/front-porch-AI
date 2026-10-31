@@ -523,5 +523,76 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 20));
       expect(prompts, hasLength(1), reason: 'an answered word is kept');
     });
+
+    // A call that comes back with no usable label (a word outside the list,
+    // a 429, a timeout) is not retried on every rebuild: the sidebar and the
+    // phone read this per notify and per poll.
+    for (final (name, llm) in [
+      (
+        'a word outside the list',
+        _CountingLlm(reply: '{"label": "nostalgia"}'),
+      ),
+      ('an error', _CountingLlm(throws: true)),
+    ]) {
+      test('a model call that returns $name is made once, however often '
+          'the word is read', () async {
+        final svc = ExpressionService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsEvaluatingRealism: () => false,
+          getStorageService: () => _FakeStorageForExpression(mode: 'llm'),
+          getLlmServiceForReclass: () => llm,
+          getIsGenerating: () => false,
+          getCharacterEmotion: () => 'happy',
+          getMessages: () => const [],
+          getIsThinkingModelForReclass: () => false,
+          getRealismEvalCancelled: () => false,
+          setRealismEvalCancelled: (_) {},
+          setIsEvaluatingRealism: (_) {},
+          onHandleRealismEvalCancelledDuringOnnx: () async {},
+        );
+        for (var i = 0; i < 4; i++) {
+          svc.labelForEmotion('wibbly');
+          await Future.delayed(const Duration(milliseconds: 20));
+        }
+        expect(llm.calls, 1);
+      });
+    }
+
+    test(
+      'a fresh chat forgets a word in flight, so it can be asked there',
+      () async {
+        final prompts = <String>[];
+        final svc = createTestExpression(reclassPrompts: prompts);
+        svc.labelForEmotion('wibbly');
+        svc.resetForFreshChat();
+        svc.labelForEmotion('wibbly');
+        await Future.delayed(const Duration(milliseconds: 20));
+        expect(prompts, hasLength(2));
+      },
+    );
   });
+}
+
+/// A side-lane model that counts its calls and answers with [reply], or
+/// fails like a rate-limited API when [throws].
+class _CountingLlm implements LLMService {
+  _CountingLlm({this.reply = '', this.throws = false});
+
+  final String reply;
+  final bool throws;
+  int calls = 0;
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    calls++;
+    if (throws) throw Exception('429 Too Many Requests');
+    yield reply;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

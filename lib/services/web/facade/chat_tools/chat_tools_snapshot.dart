@@ -112,9 +112,12 @@ class ChatToolsSnapshot {
         // The live gate: Porch Life (with 18+) allows Afterglow AND this
         // chat's own switch is on. The phone shows the switch while Porch
         // Life allows it, and Lust and recovery while the gate is on.
-        // In a group, for the focused member (their own switch counts).
-        'cooldownEnabled': focusedIsMember
-            ? _chat.afterglowRunsFor(focusedCard!)
+        // In a group, for the panel owner, focused or not (their own switch
+        // counts), as the recovery below; a scene guest has none.
+        'cooldownEnabled': _chat.isGroupMode
+            ? owner != null &&
+                  owner.realismEnabled &&
+                  _chat.afterglowRunsFor(owner.card)
             : nsfw.nsfwCooldownEnabled,
         'afterglowAllowed': rs.afterglowEnabled,
         'afterglowSwitch': _chat.afterglowChatSwitch,

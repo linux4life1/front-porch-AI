@@ -490,6 +490,28 @@ void main() {
       expect(ChatRealismRead(chat).snapshot()['refractoryLabel'], isEmpty);
     });
 
+    test("the phone's unfocused group view says whether Afterglow runs for "
+        "the panel owner, not the loaded speaker", () async {
+      await boot();
+      addTearDown(() => disposeChatThenCloseDb(chat, db));
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      final owner = members().first;
+      await chat.setMemberAfterglowEnabled(owner.card, false);
+      expect(
+        chat.nsfwService.nsfwCooldownEnabled,
+        isTrue,
+        reason: 'the live scalars still read on',
+      );
+
+      Object? runs() =>
+          (ChatToolsFacade(chat, storage, null).state()['nsfw']
+              as Map)['cooldownEnabled'];
+      expect(runs(), isFalse, reason: "the owner's own switch is off");
+      await chat.setMemberAfterglowEnabled(owner.card, true);
+      expect(runs(), isTrue);
+    });
+
     List<face.AvatarImage> faces(String who) => [
       for (final (i, label) in ['neutral', 'joy', 'sadness', 'fear'].indexed)
         face.AvatarImage(
