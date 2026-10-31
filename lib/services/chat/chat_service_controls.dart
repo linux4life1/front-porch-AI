@@ -278,10 +278,30 @@ extension ChatServiceControls on ChatService {
   /// Returns 8 raw events for the wheel. Pair events (`{{other}}`) need a
   /// second group member; user events need the user in the scene.
   List<String> spinWheelEvents() {
+    _previewChanceTimeSpeaker();
     return _chaosModeService.spinWheelEvents(
       allowPair: _chanceTimePartners(chanceTimeSpeakerName).isNotEmpty,
       allowUser: !observerMode,
     );
+  }
+
+  /// Random turn order picks a speaker only when the turn starts, after the
+  /// wheel has named someone. A spin makes that pick ahead instead, so the
+  /// event, its 18+ gate and the reply follow one member. It is not a forced
+  /// pick: an Away member coming back (an @-name, a quiet pulse) still
+  /// answers, as in round robin. Round robin and a hand-picked or @-named
+  /// member already name one.
+  void _previewChanceTimeSpeaker() {
+    if (_activeGroup == null || _upcomingGroupSpeaker != null) return;
+    _groupManager?.previewRandomSpeaker();
+  }
+
+  /// Accepting an event holds the member it names as the next random pick,
+  /// in case a turn since the spin used that pick up.
+  void _holdChanceTimeSpeaker(String name) {
+    if (_activeGroup == null || _upcomingGroupSpeaker != null) return;
+    final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
+    if (card != null) _groupManager?.previewSpeaker(card);
   }
 
   /// PR 6: is the body Chance Time names mid a HARD refractory lock? 1:1
@@ -340,6 +360,7 @@ extension ChatServiceControls on ChatService {
     // already-completed completer (which would throw a StateError).
     final completer = _chanceTimeCompleter;
     if (completer != null && completer.isCompleted) return;
+    _holdChanceTimeSpeaker(charName);
     // PR 6 re-gate at ACCEPT (review M1): a manual SPIN NOW parks without
     // halting generation, so between spin and accept a group pointer can
     // rotate onto a body that was locked the whole window, and an
@@ -363,6 +384,7 @@ extension ChatServiceControls on ChatService {
     _chaosModeService.rememberEvent(applied);
     await _chaosModeService.applyPreparedEvent(display);
     _webChanceTimeEvent = null;
+    _webChanceTimeName = null;
     // Resume a parked send if one is waiting. Manual SPIN NOW has no
     // completer — applying the injection is the whole point.
     if (completer != null && !completer.isCompleted) completer.complete();

@@ -6,6 +6,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 
+/// Where the turn order stands: the round-robin index, a forced speaker and
+/// a random pick made ahead. Saved before a pick and put back when that
+/// turn wrote no reply.
+typedef TurnRotation = ({int index, String? forcedId, String? previewId});
+
 /// Manages turn order, forced speaker selection, Director Mode state,
 /// and related group chat orchestration.
 ///
@@ -18,6 +23,11 @@ class GroupTurnManager extends ChangeNotifier {
   List<CharacterCard> _characters = [];
   int _turnIndex = 0;
   String? _forcedNextSpeakerId;
+
+  /// Random turn order's next pick, made ahead: a Chance Time spin names who
+  /// reacts before the turn picks. Not a forced speaker, so an Away member
+  /// coming back still answers; the next random pick takes it.
+  String? _previewId;
   ({int index, String? forcedId, String regenId})? _regenHold;
   bool _observerMode = false;
   bool _autoPlayActive = false;
@@ -55,7 +65,26 @@ class GroupTurnManager extends ChangeNotifier {
     if (_group!.turnOrder == TurnOrder.roundRobin) {
       return _characters[_turnIndex % _characters.length];
     }
-    return null; // random decided at pick time
+    return _previewed; // random: decided at pick time unless picked ahead
+  }
+
+  CharacterCard? get _previewed =>
+      _characters.where((c) => _getId(c) == _previewId).firstOrNull;
+
+  /// Random turn order: make the next pick now (see [_previewId]). No-op for
+  /// round robin or while a pick is already held.
+  void previewRandomSpeaker() {
+    if (!isActive || _characters.isEmpty) return;
+    if (_group!.turnOrder != TurnOrder.random || _previewed != null) return;
+    _previewId = _getId(_characters[Random().nextInt(_characters.length)]);
+    notifyListeners();
+  }
+
+  /// Random turn order: hold [character] as the next pick.
+  void previewSpeaker(CharacterCard character) {
+    if (!isActive || _group!.turnOrder != TurnOrder.random) return;
+    _previewId = _getId(character);
+    notifyListeners();
   }
 
   /// Pick (and advance) the next speaker according to turn order.
@@ -80,7 +109,9 @@ class GroupTurnManager extends ChangeNotifier {
     }
 
     if (_group!.turnOrder == TurnOrder.random) {
-      return _characters[Random().nextInt(_characters.length)];
+      final previewed = _previewed;
+      _previewId = null;
+      return previewed ?? _characters[Random().nextInt(_characters.length)];
     }
 
     // Round robin
@@ -147,20 +178,28 @@ class GroupTurnManager extends ChangeNotifier {
     final hold = _regenHold;
     _regenHold = null;
     if (hold == null || _forcedNextSpeakerId != hold.regenId) return;
-    restoreRotation((index: hold.index, forcedId: hold.forcedId));
+    restoreRotation((
+      index: hold.index,
+      forcedId: hold.forcedId,
+      previewId: _previewId,
+    ));
   }
 
   /// Where the rotation stands, for [restoreRotation].
-  ({int index, String? forcedId}) get rotation =>
-      (index: _turnIndex, forcedId: _forcedNextSpeakerId);
+  TurnRotation get rotation => (
+    index: _turnIndex,
+    forcedId: _forcedNextSpeakerId,
+    previewId: _previewId,
+  );
 
   /// Put back a [rotation] taken before a pick whose turn wrote no reply
   /// (stopped, refused or failed): that member is still up next.
-  void restoreRotation(({int index, String? forcedId}) r) {
+  void restoreRotation(TurnRotation r) {
     _turnIndex = _characters.isEmpty ? 0 : r.index % _characters.length;
     _forcedNextSpeakerId = _characters.any((c) => _getId(c) == r.forcedId)
         ? r.forcedId
         : null;
+    _previewId = r.previewId;
     notifyListeners();
   }
 
@@ -169,6 +208,7 @@ class GroupTurnManager extends ChangeNotifier {
   void resetTurnState() {
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     notifyListeners();
   }
@@ -185,6 +225,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = List.of(resolvedCharacters);
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     _observerMode = startInDirectorMode;
     _autoPlayActive = false;
@@ -197,6 +238,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = [];
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     _observerMode = false;
     _autoPlayActive = false;

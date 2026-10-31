@@ -560,4 +560,34 @@ void main() {
       );
     },
   );
+
+  // A Chance Time spin in random turn order picks the next speaker ahead, so
+  // the event can name them. That pick must not keep an Away member you call
+  // by name from coming back: it used to force the member who was here.
+  test('after a spin, an @-named Away member still comes back', () async {
+    await boot(anaQuiet: false);
+    await seedGroup(beaAtWork: false);
+    await chat.setActiveGroup(
+      GroupChat(
+        id: 'grp-away',
+        name: 'The Porch',
+        turnOrder: TurnOrder.random,
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      ),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+    await chat.timeService.setClockDirect(DateTime.utc(2026, 1, 6, 19, 30));
+    CharacterCard named(String name) =>
+        chat.groupCharacters.firstWhere((c) => c.name == name);
+    chat.debugSetGroupWithUser(named('Ana').stableGroupId, false);
+    chat.debugSetGroupWithUser(named('Bea').stableGroupId, true);
+
+    chat.spinWheelEvents();
+    expect(chat.nextCharacter?.name, 'Bea', reason: 'the spin names Bea');
+
+    await chat.sendMessage('@Ana you coming back?');
+    await drainTurn();
+    expect(chat.messages.last.sender, 'Ana');
+  });
 }

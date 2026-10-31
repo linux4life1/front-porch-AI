@@ -138,4 +138,16 @@ void main() {
     ], reason: 'the refresh dropped her expression images');
     expect(live.primeAvatarIndex, 2);
   });
+
+  test('saving a member with no row id between turns makes nobody active', () {
+    // A group has no active character between turns; null == null matched a
+    // member with no row id and made them the active character.
+    final sophia = chat.groupCharacters.firstWhere((c) => c.name == 'Sophia');
+    sophia.dbId = null;
+    expect(chat.activeCharacter, isNull);
+
+    chat.refreshActiveCharacterCard(sophia);
+
+    expect(chat.activeCharacter, isNull);
+  });
 }

@@ -45,7 +45,11 @@ class ChatToolsSnapshot {
     );
     final weather = _chat.currentWeather;
     final focused = _ctx.focusedParticipant(participantId);
-    final focusedCard = focused?.card ?? _chat.activeCharacter;
+    // Unfocused, the panel speaks for the host or the first member, as the
+    // phone's header does; a group has no active character.
+    final owner = _ctx.growthOwner(participantId);
+    final focusedCard = owner?.card ?? _chat.activeCharacter;
+    final ownerIsLite = owner?.isLite ?? false;
     final focusedIsMember =
         focused != null && !focused.isHost && focused.realismEnabled;
     return {
@@ -118,10 +122,7 @@ class ChatToolsSnapshot {
       // Objectives off ⇒ empty, matching the desktop sidebar row: quest
       // completion is the only thing that moves progress, so the web would
       // otherwise show a stage word frozen for the life of the chat.
-      'ambitions':
-          focusedCard == null ||
-              (focused?.isLite ?? false) ||
-              !_chat.objectivesActive
+      'ambitions': focusedCard == null || ownerIsLite || !_chat.objectivesActive
           ? const []
           : () {
               // The quest climbing each ambition (v46) — the same
@@ -230,9 +231,7 @@ class ChatToolsSnapshot {
       // Objectives are per-character; scope to the focused participant (lite
       // guests have none). getObjectivesForGroupCharacter returns the global
       // list in 1:1, so this is correct in both modes.
-      'objectives': _objectivesBlock(
-        (focused?.isLite ?? false) ? null : focusedCard,
-      ),
+      'objectives': _objectivesBlock(ownerIsLite ? null : focusedCard),
       // Group-only settings (turn order / director / prompts), gated below.
       'group': _groupBlock(),
     };
