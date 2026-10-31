@@ -41,6 +41,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/group_realism_controller.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/master_toggle_cards.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
 import 'package:front_porch_ai/ui/settings/widgets/feature_row.dart';
 
@@ -548,6 +550,228 @@ void main() {
     }
     expect(stored, isTrue, reason: 'the chat that had it off has it on');
   });
+
+  group("this chat's Realism switch while Porch Life blocks Realism", () {
+    Future<_RealismChat> mount(
+      WidgetTester tester, {
+      required bool allowed,
+      bool group = false,
+    }) async {
+      final storage = _AdultStorage();
+      final chat = _RealismChat(realismEnabled: allowed);
+      final controller = GroupRealismNeedsController(chat);
+      addTearDown(() {
+        controller.dispose();
+        storage.dispose();
+        chat.dispose();
+      });
+      await storage.realismSettings.setRealismAllowed(allowed);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: group
+                    ? GroupRealismEngineCard(controller: controller)
+                    : CharacterStateGroup(
+                        chat: chat,
+                        isGroup: false,
+                        initiallyExpanded: true,
+                      ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return chat;
+    }
+
+    Switch realismSwitch(WidgetTester tester) =>
+        tester.widget<Switch>(find.byType(Switch).first);
+
+    // setRealismEnabled is an extension member a double cannot answer, so
+    // the live switch is pinned by its handler, not by tapping it.
+    testWidgets('1:1: live while Porch Life allows it', (tester) async {
+      await mount(tester, allowed: true);
+      expect(realismSwitch(tester).value, isTrue);
+      expect(realismSwitch(tester).onChanged, isNotNull);
+      expect(find.textContaining('off in Porch Life'), findsNothing);
+    });
+
+    testWidgets("1:1: greyed at the chat's own choice, saying where to look", (
+      tester,
+    ) async {
+      await mount(tester, allowed: false);
+      expect(find.byType(Switch), findsOneWidget, reason: 'the header switch');
+      expect(realismSwitch(tester).value, isTrue, reason: "the chat's own");
+      expect(realismSwitch(tester).onChanged, isNull);
+      expect(
+        find.text(
+          "The Realism Engine is off in Porch Life. This chat's own choice is "
+          'kept.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('flip the switch'), findsNothing);
+    });
+
+    testWidgets("a group chat's switch in Group Settings greys the same way", (
+      tester,
+    ) async {
+      await mount(tester, allowed: false, group: true);
+      expect(realismSwitch(tester).value, isTrue, reason: "the chat's own");
+      expect(realismSwitch(tester).onChanged, isNull);
+      expect(find.textContaining('off in Porch Life'), findsOneWidget);
+    });
+
+    testWidgets('a group chat: live while Porch Life allows it', (
+      tester,
+    ) async {
+      await mount(tester, allowed: true, group: true);
+      expect(realismSwitch(tester).onChanged, isNotNull);
+      expect(find.textContaining('off in Porch Life'), findsNothing);
+    });
+  });
+
+  testWidgets('Needs and Afterglow grey out under the Realism Engine '
+      'permission, not under "Start every new chat with Realism"', (
+    tester,
+  ) async {
+    final storage = await pump(tester);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await settle(tester);
+    final scrollable = find.byType(Scrollable).first;
+    Future<bool> live(String label) async {
+      tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+      await tester.pump();
+      await tester.scrollUntilVisible(
+        find.text(label),
+        300,
+        scrollable: scrollable,
+      );
+      return tester
+          .widget<FeatureRow>(find.widgetWithText(FeatureRow, label))
+          .satisfied;
+    }
+
+    expect(storage.realismSettings.realismDefault, isFalse);
+    expect(storage.realismSettings.realismAllowed, isTrue, reason: 'missing');
+    expect(find.text('Start every new chat with Realism'), findsOneWidget);
+    expect(await live('Needs'), isTrue, reason: 'new chats start off; allowed');
+    expect(await live('Afterglow'), isTrue);
+
+    await storage.realismSettings.setRealismAllowed(false);
+    await settle(tester);
+    expect(await live('Afterglow'), isFalse);
+    expect(await live('Needs'), isFalse);
+    expect(
+      find.text('Start every new chat with Realism'),
+      findsNothing,
+      reason: 'nested under the permission, shown while it allows Realism',
+    );
+  });
+
+  testWidgets('turning the Realism Engine back on asks about the chats that '
+      'have it off, and Done with its switch on turns it on in only those; '
+      'Needs is not asked about while Realism is blocked', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(() => tester.runAsync(db.close));
+    await tester.runAsync(() async {
+      await db.insertGroup(GroupsCompanion.insert(id: 'g-r', name: 'R'));
+      Future<void> session(String id, {required bool realism, String? group}) =>
+          db
+              .into(db.sessions)
+              .insert(
+                SessionsCompanion.insert(
+                  id: id,
+                  characterId: Value(group == null ? 'char-a' : null),
+                  groupId: Value(group),
+                  realismEnabled: Value(realism),
+                  needsSimEnabled: const Value(false),
+                  needsVector: const Value('{"hunger":70}'),
+                ),
+              );
+      await session('solo-off', realism: false);
+      await session('group-off', realism: false, group: 'g-r');
+      await session('solo-on', realism: true);
+    });
+    final storage = _AdultStorage();
+    final chat = _RealismChat(realismEnabled: false);
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await storage.realismSettings.setRealismAllowed(false);
+    await storage.realismSettings.setNeedsSimDefault(false);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: const MaterialApp(home: Scaffold(body: PorchLifeTab())),
+      ),
+    );
+    await settle(tester);
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 300 && !done(); i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    // Needs comes on while Realism is blocked: nothing is asked.
+    tester
+        .widget<FeatureRow>(find.widgetWithText(FeatureRow, 'Needs'))
+        .onChanged(true);
+    await until(() => false);
+    expect(find.text('Needs is on'), findsNothing);
+
+    tester
+        .widget<FeatureRow>(find.widgetWithText(FeatureRow, 'Realism Engine'))
+        .onChanged(true);
+    final question = find.text('Turn it on in those 2 chats too');
+    await until(() => question.evaluate().isNotEmpty);
+    expect(find.text('Realism is on'), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, 'Turn it on in those 2 chats too'),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Done'));
+    Map<String, bool>? stored;
+    for (var i = 0; i < 100 && stored?['solo-off'] != true; i++) {
+      Map<String, bool>? read;
+      db
+          .customSelect('SELECT id, realism_enabled AS r FROM sessions')
+          .get()
+          .then(
+            (rows) => read = {
+              for (final r in rows) r.read<String>('id'): r.read<bool>('r'),
+            },
+          );
+      await until(() => read != null);
+      stored = read;
+    }
+    expect(stored, {'solo-off': true, 'group-off': true, 'solo-on': true});
+  });
+}
+
+/// A chat whose own Realism switch is on; [realismEnabled] is the gate.
+class _RealismChat extends FakeChatService {
+  _RealismChat({required super.realismEnabled});
+
+  @override
+  bool get realismChatSwitch => true;
 }
 
 /// Records what the Afterglow line asks of the chat.

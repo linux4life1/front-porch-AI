@@ -272,7 +272,7 @@ extension ChatServiceChatEntry on ChatService {
         // Harmless while the record was memory-only; now that it is saved, the
         // bleed would be written to the new chat's row and become permanent.
         _pockets = null;
-        _realismEnabled = false;
+        _realismChatSwitch = false;
         _mood.reset();
         // Time reset via extracted service (keeps multiple reset blocks in sync).
         // See time_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
@@ -335,7 +335,7 @@ extension ChatServiceChatEntry on ChatService {
             // the engine reads the room + generates baselines without the user
             // editing every card. Defaults false, so card behavior is unchanged
             // until the user opts in globally.
-            _realismEnabled =
+            _realismChatSwitch =
                 ext.realismEnabled ||
                 _storageService.realismSettings.realismDefault;
             // Card-seed path (rec 1 from PR #47): seedFromCardV2OrExt is plain .clamp only,
@@ -394,7 +394,7 @@ extension ChatServiceChatEntry on ChatService {
             }
             // Tiers maintained by service after seedFromCardV2OrExt (or V2OrExt for other leaves).
             debugPrint(
-              '[ChatService] V2.5 extensions seeded: realism=$_realismEnabled, '
+              '[ChatService] V2.5 extensions seeded: realism=$_realismChatSwitch, '
               'bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}, day=${_timeService.dayCount}, time=${_timeService.timeOfDay}',
             );
 
@@ -423,8 +423,8 @@ extension ChatServiceChatEntry on ChatService {
             // defaults overwrite a saved chat's bond of 77 with 0. Seven existing
             // tests caught it, and they were right; this branch runs only when
             // `_loadLastSession` genuinely found nothing.
-            _realismEnabled =
-                _realismEnabled ||
+            _realismChatSwitch =
+                _realismChatSwitch ||
                 _storageService.realismSettings.realismDefault;
             // A card that says nothing starts Afterglow on.
             _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);

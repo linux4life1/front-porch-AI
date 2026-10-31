@@ -101,6 +101,12 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final realismOn = widget.isGroup
         ? chat.isGroupRealismActive
         : chat.realismEnabled;
+    // Porch Life allows Realism: this chat's switch then is the gate itself.
+    // While it does not, the switch greys out at the chat's own choice.
+    final realismAllowed = realismAllowedOf(context);
+    final realismSwitch = realismAllowed
+        ? chat.realismEnabled
+        : chat.realismChatSwitch;
     // Hoisted: this used to be called twice in the Ambitions guard below, and
     // it warms the ambition-progress cache on each call — cheap, but this
     // sidebar rebuilds on every notify during streaming, so once is right.
@@ -129,9 +135,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               height: 24,
               child: FittedBox(
                 child: Switch(
-                  value: chat.realismEnabled,
+                  value: realismSwitch,
                   activeThumbColor: AppColors.porchTerracottaOf(context),
-                  onChanged: chat.isGenerating
+                  onChanged: !realismAllowed || chat.isGenerating
                       ? null
                       : (val) {
                           chat.setRealismEnabled(val);
@@ -147,8 +153,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
         children: [
           if (!realismOn && !widget.isGroup)
             Text(
-              'Realism Mode is off — flip the switch to track bond, trust, '
-              'mood, and scene time for this character.',
+              realismAllowed
+                  ? 'Realism Mode is off — flip the switch to track bond, '
+                        'trust, mood, and scene time for this character.'
+                  : "The Realism Engine is off in Porch Life. This chat's "
+                        'own choice is kept.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),

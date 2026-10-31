@@ -170,10 +170,8 @@ class ChatService extends ChangeNotifier
   /// so [FakeChatService] can override it.
   ObjectiveTally get objectiveTally => _objectiveTally;
 
-  /// Whether a completion check is running, and the overlay's Skip for it.
-  /// Kept in the class body (not the objectives extension) because
-  /// [FakeChatService] overrides them in tests — extension members are
-  /// statically dispatched and cannot be overridden.
+  /// Whether a completion check runs, and the overlay's Skip for it. Class
+  /// members, not extension ones, so [FakeChatService] can override them.
   bool get isCheckingCompletion => _isCheckingCompletion;
   void skipObjectiveCheck() => _skipObjectiveCheckImpl();
 
@@ -426,6 +424,7 @@ class ChatService extends ChangeNotifier
   NeedsSimulation get needsSimulation => _needsSimulation;
   Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;
+  bool get realismChatSwitch => _realismChatSwitch;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
       _spatialStanceForGroupCharacterImpl(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>

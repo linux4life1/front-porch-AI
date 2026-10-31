@@ -28,7 +28,7 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// A Porch Life feature the existing-chats question asks about.
-enum ExistingChatsFeature { afterglow, needs }
+enum ExistingChatsFeature { afterglow, needs, realism }
 
 /// The existing-chats question: when Porch Life starts allowing a feature,
 /// the chats whose own switch is off are counted and, only if asked, switched
@@ -40,9 +40,9 @@ enum ExistingChatsFeature { afterglow, needs }
 /// group chat's is the `afterglow` key of its realism blob, which falls back
 /// to the group's template until the chat saves its own (as the chat reads it
 /// when it opens). Needs: every chat's switch is its `needs_sim_enabled`
-/// column. The chat open right now is read and switched live, so its next
-/// save cannot write the old value back. [cards] is the library, read for a
-/// card's own Needs choice.
+/// column; Realism, its `realism_enabled` column. The chat open right now is
+/// read and switched live, so its next save cannot write the old value back.
+/// [cards] is the library, read for a card's own Needs choice.
 class ExistingChatsOffer {
   ExistingChatsOffer(this._db, this._chat, {List<CharacterCard>? cards})
     : _cards = cards ?? const [];
@@ -80,6 +80,13 @@ class ExistingChatsOffer {
           'UPDATE sessions SET needs_sim_enabled = 1 WHERE id = ?',
           variables: [Variable(chat.id)],
         );
+      } else if (feature == ExistingChatsFeature.realism) {
+        // Its row stays as it last saved, so the chat scores its starting
+        // point when it is next opened (ChatService._scoreStartIfSavedBlocked).
+        await _db.customUpdate(
+          'UPDATE sessions SET realism_enabled = 1 WHERE id = ?',
+          variables: [Variable(chat.id)],
+        );
       } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',
@@ -99,13 +106,39 @@ class ExistingChatsOffer {
     return changed;
   }
 
-  Future<void> _switchOpenOn(ExistingChatsFeature feature) =>
-      feature == ExistingChatsFeature.needs
-      ? _chat!.setNeedsSimEnabled(true)
-      : _chat!.setAfterglowEnabled(true);
+  Future<void> _switchOpenOn(ExistingChatsFeature feature) => switch (feature) {
+    ExistingChatsFeature.needs => _chat!.setNeedsSimEnabled(true),
+    ExistingChatsFeature.afterglow => _chat!.setAfterglowEnabled(true),
+    // Live, so the open chat scores its starting point now if it has none.
+    ExistingChatsFeature.realism => _chat!.setRealismEnabled(true),
+  };
 
   Future<List<_OffChat>> _off(ExistingChatsFeature feature) =>
-      feature == ExistingChatsFeature.needs ? _needsOff() : _afterglowOff();
+      switch (feature) {
+        ExistingChatsFeature.needs => _needsOff(),
+        ExistingChatsFeature.afterglow => _afterglowOff(),
+        ExistingChatsFeature.realism => _realismOff(),
+      };
+
+  /// Each chat with its own Realism switch off, 1:1 and group alike: the
+  /// `realism_enabled` column every chat opens with.
+  Future<List<_OffChat>> _realismOff() async {
+    final open = _openSessionId;
+    final off = <_OffChat>[];
+    if (open != null && _chat != null && !_chat.realismChatSwitch) {
+      off.add(_OffChat(open, isGroup: _chat.isGroupMode, open: true));
+    }
+    final rows =
+        await (_db.select(_db.sessions)..where(
+              (t) => t.deletedAt.isNull() & t.realismEnabled.equals(false),
+            ))
+            .get();
+    for (final r in rows) {
+      if (r.id == open) continue;
+      off.add(_OffChat(r.id, isGroup: r.groupId != null));
+    }
+    return off;
+  }
 
   /// Each chat with Needs off. A 1:1 chat stored off with no saved vector at
   /// all (saved before chats recorded their choice) is decided when it opens

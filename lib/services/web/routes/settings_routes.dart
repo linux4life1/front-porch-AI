@@ -63,12 +63,17 @@ class WebSettingsRoutes {
   ExistingChatsFeature? _featureFor(String? name) => switch (name) {
     'afterglow' => ExistingChatsFeature.afterglow,
     'needs' => ExistingChatsFeature.needs,
+    'realism' => ExistingChatsFeature.realism,
     _ => null,
   };
 
-  bool _allowed(ExistingChatsFeature f) => f == ExistingChatsFeature.needs
-      ? _deps.storage.realismSettings.needsSimDefault
-      : _deps.storage.realismSettings.afterglowEnabled;
+  bool _allowed(ExistingChatsFeature f) => switch (f) {
+    ExistingChatsFeature.needs => _deps.storage.realismSettings.needsSimDefault,
+    ExistingChatsFeature.afterglow =>
+      _deps.storage.realismSettings.afterglowEnabled,
+    ExistingChatsFeature.realism =>
+      _deps.storage.realismSettings.realismAllowed,
+  };
 
   ExistingChatsOffer _offer() => ExistingChatsOffer(
     _deps.db,

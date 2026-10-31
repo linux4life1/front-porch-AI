@@ -67,7 +67,15 @@ class ChatToolsSnapshot {
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
+      // Whether Realism runs: Porch Life allows it AND this chat's switch.
       'realismEnabled': _chat.realismEnabled,
+      // Additive: Porch Life allows Realism, and this chat's own switch,
+      // which the phone greys at its own choice while Porch Life does not.
+      // While it does, the gate above is the switch.
+      'realismAllowed': rs.realismAllowed,
+      'realismSwitch': rs.realismAllowed
+          ? _chat.realismEnabled
+          : _chat.realismChatSwitch,
       'needsEnabled': _chat.needsSimEnabled,
       // Porch Life allows Needs: while it does not, the phone greys this
       // chat's switch, as the desktop's Needs line does (additive).

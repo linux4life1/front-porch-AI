@@ -40,6 +40,12 @@ Future<void> offerNeedsInExistingChats(
   required bool wasAllowed,
 }) => _offer(context, ExistingChatsFeature.needs, wasAllowed: wasAllowed);
 
+/// The same question once Porch Life allows the Realism Engine again.
+Future<void> offerRealismInExistingChats(
+  BuildContext context, {
+  required bool wasAllowed,
+}) => _offer(context, ExistingChatsFeature.realism, wasAllowed: wasAllowed);
+
 /// The library's cards, for each 1:1 chat's card choice; none where the
 /// screen has no library (a card then reads as having made no choice).
 List<CharacterCard> _libraryOf(BuildContext context) {
@@ -51,10 +57,16 @@ List<CharacterCard> _libraryOf(BuildContext context) {
   }
 }
 
-bool _allowed(StorageService storage, ExistingChatsFeature feature) =>
-    feature == ExistingChatsFeature.needs
-    ? storage.realismSettings.needsSimDefault
-    : storage.realismSettings.afterglowEnabled;
+/// Whether Porch Life allows [feature] now. Needs and Afterglow run only
+/// inside Realism, so they are asked about only while Realism is allowed.
+bool _allowed(StorageService storage, ExistingChatsFeature feature) {
+  final rs = storage.realismSettings;
+  return switch (feature) {
+    ExistingChatsFeature.realism => rs.realismAllowed,
+    ExistingChatsFeature.needs => rs.realismAllowed && rs.needsSimDefault,
+    ExistingChatsFeature.afterglow => rs.realismAllowed && rs.afterglowEnabled,
+  };
+}
 
 Future<void> _offer(
   BuildContext context,
@@ -78,14 +90,15 @@ Future<void> _offer(
     return;
   }
   if (count == 0 || !context.mounted) return;
-  final needs = feature == ExistingChatsFeature.needs;
   final turnOn = await showWarmDialog<bool>(
     context,
-    title: needs ? 'Needs is on' : 'Afterglow is on',
-    icon: needs ? Icons.favorite_border : Icons.local_fire_department,
-    accent: needs
-        ? AppColors.porchAmberOf(context)
-        : AppColors.lustAccentOf(context),
+    title: '${_nameOf(feature)} is on',
+    icon: switch (feature) {
+      ExistingChatsFeature.needs => Icons.favorite_border,
+      ExistingChatsFeature.afterglow => Icons.local_fire_department,
+      ExistingChatsFeature.realism => Icons.theater_comedy,
+    },
+    accent: _accentOf(context, feature),
     width: 380,
     content: ExistingChatsOfferBody(count: count, feature: feature),
   );
@@ -97,6 +110,19 @@ Future<void> _offer(
     debugPrint('[PorchLife] could not turn ${feature.name} on in chats: $e');
   }
 }
+
+String _nameOf(ExistingChatsFeature feature) => switch (feature) {
+  ExistingChatsFeature.needs => 'Needs',
+  ExistingChatsFeature.afterglow => 'Afterglow',
+  ExistingChatsFeature.realism => 'Realism',
+};
+
+Color _accentOf(BuildContext context, ExistingChatsFeature feature) =>
+    switch (feature) {
+      ExistingChatsFeature.needs => AppColors.porchAmberOf(context),
+      ExistingChatsFeature.afterglow => AppColors.lustAccentOf(context),
+      ExistingChatsFeature.realism => AppColors.porchTerracottaOf(context),
+    };
 
 /// The question's body: what new chats do, one switch for the [count] chats
 /// that have it off (starting off), and Done, which answers with the switch.
@@ -120,19 +146,26 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
   @override
   Widget build(BuildContext context) {
     final n = widget.count;
-    final name = widget.feature == ExistingChatsFeature.needs
-        ? 'Needs'
-        : 'Afterglow';
-    final accent = widget.feature == ExistingChatsFeature.needs
-        ? AppColors.porchAmberOf(context)
-        : AppColors.lustAccentOf(context);
+    final name = _nameOf(widget.feature);
+    final accent = _accentOf(context, widget.feature);
+    // One eval per such chat, when it is opened, not a burst now.
+    final firstOpen = widget.feature == ExistingChatsFeature.realism
+        ? ' A chat that never ran it reads where things stand the next time '
+              'you open it.'
+        : '';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "New chats start with $name unless their character's card, or a "
-          "group chat's group, says otherwise.",
+          widget.feature == ExistingChatsFeature.realism
+              // A card's Realism is off unless it asks, so new chats follow
+              // the card or the group, or "Start every new chat with it".
+              ? "New chats start with Realism when their character's card, "
+                    "or a group chat's group, turns it on, or when Start "
+                    'every new chat with Realism is on.'
+              : "New chats start with $name unless their character's card, "
+                    "or a group chat's group, says otherwise.",
           style: TextStyle(color: AppColors.textSecondary(context)),
         ),
         const SizedBox(height: 12),
@@ -149,7 +182,7 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
           ),
           subtitle: Text(
             "Only each chat's $name switch changes. Cards stay as they are, "
-            'and any chat can switch it off again.',
+            'and any chat can switch it off again.$firstOpen',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary(context),

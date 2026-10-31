@@ -435,4 +435,139 @@ void main() {
     expect(await call('POST', {'feature': 'needs'}), {'changed': 1});
     expect(await call('GET'), {'count': 0});
   });
+
+  Future<void> realismSessions() async {
+    await db.insertGroup(GroupsCompanion.insert(id: 'g-r', name: 'R'));
+    Future<void> session(
+      String id, {
+      required bool realism,
+      String? group,
+      bool deleted = false,
+    }) => db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: id,
+            characterId: Value(group == null ? 'char-a' : null),
+            groupId: Value(group),
+            realismEnabled: Value(realism),
+            characterEmotion: const Value('wistful'),
+            deletedAt: Value(deleted ? DateTime(2026, 10, 1) : null),
+          ),
+        );
+    await session('solo-off', realism: false);
+    await session('group-off', realism: false, group: 'g-r');
+    await session('solo-on', realism: true);
+    await session('group-on', realism: true, group: 'g-r');
+    await session('trash-off', realism: false, deleted: true);
+  }
+
+  test('Realism: counts the 1:1 and group chats with their own switch off, '
+      "never the trash, and turning them on changes only those chats' "
+      'Realism switch', () async {
+    await realismSessions();
+    const realism = ExistingChatsFeature.realism;
+    final offer = ExistingChatsOffer(db, null);
+    expect(await offer.countOff(realism), 2);
+
+    final before = await rows();
+    expect(await offer.turnOn(realism), 2);
+    final after = await rows();
+    for (final id in before.keys) {
+      final changed = {
+        for (final k in before[id]!.keys)
+          if (before[id]![k] != after[id]![k]) k,
+      };
+      expect(
+        changed,
+        ['solo-off', 'group-off'].contains(id) ? {'realism_enabled'} : isEmpty,
+        reason: id,
+      );
+    }
+    expect(after['solo-off']!['realism_enabled'], 1);
+    expect(after['group-off']!['realism_enabled'], 1);
+    expect(await offer.countOff(realism), 0);
+  });
+
+  test('Realism: the open chat is read and switched live, so its next save '
+      'keeps it on', () async {
+    final storage = StorageService();
+    final chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage));
+    addTearDown(() => disposeChatThenCloseDb(chat, null));
+    final previous = debugPrint;
+    debugPrint = (String? m, {int? wrapWidth}) {};
+    addTearDown(() => debugPrint = previous);
+    await storage.initialized;
+    await chat.setActiveCharacter(
+      CharacterCard(
+        name: 'Mara',
+        firstMessage: 'The porch light hums.',
+        frontPorchExtensions: FrontPorchExtensions(realismEnabled: false),
+      )..dbId = 'char-offer-realism',
+    );
+    final open = chat.currentSessionId!;
+    final offer = ExistingChatsOffer(db, chat);
+    expect(await offer.countOff(ExistingChatsFeature.realism), 1);
+
+    await offer.turnOn(ExistingChatsFeature.realism);
+    expect(chat.realismChatSwitch, isTrue);
+    expect(chat.realismEnabled, isTrue);
+    await chat.flushPendingSaves();
+    final stored = await db
+        .customSelect(
+          'SELECT realism_enabled AS r FROM sessions WHERE id = ?',
+          variables: [Variable(open)],
+        )
+        .getSingle();
+    expect(stored.read<bool>('r'), isTrue);
+  });
+
+  test("the phone's relay asks about Realism too, and turns it on only while "
+      'Porch Life allows it', () async {
+    await realismSessions();
+    FlutterSecureStorage.setMockInitialValues({});
+    final storage = StorageService();
+    await storage.initialized;
+    final router = Router();
+    WebSettingsRoutes(
+      WebServerDeps(
+        storage: storage,
+        db: db,
+        auth: AuthService(db),
+        settingsFacade: SettingsFacade(storage, FakeLLMProvider()),
+      ),
+      router,
+    );
+    Future<Map<String, dynamic>> call(String method, [Object? body]) async {
+      final res = await router.call(
+        shelf.Request(
+          method,
+          Uri.parse(
+            'http://localhost/api/settings/existing-chats'
+            '${method == 'GET' ? '?feature=realism' : ''}',
+          ),
+          headers: {'content-type': 'application/json'},
+          body: body == null ? null : jsonEncode(body),
+        ),
+      );
+      expect(res.statusCode, 200);
+      return jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    }
+
+    expect(await call('GET'), {'count': 2});
+    await storage.realismSettings.setRealismAllowed(false);
+    expect(await call('POST', {'feature': 'realism'}), {'changed': 0});
+    expect(await call('GET'), {'count': 2}, reason: 'nothing changed');
+    await storage.realismSettings.setRealismAllowed(true);
+    expect(await call('POST', {'feature': 'realism'}), {'changed': 2});
+    expect(await call('GET'), {'count': 0});
+  });
 }

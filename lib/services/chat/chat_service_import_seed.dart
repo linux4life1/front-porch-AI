@@ -49,7 +49,7 @@ extension ChatServiceImportSeed on ChatService {
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =
           _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
-      _realismEnabled =
+      _realismChatSwitch =
           extSeed.realismEnabled ||
           _storageService.realismSettings.realismDefault;
       _relationshipService.resetForFreshChat();
@@ -181,7 +181,7 @@ extension ChatServiceImportSeed on ChatService {
 
   Map<String, dynamic> _captureSessionHeadForPackage() {
     final head = <String, dynamic>{
-      'realism_enabled': _realismEnabled,
+      'realism_enabled': _realismChatSwitch,
       'needs_sim_enabled': _needsSimEnabled,
       'enjoys_low_hygiene': _enjoysLowHygiene,
       'objectives_enabled': _objectivesEnabled,
@@ -238,7 +238,7 @@ extension ChatServiceImportSeed on ChatService {
 
   Future<void> _applySessionHeadFromPackage(Map<String, dynamic> head) async {
     if (head['realism_enabled'] is bool) {
-      _realismEnabled = head['realism_enabled'] as bool;
+      _realismChatSwitch = head['realism_enabled'] as bool;
     }
     if (head['needs_sim_enabled'] is bool) {
       _needsSimEnabled = head['needs_sim_enabled'] as bool;

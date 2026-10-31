@@ -210,6 +210,9 @@ extension ChatServiceAccessors on ChatService {
 
   bool get isCancellingRealismEval => _isCancellingRealismEval;
 
+  /// Porch Life allows Realism; [realismEnabled] is whether it runs here.
+  bool get realismAllowed => _storageService.realismSettings.realismAllowed;
+
   void _onBackendIdentityMaybeChanged() {
     if (_disposed) return;
     ToolChoiceStyleProbe.instance.reset(_evalBackendIdentity);
@@ -454,6 +457,7 @@ extension ChatServiceAccessors on ChatService {
     _sceneGuest.statusClearTimer?.cancel();
     _characterRepository?.removeListener(_onCharacterLibrary);
     _storageService.removeListener(_onBackendIdentity);
+    _storageService.removeListener(_realismPermission.settingsChanged);
     _llmProvider?.removeListener(_onBackendIdentity);
     _toolProbe.removeListener(notifyListeners);
     _toolSupportTester.dispose();
@@ -480,6 +484,8 @@ extension ChatServiceAccessors on ChatService {
     // Local model path / remote model name changes alter the eval identity —
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);
+    // Porch Life's Realism permission, read now so a later change is seen.
+    _storageService.addListener(_realismPermission.settingsChanged);
     _onTodayAbandoned = (held) {
       // Sour mood first — deactivate is DB I/O and must not gate the
       // feeling. Day-ate already journals then deactivates; abandon

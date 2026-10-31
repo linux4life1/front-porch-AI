@@ -68,6 +68,18 @@ bool afterglowEnabledOf(BuildContext context) {
   }
 }
 
+/// Whether Porch Life allows the Realism Engine (a missing pref reads on). A
+/// chat's own Realism switch only counts while it does; listens, so the
+/// switch repaints when Porch Life changes. No storage in scope (a harness)
+/// reads as allowed, as a fresh install does.
+bool realismAllowedOf(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context).realismSettings.realismAllowed;
+  } catch (_) {
+    return true;
+  }
+}
+
 bool plannerEnabledOf(BuildContext context) {
   try {
     return Provider.of<StorageService>(context).realismSettings.plannerEnabled;

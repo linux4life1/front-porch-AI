@@ -43,6 +43,14 @@ class ChatRealismRead {
       if (p.id != participantId) continue;
       if (!p.realismEnabled) return {'realismEnabled': false};
       if (p.isHost) return {'realismEnabled': true, ...snapshot()};
+      // A member's stats show while the group chat's Realism runs, as on the
+      // desktop's member card; Porch Life is named when it is what stops it.
+      if (!_chat.realismEnabled) {
+        return {
+          'realismEnabled': false,
+          'realismAllowed': _chat.realismAllowed,
+        };
+      }
       final card = p.card;
       final rel = _chat.relationshipService;
       final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
@@ -134,6 +142,9 @@ class ChatRealismRead {
       // it rendered the full dashboard forever while desktop replaced it with
       // "Realism Mode is off". Additive and nullable-safe for older clients.
       'realismEnabled': _chat.realismEnabled,
+      // Additive, sent only while it is off: false when Porch Life is what
+      // stops it, so the panel says where to look (desktop Character State).
+      if (!_chat.realismEnabled) 'realismAllowed': _chat.realismAllowed,
       'bond': {
         'score': rel.affectionScore,
         'tier': rel.shortTermTierName,
