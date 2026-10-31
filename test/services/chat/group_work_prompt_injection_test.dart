@@ -33,13 +33,18 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -163,5 +168,130 @@ void main() {
     );
     expect(txt, contains(brief));
     expect(txt, contains('Write from there.'));
+  });
+
+  // A member card is named after its group_members row, so only the row's
+  // provenance links it to the library card it was copied from. The card,
+  // the prompt and the web cast all found that card by NAME: after the
+  // library Bea was renamed Beatrice and a new Bea imported, the old Bea's
+  // copy (blank work fields, so the library's job fills in) read the new
+  // Bea's empty job everywhere, and both same-named members looked alike.
+  testWidgets('a member copied from a renamed library card keeps its job on '
+      'the card, in the prompt and on the web, and a same-named member keeps '
+      'its own', (tester) async {
+    const gid = 'grp-bea';
+    late CharacterRepository repo;
+    await tester.runAsync(() async {
+      for (final c in const [
+        ('lib-bea', 'Beatrice', 'bea.png'),
+        ('lib-bea-new', 'Bea', 'bea_new.png'),
+      ]) {
+        await db.insertCharacter(
+          CharactersCompanion.insert(
+            id: c.$1,
+            name: c.$2,
+            imagePath: Value(c.$3),
+          ),
+        );
+      }
+      repo = CharacterRepository(db, storage);
+      chat.setCharacterRepository(repo);
+      await repo.loadCharacters();
+      // The library's job lives in its PNG; set it on the loaded card.
+      repo.characters
+          .firstWhere((c) => c.dbId == 'lib-bea')
+          .frontPorchExtensions = FrontPorchExtensions(
+        occupation: 'clerk',
+        hours: '9-5',
+      );
+
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: gid,
+          name: 'Two Beas',
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+        ),
+      );
+      for (final m in const [
+        ('mem-old', 'lib-bea', 'bea'),
+        ('mem-new', 'lib-bea-new', 'bea_new'),
+      ]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.$1,
+            groupId: gid,
+            name: 'Bea',
+            firstMessage: const Value('Evening.'),
+            avatarFilename: Value('${m.$1}.png'),
+            memberState: Value(
+              GroupMember.encodeProvenance(
+                originStableId: m.$3,
+                originLibraryDbId: m.$2,
+              ),
+            ),
+          ),
+        );
+      }
+      await chat.setActiveGroup(
+        GroupChat(
+          id: gid,
+          name: 'Two Beas',
+          defaultMemberRealismState: blobs.defaultMemberJson,
+          baselineRealismState: blobs.baselineJson,
+        ),
+        groupRepo: GroupChatRepository(storage, db),
+      );
+      await chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30));
+    });
+
+    CharacterCard member(String id) =>
+        chat.groupCharacters.firstWhere((c) => c.dbId == id);
+
+    Future<String> cardWord(String id) async {
+      await tester.pumpWidget(
+        ChangeNotifierProvider<CharacterRepository>.value(
+          value: repo,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 320,
+                child: GroupMemberCard(
+                  character: member(id),
+                  chatService: chat,
+                  avatarColor: AppColors.formMasterAccent,
+                  isNextSpeaker: false,
+                  isExpanded: false,
+                  onTap: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return find.text('At work').evaluate().isNotEmpty ? 'At work' : 'other';
+    }
+
+    expect(
+      chat.originLibraryCardFor(member('mem-old'))?.dbId,
+      'lib-bea',
+      reason: 'expressions, Pockets and the avatar follow the same origin',
+    );
+    expect(chat.originLibraryCardFor(member('mem-new'))?.dbId, 'lib-bea-new');
+
+    expect(await cardWord('mem-old'), 'At work', reason: 'member card');
+    expect(chat.groupMemberPresence('mem-old'), PresenceWhere.atWork);
+    chat.debugPinTurnSpeakerForRealism('mem-old');
+    expect(chat.debugBuildPositionInjection(), contains('At work as a clerk'));
+
+    expect(
+      await cardWord('mem-new'),
+      'other',
+      reason: 'the new Bea has no job',
+    );
+    expect(chat.groupMemberPresence('mem-new'), PresenceWhere.withYou);
+    chat.debugPinTurnSpeakerForRealism('mem-new');
+    expect(chat.debugBuildPositionInjection(), isNot(contains('At work')));
   });
 }

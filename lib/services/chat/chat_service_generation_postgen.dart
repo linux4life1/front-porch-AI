@@ -263,6 +263,7 @@ extension ChatServiceGenerationPostGen on ChatService {
             lastMsg,
             groupCast: _activeGroup != null ? _groupCharacters : null,
             host: _activeCharacter,
+            sceneGuests: _sceneGuest.cards,
           ),
           messageId: msgId,
         );

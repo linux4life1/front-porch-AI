@@ -62,4 +62,24 @@ describe('Speak names the line it speaks', () => {
       messageIndex: 3,
     });
   });
+
+  it('offers no Speak on a System banner, as on desktop', () => {
+    act(() => {
+      root.render(
+        createElement(MessageActions, {
+          m: { ...line, sender: 'System' },
+          isLast: false,
+          busy: false,
+          canSpeak: true,
+          onSwipe: vi.fn(),
+          onRegenerate: vi.fn(),
+          onContinue: vi.fn(),
+          onFork: vi.fn(),
+          onEdit: vi.fn(),
+          onDelete: vi.fn(),
+        }),
+      );
+    });
+    expect(container.querySelector('button[title="Speak"]')).toBeNull();
+  });
 });

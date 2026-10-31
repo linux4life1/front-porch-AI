@@ -8,10 +8,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -126,76 +124,6 @@ void main() {
         reason: 'busy=$busy',
       );
     }
-  });
-
-  // An older member's copy can have blank work fields; they fall back to the
-  // library card. The card found that card by name, so it disagreed with the
-  // prompt (which goes by identity) for two members who share a name and for
-  // a member whose library card was renamed.
-  testWidgets('the at-work word finds each member\'s library card the way '
-      'the prompt does, not by name', (tester) async {
-    final chat = FakeChatService(timeOfDay: 'afternoon', realismEnabled: false);
-    addTearDown(chat.dispose);
-    FrontPorchExtensions clerk() => FrontPorchExtensions(
-      occupation: 'clerk',
-      hours: '9-5',
-      workDays: const [1, 2, 3, 4, 5, 6, 7],
-    );
-    final repo = FakeCharacterRepository([
-      CharacterCard(
-        name: 'Ana',
-        imagePath: '/lib/ana_clerk.png',
-        frontPorchExtensions: clerk(),
-      ),
-      CharacterCard(name: 'Ana', imagePath: '/lib/ana_home.png'),
-      // Bea's library card was renamed; a new "Bea" now has the old name.
-      CharacterCard(
-        name: 'Beatrice',
-        imagePath: '/lib/bea.png',
-        frontPorchExtensions: clerk(),
-      ),
-      CharacterCard(name: 'Bea', imagePath: '/lib/bea_new.png'),
-    ]);
-    addTearDown(repo.dispose);
-
-    Future<String> wordFor(String name, String stem) async {
-      await tester.pumpWidget(
-        ChangeNotifierProvider<CharacterRepository>.value(
-          value: repo,
-          child: MaterialApp(
-            home: Scaffold(
-              body: SizedBox(
-                width: 320,
-                child: GroupMemberCard(
-                  character: CharacterCard(
-                    name: name,
-                    imagePath: '/groups/g/avatars/$stem.png',
-                    frontPorchExtensions: FrontPorchExtensions(),
-                  )..dbId = 'mem-$stem',
-                  chatService: chat,
-                  avatarColor: AppColors.formMasterAccent,
-                  isNextSpeaker: false,
-                  isExpanded: false,
-                  onTap: () {},
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      return find.text('At work').evaluate().isNotEmpty
-          ? 'At work'
-          : 'With you';
-    }
-
-    expect(await wordFor('Ana', 'ana_clerk'), 'At work');
-    expect(await wordFor('Ana', 'ana_home'), 'With you');
-    expect(
-      await wordFor('Bea', 'bea'),
-      'At work',
-      reason: 'the renamed library card is still hers',
-    );
   });
 }
 

@@ -61,7 +61,7 @@ class WebVoiceRoutes {
     final audio = await _facade.speak(
       text,
       voiceKey: voiceKey,
-      messageIndex: index is num ? index.toInt() : null,
+      messageIndex: index is int ? index : null,
     );
     if (audio == null) {
       return JsonResponse.error(503, 'TTS is off or produced no audio');

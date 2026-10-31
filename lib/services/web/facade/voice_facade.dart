@@ -78,8 +78,10 @@ class VoiceFacade {
   ///
   /// [messageIndex] (the web message's `index`) speaks in the voice of
   /// whoever said that line of the open chat, by the rule desktop's Speak
-  /// button reads ([ttsVoiceForMessage]). An explicit [voiceKey] wins; a
-  /// missing or out-of-range index reads the global voice.
+  /// button reads ([ttsVoiceForMessage]). An explicit [voiceKey] wins. An
+  /// index that is missing, out of range, or now points at a different line
+  /// (the chat moved under the phone) reads the global voice, never the
+  /// voice of whoever said that other line.
   Future<AudioPayload?> speak(
     String text, {
     String? voiceKey,
@@ -88,7 +90,7 @@ class VoiceFacade {
     if (!_storage.ttsSettings.ttsEnabled || text.trim().isEmpty) return null;
     final voice = (voiceKey != null && voiceKey.isNotEmpty)
         ? voiceKey
-        : _voiceForMessageAt(messageIndex);
+        : _voiceForMessageAt(messageIndex, text);
     final file = await _tts.generateAudioFile(text, voiceKey: voice);
     if (file == null || !file.existsSync()) return null;
     final bytes = await file.readAsBytes();
@@ -99,15 +101,18 @@ class VoiceFacade {
     return (bytes: bytes, contentType: contentType);
   }
 
-  String? _voiceForMessageAt(int? index) {
+  String? _voiceForMessageAt(int? index, String text) {
     final chat = _chat;
     if (chat == null || index == null) return null;
     final messages = chat.messages;
     if (index < 0 || index >= messages.length) return null;
+    final msg = messages[index];
+    if (msg.displayText.trim() != text.trim()) return null;
     return ttsVoiceForMessage(
-      messages[index],
+      msg,
       groupCast: chat.activeGroup != null ? chat.groupCharacters : null,
       host: chat.activeCharacter,
+      sceneGuests: chat.sceneGuestCards,
     );
   }
 
