@@ -197,7 +197,7 @@ export function ChatInsight({
             : realism.realismSwitch === true
               ? // Allowed again mid-reply: the change lands when it settles.
                 'Realism starts again when this reply finishes.'
-              : 'Realism Mode is off — flip the switch to track bond, trust, mood, and scene time for this character.'}
+              : 'The Realism Engine is off for this chat — flip the switch to track bond, trust, mood, and scene time for this character.'}
         </p>
       ) : (
       <>

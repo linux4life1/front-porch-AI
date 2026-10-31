@@ -216,7 +216,7 @@ void main() {
     // the block with one honest sentence; this asserts that sentence is what a
     // user actually sees.
     final offNotice = find.textContaining(
-      'Realism Mode is off',
+      'The Realism Engine is off for this chat',
       findRichText: true,
     );
     await d.waitForWidget(offNotice);
