@@ -150,4 +150,76 @@ void main() {
 
     expect(chat.activeCharacter, isNull);
   });
+
+  test("a member wears her library card's prime expression when no label "
+      'matches, as she does in 1:1', () async {
+    // A member row has one avatar and prime 1; the group inherits the
+    // library card's expression images. The prime index stayed 1, so the
+    // fallback face was the first image, not the one starred in the
+    // gallery. Red proof: drop the primeAvatarIndex copy in
+    // _inheritGroupExpressionAvatars.
+    final storage = StorageService();
+    await storage.initialized;
+    await db.insertCharacter(
+      CharactersCompanion.insert(
+        id: 'lib-iris',
+        name: 'Iris',
+        imagePath: const Value('iris.png'),
+        primeAvatarIndex: const Value(2),
+      ),
+    );
+    for (final (order, label) in const [(0, 'joy'), (1, 'calm')]) {
+      await db.insertAvatar(
+        AvatarImagesCompanion.insert(
+          id: 'iris-$label',
+          characterId: 'lib-iris',
+          filename: '$label.png',
+          label: Value(label),
+          displayOrder: Value(order),
+        ),
+      );
+    }
+    final repo = CharacterRepository(db, storage);
+    chat.setCharacterRepository(repo);
+    await repo.loadCharacters();
+    final library = repo.characters.firstWhere((c) => c.dbId == 'lib-iris');
+    expect(library.primeAvatarIndex, 2);
+    expect(library.avatarImages?.length, 2);
+
+    await db.insertGroup(
+      GroupsCompanion.insert(id: 'grp-iris', name: 'Iris & Sophia'),
+    );
+    await db.insertGroupMember(
+      GroupMembersCompanion.insert(
+        id: 'mem-iris',
+        groupId: 'grp-iris',
+        name: 'Iris',
+        firstMessage: const Value(''),
+        memberState: Value(
+          GroupMember.encodeProvenance(
+            originStableId: 'iris',
+            originLibraryDbId: 'lib-iris',
+          ),
+        ),
+      ),
+    );
+    await chat.setActiveGroup(
+      GroupChat(id: 'grp-iris', name: 'Iris & Sophia'),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+    CharacterCard? iris() =>
+        chat.groupCharacters.where((c) => c.name == 'Iris').firstOrNull;
+    for (var i = 0; i < 40 && iris() == null; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    final member = iris()!;
+    expect(member.avatarImages?.map((a) => a.id), ['iris-joy', 'iris-calm']);
+
+    expect(
+      chat.resolveExpressionAvatar(member)?.id,
+      'iris-calm',
+      reason: 'the starred face, not the first image',
+    );
+    expect(member.primeAvatarIndex, library.primeAvatarIndex);
+  });
 }

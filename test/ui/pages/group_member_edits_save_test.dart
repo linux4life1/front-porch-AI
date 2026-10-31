@@ -1772,6 +1772,74 @@ void main() {
     });
   });
 
+  // A group has no host for your bubbles (bubbleHost), so a member's own
+  // User Bubble and User Text colours are saved but never shown there. UI
+  // Settings says so on a member, only while no chat theme is active (a
+  // theme's colours do reach a group), and never in a 1:1. Red proof: drop
+  // the note, or its theme condition, in ui_settings_dialog.dart.
+  testWidgets("UI Settings on a group member says a group's bubbles use your "
+      'own colours', (tester) async {
+    final mara = member();
+    await pumpHost(
+      tester,
+      chat: _OpenGroup([mara]),
+      onOpen: (context) => showDialog<void>(
+        context: context,
+        builder: (_) => UiSettingsDialog(character: mara),
+      ),
+    );
+    await tester.scrollUntilVisible(
+      find.text('AI Bubble').first,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(
+      find.text('In a group, your bubbles use your own colours from Settings.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('UI Settings on a group member drops the note while a chat '
+      "theme is active: the theme's colours reach the group", (tester) async {
+    final mara = member();
+    await pumpHost(
+      tester,
+      chat: _OpenGroup([mara]),
+      onOpen: (context) => showDialog<void>(
+        context: context,
+        builder: (_) => UiSettingsDialog(
+          character: mara,
+          themeOverrides: ChatThemeOverrides(themeId: 'fantasy'),
+          onThemeOverrides: (_) {},
+        ),
+      ),
+    );
+    await tester.scrollUntilVisible(
+      find.text('AI Bubble').first,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('group-user-colours-note')), findsNothing);
+  });
+
+  testWidgets('UI Settings in a 1:1 has no group colours note', (tester) async {
+    final mara = member();
+    await pumpHost(
+      tester,
+      chat: FakeChatService(activeCharacter: mara),
+      onOpen: (context) => showDialog<void>(
+        context: context,
+        builder: (_) => UiSettingsDialog(character: mara),
+      ),
+    );
+    await tester.scrollUntilVisible(
+      find.text('AI Bubble').first,
+      250,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.byKey(const Key('group-user-colours-note')), findsNothing);
+  });
+
   // The sidebar editor's Needs line showed the chat's own switch with no
   // word that Porch Life runs no Needs, as the chat's own Needs switch has.
   testWidgets("the sidebar member editor's Needs line says Porch Life runs no "

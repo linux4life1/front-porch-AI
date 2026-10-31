@@ -76,7 +76,7 @@ extension ChatServiceGroupEntry on ChatService {
       _sceneGuest.turnsSinceCastScan = 0;
       _sceneGuest.pendingDetection = null;
       _sceneGuest.offeredOrIgnoredNames.clear();
-      _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+      _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
       if (_characterRepository == null) return;
 
@@ -403,7 +403,11 @@ extension ChatServiceGroupEntry on ChatService {
       if (m.avatarImages != null && m.avatarImages!.isNotEmpty) continue;
       final origin = originLibraryCardFor(m);
       if (origin?.avatarImages != null && origin!.avatarImages!.isNotEmpty) {
-        m.avatarImages = List<AvatarImage>.from(origin.avatarImages!);
+        // The prime index belongs with the images: it names the face a
+        // label with no match falls back on.
+        m
+          ..avatarImages = List<AvatarImage>.from(origin.avatarImages!)
+          ..primeAvatarIndex = origin.primeAvatarIndex;
       }
     }
   }
