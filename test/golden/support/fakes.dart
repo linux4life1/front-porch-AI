@@ -46,6 +46,8 @@ import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
@@ -589,6 +591,28 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get isTurnBusy => false;
 
+  /// Transfer doors over an empty session and an unwired host: goldens never
+  /// import or export, so no database or LLM stands behind them.
+  @override
+  late final ChatImporter chatImporter = ChatImporter(
+    ChatSessionState(),
+    _UnwiredTransferHost(),
+    saveChat: () async {},
+    notify: () {},
+  );
+  @override
+  late final ChatPackager chatPackager = ChatPackager(
+    ChatSessionState(),
+    _UnwiredTransferHost(),
+    importer: chatImporter,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [TransferHost] with nothing wired: any read is a NoSuchMethodError.
+class _UnwiredTransferHost implements TransferHost {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

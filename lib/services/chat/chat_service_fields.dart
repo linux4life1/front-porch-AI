@@ -151,12 +151,8 @@ mixin ChatServiceFieldBag {
   /// can run indefinitely; blocking input until they finish would trade a race
   /// for a wedged UI, which is the worse bug.
   bool _isPostGenerating = false;
-  bool _isImporting = false;
-
-  /// A `.porch` export or import is opening chats in turn. Not part of
-  /// [_isTurnBusy]: the job's own chat moves must still run. It keeps a
-  /// second job (desktop or phone) from flipping the shared chat under it.
-  bool _isMovingChats = false;
+  // An import in flight (`isImporting`) and the `.porch` chat-move claim
+  // live on the transfer doors (chatImporter, chatPackager).
 
   // (_isTurnBusy — "this turn is still in motion" predicate for mutation
   // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
@@ -467,10 +463,6 @@ mixin ChatServiceFieldBag {
   bool testIsLocalOverride = false;
   @visibleForTesting
   LLMService? testWorkerLlmServiceOverride;
-
-  /// Test hook: import awaits this before mutating so a Send can race it.
-  @visibleForTesting
-  Completer<void>? testImportHold;
 
   /// True while Manual Reprocess → Feelings runs the judges again. They may
   /// not start quests then, and tier crossings wait in [_rescoreCrossings]

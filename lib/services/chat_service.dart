@@ -19,14 +19,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
@@ -49,6 +47,7 @@ import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -65,16 +64,12 @@ import 'package:drift/drift.dart' as drift;
 
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
+export 'chat/doors/transfer/transfer_api.dart';
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
-part 'chat/chat_service_sillytavern.dart';
 part 'chat/chat_service_import_seed.dart';
 part 'chat/chat_service_import_walk.dart';
-part 'chat/chat_service_chat_package.dart';
-part 'chat/chat_service_chat_package_import.dart';
-part 'chat/chat_service_enhance_chats.dart';
-part 'chat/chat_service_package_extras.dart';
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_group_membership.dart';
 part 'chat/chat_service_group_members.dart';
@@ -328,7 +323,11 @@ class ChatService extends ChangeNotifier
   /// [sendMessage], or it clears the field for a send the service refuses.
   /// See [isSettlingTurn] and the mirror in `_sendCurrentMessage`.
   bool get isGenerating => _isGenerating;
-  bool get isImporting => _isImporting;
+  bool get isImporting => chatImporter.isImporting;
+
+  /// The import and export doors; their old names live in transfer_api.dart.
+  late final ChatImporter chatImporter = _buildChatImporter();
+  late final ChatPackager chatPackager = _buildChatPackager();
 
   /// A reply, its post-gen settle, an import or narration is running: the
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
