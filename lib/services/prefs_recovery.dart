@@ -160,6 +160,9 @@ class PrefsRecovery {
     }
     final marker = _movedMarker(nightly);
     if (now[marker] == true) return false;
+    // A blank store next to a good copy that says "moved" is a torn write
+    // of an already moved file: the good copy goes back, not the old folder.
+    if (await _goodCopyHas(current, marker)) return false;
     for (final e in old.entries) {
       final key = e.key;
       if (key is! String || !key.startsWith('flutter.')) continue;
@@ -174,24 +177,25 @@ class PrefsRecovery {
     return true;
   }
 
+  static Future<bool> _goodCopyHas(File current, String key) async {
+    final good = File('${current.path}.good');
+    try {
+      if (!await good.exists()) return false;
+      final decoded = jsonDecode(await good.readAsString());
+      return decoded is Map && decoded[key] == true;
+    } catch (e) {
+      debugPrint('[Prefs] could not read the good settings copy: $e');
+      return false;
+    }
+  }
+
   /// Probes SharedPreferences and heals the JSON store if it is corrupt.
   /// Never throws: if healing is impossible the original error simply
   /// resurfaces at the next `getInstance()` call, where the startup guard
   /// reports it accurately.
   static Future<void> healIfCorrupt() async {
-    // A crash between the plugin's truncate and its write leaves an empty
-    // file, which the plugin reads as "no settings" without any error. So a
-    // blank or missing store next to a good copy is a torn write too, and
-    // must be healed before the first getInstance() caches the empty map.
+    await restoreBlankStore();
     final file = await _settingsFile();
-    if (file != null && await isBlankStore(file)) {
-      final copyTime = await restoreGoodCopy(file);
-      if (copyTime != null) {
-        recovered = true;
-        restoredFrom = copyTime;
-        debugPrint('[Prefs] settings file was blank; restored $copyTime copy');
-      }
-    }
     try {
       await SharedPreferences.getInstance();
       await snapshotGood();
@@ -223,6 +227,23 @@ class PrefsRecovery {
     } catch (e) {
       debugPrint('[Prefs] settings still unreadable after recovery: $e');
     }
+  }
+
+  /// A crash between the plugin's truncate and its write leaves an empty
+  /// file, which the plugin reads as "no settings" without any error. So a
+  /// blank or missing store next to a good copy is a torn write too. It must
+  /// be put back before the first getInstance() caches the empty map, and
+  /// before [moveLegacyWindowsFolder], which would otherwise read the blank
+  /// file as "never moved" and roll this channel back to the old folder's
+  /// settings. Safe to call more than once.
+  static Future<void> restoreBlankStore() async {
+    final file = await _settingsFile();
+    if (file == null || !await isBlankStore(file)) return;
+    final copyTime = await restoreGoodCopy(file);
+    if (copyTime == null) return;
+    recovered = true;
+    restoredFrom = copyTime;
+    debugPrint('[Prefs] settings file was blank; restored $copyTime copy');
   }
 
   /// Refreshes the known-good copy of the settings file. Call it after the

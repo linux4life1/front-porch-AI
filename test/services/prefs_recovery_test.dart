@@ -115,27 +115,31 @@ void main() {
       expect(await file.exists(), isFalse);
     });
 
-    test('an empty store after a torn write is blank and heals from .good',
-        () async {
-      final file = File(p.join(tmp.path, 'shared_preferences.json'));
-      await file.writeAsString('{"flutter.theme":"plum"}');
-      await PrefsRecovery.writeGoodCopy(file);
-      // The plugin truncates before it writes; a crash in between leaves
-      // zero bytes, which it reads as "no settings" without an error.
-      await file.writeAsString('');
+    test(
+      'an empty store after a torn write is blank and heals from .good',
+      () async {
+        final file = File(p.join(tmp.path, 'shared_preferences.json'));
+        await file.writeAsString('{"flutter.theme":"plum"}');
+        await PrefsRecovery.writeGoodCopy(file);
+        // The plugin truncates before it writes; a crash in between leaves
+        // zero bytes, which it reads as "no settings" without an error.
+        await file.writeAsString('');
 
-      expect(await PrefsRecovery.isBlankStore(file), isTrue);
-      expect(await PrefsRecovery.restoreGoodCopy(file), isNotNull);
-      expect(await file.readAsString(), '{"flutter.theme":"plum"}');
-      expect(await PrefsRecovery.isBlankStore(file), isFalse);
-    });
+        expect(await PrefsRecovery.isBlankStore(file), isTrue);
+        expect(await PrefsRecovery.restoreGoodCopy(file), isNotNull);
+        expect(await file.readAsString(), '{"flutter.theme":"plum"}');
+        expect(await PrefsRecovery.isBlankStore(file), isFalse);
+      },
+    );
 
-    test('a NUL-filled store is not blank, so the corrupt path handles it',
-        () async {
-      final file = File(p.join(tmp.path, 'shared_preferences.json'));
-      await file.writeAsBytes(List.filled(32, 0));
-      expect(await PrefsRecovery.isBlankStore(file), isFalse);
-    });
+    test(
+      'a NUL-filled store is not blank, so the corrupt path handles it',
+      () async {
+        final file = File(p.join(tmp.path, 'shared_preferences.json'));
+        await file.writeAsBytes(List.filled(32, 0));
+        expect(await PrefsRecovery.isBlankStore(file), isFalse);
+      },
+    );
   });
 
   group('PrefsRecovery old Windows folder', () {
@@ -223,6 +227,38 @@ void main() {
       final later =
           jsonDecode(await current.readAsString()) as Map<String, dynamic>;
       expect(later['flutter.saved_prompts'], 'edited since');
+    });
+
+    test('a torn store after the move comes back from .good, not the old '
+        'folder', () async {
+      final legacy = File(p.join(tmp.path, 'old', 'shared_preferences.json'));
+      final current = File(p.join(tmp.path, 'new', 'shared_preferences.json'));
+      await legacy.parent.create(recursive: true);
+      await current.parent.create(recursive: true);
+      await legacy.writeAsString(
+        jsonEncode({'flutter.beta_saved_prompts': 'old folder prompts'}),
+      );
+      await File('${current.path}.good').writeAsString(
+        jsonEncode({
+          'flutter.beta_saved_prompts': 'edited since the move',
+          'flutter.beta_moved_from_legacy_windows_folder': true,
+        }),
+      );
+      await current.writeAsString('');
+
+      expect(
+        await PrefsRecovery.mergeLegacySettingsFile(
+          legacy,
+          current,
+          nightly: true,
+        ),
+        isFalse,
+      );
+      expect(await PrefsRecovery.isBlankStore(current), isTrue);
+      expect(await PrefsRecovery.restoreGoodCopy(current), isNotNull);
+      final healed =
+          jsonDecode(await current.readAsString()) as Map<String, dynamic>;
+      expect(healed['flutter.beta_saved_prompts'], 'edited since the move');
     });
   });
 }

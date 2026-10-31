@@ -95,6 +95,9 @@ Future<void> healPrefsAndConsolidateFiles() async {
   // The atomic store goes in first so no prefs read or write ever goes
   // through the stock truncate-then-write store.
   AtomicPrefsStore.install();
+  // A torn (blank) store is put back first, or the folder move would read
+  // it as "never moved" and roll settings back to the old folder's copy.
+  await PrefsRecovery.restoreBlankStore();
   await PrefsRecovery.moveLegacyWindowsFolder(nightly: isPreRelease);
   await PrefsRecovery.healIfCorrupt();
   StartupTrace.mark('PrefsRecovery.healIfCorrupt');
