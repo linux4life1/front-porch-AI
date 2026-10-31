@@ -406,14 +406,15 @@ class CharacterFacade {
     ).importBytes(bytes, filename, collision: collision, replaceId: replaceId);
   }
 
-  /// Resolve the on-disk avatar file for the active character's *current
-  /// expression* (mood-driven portrait), or null if expressions aren't in use
-  /// or no avatar matches. Reuses [ChatService.resolveExpressionAvatar] — a
-  /// pure read that performs no reclassification, so Realism parity is intact.
-  File? activeExpressionAvatarFile() {
+  /// The on-disk mood picture for the active character, or for cast member
+  /// [participantId] (a group member wears their own mood), via
+  /// [ChatService.resolveExpressionAvatar]; null when none matches.
+  File? activeExpressionAvatarFile({String? participantId}) {
     final chat = _chat;
     if (chat == null) return null;
-    final activeChar = chat.activeCharacter;
+    final activeChar = participantId == null
+        ? chat.activeCharacter
+        : chat.cast.where((p) => p.id == participantId).firstOrNull?.card;
     if (activeChar == null) return null;
     final avatar = chat.resolveExpressionAvatar(activeChar);
     if (avatar == null) return null;

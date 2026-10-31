@@ -121,6 +121,54 @@ extension ChatServiceGroupRead on ChatService {
     return _groupRealism[id]?.arousal ?? 0;
   }
 
+  /// The member's own recovery in the 1:1 chip's words, with its minutes and
+  /// whether it is a soft window: off their own entry, never the live
+  /// scalars, which hold whoever was loaded last. Empty while none runs and
+  /// while Afterglow does not run for them.
+  ({String chip, bool soft, int minutes}) getRefractoryForGroupCharacter(
+    CharacterCard character,
+  ) {
+    if (!isGroupRealismActive || !afterglowRunsFor(character)) {
+      return (chip: '', soft: false, minutes: 0);
+    }
+    final body =
+        _groupRealism[_getCharacterIdFromCard(character)]?.refractory ??
+        Refractory.none;
+    final words = describeRefractory(
+      body.minutes,
+      clockRunning: _clockRunning,
+      soft: body.soft,
+      peaks: body.peaksLastHour,
+    );
+    return (chip: words.chip, soft: body.soft, minutes: body.minutes);
+  }
+
+  /// The face label for [character]. In 1:1, the chat's label. In a group,
+  /// the member's own mood: the live label (ONNX, which reads only the last
+  /// reply) is theirs only when ONNX is on and they wrote that reply.
+  String? expressionLabelFor(CharacterCard character) {
+    if (_activeGroup == null) return currentExpressionLabel;
+    if (_storageService.expressionSettings.expressionClassificationMode ==
+        'onnx') {
+      final lastReply = _messages.where((m) => !m.isUser).lastOrNull;
+      final speaker = lastReply == null
+          ? null
+          : resolveGroupSpeakerForMessage(
+              _groupCharacters,
+              lastReply,
+              logOnMiss: false,
+            );
+      if (speaker != null &&
+          _getCharacterIdFromCard(speaker) ==
+              _getCharacterIdFromCard(character)) {
+        return currentExpressionLabel;
+      }
+    }
+    return _expressionService.labelForEmotion(
+      getEmotionForGroupCharacter(character) ?? '',
+    );
+  }
+
   String? getEmotionIntensityForGroupCharacter(CharacterCard character) {
     if (!isGroupRealismActive) return null;
     final id = _getCharacterIdFromCard(character);

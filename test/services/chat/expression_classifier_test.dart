@@ -393,4 +393,61 @@ void main() {
       },
     );
   });
+
+  // A group member's face follows their own mood, not the live scalar the
+  // owner swaps per speaker, and reading it never moves the live label.
+  group("labelForEmotion (a group member's own mood)", () {
+    test('maps the word as the live label does, manual override first', () {
+      final svc = createTestExpression(characterEmotion: 'happy');
+      expect(svc.labelForEmotion('sad'), 'sadness');
+      expect(svc.labelForEmotion('Joy'), 'joy');
+      expect(svc.labelForEmotion(''), 'neutral');
+      svc.setManualExpression('fear');
+      expect(svc.labelForEmotion('sad'), 'fear');
+    });
+
+    test('an unmapped word is re-classified for the member and leaves the '
+        "live label's cache alone", () async {
+      final notifies = <String>[];
+      final svc = createTestExpression(
+        characterEmotion: 'happy',
+        notifies: notifies,
+      );
+      expect(svc.currentExpressionLabel, 'joy');
+
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(notifies, isNotEmpty, reason: 'the re-classify answered');
+      expect(
+        svc.currentExpressionLabel,
+        'joy',
+        reason: "the member's answer does not land on the live label",
+      );
+    });
+
+    test('resolveExpressionAvatarFor wears the label it is given', () {
+      final svc = createTestExpression(characterEmotion: 'happy');
+      final card = CharacterCard(
+        name: 'm',
+        personality: '',
+        scenario: '',
+        avatarImages: [
+          for (final (i, label) in ['neutral', 'joy', 'sadness'].indexed)
+            AvatarImage(
+              id: label,
+              label: label,
+              displayOrder: i,
+              characterId: 'm',
+              filename: '$label.png',
+              createdAt: DateTime.utc(2026),
+            ),
+        ],
+      );
+      expect(svc.resolveExpressionAvatar(card)?.id, 'joy');
+      expect(
+        svc.resolveExpressionAvatarFor(card, label: 'sadness')?.id,
+        'sadness',
+      );
+    });
+  });
 }

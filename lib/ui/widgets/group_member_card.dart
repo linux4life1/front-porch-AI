@@ -161,6 +161,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     // Lust shows while Afterglow runs for THIS member: Porch Life, the group
     // chat's switch and their own (the live scalars hold another speaker).
     final lustOn = isRealism && chat.afterglowRunsFor(widget.character);
+    final refractory = lustOn
+        ? chat.getRefractoryForGroupCharacter(widget.character)
+        : null;
     // Arousal has its own ±100 ladder (level ÷ 10) and its own vocabulary, and
     // both must be read for THIS member. The tier came from the bond ladder,
     // and the name came from nsfwService.arousalTierName — the LIVE SPEAKER's
@@ -252,6 +255,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       trustName: trustName,
       trustColor: trustColor,
       lustOn: lustOn,
+      refractory: refractory,
       arousalTier: arousalTier,
       arousalName: arousalName,
       arousalColor: arousalColor,
@@ -441,7 +445,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   ),
                 ),
 
-                if (widget.isExpanded && isRealism && !widget.character.isLite)
+                if (widget.isExpanded && !widget.character.isLite)
                   ...look.expandedChildren(context),
                 if (!widget.isExpanded && !widget.character.isLite)
                   ...look.compactChildren(context),

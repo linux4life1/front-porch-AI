@@ -56,6 +56,7 @@ class GroupMemberCardLook {
     required this.trustName,
     required this.trustColor,
     required this.lustOn,
+    required this.refractory,
     required this.arousalTier,
     required this.arousalName,
     required this.arousalColor,
@@ -85,12 +86,25 @@ class GroupMemberCardLook {
   final String trustName;
   final Color trustColor;
   final bool lustOn;
+
+  /// This member's own recovery countdown; null or an empty chip shows
+  /// nothing.
+  final ({String chip, bool soft, int minutes})? refractory;
   final int arousalTier;
   final String arousalName;
   final Color arousalColor;
   final bool isDirector;
 
-  List<Widget> expandedChildren(BuildContext context) {
+  /// The Realism rows only while the group's Realism runs. Ambitions and
+  /// Pockets answer to their own switches, so they show either way, as on
+  /// the 1:1 Character State.
+  List<Widget> expandedChildren(BuildContext context) => [
+    if (isRealism) ..._realismRows(context),
+    ..._ambitionsAndPockets(context),
+    if (isRealism) ..._objectivesRow(),
+  ];
+
+  List<Widget> _realismRows(BuildContext context) {
     final fixation = this.fixation;
     return [
       const SizedBox(height: 8),
@@ -177,6 +191,10 @@ class GroupMemberCardLook {
               : Icons.favorite_border,
           maxValue: 100,
         ),
+        if (refractory case final r? when r.chip.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          RefractoryLine(chip: r.chip, soft: r.soft),
+        ],
         const SizedBox(height: 8),
       ],
 
@@ -196,7 +214,11 @@ class GroupMemberCardLook {
         ),
         NeedsGrid(needs: needs, mini: false, crossAxisCount: 2),
       ],
+    ];
+  }
 
+  List<Widget> _ambitionsAndPockets(BuildContext context) {
+    return [
       // Ambitions (Living Time §6) — per-member, same widget and
       // same v46 step merge as the 1:1 Character State accordion.
       // The objectivesActive gate matches 1:1 and the web facade,
@@ -257,7 +279,11 @@ class GroupMemberCardLook {
           );
         },
       ),
+    ];
+  }
 
+  List<Widget> _objectivesRow() {
+    return [
       // Objectives quick access
       if (onOpenObjectives != null) ...[
         const SizedBox(height: 6),

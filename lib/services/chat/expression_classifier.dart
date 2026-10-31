@@ -67,6 +67,8 @@ class ExpressionService {
   final Random _expressionRandom = Random();
   String? _cachedExpressionLabel;
   String? _cachedForEmotion;
+  // Re-classified words for [labelForEmotion], chat-scoped like the above.
+  final Map<String, String> _reclassified = {};
 
   // ONNX expression classification
   late final OnnxExpressionClassifier _onnx = OnnxExpressionClassifier(
@@ -175,15 +177,46 @@ class ExpressionService {
     return 'neutral';
   }
 
-  /// Resolves the best matching expression avatar for the given character.
+  /// The label for an [emotion] that is not the live scalar: a group member's
+  /// own mood. Same order as [currentExpressionLabel] (manual override, direct
+  /// match, nuanced map, then one LLM re-classify per unmapped word), without
+  /// ONNX: that classifier reads only the last reply.
+  String labelForEmotion(String emotion) {
+    final manual = _manualExpressionLabel;
+    if (manual != null && manual.isNotEmpty) return manual.toLowerCase();
+    final lower = emotion.toLowerCase();
+    if (lower.isEmpty) return 'neutral';
+    if (EmotionLabels.all.contains(lower)) return lower;
+    final mapped =
+        EmotionLabels.nuancedToStandard[lower] ?? _reclassified[lower];
+    if (mapped != null) return mapped;
+    // Neutral until the answer lands, and never asked twice, as in 1:1.
+    _reclassified[lower] = 'neutral';
+    _reclassifyEmotionAsync(lower, onLabel: (l) => _reclassified[lower] = l);
+    return 'neutral';
+  }
+
+  /// [resolveExpressionAvatarFor] with [currentExpressionLabel].
+  AvatarImage? resolveExpressionAvatar(
+    CharacterCard character, {
+    bool rerollIfSame = false,
+  }) => resolveExpressionAvatarFor(
+    character,
+    label: currentExpressionLabel,
+    rerollIfSame: rerollIfSame,
+  );
+
+  /// Resolves the best matching expression avatar for [character] wearing
+  /// [label].
   ///
   /// Returns the [AvatarImage] to display, or null if no expression images
-  /// are available. Uses [currentExpressionLabel] for matching.
+  /// are available.
   ///
   /// If [rerollIfSame] is true and multiple avatars share the same label,
   /// a random one is picked (avoiding the previously shown avatar).
-  AvatarImage? resolveExpressionAvatar(
+  AvatarImage? resolveExpressionAvatarFor(
     CharacterCard character, {
+    required String? label,
     bool rerollIfSame = false,
   }) {
     // Gallery "looks" are stored as avatar rows too — filter them out so a look
@@ -193,7 +226,6 @@ class ExpressionService {
       return null;
     }
 
-    final label = currentExpressionLabel;
     if (label == null) {
       return avatars
               .where((a) => a.displayOrder + 1 == character.primeAvatarIndex)
@@ -300,14 +332,19 @@ class ExpressionService {
     _stableExpressionPicks.clear();
     _cachedExpressionLabel = null;
     _cachedForEmotion = null;
+    _reclassified.clear();
     _onnx.reset();
   }
 
   void invalidateOnnxCacheForNewResponse() => _onnx.invalidateForNewResponse();
 
   /// Fire-and-forget: ask the LLM to map an unknown emotion word to a
-  /// standard label (see [ExpressionReclassifier]).
-  Future<void> _reclassifyEmotionAsync(String unknownEmotion) =>
+  /// standard label (see [ExpressionReclassifier]). The answer lands in the
+  /// live label's cache unless [onLabel] takes it.
+  Future<void> _reclassifyEmotionAsync(
+    String unknownEmotion, {
+    void Function(String label)? onLabel,
+  }) =>
       ExpressionReclassifier(
         getIsEvaluatingRealism: getIsEvaluatingRealism,
         getLlmServiceForReclass: getLlmServiceForReclass,
@@ -318,7 +355,11 @@ class ExpressionService {
       ).reclassify(
         unknownEmotion,
         onLabel: (label) {
-          _cachedExpressionLabel = label;
+          if (onLabel != null) {
+            onLabel(label);
+          } else {
+            _cachedExpressionLabel = label;
+          }
           onNotify();
         },
       );

@@ -127,9 +127,14 @@ class ChatToolsSnapshot {
           ],
         // The desktop chip's own words, ready-made, so the phone cannot
         // drift from them (story minutes, or replies with the clock off).
-        'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,
+        // In a group, the focused member's own body, as on their card.
+        'refractoryMinutesRemaining': focusedIsMember
+            ? _chat.getRefractoryForGroupCharacter(focusedCard!).minutes
+            : nsfw.refractoryMinutesRemaining,
         'refractoryClockRunning': nsfw.clockRunning,
-        'refractoryLabel': nsfw.refractoryWords.chip,
+        'refractoryLabel': focusedIsMember
+            ? _chat.getRefractoryForGroupCharacter(focusedCard!).chip
+            : nsfw.refractoryWords.chip,
         // Arousal is per-character: scope to the focused member in a group;
         // the host scalar otherwise. (Tier name is only derivable for the host
         // scalar, so members show the raw level.)

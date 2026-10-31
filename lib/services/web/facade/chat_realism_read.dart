@@ -91,6 +91,10 @@ class ChatRealismRead {
         // The Lust line shows while Afterglow runs for this member, as the
         // desktop's member card does.
         'lustOn': _chat.afterglowRunsFor(card),
+        // Their own recovery under it, and their own face's label (the
+        // portrait's cache key). Both additive.
+        'refractoryLabel': _chat.getRefractoryForGroupCharacter(card).chip,
+        'expressionLabel': _chat.expressionLabelFor(card) ?? '',
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
         // Gate needs on the SAME flag the host path uses (see snapshot()):
         // getNeedsForGroupCharacter always returns a full vector while group
@@ -148,6 +152,10 @@ class ChatRealismRead {
       'moodLine': _chat.moodLine,
       'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
       'lustOn': nsfw.nsfwCooldownEnabled,
+      // The desktop's line under the Lust bar (additive; empty when none).
+      'refractoryLabel': nsfw.nsfwCooldownEnabled
+          ? nsfw.refractoryWords.chip
+          : '',
       'fixation': rel.activeFixation,
       // The bars show while Needs run (the gate, not the chat's stored
       // switch): with Realism or either Needs switch off they would sit

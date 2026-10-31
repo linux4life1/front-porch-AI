@@ -18,6 +18,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart' show Refractory;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -150,5 +151,21 @@ void main() {
 
     await chat!.setAfterglowEnabled(false);
     expect(lustOn(), isFalse, reason: "this chat's switch is off");
+  });
+
+  // The phone's line under Lust is the desktop's recovery chip, in its words,
+  // while Afterglow runs. The group twin: needs_bars_group_gate_test.dart.
+  test("the recovery line under Lust follows Afterglow, in the desktop's "
+      'words', () async {
+    await boot();
+    await storage!.realismSettings.setAdultThemesEnabled(true);
+    await storage!.realismSettings.setNsfwCooldownDefault(true);
+    chat!.nsfwService.setRefractory(Refractory.fromMinutes(30));
+    Object? line() => ChatRealismRead(chat!).snapshot()['refractoryLabel'];
+    expect(line(), startsWith('Refractory: '));
+    expect(line(), chat!.nsfwService.refractoryWords.chip);
+
+    await storage!.realismSettings.setNsfwCooldownDefault(false);
+    expect(line(), isEmpty, reason: 'Porch Life Afterglow off');
   });
 }

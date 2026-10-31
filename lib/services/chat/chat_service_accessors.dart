@@ -149,8 +149,9 @@ extension ChatServiceAccessors on ChatService {
   AvatarImage? resolveExpressionAvatar(
     CharacterCard character, {
     bool rerollIfSame = false,
-  }) => _expressionService.resolveExpressionAvatar(
+  }) => _expressionService.resolveExpressionAvatarFor(
     character,
+    label: expressionLabelFor(character),
     rerollIfSame: rerollIfSame,
   );
 

@@ -30,6 +30,19 @@ import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Refractory, resolveGroupSpeakerForMessage;
+import 'package:front_porch_ai/services/web/facade/character_facade.dart';
+import 'package:front_porch_ai/services/web/util/image_thumbnails.dart'
+    show ThumbnailCache;
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart'
+    show AmbitionsRow, PocketsRow;
+import 'package:front_porch_ai/models/avatar_image.dart' as face;
+import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart'
+    show ChatSidebarPortrait;
+import 'package:front_porch_ai/utils/emotion_labels.dart';
+import 'package:provider/provider.dart';
+import 'package:path/path.dart' as p;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -292,5 +305,282 @@ void main() {
 
     await chat.setMemberAfterglowEnabled(card, false);
     expect(row()['afterglowRuns'], isFalse);
+  });
+
+  // The member card shows what runs for THAT member, as 1:1's Character
+  // State does for the host: their own recovery under their Lust bar,
+  // Ambitions and Pockets whatever the Realism switch says, and a portrait
+  // wearing their own mood rather than one mood for the whole chat.
+  group('the member card shows what is running for that member', () {
+    List<ChatParticipant> members() =>
+        chat.cast.where((p) => !p.isHost).toList();
+
+    Future<void> pumpCard(WidgetTester tester, CharacterCard card) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SizedBox(
+                width: 320,
+                child: GroupMemberCard(
+                  character: card,
+                  chatService: chat,
+                  avatarColor: AppColors.formMasterAccent,
+                  isNextSpeaker: false,
+                  isExpanded: true,
+                  onTap: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets("a member's own recovery countdown, while Afterglow runs for "
+        'them', (tester) async {
+      await tester.runAsync(boot);
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await tester.runAsync(() async {
+        await storage.realismSettings.setAdultThemesEnabled(true);
+        await storage.realismSettings.setNsfwCooldownDefault(true);
+      });
+      final [ana, bea] = members();
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(ana.card),
+        refractory: Refractory.fromMinutes(30),
+      );
+      final facade = ChatToolsFacade(chat, storage, null);
+      Map<dynamic, dynamic> phoneTools(ChatParticipant who) =>
+          facade.state(participantId: who.id)['nsfw'] as Map;
+      Object? phoneFeed(ChatParticipant who) =>
+          ChatRealismRead(chat).participantRealism(who.id)!['refractoryLabel'];
+
+      await pumpCard(tester, ana.card);
+      expect(
+        find.textContaining('Refractory: '),
+        findsOneWidget,
+        reason: "her own countdown on her card",
+      );
+      expect(phoneTools(ana)['refractoryMinutesRemaining'], 30);
+      expect(phoneTools(ana)['refractoryLabel'], startsWith('Refractory: '));
+      expect(phoneFeed(ana), startsWith('Refractory: '));
+
+      await pumpCard(tester, bea.card);
+      expect(
+        find.textContaining('Refractory'),
+        findsNothing,
+        reason: 'the other member has none of her own',
+      );
+      expect(phoneTools(bea)['refractoryMinutesRemaining'], 0);
+      expect(phoneTools(bea)['refractoryLabel'], isEmpty);
+      expect(phoneFeed(bea), isEmpty);
+
+      await tester.runAsync(
+        () => storage.realismSettings.setNsfwCooldownDefault(false),
+      );
+      await pumpCard(tester, ana.card);
+      expect(
+        find.textContaining('Refractory'),
+        findsNothing,
+        reason: 'Porch Life Afterglow off',
+      );
+      expect(phoneFeed(ana), isEmpty);
+      await tester.runAsync(
+        () => storage.realismSettings.setNsfwCooldownDefault(true),
+      );
+      await pumpCard(tester, ana.card);
+      expect(
+        find.textContaining('Refractory: '),
+        findsOneWidget,
+        reason: 'hidden while off, never erased',
+      );
+    });
+
+    testWidgets("a member's Ambitions and Pockets show with Realism off, as "
+        'in 1:1', (tester) async {
+      await tester.runAsync(boot);
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await tester.runAsync(() async {
+        await storage.realismSettings.setPocketsEnabled(true);
+        await storage.realismSettings.setObjectivesEnabled(true);
+        await chat.setRealismEnabled(false);
+      });
+      final ana = members().first;
+      ana.card.frontPorchExtensions =
+          (ana.card.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+            ambitions: ['Open a bakery by the river'],
+          );
+      expect(chat.isGroupRealismActive, isFalse);
+      expect(chat.objectivesActive, isTrue);
+
+      await pumpCard(tester, ana.card);
+      expect(find.byType(AmbitionsRow), findsOneWidget);
+      expect(find.byType(PocketsRow), findsOneWidget);
+      expect(
+        find.byType(RealismProgressRow),
+        findsNothing,
+        reason: 'the Realism rows stay off',
+      );
+
+      await tester.runAsync(
+        () => storage.realismSettings.setPocketsEnabled(false),
+      );
+      await pumpCard(tester, ana.card);
+      expect(
+        find.byType(PocketsRow),
+        findsNothing,
+        reason: "Pockets' own switch still decides",
+      );
+    });
+
+    List<face.AvatarImage> faces(String who) => [
+      for (final (i, label) in ['neutral', 'joy', 'sadness', 'fear'].indexed)
+        face.AvatarImage(
+          id: '$who-$label',
+          characterId: who,
+          filename: '$who-$label.png',
+          label: label,
+          displayOrder: i,
+          createdAt: DateTime.utc(2026),
+        ),
+    ];
+
+    test("each member's portrait wears that member's own mood, on the "
+        'desktop and the phone', () async {
+      await boot();
+      addTearDown(() => disposeChatThenCloseDb(chat, db));
+      final [ana, bea] = members();
+      ana.card.avatarImages = faces('ana');
+      bea.card.avatarImages = faces('bea');
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(ana.card),
+        emotion: 'joy',
+      );
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(bea.card),
+        emotion: 'sad',
+      );
+
+      expect(chat.resolveExpressionAvatar(ana.card)?.label, 'joy');
+      expect(chat.resolveExpressionAvatar(bea.card)?.label, 'sadness');
+
+      final dir = Directory(
+        p.join(storage.charactersDir.path, 'Bea', 'avatars'),
+      )..createSync(recursive: true);
+      File(p.join(dir.path, 'bea-sadness.png')).writeAsBytesSync([1, 2, 3]);
+      final router = shelf_router.Router();
+      WebCharacterRoutes(
+        CharacterFacade(db, storage, null, chat, null),
+        router,
+        thumbnails: ThumbnailCache(Directory.systemTemp),
+      );
+      final res = await router.call(
+        shelf.Request(
+          'GET',
+          Uri.parse(
+            'http://localhost/api/chat/expression-avatar'
+            '?participant=${Uri.encodeQueryComponent(bea.id)}',
+          ),
+        ),
+      );
+      expect(res.statusCode, 200, reason: "the phone asks for Bea's own face");
+      expect(await res.read().expand((b) => b).toList(), [1, 2, 3]);
+      expect(
+        ChatRealismRead(chat).participantRealism(bea.id)!['expressionLabel'],
+        'sadness',
+      );
+    });
+
+    testWidgets("the sidebar portrait's mood badge is the focused member's "
+        'own', (tester) async {
+      await tester.runAsync(boot);
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await tester.runAsync(
+        () => storage.expressionSettings.setExpressionEnabled(true),
+      );
+      final repo = CharacterRepository(db, storage);
+      final [ana, bea] = members();
+      ana.card.avatarImages = faces('ana');
+      bea.card.avatarImages = faces('bea');
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(ana.card),
+        emotion: 'joy',
+      );
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(bea.card),
+        emotion: 'sad',
+      );
+      Future<void> pumpPortrait(CharacterCard card) async {
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              ChangeNotifierProvider<ChatService>.value(value: chat),
+              ChangeNotifierProvider<StorageService>.value(value: storage),
+              ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: ChatSidebarPortrait(
+                  character: card,
+                  isGroup: true,
+                  sidebarWidth: 280,
+                  resolveCharImage: File.new,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await pumpPortrait(ana.card);
+      expect(find.text(EmotionLabels.emoji['joy']!), findsOneWidget);
+      await pumpPortrait(bea.card);
+      expect(find.text(EmotionLabels.emoji['sadness']!), findsOneWidget);
+      expect(find.text(EmotionLabels.emoji['joy']!), findsNothing);
+    });
+
+    testWidgets('with ONNX on, only the member who wrote the last reply wears '
+        "the classifier's label", (tester) async {
+      await tester.runAsync(boot);
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await tester.runAsync(
+        () =>
+            storage.expressionSettings.setExpressionClassificationMode('onnx'),
+      );
+      final lastReply = chat.messages.lastWhere((m) => !m.isUser);
+      final writer = resolveGroupSpeakerForMessage(
+        chat.groupCharacters,
+        lastReply,
+      )!;
+      final other = chat.groupCharacters.firstWhere(
+        (c) => chat.characterIdFor(c) != chat.characterIdFor(writer),
+      );
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(writer),
+        emotion: 'fear',
+      );
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(other),
+        emotion: 'sad',
+      );
+      final live = chat.currentExpressionLabel;
+      expect(live, isNot('fear'), reason: 'the classifier has not said fear');
+
+      expect(chat.expressionLabelFor(writer), live);
+      expect(chat.expressionLabelFor(other), 'sadness');
+      // The classifier's debounce never runs here: no model download.
+      chat.expressionService.resetForFreshChat();
+    });
   });
 }
