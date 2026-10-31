@@ -23,6 +23,8 @@ import 'package:front_porch_ai/database/database.dart'
     show AppDatabase, AppDatabaseGroupQueries;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/realism_settings.dart'
+    show RealismSettings;
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
     show showGroupSettings;
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
@@ -45,6 +47,15 @@ bool _realismAllowed(BuildContext context) {
     ).realismSettings.realismAllowed;
   } on ProviderNotFoundException {
     return true;
+  }
+}
+
+/// Porch Life's settings, or null without a StorageService above.
+RealismSettings? _porchLife(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context, listen: false).realismSettings;
+  } on ProviderNotFoundException {
+    return null;
   }
 }
 
@@ -194,11 +205,14 @@ MemberGroupView memberGroupViewOfTemplate(
 }) {
   final db = liveDatabase(context);
   final chat = Provider.of<ChatService>(context, listen: false);
+  final porchLife = _porchLife(context);
   return MemberGroupView(
     read: () => groupWideValuesOfTemplate(
       defaultMemberJson: defaultMemberJson,
       baselineJson: baselineJson,
       chaos: group.chaosModeEnabled,
+      chaosModeDefault: porchLife?.chaosModeDefault ?? false,
+      needsSimDefault: porchLife?.needsSimDefault ?? true,
       settingName: settingName,
       readsMemberLorebooks:
           readsMemberLorebooks ?? group.inheritCharacterLorebooks,
@@ -208,7 +222,6 @@ MemberGroupView memberGroupViewOfTemplate(
     realismAllowed: _realismAllowed(context),
     onOpenRealism: onOpenRealism,
     onOpenNeeds: onOpenRealism,
-    chaosWhere: "set in Group Settings, in the group's chat",
     loreWhere:
         'Edit group → Lore & Worlds has "Inherit character & world '
         'lorebooks"',

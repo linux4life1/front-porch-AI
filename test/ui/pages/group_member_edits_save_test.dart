@@ -1570,12 +1570,12 @@ void main() {
       expect(
         find.descendant(of: chaos, matching: find.byType(TextButton)),
         findsNothing,
-        reason: 'Realism & Dynamics has no Chaos switch',
+        reason: 'no switch changes how new chats start Chaos',
       );
       expect(
         find.descendant(
           of: chaos,
-          matching: find.text("set in Group Settings, in the group's chat"),
+          matching: find.text('the setting the group was made with'),
         ),
         findsOneWidget,
       );
@@ -1768,6 +1768,118 @@ void main() {
           reason: 'the messenger shows it on every Scaffold, the editor too',
         );
         expect(form(tester).showStartingState, isFalse);
+      });
+    });
+  });
+
+  // New Chat seeds a group's Chaos as its own setting OR Porch Life's Chaos
+  // default, and its Needs only while Porch Life runs Needs. The lines for
+  // new chats showed the group's flags alone, and named Group Settings as
+  // where Chaos is set, though its switch changes that chat only.
+  group("Edit group's lines for new chats follow Porch Life", () {
+    Future<void> openWith(
+      WidgetTester tester,
+      Future<void> Function(FakeStorageService storage) porchLife,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final chat = _OpenGroup(const []);
+      final library = _Library();
+      final storage = FakeStorageService();
+      final worlds = FakeWorldRepository();
+      addTearDown(library.dispose);
+      addTearDown(storage.dispose);
+      addTearDown(worlds.dispose);
+      addTearDown(chat.dispose);
+      await porchLife(storage);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<AppDatabase>.value(value: db),
+            ChangeNotifierProvider<CharacterRepository>.value(value: library),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => editGroupMemberFromEditGroup(
+                    context,
+                    group: GroupChat(id: _groupId, name: 'Pair'),
+                    member: member(),
+                    memberId: _memberId,
+                    defaultMemberJson: _realismOn.defaultMemberJson,
+                    baselineJson: _realismOn.baselineJson,
+                    settingId: null,
+                    inheritCharacterLorebooks: false,
+                    onStartSaved: (_, _) {},
+                  ),
+                  child: const Text('Open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await pumpUntil(
+        tester,
+        () => find.byType(EditCharacterPage).evaluate().isNotEmpty,
+        why: 'the editor never opened',
+      );
+    }
+
+    testWidgets("Chaos is on for new chats while Porch Life's default is, and "
+        'says so', (tester) async {
+      await tester.runAsync(() async {
+        await openWith(
+          tester,
+          (s) => s.realismSettings.setChaosModeDefault(true),
+        );
+        final chaos = find.ancestor(
+          of: find.text("Chaos Mode · On for this group's new chats"),
+          matching: find.byType(GroupWideLine),
+        );
+        expect(chaos, findsOneWidget, reason: 'the group was made without it');
+        expect(
+          find.descendant(
+            of: chaos,
+            matching: find.text("on because Porch Life's Chaos default is on"),
+          ),
+          findsOneWidget,
+        );
+      });
+    });
+
+    testWidgets("Needs is off for new chats while Porch Life runs no Needs, "
+        "with the Needs switches' note", (tester) async {
+      await tester.runAsync(() async {
+        await openWith(
+          tester,
+          (s) => s.realismSettings.setNeedsSimDefault(false),
+        );
+        final needs = find.ancestor(
+          of: find.text("Needs · Off for this group's new chats"),
+          matching: find.byType(GroupWideLine),
+        );
+        expect(needs, findsOneWidget, reason: 'the group chose Needs on');
+        expect(
+          find.descendant(
+            of: needs,
+            matching: find.text(
+              "Off in Porch Life, so no chat runs Needs. This group's choice "
+              'for new chats is kept.',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: needs, matching: find.byType(TextButton)),
+          findsNothing,
+          reason: "the group's own Needs switch is greyed",
+        );
       });
     });
   });

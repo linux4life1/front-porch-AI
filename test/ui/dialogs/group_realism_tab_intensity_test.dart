@@ -579,4 +579,66 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 100)),
     );
   });
+
+  // Save writes the group's row and keeps Group Settings open. The members'
+  // summaries kept the row they read as the dialog opened.
+  testWidgets("Group Settings' Save brings the members' summaries up to the "
+      'row it wrote', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupSettingsDialog(
+              chatService: chat,
+              groupRepo: repo,
+              initialTab: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pump();
+      }
+    }
+
+    await settle();
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    final asOpened = find.descendant(
+      of: ada,
+      matching: find.text(' · Close / Trusting'),
+    );
+    expect(asOpened, findsOneWidget);
+
+    // An edit in this chat's copy, as the dialog's own controls make one.
+    chat.activeGroup!.defaultMemberRealismState = adaAt(300, 100);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await settle();
+
+    final row = await tester.runAsync(() => db.getGroupById('grp-mood'));
+    expect(
+      parseGroupRealismSeeds(
+        row!.defaultMemberRealismState,
+      )['mem-ada']!['trust'],
+      100,
+      reason: 'Save wrote the row',
+    );
+    expect(ada, findsOneWidget, reason: 'the dialog stays open');
+    expect(asOpened, findsNothing, reason: 'the summary reads the saved row');
+  });
 }

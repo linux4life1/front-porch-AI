@@ -101,6 +101,8 @@ class GroupMemberEdit {
       defaultMemberJson: g.defaultMemberRealismState,
       baselineJson: g.baselineRealismState,
       chaos: g.chaosModeEnabled,
+      chaosModeDefault: _storage.realismSettings.chaosModeDefault,
+      needsSimDefault: _storage.realismSettings.needsSimDefault,
       settingName: groupSettingNameIn(g, _worlds),
       readsMemberLorebooks: g.inheritCharacterLorebooks,
     );

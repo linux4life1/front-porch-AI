@@ -36,6 +36,8 @@ class GroupWideValues {
     this.settingName,
     this.readsMemberLorebooks = false,
     this.open = false,
+    this.chaosFromPorchLife = false,
+    this.needsOffInPorchLife = false,
   });
 
   final bool realism;
@@ -57,6 +59,14 @@ class GroupWideValues {
   /// for new chats.
   final bool open;
 
+  /// New chats: Porch Life's Chaos default is on, so they start with Chaos
+  /// whatever the group was made with.
+  final bool chaosFromPorchLife;
+
+  /// New chats: Porch Life runs no Needs, so they start without it whatever
+  /// the group chose (its choice is kept).
+  final bool needsOffInPorchLife;
+
   /// "Late morning, Day 3".
   String get timeLabel {
     final words = timeOfDay.replaceAll('_', ' ').trim();
@@ -77,6 +87,8 @@ class GroupWideValues {
     'settingName': settingName,
     'readsMemberLorebooks': readsMemberLorebooks,
     'open': open,
+    'chaosFromPorchLife': chaosFromPorchLife,
+    'needsOffInPorchLife': needsOffInPorchLife,
   };
 }
 
@@ -112,10 +124,15 @@ GroupWideValues groupWideValuesOfChat(
 
 /// A group's settings for new chats, from its definition's realism blobs
 /// ([defaultMemberJson], [baselineJson]): how its next New Chat starts.
+/// New Chat seeds Chaos as the group's [chaos] OR Porch Life's
+/// [chaosModeDefault], and Needs only while Porch Life's [needsSimDefault]
+/// is on (ChatService's group entry and New Chat).
 GroupWideValues groupWideValuesOfTemplate({
   required String defaultMemberJson,
   required String baselineJson,
   required bool chaos,
+  required bool chaosModeDefault,
+  required bool needsSimDefault,
   String? settingName,
   bool readsMemberLorebooks = false,
 }) {
@@ -129,12 +146,14 @@ GroupWideValues groupWideValuesOfTemplate({
   final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
   return GroupWideValues(
     realism: realism.realismOn,
-    needs: realism.realismOn && realism.needsOn,
-    chaos: chaos,
+    needs: needsSimDefault && realism.realismOn && realism.needsOn,
+    chaos: chaos || chaosModeDefault,
     afterglow: groupAfterglowIn(defaultMemberJson),
     timeOfDay: time?.timeOfDay ?? 'morning',
     dayCount: time?.dayCount ?? 1,
     settingName: settingName,
     readsMemberLorebooks: readsMemberLorebooks,
+    chaosFromPorchLife: chaosModeDefault,
+    needsOffInPorchLife: !needsSimDefault,
   );
 }
