@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/prefs_recovery.dart';
 
 /// Creates timestamped backups of the SQLite database (now the primary safety
 /// net, since cloud sync is deprecated). Auto-backup runs every 30 minutes and
@@ -55,6 +56,7 @@ class BackupService {
         // keeps sliding, so pruning during a persistent failure streak would
         // slowly delete healthy history while writing nothing new.
         if (created != null) await pruneBackups();
+        await PrefsRecovery.snapshotGood();
       } catch (e) {
         debugPrint('[Backup] Auto-backup failed: $e');
       }
