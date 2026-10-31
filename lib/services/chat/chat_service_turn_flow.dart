@@ -160,20 +160,10 @@ extension ChatServiceTurnFlow on ChatService {
     String occupationBrief,
     List<int>? workDays,
   })
-  _workFieldsFor(CharacterCard card) {
-    final ext = card.frontPorchExtensions;
-    final library = originLibraryCardFor(card);
-    return workFieldsForGroupMember(
-      copyOccupation: ext?.occupation ?? '',
-      copyHours: ext?.hours ?? '',
-      copyOccupationBrief: ext?.occupationBrief ?? '',
-      copyWorkDays: ext?.workDays,
-      libraryOccupation: library?.frontPorchExtensions?.occupation,
-      libraryHours: library?.frontPorchExtensions?.hours,
-      libraryOccupationBrief: library?.frontPorchExtensions?.occupationBrief,
-      libraryWorkDays: library?.frontPorchExtensions?.workDays,
-    );
-  }
+  _workFieldsFor(CharacterCard card) => workFieldsForMember(
+    card,
+    _characterRepository?.characters ?? const <CharacterCard>[],
+  );
 
   /// Skip path only. 1:1 never skips (caller returns false first).
   /// Group: judge bit, else recent line, or stance that does not say they left.

@@ -63,6 +63,14 @@ class CharacterCard {
   String creatorNotes;
   String characterVersion;
   String? dbId; // UUID primary key (runtime only, not serialized)
+
+  /// A group member's library origin, copied from its row's provenance
+  /// (`GroupMember.originLibraryDbId` / `originStableId`). The
+  /// member's own [dbId] and avatar are named after the member, so these are
+  /// the only link back to the library card. Runtime only, never serialized;
+  /// null on library cards.
+  String? originLibraryDbId;
+  String? originStableId;
   DateTime?
   createdAt; // library "date added" from DB (runtime only, not serialized)
   FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults

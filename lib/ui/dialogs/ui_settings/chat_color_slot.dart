@@ -142,6 +142,10 @@ CharacterCard cloneCharacterWithExtensions(
   )..dbId = character.dbId;
   // The roster keeps showing the same default face after the swap.
   updated.primeAvatarIndex = character.primeAvatarIndex;
+  // A group member's only link back to the library card it was copied from.
+  updated
+    ..originLibraryDbId = character.originLibraryDbId
+    ..originStableId = character.originStableId;
   return updated;
 }
 
