@@ -27,16 +27,24 @@
 //
 // WHAT A PLACE PROVES. A place is a pointer to the read or the control: the
 // named file, inside the named function, still contains the marker (comments
-// stripped; whitespace between tokens free). It is not proof of behaviour;
-// the member editor tests (group_member_edits_save_test,
-// CharacterEditPage.member.test.tsx) pin behaviour. Member-mode visibility
-// is checked at the two places it is decided in source: a web control
-// inside a `{member === undefined && …}` or `{!member && …}` block is hidden
-// for members, and a switch the member editor sets from "not a member"
-// (`showX: member == null` on desktop, `showX={!member}` on the phone) must
-// be listed with the fields it hides, none of which may claim an editor. A
-// control a shared sub-widget hides on its own, by some other condition, is
-// not seen here.
+// stripped, and string contents too unless the marker quotes one; whitespace
+// between tokens free). It is not proof of behaviour; the member editor
+// tests (group_member_edits_save_test, CharacterEditPage.member.test.tsx) pin
+// behaviour. Some editor and some reader marker must name the field itself
+// (its name or JSON key), and a place two fields claim must say why it is
+// shared, so an entry copied from another field fails. A read that happens
+// in a helper is a chain: the group read first, then each `hop` the place
+// before it calls.
+//
+// MEMBER MODE. A control counts only where a member's editor renders it.
+// Hidden, in Dart and TSX: `{notMember && …}`, the member-false branch of a
+// ternary on a member test (`member ? A : B`, `memberGroup == null ? A : B`,
+// and the inverses), and a Dart collection-if on one (and its else). A
+// switch the member editor sets from "not a member" (`showX: member == null`
+// on desktop, `showX={!member}` on the phone) must be listed with the fields
+// it hides, none of which may claim an editor. Not seen: a control a shared
+// sub-widget hides by some other condition, dead code after a return, and a
+// 1:1-only branch the place's function takes on its own.
 
 import 'dart:convert';
 import 'dart:io';
@@ -160,11 +168,18 @@ final _dart = <String, DartSource>{};
 DartSource _source(String path) =>
     _dart.putIfAbsent(path, () => DartSource.read(path));
 
-final _texts = <String, String>{};
+/// A file as markers see it. [code] has comments and string contents
+/// blanked; [withStrings] has only comments blanked; [strings] are the
+/// literals' spans (quote to quote). Offsets match the file.
+typedef _Read = ({
+  String code,
+  String withStrings,
+  List<({int start, int end})> strings,
+});
 
-/// [path] as markers see it: Dart with comments blanked and strings kept,
-/// TypeScript with comments blanked. Offsets match the file.
-String _text(String path) => _texts.putIfAbsent(path, () {
+final _reads = <String, _Read>{};
+
+_Read _read(String path) => _reads.putIfAbsent(path, () {
   if (path.endsWith('.dart')) {
     final s = _source(path);
     final out = s.code.codeUnits.toList();
@@ -173,31 +188,39 @@ String _text(String path) => _texts.putIfAbsent(path, () {
         out[i] = s.source.codeUnitAt(i);
       }
     }
-    return String.fromCharCodes(out);
+    return (
+      code: s.code,
+      withStrings: String.fromCharCodes(out),
+      strings: [for (final str in s.strings) (start: str.start, end: str.end)],
+    );
   }
-  return _stripTsComments(File(path).readAsStringSync());
+  return _readTs(File(path).readAsStringSync());
 });
 
-/// [ts] with `//` and `/* */` comments blanked (newlines kept), skipping
-/// string and template literals.
-String _stripTsComments(String ts) {
-  final out = ts.codeUnits.toList();
+/// [ts] read like a Dart file: `//` and `/* */` comments, and string and
+/// template literal contents, recognised by a quote-aware scan.
+_Read _readTs(String ts) {
+  final code = ts.codeUnits.toList();
+  final kept = ts.codeUnits.toList();
+  final strings = <({int start, int end})>[];
+  void blank(List<int> out, int from, int to) {
+    for (var j = from; j < to; j++) {
+      if (out[j] != 10) out[j] = 32;
+    }
+  }
+
   var i = 0;
-  String? quote;
   while (i < ts.length) {
     final c = ts[i];
-    if (quote != null) {
-      if (c == r'\') {
-        i += 2;
-        continue;
-      }
-      if (c == quote) quote = null;
-      i++;
-      continue;
-    }
     if (c == "'" || c == '"' || c == '`') {
-      quote = c;
-      i++;
+      var j = i + 1;
+      while (j < ts.length && ts[j] != c) {
+        j += ts[j] == r'\' ? 2 : 1;
+      }
+      final end = j < ts.length ? j + 1 : ts.length;
+      blank(code, i + 1, end - 1);
+      strings.add((start: i, end: end));
+      i = end;
       continue;
     }
     final next = i + 1 < ts.length ? ts[i + 1] : '';
@@ -205,15 +228,18 @@ String _stripTsComments(String ts) {
       final end = next == '/'
           ? ts.indexOf('\n', i).let((e) => e < 0 ? ts.length : e)
           : ts.indexOf('*/', i + 2).let((e) => e < 0 ? ts.length : e + 2);
-      for (var j = i; j < end; j++) {
-        if (out[j] != 10) out[j] = 32;
-      }
+      blank(code, i, end);
+      blank(kept, i, end);
       i = end;
       continue;
     }
     i++;
   }
-  return String.fromCharCodes(out);
+  return (
+    code: String.fromCharCodes(code),
+    withStrings: String.fromCharCodes(kept),
+    strings: strings,
+  );
 }
 
 extension<T> on T {
@@ -499,18 +525,35 @@ final _firstName = RegExp(r'(?<![\w$.])[A-Za-z_$][\w$]*');
 
 // ── Places ───────────────────────────────────────────────────────────────
 
+/// Where a field is edited or read: [marker] inside function [inFn] of
+/// [path]. [shared] says why other fields claim the same place; [hop] marks
+/// a helper the place before it calls (the read happens there, not here).
 class _Place {
   _Place(Map<String, dynamic> json)
     : path = json['path'] as String,
       inFn = json['in'] as String?,
-      marker = json['marker'] as String;
+      marker = json['marker'] as String,
+      shared = json['shared'] as String?,
+      hop = json['hop'] as String?,
+      unknown = json.keys.toSet().difference(_placeKeys);
   final String path;
   final String? inFn;
   final String marker;
+  final String? shared;
+  final String? hop;
+  final Set<String> unknown;
+
+  String get identity => '$path|${inFn ?? ''}|$marker';
 
   @override
   String toString() => '$path${inFn == null ? '' : ' in $inFn'} "$marker"';
 }
+
+const _placeKeys = {'path', 'in', 'marker', 'shared', 'hop', 'why'};
+
+/// Whether [marker] names [name] as a whole token.
+bool _names(String marker, String name) =>
+    RegExp('(?<![\\w\$])${RegExp.escape(name)}(?![\\w\$])').hasMatch(marker);
 
 List<_Place> _places(Object? json) => [
   for (final p in (json as List?) ?? const [])
@@ -538,22 +581,95 @@ RegExp _markerPattern(String marker) {
   return RegExp('$head$b$tail');
 }
 
-final _hiddenOpen = RegExp(
-  r'\{\s*(?:member\s*===\s*undefined|!\s*member)\s*&&',
-);
+// ── Member-mode hiding ───────────────────────────────────────────────────
 
-/// Spans of a TSX file rendered only outside a member's editor.
+/// How the member editors name "this is a member's editor".
+const _memberName =
+    r'(?:widget\.)?(?:member|memberName|memberGroup|memberOfGroup)';
+
+/// A condition true only in a member's editor, and one true only outside it.
+const _isMember =
+    '(?<![\\w\$.!])$_memberName(?:\\s*(?:!==\\s*undefined|!=\\s*null))?';
+const _notMember =
+    '(?:(?<![\\w\$.])!\\s*$_memberName|(?<![\\w\$.!])$_memberName\\s*'
+    '(?:===\\s*undefined|==\\s*null))';
+
+/// The end (exclusive) of the expression starting at [i]: the first `,`,
+/// `;` or `:` (when [stopAtColon]) at depth 0, or the closer of the bracket
+/// it sits in.
+int _expressionEnd(String code, int i, {required bool stopAtColon}) {
+  var depth = 0;
+  for (; i < code.length; i++) {
+    final c = code[i];
+    if ('([{'.contains(c)) depth++;
+    if (')]}'.contains(c)) {
+      if (depth == 0) return i;
+      depth--;
+    }
+    if (depth == 0 && (c == ',' || c == ';' || (stopAtColon && c == ':'))) {
+      // `a ? b : c` inside the branch is nested, never the branch's own colon
+      // (the scan treats `?:` pairs lazily; good enough for JSX and Dart args).
+      return i;
+    }
+  }
+  return code.length;
+}
+
+/// Spans of [path] (Dart or TSX, string contents blanked) that render only
+/// outside a member's editor: `{notMember && X}`; the member-false branch
+/// of `isMember ? A : B` / `notMember ? A : B`; the body of a Dart
+/// collection-if on a member test, and its else.
 List<({int start, int end})> _memberHiddenRegions(String path) {
-  if (path.endsWith('.dart')) return const [];
-  final text = _text(path);
-  return [
-    for (final m in _hiddenOpen.allMatches(text))
-      (start: m.start, end: _close(text, m.start)),
-  ];
+  final code = _read(path).code;
+  final regions = <({int start, int end})>[];
+  for (final m in RegExp('\\{\\s*$_notMember\\s*&&').allMatches(code)) {
+    regions.add((start: m.start, end: _close(code, m.start)));
+  }
+  final ternary = RegExp('(?:($_notMember)|$_isMember)\\s*\\?(?![.?\\[])');
+  for (final m in ternary.allMatches(code)) {
+    final thenStart = m.end;
+    final colon = _expressionEnd(code, thenStart, stopAtColon: true);
+    if (colon >= code.length || code[colon] != ':') continue;
+    final elseEnd = _expressionEnd(code, colon + 1, stopAtColon: false);
+    regions.add(
+      m[1] != null
+          ? (start: thenStart, end: colon)
+          : (start: colon + 1, end: elseEnd),
+    );
+  }
+  if (path.endsWith('.dart')) {
+    final collectionIf = RegExp(
+      '\\bif\\s*\\(\\s*(?:($_notMember)|$_isMember)\\s*\\)',
+    );
+    // The branch after `if (…)` or `else`: a `{…}` block, or an element
+    // up to the next `,`, `;`, `else` or closer.
+    int branchEnd(int from) {
+      final i = _skipSpace(code, from);
+      if (i < code.length && code[i] == '{') return _close(code, i) + 1;
+      final end = _expressionEnd(code, i, stopAtColon: false);
+      final elseAt = RegExp(r'\belse\b').firstMatch(code.substring(i, end));
+      return elseAt == null ? end : i + elseAt.start;
+    }
+
+    for (final m in collectionIf.allMatches(code)) {
+      final thenEnd = branchEnd(m.end);
+      if (m[1] != null) {
+        regions.add((start: m.end, end: thenEnd));
+        continue;
+      }
+      final elseAt = RegExp(r'^\s*else\b').firstMatch(code.substring(thenEnd));
+      if (elseAt != null) {
+        final from = thenEnd + elseAt.end;
+        regions.add((start: from, end: branchEnd(from)));
+      }
+    }
+  }
+  return regions;
 }
 
 /// Why [p] does not hold, or null. An [editor] place must also show for a
-/// member.
+/// member. A marker without a quote is matched against code alone; one with
+/// a quote is matched with strings kept, but may not start inside a string.
 String? _placeProblem(_Place p, {required bool editor}) {
   if (!File(p.path).existsSync()) return '${p.path} does not exist';
   if (RegExp(r'^[A-Za-z_$][\w$]*$').hasMatch(p.marker)) {
@@ -562,26 +678,37 @@ String? _placeProblem(_Place p, {required bool editor}) {
   if (p.inFn != null && !p.path.endsWith('.dart')) {
     return '$p: "in" is for Dart files';
   }
-  final text = _text(p.path);
-  ({int start, int end}) scope;
-  try {
-    scope = p.inFn == null
-        ? (start: 0, end: text.length)
-        : _bodyOf(p.path, p.inFn!);
-  } on StateError catch (e) {
-    return e.message;
-  }
+  final read = _read(p.path);
+  final quoted = RegExp('[\'"`]').hasMatch(p.marker);
+  final text = quoted ? read.withStrings : read.code;
+  final scope = _scopeOf(p);
+  if (scope == null) return '$p: no single function named ${p.inFn}';
   final hits = [
     for (final m in _markerPattern(
       p.marker,
     ).allMatches(text.substring(scope.start, scope.end)))
-      scope.start + m.start,
+      if (!read.strings.any(
+        (s) => scope.start + m.start > s.start && scope.start + m.start < s.end,
+      ))
+        scope.start + m.start,
   ];
   if (hits.isEmpty) return '$p is not there any more';
   if (!editor) return null;
   final hidden = _memberHiddenRegions(p.path);
-  final shown = hits.where((h) => !hidden.any((r) => h > r.start && h < r.end));
+  final shown = hits.where(
+    (h) => !hidden.any((r) => h >= r.start && h < r.end),
+  );
   return shown.isEmpty ? '$p only renders outside a member\'s editor' : null;
+}
+
+/// The span [p] is checked in: its function's body, or the whole file.
+({int start, int end})? _scopeOf(_Place p) {
+  if (p.inFn == null) return (start: 0, end: _read(p.path).code.length);
+  try {
+    return _bodyOf(p.path, p.inFn!);
+  } on StateError {
+    return null;
+  }
 }
 
 /// A member-hiding switch: `showX: member == null` (desktop) or
@@ -602,6 +729,7 @@ void main() {
 
   final fields = <String, String>{}; // field key → where it comes from
   final declaredTypes = <String, String>{}; // field key → declared type
+  final jsonKeys = <String, String>{}; // field key → the key toJson writes
   for (final m in _models) {
     final f = _fieldsOfModel(m);
     for (final d in f.declared) {
@@ -612,6 +740,7 @@ void main() {
     for (final MapEntry(key: name, value: key) in f.keys.entries) {
       if (m.containers.contains(name)) continue;
       fields['${m.prefix}.$name'] = '${m.className}.$name (key "$key")';
+      jsonKeys['${m.prefix}.$name'] = key;
     }
   }
 
@@ -662,7 +791,8 @@ void main() {
       for (final f in Directory('lib/models').listSync(recursive: true))
         if (f is File && f.path.endsWith('.dart'))
           for (final m in RegExp(
-            r'^(?:abstract\s+|final\s+|sealed\s+)*class\s+(\w+)',
+            r'^(?:(?:abstract|base|final|interface|mixin|sealed)\s+)*'
+            r'class\s+(\w+)',
             multiLine: true,
           ).allMatches(f.readAsStringSync()))
             m[1]!,
@@ -712,7 +842,7 @@ void main() {
       final decode = m.decode;
       if (decode == null) continue;
       final path = m.toJsonPath ?? m.path;
-      final text = _text(path);
+      final text = _read(path).withStrings;
       final body = _bodyOf(path, decode);
       final read = StringBuffer(text.substring(body.start, body.end));
       // Top-level helpers the decoder calls (`_workDays(realism)`).
@@ -792,6 +922,56 @@ void main() {
     expect(problems, isEmpty, reason: problems.join('\n'));
   });
 
+  test('every entry names its own field, and a shared place says why', () {
+    // A place copied from another field's entry proves nothing about this
+    // one: some editor and some reader must name the field itself.
+    final problems = <String>[];
+    final claims = <String, List<(String, _Place)>>{};
+    for (final MapEntry(:key, value: e) in entries.entries) {
+      final names = [key.substring(key.lastIndexOf('.') + 1), ?jsonKeys[key]];
+      for (final (role, places) in [
+        ('editor', _places(e['editor'])),
+        ('reader', _places(e['reader'])),
+      ]) {
+        if (places.isNotEmpty &&
+            !places.any((p) => names.any((n) => _names(p.marker, n)))) {
+          problems.add(
+            '$key: no $role marker names ${names.join(' or ')}; point at '
+            'where this field itself is ${role == 'editor' ? 'set' : 'read'}',
+          );
+        }
+        for (final p in places) {
+          (claims[p.identity] ??= []).add((key, p));
+          if (p.unknown.isNotEmpty) {
+            problems.add('$key $role $p: unknown keys ${p.unknown}');
+          }
+          for (final r in [p.shared, p.hop]) {
+            if (r != null && r.trim().isEmpty) {
+              problems.add('$key $role $p: shared and hop need a reason');
+            }
+          }
+          if (p.hop != null && role != 'reader') {
+            problems.add('$key $role $p: a hop is a step of a read');
+          }
+        }
+      }
+    }
+    for (final MapEntry(key: _, value: owners) in claims.entries) {
+      final keys = {for (final (k, _) in owners) k};
+      final place = owners.first.$2;
+      if (keys.length > 1 && owners.any((o) => o.$2.shared == null)) {
+        problems.add(
+          '$place is claimed by ${keys.join(', ')}; mark it shared with why '
+          'one place serves them all, or point each at its own',
+        );
+      }
+      if (keys.length == 1 && owners.every((o) => o.$2.shared != null)) {
+        problems.add('$place is marked shared but only ${keys.single} has it');
+      }
+    }
+    expect(problems, isEmpty, reason: problems.join('\n'));
+  });
+
   test('every named editor and reader still holds', () {
     final problems = <String>[];
     for (final MapEntry(:key, value: e) in entries.entries) {
@@ -800,9 +980,27 @@ void main() {
           problems.add('$key editor: $why');
         }
       }
-      for (final p in _places(e['reader'])) {
+      final readers = _places(e['reader']);
+      for (var i = 0; i < readers.length; i++) {
+        final p = readers[i];
         if (_placeProblem(p, editor: false) case final why?) {
           problems.add('$key reader: $why');
+        }
+        if (p.hop == null) continue;
+        // A hop is only a hop if the place before it calls it.
+        final fn = p.inFn?.split('.').last;
+        final before = i == 0 ? null : readers[i - 1];
+        final scope = before == null ? null : _scopeOf(before);
+        final calls =
+            fn != null &&
+            scope != null &&
+            RegExp('(?<![\\w\$])${RegExp.escape(fn)}(?![\\w\$])').hasMatch(
+              _read(before!.path).code.substring(scope.start, scope.end),
+            );
+        if (!calls) {
+          problems.add(
+            '$key reader: hop $p is not called from the place before it',
+          );
         }
       }
     }
@@ -835,7 +1033,7 @@ void main() {
     for (final path in files) {
       if (!File(path).existsSync()) continue;
       final found = {
-        for (final m in _hidingFlag.allMatches(_text(path))) m[1] ?? m[2]!,
+        for (final m in _hidingFlag.allMatches(_read(path).code)) m[1] ?? m[2]!,
       };
       final listed = hidden[path] ?? const {};
       for (final f in found.difference(listed.keys.toSet())) {

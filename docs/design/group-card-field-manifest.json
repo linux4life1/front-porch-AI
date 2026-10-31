@@ -147,7 +147,14 @@
         {
           "path": "lib/services/chat/chat_service_greeting.dart",
           "in": "_memberOpeningGreetingText",
-          "marker": "member.allGreetings"
+          "marker": "member.allGreetings",
+          "shared": "a member's greeting is their first message and alternates, as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allGreetings",
+          "marker": "greetings.addAll(alternateGreetings)",
+          "hop": "the greeting list adds the alternates"
         }
       ]
     },
@@ -217,7 +224,8 @@
         {
           "path": "lib/services/chat/chat_service_generation_blocks.dart",
           "in": "_buildGroupSpeakerCard",
-          "marker": "_growthDesk.resolvedCardPersonality(speaker"
+          "marker": "_growthDesk.resolvedCardPersonality(speaker",
+          "shared": "a group turn reads description and personality as one block"
         }
       ]
     },
@@ -257,7 +265,14 @@
         {
           "path": "lib/services/chat/chat_service_greeting.dart",
           "in": "_memberOpeningGreetingText",
-          "marker": "member.allGreetings"
+          "marker": "member.allGreetings",
+          "shared": "a member's greeting is their first message and alternates, as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allGreetings",
+          "marker": "<String>[firstMessage]",
+          "hop": "the greeting list leads with the first message"
         }
       ],
       "note": "Read when a member greets: the group has no opener of its own."
@@ -281,7 +296,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_scaffold",
-          "marker": "value: _draft.worldChoice"
+          "marker": "value: _draft.worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
@@ -290,29 +306,41 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "worlds: worldChoice"
+          "marker": "worlds: worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/web/facade/group_member_edit.dart",
           "in": "GroupMemberEdit.update",
-          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)"
+          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/web/facade/group_member_edit.dart",
           "in": "GroupMemberEdit.detail",
-          "marker": "'worlds': ?characterWorldsJson(c, _worlds)"
+          "marker": "'worlds': ?characterWorldsJson(c, _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/group_member_card_save.dart",
           "in": "groupMemberCardColumns",
-          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))"
+          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         }
       ],
       "reader": [
         {
           "path": "lib/services/chat/lorebook_collection.dart",
           "in": "collectLoreEntryRefs",
-          "marker": "for (final worldName in ch.allWorldNames)"
+          "marker": "for (final worldName in ch.allWorldNames)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allWorldNames",
+          "marker": "[...worldNames, ...?loreWorldNames]",
+          "hop": "every world the card links, Setting and lore alike",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         }
       ]
     },
@@ -484,7 +512,8 @@
         {
           "path": "lib/services/chat/chat_service_generation_blocks.dart",
           "in": "_buildGroupSpeakerCard",
-          "marker": "_growthDesk.resolvedCardPersonality(speaker"
+          "marker": "_growthDesk.resolvedCardPersonality(speaker",
+          "shared": "a group turn reads description and personality as one block"
         }
       ]
     },
@@ -638,7 +667,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_scaffold",
-          "marker": "value: _draft.worldChoice"
+          "marker": "value: _draft.worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
@@ -647,29 +677,41 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "worlds: worldChoice"
+          "marker": "worlds: worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/web/facade/group_member_edit.dart",
           "in": "GroupMemberEdit.update",
-          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)"
+          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/web/facade/group_member_edit.dart",
           "in": "GroupMemberEdit.detail",
-          "marker": "'worlds': ?characterWorldsJson(c, _worlds)"
+          "marker": "'worlds': ?characterWorldsJson(c, _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         },
         {
           "path": "lib/services/group_member_card_save.dart",
           "in": "groupMemberCardColumns",
-          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))"
+          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         }
       ],
       "reader": [
         {
           "path": "lib/services/chat/lorebook_collection.dart",
           "in": "collectLoreEntryRefs",
-          "marker": "for (final worldName in ch.allWorldNames)"
+          "marker": "for (final worldName in ch.allWorldNames)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allWorldNames",
+          "marker": "[...worldNames, ...?loreWorldNames]",
+          "hop": "every world the card links, Setting and lore alike",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
         }
       ]
     },
@@ -681,7 +723,7 @@
           "marker": "e.copyWith(actionColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -691,7 +733,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
@@ -738,7 +781,7 @@
           "marker": "e.copyWith(aiBubbleColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -748,7 +791,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
@@ -760,7 +804,7 @@
           "marker": "e.copyWith(aiTextColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -770,7 +814,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
@@ -875,7 +920,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_saveCharacter",
-          "marker": "await saveStart(start)"
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
         },
         {
           "path": "web_ui/src/components/realism/memberGroup.tsx",
@@ -915,7 +961,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ],
       "noEditor": "no editor writes a character's chat font, in 1:1 either"
@@ -941,7 +988,7 @@
           "marker": "e.copyWith(dialogueColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -951,7 +998,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
@@ -1006,7 +1054,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_saveCharacter",
-          "marker": "await saveStart(start)"
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
         },
         {
           "path": "web_ui/src/components/realism/memberGroup.tsx",
@@ -1049,7 +1098,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -1148,11 +1198,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1191,11 +1243,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1234,11 +1288,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1277,11 +1333,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1320,11 +1378,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1363,11 +1423,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1405,11 +1467,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1431,7 +1495,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1447,11 +1512,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1473,7 +1540,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1489,11 +1557,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1515,7 +1585,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1531,11 +1602,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1557,7 +1630,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1573,11 +1647,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1599,7 +1675,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1615,11 +1692,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1641,7 +1720,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1657,11 +1737,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1683,7 +1765,8 @@
         {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)"
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
         }
       ]
     },
@@ -1700,11 +1783,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1743,11 +1828,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1786,11 +1873,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1829,11 +1918,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -1872,11 +1963,13 @@
         },
         {
           "path": "web_ui/src/components/AltGreetingsEditor.tsx",
-          "marker": "<GreetingSeedForm"
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<AltGreetingsEditor"
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/greeting_realism_seed.dart",
@@ -2109,7 +2202,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_saveCharacter",
-          "marker": "await saveStart(start)"
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
         },
         {
           "path": "web_ui/src/components/realism/memberGroup.tsx",
@@ -2153,7 +2247,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2168,24 +2263,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineBladder"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineBladder",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2208,7 +2307,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2223,24 +2323,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineComfort"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineComfort",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2263,7 +2367,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2278,24 +2383,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineEnergy"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineEnergy",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2318,7 +2427,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2333,24 +2443,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineFun"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineFun",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2373,7 +2487,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2388,24 +2503,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineHunger"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineHunger",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2428,7 +2547,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2443,24 +2563,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineHygiene"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineHygiene",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2483,7 +2607,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2498,24 +2623,28 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/needs_simulation.dart",
-          "in": "NeedsSimulation.baselinesFromExtensions",
-          "marker": "ext.needsBaselineSocial"
-        },
-        {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._lived",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/needs_beat_wear.dart",
           "in": "NeedsBeatWear._rested",
-          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)"
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
         },
         {
           "path": "lib/services/chat/chat_service_group_members.dart",
           "in": "addCharacterToGroup",
-          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)"
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineSocial",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
         }
       ]
     },
@@ -2537,7 +2666,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2581,7 +2711,8 @@
         },
         {
           "path": "web_ui/src/pages/CharacterEditPage.tsx",
-          "marker": "<NeedsFormSection"
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2912,7 +3043,8 @@
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
-          "marker": "<RecoveryBlock"
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
         },
         {
           "path": "lib/services/web/util/realism_extensions_json.dart",
@@ -2946,7 +3078,8 @@
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
-          "marker": "<RecoveryBlock"
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/character/recovery_profile.dart",
@@ -2967,8 +3100,15 @@
         },
         {
           "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.pcdRollHit",
+          "marker": "pcdRate > 0",
+          "hop": "the roll the climax pass makes"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
           "in": "RecoveryProfile.pcdRate",
-          "marker": "switch (pcdMood)"
+          "marker": "switch (pcdMood)",
+          "hop": "the roll's rate, read from the dial"
         }
       ]
     },
@@ -2985,7 +3125,8 @@
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
-          "marker": "<RecoveryBlock"
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/character/recovery_profile.dart",
@@ -3019,7 +3160,8 @@
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
-          "marker": "<RecoveryBlock"
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
         },
         {
           "path": "lib/models/character/recovery_profile.dart",
@@ -3041,7 +3183,8 @@
         {
           "path": "lib/models/character/recovery_profile.dart",
           "in": "RecoveryProfile.resolvedMode",
-          "marker": "switch (recoveryMode)"
+          "marker": "switch (recoveryMode)",
+          "hop": "the kind the climax pass asks for; it reads the mode"
         }
       ]
     },
@@ -3066,7 +3209,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_saveCharacter",
-          "marker": "await saveStart(start)"
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
         },
         {
           "path": "web_ui/src/components/realism/memberGroup.tsx",
@@ -3114,6 +3258,12 @@
           "path": "lib/services/chat/chat_service_generation_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "speaker.isLite"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.isLite",
+          "marker": "frontPorchExtensions?.tier == 'lite'",
+          "hop": "the getter a group turn asks"
         }
       ]
     },
@@ -3131,7 +3281,8 @@
         {
           "path": "lib/ui/pages/edit_character_page.dart",
           "in": "_saveCharacter",
-          "marker": "await saveStart(start)"
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
         },
         {
           "path": "web_ui/src/components/realism/memberGroup.tsx",
@@ -3164,7 +3315,7 @@
           "marker": "e.copyWith(userBubbleColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -3174,7 +3325,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
@@ -3186,7 +3338,7 @@
           "marker": "e.copyWith(userTextColor: c)"
         }
       ],
-      "noPhone": "the phone has theme colours, not per-character ones, in 1:1 either",
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
       "reader": [
         {
           "path": "lib/services/storage/settings/ui_settings.dart",
@@ -3196,7 +3348,8 @@
         {
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage("
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "every bubble style is read from the card of the member who wrote the message"
         }
       ]
     },
