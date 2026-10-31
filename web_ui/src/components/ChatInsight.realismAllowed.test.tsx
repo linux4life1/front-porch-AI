@@ -81,3 +81,10 @@ it("keeps today's line when the chat's own switch is what is off", () => {
   const line = container.querySelector('.realism-off')!.textContent;
   expect(line).toContain('flip the switch');
 });
+
+it('allowed again mid-reply, with its own switch on: says Realism starts again when the reply finishes', () => {
+  render({ ...base, realismAllowed: true, realismSwitch: true });
+  const line = container.querySelector('.realism-off')!.textContent;
+  expect(line).toContain('Realism starts again when this reply finishes.');
+  expect(line).not.toContain('flip the switch');
+});

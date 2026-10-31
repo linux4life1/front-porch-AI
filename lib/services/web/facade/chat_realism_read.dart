@@ -145,6 +145,9 @@ class ChatRealismRead {
       // Additive, sent only while it is off: false when Porch Life is what
       // stops it, so the panel says where to look (desktop Character State).
       if (!_chat.realismEnabled) 'realismAllowed': _chat.realismAllowed,
+      // Also only while off: the chat's own switch. On, with Porch Life
+      // allowing it, is a change waiting for the reply to finish.
+      if (!_chat.realismEnabled) 'realismSwitch': _chat.realismChatSwitch,
       'bond': {
         'score': rel.affectionScore,
         'tier': rel.shortTermTierName,
