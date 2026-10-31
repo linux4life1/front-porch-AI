@@ -113,6 +113,8 @@ class EditCharacterRealismSection extends StatelessWidget {
           intimateNotInto: d.intimateNotInto,
           chaosModeEnabled: d.realismChaosMode,
           onChaosModeChanged: (v) => _edit(() => d.realismChaosMode = v),
+          afterglowEnabled: d.realismAfterglow,
+          onAfterglowChanged: (v) => _edit(() => d.realismAfterglow = v),
           realismVerificationEnabled: d.realismVerificationEnabled,
           onRealismVerificationChanged: (v) =>
               _edit(() => d.realismVerificationEnabled = v),

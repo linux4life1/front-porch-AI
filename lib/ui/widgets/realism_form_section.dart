@@ -110,6 +110,11 @@ class RealismFormSection extends StatelessWidget {
   /// notes, confirmed by the author, never applied silently.
   final bool showChargenSuggestion;
 
+  /// The card's Afterglow switch: how new chats with this character start.
+  /// Character editors only; group editors pass no setter.
+  final bool afterglowEnabled;
+  final ValueChanged<bool>? onAfterglowChanged;
+
   /// Starting Pockets & Wardrobe, as chip text (`sundress (rain-soaked)`).
   /// Same optional-pair convention again — the two group-member editors call
   /// this widget with no identity params at all.
@@ -200,6 +205,8 @@ class RealismFormSection extends StatelessWidget {
     this.onRecoveryChanged,
     this.sex = '',
     this.showChargenSuggestion = false,
+    this.afterglowEnabled = true,
+    this.onAfterglowChanged,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -364,6 +371,8 @@ class RealismFormSection extends StatelessWidget {
             intimateInto: intimateInto ?? const [],
             intimateNotInto: intimateNotInto ?? const [],
             showChargenSuggestion: showChargenSuggestion,
+            afterglowEnabled: afterglowEnabled,
+            onAfterglowChanged: onAfterglowChanged,
           ),
         ],
         if (showChaosToggle && !enabled) ...[

@@ -132,16 +132,30 @@ export function ChatToolsChaos({ t, toggle }: { t: ToolsState; toggle: ToolsTogg
   );
 }
 
-// No switch here: Porch Life Afterglow (with 18+ on) is the one gate, and
-// the section is simply absent while it is off, like the desktop Lust bar.
-export function ChatToolsNsfw({ t }: { t: ToolsState }) {
-  if (!t.nsfw.cooldownEnabled) return null;
+// This chat's own Afterglow switch, shown while Porch Life (with 18+) allows
+// Afterglow, as on the desktop's Afterglow line; Lust and recovery show while
+// it runs. An older desktop sends no afterglowAllowed: the section then shows
+// only while Afterglow runs, with no switch. Like the desktop's Afterglow line,
+// it is absent while the chat's Realism is off.
+export function ChatToolsNsfw({ t, toggle }: { t: ToolsState; toggle: ToolsToggle }) {
+  if (!t.realismEnabled) return null;
+  const allowed = t.nsfw.afterglowAllowed;
+  if (!allowed && !t.nsfw.cooldownEnabled) return null;
   return (
     <details className="tool-section">
-      <summary>NSFW</summary>
+      <summary>Afterglow</summary>
       <div className="tool-body">
-        <div className="stat-line"><span>Lust</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
-        {t.nsfw.refractoryMinutesRemaining > 0 && (
+        {allowed && (
+          <Toggle
+            label="Afterglow"
+            value={t.nsfw.afterglowSwitch ?? t.nsfw.cooldownEnabled}
+            onChange={(v) => toggle('nsfwCooldown', v)}
+          />
+        )}
+        {t.nsfw.cooldownEnabled && (
+          <div className="stat-line"><span>Lust</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
+        )}
+        {t.nsfw.cooldownEnabled && t.nsfw.refractoryMinutesRemaining > 0 && (
           <div className="stat-line"><span className="muted">{t.nsfw.refractoryLabel}</span></div>
         )}
       </div>

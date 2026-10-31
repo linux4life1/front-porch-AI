@@ -135,3 +135,41 @@ it('a switch moves when tapped, before the save answers, and moves back if it fa
   expect(container.querySelector('[role="alert"]')?.textContent).toContain('Could not save');
   hold = null;
 });
+
+// How the group's new chats start Afterglow: shown while Porch Life (with
+// 18+) allows it and new chats run Realism; it posts what it changes. Red
+// proof: dropping the row fails the first expectation.
+it('the Afterglow switch shows while Porch Life allows it and posts what it changes', async () => {
+  const { api } = await import('../../api/client');
+  const spy = vi
+    .spyOn(api, 'get')
+    .mockImplementation((async (path: string) =>
+      path === '/api/settings'
+        ? { realism: { adultThemesEnabled: true, nsfwCooldownDefault: true } }
+        : state) as typeof api.get);
+  try {
+    state = { realism: true, needs: true, afterglow: true, inherit: false, forkSource: null };
+    // A fresh mount, so Porch Life is read through the spy.
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(GroupNewChatsSection, { groupId: 'g2' }));
+    });
+    for (let i = 0; i < 5; i++) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+    const row = [...container.querySelectorAll('label')].find((l) =>
+      l.textContent?.startsWith('Afterglow'),
+    );
+    const box = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(box?.checked).toBe(true);
+    await act(async () => {
+      box?.click();
+    });
+    expect(posts.at(-1)).toEqual({ path: '/api/groups/g2/new-chats', body: { afterglow: false } });
+  } finally {
+    spy.mockRestore();
+  }
+});

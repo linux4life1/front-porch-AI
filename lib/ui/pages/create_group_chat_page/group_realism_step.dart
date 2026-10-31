@@ -206,6 +206,44 @@ class GroupRealismStep extends StatelessWidget {
                   ),
                 ),
                 const NeedsClockOffNote(),
+                // Porch Life (with 18+) allows it: how new chats start it.
+                if (afterglowEnabledOf(context)) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_fire_department,
+                        size: 18,
+                        color: AppColors.lustAccentOf(context),
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Afterglow',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Switch(
+                        value: d.afterglowEnabled,
+                        activeTrackColor: AppColors.porchAmberOf(context),
+                        onChanged: (v) =>
+                            d.update(() => d.afterglowEnabled = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lust and recovery for the cast in new chats. Each chat '
+                    'keeps its own switch.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ],
               ],
             ],
           ),

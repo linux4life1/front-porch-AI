@@ -110,3 +110,44 @@ describe('ChatInsight needs bars', () => {
     expect(css).toContain('.stat-fill.danger { background: var(--danger); }');
   });
 });
+
+// The Lust line follows Afterglow in this chat, as the desktop's Lust bar
+// (bond_bars.dart): absent while it does not run, and when an older server
+// sends no flag.
+describe('ChatInsight Lust line', () => {
+  function renderWithLust(lustOn: boolean | undefined) {
+    act(() => {
+      root.render(
+        createElement(ChatInsight, {
+          realism: { ...realism, arousal: { level: 40, tier: 'Stimulated' }, lustOn },
+          authorNote: '',
+          authorNoteDepth: 4,
+          onSaveAuthorNote: () => {},
+          characterId: 'c1',
+          isGroup: false,
+          focusedIsHost: true,
+          toolsKey: 0,
+          focusedId: null,
+          groupId: null,
+          onCommand: () => {},
+        }),
+      );
+    });
+  }
+  const lustLine = () =>
+    [...container.querySelectorAll('.stat-line')].find(
+      (el) => el.querySelector('span')?.textContent === 'Lust',
+    );
+
+  it('shows while Afterglow runs in this chat', () => {
+    renderWithLust(true);
+    expect(lustLine()?.textContent).toContain('Stimulated');
+  });
+
+  it('is absent while it does not, and when the server sends no flag', () => {
+    renderWithLust(false);
+    expect(lustLine()).toBeUndefined();
+    renderWithLust(undefined);
+    expect(lustLine()).toBeUndefined();
+  });
+});

@@ -357,6 +357,11 @@ extension ChatServiceGroupMembership on ChatService {
         group.defaultMemberRealismState = blobs.defaultMemberJson;
         group.baselineRealismState = blobs.baselineJson;
       }
+      // New chats start Afterglow as the 1:1 chat had it.
+      group.defaultMemberRealismState = withGroupAfterglow(
+        group.defaultMemberRealismState,
+        hostState['nsfwCooldownEnabled'] as bool? ?? true,
+      );
       group.chaosModeEnabled = hostState['chaosModeEnabled'] as bool? ?? false;
       group.chaosNsfwEnabled = hostState['chaosNsfwEnabled'] as bool? ?? false;
       final worlds = groupWorldChoiceFromChat(

@@ -236,7 +236,7 @@ class CreatorState extends ChangeNotifier {
   String? realismStoryStartTime;
   String realismEmotion = 'neutral';
   String realismEmotionIntensity = 'moderate';
-  bool realismNsfwCooldown = false;
+  bool realismAfterglow = true; // the card's switch: how new chats start it
   bool realismChaosMode = false;
   // Same AND-gate as the manual creator: false on the card is a veto.
   bool realismNeedsSim = true;

@@ -352,12 +352,10 @@ extension ChatServiceChatEntry on ChatService {
             );
             _applySeededPassageOfTime();
             _mood.seed(ext.characterEmotion, ext.emotionIntensity);
+            // The card says how a new chat starts its Afterglow; the chat
+            // keeps its own switch from here on.
             _nsfwService.seedFromV2OrExt(
-              // Same OR-override rationale as realism above: a globally-enabled
-              // NSFW cooldown applies to imported cards too.
-              nsfwCooldownEnabled:
-                  ext.nsfwCooldownEnabled ||
-                  _storageService.realismSettings.nsfwCooldownDefault,
+              nsfwCooldownEnabled: ext.afterglowEnabled,
             );
             _chaosModeService.seedFromGroupOrExt(
               // OR-override: the card asks, or the global default does.
@@ -420,11 +418,8 @@ extension ChatServiceChatEntry on ChatService {
             _realismEnabled =
                 _realismEnabled ||
                 _storageService.realismSettings.realismDefault;
-            _nsfwService.seedFromV2OrExt(
-              nsfwCooldownEnabled:
-                  _nsfwService.storedNsfwCooldownEnabled ||
-                  _storageService.realismSettings.nsfwCooldownDefault,
-            );
+            // A card that says nothing starts Afterglow on.
+            _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);
             _chaosModeService.seedFromGroupOrExt(
               _storageService.realismSettings.chaosModeDefault,
               false,

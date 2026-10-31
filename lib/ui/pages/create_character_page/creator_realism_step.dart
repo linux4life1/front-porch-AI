@@ -88,6 +88,8 @@ class CreatorRealismStep extends StatelessWidget {
           showChargenSuggestion: true,
           chaosModeEnabled: d.realismChaosMode,
           onChaosModeChanged: (v) => _set(() => d.realismChaosMode = v),
+          afterglowEnabled: d.realismAfterglow,
+          onAfterglowChanged: (v) => _set(() => d.realismAfterglow = v),
           pocketsEnabled: d.realismPocketsEnabled,
           onPocketsEnabledChanged: (v) =>
               _set(() => d.realismPocketsEnabled = v),

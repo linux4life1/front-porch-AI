@@ -201,7 +201,9 @@ export function ChatInsight({
         percent={realism.trust.percent}
         tone={realism.trust.level < 0 ? 'danger' : ''}
       />
-      <div className="stat-line"><span>Lust</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
+      {realism.lustOn === true && (
+        <div className="stat-line"><span>Lust</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
+      )}
       </>
       )}
       {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (

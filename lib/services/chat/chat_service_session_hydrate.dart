@@ -239,6 +239,18 @@ extension ChatServiceSessionHydrate on ChatService {
           }) ??
           Refractory.none,
     );
+    // From v1.6.1 until each chat's own switch came back, saving a 1:1 chat
+    // wrote Porch Life's Afterglow over the chat's. A chat switched off holds
+    // no Lust: switching settles it, and saving an off chat writes none. So
+    // one stored off that holds Lust (either way), a recovery or a warmth
+    // tail was on, and it opens on; its next save keeps it.
+    if (_activeGroup == null &&
+        !_nsfwService.storedNsfwCooldownEnabled &&
+        (_nsfwService.arousalLevel != 0 ||
+            _nsfwService.refractory.running ||
+            _nsfwService.refractory.tailRunning)) {
+      _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);
+    }
     final nv = s.needsVector;
     final hasSavedNeeds = nv is String && nv.isNotEmpty;
     // A card that says nothing asks for Needs when Porch Life does and this

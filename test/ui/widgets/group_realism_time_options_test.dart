@@ -150,4 +150,67 @@ void main() {
     form.onLongTermBondChanged(100);
     expect(deltas.single, {'affection': 35, 'longTermScore': 100, 'trust': 50});
   });
+
+  testWidgets("Edit group's Afterglow switch sets how the group's new chats "
+      'start it', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+
+    final blobs = buildGroupRealismBlobs(
+      seeds: {'m1': defaultGroupMemberRealismSeed()},
+      needsEnabled: true,
+      afterglowEnabled: false,
+      timeOfDay: 'morning',
+      dayCount: 1,
+    );
+    var emitted = blobs.defaultMemberJson;
+    Future<void> pumpEditor() async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: MaterialApp(
+            home: Scaffold(
+              body: GroupRealismDynamicsEditor(
+                members: const [],
+                initialDefaultMemberJson: blobs.defaultMemberJson,
+                initialBaselineJson: blobs.baselineJson,
+                onChanged: (d, b) => emitted = d,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpEditor();
+    expect(
+      find.text('Afterglow'),
+      findsNothing,
+      reason: 'Porch Life Afterglow off: absent, not greyed',
+    );
+
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await pumpEditor();
+    final tile = find.widgetWithText(SwitchListTile, 'Afterglow');
+    expect(
+      tester.widget<SwitchListTile>(tile).value,
+      isFalse,
+      reason: 'read from the group',
+    );
+    await tester.ensureVisible(tile);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(groupAfterglowIn(emitted), isTrue);
+    expect((jsonDecode(emitted) as Map)['timeOfDay'], 'morning');
+
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(groupAfterglowIn(emitted), isFalse);
+  });
 }

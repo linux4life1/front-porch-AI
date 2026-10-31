@@ -14,6 +14,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
+import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
+    show afterglowEnabledOf;
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor/group_realism_dynamics_editor.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -56,6 +58,9 @@ class _GroupRealismDynamicsEditorState
   final Map<String, Map<String, dynamic>> _seedsByMid = {};
   bool _realismEnabled = false;
   bool _needsEnabled = true;
+
+  /// The group's Afterglow for new chats ([kGroupAfterglowKey]).
+  bool _afterglow = true;
   String _timeOfDay = 'morning';
   int _dayCount = 1;
   // Story Calendar authoring (story-calendar.md §3a).
@@ -78,6 +83,7 @@ class _GroupRealismDynamicsEditorState
       widget.initialDefaultMemberJson,
     );
     _greetingSeeds = parseGroupGreetingSeeds(widget.initialDefaultMemberJson);
+    _afterglow = groupAfterglowIn(widget.initialDefaultMemberJson);
     final parsed = parseGroupRealismSeeds(widget.initialDefaultMemberJson);
     _realismEnabled = parsed.isNotEmpty;
 
@@ -150,6 +156,7 @@ class _GroupRealismDynamicsEditorState
     final blobs = buildGroupRealismBlobs(
       seeds: _seedsByMid, // already keyed by mid — no remap needed
       needsEnabled: _needsEnabled,
+      afterglowEnabled: _afterglow,
       timeOfDay: _timeOfDay,
       dayCount: _dayCount,
       storyStartDate: _storyStartDate,
@@ -223,6 +230,38 @@ class _GroupRealismDynamicsEditorState
             },
           ),
           if (_realismEnabled) ...[
+            // Porch Life (with 18+) allows Afterglow: how new chats start it.
+            if (afterglowEnabledOf(context)) ...[
+              const SizedBox(height: 16),
+              SwitchListTile(
+                tileColor: AppColors.cardOf(context),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: AppColors.borderOf(context)),
+                ),
+                secondary: Icon(
+                  Icons.local_fire_department,
+                  color: AppColors.lustAccentOf(context),
+                ),
+                title: Text(
+                  'Afterglow',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary(context),
+                  ),
+                ),
+                subtitle: Text(
+                  'Lust and recovery in new chats of this group. Chats you '
+                  'already have keep their own switch.',
+                  style: TextStyle(color: AppColors.textSecondary(context)),
+                ),
+                value: _afterglow,
+                onChanged: (v) {
+                  setState(() => _afterglow = v);
+                  _emit();
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             _buildSceneTimeCard(),
             const SizedBox(height: 16),

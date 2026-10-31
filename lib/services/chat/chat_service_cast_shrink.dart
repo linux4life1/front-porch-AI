@@ -100,12 +100,9 @@ extension ChatServiceCastShrink on ChatService {
       ); // loads the survivor's per-char nsfw flag too
       snapshot = _realismSnapshot.capture();
     }
-    // Read the survivor's per-char NSFW flag straight from the group store.
-    // No entry means off: a member with none has Afterglow off in the group
-    // too. Never the live register: it holds whichever member was loaded or
-    // seeded last, so a survivor with no entry would inherit another member's.
-    final bool soleNsfwEnabled =
-        _groupRealism[soleId]?.nsfwCooldownEnabled ?? false;
+    // The 1:1 chat keeps the group chat's own Afterglow switch, the one it
+    // showed. A member's stored flag is a legacy register no gate reads.
+    final bool soleNsfwEnabled = _groupStore.afterglowOn;
     // Same reasoning for their Pockets record, and read here for the same reason:
     // step 4 re-enters as a 1:1, which clears _groupRealism. Carried regardless
     // of realism because Pockets does not depend on it — the pass is gated on
@@ -196,6 +193,9 @@ extension ChatServiceCastShrink on ChatService {
     //    re-homed session's stale columns are overwritten here with the
     //    survivor's state). Realism values are gated on realism being on; the
     //    enable-flags, author note and evolution carry regardless.
+    // Seed, never setNsfwCooldownEnabled: its "off" zeroes Lust. First, so
+    // the restore below reads the switch the 1:1 keeps.
+    _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: soleNsfwEnabled);
     if (wasRealismOn && snapshot != null) {
       _realismEnabled = true;
       _needsSimEnabled = wasNeedsOn;
@@ -221,9 +221,6 @@ extension ChatServiceCastShrink on ChatService {
     // regardless of realism so the NSFW toggle, passage-of-time, chaos, and the
     // note are not reset to defaults on collapse.
     _pockets = solePockets;
-    // Seed, never setNsfwCooldownEnabled: its "off" zeroes the arousal just
-    // restored, and the live gate is Porch Life Afterglow anyway.
-    _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: soleNsfwEnabled);
     _chaosModeService.loadScalars(
       modeEnabled: soleChaosEnabled,
       pressure: soleChaosPressure,
@@ -312,6 +309,8 @@ extension ChatServiceCastShrink on ChatService {
     final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: hostNsfw);
     _groupStore.memberForWrite(hostId).nsfwCooldownEnabled = hostNsfw;
+    // The group chat takes the 1:1 chat's Afterglow switch.
+    _groupStore.afterglowOn = hostNsfw;
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,

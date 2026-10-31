@@ -732,6 +732,26 @@ void main() {
       expect(baseline[mid[plainId]], containsPair('longTermScore', 280));
       expect(baseline[mid[plainId]], containsPair('trust', 90));
     });
+
+    test("the wizard's Afterglow switch sets how the group's chats start "
+        'it; an older phone sends none and gets on', () async {
+      final (off, _, _) = await made({
+        'name': 'Cool Porch',
+        'memberIds': [plainId, carded],
+        'realism': {'afterglow': false},
+      });
+      expect(groupAfterglowIn(off.defaultMemberRealismState), isFalse);
+      expect(
+        parseGroupRealismSeeds(off.defaultMemberRealismState),
+        hasLength(2),
+      );
+
+      final (old, _, _) = await made({
+        'name': 'Old Phone',
+        'memberIds': [plainId, carded],
+      });
+      expect(groupAfterglowIn(old.defaultMemberRealismState), isTrue);
+    });
   });
 
   // The phone's new-group wizard posted Long-Term Bond into trust, as the
@@ -909,6 +929,32 @@ void main() {
 
       await facade.newChats.update('g1', {'inherit': true});
       expect(groups.getById('g1')!.inheritCharacterLorebooks, isTrue);
+    });
+
+    test("Afterglow for new chats is read and saved, and switching Needs "
+        'keeps it', () async {
+      final g = groups.getById('g1')!;
+      final on = buildGroupRealismBlobs(
+        seeds: {'mem-j': defaultGroupMemberRealismSeed()},
+        needsEnabled: true,
+        timeOfDay: 'evening',
+        dayCount: 3,
+      );
+      g.defaultMemberRealismState = on.defaultMemberJson;
+      g.baselineRealismState = on.baselineJson;
+      await groups.save(g);
+      expect((await facade.newChats.stateOf('g1'))!['afterglow'], isTrue);
+
+      await facade.newChats.update('g1', {'afterglow': false});
+      final saved = groups.getById('g1')!;
+      expect(groupAfterglowIn(saved.defaultMemberRealismState), isFalse);
+      expect(parseGroupRealismSeeds(saved.defaultMemberRealismState).keys, [
+        'mem-j',
+      ]);
+      expect((await facade.newChats.stateOf('g1'))!['afterglow'], isFalse);
+
+      await facade.newChats.update('g1', {'needs': false});
+      expect((await facade.newChats.stateOf('g1'))!['afterglow'], isFalse);
     });
   });
 

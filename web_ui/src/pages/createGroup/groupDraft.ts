@@ -79,6 +79,8 @@ export interface GroupDraft {
   chaosNsfwEnabled: boolean;
   realismEnabled: boolean;
   needsEnabled: boolean;
+  /** How the group's new chats start Afterglow (Porch Life still allows it). */
+  afterglowEnabled: boolean;
   timeOfDay: string;
   dayCount: number;
   /** Story Calendar start, "YYYY-MM-DD"; '' is the day the chat starts. */
@@ -164,6 +166,7 @@ export const EMPTY_DRAFT: GroupDraft = {
   chaosNsfwEnabled: false,
   realismEnabled: true,
   needsEnabled: true,
+  afterglowEnabled: true,
   timeOfDay: 'morning',
   dayCount: 1,
   storyStartDate: '',
@@ -246,6 +249,7 @@ export function createBody(args: {
     realism: {
       enabled: d.realismEnabled,
       needsEnabled: d.needsEnabled,
+      afterglow: d.afterglowEnabled,
       timeOfDay: d.timeOfDay,
       dayCount: d.dayCount,
       ...(d.storyStartDate ? { storyStartDate: d.storyStartDate } : {}),

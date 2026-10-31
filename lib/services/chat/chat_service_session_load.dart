@@ -81,6 +81,9 @@ extension ChatServiceSessionLoad on ChatService {
       // time seed used to be editor-carried only and never reached the
       // clock). Keep in sync with the startNewChat group branch.
       if (_activeGroup != null) {
+        _groupStore.afterglowOn = groupAfterglowIn(
+          _activeGroup!.defaultMemberRealismState,
+        );
         final timeSeed = parseGroupTimeSeed(
           _activeGroup!.defaultMemberRealismState,
           _activeGroup!.baselineRealismState,
@@ -389,7 +392,7 @@ extension ChatServiceSessionLoad on ChatService {
         _sceneGuest.turnsSinceCastScan = 0;
         _sceneGuest.pendingDetection = null;
         _sceneGuest.offeredOrIgnoredNames.clear();
-        _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+        _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
         // (clears + restores _sceneGuest.ids/_sceneGuest.cards + guest evolution)
         _loadSceneGuestsFromSession(session);
       } else {

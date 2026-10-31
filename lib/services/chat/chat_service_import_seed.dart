@@ -44,7 +44,7 @@ extension ChatServiceImportSeed on ChatService {
     _sceneGuest.turnsSinceCastScan = 0;
     _sceneGuest.pendingDetection = null;
     _sceneGuest.offeredOrIgnoredNames.clear();
-    _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+    _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =
@@ -73,9 +73,7 @@ extension ChatServiceImportSeed on ChatService {
       // cooldown are zeroed explicitly on every other fresh path
       // (startNewChat). Without this, ST/.json import bleeds them.
       _nsfwService.seedFromV2OrExt(
-        nsfwCooldownEnabled:
-            extSeed.nsfwCooldownEnabled ||
-            _storageService.realismSettings.nsfwCooldownDefault,
+        nsfwCooldownEnabled: extSeed.afterglowEnabled,
       );
       _nsfwService.resetRuntimeArousalAndCooldown();
       _chaosModeService.seedFromGroupOrExt(
@@ -111,6 +109,9 @@ extension ChatServiceImportSeed on ChatService {
       _expressionService.resetForFreshChat();
       _timeService.resetForFreshChat();
       if (_activeGroup != null) {
+        _groupStore.afterglowOn = groupAfterglowIn(
+          _activeGroup!.defaultMemberRealismState,
+        );
         final timeSeed = parseGroupTimeSeed(
           _activeGroup!.defaultMemberRealismState,
           _activeGroup!.baselineRealismState,
@@ -184,6 +185,7 @@ extension ChatServiceImportSeed on ChatService {
       'needs_sim_enabled': _needsSimEnabled,
       'enjoys_low_hygiene': _enjoysLowHygiene,
       'objectives_enabled': _objectivesEnabled,
+      'afterglow_enabled': _afterglowChatSwitchImpl,
       'summary': _summary,
       'summary_last_index': _summaryLastIndex,
       'affection_score': _relationshipService.affectionScore,
@@ -246,6 +248,15 @@ extension ChatServiceImportSeed on ChatService {
     }
     if (head['objectives_enabled'] is bool) {
       _objectivesEnabled = head['objectives_enabled'] as bool;
+    }
+    // The chat's own Afterglow switch, before the Lust it restores below. A
+    // package saved before it has none and keeps the card's or group's.
+    if (head['afterglow_enabled'] case final bool on) {
+      if (_activeGroup == null) {
+        _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: on);
+      } else {
+        _groupStore.afterglowOn = on;
+      }
     }
     _summary = head['summary'] as String? ?? _summary;
     _summaryLastIndex =

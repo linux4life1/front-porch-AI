@@ -266,6 +266,10 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get objectivesActive => true;
 
+  /// The phone's tools snapshot reads this chat's own Afterglow switch.
+  @override
+  bool get afterglowChatSwitch => _nsfw.storedNsfwCooldownEnabled;
+
   /// Same fake-pinned reason as objectivesActive directly above: the sidebar
   /// reads this, its body is an extension member, and an unoverridden
   /// extension call from a fake reaches ChatService privates and throws

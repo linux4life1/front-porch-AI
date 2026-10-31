@@ -175,7 +175,8 @@ class AfterglowPass {
         physiology: ClimaxEval.physiologyFor(speaker),
       );
     }
-    if (verdict == null) return;
+    // Afterglow switched off while the judge was out: nothing lands.
+    if (verdict == null || !active) return;
     final turns = verdict.turns;
     final userClimaxed = verdict.userClimaxed;
 
@@ -381,6 +382,8 @@ class AfterglowPass {
     RefractoryBody Function(RefractoryBody) step,
   ) {
     if (_activeGroup != null && id.isEmpty) return;
+    // A chat switched off holds no recovery to age or record.
+    if (!_nsfwService.chatSwitchOn) return;
     final live = _activeGroup == null || id == loadedId;
     final before = _refractoryBody(id, live: live);
     // The gate is "nothing left to age", not "no lock running": a soft
@@ -447,6 +450,8 @@ class AfterglowPass {
     String? skip,
     String? keepArousalOf,
   }) {
+    // Nothing comes back into a chat switched off.
+    if (!_nsfwService.chatSwitchOn) return;
     final receipt = refractoryReceipt(raw);
     if (receipt.isEmpty) return;
     final ids = _refractoryBodyIds();

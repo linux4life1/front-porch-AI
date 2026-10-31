@@ -74,10 +74,9 @@ extension ChatServiceGroupSettings on ChatService {
   bool get isGroupTurnOrderRandom =>
       _activeGroup?.turnOrder == TurnOrder.random;
 
-  /// Whether Afterglow (arousal / the Lust bar) is on for this chat. The one
-  /// gate is Porch Life Afterglow with 18+ on, read live, so 1:1 and every
-  /// group member answer the same; the old per-chat and per-member flags only
-  /// seed.
+  /// Whether Afterglow (arousal / the Lust bar) is on for this chat: Porch
+  /// Life (with 18+ on) allows it and the chat's own switch is on, read live.
+  /// No gate reads a member's stored flag.
   bool get isGroupNsfwEnabled => _nsfwService.nsfwCooldownEnabled;
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).

@@ -49,6 +49,10 @@ class GroupRealismStore {
   /// see group_member_realism.dart for why it is a wrapper and not fields.
   Map<String, GroupMemberRealism> members = {};
 
+  /// This group chat's own Afterglow switch ([kGroupAfterglowKey]). It
+  /// counts only while Porch Life (with 18+) allows Afterglow.
+  bool afterglowOn = true;
+
   /// The group member id whose realism state is being processed for the
   /// turn currently generating. Set the moment the speaker is picked in
   /// `_generateResponse` and cleared in its `finally`, so every realism

@@ -87,6 +87,7 @@ extension ChatServiceSessionState on ChatService {
     if (stateJson == null || stateJson.isEmpty || stateJson == '{}') {
       stateJson = _activeGroup!.defaultMemberRealismState;
     }
+    _groupStore.afterglowOn = groupAfterglowIn(stateJson);
 
     _groupRealism = {};
     _groupAuthorNotes = {};

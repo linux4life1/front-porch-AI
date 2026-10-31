@@ -102,8 +102,12 @@ class ChatToolsSnapshot {
         'cooldownTurns': chaos.cooldownTurns,
       },
       'nsfw': {
-        // Porch Life Afterglow (18+ on), live: the one gate, no chat toggle.
+        // The live gate: Porch Life (with 18+) allows Afterglow AND this
+        // chat's own switch is on. The phone shows the switch while Porch
+        // Life allows it, and Lust and recovery while the gate is on.
         'cooldownEnabled': nsfw.nsfwCooldownEnabled,
+        'afterglowAllowed': rs.afterglowEnabled,
+        'afterglowSwitch': _chat.afterglowChatSwitch,
         // The desktop chip's own words, ready-made, so the phone cannot
         // drift from them (story minutes, or replies with the clock off).
         'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,

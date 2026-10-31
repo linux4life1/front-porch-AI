@@ -154,3 +154,17 @@ it("posts each current member's Voice pick, the global voice ('') included", () 
   });
   expect(body.memberVoices, 'c keeps its own voice; gone left the roster').toEqual({ a: 'am_adam', b: '' });
 });
+
+it("posts how the group's new chats start Afterglow", () => {
+  const body = (afterglowEnabled: boolean) =>
+    createBody({
+      name: 'Porch',
+      memberIds: ['a', 'b'],
+      turnOrder: 'roundRobin',
+      worlds: { settingId: null, loreIds: [] },
+      draft: { ...EMPTY_DRAFT, afterglowEnabled },
+    }).realism as Record<string, unknown>;
+  expect(EMPTY_DRAFT.afterglowEnabled, 'new chats start Afterglow on').toBe(true);
+  expect(body(true).afterglow).toBe(true);
+  expect(body(false).afterglow).toBe(false);
+});

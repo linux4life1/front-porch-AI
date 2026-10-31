@@ -73,10 +73,15 @@ class NsfwService {
   /// story minutes while it runs, replies while it is off.
   final bool Function() _isClockRunning;
 
-  /// Porch Life Afterglow (with 18+ on), live. When supplied it IS the gate
-  /// and the stored per-chat / per-member flag below only rides the save
-  /// wire, so a chat made before Afterglow was switched on obeys the switch.
+  /// The live Afterglow gate: Porch Life (with 18+) allows it and the chat's
+  /// own switch is on. When supplied it IS the gate; in a group the stored
+  /// per-member flag below only rides the save wire.
   final bool Function()? _afterglowOn;
+
+  /// This chat's own Afterglow switch alone, without Porch Life. While it is
+  /// off the chat holds no Lust, so a rewind (regen, swipe, delete, branch,
+  /// import) keeps it settled instead of reloading a stamp's.
+  final bool Function()? _chatSwitchOn;
 
   // Owned state (moved verbatim from ChatService).
   bool _nsfwCooldownEnabled = false;
@@ -90,8 +95,10 @@ class NsfwService {
     required this.setGroupValue,
     bool Function()? isClockRunning,
     bool Function()? afterglowOn,
+    bool Function()? chatSwitchOn,
   }) : _isClockRunning = isClockRunning ?? _clockOn,
-       _afterglowOn = afterglowOn;
+       _afterglowOn = afterglowOn,
+       _chatSwitchOn = chatSwitchOn;
 
   static bool _clockOn() => true;
 
@@ -99,13 +106,22 @@ class NsfwService {
 
   bool get nsfwCooldownEnabled => _afterglowOn?.call() ?? _nsfwCooldownEnabled;
 
-  /// The stored Afterglow choice: the chat's own in a 1:1, the loaded
-  /// speaker's own in a group (each member keeps theirs in the group store).
-  /// Saves and carries between chats (fork, collapse, branch) read this,
-  /// never [nsfwCooldownEnabled]: that one answers the live Porch Life gate,
-  /// and saving it replaced each chat's choice with Porch Life's (hide, never
-  /// erase).
+  /// The stored Afterglow choice: the 1:1 chat's own switch; in a group, the
+  /// loaded speaker's legacy flag, which no gate reads. Saves and carries
+  /// between chats (fork, collapse, branch) read this, never
+  /// [nsfwCooldownEnabled]: that one answers the live gate, and saving it
+  /// replaced each chat's choice with Porch Life's.
   bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
+
+  /// The Lust and recovery a message stamp records: none while this chat's
+  /// own switch is off, so a rewind after it is switched back on finds none
+  /// of what a receipt or a re-score left in memory meanwhile.
+  int get stampArousal => chatSwitchOn ? _arousalLevel : 0;
+  Refractory get stampRefractory =>
+      chatSwitchOn ? _refractory : Refractory.none;
+
+  /// This chat's own Afterglow switch, without Porch Life.
+  bool get chatSwitchOn => _chatSwitchOn?.call() ?? true;
   int get arousalLevel => _arousalLevel;
 
   Refractory get refractory => _refractory;
@@ -345,6 +361,10 @@ class NsfwService {
   /// A key the snapshot does not carry keeps its current value. Snapshots
   /// saved before minutes carry turns, read once as turns × 15.
   void _restoreFromSnapshot(Map<String, dynamic> state) {
+    if (!(_chatSwitchOn?.call() ?? true)) {
+      resetRuntimeArousalAndCooldown();
+      return;
+    }
     final al = state['arousalLevel'];
     _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
         .clamp(-100, 100);

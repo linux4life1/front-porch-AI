@@ -104,6 +104,10 @@ export interface Realism {
   emotionHeld?: number;
   moodLine?: string;
   arousal: { level: number; tier: string };
+  /** Afterglow runs in this chat: Porch Life (with 18+) allows it and the
+   *  chat's own switch is on. The Lust line shows only then, as the desktop's
+   *  Lust bar; an older server sends none and the line stays hidden. */
+  lustOn?: boolean;
   fixation: string;
   needsEnabled: boolean;
   needs: Record<string, number>;

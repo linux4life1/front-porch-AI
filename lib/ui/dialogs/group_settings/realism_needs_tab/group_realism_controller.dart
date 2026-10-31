@@ -23,6 +23,7 @@ class GroupRealismNeedsController extends ChangeNotifier {
   bool _realismEnabled = false;
   bool _chaosModeEnabled = false;
   bool _chaosNsfwEnabled = false;
+  bool _afterglowEnabled = true;
 
   // Group-wide Time & Day.
   String _groupTimeOfDay = 'morning';
@@ -66,6 +67,7 @@ class GroupRealismNeedsController extends ChangeNotifier {
   bool get realismEnabled => _realismEnabled;
   bool get chaosModeEnabled => _chaosModeEnabled;
   bool get chaosNsfwEnabled => _chaosNsfwEnabled;
+  bool get afterglowEnabled => _afterglowEnabled;
   String get groupTimeOfDay => _groupTimeOfDay;
   String? get groupStoryStartDate => _groupStoryStartDate;
   String? get groupStoryStartTime => _groupStoryStartTime;
@@ -78,6 +80,7 @@ class GroupRealismNeedsController extends ChangeNotifier {
     _realismEnabled = cs.realismEnabled;
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
+    _afterglowEnabled = cs.afterglowChatSwitch;
 
     // Group-wide Time & Day, plus the per-member seed blob the ENGINE reads on
     // a fresh chat (parseGroupRealismSeeds → GroupMemberRealism).
@@ -154,6 +157,13 @@ class GroupRealismNeedsController extends ChangeNotifier {
     notifyListeners();
     // ChatService wrapper — saves + notifies (the raw service does neither).
     chatService.setChaosModeEnabled(value);
+  }
+
+  /// This group chat's own Afterglow switch.
+  void updateAfterglow(bool value) {
+    _afterglowEnabled = value;
+    notifyListeners();
+    chatService.setAfterglowEnabled(value);
   }
 
   void updateChaosNsfw(bool value) {

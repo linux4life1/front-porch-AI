@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -35,6 +36,7 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_sect
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_services.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -320,5 +322,46 @@ void main() {
 
     final dynamic page = tester.state(find.byType(CharacterCreatorPage));
     expect((page.creatorState as CreatorState).realismStepEnabled, isTrue);
+  });
+
+  testWidgets("the card's Afterglow switch shows while Porch Life allows "
+      'Afterglow, and sets how new chats start it', (tester) async {
+    final state = _seedState(engineOn: true);
+    addTearDown(state.dispose);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+
+    await tester.pumpWidget(_app(state, storage: storage));
+    await tester.pumpAndSettle();
+    final afterglowSwitch = find.descendant(
+      of: find
+          .ancestor(of: find.text('Afterglow'), matching: find.byType(Row))
+          .first,
+      matching: find.byType(Switch),
+    );
+    await tester.ensureVisible(afterglowSwitch);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(afterglowSwitch).value, isTrue);
+    await tester.tap(afterglowSwitch);
+    await tester.pumpAndSettle();
+    expect(state.realismAfterglow, isFalse);
+  });
+
+  test("the saved card starts new chats with the creator's Afterglow "
+      'switch', () async {
+    setupPathProviderMock();
+    final storage = await makeGoldenStorage();
+    final db = AppDatabase.forTesting();
+    final repo = CharacterRepository(db, storage);
+    addTearDown(() async => db.close());
+    final state = CreatorState();
+    addTearDown(state.dispose);
+    final card = CharacterCard(name: 'Aria Vale', description: 'A keeper.');
+    state.generatedCard = card;
+    state.realismAfterglow = false;
+    expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+    expect(card.frontPorchExtensions?.afterglowEnabled, isFalse);
   });
 }

@@ -168,6 +168,7 @@ class GroupChatCommitter {
       final blobs = buildGroupRealismBlobs(
         seeds: remapSeedsToMemberIds(seeds, memberIdMap),
         needsEnabled: d.needsSimEnabled,
+        afterglowEnabled: d.afterglowEnabled,
         timeOfDay: d.globalTimeOfDay,
         dayCount: d.globalDayCount,
         storyStartDate: d.globalStoryStartDate,

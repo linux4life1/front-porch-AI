@@ -296,4 +296,64 @@ void main() {
     expect(writer.addedWorlds.setting, isEmpty);
     expect(writer.addedWorlds.lore, isEmpty);
   });
+
+  testWidgets("the card's Afterglow switch opens as the card has it and "
+      'saves how its new chats start', (tester) async {
+    CharacterCard? saved;
+    await tester.binding.setSurfaceSize(const Size(1280, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repo = _RepoWithCover();
+    final chat = FakeChatService();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository();
+    addTearDown(repo.dispose);
+    addTearDown(chat.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(worlds.dispose);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ],
+        child: MaterialApp(
+          home: EditCharacterPage(
+            character: CharacterCard(
+              name: 'Flora',
+              frontPorchExtensions: FrontPorchExtensions(
+                realismEnabled: true,
+                afterglowEnabled: false,
+              ),
+            ),
+            onSaveOverride: (c) async => saved = c,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Afterglow').first,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    final afterglowSwitch = find.descendant(
+      of: find.widgetWithText(Row, 'Afterglow').last,
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(afterglowSwitch).value, isFalse);
+    await tester.tap(afterglowSwitch);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved?.frontPorchExtensions?.afterglowEnabled, isTrue);
+  });
 }
