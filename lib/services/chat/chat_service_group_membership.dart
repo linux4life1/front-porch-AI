@@ -340,10 +340,11 @@ extension ChatServiceGroupMembership on ChatService {
 
   /// Give a fork-made group honest settings for its new chats, read from
   /// the 1:1 it came from: realism and needs as they were switched (every
-  /// member at the neutral seed, since a new chat starts fresh), chaos, and
-  /// the world the chat is in at that world's starred place. Without this
-  /// Edit Group showed realism off and no world, and a New Chat in the
-  /// group really did start that way.
+  /// member starting from their card, as New Chat does in a 1:1, so the
+  /// current bond and mood are not copied), chaos, and the world the chat
+  /// is in at that world's starred place. Without this Edit Group showed
+  /// realism off and no world, and a New Chat in the group really did
+  /// start that way.
   Future<void> _saveForkTemplate(
     GroupChat group,
     GroupChatRepository groupRepo,
@@ -351,9 +352,9 @@ extension ChatServiceGroupMembership on ChatService {
   ) async {
     try {
       if (hostState['realismOn'] as bool? ?? false) {
-        final blobs = neutralGroupRealismBlobs([
-          for (final c in _groupCharacters) _getCharacterIdFromCard(c),
-        ], needsEnabled: hostState['needsSimEnabled'] as bool? ?? false);
+        final blobs = cardGroupRealismBlobs({
+          for (final c in _groupCharacters) _getCharacterIdFromCard(c): c,
+        }, needsEnabled: hostState['needsSimEnabled'] as bool? ?? false);
         group.defaultMemberRealismState = blobs.defaultMemberJson;
         group.baselineRealismState = blobs.baselineJson;
       }

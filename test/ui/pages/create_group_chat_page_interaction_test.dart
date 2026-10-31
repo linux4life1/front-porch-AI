@@ -42,6 +42,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
 import '../../golden/support/fakes.dart';
@@ -401,6 +402,124 @@ void main() {
     expect(seed['longTermScore'], 250);
     expect(seed['trust'], 40, reason: 'Long-Term Bond went into trust');
   });
+
+  // The wizard's member card drew every member at the neutral seed, and its
+  // Reset to character defaults went back to that seed, not the card. It
+  // now draws the card's bonds, mood and Needs, and Reset goes back there.
+  testWidgets('the member card starts at the card, and Reset goes back to it', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final draft = GroupWizardDraft();
+    final storage = FakeStorageService();
+    final repo = FakeCharacterRepository();
+    addTearDown(draft.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(repo.dispose);
+    final aerin = _cardedAerin();
+    draft.addMember(aerin);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ListenableBuilder(
+                listenable: draft,
+                builder: (_, _) =>
+                    GroupMemberRealismCard(draft: draft, member: aerin),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+
+    RealismFormSection form() =>
+        tester.widget<RealismFormSection>(find.byType(RealismFormSection));
+    NeedsFormSection needs() =>
+        tester.widget<NeedsFormSection>(find.byType(NeedsFormSection));
+    void expectCard(String when) {
+      expect(
+        (
+          form().shortTermBond,
+          form().longTermBond,
+          form().trustLevel,
+          form().emotion,
+          form().realismVerificationEnabled,
+        ),
+        (120, -40, 70, 'wistful', true),
+        reason: when,
+      );
+      expect(
+        (needs().baselineHunger, needs().needsPace, needs().enjoysLowHygiene),
+        (30, 'sloth', true),
+        reason: when,
+      );
+    }
+
+    expectCard('THE BUG: the card showed the neutral seed');
+
+    form().onShortTermBondChanged(5);
+    needs().onBaselineHungerChanged(60);
+    needs().onEnjoysLowHygieneChanged(false);
+    await tester.pumpAndSettle();
+    expect(form().shortTermBond, 5);
+    expect(needs().baselineHunger, 60);
+
+    await tester.ensureVisible(find.text('Reset to character defaults'));
+    await tester.tap(find.text('Reset to character defaults'));
+    await tester.pumpAndSettle();
+    expectCard('Reset to character defaults went back to the neutral seed');
+  });
+
+  test('Neutral and High Bond set bonds and mood over the card and keep its '
+      'Needs', () {
+    final draft = GroupWizardDraft();
+    addTearDown(draft.dispose);
+    final aerin = _cardedAerin();
+    draft.addMember(aerin);
+    final id = draft.stableId(aerin);
+
+    draft.bulkSeedRealism('highBond');
+    var seed = draft.memberRealismSeeds[id]!;
+    expect(
+      [
+        seed['affection'],
+        seed['trust'],
+        seed['emotion'],
+        seed['emotionIntensity'],
+      ],
+      [75, 70, 'affection', 'moderate'],
+    );
+    expect(
+      seed.containsKey('longTermScore'),
+      isFalse,
+      reason: 'unset, Long-Term Bond follows the preset Short-Term Bond',
+    );
+    expect((seed['needsPace'], seed['needsBaselineHunger']), ('sloth', 30));
+
+    draft.bulkSeedRealism('neutral');
+    seed = draft.memberRealismSeeds[id]!;
+    expect(
+      [
+        seed['affection'],
+        seed['trust'],
+        seed['emotion'],
+        seed['emotionIntensity'],
+      ],
+      [35, 40, 'neutral', 'mild'],
+    );
+    expect(seed.containsKey('longTermScore'), isFalse);
+    expect((seed['needsPace'], seed['needsBaselineHunger']), ('sloth', 30));
+  });
 }
 
 /// Pumps Create Group over fakes: Aerin and Bo in the library, [worlds] in
@@ -477,3 +596,21 @@ class _RecordingLlmProvider extends FakeLLMProvider {
   @override
   LLMService get activeService => _service;
 }
+
+/// Aerin with a card that says how her chats start: bonds, mood, verifier
+/// and Needs all away from the neutral seed.
+CharacterCard _cardedAerin() => CharacterCard(
+  name: 'Aerin',
+  description: 'First.',
+  frontPorchExtensions: FrontPorchExtensions(
+    shortTermBond: 120,
+    longTermBond: -40,
+    trustLevel: 70,
+    characterEmotion: 'wistful',
+    emotionIntensity: 'strong',
+    needsBaselineHunger: 30,
+    needsPace: 'sloth',
+    enjoysLowHygiene: true,
+    realismVerificationEnabled: true,
+  ),
+);

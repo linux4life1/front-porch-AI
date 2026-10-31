@@ -505,7 +505,7 @@ void main() {
   // per-member emotion, verification and needs land on a web-made group the
   // way GroupChatCommitter writes them, and an old phone's body (name,
   // members, turn order only) still gets Realism and Needs on with the
-  // desktop's neutral seeds and member extensions.
+  // desktop's card seeds and member extensions.
   group('GroupFacade.createGroup Realism step parity', () {
     late AppDatabase db;
     late GroupChatRepository groups;
@@ -563,7 +563,7 @@ void main() {
     }
 
     test(
-      'the old body shape gets Realism and Needs on with neutral seeds',
+      'the old body shape gets Realism and Needs on, members from their cards',
       () async {
         final (g, ext, mid) = await made({
           'name': 'Old Phone',
@@ -573,11 +573,15 @@ void main() {
         final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
         expect(seeds.keys.toSet(), mid.values.toSet());
         for (final s in seeds.values) {
-          expect(s['affection'], 35);
-          expect(s['trust'], 40);
-          expect(s['emotion'], 'neutral');
           expect(s['needs'], isA<Map>(), reason: 'needs on by default');
         }
+        // Changed: members start from their cards, so only the card with no
+        // extensions is neutral; Carded starts at its own bond and trust.
+        final plainSeed = seeds[mid[plainId]]!;
+        expect(plainSeed['affection'], 35);
+        expect(plainSeed['trust'], 40);
+        expect(plainSeed['emotion'], 'neutral');
+        expect(seeds[mid[carded]], containsPair('affection', 0));
         final baseline = jsonDecode(g.baselineRealismState) as Map;
         expect(baseline[mid[plainId]], containsPair('affection', 35));
         expect(baseline[mid[plainId]], containsPair('trust', 40));
@@ -1235,4 +1239,152 @@ class _OpenPair extends FakeChatService {
           afterglowEnabled: on,
         );
   }
+
+  // A web-made group's members started at the neutral seed (bond 35, trust
+  // 40, neutral mood, every bar at the neutral needs), whatever their card
+  // said. Each member now starts from their card, as a new 1:1 chat with
+  // that card does, with what the phone wizard set laid over it.
+  group('GroupFacade.createGroup: members start from their cards', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+    late CharacterRepository chars;
+    late String waryId;
+    late String plainId;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      chars = CharacterRepository(db, storage);
+      await chars.addCharacter(
+        CharacterCard(
+          name: 'Wary',
+          description: 'Starts guarded.',
+          frontPorchExtensions: FrontPorchExtensions(
+            shortTermBond: -60,
+            longTermBond: 140,
+            trustLevel: -25,
+            characterEmotion: 'guarded',
+            emotionIntensity: 'strong',
+            needsBaselineHunger: 30,
+            needsBaselineFun: 55,
+            needsPace: 'fast',
+            needsOff: ['bladder'],
+            enjoysLowHygiene: true,
+            realismVerificationEnabled: true,
+            realismVerificationMaxReprocesses: 4,
+            realismNeedsDirectorAuthority: true,
+          ),
+        ),
+      );
+      await chars.addCharacter(
+        CharacterCard(name: 'Plain', description: 'No extensions.'),
+      );
+      waryId = chars.characters.firstWhere((c) => c.name == 'Wary').dbId!;
+      plainId = chars.characters.firstWhere((c) => c.name == 'Plain').dbId!;
+      groups = GroupChatRepository(storage, db);
+      facade = GroupFacade(groups, storage, chars, db);
+    });
+
+    tearDown(() => db.close());
+
+    test('a member the wizard left alone starts at their card\'s bonds, '
+        'mood and Needs bars', () async {
+      final r = await facade.createGroup({
+        'name': 'Guarded Porch',
+        'memberIds': [waryId, plainId],
+      });
+      await groups.reload();
+      final g = groups.getById(r!['id'] as String)!;
+      final members = await groups.getMembersForGroup(g.id);
+      final mid = {for (final m in members) m.originLibraryDbId: m.id};
+      final wary = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[waryId]]!;
+      expect(
+        [
+          wary['affection'],
+          wary['longTermScore'],
+          wary['trust'],
+          wary['emotion'],
+          wary['emotionIntensity'],
+        ],
+        [-60, 140, -25, 'guarded', 'strong'],
+        reason: 'THE BUG: the neutral 35 / 40 / neutral won over the card',
+      );
+      expect(wary['needs'], containsPair('hunger', 30));
+      expect(wary['needs'], containsPair('fun', 55));
+      expect(wary['needs'], containsPair('energy', 80));
+      final baseline = jsonDecode(g.baselineRealismState) as Map;
+      expect(baseline[mid[waryId]], containsPair('affection', -60));
+      expect(baseline[mid[waryId]], containsPair('longTermScore', 140));
+      expect(baseline[mid[waryId]], containsPair('trust', -25));
+
+      final plain = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )[mid[plainId]]!;
+      expect(
+        [plain['affection'], plain['trust'], plain['emotion']],
+        [35, 40, 'neutral'],
+        reason: 'a card that says nothing starts neutral, as before',
+      );
+      expect(plain.containsKey('longTermScore'), isFalse);
+
+      final row = FrontPorchExtensions.fromJson(
+        members.firstWhere((m) => m.id == mid[waryId]).frontPorchExtensions!,
+      );
+      expect(row.needsPace, 'fast');
+      expect(row.needsOff, ['bladder']);
+      expect(row.enjoysLowHygiene, isTrue);
+      expect(row.realismVerificationEnabled, isTrue);
+      expect(row.realismVerificationMaxReprocesses, 4);
+      expect(row.realismNeedsDirectorAuthority, isTrue);
+    });
+
+    test('what the wizard set wins over the card, and a moved baseline '
+        'starts its bar there', () async {
+      final r = await facade.createGroup({
+        'name': 'Edited Porch',
+        'memberIds': [waryId, plainId],
+        'realism': {
+          'members': {
+            waryId: {'affection': 90, 'emotion': 'fond'},
+            plainId: {'needsBaselineHunger': 40},
+          },
+        },
+      });
+      await groups.reload();
+      final g = groups.getById(r!['id'] as String)!;
+      final members = await groups.getMembersForGroup(g.id);
+      final mid = {for (final m in members) m.originLibraryDbId: m.id};
+      final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+      final wary = seeds[mid[waryId]]!;
+      expect(wary['affection'], 90);
+      expect(wary['emotion'], 'fond');
+      expect(wary['trust'], -25, reason: 'not posted, so the card stands');
+      final plain = seeds[mid[plainId]]!;
+      expect(plain['needsBaselineHunger'], 40);
+      expect(
+        plain['needs'],
+        containsPair('hunger', 40),
+        reason: 'THE BUG: the bar stayed at the neutral 75',
+      );
+      expect(plain['needs'], containsPair('social', 65));
+
+      final card = chars.characters.firstWhere((c) => c.dbId == waryId);
+      expect(
+        (
+          card.frontPorchExtensions!.shortTermBond,
+          card.frontPorchExtensions!.characterEmotion,
+        ),
+        (-60, 'guarded'),
+        reason: 'a group never writes the library card',
+      );
+    });
+  });
 }

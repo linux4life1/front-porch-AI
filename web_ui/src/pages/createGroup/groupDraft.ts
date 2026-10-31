@@ -7,7 +7,12 @@
 // (lib/services/web/facade/group_create_draft.dart); member keys are library
 // character ids, which it maps to the new members.
 
-import type { GreetingSeed } from '../../components/realism/realismTypes';
+import {
+  INTENSITY_OPTIONS,
+  realismFromDetail,
+  type GreetingSeed,
+  type RealismValues,
+} from '../../components/realism/realismTypes';
 import type { WorldChoice } from '../../components/groupSetting/groupWorldChoice';
 
 /** The desktop wizard's step order (GroupWizardSteps). */
@@ -87,9 +92,10 @@ export interface GroupDraft {
   storyStartDate: string;
   /** Exact opening clock, "HH:MM"; '' is the time of day's default. */
   storyStartTime: string;
-  /** Library id → what the member's seed changes from [NEUTRAL_MEMBER]:
-   *  affection is Short-Term Bond (−300…300), longTermScore is Long-Term
-   *  Bond (−300…300) and trust is Trust Level (−100…100). */
+  /** Library id → what the wizard set for that member's seed; a member
+   *  with no entry starts from their card. affection is Short-Term Bond
+   *  (−300…300), longTermScore is Long-Term Bond (−300…300) and trust is
+   *  Trust Level (−100…100). */
   members: Record<string, Partial<MemberRealism>>;
   /** Library id → how it feels toward each other member (−300…300). */
   relationships: Record<string, Record<string, number>>;
@@ -141,18 +147,66 @@ export function withoutFeelingsOf(
   return Object.fromEntries(Object.entries(relationships).filter(([from]) => !memberIds.includes(from)));
 }
 
-/** [id]'s whole starting seed in [d]. */
-export function memberRealism(d: GroupDraft, id: string): MemberRealism {
-  return { ...NEUTRAL_MEMBER, ...d.members[id] };
+const clamp = (v: unknown, lo: number, hi: number, fallback: number) =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.trunc(v))) : fallback;
+
+/** Where a member starts, read from their card's `realism` (the
+ *  /api/characters/<id>/detail payload), as the relay's
+ *  groupMemberSeedFromCard reads it: the card's bonds, mood, verification
+ *  and Needs. A card with none (a plain imported card) starts neutral. */
+export function memberRealismFromCard(realism: Partial<RealismValues> | null | undefined): MemberRealism {
+  if (realism == null) return { ...NEUTRAL_MEMBER };
+  const r = realismFromDetail(realism);
+  const emotion = (r.characterEmotion ?? '').trim();
+  const baseline = (v: number) => clamp(v, 0, 100, 80);
+  return {
+    affection: clamp(r.shortTermBond, -300, 300, 0),
+    longTermScore: clamp(r.longTermBond, -300, 300, 0),
+    trust: clamp(r.trustLevel, -100, 100, 0),
+    emotion: emotion === '' ? 'neutral' : emotion,
+    emotionIntensity: INTENSITY_OPTIONS.includes(r.emotionIntensity) ? r.emotionIntensity : 'mild',
+    verificationEnabled: r.realismVerificationEnabled,
+    verificationMaxReprocesses: r.realismVerificationMaxReprocesses,
+    verificationStrictness: r.realismVerificationStrictness,
+    needsPace: r.needsPace,
+    needsOff: [...r.needsOff],
+    needsBaselineHunger: baseline(r.needsBaselineHunger),
+    needsBaselineBladder: baseline(r.needsBaselineBladder),
+    needsBaselineEnergy: baseline(r.needsBaselineEnergy),
+    needsBaselineSocial: baseline(r.needsBaselineSocial),
+    needsBaselineFun: baseline(r.needsBaselineFun),
+    needsBaselineHygiene: baseline(r.needsBaselineHygiene),
+    needsBaselineComfort: baseline(r.needsBaselineComfort),
+    enjoysLowHygiene: r.enjoysLowHygiene,
+  };
 }
 
+/** [id]'s whole starting seed in [d]: what the wizard set over [base], the
+ *  member's card seed (neutral until it loads). */
+export function memberRealism(d: GroupDraft, id: string, base: MemberRealism = NEUTRAL_MEMBER): MemberRealism {
+  return { ...base, ...d.members[id] };
+}
+
+/** The bonds and mood a preset sets. */
+const PRESET_KEYS = ['affection', 'trust', 'emotion', 'emotionIntensity'] as const;
+
 /** Every member of [memberIds] set to [preset], as the desktop's Neutral
- *  and High Bond buttons replace each member's whole seed. */
+ *  and High Bond buttons replace each member's whole seed: their card seed
+ *  from [bases] (the preset itself without one) with the preset's bonds and
+ *  mood. Long-Term Bond is left unset, so it follows Short-Term Bond. */
 export function membersAtPreset(
   memberIds: string[],
   preset: MemberRealism,
+  bases: Record<string, MemberRealism> = {},
 ): Record<string, Partial<MemberRealism>> {
-  return Object.fromEntries(memberIds.map((id) => [id, { ...preset }]));
+  return Object.fromEntries(
+    memberIds.map((id) => {
+      const base: MemberRealism = { ...(bases[id] ?? preset) };
+      delete base.longTermScore;
+      const picked = Object.fromEntries(PRESET_KEYS.map((k) => [k, preset[k]]));
+      return [id, { ...base, ...picked }];
+    }),
+  );
 }
 
 export const EMPTY_DRAFT: GroupDraft = {
@@ -254,7 +308,11 @@ export function createBody(args: {
       dayCount: d.dayCount,
       ...(d.storyStartDate ? { storyStartDate: d.storyStartDate } : {}),
       ...(d.storyStartTime ? { storyStartTime: d.storyStartTime } : {}),
-      members: Object.fromEntries(memberIds.map((id) => [id, memberRealism(d, id)])),
+      // A member the wizard left alone posts nothing: the relay starts them
+      // from their card, so a card seed still loading never posts neutral.
+      members: Object.fromEntries(
+        memberIds.filter((id) => id in d.members).map((id) => [id, memberRealism(d, id)]),
+      ),
       relationships: liveRelationships(d, memberIds),
     },
   };

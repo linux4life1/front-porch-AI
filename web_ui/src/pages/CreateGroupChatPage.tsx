@@ -31,6 +31,7 @@ import { EMPTY_DRAFT, GROUP_STEPS, createBody, draftTouched, type GroupDraft } f
 import { MemberVoicePicks } from './createGroup/MemberVoicePicks';
 import { OpeningStep } from './createGroup/OpeningStep';
 import { RealismStep } from './createGroup/RealismStep';
+import { useMemberCardSeeds } from './createGroup/useMemberCardSeeds';
 import { PromptsLoreStep } from './createGroup/PromptsLoreStep';
 import { ReviewStep } from './createGroup/ReviewStep';
 
@@ -46,6 +47,7 @@ export function CreateGroupChatPage() {
   const [draft, setDraft] = useState<GroupDraft>(EMPTY_DRAFT);
   const [folders, setFolders] = useState<PickerFolder[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const cards = useMemberCardSeeds(selected);
   const [step, setStep] = useState(0);
   // null until the user types: the name then follows the roster.
   const [typedName, setTypedName] = useState<string | null>(null);
@@ -213,7 +215,7 @@ export function CreateGroupChatPage() {
           />
         )}
 
-        {step === 3 && <RealismStep draft={draft} set={set} members={members} />}
+        {step === 3 && <RealismStep draft={draft} set={set} members={members} cards={cards} />}
 
         {step === 5 && <PromptsLoreStep draft={draft} set={set} members={members} />}
 

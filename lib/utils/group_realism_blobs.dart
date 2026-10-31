@@ -99,9 +99,10 @@ GroupRealismBlobs buildGroupRealismBlobs({
   );
 }
 
-/// The neutral-but-alive starting seed for a group member's realism/needs. Shared
-/// by the group creator (initial per-member seed) and the post-creation group
-/// editor so both produce an identical default — one contract, no divergence.
+/// The neutral-but-alive starting seed for a group member's realism/needs:
+/// what a new group gives a member whose card says nothing (see
+/// groupMemberSeedFromCard), and what the post-creation group editor gives
+/// a member with no seed.
 /// The `relationships` map is filled in the Group Dynamics step for small groups.
 Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'affection': 35,
@@ -148,20 +149,6 @@ Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'needsBaselineComfort': 80,
   'relationships': <String, int>{},
 };
-
-/// A group's settings for new chats with realism on and every member
-/// ([memberIds], the runtime member ids) at the neutral starting seed. What
-/// a group made from a 1:1 chat carries: a new chat starts fresh, as New
-/// Chat does in a 1:1, so the current bond and mood are not copied.
-GroupRealismBlobs neutralGroupRealismBlobs(
-  Iterable<String> memberIds, {
-  required bool needsEnabled,
-}) => buildGroupRealismBlobs(
-  seeds: {for (final id in memberIds) id: defaultGroupMemberRealismSeed()},
-  needsEnabled: needsEnabled,
-  timeOfDay: 'morning',
-  dayCount: 1,
-);
 
 /// Re-key member realism seeds from arbitrary *source* ids to the RUNTIME member
 /// ids the realism engine actually reads.

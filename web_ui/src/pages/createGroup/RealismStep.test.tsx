@@ -10,6 +10,7 @@ import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { EMPTY_DRAFT, NEUTRAL_MEMBER, memberRealism, type GroupDraft } from './groupDraft';
+import type { MemberRealism } from './groupDraft';
 
 let adult = false;
 vi.mock('../../api/client', () => ({
@@ -192,4 +193,55 @@ it("Neutral, High Bond and Reset clear the member's Group Dynamics, as on the de
   seedBoth();
   button('Reset to character defaults', card('j'));
   expect(draft.relationships, "only Juniper's own feelings go").toEqual({ m: { j: -40 } });
+});
+
+// Each member's card starts them: the step shows the card's bonds and
+// mood, Reset goes back to the card, and the presets keep its Needs. The
+// step used to show, reset to and preset from the neutral seed.
+const JUNIPER_CARD: MemberRealism = {
+  ...NEUTRAL_MEMBER,
+  affection: -60,
+  longTermScore: 140,
+  trust: -25,
+  emotion: 'guarded',
+  needsPace: 'fast',
+};
+async function mountWithCards() {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+  function CardHost() {
+    const [d, setD] = useState<GroupDraft>(EMPTY_DRAFT);
+    draft = d;
+    return createElement(RealismStep, {
+      draft: d,
+      set: (p: Partial<GroupDraft>) => setD((prev) => ({ ...prev, ...p })),
+      members: MEMBERS,
+      cards: { j: JUNIPER_CARD },
+    });
+  }
+  await act(async () => {
+    root.render(createElement(CardHost));
+  });
+}
+
+it("starts each member at their card, and Reset goes back to it", async () => {
+  await mountWithCards();
+  expect(card('j').querySelector('summary')!.textContent).toContain('guarded • Bond -60 / Trust -25');
+  expect(card('m').querySelector('summary')!.textContent).toContain('neutral • Bond 35 / Trust 40');
+  type(card('j').querySelector('input[placeholder="e.g. curious, guarded, amused"]')!, 'fond');
+  expect(draft.members.j).toMatchObject({ emotion: 'fond', affection: -60, needsPace: 'fast' });
+  button('Reset to character defaults', card('j'));
+  expect(draft.members, 'back to the card: nothing of the wizard is left').not.toHaveProperty('j');
+  expect(card('j').querySelector('summary')!.textContent).toContain('guarded • Bond -60 / Trust -25');
+});
+
+it('Neutral and High Bond keep each card\'s Needs', async () => {
+  await mountWithCards();
+  button('High Bond');
+  expect(memberRealism(draft, 'j')).toMatchObject({ affection: 75, trust: 70, needsPace: 'fast' });
+  expect(draft.members.j).not.toHaveProperty('longTermScore');
+  button('Neutral');
+  expect(memberRealism(draft, 'j')).toMatchObject({ affection: 35, trust: 40, emotion: 'neutral', needsPace: 'fast' });
+  expect(memberRealism(draft, 'm')).toEqual(NEUTRAL_MEMBER);
 });

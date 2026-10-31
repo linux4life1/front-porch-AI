@@ -29,8 +29,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// collects them.
 ///
 /// Every field is optional and read defensively, since phones and desktops
-/// run mixed versions: a body with none of them makes the same group the
-/// old web wizard did (Realism and Needs on, every member neutral).
+/// run mixed versions: a body with none of them gets Realism and Needs on,
+/// every member starting from their card.
 /// Member keys are library character ids; the facade maps them to the new
 /// member ids with [realismBlobs] and [promptsFor].
 class GroupCreateDraft {
@@ -121,20 +121,26 @@ class GroupCreateDraft {
   }
 
   /// The realism blobs for the group, keyed by the member ids [idMap] maps
-  /// library ids to. Each member starts at the neutral seed with what was
-  /// posted for it laid over; Group Dynamics rides along for groups of four
-  /// or fewer. Null when Realism is off, which stores the empty blobs.
-  GroupRealismBlobs? realismBlobs(Map<String, String> idMap) {
+  /// the [sources]' library ids to. Each member starts from their card's
+  /// seed with what was posted for it laid over, as the desktop committer
+  /// does; Group Dynamics rides along for groups of four or fewer. Null
+  /// when Realism is off, which stores the empty blobs.
+  GroupRealismBlobs? realismBlobs(
+    Iterable<CharacterCard> sources,
+    Map<String, String> idMap,
+  ) {
     if (!realismEnabled) return null;
     final rels = _realism['relationships'] is Map
         ? _realism['relationships'] as Map
         : const {};
     final seeds = <String, Map<String, dynamic>>{};
-    for (final libId in idMap.keys) {
-      final seed = {
-        ...defaultGroupMemberRealismSeed(),
-        ...memberSeedOverrides(_realism['members'], libId),
-      };
+    for (final source in sources) {
+      final libId = source.dbId;
+      if (libId == null || !idMap.containsKey(libId)) continue;
+      final seed = groupMemberStartingSeed(
+        source,
+        memberSeedOverrides(_realism['members'], libId),
+      );
       final r = rels[libId];
       seed['relationships'] = <String, int>{
         if (idMap.length <= 4 && r is Map)

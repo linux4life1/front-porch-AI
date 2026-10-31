@@ -223,22 +223,10 @@ class GroupWizardDraft extends ChangeNotifier {
     if (members.any((m) => stableId(m) == id)) return;
     update(() {
       members.add(card);
-      // Seed a reasonable neutral realism entry if none exists
       if (!memberRealismSeeds.containsKey(id)) {
         memberRealismSeeds[id] = defaultRealismSeedFor(card);
       }
-      if (!memberNeedsBaselines.containsKey(id)) {
-        final s = memberRealismSeeds[id]!;
-        memberNeedsBaselines[id] = {
-          'hunger': s['needsBaselineHunger'] as int? ?? 80,
-          'bladder': s['needsBaselineBladder'] as int? ?? 80,
-          'energy': s['needsBaselineEnergy'] as int? ?? 80,
-          'social': s['needsBaselineSocial'] as int? ?? 80,
-          'fun': s['needsBaselineFun'] as int? ?? 80,
-          'hygiene': s['needsBaselineHygiene'] as int? ?? 80,
-          'comfort': s['needsBaselineComfort'] as int? ?? 80,
-        };
-      }
+      _syncNeedsBaselines(id);
 
       // Initialize empty relationships map for small groups
       if (members.length <= 4) {
@@ -295,12 +283,14 @@ class GroupWizardDraft extends ChangeNotifier {
     });
   }
 
-  // Shared default seed (create + edit parity) lives in group_realism_blobs.dart
-  // as defaultGroupMemberRealismSeed(); the card arg is ignored (the seed is a
-  // neutral constant) but kept so existing call sites read naturally.
+  /// Where [c]'s member starts: their card's bonds, mood and Needs settings
+  /// (see groupMemberSeedFromCard), the same seed the committer lays the
+  /// wizard's edits over.
   Map<String, dynamic> defaultRealismSeedFor(CharacterCard c) =>
-      defaultGroupMemberRealismSeed();
+      groupMemberSeedFromCard(c);
 
+  /// Reset to character defaults: the member's whole seed back to their
+  /// card's, their Group Dynamics row included.
   void seedRealismFromCard(String charId) {
     final card = members.firstWhere(
       (c) => stableId(c) == charId,
@@ -308,25 +298,49 @@ class GroupWizardDraft extends ChangeNotifier {
     );
     update(() {
       memberRealismSeeds[charId] = defaultRealismSeedFor(card);
+      _syncNeedsBaselines(charId);
     });
   }
 
+  /// Neutral and High Bond: each member's card seed with the preset's bonds
+  /// and mood. Long-Term Bond is left unset, so it follows Short-Term Bond.
   void bulkSeedRealism(String mode) {
+    final preset = switch (mode) {
+      'neutral' => const {
+        'affection': 35,
+        'trust': 40,
+        'emotion': 'neutral',
+        'emotionIntensity': 'mild',
+      },
+      'highBond' => const {
+        'affection': 75,
+        'trust': 70,
+        'emotion': 'affection',
+        'emotionIntensity': 'moderate',
+      },
+      _ => null,
+    };
+    if (preset == null) return;
     update(() {
       for (final c in members) {
         final id = stableId(c);
-        if (mode == 'neutral') {
-          memberRealismSeeds[id] = defaultRealismSeedFor(c);
-        } else if (mode == 'highBond') {
-          final s = defaultRealismSeedFor(c);
-          s['affection'] = 75;
-          s['trust'] = 70;
-          s['emotion'] = 'affection';
-          s['emotionIntensity'] = 'moderate';
-          memberRealismSeeds[id] = s;
-        }
+        memberRealismSeeds[id] = defaultRealismSeedFor(c)
+          ..remove('longTermScore')
+          ..addAll(preset);
+        _syncNeedsBaselines(id);
       }
     });
+  }
+
+  /// [memberNeedsBaselines] for [id], read back from their seed, which the
+  /// Needs sliders draw from.
+  void _syncNeedsBaselines(String id) {
+    final s = memberRealismSeeds[id] ?? const <String, dynamic>{};
+    memberNeedsBaselines[id] = {
+      for (final need in groupSeedNeeds)
+        need: s[groupSeedBaselineKey(need)] as int? ?? 80,
+      'enjoysLowHygiene': s['enjoysLowHygiene'] == true ? 1 : 0,
+    };
   }
 
   // ── REALISM HELPERS ────────────────────────────────────────────────

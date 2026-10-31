@@ -8,6 +8,7 @@
 import { expect, it } from 'vitest';
 import { EMPTY_DRAFT, createBody, liveRelationships, relationshipTier } from './groupDraft';
 import { HIGH_BOND_MEMBER, NEUTRAL_MEMBER, memberRealism, membersAtPreset, withoutFeelingsOf } from './groupDraft';
+import { memberRealismFromCard } from './groupDraft';
 
 it('posts every step, with lore keys split and blanks dropped', () => {
   const body = createBody({
@@ -42,10 +43,13 @@ it('posts every step, with lore keys split and blanks dropped', () => {
     realism: {
       enabled: true,
       needsEnabled: false,
-      members: { a: { affection: 70, trust: 60 }, b: { affection: 35, trust: 40 } },
+      // Changed: b, left alone, posts nothing; the relay starts b from
+      // their card. Posting the neutral seed for b overwrote that card.
+      members: { a: { affection: 70, trust: 60 } },
       relationships: { a: { b: 120 } },
     },
   });
+  expect((body.realism as { members: object }).members).not.toHaveProperty('b');
 });
 
 it('keeps Group Dynamics only between current members of a small group', () => {
@@ -97,10 +101,11 @@ it('posts Chaos, the story start and every member seed field as the desktop seed
       storyStartTime: '07:30',
       members: {
         a: { ...NEUTRAL_MEMBER, emotion: 'wistful', verificationEnabled: true, needsPace: 'fast', needsOff: ['fun'] },
-        b: NEUTRAL_MEMBER,
       },
     },
   });
+  // Changed: b, left alone, no longer posts the neutral seed over their card.
+  expect((body.realism as { members: object }).members).not.toHaveProperty('b');
   expect(body).not.toHaveProperty('systemPrompt');
 });
 
@@ -167,4 +172,54 @@ it("posts how the group's new chats start Afterglow", () => {
   expect(EMPTY_DRAFT.afterglowEnabled, 'new chats start Afterglow on').toBe(true);
   expect(body(true).afterglow).toBe(true);
   expect(body(false).afterglow).toBe(false);
+});
+
+// A member starts from their card, read the way the relay's
+// groupMemberSeedFromCard reads it (the same card as the relay's test in
+// test/services/web/group_settings_test.dart).
+const WARY_CARD = {
+  shortTermBond: -60,
+  longTermBond: 140,
+  trustLevel: -25,
+  characterEmotion: 'guarded',
+  emotionIntensity: 'strong',
+  needsBaselineHunger: 30,
+  needsBaselineFun: 55,
+  needsPace: 'fast',
+  needsOff: ['bladder'],
+  enjoysLowHygiene: true,
+  realismVerificationEnabled: true,
+  realismVerificationMaxReprocesses: 4,
+};
+
+it("reads a member's starting seed from their card; a plain card starts neutral", () => {
+  expect(memberRealismFromCard(WARY_CARD)).toEqual({
+    ...NEUTRAL_MEMBER,
+    affection: -60,
+    longTermScore: 140,
+    trust: -25,
+    emotion: 'guarded',
+    emotionIntensity: 'strong',
+    needsBaselineHunger: 30,
+    needsBaselineFun: 55,
+    needsPace: 'fast',
+    needsOff: ['bladder'],
+    enjoysLowHygiene: true,
+    verificationEnabled: true,
+    verificationMaxReprocesses: 4,
+  });
+  expect(memberRealismFromCard(null)).toEqual(NEUTRAL_MEMBER);
+  expect(memberRealismFromCard({ ...WARY_CARD, characterEmotion: ' ', emotionIntensity: 'volcanic' })).toMatchObject({
+    emotion: 'neutral',
+    emotionIntensity: 'mild',
+  });
+});
+
+it('Neutral and High Bond set bonds and mood over each card and keep its Needs', () => {
+  const card = memberRealismFromCard(WARY_CARD);
+  const high = membersAtPreset(['a'], HIGH_BOND_MEMBER, { a: card }).a;
+  expect(high).toMatchObject({ affection: 75, trust: 70, emotion: 'affection', needsPace: 'fast', needsBaselineHunger: 30 });
+  expect(high, 'unset, Long-Term Bond follows the preset').not.toHaveProperty('longTermScore');
+  const neutral = membersAtPreset(['a'], NEUTRAL_MEMBER, { a: card }).a;
+  expect(neutral).toMatchObject({ affection: 35, trust: 40, emotion: 'neutral', needsPace: 'fast' });
 });

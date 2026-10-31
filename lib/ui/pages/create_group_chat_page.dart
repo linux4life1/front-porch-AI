@@ -142,8 +142,22 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
 
   // ── COMMIT ─────────────────────────────────────────────────────────
 
+  /// True from a Create tap until its save ends. A fast double click lands
+  /// its second tap before any rebuild, and must not make a second group.
+  bool _creating = false;
+
   /// Persist the new group and optionally open the chat.
   Future<void> _createGroup({bool enterChat = true}) async {
+    if (_creating) return;
+    _creating = true;
+    try {
+      await _commitGroup(enterChat: enterChat);
+    } finally {
+      _creating = false;
+    }
+  }
+
+  Future<void> _commitGroup({required bool enterChat}) async {
     if (_draft.members.length < 2) {
       _showSnack('A group needs at least 2 characters.');
       _draft.goToStep(GroupWizardSteps.members);

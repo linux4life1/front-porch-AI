@@ -469,4 +469,56 @@ void main() {
       );
     });
   });
+
+  // A group made from a 1:1 (/join --full, /promote, stepping out to
+  // direct) saved every member at the neutral seed for its new chats. Each
+  // member now starts from their card, as New Chat does in the 1:1.
+  test('a fork\'s new chats start each member from their card', () async {
+    await chat.setActiveCharacter(
+      card('Nia', 'char-fork-card-host')
+        ..frontPorchExtensions = FrontPorchExtensions(
+          shortTermBond: 90,
+          longTermBond: 150,
+          trustLevel: -30,
+          characterEmotion: 'wary',
+          emotionIntensity: 'moderate',
+          needsBaselineHunger: 35,
+          needsPace: 'fast',
+        ),
+    );
+    await chat.setRealismEnabled(true);
+    await chat.setNeedsSimEnabled(true);
+    await chat.addGeneratedImageMessage('/pictures/porch.png', 'a porch');
+    final groups = GroupChatRepository(storage, db);
+
+    final group = await chat.forkToGroupChat([
+      card('Marisol', 'char-fork-card-guest'),
+    ], groups);
+
+    await groups.reload();
+    final saved = groups.getById(group!.id)!;
+    final rows = await db.getGroupMembers(saved.id);
+    final mid = {for (final r in rows) r.name: r.id};
+    final seeds = parseGroupRealismSeeds(saved.defaultMemberRealismState);
+    final nia = seeds[mid['Nia']]!;
+    expect(
+      [
+        nia['affection'],
+        nia['longTermScore'],
+        nia['trust'],
+        nia['emotion'],
+        nia['emotionIntensity'],
+      ],
+      [90, 150, -30, 'wary', 'moderate'],
+      reason: 'THE BUG: new chats started the host at the neutral 35 / 40',
+    );
+    expect(nia['needs'], containsPair('hunger', 35));
+    expect(nia['needsPace'], 'fast');
+    final marisol = seeds[mid['Marisol']]!;
+    expect(
+      [marisol['affection'], marisol['trust'], marisol['emotion']],
+      [35, 40, 'neutral'],
+      reason: 'a card that says nothing starts neutral, as before',
+    );
+  });
 }

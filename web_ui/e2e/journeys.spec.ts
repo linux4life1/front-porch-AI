@@ -2180,3 +2180,50 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
+
+// New group on the phone: each member's Realism card starts at what their
+// character card says, not the neutral seed (bond 35, trust 40), and the
+// group is made with them. Two characters are made for this test and go
+// again with the group.
+test('a new group starts each member from their character card', async ({ page }) => {
+  const tag = test.info().project.name;
+  const make = async (name: string, realism: Record<string, unknown>) => {
+    const r = await page.request.post('/api/characters/create', { data: { name, firstMessage: 'Evening.', ...realism } });
+    expect(r.ok(), `create ${name}: ${r.status()}`).toBe(true);
+    return String(((await r.json()) as { id: string | number }).id);
+  };
+  const groupIds = async () =>
+    ((await (await page.request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map((g) => g.id);
+  const wary = `Wary ${tag}`;
+  const plain = `Plain ${tag}`;
+  const ids = [
+    await make(wary, { shortTermBond: -60, trustLevel: -25, characterEmotion: 'guarded' }),
+    await make(plain, {}),
+  ];
+  const before = await groupIds();
+  try {
+    await openRoute(page, '/create-group');
+    const search = page.getByPlaceholder('Search characters…');
+    for (const name of [wary, plain]) {
+      await search.fill(name);
+      await page.locator('.grp-card', { hasText: name }).click();
+    }
+    const next = page.getByRole('button', { name: 'Next →' });
+    while (!(await page.getByText('Realism Engine for this group').isVisible())) await next.click();
+
+    const memberCard = (id: string) => page.getByTestId(`group-realism-member-${id}`).locator('summary');
+    await expect(memberCard(ids[0])).toContainText('guarded • Bond -60 / Trust -25');
+    await expect(memberCard(ids[1])).toContainText('Bond');
+
+    while (!(await page.getByRole('button', { name: 'Create only (don’t open the chat yet)' }).isVisible())) {
+      await next.click();
+    }
+    await page.getByRole('button', { name: 'Create only (don’t open the chat yet)' }).click();
+    await expect.poll(async () => (await groupIds()).filter((id) => !before.includes(id)).length).toBe(1);
+  } finally {
+    for (const id of await groupIds()) {
+      if (!before.includes(id)) await page.request.post(`/api/groups/${id}/delete`);
+    }
+    for (const id of ids) await page.request.post(`/api/characters/${id}/delete`);
+  }
+});

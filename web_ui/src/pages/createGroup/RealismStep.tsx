@@ -28,10 +28,13 @@ export function RealismStep({
   draft,
   set,
   members,
+  cards = {},
 }: {
   draft: GroupDraft;
   set: (patch: Partial<GroupDraft>) => void;
   members: { id: string; name: string }[];
+  /** Library id → that member's card seed; a member starts there. */
+  cards?: Record<string, MemberRealism>;
 }) {
   const { adult, afterglow: afterglowAllowed } = useAdultFlags();
   const clockOn = usePassageOfTime();
@@ -40,11 +43,12 @@ export function RealismStep({
   // seed, its Group Dynamics row included.
   const preset = (p: MemberRealism) => {
     const ids = members.map((m) => m.id);
-    set({ members: membersAtPreset(ids, p), relationships: withoutFeelingsOf(draft.relationships, ids) });
+    set({ members: membersAtPreset(ids, p, cards), relationships: withoutFeelingsOf(draft.relationships, ids) });
   };
+  // Back to the card: the member has no entry, so they start from it.
   const reset = (id: string) =>
     set({
-      members: { ...draft.members, [id]: { ...NEUTRAL_MEMBER } },
+      members: Object.fromEntries(Object.entries(draft.members).filter(([k]) => k !== id)),
       relationships: withoutFeelingsOf(draft.relationships, [id]),
     });
   const feel = (from: string, to: string) => draft.relationships[from]?.[to] ?? 0;
@@ -157,7 +161,7 @@ export function RealismStep({
               key={m.id}
               id={m.id}
               name={m.name}
-              seed={memberRealism(draft, m.id)}
+              seed={memberRealism(draft, m.id, cards[m.id])}
               setSeed={(seed) => setMember(m.id, seed)}
               onReset={() => reset(m.id)}
               needsEnabled={draft.needsEnabled}

@@ -164,3 +164,37 @@ it("posts each member's Voice from Details, the global voice included", async ()
     spy.mockRestore();
   }
 });
+
+// The Realism step drew every member at the neutral seed and Create posted
+// that seed for each, over their cards. It now reads each picked card and
+// posts nothing for a member left alone, so the relay starts them from it.
+it("shows each member's card on Realism, and posts no seed for one left alone", async () => {
+  const { api } = await import('../api/client');
+  const original = api.get;
+  const asked: string[] = [];
+  const spy = vi.spyOn(api, 'get').mockImplementation(async (path: string) => {
+    if (path.includes('/detail')) asked.push(path);
+    return path === '/api/characters/j/detail'
+      ? { realism: { shortTermBond: -60, trustLevel: -25, characterEmotion: 'guarded' } }
+      : original(path);
+  });
+  try {
+    click('Juniper');
+    click('Marlow');
+    while (!text().includes('Realism Engine for this group')) click('Next');
+    await act(async () => {});
+    const summary = (id: string) =>
+      container.querySelector(`[data-testid="group-realism-member-${id}"] summary`)?.textContent ?? '';
+    expect(summary('j')).toContain('guarded • Bond -60 / Trust -25');
+    expect(summary('m')).toContain('neutral • Bond 35 / Trust 40');
+    expect(asked.filter((p) => p.endsWith('/j/detail')), 'each card is read once').toHaveLength(1);
+    while (!text().includes('Create & open')) click('Next');
+    await act(async () => {
+      button('Create & open').click();
+    });
+    const create = posts.find((p) => p.path === '/api/groups');
+    expect((create?.body as { realism: { members: object } }).realism.members).toEqual({});
+  } finally {
+    spy.mockRestore();
+  }
+});

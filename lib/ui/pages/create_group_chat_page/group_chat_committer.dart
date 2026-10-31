@@ -58,6 +58,10 @@ class GroupChatCommitter {
     // + test/utils/group_realism_blobs_test.dart for the reachability proof.
     final charPrompts = <String, String>{};
     final memberIdMap = <String, String>{}; // source stableId → member mid
+    // Source stableId → the member's starting seed: their card's, with what
+    // the wizard set laid over it. The member row and the group's blobs
+    // both read this one map.
+    final seeds = <String, Map<String, dynamic>>{};
 
     // Serialize group lorebook
     final lb = Lorebook(entries: List.from(d.groupLoreEntries));
@@ -99,7 +103,10 @@ class GroupChatCommitter {
       if (promptCtrl != null && promptCtrl.text.trim().isNotEmpty) {
         charPrompts[mid] = promptCtrl.text.trim();
       }
-      final seed = d.memberRealismSeeds[id] ?? d.defaultRealismSeedFor(source);
+      final seed = seeds[id] = groupMemberStartingSeed(
+        source,
+        d.memberRealismSeeds[id] ?? const {},
+      );
       final memberFp = groupMemberExtensions(
         source,
         seed,
@@ -160,11 +167,6 @@ class GroupChatCommitter {
     // memberIdMap — so the creator's per-member bond/trust/emotion/needs and
     // intragroup relationships actually take effect in chat.
     if (d.realismEnabled) {
-      final seeds = <String, Map<String, dynamic>>{
-        for (final c in d.members)
-          d.stableId(c):
-              d.memberRealismSeeds[d.stableId(c)] ?? d.defaultRealismSeedFor(c),
-      };
       final blobs = buildGroupRealismBlobs(
         seeds: remapSeedsToMemberIds(seeds, memberIdMap),
         needsEnabled: d.needsSimEnabled,
