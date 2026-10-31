@@ -42,6 +42,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -354,6 +355,51 @@ void main() {
     }
     expect(steps, GroupWizardSteps.labels.length);
     expect(sawRealismHeader, isTrue);
+  });
+
+  // The wizard's member card saved Long-Term Bond into the seed's trust, so a
+  // new group's members started with a ±300 number in their ±100 trust.
+  testWidgets('the member card saves Long-Term Bond to its own key', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final draft = GroupWizardDraft();
+    final storage = FakeStorageService();
+    final repo = FakeCharacterRepository();
+    addTearDown(draft.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(repo.dispose);
+    final aerin = CharacterCard(name: 'Aerin', description: 'First.');
+    draft.addMember(aerin);
+    final id = draft.stableId(aerin);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GroupMemberRealismCard(draft: draft, member: aerin),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<RealismFormSection>(find.byType(RealismFormSection))
+        .onLongTermBondChanged(250);
+    await tester.pump();
+
+    final seed = draft.memberRealismSeeds[id]!;
+    expect(seed['longTermScore'], 250);
+    expect(seed['trust'], 40, reason: 'Long-Term Bond went into trust');
   });
 }
 

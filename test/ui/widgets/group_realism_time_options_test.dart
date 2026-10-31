@@ -18,10 +18,16 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+import '../../golden/support/fakes_storage.dart';
 
 /// A realism-on group blob whose stored scene time is [timeOfDay] — exactly the
 /// shape buildGroupRealismBlobs writes (and parseGroupTimeSeed reads at runtime).
@@ -106,5 +112,42 @@ void main() {
     final lateNight =
         jsonDecode(await _pump(tester, _blobs('late night'))) as Map;
     expect(lateNight['timeOfDay'], 'night');
+  });
+
+  // Edit group's member editor showed and saved Long-Term Bond through the
+  // seed's trust. A seed it already wrote that way reads back as Long-Term
+  // Bond, and the next move un-mixes it.
+  testWidgets('the member editor keeps Long-Term Bond out of trust', (
+    tester,
+  ) async {
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    final deltas = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GroupMemberRealismEditor(
+                seed: const {'affection': 35, 'trust': 250},
+                needsEnabled: false,
+                onNeedsEnabledChanged: (_) {},
+                onUpdate: deltas.add,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final form = tester.widget<RealismFormSection>(
+      find.byType(RealismFormSection),
+    );
+    expect((form.longTermBond, form.trustLevel), (250, 50));
+
+    form.onLongTermBondChanged(100);
+    expect(deltas.single, {'affection': 35, 'longTermScore': 100, 'trust': 50});
   });
 }

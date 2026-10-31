@@ -154,7 +154,7 @@ it("edits one member's emotion, verification and needs, and resets them", async 
   expect(memberRealism(draft, 'j')).toEqual(NEUTRAL_MEMBER);
 });
 
-it('bonds and trust use the desktop scales; Long-Term Bond and Trust Level both set trust', async () => {
+it('bonds and trust use the desktop scales; each slider sets its own engine key', async () => {
   await mount();
   const c = card('j');
   const slider = (label: string) =>
@@ -165,10 +165,11 @@ it('bonds and trust use the desktop scales; Long-Term Bond and Trust Level both 
   expect([slider('Long-Term Bond').min, slider('Long-Term Bond').max]).toEqual(['-300', '300']);
   expect([slider('Trust Level').min, slider('Trust Level').max]).toEqual(['-100', '100']);
   type(slider('Short-Term Bond'), '-200');
+  expect(slider('Long-Term Bond').value, 'unset, it follows Short-Term Bond').toBe('-200');
   type(slider('Long-Term Bond'), '250');
-  expect(memberRealism(draft, 'j')).toMatchObject({ affection: -200, trust: 250 });
+  expect(memberRealism(draft, 'j')).toMatchObject({ affection: -200, longTermScore: 250, trust: 40 });
   type(slider('Trust Level'), '-50');
-  expect(memberRealism(draft, 'j').trust).toBe(-50);
+  expect(memberRealism(draft, 'j')).toMatchObject({ longTermScore: 250, trust: -50 });
 });
 
 it("Neutral, High Bond and Reset clear the member's Group Dynamics, as on the desktop", async () => {

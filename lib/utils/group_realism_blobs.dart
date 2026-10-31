@@ -25,8 +25,9 @@ import 'package:front_porch_ai/utils/character_id.dart';
 ///   where the full seed carries `affection`/`trust`/`emotion`/`emotionIntensity`,
 ///   the `needs` map, the `relationships` map (intragroup feelings, targetId→int),
 ///   and the per-need baseline / Pace / on-off fields.
-/// - `baselineRealismState` = `{ memberId: {affection, trust, emotion,
-///   emotionIntensity, timeOfDay, dayCount} }` — scalars only (no needs/relationships).
+/// - `baselineRealismState` = `{ memberId: {affection, longTermScore (when
+///   set), trust, emotion, emotionIntensity, timeOfDay, dayCount} }` — scalars
+///   only (no needs/relationships).
 class GroupRealismBlobs {
   /// JSON for `GroupChat.defaultMemberRealismState`.
   final String defaultMemberJson;
@@ -76,8 +77,11 @@ GroupRealismBlobs buildGroupRealismBlobs({
       seed = Map<String, dynamic>.from(seed)..remove('needs');
     }
     (defaultMember['perChar'] as Map)[id] = seed;
+    final longTerm = (seed['longTermScore'] as num?)?.toInt();
     baseline[id] = {
       'affection': (seed['affection'] as num?)?.toInt() ?? 35,
+      // Unset, Long-Term Bond follows affection on a member's first entry.
+      'longTermScore': ?longTerm,
       'trust': (seed['trust'] as num?)?.toInt() ?? 40,
       'emotion': (seed['emotion'] as String?) ?? 'neutral',
       'emotionIntensity': (seed['emotionIntensity'] as String?) ?? 'mild',

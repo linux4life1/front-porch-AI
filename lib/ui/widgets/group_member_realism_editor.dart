@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
@@ -19,7 +20,7 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 /// one wiring).
 ///
 /// Reads every value from [seed] (a member's realism seed map: `affection`,
-/// `trust`, `emotion`, `emotionIntensity`, `verification*`,
+/// `longTermScore`, `trust`, `emotion`, `emotionIntensity`, `verification*`,
 /// `needsPace`, `needsOff`, `enjoysLowHygiene`, `needsBaseline*`, …) and
 /// reports each edit through [onUpdate] as a `{key: value}` delta that the caller
 /// merges back into the seed (and rebuilds). Needs enabled/disabled is group-wide,
@@ -43,6 +44,7 @@ class GroupMemberRealismEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bonds = bondSlidersFromMemberSeed(seed);
     return RealismFormSection(
       enabled: true,
       onEnabledChanged: (_) {}, // controlled by the group master toggle above
@@ -50,12 +52,13 @@ class GroupMemberRealismEditor extends StatelessWidget {
       onTimeOfDayChanged: (v) => onUpdate({'timeOfDay': v}),
       dayCount: _i('dayCount', 1),
       onDayCountChanged: (v) => onUpdate({'dayCount': v}),
-      shortTermBond: _i('affection', 35),
-      onShortTermBondChanged: (v) => onUpdate({'affection': v}),
-      longTermBond: _i('trust', 40),
-      onLongTermBondChanged: (v) => onUpdate({'trust': v}),
-      trustLevel: _i('trust', 40),
-      onTrustLevelChanged: (v) => onUpdate({'trust': v}),
+      shortTermBond: bonds.shortTerm,
+      onShortTermBondChanged: (v) =>
+          onUpdate(bondSliderEdit(seed, shortTerm: v)),
+      longTermBond: bonds.longTerm,
+      onLongTermBondChanged: (v) => onUpdate(bondSliderEdit(seed, longTerm: v)),
+      trustLevel: bonds.trust,
+      onTrustLevelChanged: (v) => onUpdate(bondSliderEdit(seed, trust: v)),
       emotion: _s('emotion', 'neutral'),
       onEmotionChanged: (v) => onUpdate({'emotion': v}),
       emotionIntensity: _s('emotionIntensity', 'mild'),
