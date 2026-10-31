@@ -61,6 +61,14 @@ class AtomicPrefsStore extends SharedPreferencesStorePlatform {
   /// must run before the first `SharedPreferences.getInstance()`.
   static void install() {
     if (!Platform.isWindows && !Platform.isLinux) return;
+    // Only the plugin's own file store is replaced. A test that seeded an
+    // in-memory store (setMockInitialValues) keeps it, or the app it boots
+    // would read the real settings file instead of what the test set.
+    final current = SharedPreferencesStorePlatform.instance;
+    if (current is InMemorySharedPreferencesStore ||
+        current is AtomicPrefsStore) {
+      return;
+    }
     SharedPreferencesStorePlatform.instance = AtomicPrefsStore(() async {
       final dir = await getApplicationSupportDirectory();
       return File(p.join(dir.path, 'shared_preferences.json'));

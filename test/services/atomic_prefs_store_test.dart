@@ -26,6 +26,8 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 import 'package:front_porch_ai/services/atomic_prefs_store.dart';
 
@@ -145,4 +147,20 @@ void main() {
     }
     expect(jsonDecode(await file.readAsString()), {'flutter.a': 2});
   });
+
+  // The integration suites seed settings with setMockInitialValues and then
+  // boot the app, which installs the file store. Replacing their in-memory
+  // store would boot the app on the real settings file instead (every web
+  // journey that needed the stand-in backend failed on that).
+  test(
+    'install keeps a test\'s in-memory store and what it was seeded with',
+    () async {
+      SharedPreferences.setMockInitialValues({'remote_model_name': 'smoke'});
+      final seeded = SharedPreferencesStorePlatform.instance;
+      AtomicPrefsStore.install();
+      expect(SharedPreferencesStorePlatform.instance, same(seeded));
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('remote_model_name'), 'smoke');
+    },
+  );
 }

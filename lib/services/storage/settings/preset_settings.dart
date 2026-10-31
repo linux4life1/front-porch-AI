@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -182,8 +183,9 @@ class PresetSettings with SettingsBase {
   Future<void> _persistPrompts() async {
     await prefs?.setString(k('saved_prompts'), jsonEncode(_savedPrompts));
     // Saved prompts are the settings users can least afford to lose, so a
-    // prompt edit refreshes the known-good copy straight away.
-    await PrefsRecovery.snapshotGood();
+    // prompt edit refreshes the known-good copy straight away. The save does
+    // not wait on it: the copy is a backstop, and it never throws.
+    unawaited(PrefsRecovery.snapshotGood());
   }
 
   Future<void> setModelPreset(String modelPath, String? kcppsPath) async {

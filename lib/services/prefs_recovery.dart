@@ -23,6 +23,9 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+
+import 'package:front_porch_ai/services/atomic_prefs_store.dart';
 
 /// Detects and self-heals a corrupt settings store at startup.
 ///
@@ -60,6 +63,12 @@ class PrefsRecovery {
   static bool _locateFailed = false;
 
   static Future<File?> _settingsFile() async {
+    // Only the file our own store owns. A test's in-memory store has none,
+    // and repairing the real settings file under it would touch a file the
+    // running app never reads.
+    if (SharedPreferencesStorePlatform.instance is! AtomicPrefsStore) {
+      return null;
+    }
     if (_file != null) return _file;
     if (_locateFailed || (!Platform.isWindows && !Platform.isLinux)) {
       return null;
@@ -86,6 +95,7 @@ class PrefsRecovery {
   /// must not stop the other from bringing its own settings later.
   static Future<void> moveLegacyWindowsFolder({required bool nightly}) async {
     if (!Platform.isWindows) return;
+    if (SharedPreferencesStorePlatform.instance is! AtomicPrefsStore) return;
     try {
       final appData = Platform.environment['APPDATA'];
       if (appData == null || appData.isEmpty) return;
@@ -248,11 +258,17 @@ class PrefsRecovery {
 
   /// Refreshes the known-good copy of the settings file. Call it after the
   /// store was read cleanly and after writes worth protecting. Never throws.
-  static Future<void> snapshotGood() async {
-    final file = await _settingsFile();
-    if (file == null) return;
-    await writeGoodCopy(file);
+  static Future<void> snapshotGood() {
+    // One at a time: two copies racing on the same temp file could rename a
+    // half-written one into place.
+    return _snapshotting = _snapshotting.then((_) async {
+      final file = await _settingsFile();
+      if (file == null) return;
+      await writeGoodCopy(file);
+    });
   }
+
+  static Future<void> _snapshotting = Future<void>.value();
 
   /// Copies [file] to `<name>.good` through a temp file and a rename, and
   /// only when it parses as a JSON object, so a torn store never replaces a
