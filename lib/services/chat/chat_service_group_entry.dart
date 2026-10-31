@@ -32,13 +32,13 @@ extension ChatServiceGroupEntry on ChatService {
       await _cancelAndWaitForGeneration();
       await _waitForTurnToSettle();
       // Groups have no same-cast fast path — every re-enter clears
-      // `_messages`. Persist first or the last exchange dies the same
+      // `_session.messages`. Persist first or the last exchange dies the same
       // way as the 1:1 slow path.
       await flushPendingSaves();
       _generationEpoch++;
       // Detach before clearing the recap. A save during the awaits below
       // used to stamp an empty "Where we are" onto the chat being left.
-      _currentSessionId = null;
+      _session.currentSessionId = null;
 
       // Reset AFK idle state when switching to a different group
       _cancelIdleTimer();
@@ -81,7 +81,7 @@ extension ChatServiceGroupEntry on ChatService {
       if (_characterRepository == null) return;
 
       // Clear 1:1 mode
-      _activeCharacter = null;
+      _session.activeCharacter = null;
       // Defensive: zero key 1:1 scalars so rapid 1:1↔group toggles cannot observe
       // stale values in the brief window before group per-speaker loads take over.
       // (Full reset happens on return to any 1:1 via setActiveCharacter.)
@@ -120,10 +120,10 @@ extension ChatServiceGroupEntry on ChatService {
 
       debugPrint(
         '[ChatService] 🟡 setActiveGroup: clearing messages '
-        '(had ${_messages.length}) for group ${group.name}',
+        '(had ${_session.messages.length}) for group ${group.name}',
       );
       await _invalidateGreetingEval();
-      _messages.clear();
+      _session.messages.clear();
       _greetingIndex = 0;
       _history.reset();
       _clearTodayPointer();
@@ -183,8 +183,8 @@ extension ChatServiceGroupEntry on ChatService {
       _inheritGroupExpressionAvatars(resolved);
 
       // Hand off to the turn manager (single source of truth for group turn state)
-      _groupManager ??= GroupTurnManager();
-      _groupManager!.enterGroup(
+      _session.groupManager ??= GroupTurnManager();
+      _session.groupManager!.enterGroup(
         group,
         resolved,
         startInDirectorMode: group.directorMode,
@@ -199,8 +199,7 @@ extension ChatServiceGroupEntry on ChatService {
       // un-delivered manual "SPIN NOW" event, which injects as CANON with no
       // chaos-enabled gate — walked into the group.
       _chaosModeService.resetForFreshChat();
-      _webSearchService.resetForFreshChat();
-      _wikiSearchService.resetForFreshChat();
+      mediaDoor.resetForFreshChat();
       _chaosModeService.seedFromGroupOrExt(
         // OR-override, matching the two 1:1 seed sites: the group asks, or the
         // Porch Life global default does. A user who switched Chaos on globally
@@ -212,7 +211,7 @@ extension ChatServiceGroupEntry on ChatService {
       );
       // v30: For newly created group sessions (no prior state), seed from the group's default realism data.
       // (The actual load of any prior session state happens in _loadLastSession below.)
-      if (_messages.isEmpty && _activeGroup != null) {
+      if (_session.messages.isEmpty && _activeGroup != null) {
         await _loadGroupRealismStateFromSession(null);
 
         // Promote the group definition's realism/needs intent on first entry.
@@ -269,17 +268,15 @@ extension ChatServiceGroupEntry on ChatService {
       _groupCharacterSystemPrompts.addAll(group.characterSystemPrompts);
 
       // Seed objectives that came from an imported Group Card (one-time)
-      await _seedImportedMemberObjectivesIfPresent();
+      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
 
       // Lorebook trigger reset via extracted service (group path; see setActiveCharacter for the 1:1 counterpart + keep-sync cross-refs).
       // See "keep reset blocks in sync" comments (now explicitly lists needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) alongside prior services; incomplete zeroing now complete).
       // (cross-ref setActiveCharacter:1572)
       _lorebookScanner.resetLorebookTriggerState();
 
-      // Zero secondary objective config on group fresh entry (before loadLast + _loadObjectivesForCurrentSpeaker); see decl + keep reset + incomplete zeroing now complete.
-      _activeObjectives = [];
-      _messagesSinceLastCheck = 0;
-      _isCheckingCompletion = false;
+      // Zero secondary objective config on group fresh entry (before loadLast + the speaker's objectives load); see decl + keep reset + incomplete zeroing now complete.
+      objectivesDoor.resetForChatSwitch();
       _summaryPaused =
           false; // explicit secondary zero for _summaryPaused (symmetric; group fresh entry zero)
       _isSummaryGenerating =
@@ -298,27 +295,30 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Load the objectives for whoever is the initial next speaker (or first char)
       if (_activeGroup != null) {
-        await _loadObjectivesForCurrentSpeaker();
+        await objectivesDoor.loadObjectivesForCurrentSpeaker();
       }
 
       // Seed objectives that came from an imported Group Card (one-time), in case it wasn't caught above
-      await _seedImportedMemberObjectivesIfPresent();
+      await objectivesDoor.writer.seedImportedMemberObjectivesIfPresent();
 
       // If no session, create a greeting
-      if (_messages.isEmpty && _groupCharacters.isNotEmpty) {
+      if (_session.messages.isEmpty && _groupCharacters.isNotEmpty) {
         // #328, group twin of setActiveCharacter: a never-opened group has no
         // row for _loadLastSession to restore a persona from, so the previous
         // chat's in-chat persona leaked into the greeting's {{user}} and the
         // new session's binding. Start as the default; a stored zero-message
-        // group chat (`_currentSessionId` already set) keeps its own.
-        if (_currentSessionId == null) {
+        // group chat (`_session.currentSessionId` already set) keeps its own.
+        if (_session.currentSessionId == null) {
           await _userPersonaService.setActivePersona(
             _userPersonaService.defaultPersonaId,
           );
         }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {
-          _importAuthoredTask(c.frontPorchExtensions, target: c);
+          objectivesDoor.writer.importAuthoredTask(
+            c.frontPorchExtensions,
+            target: c,
+          );
         }
 
         String greetingText;
@@ -343,7 +343,7 @@ extension ChatServiceGroupEntry on ChatService {
         }
 
         if (greetingText.isNotEmpty) {
-          _messages.add(
+          _session.messages.add(
             ChatMessage(
               text: greetingText,
               sender: greetingSender,
@@ -354,7 +354,7 @@ extension ChatServiceGroupEntry on ChatService {
           // Thin delegation to scanner (group greeting scan).
           _lorebookScanner.scanLatest();
           _clockWriter.writeSlotClock(
-            _messages.isEmpty ? null : _messages.first,
+            _session.messages.isEmpty ? null : _session.messages.first,
             kind: SlotClockWrite.seed,
           );
           if (greetingFirstMesEmpty(group.firstMessage) &&
@@ -365,7 +365,8 @@ extension ChatServiceGroupEntry on ChatService {
             );
           }
         }
-        _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+        _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+            .toString();
         // Seed chat worlds from the group's template (Living Worlds).
         await _seedChatWorldsForNewSession();
         await _saveChat();

@@ -36,7 +36,7 @@ extension ChatServicePlannerResolve on ChatService {
   }
 
   Future<void> _persistTodayObjectiveId(String? id) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     await _db.patchSession(
       SessionsCompanion(
@@ -52,9 +52,11 @@ extension ChatServicePlannerResolve on ChatService {
   /// rows are asked next.
   Future<Objective?> _heldTodayRow() async {
     final id = _todayObjectiveId;
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (id == null) return null;
-    final listed = _activeObjectives.where((o) => o.id == id).firstOrNull;
+    final listed = objectivesDoor.activeObjectives
+        .where((o) => o.id == id)
+        .firstOrNull;
     if (listed != null || sid == null) return listed;
     try {
       return await (_db.select(_db.objectives)..where(
@@ -79,6 +81,35 @@ extension ChatServicePlannerResolve on ChatService {
     if (_todaySentence == null) setTodaySentence(live.objective);
   }
 
+  /// Record where the today line stood before the turn moves it, so the
+  /// rewind can hand the sidebar back the line it showed.
+  void _recordTodayPointerOp() {
+    if (!objectivesDoor.inObjectiveTurn) return;
+    objectivesDoor.turnOps.record({
+      'op': 'today',
+      'id': _todayObjectiveId,
+      'text': _todayObjectiveText,
+      'sentence': todaySentence,
+    });
+  }
+
+  /// A rewound `today` turn op: the line the sidebar showed before it.
+  Future<void> _revertTodayPointer(Map entry) async {
+    _todayObjectiveId = entry['id'] as String?;
+    _todayObjectiveText = entry['text'] as String?;
+    setTodaySentence(entry['sentence'] as String?);
+    await _persistTodayObjectiveId(_todayObjectiveId);
+  }
+
+  /// A promoted quest stops being the today line.
+  Future<void> _releaseHeldToday(String objectiveId) async {
+    if (_todayObjectiveId != objectiveId) return;
+    _todayObjectiveId = null;
+    _todayObjectiveText = null;
+    setTodaySentence(null);
+    await _persistTodayObjectiveId(null);
+  }
+
   bool _isHeldTodayObjective(Objective obj) {
     return _todayObjectiveId != null && obj.id == _todayObjectiveId;
   }
@@ -87,8 +118,8 @@ extension ChatServicePlannerResolve on ChatService {
     final id = _todayObjectiveId;
     if (id == null) return;
     // Before the first await: the turn window may close behind it.
-    if (_inObjectiveTurn) {
-      _recordObjectiveTurnOp({'op': 'deactivated', 'id': id});
+    if (objectivesDoor.inObjectiveTurn) {
+      objectivesDoor.turnOps.record({'op': 'deactivated', 'id': id});
     }
     _todayObjectiveId = null;
     _todayObjectiveText = null;
@@ -101,14 +132,14 @@ extension ChatServicePlannerResolve on ChatService {
         active: const drift.Value(false),
       ),
     );
-    await _loadActiveObjectives();
+    await objectivesDoor.loadActiveObjectives();
   }
 
   /// One secondary today-row. Match/replace by held id. Never primary,
   /// never tasks, never an ambition, never evicts other secondaries.
   Future<void> _upsertTodayObjective(String line) async {
     final trimmed = line.trim();
-    if (trimmed.isEmpty || _currentSessionId == null) return;
+    if (trimmed.isEmpty || _session.currentSessionId == null) return;
     final heldId = _todayObjectiveId;
     if (heldId != null) {
       final held = await _heldTodayRow();
@@ -131,7 +162,10 @@ extension ChatServicePlannerResolve on ChatService {
     final newId = const Uuid().v4();
     _todayObjectiveId = newId;
     _todayObjectiveText = trimmed;
-    final inserted = await _insertTodaySideQuest(trimmed, id: newId);
+    final inserted = await objectivesDoor.writer.insertTodaySideQuest(
+      trimmed,
+      id: newId,
+    );
     if (inserted == null) {
       _todayObjectiveId = null;
       _todayObjectiveText = null;
@@ -169,11 +203,11 @@ extension ChatServicePlannerResolve on ChatService {
     if (line == null || line.isEmpty) return;
     if (!_storageService.realismSettings.plannerEnabled) return;
     // Taken now, while the turn that resolved the line is still running.
-    final cite = _objectiveTurnCite();
+    final cite = objectivesDoor.turnOps.cite();
     _nudgePlannerMood(fate, line);
     if (fate == PlannerTodayFate.abandoned) return;
-    final sessionId = _currentSessionId;
-    final card = _activeCharacter;
+    final sessionId = _session.currentSessionId;
+    final card = _session.activeCharacter;
     final mood = _characterEmotion;
     final owner =
         ownerId ??

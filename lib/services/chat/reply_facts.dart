@@ -59,7 +59,7 @@ class ReplyFacts {
   Future<void> prefetch(String reply) async {
     this.raw = null;
     if (reply.trim().isEmpty) return;
-    final speaker = _scope.activeCharacter();
+    final speaker = _scope.session.activeCharacter;
     if (speaker == null) return;
 
     // The three gates, verbatim from their owners: AfterglowPass.active is the
@@ -72,7 +72,7 @@ class ReplyFacts {
     );
     final askPosture =
         _scope.realismEnabled() &&
-        !(_scope.activeGroup() != null && _scope.observerMode());
+        !(_scope.session.activeGroup != null && _scope.observerMode());
     final live =
         (askClimax ? 1 : 0) + (askPockets ? 1 : 0) + (askPosture ? 1 : 0);
     if (live < 2) return;
@@ -111,7 +111,7 @@ class ReplyFacts {
       // Clamped like every judge window (the eval diet missed the fused
       // carrier — hostile review 2026-08-11).
       reply: clampEvalMessage(reply),
-      recentExchange: recentExchange(_scope.messages),
+      recentExchange: recentExchange(_scope.session.messages),
       askClimax: askClimax,
       pockets: record,
       others: others,

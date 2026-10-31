@@ -237,12 +237,12 @@ extension ChatServiceGroupRead on ChatService {
 
   // ── Clean delegation layer (GroupTurnManager is the real owner); moved
   // verbatim from the god file's field block, zero behaviour change ──
-  GroupChat? get _activeGroup => _groupManager?.activeGroup;
+  GroupChat? get _activeGroup => _session.groupManager?.activeGroup;
   List<CharacterCard> get _groupCharacters =>
-      _groupManager?.characters ?? const <CharacterCard>[];
-  bool get _observerMode => _groupManager?.observerMode ?? false;
+      _session.groupManager?.characters ?? const <CharacterCard>[];
+  bool get _observerMode => _session.groupManager?.observerMode ?? false;
   set _observerMode(bool value) {
-    _groupManager?.setObserverMode(value);
+    _session.groupManager?.setObserverMode(value);
   }
 
   /// {{user}} is off stage: a group in Director Mode. Nothing scores the
@@ -254,24 +254,25 @@ extension ChatServiceGroupRead on ChatService {
   /// A new chat starts from the group's own Director Mode default; the live
   /// switch is per chat (saved in the session blob).
   void _resetDirectorModeToDefault() {
-    _groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
+    _session.groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
     _directorScene.hydrate(null); // a fresh chat starts with no directions
     _autoChatBudget.clear();
   }
 
-  bool get _autoPlayActive => _groupManager?.autoPlayActive ?? false;
+  bool get _autoPlayActive => _session.groupManager?.autoPlayActive ?? false;
   set _autoPlayActive(bool value) {
     if (value) {
-      _groupManager?.startAutoPlay();
+      _session.groupManager?.startAutoPlay();
     } else {
-      _groupManager?.stopAutoPlay();
+      _session.groupManager?.stopAutoPlay();
     }
   }
 
-  double get directorDelaySec => _groupManager?.directorDelaySec ?? 15.0;
+  double get directorDelaySec =>
+      _session.groupManager?.directorDelaySec ?? 15.0;
   set directorDelaySec(double value) {
-    if (_groupManager != null) {
-      _groupManager!.directorDelaySec = value;
+    if (_session.groupManager != null) {
+      _session.groupManager!.directorDelaySec = value;
     }
   }
 
@@ -286,7 +287,7 @@ extension ChatServiceGroupRead on ChatService {
     notifyListeners();
   }
 
-  bool get autoPlayActive => _groupManager?.autoPlayActive ?? false;
+  bool get autoPlayActive => _session.groupManager?.autoPlayActive ?? false;
 
   /// The character who will speak next in group mode: the rotation head,
   /// moved past members who are Away or At work exactly as the pick does.

@@ -104,10 +104,10 @@ class AfterglowPass {
   bool get _clockRunning => _scope.clockRunning();
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
-  List<ChatMessage> get _messages => _scope.messages;
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
+  List<ChatMessage> get _messages => _scope.session.messages;
   GroupRealismStore get _groupStore => _scope.groups;
   Map<String, GroupMemberRealism> get _groupRealism => _scope.groups.members;
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();

@@ -80,9 +80,9 @@ class RealismDance {
   bool get _realismEnabled => _scope.realismEnabled();
   bool get _realismEvalCancelled => evalCancelled();
   bool get _observerMode => _scope.observerMode();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  set _activeCharacter(CharacterCard? c) => _scope.setActiveCharacter(c);
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  set _activeCharacter(CharacterCard? c) => _scope.session.activeCharacter = c;
   List<Objective> get _activeObjectives => objectives();
   set _activeObjectives(List<Objective> v) => setObjectives(v);
   String get _realismEvalStreamText => streamText();

@@ -19,21 +19,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:path/path.dart' as path;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
-import 'package:front_porch_ai/services/caption/local_caption_service.dart';
-import 'package:front_porch_ai/services/vision_eval.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -45,10 +41,20 @@ import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_api.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
+import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
+import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_api.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -65,40 +71,26 @@ import 'package:drift/drift.dart' as drift;
 
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
+export 'chat/doors/actions/actions_api.dart';
+export 'chat/doors/cast/cast_api.dart';
+export 'chat/doors/media/media_api.dart';
+export 'chat/doors/transfer/transfer_api.dart';
+export 'chat/doors/objectives/objectives_api.dart';
+export 'chat/doors/edits/edits_api.dart';
+export 'chat/doors/session/session_api.dart';
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
-part 'chat/chat_service_sillytavern.dart';
-part 'chat/chat_service_import_seed.dart';
-part 'chat/chat_service_import_walk.dart';
-part 'chat/chat_service_chat_package.dart';
-part 'chat/chat_service_chat_package_import.dart';
-part 'chat/chat_service_enhance_chats.dart';
-part 'chat/chat_service_package_extras.dart';
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_group_membership.dart';
 part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_reprocess_choice.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
-part 'chat/chat_service_session_state.dart';
 part 'chat/chat_service_group_store_migrate.dart';
-part 'chat/chat_service_session_state_save.dart';
-part 'chat/chat_service_session_load.dart';
-part 'chat/chat_service_session_hydrate.dart';
-part 'chat/chat_service_session_window.dart';
-part 'chat/chat_service_actions.dart';
-part 'chat/chat_service_objectives.dart';
-part 'chat/chat_service_objective_tasks.dart';
-part 'chat/chat_service_objective_completion.dart';
 part 'chat/chat_service_speaker_objectives.dart';
-part 'chat/chat_service_impersonate.dart';
-part 'chat/chat_service_session_manage.dart';
-part 'chat/chat_service_session_fork.dart';
-part 'chat/chat_service_session_new_chat_prep.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_entry.dart';
 part 'chat/chat_service_generation_blocks.dart';
@@ -110,20 +102,13 @@ part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
-part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_cast_shrink.dart';
-part 'chat/chat_service_images.dart';
-part 'chat/chat_service_photo.dart';
 part 'chat/chat_service_idle_autonomous.dart';
-part 'chat/chat_service_greeting.dart';
 part 'chat/chat_service_greeting_seed.dart';
-part 'chat/chat_service_variants.dart';
 part 'chat/chat_service_prompt_blocks.dart';
-part 'chat/chat_service_scene_guest.dart';
 part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
-part 'chat/chat_service_web_search.dart';
 part 'chat/chat_service_wiring_evals.dart';
 part 'chat/chat_service_wiring_evals_judges.dart';
 part 'chat/chat_service_llm_lanes.dart';
@@ -134,19 +119,14 @@ part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
-part 'chat/chat_service_away_pulse.dart';
 part 'chat/chat_service_message_ops.dart';
-part 'chat/chat_service_guest_flow.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_accessors_living.dart';
-part 'chat/chat_service_today_sentence.dart';
 part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
 
-// Realism-eval cancel flag + GBNF note live in chat_service_defaults.dart.
-class ChatService extends ChangeNotifier
-    with ChatServiceTodaySentence, ChatServiceFieldBag {
+class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -158,30 +138,29 @@ class ChatService extends ChangeNotifier
   ImageGenService? _imageGenService;
   MemoryService? _memoryService;
 
-  List<String> get suggestedActions => _anchoredSuggestedActions;
-  bool get isGeneratingActions => _anchoredIsGeneratingActions;
+  late final MediaDoor mediaDoor = _buildMediaDoor();
 
-  Objective? get primaryObjective =>
-      _activeObjectives.where((o) => o.isPrimary).firstOrNull;
-  List<Objective> get secondaryObjectives =>
-      _activeObjectives.where((o) => !o.isPrimary).toList();
+  /// Roster, Scene Guests, greetings, Away, idle turns (cast_api.dart).
+  late final CastDoor castDoor = _buildCastDoor();
+  late final ActionsDoor actionsDoor = _buildActionsDoor();
+  List<String> get suggestedActions => actionsDoor.suggestedActions;
+  bool get isGeneratingActions => actionsDoor.isGeneratingActions;
 
-  /// The loaded character's goals won and let go in this chat. On the class
-  /// so [FakeChatService] can override it.
-  ObjectiveTally get objectiveTally => _objectiveTally;
+  /// Quests and the goal check; the members below forward so fakes pin them.
+  late final ObjectivesDoor objectivesDoor = _buildObjectivesDoor();
+  Objective? get primaryObjective => objectivesDoor.primaryObjective;
+  List<Objective> get secondaryObjectives => objectivesDoor.secondaryObjectives;
+  ObjectiveTally get objectiveTally => objectivesDoor.objectiveTally;
+  bool get isCheckingCompletion => objectivesDoor.isCheckingCompletion;
+  void skipObjectiveCheck() => objectivesDoor.completion.skip();
 
-  /// Whether a completion check runs, and the overlay's Skip for it. Class
-  /// members, not extension ones, so [FakeChatService] can override them.
-  bool get isCheckingCompletion => _isCheckingCompletion;
-  void skipObjectiveCheck() => _skipObjectiveCheckImpl();
-
-  /// Web-facade fakes override this; body in chat_service_accessors.dart.
+  /// Web-facade fakes override this; body in [MediaDoor].
   Future<void> addGeneratedImageMessage(
     String path,
     String prompt, {
     String? senderName,
     String? characterId,
-  }) => _addGeneratedImageMessageImpl(
+  }) => mediaDoor.addGeneratedImageMessage(
     path,
     prompt,
     senderName: senderName,
@@ -198,7 +177,7 @@ class ChatService extends ChangeNotifier
   }
 
   List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
-      _getObjectivesForGroupCharacterImpl(character);
+      objectivesDoor.getObjectivesForGroupCharacter(character);
 
   late final _lorebookScanner = _buildLorebookScanner();
   late final _lorebookInjector = _buildLorebookInjector();
@@ -210,8 +189,6 @@ class ChatService extends ChangeNotifier
 
   Biome get activeChatBiome => _biomeSchedule.biomeAt(_timeService.dayCount);
   late final _chaosModeService = _buildChaosModeService();
-  late final _webSearchService = _buildWebSearchService();
-  late final _wikiSearchService = _buildWikiSearchService();
   late final _nsfwService = _buildNsfwService();
   late final _needsSimulation = _buildNeedsSimulation();
   late final _groupStore = _buildGroupStore();
@@ -224,7 +201,7 @@ class ChatService extends ChangeNotifier
   // rides the reply's capture, never a patch of the previous reply.
   late final _mood = MoodRegisters(
     _realismScope(),
-    isTurnBusy: () => _isTurnBusy || _inObjectiveTurn,
+    isTurnBusy: () => _isTurnBusy || objectivesDoor.inObjectiveTurn,
   );
   late final _realismSnapshot = _buildRealismSnapshot();
   late final _realismJudges = _buildRealismJudges();
@@ -317,8 +294,8 @@ class ChatService extends ChangeNotifier
   late final _growthDesk = _buildGrowthDesk();
   late final _timeline = _buildTimelineInvalidator();
 
-  CharacterCard? get activeCharacter => _activeCharacter;
-  List<ChatMessage> get messages => List.unmodifiable(_messages);
+  CharacterCard? get activeCharacter => _session.activeCharacter;
+  List<ChatMessage> get messages => List.unmodifiable(_session.messages);
 
   /// Token streaming — deliberately the NARROW sense. It drives the send
   /// button, and widening it to cover post-generation was tried and REVERTED:
@@ -328,12 +305,16 @@ class ChatService extends ChangeNotifier
   /// [sendMessage], or it clears the field for a send the service refuses.
   /// See [isSettlingTurn] and the mirror in `_sendCurrentMessage`.
   bool get isGenerating => _isGenerating;
-  bool get isImporting => _isImporting;
+  bool get isImporting => chatImporter.isImporting;
+
+  /// The import and export doors; their old names live in transfer_api.dart.
+  late final ChatImporter chatImporter = _buildChatImporter();
+  late final ChatPackager chatPackager = _buildChatPackager();
 
   /// A reply, its post-gen settle, an import or narration is running: the
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
   bool get isTurnBusy => _isTurnBusy;
-  String? get currentSessionId => _currentSessionId;
+  String? get currentSessionId => _session.currentSessionId;
 
   double get generationProgress => _generationProgress;
   int get tokensGenerated => _tokensGenerated;
@@ -362,17 +343,17 @@ class ChatService extends ChangeNotifier
   /// are not — the status bar must not print a chars/4 guess as tokens.
   bool get prefillMetricsAreMeasured =>
       _llmProvider == null || _llmProvider!.isLocal;
-  bool get isGroupMode => _groupManager?.isActive ?? false;
-  GroupChat? get activeGroup => _groupManager?.activeGroup;
-  bool get observerMode => _groupManager?.observerMode ?? false;
+  bool get isGroupMode => _session.groupManager?.isActive ?? false;
+  GroupChat? get activeGroup => _session.groupManager?.activeGroup;
+  bool get observerMode => _session.groupManager?.observerMode ?? false;
   List<CharacterCard> get groupCharacters =>
-      _groupManager?.characters ?? const <CharacterCard>[];
+      _session.groupManager?.characters ?? const <CharacterCard>[];
 
   /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_accessors.dart.
   List<ChatParticipant> get cast => _castImpl;
   double get tokensPerSecond => _tokensPerSecondImpl;
 
-  int get greetingIndex => _greetingIndex;
+  int get greetingIndex => castDoor.greetings.greetingIndex;
 
   /// Listener wiring lives in [_initImpl] (chat_service_accessors.dart).
   ChatService(
@@ -384,8 +365,16 @@ class ChatService extends ChangeNotifier
     _initImpl();
   }
 
-  String get authorNote => _authorNote;
-  int get authorNoteStrength => _authorNoteStrength;
+  /// The open chat's row: load, save, fork, new chat, history window and
+  /// today line; old names in session_api.dart. Fakes pin the members below.
+  late final SessionStore sessionStore = _buildSessionStore();
+  String get authorNote => sessionStore.authorNote;
+  int get authorNoteStrength => sessionStore.authorNoteStrength;
+  int get historyBasePosition => sessionStore.history.basePosition;
+  String? get todaySentence => sessionStore.today.todaySentence;
+  String? get todayLine => sessionStore.today.todayLine;
+  void setTodaySentence(String? v) => sessionStore.today.setTodaySentence(v);
+  void abandonToday() => sessionStore.today.abandonToday();
 
   Map<String, int> get lastPromptBudget => _contextBudget.budget;
   Map<String, String> get lastPromptSections => _contextBudget.sections;
@@ -394,33 +383,33 @@ class ChatService extends ChangeNotifier
   int get promptDroppedMessages => _contextBudget.droppedMessages;
   Future<void> estimateContextBudgetNow() => _estimateContextBudgetNow();
   int get contextSize =>
-      _sessionGenSettings.resolveContextSize(_storageService);
+      sessionStore.genSettings.resolveContextSize(_storageService);
 
   /// Per-session generation parameter overrides. The dialog reads/writes this.
-  ChatGenerationSettings get sessionGenSettings => _sessionGenSettings;
+  ChatGenerationSettings get sessionGenSettings => sessionStore.genSettings;
   set sessionGenSettings(ChatGenerationSettings value) =>
-      _setSessionGenSettingsImpl(value);
+      sessionStore.setGenSettings(value);
 
   /// Per-chat theme overrides (preset + customized colors/font/background/border).
-  ChatThemeOverrides get sessionThemeOverrides => _sessionThemeOverrides;
+  ChatThemeOverrides get sessionThemeOverrides => sessionStore.themeOverrides;
   set sessionThemeOverrides(ChatThemeOverrides value) =>
-      _setSessionThemeOverridesImpl(value);
+      sessionStore.setThemeOverrides(value);
   void refreshActiveCharacterCard(CharacterCard card) =>
       _refreshActiveCharacterCardImpl(card);
 
-  String get summary => _summary;
-  bool get summaryPaused => _summaryPaused;
-  int get summaryLastIndex => _summaryLastIndex;
-  bool get isSummaryGenerating => _isSummaryGenerating;
+  String get summary => sessionStore.summary;
+  bool get summaryPaused => sessionStore.summaryPaused;
+  int get summaryLastIndex => sessionStore.summaryLastIndex;
+  bool get isSummaryGenerating => sessionStore.isSummaryGenerating;
   RelationshipService get relationshipService => _relationshipService;
   TimeService get timeService => _timeService;
   NsfwService get nsfwService => _nsfwService;
   ChaosModeService get chaosModeService => _chaosModeService;
-  WebSearchService get webSearchService => _webSearchService;
-  bool get webSearchEnabled => _webSearchService.isActive;
-  WikiSearchService get wikiSearchService => _wikiSearchService;
-  String get wikiBaseUrl => _wikiBaseUrlImpl;
-  Future<void> setWikiBaseUrl(String url) => _setWikiBaseUrlImpl(url);
+  WebSearchService get webSearchService => mediaDoor.webSearchService;
+  bool get webSearchEnabled => mediaDoor.webSearchService.isActive;
+  WikiSearchService get wikiSearchService => mediaDoor.wikiSearchService;
+  String get wikiBaseUrl => mediaDoor.wikiBaseUrl;
+  Future<void> setWikiBaseUrl(String url) => mediaDoor.setWikiBaseUrl(url);
   NeedsSimulation get needsSimulation => _needsSimulation;
   Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;
@@ -438,7 +427,7 @@ class ChatService extends ChangeNotifier
   String get standingMoodSummary => _standingMood.summary;
 
   bool get isEvaluatingRealism => _isEvaluatingRealism;
-  bool get isProcessingGreeting => _isProcessingGreeting;
+  bool get isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
 
   // Verifier phase: the overlay header, pass progress, and the bubble chip.
   bool get isVerifyingRealism => _isVerifyingRealism;
@@ -472,18 +461,26 @@ class ChatService extends ChangeNotifier
 
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 
+  /// Edit, delete, regen, swipes, Reprocess, impersonate; old names in
+  /// edits_api.dart. The two members below forward so fakes pin them.
+  late final EditsDoor editsDoor = _buildEditsDoor();
   int? get regenerableHostBelowGuestsIndex =>
-      _regenerableHostBelowGuestsIndexImpl;
-
+      editsDoor.regen.hostBelowGuestsIndex;
   void editMessage(int index, String newText) =>
-      _editMessageImpl(index, newText);
+      editsDoor.editor.edit(index, newText);
 
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
   bool get isGrowthPassRunning => _isGrowthPassRunning;
 
-  /// Active objectives for [character] in the current session; body in chat_service_objectives.dart.
+  /// Active objectives for [character] in the current session.
   Future<List<Objective>> getActiveObjectivesFor(CharacterCard character) =>
-      _getActiveObjectivesForImpl(character);
+      objectivesDoor.getActiveObjectivesFor(character);
+
+  late final _doorNotify = CoalescedNotify(notifyListeners);
+
+  /// Re-emits a door's changes as this service's, once per microtask.
+  void _forwardDoorNotify(ChangeNotifier door) =>
+      door.addListener(_doorNotify.call);
 
   @override
   void notifyListeners() {

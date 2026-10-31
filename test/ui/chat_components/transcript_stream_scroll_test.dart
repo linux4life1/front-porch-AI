@@ -238,7 +238,7 @@ void main() {
     expect(overlays.contains('_scheduleOpenPin'), isFalse);
     expect(overlays.contains('key: _transcriptListKey'), isTrue);
     final open = File(
-      'lib/services/chat/chat_service_session_window.dart',
+      'lib/services/chat/doors/session/session_hydrator.dart',
     ).readAsStringSync();
     expect(open.contains('getMessagesTailForSession'), isTrue);
     expect(open.contains('_prependOlderPage'), isTrue);

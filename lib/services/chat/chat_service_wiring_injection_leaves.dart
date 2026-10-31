@@ -11,29 +11,71 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   AuthorNoteBuilder _buildAuthorNoteBuilder() {
     return AuthorNoteBuilder(
       // Objectives off ⇒ nothing about quests reaches the model. Reading the
-      // gate here rather than clearing _activeObjectives keeps the rows intact
+      // gate here rather than clearing the loaded list keeps the rows intact
       // for when the switch comes back on.
       getActiveObjectives: () =>
-          objectivesActive ? _activeObjectives : const [],
+          objectivesActive ? objectivesDoor.activeObjectives : const [],
       getPrimaryObjective: () => primaryObjective,
-      tasksForObjective: (o) => tasksForObjective(o),
+      tasksForObjective: (o) => objectivesDoor.tasks.tasksFor(o),
       getSecondaryObjectives: () => secondaryObjectives,
-      getStreakLine: () =>
-          objectivesActive ? objectiveStreakLine(_objectiveTally.recent) : null,
+      getStreakLine: () => objectivesActive
+          ? objectiveStreakLine(objectivesDoor.objectiveTally.recent)
+          : null,
       // In a group only the goal owner's replies count; the ids match because
       // both are _getCharacterIdFromCard.
       isResting: (o) =>
           o is Objective &&
           objectiveFixated(
-            messages: _messages,
+            messages: _session.messages,
             questTexts: openQuestMentionTexts(
               o.objective,
-              tasksForObjective(o),
+              objectivesDoor.tasks.tasksFor(o),
             ),
             speakerId: _activeGroup != null ? o.characterId : null,
-            ignore: _objectiveIgnoreTokens(),
+            ignore: objectivesDoor.objectiveIgnoreTokens(),
           ),
     );
+  }
+
+  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
+  ObjectivesDoor _buildObjectivesDoor() {
+    final door = ObjectivesDoor(
+      ObjectiveDeps(
+        session: _session,
+        database: () => _db,
+        personas: () => _userPersonaService,
+        storage: () => _storageService,
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        proposal: () => _objectiveProposal,
+        mood: () => _mood,
+        journal: () => _journalStore,
+        time: () => _timeService,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        hooks: ObjectiveShellHooks(
+          objectivesActive: () => objectivesActive,
+          nextSpeaker: () => nextCharacter,
+          hasChatModel: () => _llmProvider != null,
+          pendingMetadata: () => _pendingRealismMetadata ??= {},
+          historyBase: () => _history.basePosition,
+          realismActiveThisMode: () => _realismActiveThisMode,
+          setStatus: (text) => _setGuestStatus(text),
+          zeroSessionFlags: () {
+            _summaryPaused = false;
+            _isSummaryGenerating = false;
+            _isGrowthPassRunning = false;
+          },
+          groupRepository: () => _groupChatRepository,
+          rebindToday: _rebindTodayObjectiveFromDb,
+          clearToday: _clearTodayPointer,
+          holdToday: _persistTodayObjectiveId,
+          releaseToday: _releaseHeldToday,
+          revertToday: _revertTodayPointer,
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
   }
 
   RelationshipInjection _buildRelationshipInjection() {
@@ -43,7 +85,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getShouldTrackInterCharacterRelationships: () =>
           _shouldTrackInterCharacterRelationships,
       getGroupInt: (charId, key, {int defaultValue = 0}) =>
@@ -122,7 +164,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
         day <= 1
             ? null
             : WeatherSegments.segmentWeatherFor(
-                sessionSeed: _currentSessionId!,
+                sessionSeed: _session.currentSessionId!,
                 dayCount: day - 1,
                 date: _timeService.clock.subtract(const Duration(days: 1)),
                 hour: 23,
@@ -135,7 +177,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   }
 
   SegmentWeather _segmentAt(int hour) => WeatherSegments.segmentWeatherFor(
-    sessionSeed: _currentSessionId!,
+    sessionSeed: _session.currentSessionId!,
     dayCount: _timeService.dayCount,
     date: _timeService.clock,
     hour: hour,
@@ -161,7 +203,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       getClockMinutes: () => _timeService.clockMinutes,
       getWeekday: () => _timeService.clock.weekday,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -172,8 +214,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   AmbitionInjection _buildAmbitionInjection() {
     return AmbitionInjection(
       ambitionService: _ambitionService,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -183,7 +225,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
 
   PreferencesInjection _buildPreferencesInjection() {
     return PreferencesInjection(
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -207,7 +249,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
 
   InventoryInjection _buildInventoryInjection() {
     return InventoryInjection(
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -231,8 +273,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
     return PromiseDebtInjection(
       getCurrentStoryDay: () => _clockRunning ? _timeService.dayCount : null,
       promiseDebtService: _promiseDebtService,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -245,7 +287,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
     return NsfwInjection(
       nsfwService: _nsfwService,
       getRealismEnabled: () => _realismEnabled,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -263,7 +305,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   /// mutual scan already excludes them.
   bool _pcdActive() {
     return pcdWindowActive(
-      messages: _messages,
+      messages: _session.messages,
       speakerId: _activeGroup != null ? _groupStore.currentSpeakerId() : null,
       isUser: (m) => m.isUser || _isGuestAuthoredMessage(m),
       climaxStamped: (m) => m.activeMetadata?['climax_triggered'] == true,
@@ -283,7 +325,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   bool _mutualAfterglowOpening() {
     if (!_nsfwService.isOpeningAfterglowTurn) return false;
     final group = _activeGroup != null;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (m.isUser) continue;
       // A scene guest's prose is not the host's body (M7 review): the
       // mutual beat belongs to the character the lock is counting.
@@ -322,7 +364,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getGroupNeeds: _groupStore.needsOf,
       getCharacterIdFromCard: _getCharacterIdFromCard,
       getNeedsOff: () =>
-          _activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
+          _session.activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
     );
   }
 
@@ -398,7 +440,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getCharacterIdFromCard: _getCharacterIdFromCard,
     );
   }

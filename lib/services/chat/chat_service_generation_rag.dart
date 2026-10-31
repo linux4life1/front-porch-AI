@@ -63,11 +63,11 @@ extension ChatServiceGenerationRag on ChatService {
           emotion: _characterEmotion,
           fixation: _relationshipService.activeFixation,
           hotJournalLine: t.ragHotJournalLine,
-          lastWords: lastWordsFromMessages(_messages),
+          lastWords: lastWordsFromMessages(_session.messages),
         );
         final queryMessages = t.ragQuery;
         final reaching = isReachingForQuote(
-          lastSpokenLineFromMessages(_messages),
+          lastSpokenLineFromMessages(_session.messages),
         );
         final skipCueLess = !shouldRetrieveRag(
           hasCues: ragHasCues(
@@ -111,7 +111,7 @@ extension ChatServiceGenerationRag on ChatService {
           rawMemories = await _memoryService!.retrieve(
             queryText: queryMessages,
             sourceCharacterIds: sourceIds,
-            currentSessionId: _currentSessionId ?? '',
+            currentSessionId: _session.currentSessionId ?? '',
             inContextStart: _history.basePosition + t.droppedMessages,
             limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
             characterPriorities: currentGroupRAGPriorities,
@@ -123,7 +123,7 @@ extension ChatServiceGenerationRag on ChatService {
         final afterExpand = RetrievedMemory.excludingPositions(
           rawMemories,
           t.expandedJournalPositions,
-          currentSessionId: _currentSessionId ?? '',
+          currentSessionId: _session.currentSessionId ?? '',
         );
         // Journal gist already covers this beat — drop extra RAG windows.
         // Facts that left history and have no card still pass (remember).
@@ -149,7 +149,7 @@ extension ChatServiceGenerationRag on ChatService {
             budgetTrimmed: 0,
             injected: const [],
             days: const {},
-            currentSessionId: _currentSessionId ?? '',
+            currentSessionId: _session.currentSessionId ?? '',
             status: kRagReceiptSkippedNoCues,
           );
         } else if (_memoryService!.lastRetrieveError != null) {
@@ -159,7 +159,7 @@ extension ChatServiceGenerationRag on ChatService {
             budgetTrimmed: 0,
             injected: const [],
             days: const {},
-            currentSessionId: _currentSessionId ?? '',
+            currentSessionId: _session.currentSessionId ?? '',
             status: kRagReceiptError,
           );
         } else if (rawMemories.isEmpty && !_memoryService!.isOperational) {
@@ -169,7 +169,7 @@ extension ChatServiceGenerationRag on ChatService {
             budgetTrimmed: 0,
             injected: const [],
             days: const {},
-            currentSessionId: _currentSessionId ?? '',
+            currentSessionId: _session.currentSessionId ?? '',
             status: kRagReceiptNotOperational,
           );
         } else if (memories.isNotEmpty) {
@@ -196,12 +196,12 @@ extension ChatServiceGenerationRag on ChatService {
           // stays in relevance order (retrieve() returns score-descending —
           // chronology must never decide which memories fit the budget);
           // the survivors are then SHOWN oldest → newest.
-          final sessionForStamps = _currentSessionId ?? '';
+          final sessionForStamps = _session.currentSessionId ?? '';
           final days = <RetrievedMemory, int?>{
             for (final m in memories)
               m: m.sessionId == sessionForStamps
                   ? storyDayAt(
-                      _messages,
+                      _session.messages,
                       m.positionStart,
                       m.positionEnd,
                       basePosition: _history.basePosition,
@@ -322,7 +322,7 @@ extension ChatServiceGenerationRag on ChatService {
             budgetTrimmed: 0,
             injected: const [],
             days: const {},
-            currentSessionId: _currentSessionId ?? '',
+            currentSessionId: _session.currentSessionId ?? '',
           );
         }
       } catch (e) {
@@ -335,7 +335,7 @@ extension ChatServiceGenerationRag on ChatService {
           budgetTrimmed: 0,
           injected: const [],
           days: const {},
-          currentSessionId: _currentSessionId ?? '',
+          currentSessionId: _session.currentSessionId ?? '',
           status: kRagReceiptError,
         );
       }
@@ -350,7 +350,7 @@ extension ChatServiceGenerationRag on ChatService {
         budgetTrimmed: 0,
         injected: const [],
         days: const {},
-        currentSessionId: _currentSessionId ?? '',
+        currentSessionId: _session.currentSessionId ?? '',
         status: kRagReceiptNotOperational,
       );
     }
@@ -445,7 +445,7 @@ extension ChatServiceGenerationRag on ChatService {
       return (sourceIds: sourceIds, sessionScoped: sessionScoped);
     }
 
-    await addMemorySources(_activeCharacter?.dbId);
+    await addMemorySources(_session.activeCharacter?.dbId);
     return (sourceIds: sourceIds, sessionScoped: sessionScoped);
   }
 }

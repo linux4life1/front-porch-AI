@@ -31,15 +31,15 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
   ) async {
     // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
     // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
-    // _needsImpactEvaluator) use the correct _activeCharacter (for name, personality/stance
+    // _needsImpactEvaluator) use the correct _session.activeCharacter (for name, personality/stance
     // in the consolidated needs impact prompt). The pre-speaker-eval left the *scalars*
-    // (incl. needs vector) loaded for this speaker but restored the _activeCharacter pointer
+    // (incl. needs vector) loaded for this speaker but restored the _session.activeCharacter pointer
     // to the prior speaker; the thin delegate relies on the pointer for cbs. We restore the
     // pointer after the checks (scalars remain correct for the persist below).
     // Who the pointer is lent to; the loan ends once, inline or in the
     // finally.
     CharacterCard? lentTo;
-    // The awaited post-gen critical section: mutates _activeCharacter,
+    // The awaited post-gen critical section: mutates _session.activeCharacter,
     // the needs scalars and _groupRealism across two awaits
     // (_isPostGenerating has been up since the last token landed).
     // The try/finally is not decoration: if _runPostGenNeedsChecks
@@ -57,7 +57,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         await _scoreCastFeelings(t.speakingCharacter, finalResponse);
       }
       if (_activeGroup != null) {
-        _activeCharacter = t.speakingCharacter;
+        _session.activeCharacter = t.speakingCharacter;
         lentTo = t.speakingCharacter;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
         if (sid.isNotEmpty) {
@@ -242,7 +242,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // this captures the *response* effects on needs.)
         if (_activeGroup != null &&
             finalResponse.isNotEmpty &&
-            _messages.isNotEmpty) {
+            _session.messages.isNotEmpty) {
           // The ACTUAL speaker of this turn — not a by-name lookup with a
           // first-member fallback (duplicate display names would persist the
           // critical scalar save to the wrong member's _groupRealism entry).
@@ -379,7 +379,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
         return;
       }
-      _activeCharacter = t.speakingCharacter;
+      _session.activeCharacter = t.speakingCharacter;
       lentTo = t.speakingCharacter;
       if (sid.isNotEmpty) {
         _relationshipService.setWithUser(_groupRealism[sid]?.withUser);
@@ -413,7 +413,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
   /// rest of the visit: Chance Time named them on every turn and your
   /// bubbles took their colours.
   void _endSpeakerLoan(CharacterCard speaker) {
-    if (stillLentTo(_activeCharacter, speaker)) _activeCharacter = null;
+    if (stillLentTo(_session.activeCharacter, speaker)) {
+      _session.activeCharacter = null;
+    }
   }
 
   /// How [reply] moved the speaker's hidden feelings toward the others. The
@@ -432,7 +434,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
             speakerName: speaker.name,
             otherNames: [for (final c in others) c.name],
             reply: clampEvalMessage(reply),
-            recentExchange: recentExchange(_messages),
+            recentExchange: recentExchange(_session.messages),
           )
         : null;
     if (judged == null) {

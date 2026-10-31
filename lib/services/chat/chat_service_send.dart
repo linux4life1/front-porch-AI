@@ -50,17 +50,17 @@ extension ChatServiceSend on ChatService {
   /// reply or the narrator is running stays in the box (or comes back to the
   /// phone) instead of being cleared and silently ignored.
   String? get sendBusyReason {
-    if (_activeCharacter == null && _activeGroup == null) {
+    if (_session.activeCharacter == null && _activeGroup == null) {
       return 'No chat is open.';
     }
     if (_isLoadingSession || _chatSwitches > 0) {
       return 'The chat is still opening.';
     }
-    if (_isImporting) return 'A chat import is still running.';
+    if (isImporting) return 'A chat import is still running.';
     if (_entrancesInFlight || _sceneGuest.busy) {
       return 'A character is still joining the scene.';
     }
-    if (_photoTurnInFlight) return 'The last photo is still being read.';
+    if (isPhotoTurnInFlight) return 'The last photo is still being read.';
     if (_isGenerating) return 'A reply is still being written.';
     if (_narrating) return 'The narrator is still setting the scene.';
     if (_skipAsked) return kSkipAskPending;
@@ -74,7 +74,7 @@ extension ChatServiceSend on ChatService {
   /// generation when the model can see (see [buildTurnImages]), and is
   /// described in the flattened history for later turns.
   Future<void> sendMessage(String text, {Uint8List? imageBytes}) async {
-    if ((_activeCharacter == null && _activeGroup == null) ||
+    if ((_session.activeCharacter == null && _activeGroup == null) ||
         (text.trim().isEmpty && imageBytes == null)) {
       return;
     }
@@ -90,10 +90,10 @@ extension ChatServiceSend on ChatService {
     if (_sceneGuest.busy) return;
     // A photo turn's captioning windows run while _isGenerating is false; this
     // guard stops a second send from interleaving them (see isPhotoTurnInFlight).
-    if (_photoTurnInFlight) return;
-    // Import clears `_messages` and remints the session. A Send during that
+    if (isPhotoTurnInFlight) return;
+    // Import clears `_session.messages` and remints the session. A Send during that
     // window appends into a list the import is about to throw away.
-    if (_isImporting) return;
+    if (isImporting) return;
     // No new user turn while a generation is live (streaming, draining, or
     // finalizing). A send mid-turn interleaves this method's own message
     // inserts (dream block) with the active turn's writes on one shared
@@ -136,10 +136,10 @@ extension ChatServiceSend on ChatService {
             webQuery: lookup.webQuery,
             wikiQuery: lookup.wikiQuery,
             webEnabled: _storageService.webSearchSettings.webSearchDefault,
-            hasWiki: parseWikiBaseUrl(_wikiBaseUrlImpl) != null,
+            hasWiki: mediaDoor.wikiLookupAvailable,
           );
       if (block != null) {
-        announceLookupForce(block);
+        mediaDoor.announceLookupForce(block);
         return;
       }
     }
@@ -210,7 +210,7 @@ extension ChatServiceSend on ChatService {
     // set flag can never bleed into THIS turn and abort a reply the user did
     // not cancel.
     _realismEvalCancelled = false;
-    clearSuggestions();
+    actionsDoor.clearSuggestions();
     // Before ANY prompt is built for this turn. Counting the greeting as
     // turn 0, this is what puts an authored wardrobe into turn 1's prompt —
     // the pass that used to do it runs after the reply exists, so the first
@@ -224,7 +224,7 @@ extension ChatServiceSend on ChatService {
 
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.
-    resolveImagePromptReview(null);
+    mediaDoor.resolveImagePromptReview(null);
 
     // User is interacting — clear any pending auto-response state
     _pendingIdleCue = null;
@@ -253,8 +253,7 @@ extension ChatServiceSend on ChatService {
     }
 
     _toolProbe.beginUserSend();
-    _webSearchService.beginUserSend();
-    _wikiSearchService.beginUserSend();
+    mediaDoor.beginUserSend();
     try {
       _userTurn.open(); // Porch Life's Realism waits for the whole turn.
       // Sending a real message ends the /exit undo window. A pending full-member
@@ -271,7 +270,9 @@ extension ChatServiceSend on ChatService {
       // @Name cues, Needs, the clock); only the judges that score the user's
       // message stand down, because there is no user message to score.
       final directing = _directing;
-      final imagePath = directing ? null : await _persistTurnImage(imageBytes);
+      final imagePath = directing
+          ? null
+          : await mediaDoor.persistTurnImage(imageBytes);
 
       final userMsg = directing
           ? directorNoteMessage(outbound)
@@ -285,8 +286,8 @@ extension ChatServiceSend on ChatService {
             );
       // Session token for the caption writes below — captured NOW so a chat
       // switch anywhere during the (long) turn voids the stamp+save.
-      final sessionToken = _currentSessionId;
-      _messages.add(userMsg);
+      final sessionToken = _session.currentSessionId;
+      _session.messages.add(userMsg);
       await _saveChat();
       notifyListeners();
 
@@ -306,17 +307,17 @@ extension ChatServiceSend on ChatService {
       // kick would anchor AFTER the advance and a night crossed on that very
       // first turn would be missed.
       _dreamService.checkRollover(
-        sessionId: _currentSessionId,
+        sessionId: _session.currentSessionId,
         dayCount: _timeService.dayCount,
       );
-      final parkedDream = _dreamService.takePrefetch(_currentSessionId);
+      final parkedDream = _dreamService.takePrefetch(_session.currentSessionId);
       if (parkedDream != null) {
         try {
           final dream = await parkedDream.dream;
           if (_sceneChanged(sessionToken)) return;
           if (dream != null) {
-            _messages.insert(
-              _messages.length - 1,
+            _session.messages.insert(
+              _session.messages.length - 1,
               ChatMessage(
                 text: dream,
                 sender: parkedDream.ownerName,
@@ -353,7 +354,7 @@ extension ChatServiceSend on ChatService {
       // when the scene changed during the (multi-second) caption await — abort
       // rather than run decay/realism/generation against a newly loaded chat.
       if (imagePath != null) {
-        final stillHere = await runBlindPhotoCaption(
+        final stillHere = await mediaDoor.runBlindPhotoCaption(
           userMsg,
           imagePath,
           sessionToken,
@@ -374,7 +375,7 @@ extension ChatServiceSend on ChatService {
       _lastUserMessageAt = DateTime.now();
 
       // Scan for lore keywords (thin to scanner; the user message is already
-      // in _messages, so the scanner windows over recent history from there).
+      // in _session.messages, so the scanner windows over recent history from there).
       _lorebookScanner.scanLatest();
 
       // ── Clear consumed chaos event from the previous turn ───────────────
@@ -445,7 +446,7 @@ extension ChatServiceSend on ChatService {
           outbound,
           exact: skipTag.verdict,
           recent: recentExchange(
-            _messages.sublist(0, _messages.length - 1),
+            _session.messages.sublist(0, _session.messages.length - 1),
             take: 4,
           ),
           stale: () => _sceneChanged(sessionToken),

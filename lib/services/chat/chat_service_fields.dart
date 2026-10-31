@@ -32,102 +32,21 @@ mixin ChatServiceFieldBag {
   /// model and per engine load.
   final _modelKeys = LocalModelKeys();
 
-  /// Named lookup for the next reply only. Cleared when that reply starts.
-  String? _pendingForcedWebQuery;
-  String? _pendingForcedWikiQuery;
-
-  /// The last message when the user stopped a reply from the Realism
-  /// overlay. The "you stopped this reply" notice shows while it is still
-  /// the chat's last message (same anchor rule as the suggestions below).
-  ChatMessage? _stoppedReplyAnchor;
-
   /// True while Try again (regenerate on a trailing user line) runs. That
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
 
-  // Action suggestions
-  List<String> _suggestedActions = [];
-  bool _isGeneratingActions = false;
-  // The message the suggestions (or the in-flight generation) were made for.
-  // Every chat switch / load / fork / tail-delete path rebuilds `_messages`,
-  // so "anchor is still the last message" is the one check that keeps
-  // suggestions from leaking onto another chat's latest bubble (#329).
-  ChatMessage? _suggestedActionsAnchor;
-  // Objective/quest system
-  List<Objective> _activeObjectives = [];
-  ObjectiveTally _objectiveTally = ObjectiveTally.none;
-
-  // Sidebar task-generation prefs, hoisted from ObjectivePanel widget state:
-  // the panel's State is recreated on sidebar rebuilds (every realism turn),
-  // which reset the NSFW toggle each message (field report). Session-held on
-  // purpose — NOT persisted, so NSFW tasks default OFF on a fresh launch.
-  bool objectiveNsfwTasks = false;
-  int objectiveTaskCount = 5;
-
-  /// Armed only while the TURN-path completion check runs (see
-  /// _maybeCheckTaskCompletionSync try/finally): check-driven objective
-  /// mutations record regen turn-ops only when armed, so the UI's manual
-  /// "Check now" (forceCheckCompletion) never records — a regen must not
-  /// undo a user-triggered check. Scoped by try/finally; no reset needed.
-  bool _objectiveTurnOpsArmed = false;
-
-  /// The reply the post-reply clock pass belongs to, set only around that
-  /// pass. Planner writes made there (a new today quest, a finished one's
-  /// card) record onto THIS reply, so deleting or regenerating it undoes them.
-  ChatMessage? _objectiveTurnReply;
-  int _messagesSinceLastCheck = 0;
-  // God-side runtime flag mirroring objective_proposal's get/setIsChecking
-  // (early guard in the completion check). Must be defensively zeroed on
-  // *all* reset/new-chat/0-session/group/setActive/load/delete paths — like
-  // _activeObjectives and _messagesSinceLastCheck — or an in-flight reset
-  // permanently skips future task checks. See CLAUDE.md "keep reset blocks
-  // in sync".
-  bool _isCheckingCompletion = false;
-  bool _isNewChat = false;
-
   bool _disposed = false;
-  // ── Dynamic Responses (idle timer / fourth-wall auto-ping) ─────────────
-  Timer? _idleTimer;
-  String? _pendingIdleCue;
-  bool _autoResponseInProgress = false;
-  bool _hasCompletedExchange = false;
-  int _consecutiveAutoResponses = 0;
-  // The consecutive-response cap lives in the persisted
-  // generationSettings.dynamicResponseMaxMessages (default 3) so the sidebar
-  // flyout, /afk --messages, and the settings all share one source of truth.
-  CharacterCard? _activeCharacter;
+  // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
+  // live on the cast door (ChatService.castDoor, doors/cast/).
 
-  // ── Scene Guests (Lite NPCs) ────────────────────────────────────────────
-  // Every field lives in SceneGuestState (documented there); behaviour stays
-  // in the scene_guest / _cast / _guest_flow parts. Guest Growth Rings key by
-  // the guest's stable charId in growth_rings, so no evolution state here.
-  final SceneGuestState _sceneGuest = SceneGuestState();
   // Slice 6: suggested scene move + per-setting decline memory.
   final SceneMoveState _sceneMoves = SceneMoveState();
-  final AwayPulseState _awayPulse = AwayPulseState();
-
-  bool _photoTurnInFlight = false;
 
   ChatCommandHandler? _commandHandler;
 
-  /// `/image` slash-command orchestrator (lazily built in
-  /// chat_service_images.dart; callbacks read live state, so it survives
-  /// chat switches like [_commandHandler] does).
-  ImageCommandService? _imageCommand;
-
-  /// Prompt-review pause for /image (Chance-Time-style pending flag +
-  /// completer): when the review setting is on, the crafted prompt parks
-  /// here until the UI (desktop dialog / web modal) resolves it via
-  /// [resolveImagePromptReview] — see chat_service_images.dart.
-  String? _pendingImagePromptReview;
-  Completer<String?>? _imageReviewCompleter;
-  bool autoChimeEnabled = true;
-
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
   // (read in _maybeRunCastDetection). _castScanInterval → chat_service_defaults.
-
-  final List<ChatMessage> _messages = [];
-  Future<void> _saveChain = Future.value();
 
   /// Serializes [sendMessage] so two composer taps during settle cannot
   /// both pass `_isGenerating` and then both run after the wait.
@@ -142,7 +61,7 @@ mixin ChatServiceFieldBag {
   /// is not finished there: the needs-impact eval, the realism-state re-stamp,
   /// the `RealismDance.saveScalarsIntoGroup` persist and the chip attach all run
   /// afterwards, and in a group they run under an impersonation dance that
-  /// reassigns `_activeCharacter` and loads that member's scalars. For those
+  /// reassigns `_session.activeCharacter` and loads that member's scalars. For those
   /// seconds the app used to report "not generating" while the engine was
   /// still mutating state, so every re-entrancy guard stood open: a delete
   /// could shift the timeline under a running eval, and a new turn could
@@ -153,12 +72,8 @@ mixin ChatServiceFieldBag {
   /// can run indefinitely; blocking input until they finish would trade a race
   /// for a wedged UI, which is the worse bug.
   bool _isPostGenerating = false;
-  bool _isImporting = false;
-
-  /// A `.porch` export or import is opening chats in turn. Not part of
-  /// [_isTurnBusy]: the job's own chat moves must still run. It keeps a
-  /// second job (desktop or phone) from flipping the shared chat under it.
-  bool _isMovingChats = false;
+  // An import in flight (`isImporting`) and the `.porch` chat-move claim
+  // live on the transfer doors (chatImporter, chatPackager).
 
   // (_isTurnBusy — "this turn is still in motion" predicate for mutation
   // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
@@ -170,30 +85,14 @@ mixin ChatServiceFieldBag {
   // turn. (Follow-up: pass the directive as a local into _generateResponse to
   // drop the shared field entirely.)
   bool _entrancesInFlight = false;
-  bool _isLoadingSession = false;
-  // New chat / loadSession runs in flight; sends wait them out.
-  int _chatSwitches = 0;
-  final _history = SessionHistoryWindow();
-
-  /// Saved position of `messages[0]`. Older rows still loading sit
-  /// before it, so a row's place in the whole chat is this plus its index.
-  /// A class member (not an extension) so test fakes can pin it.
-  int get historyBasePosition => _history.basePosition;
+  // The session-load and chat-switch flags, the history window and the
+  // save chain live on the session store (ChatService.sessionStore).
   bool _cancelRequested = false;
   int _generationEpoch = 0;
 
-  String? _sessionId;
-
-  /// The chat open now. Every change goes through here, so KoboldCpp's saved
-  /// cache follows it: the chat left is let go unless Settings keeps recent
-  /// chats ready. A switch passes through no chat (null) on its way; only
-  /// the chat it lands on is told.
-  String? get _currentSessionId => _sessionId;
-  set _currentSessionId(String? id) {
-    if (id == _sessionId) return;
-    _sessionId = id;
-    if (id != null) _keeperFollows(id);
-  }
+  /// The open chat every domain reads (messages, session id, character,
+  /// group manager). Its session id setter tells KoboldCpp which chat is open.
+  late final _session = ChatSessionState(onChatOpened: _keeperFollows);
 
   /// Chat screens open on the desktop ([chatScreenOpened]).
   int _chatScreens = 0;
@@ -205,7 +104,7 @@ mixin ChatServiceFieldBag {
 
   /// The desktop's chat page opened: the chat it shows is the open one.
   void chatScreenOpened() {
-    if (_chatScreens++ == 0) _keeperFollows(_sessionId);
+    if (_chatScreens++ == 0) _keeperFollows(_session.currentSessionId);
   }
 
   /// The desktop's chat page closed. With none left the user went back to
@@ -227,13 +126,7 @@ mixin ChatServiceFieldBag {
 
   double _generationProgress = 0.0;
 
-  // ── Real-absence awareness (Living Time §2) ──
-  // Computed in-memory at session load from the last saved message's
-  // updatedAt; nothing is stored or transmitted (privacy-by-design contract
-  // in absence_tracker.dart). Story clock untouched.
-  Duration _absenceGap = Duration.zero;
-  bool _absenceAckPending = false;
-  bool _absenceAckConsumed = false;
+  // Real-absence awareness (Living Time §2) lives on the session store.
   int _tokensGenerated = 0;
   int _maxTokens = 0;
   DateTime? _generationStartTime;
@@ -274,22 +167,10 @@ mixin ChatServiceFieldBag {
   /// Main model parked by the pre-turn call-model swap (sendMessage enters,
   /// the request phase adopts into the turn carrier — see the request part).
   String? _callEvalModelOriginal;
-  GroupTurnManager? _groupManager;
 
   // Wired for decoupled group member loading (so setActiveGroup works even if caller
   // doesn't explicitly pass groupRepo every time). Set from main.dart provider setup.
   GroupChatRepository? _groupChatRepository;
-
-  // One-shot hidden directive for a forked-in character's custom entrance
-  // (Direction mode). Injected into the prompt, consumed on the next generation;
-  // the forced-speaker side is handled by GroupTurnManager.setNextSpeaker.
-  String? _entranceDirective;
-
-  /// The director's pinned scene goal and private whispers, saved per chat.
-  final DirectorScene _directorScene = DirectorScene();
-
-  /// A `/narrate` call is in flight (it runs before the turn it starts).
-  bool _narrating = false;
 
   /// The running auto-chat's turn budget.
   final AutoChatBudget _autoChatBudget = AutoChatBudget();
@@ -297,75 +178,14 @@ mixin ChatServiceFieldBag {
   /// The char→char judge, built on first use.
   CastFeelingsJudge? _castFeelingsJudgeCache;
 
-  /// Per-character Author's Notes for group chats (independent of group-level _authorNote).
-  /// Keyed by stable charId (from _getCharacterIdFromCard). Populated from the
-  /// (legacy comment — now persisted via sessions.group_realism_state column)
-  Map<String, String> _groupAuthorNotes = {};
-  Map<String, int> _groupAuthorNoteStrengths = {};
-
-  /// Per-character system prompts scoped to the *current group only*.
-  /// These are completely independent of each character's normal `systemPrompt`
-  /// (the one used in 1:1 chats). When present and non-empty for the speaking
-  /// character, they take full precedence over the character's card-level prompt
-  /// inside this group. Now persisted via the sessions.group_realism_state column.
-  Map<String, String> _groupCharacterSystemPrompts = {};
-
-  /// Per-character objectives when in group mode.
-  /// Each member carries their own independent personal objectives/tasks.
-  /// Keyed by stable charId. Stored inside the group state JSON for now
-  /// (consistent with other per-char group data like realism/needs).
-  Map<String, List<Objective>> _groupObjectives = {};
-
-  // RAG settings for the active group (stored in the hidden checkpoint, no DB schema change)
-  bool _groupRagEnabled = true;
-  int _groupRetrievalCount = 4;
-  double _groupMemoryBudgetPercent = 10.0;
-  Map<String, double> _groupCharacterRAGPriorities = {};
-
-  // Director Mode state is now owned by _groupManager when active.
-  // The public getters below delegate to it.
-  // ── Author's Note ──
-  String _authorNote = '';
-  int _authorNoteStrength = 4;
-
-  // ── Per-chat avatar gallery ("looks") selection ──
-  // {characterId: selectedLookAvatarId} for THIS session, decoded from the
-  // session's selectedLookAvatarId column on load. A map (not one id) so a group
-  // chat remembers a look per participant; 1:1 is just a one-entry map. Reset
-  // per session in loadSession; empty when no session.
-  Map<String, String> _selectedLooks = {};
-
-  // ── Chat Summary ──
-  String _summary = '';
-  int _summaryLastIndex = 0;
-
-  /// Session id whose in-memory recap matches the row. Until hydrate,
-  /// a save must not blank or replace `sessions.summary`.
-  String? _recapBoundSessionId;
-
-  /// The editor or a timeline rewrite cleared "Where we are" on purpose.
-  bool _recapClearArmed = false;
-  // Secondary runtime flag (like _isSummaryGenerating); must be defensively
-  // zeroed on *all* reset/new-chat/0-session/group/setActive/load/delete
-  // paths or pause state leaks across contexts (see CLAUDE.md keep-sync).
-  bool _summaryPaused = false;
-  bool _isSummaryGenerating = false;
+  // A group's per-member notes, prompts and RAG knobs, the Author's Note,
+  // the gallery looks and the recap ("Where we are") live on the session
+  // store (sessionStore.groupConfig and the store's own fields).
+  // Director Mode state is owned by _session.groupManager when active.
   // ── Realism Mode ──
   bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
   bool _isEvaluatingRealism = false;
   bool _isCancellingRealismEval = false;
-  bool _isProcessingGreeting =
-      false; // true while post-greeting baseline eval runs
-  bool _greetingEvalPending =
-      false; // greeting placed but baseline eval not yet run
-  // In-flight opening-position seed. Two entry points call _seedOpeningPosture
-  // and the guard they share ("no stance on record") is written only by the
-  // completed call, so without this they both fire. See _seedOpeningPosture.
-  Future<void>? _openingPostureSeed;
-  // The session the opening position has already been ATTEMPTED for. Keyed on
-  // the session id rather than a bool precisely so it needs no reset site: the
-  // four places that reset per-chat state would each have had to remember it.
-  String? _openingPostureSeededFor;
   String _realismEvalStreamText = '';
 
   // Verifier phase coordination (god-owned for overlay + chips; leaf is stateless/prompt+rule).
@@ -451,22 +271,11 @@ mixin ChatServiceFieldBag {
   _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
 
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
-  // ── Session Metadata ──
-  String? _sessionName;
-  String? _sessionDescription;
-
-  // ── Per-session generation overrides ──
-  ChatGenerationSettings _sessionGenSettings = ChatGenerationSettings();
+  // Session name, description, per-chat generation settings and theme, and
+  // the fork lineage live on the session store.
   ({String key, ChatGenerationSettings chat})?
   _promptPickerPending; // prompt-picker SOW: the new 1:1 awaiting the picker
 
-  // ── Per-chat theme ──
-  ChatThemeOverrides _sessionThemeOverrides = ChatThemeOverrides();
-
-  // ── Chat Branching ──
-  String? _parentSessionId;
-  int? _forkIndex;
-  int _greetingIndex = 0;
   String? _evalCleanSrc, _evalCleanOut;
   bool _isGrowthPassRunning = false;
 
@@ -480,19 +289,8 @@ mixin ChatServiceFieldBag {
   @visibleForTesting
   LLMService? testWorkerLlmServiceOverride;
 
-  /// Test hook: import awaits this before mutating so a Send can race it.
-  @visibleForTesting
-  Completer<void>? testImportHold;
-
-  /// True while Manual Reprocess → Feelings runs the judges again. They may
-  /// not start quests then, and tier crossings wait in [_rescoreCrossings]
-  /// until the new score is kept (see chat_service_reprocess_choice.dart).
-  bool _rescoringFeelings = false;
-  final List<TierCrossing> _rescoreCrossings = [];
-
-  /// A rewrite from a word waiting for its turn: the next normal reply
-  /// starts with this text (see chat_service_variants.dart).
-  String? _regenSeed;
+  // The Feelings rescore flag and crossings, and the word-rewrite seed, live
+  // on the edits door (editsDoor.reprocess, editsDoor.tokenAlts).
 
   /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
   final _toolProbe = ToolTransportProbe();

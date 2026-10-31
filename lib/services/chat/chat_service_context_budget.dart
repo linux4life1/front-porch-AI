@@ -28,20 +28,20 @@ extension ChatServiceContextBudget on ChatService {
     if (send == null || send.isEmpty) return;
     target.activeMetadata ??= {};
     target.activeMetadata![kReplyContextKey] = send.toJson();
-    trimReplyContextTexts(_messages);
+    trimReplyContextTexts(_session.messages);
   }
 
   /// The prompt record of the reply at [index], or null when none was kept.
   ContextViewerSnapshot? replyContextSnapshot(int index) {
-    if (index < 0 || index >= _messages.length) return null;
-    final m = _messages[index];
+    if (index < 0 || index >= _session.messages.length) return null;
+    final m = _session.messages[index];
     if (m.isUser) return null;
     return replyContextOf(m);
   }
 
   /// Live estimate from the open chat (no model call). Context Viewer refresh.
   Future<void> _estimateContextBudgetNow() async {
-    if (_activeCharacter == null && _activeGroup == null) return;
+    if (_session.activeCharacter == null && _activeGroup == null) return;
 
     final identity = StringBuffer();
     var systemPrompt = '';
@@ -69,7 +69,7 @@ extension ChatServiceContextBudget on ChatService {
         },
       );
       final speaker =
-          _groupManager?.nextSpeaker ??
+          _session.groupManager?.nextSpeaker ??
           (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
       if (speaker != null) {
         speakerCard = _buildGroupSpeakerCard(
@@ -77,8 +77,8 @@ extension ChatServiceContextBudget on ChatService {
           userName: _userPersonaService.persona.name,
         );
       }
-    } else if (_activeCharacter != null) {
-      final c = _activeCharacter!;
+    } else if (_session.activeCharacter != null) {
+      final c = _session.activeCharacter!;
       systemPrompt = _resolveOneToOneBase(c);
       scenario = c.scenario;
       examples = c.mesExample;
@@ -103,7 +103,7 @@ extension ChatServiceContextBudget on ChatService {
 
     // The send's own line format (think blocks stripped) and trim rules,
     // so the estimate shows what a send would carry, not the whole chat.
-    final historyLines = _messages.map(_formatHistoryLine).toList();
+    final historyLines = _session.messages.map(_formatHistoryLine).toList();
 
     final snap = buildContextBudgetEstimate(
       ContextBudgetEstimateInput(
@@ -122,7 +122,7 @@ extension ChatServiceContextBudget on ChatService {
         reserveTokens:
             _sessionGenSettings.resolveMaxLength(_storageService) + 50,
         trimChunk: kHistoryTrimChunk,
-        overflowStart: overflowHistoryStart(_messages),
+        overflowStart: overflowHistoryStart(_session.messages),
       ),
     );
 
@@ -212,7 +212,7 @@ extension ChatServicePromptSource on ChatService {
   }
 
   String? get _activeOneToOneKey {
-    final card = _activeGroup == null ? _activeCharacter : null;
+    final card = _activeGroup == null ? _session.activeCharacter : null;
     return card == null ? null : stableGroupIdFrom(card.imagePath, card.name);
   }
 
@@ -221,7 +221,7 @@ extension ChatServicePromptSource on ChatService {
   /// remembered for this character, which is applied instead.
   void _armPromptPickerIfDue() {
     _promptPickerPending = null;
-    final card = _activeCharacter;
+    final card = _session.activeCharacter;
     if (_activeGroup != null || card == null || card.systemPrompt.isEmpty) {
       return;
     }
@@ -265,7 +265,7 @@ extension ChatServicePromptSource on ChatService {
           preset,
         );
       }
-      if (_currentSessionId != null) await _saveChat();
+      if (_session.currentSessionId != null) await _saveChat();
     }
     notifyListeners();
   }
@@ -279,7 +279,7 @@ extension ChatServicePromptSource on ChatService {
     _promptPickerPending = null;
     _sessionGenSettings.systemPromptSource = source;
     _sessionGenSettings.promptAmendmentsEnabled = amendments;
-    if (_currentSessionId != null) await _saveChat();
+    if (_session.currentSessionId != null) await _saveChat();
     notifyListeners();
     return true;
   }
@@ -288,7 +288,7 @@ extension ChatServicePromptSource on ChatService {
   /// plus the picker's prompts while a new chat is waiting on it. Null in
   /// groups and with no chat open.
   Map<String, Object?>? get promptSourceJson {
-    final card = _activeGroup == null ? _activeCharacter : null;
+    final card = _activeGroup == null ? _session.activeCharacter : null;
     if (card == null) return null;
     final g = _storageService.generationSettings;
     return {

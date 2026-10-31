@@ -37,6 +37,10 @@ import 'package:front_porch_ai/services/chat/context_viewer_snapshot.dart';
 import 'package:front_porch_ai/services/chat/mood_effects.dart';
 import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
@@ -46,7 +50,12 @@ import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
@@ -66,6 +75,8 @@ import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+
+import 'fakes_storage.dart';
 
 /// A timer-free, IO-free [LLMProvider] double. Exposes the backend-type surface
 /// screens read (e.g. the shared AvatarGenerationPanel's vision peek checks
@@ -112,6 +123,10 @@ class FakeLLMProvider extends ChangeNotifier implements LLMProvider {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+/// What [FakeChatService.objectivesDoor] has instead of a database or model.
+Never _noDoorDep() =>
+    throw UnsupportedError('Golden fakes have no database or model.');
 
 /// A `ChatService` double for sidebar/chat/overlay goldens. `ChatService` is a
 /// large god class, so this implements only the surface a rendered widget reads
@@ -466,6 +481,42 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   ObjectiveTally get objectiveTally => ObjectiveTally.none;
 
+  /// The objectives door the bridge members (activeObjectives, the task
+  /// prefs, tasksForObjective, …) read. Empty chat, no database, no model:
+  /// every read answers empty, and a write throws UnsupportedError.
+  @override
+  late final ObjectivesDoor objectivesDoor = ObjectivesDoor(
+    ObjectiveDeps(
+      session: ChatSessionState(),
+      database: _noDoorDep,
+      personas: _noDoorDep,
+      storage: _noDoorDep,
+      characterIdFor: (c) => c.name,
+      saveChat: () async {},
+      proposal: _noDoorDep,
+      mood: _noDoorDep,
+      journal: _noDoorDep,
+      time: _noDoorDep,
+      maxSecondaryObjectives: 4,
+      hooks: ObjectiveShellHooks(
+        objectivesActive: () => true,
+        nextSpeaker: () => null,
+        hasChatModel: () => false,
+        pendingMetadata: _noDoorDep,
+        historyBase: () => 0,
+        realismActiveThisMode: () => false,
+        setStatus: (_) {},
+        zeroSessionFlags: () {},
+        groupRepository: () => null,
+        rebindToday: () async {},
+        clearToday: () {},
+        holdToday: (_) async {},
+        releaseToday: (_) async {},
+        revertToday: (_) async {},
+      ),
+    ),
+  );
+
   // Context viewer surface.
   @override
   Map<String, int> get lastPromptBudget => const {};
@@ -522,6 +573,70 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   List<String> get suggestedActions => const [];
 
+  // The doors behind the media and Action Suggestions bridges. Goldens read
+  // the class forwarders above; a bridge call on this fake reaches a real
+  // door over an empty chat and inert services, which does nothing.
+  @override
+  late final MediaDoor mediaDoor = MediaDoor(
+    session: ChatSessionState(),
+    storage: FakeStorageService(),
+    personas: FakeUserPersonaService(),
+    worlds: FakeWorldRepository(),
+    imageGen: () => null,
+    llmProvider: () => null,
+    craftLlm: () => null,
+    saveChat: () async {},
+    isBusy: () => false,
+    setStatus: (_, {isError = false, sticky = false}) {},
+    sceneChanged: (_) => false,
+    guestCards: () => const [],
+    characterIdFor: characterIdFor,
+    expressionLabel: () => null,
+    timeOfDay: () => _time.timeOfDay,
+  );
+  @override
+  late final ActionsDoor actionsDoor = ActionsDoor(
+    session: ChatSessionState(),
+    personas: FakeUserPersonaService(),
+    mouthLlm: () => throw StateError('goldens run no model'),
+    mouthStream: (_) => const Stream<String>.empty(),
+  );
+
+  /// The cast door behind the cast bridge (guests, greetings, Away, idle).
+  /// Empty chat, no database or model, an unwired shell: a state read
+  /// answers empty (no guests, no banner, no undo, no detection), and
+  /// anything that needs a service or a turn throws.
+  @override
+  late final CastDoor castDoor = CastDoor(
+    CastDeps(
+      session: ChatSessionState(),
+      storage: FakeStorageService(),
+      personas: FakeUserPersonaService(),
+      macros: MacroResolver(),
+      database: _noDoorDep,
+      characters: () => null,
+      groupRepository: () => null,
+      imageGen: () => null,
+      realism: _noDoorDep,
+      evals: _noDoorDep,
+      snapshot: _noDoorDep,
+      dance: _noDoorDep,
+      judges: _noDoorDep,
+      mood: _noDoorDep,
+      clockWriter: _noDoorDep,
+      chaos: _noDoorDep,
+      evalEngine: _noDoorDep,
+      journal: _noDoorDep,
+      growthStore: _noDoorDep,
+      growthDesk: _noDoorDep,
+      objectives: () => objectivesDoor,
+      characterIdFor: characterIdFor,
+      saveChat: () async {},
+      notify: () {},
+      hooks: _UnwiredCastHooks(),
+    ),
+  );
+
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
   // buried-host regen button (matching the pre-scene-guest render). Without this
@@ -529,6 +644,40 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   // is what was making the MessageBubble goldens fail on CI.
   @override
   int? get regenerableHostBelowGuestsIndex => null;
+
+  /// The edits door the bridge members (the greet and swipe picker, the
+  /// Reprocess offers, token alternatives, …) read. Its reads answer from
+  /// this fake's own getters, as the extension bodies did; anything that
+  /// would edit the chat reaches an unwired hook and throws.
+  @override
+  late final EditsDoor editsDoor = EditsDoor(
+    EditDeps(
+      session: ChatSessionState(),
+      view: EditsView(
+        messages: () => messages,
+        activeCharacter: () => activeCharacter,
+        isGroupMode: () => isGroupMode,
+        activeGroup: () => activeGroup,
+        groupCharacters: () => groupCharacters,
+        observerMode: () => observerMode,
+        greetingIndex: () => greetingIndex,
+        isGenerating: () => isGenerating,
+        isSettlingTurn: () => isSettlingTurn,
+        isEvaluatingRealism: () => isEvaluatingRealism,
+        realismEnabled: () => realismEnabled,
+        needsActive: () => needsActive,
+      ),
+      services: _UnwiredEditHooks(),
+      characterIdFor: characterIdFor,
+      saveChat: ({replaceAll = false}) async {},
+      notify: notifyListeners,
+      turn: _UnwiredEditHooks(),
+      realism: _UnwiredEditHooks(),
+      cast: _UnwiredEditHooks(),
+      sessions: () => sessionStore,
+      prompt: _UnwiredEditHooks(),
+    ),
+  );
 
   // Living Time weather. Null (off) by default so every pre-weather sidebar
   // baseline renders byte-identical — TimeStrip omits the chip entirely on
@@ -589,6 +738,68 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get isTurnBusy => false;
 
+  /// The session store behind the session bridge (load, fork, the history
+  /// window, the today line's held quest). Empty chat, unwired services and
+  /// hooks: a state read answers empty (no name, no fork, nothing loading),
+  /// and anything that would load, save or fork throws.
+  @override
+  late final SessionStore sessionStore = SessionStore(
+    SessionDeps(
+      session: ChatSessionState(),
+      services: _UnwiredSessionHooks(),
+      hooks: _UnwiredSessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
+  /// Transfer doors over an empty session and an unwired host: goldens never
+  /// import or export, so no database or LLM stands behind them.
+  @override
+  late final ChatImporter chatImporter = ChatImporter(
+    ChatSessionState(),
+    _UnwiredTransferHost(),
+    saveChat: () async {},
+    notify: () {},
+  );
+  @override
+  late final ChatPackager chatPackager = ChatPackager(
+    ChatSessionState(),
+    _UnwiredTransferHost(),
+    importer: chatImporter,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [CastShellHooks] with nothing wired: any call is a NoSuchMethodError.
+class _UnwiredCastHooks implements CastShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The session store's services and hooks with nothing wired: any read is a
+/// NoSuchMethodError, as a private member read on this fake always was.
+class _UnwiredSessionHooks implements SessionServices, SessionShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [TransferHost] with nothing wired: any read is a NoSuchMethodError.
+class _UnwiredTransferHost implements TransferHost {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The edits door's services and hooks with nothing wired: any read is a
+/// NoSuchMethodError, as a private member read on this fake always was.
+class _UnwiredEditHooks
+    implements
+        EditServices,
+        EditTurnHooks,
+        EditRealismHooks,
+        EditCastHooks,
+        ImpersonatePromptHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

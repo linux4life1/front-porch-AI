@@ -38,7 +38,7 @@ extension ChatServiceWiringInjection on ChatService {
     final seen = <String>{};
     return [
       for (final e in _lorebookInjector.activeEntries(
-        sessionSeed: _currentSessionId ?? '',
+        sessionSeed: _session.currentSessionId ?? '',
       ))
         if (seen.add(e.content)) e,
     ];
@@ -67,9 +67,11 @@ extension ChatServiceWiringInjection on ChatService {
         // that names a lore key used to false-trigger entries into the next
         // prompt (prompt-assembly audit 2026-08-11).
         final includeNames = _storageService.lorebookSettings.includeNames;
-        final start = _messages.length > count ? _messages.length - count : 0;
+        final start = _session.messages.length > count
+            ? _session.messages.length - count
+            : 0;
         return [
-          for (final m in _messages.sublist(start))
+          for (final m in _session.messages.sublist(start))
             if (!m.isStatusBanner)
               m.characterId == '__director__'
                   ? m.toPromptHistoryLine()
@@ -81,10 +83,10 @@ extension ChatServiceWiringInjection on ChatService {
       getMaxRecursionSteps: () =>
           _storageService.lorebookSettings.maxRecursionSteps,
       timedEffects: _loreTimedEffects,
-      getChatLength: () => _messages.length,
+      getChatLength: () => _session.messages.length,
       resolveKeyMacros: (key) {
         final ch =
-            _activeCharacter ??
+            _session.activeCharacter ??
             (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
         if (ch == null) return key;
         return _macroResolver.resolve(
@@ -104,7 +106,7 @@ extension ChatServiceWiringInjection on ChatService {
       getEntryRefs: () => _collectLoreRefs(),
       getSettings: () => _storageService.lorebookSettings,
       isStickyActive: (e) =>
-          _loreTimedEffects.isStickyActive(e, _messages.length),
+          _loreTimedEffects.isStickyActive(e, _session.messages.length),
     );
   }
 
@@ -147,7 +149,7 @@ extension ChatServiceWiringInjection on ChatService {
       _activeGroupLorebook?.entries ?? const [];
 
   Future<void> _reloadChatWorldIds() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) {
       _chatPlaceSlots = const ChatPlaceSlots();
       _biomeSchedule = const BiomeSchedule();
@@ -159,10 +161,10 @@ extension ChatServiceWiringInjection on ChatService {
       // character's worlds now. Chats where the user actually chose (including
       // choosing none) are flagged and skipped, so a deliberate detach sticks.
       final refs = _activeGroup == null
-          ? (_activeCharacter?.worldNames ?? const <String>[])
+          ? (_session.activeCharacter?.worldNames ?? const <String>[])
           : const <String>[];
       final loreRefs = _activeGroup == null
-          ? _activeCharacter?.loreWorldNames
+          ? _session.activeCharacter?.loreWorldNames
           : null;
       if (refs.isNotEmpty || (loreRefs?.isNotEmpty ?? false)) {
         await _worldRepository.backfillChatWorldsFromCharacter(
@@ -184,7 +186,7 @@ extension ChatServiceWiringInjection on ChatService {
   }
 
   Future<void> _reloadBiomeSchedule() async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) {
       _biomeSchedule = const BiomeSchedule();
       return;
@@ -202,7 +204,7 @@ extension ChatServiceWiringInjection on ChatService {
   }
 
   Future<void> setChatWorldIds(List<String> worldIds) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     // Flat list:
     // - Primary still listed → keep role, remaining become lore (no auto-promote).
@@ -238,7 +240,7 @@ extension ChatServiceWiringInjection on ChatService {
     String? primaryId,
     List<String> loreIds = const [],
   }) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     // A move that changes the climate author must not rewrite history:
     // pin the old author's biome from day 1 (only if nothing is pinned
@@ -301,7 +303,7 @@ extension ChatServiceWiringInjection on ChatService {
   /// Insert a mid-chat climate changeover from [dayCount] onward.
   /// No-op when Primary is empty or climate-off (lore never authors climate).
   Future<void> setChatClimate(Biome biome) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     final primaryId = _chatPlaceSlots.primaryId;
     final chain = primaryId == null
@@ -324,8 +326,8 @@ extension ChatServiceWiringInjection on ChatService {
     final scanner = inheritOverride == true;
     var characters = _activeGroup != null
         ? _groupCharacters
-        : (_activeCharacter != null
-              ? [_activeCharacter!]
+        : (_session.activeCharacter != null
+              ? [_session.activeCharacter!]
               : const <CharacterCard>[]);
     CharacterCard? speaker;
     if (!scanner && _activeGroup != null) {
@@ -441,7 +443,7 @@ extension ChatServiceWiringInjection on ChatService {
   }) {
     ChatMessage? lastUser;
     ChatMessage? lastChar;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (m.characterId == '__director__') continue;
       lastUser ??= m.isUser ? m : null;
       lastChar ??= !m.isUser ? m : null;
@@ -450,7 +452,7 @@ extension ChatServiceWiringInjection on ChatService {
     return MacroContext(
       userName: _userPersonaService.persona.name,
       characterName: speaking.name,
-      chatId: _currentSessionId,
+      chatId: _session.currentSessionId,
       characterId: speaking.dbId,
       description: speaking.description,
       personality: _growthDesk.effectivePersonality(speaking),
@@ -459,7 +461,9 @@ extension ChatServiceWiringInjection on ChatService {
       groupMemberNames: _activeGroup != null
           ? [for (final c in _groupCharacters) c.name]
           : null,
-      lastMessage: _messages.isNotEmpty ? _messages.last.displayText : null,
+      lastMessage: _session.messages.isNotEmpty
+          ? _session.messages.last.displayText
+          : null,
       lastUserMessage: lastUser?.displayText,
       lastCharMessage: lastChar?.displayText,
       idleDuration: _lastUserMessageAt == null

@@ -142,6 +142,7 @@ export 'scene_place_offer.dart';
 export 'scene_guest_factory.dart';
 export 'sentence_stream.dart';
 export 'session_open_window.dart';
+export 'session_state.dart';
 export 'stop_sequences.dart';
 export 'story_clock.dart';
 export 'story_clock_claims.dart';

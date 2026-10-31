@@ -52,10 +52,10 @@ const _stateAndRewinds = <String, String>{
   'lib/services/chat/chat_service_group_members.dart':
       'seeds a member who joins',
   'lib/services/chat/chat_service_greeting_seed.dart': 'seeds from a greeting',
-  'lib/services/chat/chat_service_import_seed.dart': 'seeds from an import',
-  'lib/services/chat/chat_service_session_hydrate.dart':
+  'lib/services/chat/doors/session/session_seed.dart': 'seeds from an import',
+  'lib/services/chat/doors/session/session_scalars.dart':
       'restores the bars from a session',
-  'lib/services/chat/chat_service_session_manage.dart':
+  'lib/services/chat/doors/session/new_chat.dart':
       'saves the bars with a session',
   'lib/services/chat/chat_service_speaker_objectives.dart':
       'restores the bars from a message\'s snapshot on rewind',

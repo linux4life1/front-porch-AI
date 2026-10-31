@@ -95,7 +95,7 @@ extension ChatServiceAccessors on ChatService {
   /// turn. Sidebar dots and the web facade read this so they never show an
   /// inclusion-group loser as active.
   Set<LorebookEntry> currentlyActiveLoreEntries() => _lorebookInjector
-      .activeEntries(sessionSeed: _currentSessionId ?? '')
+      .activeEntries(sessionSeed: _session.currentSessionId ?? '')
       .toSet();
 
   /// Public attach surface for chat tools / UI (Living Worlds).
@@ -111,10 +111,7 @@ extension ChatServiceAccessors on ChatService {
 
   /// Coarse absence bucket ("a few days"), or null under the threshold /
   /// fresh chat. Words only — never digits (see AbsenceTracker).
-  String? get absencePhrase => AbsenceTracker.bucketPhrase(
-    _absenceGap,
-    thresholdHours: _storageService.realismSettings.absenceThresholdHours,
-  );
+  String? get absencePhrase => sessionStore.absencePhrase;
 
   /// [absencePhrase] gated by the welcome-back-banner setting — the ONE gate
   /// both the desktop banner and the web facade read, so they can't drift.
@@ -248,9 +245,10 @@ extension ChatServiceAccessors on ChatService {
     // preference carried in from a previous 1:1 (e.g. a "enjoys being dirty"
     // character) would stay stale and invert every group member's hygiene.
     if (_activeGroup != null) {
-      return _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false;
+      return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+          false;
     }
-    return _activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+    return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
         _enjoysLowHygiene;
   }
 
@@ -259,9 +257,10 @@ extension ChatServiceAccessors on ChatService {
   /// so that existing chats immediately pick up the new setting without a
   /// database change.
   void refreshEnjoysLowHygieneFromActiveCharacter() {
-    if (_activeCharacter != null) {
+    if (_session.activeCharacter != null) {
       _enjoysLowHygiene =
-          _activeCharacter!.frontPorchExtensions?.enjoysLowHygiene ?? false;
+          _session.activeCharacter!.frontPorchExtensions?.enjoysLowHygiene ??
+          false;
       notifyListeners();
     }
   }
@@ -286,7 +285,7 @@ extension ChatServiceAccessors on ChatService {
     // from inside its in-progress write/transaction; re-check guards (and that
     // the chat hasn't switched) on the microtask. _resolveSceneGuestCards also
     // self-guards on the token, so a stale resolve can't write the wrong chat.
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     scheduleMicrotask(() {
       if (_sceneChanged(token) || _sceneGuest.busy || _sceneGuest.ids.isEmpty) {
         return;
@@ -341,7 +340,7 @@ extension ChatServiceAccessors on ChatService {
   /// Body for the class-pinned [lastRagReceipt] (fakes override the class
   /// member; see chat_service.dart). Reads the PUBLIC [messages] getter so
   /// a FakeChatService that implements ChatService from outside this library
-  /// is never probed for `_messages`.
+  /// is never probed for `_session.messages`.
   Map<String, dynamic>? get _lastRagReceiptImpl {
     for (final m in messages.reversed) {
       if (m.isUser || m.sender == 'System') continue;
@@ -385,8 +384,8 @@ extension ChatServiceAccessors on ChatService {
     if (_activeGroup != null) {
       return 'group_${_activeGroup!.id}';
     }
-    if (_activeCharacter == null) return "unknown";
-    return _getCharacterIdFromCard(_activeCharacter!);
+    if (_session.activeCharacter == null) return "unknown";
+    return _getCharacterIdFromCard(_session.activeCharacter!);
   }
 
   /// Helper used when constructing messages.
@@ -417,34 +416,6 @@ extension ChatServiceAccessors on ChatService {
   // cannot be overridden via `implements`/`extends`. Verbatim bodies, moved
   // as part of the round-4b god-file shrink (docs/design/god-file-elimination.md).
 
-  /// Append an already-saved generated image to the conversation as a
-  /// character message (empty text; the bubble renders the image from
-  /// metadata). Shared by the /image slash command, the Image Studio's
-  /// "Send to chat", and the web insert-image endpoint.
-  Future<void> _addGeneratedImageMessageImpl(
-    String path,
-    String prompt, {
-    String? senderName,
-    String? characterId,
-  }) async {
-    if (_activeCharacter == null && _activeGroup == null) return;
-    _messages.add(
-      ChatMessage(
-        text: '',
-        sender: senderName ?? _activeCharacter?.name ?? 'Narrator',
-        isUser: false,
-        characterId: characterId,
-        metadata: {
-          'is_generated_image': true,
-          'image_path': path,
-          'image_prompt': prompt,
-        },
-      ),
-    );
-    await _saveChat();
-    notifyListeners();
-  }
-
   /// Everything [ChatService.dispose] does except the mandatory
   /// `super.dispose()` call, which only the class body can make.
   void _disposeCleanupImpl() {
@@ -473,6 +444,8 @@ extension ChatServiceAccessors on ChatService {
   /// comment that used to sit here claimed both were canonicalized; the
   /// removals it blessed were silently doing nothing.
   void _initImpl() {
+    _forwardDoorNotify(mediaDoor);
+    _forwardDoorNotify(actionsDoor);
     // Probe verdicts land from background passes and the manual test alike —
     // rebroadcast so the sidebar's tool-calling pill repaints live.
     _toolProbe.addListener(notifyListeners);

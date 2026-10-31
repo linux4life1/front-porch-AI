@@ -87,9 +87,9 @@ extension ChatServiceGenerationRequest on ChatService {
     // We still stop on other speakers or the user (to catch unwanted new turns).
     String? continueSpeakerName;
     if (t.mode == GenerationMode.continue_ &&
-        _messages.isNotEmpty &&
-        !_messages.last.isUser) {
-      continueSpeakerName = _messages.last.sender;
+        _session.messages.isNotEmpty &&
+        !_session.messages.last.isUser) {
+      continueSpeakerName = _session.messages.last.sender;
     }
 
     // Group rosters are rotated so the soonest next speakers come first —
@@ -109,7 +109,7 @@ extension ChatServiceGenerationRequest on ChatService {
           ? [...names.sublist(idx + 1), ...names.sublist(0, idx + 1)]
           : names;
     } else {
-      stopCharacterNames = [_activeCharacter!.name];
+      stopCharacterNames = [_session.activeCharacter!.name];
     }
 
     final stopList = t.stopList = buildPrioritizedStops(
@@ -149,7 +149,7 @@ extension ChatServiceGenerationRequest on ChatService {
     // regenerate, first group speaker, or continue of that reply) and never
     // on a later idle/AFK, group auto-advance, or guest turn. Blind backends
     // get null and rely on the history marker from _formatHistoryLine.
-    final turnImages = await buildTurnImages(t.mode);
+    final turnImages = await mediaDoor.buildTurnImages(t.mode);
 
     GenerationParams paramsOf(
       String p, {
@@ -237,7 +237,7 @@ extension ChatServiceGenerationRequest on ChatService {
     final includeWiki =
         t.forcedWikiQuery == null &&
         shouldAdvertiseWikiSearch(
-          wikiUrl: _wikiBaseUrlImpl,
+          wikiUrl: mediaDoor.wikiBaseUrl,
           directUserSend: t.directUserSend,
           continueMode: t.mode == GenerationMode.continue_,
           toolsUnsupported: xmlOnly,
@@ -272,7 +272,7 @@ extension ChatServiceGenerationRequest on ChatService {
         mouth: genParams,
         catalog: catalog,
         lastUserMessage: _latestUserLineForDoorbell(),
-        wikiWindow: wikiWindowFromMessages(_messages),
+        wikiWindow: wikiWindowFromMessages(_session.messages),
       );
       if (jobs.isNotEmpty) {
         await _withWorkerLane(() async {
@@ -281,8 +281,8 @@ extension ChatServiceGenerationRequest on ChatService {
               llm: sideLaneLlm,
               params: job.params,
               catalog: job.catalog,
-              search: _webSearchService,
-              wiki: _wikiSearchService,
+              search: mediaDoor.webSearchService,
+              wiki: mediaDoor.wikiSearchService,
               backendIdentity: _evalBackendIdentity,
             );
             if (round.searchReceipt != null) {
@@ -299,7 +299,16 @@ extension ChatServiceGenerationRequest on ChatService {
         });
       }
     }
-    await _applyForcedLookup(t, scraps);
+    final forced = await mediaDoor.runForcedLookup(
+      webQuery: t.forcedWebQuery,
+      wikiQuery: t.forcedWikiQuery,
+    );
+    if (forced != null) {
+      final injection = forced.injection;
+      if (injection != null && injection.isNotEmpty) scraps.add(injection);
+      if (forced.searchReceipt != null) t.searchReceipt = forced.searchReceipt;
+      if (forced.wikiReceipt != null) t.wikiReceipt = forced.wikiReceipt;
+    }
     final joined = collateCatalogInjections(scraps);
     if (joined != null && joined.isNotEmpty) {
       t.plan.section('web_search').text = joined;
@@ -393,10 +402,50 @@ extension ChatServiceGenerationRequest on ChatService {
   /// Latest user line for the web-search doorbell. promptText, so a photo
   /// is the caption marker and a think block is already stripped.
   String _latestUserLineForDoorbell() {
-    for (var i = _messages.length - 1; i >= 0; i--) {
-      if (!_messages[i].isUser) continue;
-      return _messages[i].promptText.trim();
+    for (var i = _session.messages.length - 1; i >= 0; i--) {
+      if (!_session.messages[i].isUser) continue;
+      return _session.messages[i].promptText.trim();
     }
     return '';
   }
+}
+
+/// The turn side of token alternatives (store and rewrite in the edits
+/// door's TokenAlts): seed a rewrite, ask KoboldCpp for word odds, keep the
+/// reply's unsure places. Continue is never seeded and never asks.
+extension ChatServiceTokenAltTurn on ChatService {
+  /// A rewrite from a word: the reply starts with [_GenTurn.continuePrefix],
+  /// which KoboldCpp continues as a trailing assistant message.
+  bool _isSeeded(_GenTurn t) => TokenAlts.isSeeded(t.mode, t.continuePrefix);
+
+  /// Hands the pending rewrite seed to the turn being planned.
+  void _applyRegenSeed(_GenTurn t) {
+    final seed = editsDoor.tokenAlts.takeSeed();
+    if (seed != null && t.mode == GenerationMode.normal) {
+      t.continuePrefix = seed;
+    }
+  }
+
+  List<Map<String, Object>>? _seededMessages(_GenTurn t, String prompt) =>
+      _isSeeded(t)
+      ? [
+          {'role': 'user', 'content': prompt},
+          {'role': 'assistant', 'content': t.continuePrefix},
+        ]
+      : null;
+
+  /// Asks for word odds on a normal reply from KoboldCpp, and nowhere else.
+  void Function(List<Object?>)? _logprobsSink(_GenTurn t) {
+    if (!_mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
+      return null;
+    }
+    return editsDoor.tokenAlts.sinkFor(t);
+  }
+
+  /// Keeps the unsure places of the finished reply on its swipe.
+  void _stampTokenAlts(_GenTurn t) => editsDoor.tokenAlts.stamp(
+    t,
+    t.streamTarget,
+    from: _isSeeded(t) ? t.continuePrefix.length : 0,
+  );
 }

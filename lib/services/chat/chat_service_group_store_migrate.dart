@@ -26,7 +26,10 @@ extension ChatServiceGroupStoreMigrate on ChatService {
       _groupCharacterRAGPriorities,
       members,
     );
-    sessionChanged |= migrateGroupStoreKeys(_groupObjectives, members);
+    sessionChanged |= migrateGroupStoreKeys(
+      objectivesDoor.groupObjectives,
+      members,
+    );
     sessionChanged |= _rekeyGroupMemberRelationships(members);
 
     if (_rekeyGroupDefinitionBlobs(members)) {
@@ -51,7 +54,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   /// Session-scoped journal / growth / embeddings. Other chats that
   /// still key a same-name member stay put. Safe to repeat.
   Future<void> _rekeyGroupMemoryRows(Iterable<CharacterCard> members) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     var moved = false;
     try {
@@ -77,12 +80,12 @@ extension ChatServiceGroupStoreMigrate on ChatService {
     if (moved) await _growthDesk.refreshCache();
   }
 
-  /// Fill the existing [_groupObjectives] map from DB after rekey.
+  /// Fill the existing [ObjectivesDoor.groupObjectives] map from DB after rekey.
   /// Session-scoped rows and card-level (`chat_id IS NULL`) rows.
   Future<void> _hydrateGroupObjectivesFromDb(
     Iterable<CharacterCard> members,
   ) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     try {
       for (final member in members) {
         final id = groupMemberStoreId(member);
@@ -90,7 +93,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
             ? await _db.getObjectivesForCharacter(id, chatId: sid)
             : const <Objective>[];
         final cardRows = await _db.getObjectivesForCharacter(id);
-        _groupObjectives[id] = [...sessionRows, ...cardRows];
+        objectivesDoor.groupObjectives[id] = [...sessionRows, ...cardRows];
       }
     } catch (e) {
       debugPrint('[GroupStore] Failed to hydrate objectives: $e');
@@ -100,7 +103,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
   /// Session-scoped rows always move. Card-level rows move only when
   /// no library character already owns that legacy key.
   Future<void> _rekeyGroupObjectiveRows(Iterable<CharacterCard> members) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     try {
       for (final member in members) {
         final dest = groupMemberStoreId(member);

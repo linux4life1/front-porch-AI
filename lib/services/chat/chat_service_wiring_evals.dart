@@ -37,12 +37,12 @@ extension ChatServiceWiringEvals on ChatService {
   // 1:1 vs group + oneShot vs normal dispatch/parity preserved exactly (cbs + impersonation temp re-load; qualified).
   LlmEvalEngine _buildLlmEvalEngine() {
     return LlmEvalEngine(
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getUserName: () => _userPersonaService.persona.name,
       getRealismEnabled: () => _realismEnabled,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       // Shared tools transport for the needs-impact eval (one probe per
       // backend identity, app-wide).
       fireToolEval: _fireToolEval,

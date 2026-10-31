@@ -120,13 +120,8 @@ const Duration _kStreamNotifyInterval = Duration(milliseconds: 33);
 /// Inter-call delay used when staggering the multi-call realism evaluations.
 const _kEvalDispatchStagger = Duration(milliseconds: 50);
 
-/// Realism as it stood before a USER message was first scored, stamped on
-/// that user message. The scored result rides the reply, so once the reply
-/// is deleted, cancelled, or failed, this is the only record of the turn's
-/// start. Generate reply on a trailing user message rewinds here and
-/// re-scores (#339). 1:1 holds one snapshot; groups key it by speaker id.
-const String kRealismPreTurn = 'realism_pre_turn';
-const String kRealismPreTurnBySpeaker = 'realism_pre_turn_by_speaker';
+// kRealismPreTurn / kRealismPreTurnBySpeaker live in realism_snapshot.dart
+// beside the other pre-turn receipts; the edits door reads them too.
 
 // Internal flag to signal a cancellation request for realism evaluation.
 // This is a file-scope flag to avoid needing to thread state through the
@@ -174,7 +169,7 @@ bool _isStaleGreetingEval() {
 }
 
 /// Set when [_runPostGreetingEval] passes its guards (not skipped solely
-/// because [_activeCharacter] is null). Tests prove group unauthored alts
+/// because [_session.activeCharacter] is null). Tests prove group unauthored alts
 /// reach the eval path.
 @visibleForTesting
 bool testPostGreetingEvalEntered = false;

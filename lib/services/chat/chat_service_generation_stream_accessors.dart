@@ -31,7 +31,7 @@ extension ChatServiceGenerationStreamAccessors on ChatService {
   bool get _isTurnBusy =>
       _isGenerating ||
       _isPostGenerating ||
-      _isImporting ||
+      isImporting ||
       _narrating ||
       _skipAsked;
 

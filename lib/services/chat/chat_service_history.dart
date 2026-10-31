@@ -44,7 +44,7 @@ class _HistoryAnchor {
 final Expando<_HistoryAnchor> _historyAnchorOf = Expando();
 
 /// Private prompt chat-history builders and token counting/budgeting. Pure
-/// formatting over `_messages` plus token accounting — no orchestration or
+/// formatting over `_session.messages` plus token accounting — no orchestration or
 /// engine logic — extracted verbatim from `chat_service.dart` (zero behaviour
 /// change) to shrink the god file. Private members, so safe to move to an
 /// extension (never part of the public interface / fakeable).
@@ -58,22 +58,22 @@ extension ChatServiceHistory on ChatService {
 
   /// One line per message, a time-skip bridge read after its skip line.
   List<String> _promptOrderedLines() => bridgesAfterSkipLines(
-    _messages,
-    _messages.map(_formatHistoryLine).toList(),
+    _session.messages,
+    _session.messages.map(_formatHistoryLine).toList(),
   );
 
   Iterable<String> _promptHistoryLines(Iterable<String> lines) =>
       lines.where((l) => l.isNotEmpty);
 
   /// Tiny-context floor: keep the latest user line and everything after it.
-  /// A guest chime-in used to keep only `_messages.last` (the host reaction)
+  /// A guest chime-in used to keep only `_session.messages.last` (the host reaction)
   /// and the question the guest was meant to answer vanished.
   ({String history, int droppedCount}) _overflowContinuityHistory() {
-    if (_messages.isEmpty) return (history: '', droppedCount: 0);
-    final start = overflowHistoryStart(_messages);
+    if (_session.messages.isEmpty) return (history: '', droppedCount: 0);
+    final start = overflowHistoryStart(_session.messages);
     return (
       history: _promptHistoryLines(
-        _messages.sublist(start).map(_formatHistoryLine),
+        _session.messages.sublist(start).map(_formatHistoryLine),
       ).join('\n'),
       droppedCount: start,
     );
@@ -84,7 +84,11 @@ extension ChatServiceHistory on ChatService {
   /// zone. Blank lines never reach the window, so they are not counted.
   int _latestTurnLineCount(List<String> formatted) {
     var n = 0;
-    for (var i = latestTurnStart(_messages); i < formatted.length; i++) {
+    for (
+      var i = latestTurnStart(_session.messages);
+      i < formatted.length;
+      i++
+    ) {
       if (formatted[i].isNotEmpty) n++;
     }
     return n;
@@ -116,7 +120,7 @@ extension ChatServiceHistory on ChatService {
     List<LoreDepthEntry> depthLore = const [],
     bool splitLatestTurn = false,
   }) async {
-    if (_messages.isEmpty) {
+    if (_session.messages.isEmpty) {
       return (history: '', latestTurn: '', droppedCount: 0, tokenCount: 0);
     }
 
@@ -182,9 +186,9 @@ extension ChatServiceHistory on ChatService {
     //     context now affords would be theft), or an anchor beyond the
     //     message list (a cleared/rewritten chat).
     final anchor = _historyAnchorOf[this] ??= _HistoryAnchor();
-    if (anchor.session != _currentSessionId ||
+    if (anchor.session != _session.currentSessionId ||
         anchor.dropped >= formatted.length) {
-      anchor.session = _currentSessionId;
+      anchor.session = _session.currentSessionId;
       anchor.dropped = 0;
       anchor.budget = tokenBudget;
     } else if (tokenBudget > anchor.budget + (anchor.budget >> 2)) {

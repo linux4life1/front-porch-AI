@@ -79,7 +79,7 @@ extension ChatServiceLlmLanes on ChatService {
 
   /// The chat a reply belongs to, for KoboldCpp's cache. Only a chat reply
   /// carries it ([GenerationParams.kvChat]).
-  String? get _kvChatKey => _currentSessionId;
+  String? get _kvChatKey => _session.currentSessionId;
 
   /// A deleted chat's saved cache is let go. This runs inside the database's
   /// delete: what goes wrong is said in the log and goes no further.

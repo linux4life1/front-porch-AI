@@ -2,8 +2,9 @@
 
 The ChatService shell (`lib/services/chat_service.dart`) is one 26,000-line
 class spread across 77 `part` files. Every part is a public
-`extension … on ChatService` that reads and writes a mixin of 164 private
-fields (`ChatServiceFieldBag`, `lib/services/chat/chat_service_fields.dart`).
+`extension … on ChatService` that reads and writes a mixin of 154 private
+fields (`ChatServiceFieldBag`, `lib/services/chat/chat_service_fields.dart`)
+plus 74 more `late final` and plain fields on the class body.
 The parts are the symptom. The shared private namespace is the problem: no
 boundary exists between domains, so every change can touch every field.
 
@@ -18,7 +19,7 @@ source of truth once work starts.
 | Measure | Value |
 |---|---|
 | `part` directives on the shell | 77 (75 extensions, 2 mixins) |
-| Fields in `ChatServiceFieldBag` | 164 |
+| Instance fields, bag plus shell | 228 (154 in the mixin, 74 on the class) |
 | Public members declared in parts | 341 |
 | Private members declared in parts | 438 |
 | `notifyListeners()` calls in parts | 181 |
@@ -145,6 +146,7 @@ Add two test files and two baselines. Model both on
   `ChatService` class body. Baseline `test/baselines/chat_service_fields.json`
   records the count. The count may only go down; a decrease must lower the
   baseline in the same change. `FPAI_TIGHTEN_BASELINES=1` lowers it.
+  Landed at 228 on Rawhide.
 - `test/hygiene/chat_service_api_manifest_test.dart` lists every public
   member name reachable on a `ChatService` value: class members, mixin
   members, and members of every public `extension … on ChatService` in the
@@ -174,6 +176,12 @@ every later door has something to take.
 - `RealismScope` and `StoryClockScope` gain a `session` input and drop the
   closures it replaces (`messages`, `activeCharacter`, `activeGroup`,
   `groupCharacters`). Their leaf consumers read through it.
+
+Landed as 228 → 225 fields: `_session` is one field replacing four. Debt
+left for WP9a: the old closure-taking `RealismScope(...)` survives as a
+factory because `test/services/chat/afterglow_independence_test.dart` builds
+the scope that way; WP9a rebuilds the scope and retires the factory with an
+`approved-test-change` on that test.
 
 Done when: field bag baseline drops by four, part count unchanged, API
 manifest unchanged, full unit suite green, and these suites pass:
@@ -209,6 +217,12 @@ Done when: part baseline 77 → 73, field bag down, manifest unchanged,
 `message_actions_test.dart` pass. The 42 test files that mention generated
 images, photos or web search pass unedited.
 
+Landed at 68 parts and 215 fields, all four parts retired. The shared
+coalescer lives in `lib/services/chat/doors/coalesced_notify.dart` and the
+shell's `_forwardDoorNotify` registers every door on it. Door-driven
+changes now reach listeners one microtask later than before; every named
+suite passed with that.
+
 ### WP3. Import and export door
 
 Parts retired (7, ~1,580 lines): `chat_service_sillytavern`,
@@ -229,6 +243,15 @@ Parts retired (7, ~1,580 lines): `chat_service_sillytavern`,
 Done when: part baseline → 66, `integration_test/porch_byaf_import_dialog_test.dart`,
 `lorebook_import_test.dart` and `backup_restore_test.dart` pass, and the 25
 test files that mention import or packages pass unedited.
+
+Landed at 72 parts and 224 fields with five of the seven parts retired.
+`chat_service_import_seed` and `chat_service_import_walk` stay because
+`test/hygiene/needs_gate_ratchet_test.dart` (`_stateAndRewinds`) names the
+seed file by path and `test/hygiene/realism_gate_ratchet_test.dart`
+(`_ownSwitch`) pins how often each names `_realismChatSwitch` (3 and 2).
+WP7 retires both with an `approved-test-change` that moves those entries.
+The importer takes a `TransferHost` of 25 typed callbacks, `seedScalars`
+among them; WP7 replaces them with the session store.
 
 ### WP4. Objectives door
 
@@ -251,6 +274,15 @@ Parts retired (4, ~1,500 lines): `chat_service_objectives`,
 
 Done when: part baseline → 62, the 86 objective test files pass unedited,
 `integration_test/group_realism_wiring_test.dart` passes.
+
+Landed at 65 parts and 208 fields with three of the four parts retired.
+`chat_service_speaker_objectives` stays, holding only the realism restore
+trio, post-gen Needs checks and mood decay, because
+`test/hygiene/needs_gate_ratchet_test.dart:60` names it by path and
+`test/services/chat/needs_beat_span_test.dart:264` greps it. Retiring it is
+a path-only `approved-test-change` for WP7 or WP10b, whichever takes the
+code. `objectivesActive` and `inObjectiveTurn` are read live through the
+door.
 
 ### WP5. Message operations door
 
@@ -275,6 +307,17 @@ swipe, reprocess or impersonate pass unedited, and these suites pass:
 `integration_test/regen_shortcut_test.dart`, `swipe_fork_cancel_test.dart`,
 `needs_reprocess_test.dart`, `message_actions_test.dart`.
 
+Landed at 62 parts and 206 fields with three of the six parts retired.
+`chat_service_message_ops` (stop and cancel, delete's Needs baseline),
+`chat_service_regen_revert` (`_revertRegenRealismBaseline`) and
+`chat_service_reprocess` (the regen judge replay) stay because
+`test/services/chat/catastrophe_clear_on_cancel_test.dart`,
+`test/hygiene/needs_gate_ratchet_test.dart` and
+`test/services/chat/trust_repair_regen_latch_test.dart` name them by path.
+The door takes typed hook groups (`edit_hooks.dart`) that WP7, WP9a and
+WP10b retire. The door's own changes notify synchronously because the
+overlay and the web push listen for the exact eval transitions.
+
 ### WP6. Cast door
 
 Parts retired (9, ~2,900 lines): `chat_service_cast`,
@@ -296,6 +339,16 @@ Done when: part baseline → 47, the 180 test files that mention guests,
 greetings, idle or the away pulse pass unedited, and
 `integration_test/group_smoke_test.dart`, `place_mint_journey_test.dart`
 and `chat_switch_smoke_test.dart` pass.
+
+Landed at 57 parts and 190 fields with five of the nine parts retired.
+`cast_shrink` (`realism_gate_ratchet_test`), `greeting_seed` and
+`group_lite` (`needs_gate_ratchet_test`) and `idle_autonomous`
+(`afk_cue_speaker_test`) stay as the pinned code only. The cast classes
+take a synchronous `notify` because the banner and greeting flags are
+order-sensitive mid-turn. Other parts reach the moved names through
+one-line private forwarders in `chat_service_wiring_mint.dart`; each
+later package retires the ones it owns. WP2's and WP3's cast callbacks
+now point at the door.
 
 ### WP7. Session store door
 
@@ -322,6 +375,18 @@ Done when: part baseline → 38, the 78 test files that mention fork, load,
 hydrate or new chat pass unedited, and `integration_test/swipe_fork_cancel_test.dart`,
 `chat_find_test.dart`, `story_time_test.dart` and
 `regen_feelings_cadence_test.dart` pass.
+
+Landed at 46 parts and 161 fields, all eleven parts retired (the nine
+session parts plus WP3's `import_seed` and `import_walk`). The store also
+took the seven per-member group config fields as `GroupSessionConfig`,
+since they live in the session blob. Test path re-points: three entries
+in `needs_gate_ratchet_test`, five in `realism_gate_ratchet_test` (counts
+rise by the accessor declarations each door needs over the `chatRealism`
+hooks, plus one new entry for the wiring file that reads and writes the
+raw switch), and one in `transcript_stream_scroll_test`. `TransferHost`
+shrank by twelve callbacks to one `sessions` lookup and
+`EditSessionHooks` is gone; `SessionShellHooks` lists the 35 hooks the
+store still takes, each named for the package that retires it.
 
 ### WP8. Entry and group roster door
 
@@ -358,7 +423,8 @@ Parts retired (7, ~2,900 lines): `chat_service_wiring_realism`,
 - `lib/services/chat/doors/realism/realism_graph.dart` builds, once, every
   object the 62 `_build*` factories build today, from `ChatSessionState`,
   the storage service and the door getters. The shell's `late final`
-  fields become one `late final _realism = RealismGraph(...)` and the
+  fields become one `late final _realism = RealismGraph(...)`, the
+  closure-taking `RealismScope(...)` factory WP1 left behind goes, and the
   public getters (`relationshipService`, `timeService`, `needsSimulation`,
   `journalStore`, `pocketsFor`, `milestoneFeed` and the rest) forward to it.
 - Eval transport contract: native tool call first, then the text floor,
@@ -476,6 +542,17 @@ Parts retired (2): `chat_service_accessors`, `chat_service_fields`.
 
 Done when: part count 0, full unit suite, all 42 integration suites on
 Linux, web tests and web E2E green.
+
+## Parts the ratchets pin by path
+
+`test/hygiene/needs_gate_ratchet_test.dart` (`_stateAndRewinds`) and
+`test/hygiene/realism_gate_ratchet_test.dart` (`_ownSwitch`) list part
+files by path, and a few leaf tests grep a part for a member name. A part
+they name cannot be deleted without re-pointing the entry at the door file
+that now holds the same code. From WP7 on, each package carries exactly
+those path-only re-points for the parts in its scope, with counts
+unchanged and every edit listed in the commit body; that is the
+`approved-test-change` the test-integrity rule asks for.
 
 ## Sequencing
 

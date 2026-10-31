@@ -81,8 +81,8 @@ extension ChatServiceGenerationPlan on ChatService {
     // and place it as the prompt suffix so the LLM continues from it naturally.
     // Wrapped in try-finally to guarantee restoration even on exception.
     ChatMessage? _continuePoppedMessage;
-    if (t.mode == GenerationMode.continue_ && _messages.isNotEmpty) {
-      _continuePoppedMessage = _messages.removeLast();
+    if (t.mode == GenerationMode.continue_ && _session.messages.isNotEmpty) {
+      _continuePoppedMessage = _session.messages.removeLast();
       // Think-stripped / photo-aware (promptText), same contract as history
       // lines — raw .text re-injects closed <think> plans into the Continue
       // suffix (Nina-class hole on the Continue path only; audit P0.2).
@@ -270,7 +270,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // diary if needed; stays armed through regen of this AI message until
       // the *next* user send clears it.
       final porchDiaryId = _getCharacterIdFromCard(t.speakingCharacter);
-      final porchSessionId = _currentSessionId;
+      final porchSessionId = _session.currentSessionId;
       if (porchSessionId != null) {
         await _porchMemoryImport.ensureArmedForDiary(
           sessionId: porchSessionId,
@@ -287,14 +287,14 @@ extension ChatServiceGenerationPlan on ChatService {
       // Objective injection — always injected regardless of realism mode
       // Must sit in a fixed prompt section so it is NEVER trimmed by the budget system.
       // (thin delegation to author_note_builder per step 8; state/CRUD in god)
-      // Soft guests do not own quests — and `_activeObjectives` may still
+      // Soft guests do not own quests — and the loaded objective list may still
       // hold the last full speaker's list. Macro-resolved like every other
       // block: `{{char}}` names the speaker, and a stored goal's `{{user}}`
       // reaches the model as the user's name.
       final objectiveBlock = liteTurn
           ? ''
           : _macroResolver.resolve(
-              _getObjectiveInjection(),
+              _authorNoteBuilder.buildObjectiveInjection(),
               macroCtx,
               section: 'objectives',
             );
@@ -401,7 +401,7 @@ extension ChatServiceGenerationPlan on ChatService {
       }
       // Zero/negative budget: last user line + everything after it (think-
       // stripped). Raw lastMsg.text re-injects <think> (audit 2026-08-11).
-      if (t.historyBudget <= 0 && _messages.isNotEmpty) {
+      if (t.historyBudget <= 0 && _session.messages.isNotEmpty) {
         // All of it is the latest beat, so all of it renders last.
         final overflow = _overflowContinuityHistory();
         t.history = '';
@@ -411,7 +411,7 @@ extension ChatServiceGenerationPlan on ChatService {
     } finally {
       // ── Restore the popped continue message back into the list ──
       if (_continuePoppedMessage != null) {
-        _messages.add(_continuePoppedMessage);
+        _session.messages.add(_continuePoppedMessage);
       }
     }
 

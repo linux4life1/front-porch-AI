@@ -79,7 +79,7 @@ class MoodRegisters {
   /// outside a turn (the today line's X): inside one, the capture and the
   /// post-reply restamp do this.
   void patchTipStamp() {
-    for (final m in _scope.messages.reversed) {
+    for (final m in _scope.session.messages.reversed) {
       if (m.isUser || m.sender == 'System') continue;
       final rs = m.activeMetadata?['realism_state'];
       if (rs is Map && rs.containsKey(kMoodStampLabel)) {
@@ -94,12 +94,12 @@ class MoodRegisters {
   /// restores any member's last stamp finds the mood after the roll. 1:1 is
   /// the tip alone.
   void patchLatestReplyStamps() {
-    if (_scope.activeGroup() == null) {
+    if (_scope.session.activeGroup == null) {
       patchTipStamp();
       return;
     }
     final seen = <String>{};
-    for (final m in _scope.messages.reversed) {
+    for (final m in _scope.session.messages.reversed) {
       if (m.isUser || m.sender == 'System') continue;
       final sid = m.characterId ?? '';
       if (sid.isEmpty || !seen.add(sid)) continue;

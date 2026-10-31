@@ -84,7 +84,7 @@ extension ChatServicePromptBlocks on ChatService {
         (meta?[kSkipMinutesMeta] ?? meta?[kLongSkipMinutesMeta]) as num?;
     return buildTimeSkipAnchor(
       latestLongSkip(
-        messages: _messages,
+        messages: _session.messages,
         clock: _timeService.clock,
         pendingMinutes: pending?.toInt(),
       ),
@@ -97,7 +97,7 @@ extension ChatServicePromptBlocks on ChatService {
   TimeSkipBridgeContext _timeSkipBridgeContext() {
     final cast = _activeGroup != null
         ? _groupCharacters.toList()
-        : [?_activeCharacter];
+        : [?_session.activeCharacter];
     final user = _userPersonaService.persona.name;
     String tone(CharacterCard c) {
       if (!_realismEnabled) return '';
@@ -108,7 +108,7 @@ extension ChatServicePromptBlocks on ChatService {
       return 'with $user: ${RelationshipService.longTermTierLabel(tier)}';
     }
 
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     final threads = <String>[
       if (sessionId != null)
         for (final c in cast)
