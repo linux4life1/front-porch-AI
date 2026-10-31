@@ -19,8 +19,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/character_stats.dart';
+import 'package:front_porch_ai/services/database_rebind.dart' show liveDatabase;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// "Your chats together": counts from a character's 1:1 chats.
@@ -54,9 +54,13 @@ class _CharacterStatsSectionState extends State<CharacterStatsSection> {
     _stats = (widget.load ?? _loadFromLibrary)(id);
   }
 
-  static Future<CharacterStats> _loadFromLibrary(String id) async {
+  /// Reads the library the page already has ([liveDatabase]), never by
+  /// opening the startup singleton, whose first open reads SharedPreferences
+  /// and the documents folder on its own. A read that fails is logged and
+  /// leaves the section empty, as for a character never chatted with.
+  Future<CharacterStats> _loadFromLibrary(String id) async {
     try {
-      return await loadCharacterStats(await AppDatabase.instance(), id);
+      return await loadCharacterStats(liveDatabase(context), id);
     } catch (e, st) {
       debugPrint('[character stats] load failed: $e\n$st');
       return const CharacterStats();
