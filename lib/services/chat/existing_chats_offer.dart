@@ -22,8 +22,6 @@ import 'package:drift/drift.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart'
-    show Refractory, RefractoryKeys;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
@@ -225,8 +223,10 @@ class ExistingChatsOffer {
                   t.nsfwCooldownEnabled.equals(false),
             ))
             .get();
+    // The stored switch alone decides: a chat switched off keeps its Lust
+    // and recovery, so holding either says nothing about the switch.
     for (final r in solo) {
-      if (r.id == open || _opensOn(r)) continue;
+      if (r.id == open) continue;
       off.add(_OffChat(r.id, isGroup: false));
     }
     final groups = await _db
@@ -248,27 +248,6 @@ class ExistingChatsOffer {
       off.add(_OffChat(id, isGroup: true, blob: _decode(blob)));
     }
     return off;
-  }
-
-  /// A 1:1 chat stored off that still holds Lust, a recovery or a warmth
-  /// tail opens with Afterglow on (the on-open repair in session hydrate),
-  /// so it does not have Afterglow off and is not asked about.
-  static bool _opensOn(Session s) {
-    final body = Refractory.read({
-      RefractoryKeys.minutes: s.refractoryMinutesRemaining,
-      RefractoryKeys.total: s.refractoryMinutesTotal,
-      if (s.refractoryTailMinutes != null)
-        RefractoryKeys.tail: {
-          RefractoryKeys.minutes: s.refractoryTailMinutes,
-          RefractoryKeys.total:
-              s.refractoryTailTotal ?? s.refractoryTailMinutes,
-        },
-      RefractoryKeys.legacyTurns: s.cooldownTurnsRemaining,
-      RefractoryKeys.legacyTotal: s.cooldownTurnsTotal,
-    });
-    return s.arousalLevel != 0 ||
-        (body?.running ?? false) ||
-        (body?.tailRunning ?? false);
   }
 
   static Map<String, dynamic> _decode(String json) {

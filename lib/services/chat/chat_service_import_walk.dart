@@ -103,7 +103,10 @@ extension ChatServiceImportWalk on ChatService {
         }
       }
       if (stamp != null) {
-        _restoreRealismStateForSpeaker(stamp);
+        // A branch or an import copies the chat: a member switched off
+        // takes the Lust and recovery their stamp holds, as a 1:1 does.
+        final m = stamp;
+        _nsfwService.carry(() => _restoreRealismStateForSpeaker(m));
       } else {
         // Keep a per-char-off (or global-off) kit — HIDES≠erase. Wiping
         // then seed-skipping is how import erased authored-off members.
@@ -188,7 +191,10 @@ extension ChatServiceImportWalk on ChatService {
       final m = _session.messages[i];
       final meta = m.activeMetadata;
       if (meta?['realism_state'] is Map) {
-        _restoreRealismStateForSpeaker(m, restoreClock: false);
+        // A copy, not a rewind: kept Lust comes along with the switch off.
+        _nsfwService.carry(
+          () => _restoreRealismStateForSpeaker(m, restoreClock: false),
+        );
         if (m.metadata?['pockets_before'] is Map) {
           _pocketsRewinds.restoreFromStamp(m, after: true);
         }

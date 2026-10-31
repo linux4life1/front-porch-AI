@@ -58,7 +58,10 @@ class ChatRealismRead {
       final memberMood = _chat.getMoodForGroupCharacter(card);
       final bondScore = _chat.getAffectionForGroupCharacter(card);
       final trustLevel = _chat.getTrustForGroupCharacter(card);
-      final arousalLevel = _chat.getArousalForGroupCharacter(card);
+      // Afterglow off hides this member's Lust and recovery and keeps them:
+      // the feed carries neither until it runs again, as the card shows.
+      final lustOn = _chat.afterglowRunsFor(card);
+      final arousalLevel = lustOn ? _chat.getArousalForGroupCharacter(card) : 0;
       // Per-member tier names + bar percents via the shared relationship/nsfw
       // scale helpers, so a group member's stats read IDENTICALLY to the 1:1 host
       // (no blank tiers / empty bars).
@@ -100,11 +103,13 @@ class ChatRealismRead {
         },
         // The Lust line shows while Afterglow runs for this member, as the
         // desktop's member card does.
-        'lustOn': _chat.afterglowRunsFor(card),
+        'lustOn': lustOn,
         // Their own recovery under it, and their own face's label (the
         // portrait's cache key), read only while a face can show: a label
         // read can ask the LLM. Both additive.
-        'refractoryLabel': _chat.getRefractoryForGroupCharacter(card).chip,
+        'refractoryLabel': lustOn
+            ? _chat.getRefractoryForGroupCharacter(card).chip
+            : '',
         'expressionLabel':
             _chat.expressionsEnabled &&
                 expressionsFrom(card.avatarImages).isNotEmpty
@@ -171,7 +176,10 @@ class ChatRealismRead {
       'emotionCause': _chat.emotionCause,
       'emotionHeld': _chat.emotionHeldTurns,
       'moodLine': _chat.moodLine,
-      'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
+      // Hidden and kept while Afterglow is off: the feed carries none of it.
+      'arousal': nsfw.nsfwCooldownEnabled
+          ? {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName}
+          : {'level': 0, 'tier': nsfw.arousalTierNameForLevel(0)},
       'lustOn': nsfw.nsfwCooldownEnabled,
       // The desktop's line under the Lust bar (additive; empty when none).
       // In a group the live scalars hold whoever was loaded last, so none.

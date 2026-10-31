@@ -363,7 +363,10 @@ extension ChatServiceImportSeed on ChatService {
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _restoreRealismStateFromMessage(synth, restoreClock: false);
+      // A carry: a package from a chat switched off brings its kept Lust.
+      _nsfwService.carry(
+        () => _restoreRealismStateFromMessage(synth, restoreClock: false),
+      );
     }
     _clockWriter.syncLoadedSlotClocks();
 

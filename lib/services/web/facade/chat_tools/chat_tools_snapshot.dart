@@ -58,12 +58,22 @@ class ChatToolsSnapshot {
         _chat.isGroupMode && owner != null && owner.realismEnabled
         ? owner.card
         : null;
-    final memberArousal = ownerMember == null
+    // Afterglow off hides Lust and recovery and keeps them: the block then
+    // carries neither, as the desktop shows neither.
+    final afterglowRuns = _chat.isGroupMode
+        ? ownerMember != null && _chat.afterglowRunsFor(ownerMember)
+        : nsfw.nsfwCooldownEnabled;
+    final memberArousal = ownerMember == null || !afterglowRuns
         ? 0
         : _chat.getArousalForGroupCharacter(ownerMember);
-    final memberRefractory = ownerMember == null
+    final memberRefractory = ownerMember == null || !afterglowRuns
         ? null
         : _chat.getRefractoryForGroupCharacter(ownerMember);
+    final shownArousal = !afterglowRuns
+        ? 0
+        : _chat.isGroupMode
+        ? memberArousal
+        : nsfw.arousalLevel;
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
@@ -127,9 +137,7 @@ class ChatToolsSnapshot {
         // chat's own switch is on. The phone shows the switch while Porch
         // Life allows it, and Lust and recovery while the gate is on.
         // In a group, for the panel owner (their own switch counts).
-        'cooldownEnabled': _chat.isGroupMode
-            ? ownerMember != null && _chat.afterglowRunsFor(ownerMember)
-            : nsfw.nsfwCooldownEnabled,
+        'cooldownEnabled': afterglowRuns,
         'afterglowAllowed': rs.afterglowEnabled,
         'afterglowSwitch': _chat.afterglowChatSwitch,
         // In a group, each member's own switch (additive).
@@ -146,19 +154,21 @@ class ChatToolsSnapshot {
         // drift from them (story minutes, or replies with the clock off).
         // In a group, the panel owner's own body (focused or not), as on
         // their card; never the live scalars, which hold another speaker.
-        'refractoryMinutesRemaining': _chat.isGroupMode
+        'refractoryMinutesRemaining': !afterglowRuns
+            ? 0
+            : _chat.isGroupMode
             ? memberRefractory?.minutes ?? 0
             : nsfw.refractoryMinutesRemaining,
         'refractoryClockRunning': nsfw.clockRunning,
-        'refractoryLabel': _chat.isGroupMode
+        'refractoryLabel': !afterglowRuns
+            ? ''
+            : _chat.isGroupMode
             ? memberRefractory?.chip ?? ''
             : nsfw.refractoryWords.chip,
         // Arousal is per-character: the owner's own in a group, named on the
         // same ladder the desktop member card uses; the host scalar in 1:1.
-        'arousalLevel': _chat.isGroupMode ? memberArousal : nsfw.arousalLevel,
-        'arousalTier': _chat.isGroupMode
-            ? nsfw.arousalTierNameForLevel(memberArousal)
-            : nsfw.arousalTierName,
+        'arousalLevel': shownArousal,
+        'arousalTier': nsfw.arousalTierNameForLevel(shownArousal),
       },
       // Ambitions (Living Time §6) for the focused participant — additive;
       // same ChatService.ambitionsFor merge the desktop sidebar reads.

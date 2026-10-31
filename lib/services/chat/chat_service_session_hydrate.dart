@@ -239,18 +239,11 @@ extension ChatServiceSessionHydrate on ChatService {
           }) ??
           Refractory.none,
     );
-    // From v1.6.1 until each chat's own switch came back, saving a 1:1 chat
-    // wrote Porch Life's Afterglow over the chat's. A chat switched off holds
-    // no Lust: switching settles it, and saving an off chat writes none. So
-    // one stored off that holds Lust (either way), a recovery or a warmth
-    // tail was on, and it opens on; its next save keeps it.
-    if (_activeGroup == null &&
-        !_nsfwService.storedNsfwCooldownEnabled &&
-        (_nsfwService.arousalLevel != 0 ||
-            _nsfwService.refractory.running ||
-            _nsfwService.refractory.tailRunning)) {
-      _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);
-    }
+    // The stored switch is the chat's Afterglow, whatever Lust or recovery
+    // the row holds: off hides and keeps them, so a chat holding either can
+    // be one the user switched off, and must open off. Never infer the
+    // switch from them (a v1.6.1 save that wrote Porch Life's off over a
+    // chat's own on is answered by the existing-chats question instead).
     final nv = s.needsVector;
     // Any saved value is the chat's own choice; only one with values is a
     // kit to restore (an empty map must not wipe the seeded defaults).
