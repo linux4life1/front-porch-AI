@@ -110,6 +110,7 @@ class _EditGroupPageState extends State<EditGroupPage>
           defaultMemberJson: _defaultMemberRealismState,
           baselineJson: _baselineRealismState,
           memberIds: [for (final m in _realismMembers) m.mid],
+          memberCards: {for (final m in _realismMembers) m.mid: m.extensions},
           realismOn: true,
           needsOn: s.needsOn,
         );

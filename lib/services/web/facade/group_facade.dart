@@ -203,8 +203,9 @@ class GroupFacade {
   /// The rest of the body is the web wizard's draft (GroupCreateDraft):
   /// Identity switches and member Voices, Opening, Realism with Group
   /// Dynamics, Prompts & Lore.
-  /// Without it Realism and Needs start on with every member neutral, as the
-  /// desktop creator's defaults do; `worlds` sets where new chats meet.
+  /// Without it Realism and Needs start on with every member starting from
+  /// their card, as the desktop creator's defaults do; `worlds` sets where
+  /// new chats meet.
   /// Returns {id, name} or null.
   Future<Map<String, dynamic>?> createGroup(Map<String, dynamic> body) async {
     final r = repo;
@@ -291,7 +292,7 @@ class GroupFacade {
       );
     }
 
-    final realism = draft.realismBlobs(idMap);
+    final realism = draft.realismBlobs(sources, idMap);
     final where =
         (_choiceFrom(body['worlds']) ?? const GroupWorldChoice()).fields;
     await _groups.save(

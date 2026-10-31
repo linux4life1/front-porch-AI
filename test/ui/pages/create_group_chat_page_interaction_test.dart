@@ -34,18 +34,26 @@
 // Members (>= 2) and Opening -> Review (>= 2 members + a name), so filling
 // the name at Identity keeps every later Next unlocked.
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/database/database.dart' as db;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
+import 'package:front_porch_ai/utils/utils.dart' show parseGroupRealismSeeds;
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
+import '../../helpers/double_tap.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -399,8 +407,411 @@ void main() {
 
     final seed = draft.memberRealismSeeds[id]!;
     expect(seed['longTermScore'], 250);
-    expect(seed['trust'], 40, reason: 'Long-Term Bond went into trust');
+    // Changed: Aerin's card says nothing, so she starts at the trust a 1:1
+    // with her starts at (0), no longer the neutral seed's 40.
+    expect(seed['trust'], 0, reason: 'Long-Term Bond went into trust');
   });
+
+  // The wizard's member card drew every member at the neutral seed, and its
+  // Reset to character defaults went back to that seed, not the card. It
+  // now draws the card's bonds, mood and Needs, and Reset goes back there.
+  testWidgets('the member card starts at the card, and Reset goes back to it', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final draft = GroupWizardDraft();
+    final storage = FakeStorageService();
+    final repo = FakeCharacterRepository();
+    addTearDown(draft.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(repo.dispose);
+    final aerin = _cardedAerin();
+    draft.addMember(aerin);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ListenableBuilder(
+                listenable: draft,
+                builder: (_, _) =>
+                    GroupMemberRealismCard(draft: draft, member: aerin),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+
+    RealismFormSection form() =>
+        tester.widget<RealismFormSection>(find.byType(RealismFormSection));
+    NeedsFormSection needs() =>
+        tester.widget<NeedsFormSection>(find.byType(NeedsFormSection));
+    void expectCard(String when) {
+      expect(
+        (
+          form().shortTermBond,
+          form().longTermBond,
+          form().trustLevel,
+          form().emotion,
+          form().realismVerificationEnabled,
+        ),
+        (120, -40, 70, 'wistful', true),
+        reason: when,
+      );
+      expect(
+        (needs().baselineHunger, needs().needsPace, needs().enjoysLowHygiene),
+        (30, 'sloth', true),
+        reason: when,
+      );
+    }
+
+    expectCard('THE BUG: the card showed the neutral seed');
+
+    form().onShortTermBondChanged(5);
+    needs().onBaselineHungerChanged(60);
+    needs().onEnjoysLowHygieneChanged(false);
+    await tester.pumpAndSettle();
+    expect(form().shortTermBond, 5);
+    expect(needs().baselineHunger, 60);
+
+    await tester.ensureVisible(find.text('Reset to character defaults'));
+    await tester.tap(find.text('Reset to character defaults'));
+    await tester.pumpAndSettle();
+    expectCard('Reset to character defaults went back to the neutral seed');
+  });
+
+  // Every member of a desktop-made group started at a fixed neutral seed
+  // (bond 35, trust 40, neutral mood, the neutral needs bars) that also won
+  // over the card's Needs, verifier and Director-authority settings on the
+  // member row. A member now starts from their card, with what the wizard
+  // set laid over it, and a baseline moved in the wizard starts its bar
+  // there. A card that says nothing starts where a 1:1 with it starts.
+  testWidgets('Create Group starts each member from their card and the '
+      'wizard\'s edits, once, without writing the library card', (
+    tester,
+  ) async {
+    final aerin = _cardedAerin(
+      needsBaselineFun: 55,
+      needsOff: ['fun'],
+      maxReprocesses: 4,
+      strictness: 5,
+      directorAuthority: true,
+    );
+    final bo = CharacterCard(name: 'Bo', description: 'Second.');
+    final made = await _createWithWizard(
+      tester,
+      [aerin, bo],
+      onRealism: () async {
+        // Bo's card says nothing, so the wizard sets his Hunger baseline.
+        final boCard = find.byWidgetPredicate(
+          (w) => w is GroupMemberRealismCard && w.member.name == 'Bo',
+        );
+        final boTitle = find.descendant(of: boCard, matching: find.text('Bo'));
+        await tester.ensureVisible(boTitle);
+        await tester.tap(boTitle);
+        await tester.pumpAndSettle();
+        tester
+            .widget<NeedsFormSection>(
+              find.descendant(
+                of: boCard,
+                matching: find.byType(NeedsFormSection),
+              ),
+            )
+            .onBaselineHungerChanged(40);
+        await tester.pumpAndSettle();
+      },
+    );
+
+    final a = made.seeds['Aerin']!;
+    expect(
+      [
+        a['affection'],
+        a['longTermScore'],
+        a['trust'],
+        a['emotion'],
+        a['emotionIntensity'],
+      ],
+      [120, -40, 70, 'wistful', 'strong'],
+      reason: 'THE BUG: the neutral 35 / 40 / neutral won over the card',
+    );
+    expect(a['needs'], containsPair('hunger', 30));
+    expect(a['needs'], containsPair('fun', 55));
+    final b = made.seeds['Bo']!;
+    expect(
+      [b['affection'], b['longTermScore'], b['trust'], b['emotion']],
+      [0, 0, 0, 'neutral'],
+      reason: 'a card that says nothing starts where a 1:1 with it does',
+    );
+    expect(b['needsBaselineHunger'], 40);
+    expect(
+      b['needs'],
+      containsPair('hunger', 40),
+      reason: 'the bar ignored the baseline set in the wizard',
+    );
+    expect(b['needs'], containsPair('social', 80));
+
+    final row = made.rows['Aerin']!;
+    expect(
+      (
+        row.needsPace,
+        row.enjoysLowHygiene,
+        row.realismVerificationEnabled,
+        row.realismVerificationMaxReprocesses,
+        row.realismVerificationStrictness,
+        row.realismNeedsDirectorAuthority,
+      ),
+      ('sloth', true, true, 4, 5, true),
+      reason: 'THE BUG: the neutral seed reset these on the member row',
+    );
+    expect(row.needsOff, ['fun']);
+    expect(
+      (
+        aerin.frontPorchExtensions!.shortTermBond,
+        aerin.frontPorchExtensions!.needsBaselineHunger,
+        bo.frontPorchExtensions,
+      ),
+      (120, 30, null),
+      reason: 'a group never writes the library card',
+    );
+  });
+
+  // Neutral and High Bond showed Long-Term Bond following Short-Term Bond
+  // but saved the card's own Long-Term Bond, so a card at 120 / -40 showed
+  // 75 after High Bond and saved -40. The presets now set it, and the group
+  // saves what the slider showed.
+  for (final (mode, button, bond, trust) in [
+    ('High Bond', 'High Bond', 75, 70),
+    ('Neutral', 'Neutral', 35, 40),
+  ]) {
+    testWidgets('$mode saves the Long-Term Bond its slider shows', (
+      tester,
+    ) async {
+      final made = await _createWithWizard(
+        tester,
+        [_cardedAerin(), CharacterCard(name: 'Bo', description: 'Second.')],
+        onRealism: () async {
+          await tester.ensureVisible(find.text(button));
+          await tester.tap(find.text(button));
+          await tester.pumpAndSettle();
+          final aerinCard = find.byWidgetPredicate(
+            (w) => w is GroupMemberRealismCard && w.member.name == 'Aerin',
+          );
+          final title = find.descendant(
+            of: aerinCard,
+            matching: find.text('Aerin'),
+          );
+          await tester.ensureVisible(title);
+          await tester.tap(title);
+          await tester.pumpAndSettle();
+          expect(
+            tester
+                .widget<RealismFormSection>(
+                  find.descendant(
+                    of: aerinCard,
+                    matching: find.byType(RealismFormSection),
+                  ),
+                )
+                .longTermBond,
+            bond,
+            reason: 'what the slider shows',
+          );
+        },
+      );
+      final a = made.seeds['Aerin']!;
+      expect(
+        [a['affection'], a['longTermScore'], a['trust']],
+        [bond, bond, trust],
+        reason: 'THE BUG: the card\'s -40 was saved under the slider\'s $bond',
+      );
+      expect(
+        made.baseline['Aerin'],
+        containsPair('longTermScore', bond),
+        reason: 'the baseline row new chats read',
+      );
+      expect(a['needsPace'], 'sloth', reason: 'a preset keeps the card Needs');
+    });
+  }
+
+  // A failed save left an unhandled error and no word to the user.
+  testWidgets('Create says so when the group cannot be saved', (tester) async {
+    await _createWithWizard(tester, [
+      _cardedAerin(),
+      CharacterCard(name: 'Bo', description: 'Second.'),
+    ], failSave: true);
+    expect(find.textContaining('Could not create the group'), findsOneWidget);
+  });
+}
+
+/// Group avatars go to a temp folder; the library itself is never touched.
+class _TempStorage extends FakeStorageService {
+  _TempStorage(this.root);
+
+  final Directory root;
+
+  @override
+  Future<void> get initialized async {}
+
+  @override
+  Directory get groupsDir => Directory('${root.path}/groups');
+}
+
+/// The real repository (its member-portrait copy runs for real) with only
+/// the library listing seeded.
+class _TempLibrary extends CharacterRepository {
+  _TempLibrary(super.db, super.storage, this.cards);
+
+  final List<CharacterCard> cards;
+
+  @override
+  List<CharacterCard> get characters => cards;
+
+  @override
+  Future<void> loadCharacters() async {}
+}
+
+/// A group repository whose save fails, as a full disk would.
+class _FailingGroups extends GroupChatRepository {
+  _FailingGroups(super.storage, super.db);
+
+  @override
+  Future<void> save(GroupChat group) async =>
+      throw const FileSystemException('disk full');
+}
+
+/// Walks the real wizard over a real database with [cards] in the library,
+/// runs [onRealism] on the Realism step, and presses Create Only with a
+/// double click. Returns the one group it made, by member name: the seeds
+/// new chats start from, their baseline rows, and each member row's
+/// extensions. With [failSave] the save throws and nothing is returned.
+Future<
+  ({
+    Map<String, Map<String, dynamic>> seeds,
+    Map<String, Map<dynamic, dynamic>> baseline,
+    Map<String, FrontPorchExtensions> rows,
+  })
+>
+_createWithWizard(
+  WidgetTester tester,
+  List<CharacterCard> cards, {
+  Future<void> Function()? onRealism,
+  bool failSave = false,
+}) async {
+  await tester.binding.setSurfaceSize(const Size(1280, 1800));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  SharedPreferences.setMockInitialValues({});
+  final root = Directory.systemTemp.createTempSync('fpai_group_cards_');
+  final database = db.AppDatabase.forTesting(sameIsolate: true);
+  final storage = _TempStorage(root);
+  late GroupChatRepository groups;
+  late CharacterRepository repo;
+  await tester.runAsync(() async {
+    groups = failSave
+        ? _FailingGroups(storage, database)
+        : GroupChatRepository(storage, database);
+    await groups.reload();
+    repo = _TempLibrary(database, storage, cards);
+  });
+  addTearDown(() => tester.runAsync(database.close));
+  final chat = FakeChatService();
+  final worlds = FakeWorldRepository();
+  final folders = FakeFolderService();
+  final llm = FakeLLMProvider();
+  final tts = FakeTtsService();
+  for (final s in [repo, chat, storage, worlds, folders, llm, tts, groups]) {
+    addTearDown(s.dispose);
+  }
+
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        Provider<db.AppDatabase>.value(value: database),
+        ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ChangeNotifierProvider<ChatService>.value(value: chat),
+        ChangeNotifierProvider<StorageService>.value(value: storage),
+        ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ChangeNotifierProvider<FolderService>.value(value: folders),
+        ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+        ChangeNotifierProvider<LLMProvider>.value(value: llm),
+        ChangeNotifierProvider<TtsService>.value(value: tts),
+      ],
+      child: const MaterialApp(home: CreateGroupChatPage()),
+    ),
+  );
+  await tester.pumpAndSettle();
+  for (final c in cards) {
+    await tester.tap(find.text(c.name).first);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> next(String landmark) async {
+    await tester.ensureVisible(find.text('Next'));
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    expect(find.text(landmark), findsWidgets);
+  }
+
+  await next('Group Name');
+  await tester.enterText(find.byType(TextField).first, 'Carded Porch');
+  await tester.pumpAndSettle();
+  await next('Where does the group meet?');
+  await next('Day Number');
+  await onRealism?.call();
+  await next('Opening Scene');
+  await next('Group System Prompt');
+  await next('Create Group & Enter Chat');
+
+  const createOnly = "Create Only (don't enter chat yet)";
+  await tester.ensureVisible(find.text(createOnly));
+  await doubleTapNoFrame(tester, find.text(createOnly));
+  for (var i = 0; i < 30; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 20)),
+    );
+    await tester.pump();
+  }
+  final saved = await tester.runAsync(() async {
+    await groups.reload();
+    return groups.groups.toList();
+  });
+  if (failSave) {
+    return (
+      seeds: <String, Map<String, dynamic>>{},
+      baseline: <String, Map<dynamic, dynamic>>{},
+      rows: <String, FrontPorchExtensions>{},
+    );
+  }
+  expect(saved, hasLength(1), reason: 'a fast double click made two groups');
+  final group = saved!.single;
+  final rows = await tester.runAsync(() => database.getGroupMembers(group.id));
+  final nameOf = {for (final m in rows!) m.id: m.name};
+  final baseline = jsonDecode(group.baselineRealismState) as Map;
+  return (
+    seeds: {
+      for (final e in parseGroupRealismSeeds(
+        group.defaultMemberRealismState,
+      ).entries)
+        nameOf[e.key]!: e.value,
+    },
+    baseline: {
+      for (final e in baseline.entries)
+        nameOf[e.key]!: Map<dynamic, dynamic>.from(e.value as Map),
+    },
+    rows: {
+      for (final m in rows)
+        m.name: FrontPorchExtensions.fromJson(
+          jsonDecode(m.frontPorchExtensions!) as Map<String, dynamic>,
+        ),
+    },
+  );
 }
 
 /// Pumps Create Group over fakes: Aerin and Bo in the library, [worlds] in
@@ -477,3 +888,32 @@ class _RecordingLlmProvider extends FakeLLMProvider {
   @override
   LLMService get activeService => _service;
 }
+
+/// Aerin with a card that says how her chats start: bonds, mood, verifier
+/// and Needs all away from the neutral seed.
+CharacterCard _cardedAerin({
+  int needsBaselineFun = 80,
+  List<String> needsOff = const [],
+  int maxReprocesses = 1,
+  int strictness = 3,
+  bool directorAuthority = false,
+}) => CharacterCard(
+  name: 'Aerin',
+  description: 'First.',
+  frontPorchExtensions: FrontPorchExtensions(
+    shortTermBond: 120,
+    longTermBond: -40,
+    trustLevel: 70,
+    characterEmotion: 'wistful',
+    emotionIntensity: 'strong',
+    needsBaselineHunger: 30,
+    needsBaselineFun: needsBaselineFun,
+    needsPace: 'sloth',
+    needsOff: needsOff,
+    enjoysLowHygiene: true,
+    realismVerificationEnabled: true,
+    realismVerificationMaxReprocesses: maxReprocesses,
+    realismVerificationStrictness: strictness,
+    realismNeedsDirectorAuthority: directorAuthority,
+  ),
+);

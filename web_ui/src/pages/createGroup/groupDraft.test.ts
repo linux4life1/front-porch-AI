@@ -8,6 +8,7 @@
 import { expect, it } from 'vitest';
 import { EMPTY_DRAFT, createBody, liveRelationships, relationshipTier } from './groupDraft';
 import { HIGH_BOND_MEMBER, NEUTRAL_MEMBER, memberRealism, membersAtPreset, withoutFeelingsOf } from './groupDraft';
+import { changedKeys, memberRealismFromCard } from './groupDraft';
 
 it('posts every step, with lore keys split and blanks dropped', () => {
   const body = createBody({
@@ -42,10 +43,13 @@ it('posts every step, with lore keys split and blanks dropped', () => {
     realism: {
       enabled: true,
       needsEnabled: false,
-      members: { a: { affection: 70, trust: 60 }, b: { affection: 35, trust: 40 } },
+      // Changed: b, left alone, posts nothing; the relay starts b from
+      // their card. Posting the neutral seed for b overwrote that card.
+      members: { a: { affection: 70, trust: 60 } },
       relationships: { a: { b: 120 } },
     },
   });
+  expect((body.realism as { members: object }).members).not.toHaveProperty('b');
 });
 
 it('keeps Group Dynamics only between current members of a small group', () => {
@@ -96,11 +100,16 @@ it('posts Chaos, the story start and every member seed field as the desktop seed
       storyStartDate: '1887-06-01',
       storyStartTime: '07:30',
       members: {
-        a: { ...NEUTRAL_MEMBER, emotion: 'wistful', verificationEnabled: true, needsPace: 'fast', needsOff: ['fun'] },
-        b: NEUTRAL_MEMBER,
+        a: { emotion: 'wistful', verificationEnabled: true, needsPace: 'fast', needsOff: ['fun'] },
       },
     },
   });
+  // Changed: only what the wizard set travels; the relay lays it over each
+  // card, so neither b (left alone) nor a's untouched fields post the
+  // neutral seed over the card.
+  const posted = (body.realism as { members: Record<string, object> }).members;
+  expect(posted).not.toHaveProperty('b');
+  expect(posted.a).not.toHaveProperty('affection');
   expect(body).not.toHaveProperty('systemPrompt');
 });
 
@@ -130,9 +139,11 @@ it('matches the desktop neutral seed and High Bond preset', () => {
     needsBaselineHunger: 80,
     enjoysLowHygiene: false,
   });
+  // Changed: a preset now holds only its bonds and mood, laid over each
+  // card, and sets Long-Term Bond with Short-Term Bond as the desktop does.
   expect(membersAtPreset(['a'], HIGH_BOND_MEMBER).a).toEqual({
-    ...NEUTRAL_MEMBER,
     affection: 75,
+    longTermScore: 75,
     trust: 70,
     emotion: 'affection',
     emotionIntensity: 'moderate',
@@ -167,4 +178,56 @@ it("posts how the group's new chats start Afterglow", () => {
   expect(EMPTY_DRAFT.afterglowEnabled, 'new chats start Afterglow on').toBe(true);
   expect(body(true).afterglow).toBe(true);
   expect(body(false).afterglow).toBe(false);
+});
+
+/// A member starts from their card, read the way the relay's
+// groupMemberSeedFromExtensions reads it (the same card as the relay's
+// test in test/services/web/group_settings_test.dart).
+const WARY_CARD = {
+  shortTermBond: -60,
+  longTermBond: 140,
+  trustLevel: -25,
+  characterEmotion: 'guarded',
+  emotionIntensity: 'strong',
+  needsBaselineHunger: 30,
+  needsBaselineFun: 55,
+  needsPace: 'fast',
+  needsOff: ['bladder'],
+  enjoysLowHygiene: true,
+  realismVerificationEnabled: true,
+  realismVerificationMaxReprocesses: 4,
+};
+
+it("reads a member's starting seed from their card; a plain card starts where a 1:1 does", () => {
+  expect(memberRealismFromCard(WARY_CARD)).toEqual({
+    ...NEUTRAL_MEMBER,
+    affection: -60,
+    longTermScore: 140,
+    trust: -25,
+    emotion: 'guarded',
+    emotionIntensity: 'strong',
+    needsBaselineHunger: 30,
+    needsBaselineFun: 55,
+    needsPace: 'fast',
+    needsOff: ['bladder'],
+    enjoysLowHygiene: true,
+    verificationEnabled: true,
+    verificationMaxReprocesses: 4,
+  });
+  expect(memberRealismFromCard(null), "a 1:1's New Chat reads a plain card as the defaults").toEqual({
+    ...NEUTRAL_MEMBER,
+    affection: 0,
+    longTermScore: 0,
+    trust: 0,
+  });
+  expect(memberRealismFromCard({ ...WARY_CARD, characterEmotion: ' ', emotionIntensity: 'volcanic' })).toMatchObject({
+    emotion: 'neutral',
+    emotionIntensity: 'mild',
+  });
+});
+
+it('an edit keeps only the keys it changed against the seed shown', () => {
+  const shown = memberRealismFromCard(WARY_CARD);
+  expect(changedKeys(shown, { ...shown, emotion: 'fond', needsOff: ['bladder'] })).toEqual({ emotion: 'fond' });
+  expect(changedKeys(shown, { ...shown, needsOff: [] })).toEqual({ needsOff: [] });
 });

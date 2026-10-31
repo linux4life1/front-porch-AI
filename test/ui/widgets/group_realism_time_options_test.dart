@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
@@ -212,5 +213,59 @@ void main() {
     await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(groupAfterglowIn(emitted), isFalse);
+  });
+
+  // Turning Edit group's Realism on gave every member with no seed the
+  // neutral 35 / 40. A member now starts from their own row's card, as a
+  // new group's members do; a member with a saved seed keeps it.
+  testWidgets("Edit group's Realism switch starts a member with no seed from "
+      'their card', (tester) async {
+    tester.view.physicalSize = const Size(1400, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    var emitted = '';
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: GroupRealismDynamicsEditor(
+                members: [
+                  GroupRealismMember(
+                    mid: 'mem-n',
+                    name: 'Nia',
+                    extensions: FrontPorchExtensions(
+                      shortTermBond: 90,
+                      longTermBond: 150,
+                      trustLevel: -30,
+                      characterEmotion: 'wary',
+                      needsBaselineHunger: 35,
+                    ),
+                  ),
+                ],
+                initialDefaultMemberJson: '{}',
+                initialBaselineJson: '{}',
+                onChanged: (d, b) => emitted = d,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, 'Realism & Needs Engine'),
+    );
+    await tester.pumpAndSettle();
+    final nia = parseGroupRealismSeeds(emitted)['mem-n']!;
+    expect(
+      [nia['affection'], nia['longTermScore'], nia['trust'], nia['emotion']],
+      [90, 150, -30, 'wary'],
+      reason: 'THE BUG: the member came on at the neutral 35 / 40',
+    );
+    expect(nia['needs'], containsPair('hunger', 35));
   });
 }

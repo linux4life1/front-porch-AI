@@ -2227,3 +2227,80 @@ test('Porch Life Realism off greys the chat\'s Realism switch; on again asks abo
     await setOwn(ownBefore);
   }
 });
+
+// New group on the phone: each member's Realism card starts at what their
+// character card says, not the neutral seed (bond 35, trust 40), and the
+// group's first chat starts them there. Two characters are made for this
+// test and go again with the group.
+test('a new group starts each member from their character card', { tag: SERIAL }, async ({ page }) => {
+  const tag = test.info().project.name;
+  const make = async (name: string, realism: Record<string, unknown>) => {
+    const r = await page.request.post('/api/characters/create', { data: { name, firstMessage: 'Evening.', ...realism } });
+    expect(r.ok(), `create ${name}: ${r.status()}`).toBe(true);
+    return String(((await r.json()) as { id: string | number }).id);
+  };
+  const groupIds = async () =>
+    ((await (await page.request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map((g) => g.id);
+  const wary = `Wary ${tag}`;
+  const fond = `Fond ${tag}`;
+  const ids = [
+    await make(wary, { shortTermBond: -150, longTermBond: -120, trustLevel: -60, characterEmotion: 'guarded' }),
+    await make(fond, { shortTermBond: 160, longTermBond: 140, trustLevel: 80, characterEmotion: 'fond' }),
+  ];
+  const before = await groupIds();
+  try {
+    await openRoute(page, '/create-group');
+    const search = page.getByPlaceholder('Search characters…');
+    for (const name of [wary, fond]) {
+      await search.fill(name);
+      await page.locator('.grp-card', { hasText: name }).click();
+    }
+    const next = page.getByRole('button', { name: 'Next →' });
+    while (!(await page.getByText('Realism Engine for this group').isVisible())) await next.click();
+
+    const summary = (id: string) => page.getByTestId(`group-realism-member-${id}`).locator('summary');
+    await expect(summary(ids[0])).toContainText('guarded • Bond -150 / Trust -60');
+    await expect(summary(ids[1])).toContainText('fond • Bond 160 / Trust 80');
+
+    const open = page.getByRole('button', { name: '👥 Create & open' });
+    while (!(await open.isVisible())) await next.click();
+    await open.click();
+    await expect(page).toHaveURL(/\/chat$/);
+    await expect.poll(async () => (await groupIds()).filter((id) => !before.includes(id)).length).toBe(1);
+
+    // What the group saved, read back through the new chat's cast: each
+    // member on their own card's side of neutral, never at 35 / 40.
+    type Cast = { id: string; name: string }[];
+    const cast = async () =>
+      ((await (await page.request.get('/api/chat/state')).json()) as { cast?: Cast }).cast ?? [];
+    await expect.poll(async () => (await cast()).length).toBe(2);
+    const realismOf = async (name: string) => {
+      const member = (await cast()).find((c) => c.name === name)!;
+      const r = await page.request.get(`/api/chat/participant/${encodeURIComponent(member.id)}/realism`);
+      expect(r.ok(), `${name}'s realism: ${r.status()}`).toBe(true);
+      return (await r.json()) as {
+        bond: { score: number };
+        longTerm: { score: number };
+        trust: { level: number };
+        emotion: string;
+      };
+    };
+    const w = await realismOf(wary);
+    expect([w.bond.score < 0, w.longTerm.score < 0, w.trust.level < 0], 'Wary starts guarded').toEqual([
+      true,
+      true,
+      true,
+    ]);
+    const f = await realismOf(fond);
+    expect([f.bond.score > 100, f.longTerm.score > 100, f.trust.level > 40], 'Fond starts close').toEqual([
+      true,
+      true,
+      true,
+    ]);
+  } finally {
+    for (const id of await groupIds()) {
+      if (!before.includes(id)) await page.request.post(`/api/groups/${id}/delete`);
+    }
+    for (const id of ids) await page.request.post(`/api/characters/${id}/delete`);
+  }
+});
