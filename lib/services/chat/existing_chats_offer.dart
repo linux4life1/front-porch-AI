@@ -56,6 +56,10 @@ class ExistingChatsOffer {
         // since has saved its own state, which a blind write would replace.
         if (chat.id != _openSessionId) continue;
         await _chat!.setAfterglowEnabled(true);
+      } else if (chat.id == _openSessionId) {
+        // Opened since it was counted: its next save would write the old
+        // value back over a raw write, so it is switched live too.
+        await _chat!.setAfterglowEnabled(true);
       } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',
