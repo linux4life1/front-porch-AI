@@ -22,6 +22,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/atomic_prefs_store.dart';
 import 'package:front_porch_ai/services/file_consolidation_service.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 import 'package:front_porch_ai/ui/widgets/db_init_error_app.dart';
@@ -90,6 +91,9 @@ Future<void> healPrefsAndConsolidateFiles() async {
   // a misleading "couldn't open its database" screen. Moving the broken file
   // aside here lets the app boot with default settings instead; the
   // post-first-frame notice (see the update-check block) tells the user.
+  // The atomic store goes in first so no prefs read or write ever goes
+  // through the stock truncate-then-write store.
+  AtomicPrefsStore.install();
   await PrefsRecovery.healIfCorrupt();
   StartupTrace.mark('PrefsRecovery.healIfCorrupt');
 

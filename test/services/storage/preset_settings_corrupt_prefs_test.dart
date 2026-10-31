@@ -110,4 +110,41 @@ void main() {
     again.load();
     expect(again.groupSlotName, isNull);
   });
+
+  test(
+    'one bad prompt entry keeps the rest, and the raw value is kept aside',
+    () async {
+      const raw = '[{"name":"Novel","content":"Write long."},7]';
+      SharedPreferences.setMockInitialValues(_corruptPrompts(raw));
+      final prefs = await SharedPreferences.getInstance();
+      final settings = PresetSettings()..initializeBase(prefs, () {});
+
+      settings.load();
+
+      expect(settings.savedPrompts.map((p) => p['name']), ['Novel']);
+      expect(
+        prefs.getString(PresetSettings.unreadablePromptsKey) ??
+            prefs.getString('beta_${PresetSettings.unreadablePromptsKey}'),
+        raw,
+      );
+    },
+  );
+
+  test('startup seeding cannot erase prompts it could not read', () async {
+    const raw = '[{"name":"Novel","content":"Write long."';
+    SharedPreferences.setMockInitialValues(_corruptPrompts(raw));
+    final service = StorageService();
+    addTearDown(service.dispose);
+    await service.initialized.timeout(const Duration(seconds: 5));
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getString(PresetSettings.unreadablePromptsKey) ??
+          prefs.getString('beta_${PresetSettings.unreadablePromptsKey}'),
+      raw,
+      reason:
+          'the Immersive Roleplay seed replaced saved_prompts, so the '
+          'unreadable text must survive under its own key',
+    );
+  });
 }

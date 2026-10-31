@@ -1,0 +1,193 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
+import 'package:shared_preferences_platform_interface/types.dart';
+
+/// The settings store on Windows and Linux, replacing the plugin's own.
+///
+/// The stock Windows and Linux stores save by truncating
+/// `shared_preferences.json` and writing it again in place. A crash or power
+/// cut between the two leaves an empty file, which the stock store then reads
+/// as "no settings" without any error, and every setting and saved prompt is
+/// gone. This store keeps the same file, name and JSON shape (so it reads
+/// what the stock store wrote, and the other way round), but writes a
+/// flushed temp file and renames it over the original. A rename either
+/// happens or it doesn't, so the file on disk is always a whole old or a
+/// whole new store.
+///
+/// Writes are serialized and coalesced: changes that land while a write is
+/// in flight go out together in the next one, and each caller's future
+/// completes once a write that includes its change is on disk.
+class AtomicPrefsStore extends SharedPreferencesStorePlatform {
+  AtomicPrefsStore(this._locate);
+
+  /// Makes this the store for `SharedPreferences` on Windows and Linux. It
+  /// must run before the first `SharedPreferences.getInstance()`.
+  static void install() {
+    if (!Platform.isWindows && !Platform.isLinux) return;
+    SharedPreferencesStorePlatform.instance = AtomicPrefsStore(() async {
+      final dir = await getApplicationSupportDirectory();
+      return File(p.join(dir.path, 'shared_preferences.json'));
+    });
+  }
+
+  static const String _defaultPrefix = 'flutter.';
+
+  final Future<File> Function() _locate;
+  File? _file;
+  Map<String, Object>? _cache;
+  Future<Map<String, Object>>? _loading;
+  Future<bool> _queue = Future.value(true);
+  bool _dirty = false;
+
+  Future<File> _target() async => _file ??= await _locate();
+
+  /// Reads the store once; concurrent first callers share one read. A parse
+  /// failure is NOT cached, so startup recovery can repair the file and
+  /// read it again.
+  Future<Map<String, Object>> _read() {
+    final cached = _cache;
+    if (cached != null) return Future.value(cached);
+    return _loading ??= _load().then(
+      (values) {
+        _loading = null;
+        return _cache = values;
+      },
+      onError: (Object e, StackTrace st) {
+        _loading = null;
+        return Future<Map<String, Object>>.error(e, st);
+      },
+    );
+  }
+
+  Future<Map<String, Object>> _load() async {
+    final file = await _target();
+    var values = <String, Object>{};
+    if (await file.exists()) {
+      final text = await file.readAsString();
+      if (text.isNotEmpty) {
+        final data = jsonDecode(text);
+        if (data is Map) values = data.cast<String, Object>();
+      }
+    }
+    return values;
+  }
+
+  Future<bool> _persist() {
+    _dirty = true;
+    return _queue = _queue.then((_) async {
+      if (!_dirty) return true;
+      _dirty = false;
+      return _writeNow();
+    });
+  }
+
+  Future<bool> _writeNow() async {
+    try {
+      final file = await _target();
+      await file.parent.create(recursive: true);
+      final tmp = File('${file.path}.tmp');
+      await tmp.writeAsString(jsonEncode(_cache ?? {}), flush: true);
+      await _renameWithRetry(tmp, file.path);
+      return true;
+    } catch (e) {
+      debugPrint('[Prefs] could not save settings: $e');
+      return false;
+    }
+  }
+
+  /// Windows virus scanners and indexers can hold the target open for a
+  /// moment, which fails the rename with access denied. A short retry rides
+  /// that out; the temp file stays whole in the meantime.
+  static Future<void> _renameWithRetry(File tmp, String target) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        await tmp.rename(target);
+        return;
+      } on FileSystemException {
+        if (attempt >= 4) rethrow;
+        await Future<void>.delayed(Duration(milliseconds: 25 << attempt));
+      }
+    }
+  }
+
+  bool _matches(String key, PreferencesFilter filter) =>
+      key.startsWith(filter.prefix) &&
+      (filter.allowList?.contains(key) ?? true);
+
+  @override
+  Future<bool> clear() => clearWithParameters(
+    ClearParameters(filter: PreferencesFilter(prefix: _defaultPrefix)),
+  );
+
+  @override
+  Future<bool> clearWithPrefix(String prefix) => clearWithParameters(
+    ClearParameters(filter: PreferencesFilter(prefix: prefix)),
+  );
+
+  @override
+  Future<bool> clearWithParameters(ClearParameters parameters) async {
+    final values = await _read();
+    values.removeWhere((key, _) => _matches(key, parameters.filter));
+    return _persist();
+  }
+
+  @override
+  Future<Map<String, Object>> getAll() => getAllWithParameters(
+    GetAllParameters(filter: PreferencesFilter(prefix: _defaultPrefix)),
+  );
+
+  @override
+  Future<Map<String, Object>> getAllWithPrefix(String prefix) =>
+      getAllWithParameters(
+        GetAllParameters(filter: PreferencesFilter(prefix: prefix)),
+      );
+
+  @override
+  Future<Map<String, Object>> getAllWithParameters(
+    GetAllParameters parameters,
+  ) async {
+    final values = await _read();
+    return {
+      for (final e in values.entries)
+        if (_matches(e.key, parameters.filter)) e.key: e.value,
+    };
+  }
+
+  @override
+  Future<bool> remove(String key) async {
+    final values = await _read();
+    values.remove(key);
+    return _persist();
+  }
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    final values = await _read();
+    values[key] = value;
+    return _persist();
+  }
+}

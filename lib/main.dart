@@ -34,7 +34,8 @@ import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
+import 'package:front_porch_ai/utils/utils.dart'
+    show StartupTrace, formatRelativeTime;
 
 void _mark(String step) => StartupTrace.mark(step);
 
@@ -228,18 +229,29 @@ class _MyAppState extends State<MyApp>
                   // custom storage folder, whose loss makes the library look
                   // empty until the user re-selects it in Settings.
                   if (PrefsRecovery.recovered) {
+                    final from = PrefsRecovery.restoredFrom;
                     showWarmDialog<void>(
                       context,
-                      title: 'Your settings were reset',
+                      title: from == null
+                          ? 'Your settings were reset'
+                          : 'Your settings were restored',
                       icon: Icons.settings_backup_restore_rounded,
-                      content: const WarmDialogText(
-                        'Front Porch AI found its settings file damaged — '
-                        'this can happen after a crash or power loss — and '
-                        'started fresh so the app could open. Your '
-                        'characters and chats are unaffected.\n\n'
-                        'If you had moved your storage folder, point the '
-                        'app back at it in Settings and everything will '
-                        'reappear.',
+                      content: WarmDialogText(
+                        from == null
+                            ? 'Front Porch AI found its settings file damaged '
+                                  '(this can happen after a crash or power '
+                                  'loss) and started fresh so the app could '
+                                  'open. Your characters and chats are '
+                                  'unaffected.\n\n'
+                                  'If you had moved your storage folder, '
+                                  'point the app back at it in Settings and '
+                                  'everything will reappear.'
+                            : 'Front Porch AI found its settings file damaged '
+                                  '(this can happen after a crash or power '
+                                  'loss) and put back the copy saved '
+                                  '${formatRelativeTime(from)}. Settings changed '
+                                  'after that may need setting again. Your '
+                                  'characters and chats are unaffected.',
                       ),
                       actions: [warmDialogCancel(context, label: 'OK')],
                     );

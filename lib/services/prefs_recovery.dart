@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -36,25 +37,65 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// [healIfCorrupt] probes the store before anything else reads it; on the
 /// corruption signature it moves the broken file aside (kept as
-/// `shared_preferences.json.corrupt` for diagnosis) and retries once, so the
-/// app boots with default settings instead of not booting at all. macOS uses
+/// `shared_preferences.json.corrupt` for diagnosis). It then restores the
+/// last known-good copy (`shared_preferences.json.good`, refreshed by
+/// [snapshotGood]) and only falls back to defaults when there is none, so a
+/// torn write costs the changes since the last snapshot, not every setting
+/// and saved prompt the user has. macOS uses
 /// NSUserDefaults rather than this JSON file, so there is nothing to heal
 /// there and the probe simply passes the error through to the startup guard.
 class PrefsRecovery {
   PrefsRecovery._();
 
-  /// True when this launch recovered from a corrupt settings file — settings
-  /// were reset to defaults. main.dart shows a one-time notice so the reset
-  /// (and a possibly forgotten custom storage folder) is never silent.
+  /// True when this launch recovered from a corrupt settings file. main.dart
+  /// shows a one-time notice so the recovery (and a possibly forgotten
+  /// custom storage folder) is never silent.
   static bool recovered = false;
+
+  /// When [recovered] is true, the time of the known-good copy the settings
+  /// came back from, or null when no copy existed and defaults are in use.
+  static DateTime? restoredFrom;
+
+  static File? _file;
+  static bool _locateFailed = false;
+
+  static Future<File?> _settingsFile() async {
+    if (_file != null) return _file;
+    if (_locateFailed || (!Platform.isWindows && !Platform.isLinux)) {
+      return null;
+    }
+    try {
+      final dir = await getApplicationSupportDirectory();
+      return _file = File(p.join(dir.path, 'shared_preferences.json'));
+    } catch (e) {
+      // Logged once: every prompt save asks again.
+      _locateFailed = true;
+      debugPrint('[Prefs] could not locate settings file: $e');
+      return null;
+    }
+  }
 
   /// Probes SharedPreferences and heals the JSON store if it is corrupt.
   /// Never throws: if healing is impossible the original error simply
   /// resurfaces at the next `getInstance()` call, where the startup guard
   /// reports it accurately.
   static Future<void> healIfCorrupt() async {
+    // A crash between the plugin's truncate and its write leaves an empty
+    // file, which the plugin reads as "no settings" without any error. So a
+    // blank or missing store next to a good copy is a torn write too, and
+    // must be healed before the first getInstance() caches the empty map.
+    final file = await _settingsFile();
+    if (file != null && await isBlankStore(file)) {
+      final copyTime = await restoreGoodCopy(file);
+      if (copyTime != null) {
+        recovered = true;
+        restoredFrom = copyTime;
+        debugPrint('[Prefs] settings file was blank; restored $copyTime copy');
+      }
+    }
     try {
       await SharedPreferences.getInstance();
+      await snapshotGood();
       return;
     } on FormatException catch (e) {
       // The corruption signature. getInstance() clears its cached completer
@@ -67,27 +108,94 @@ class PrefsRecovery {
       return;
     }
 
-    if (!Platform.isWindows && !Platform.isLinux) return;
-    final File file;
-    try {
-      final dir = await getApplicationSupportDirectory();
-      file = File(p.join(dir.path, 'shared_preferences.json'));
-    } catch (e) {
-      debugPrint('[Prefs] could not locate settings file: $e');
-      return;
-    }
-
+    if (file == null) return;
     if (!await moveCorruptFileAside(file)) return;
+    final copyTime = await restoreGoodCopy(file);
 
     try {
       await SharedPreferences.getInstance();
       recovered = true;
+      restoredFrom = copyTime;
       debugPrint(
-        '[Prefs] recovered from corrupt settings — broken file kept at '
-        '${file.path}.corrupt, defaults in use',
+        '[Prefs] recovered from corrupt settings; broken file kept at '
+        '${file.path}.corrupt, '
+        '${copyTime == null ? 'defaults in use' : 'restored copy from $copyTime'}',
       );
     } catch (e) {
       debugPrint('[Prefs] settings still unreadable after recovery: $e');
+    }
+  }
+
+  /// Refreshes the known-good copy of the settings file. Call it after the
+  /// store was read cleanly and after writes worth protecting. Never throws.
+  static Future<void> snapshotGood() async {
+    final file = await _settingsFile();
+    if (file == null) return;
+    await writeGoodCopy(file);
+  }
+
+  /// Copies [file] to `<name>.good` through a temp file and a rename, and
+  /// only when it parses as a JSON object, so a torn store never replaces a
+  /// good copy. Returns whether a copy was written. Pure file I/O so tests
+  /// can exercise it directly.
+  static Future<bool> writeGoodCopy(File file) async {
+    try {
+      if (!await file.exists()) return false;
+      final text = await file.readAsString();
+      if (!_isSettingsJson(text)) {
+        debugPrint('[Prefs] settings file not parseable; good copy kept');
+        return false;
+      }
+      final tmp = File('${file.path}.good.tmp');
+      await tmp.writeAsString(text, flush: true);
+      await tmp.rename('${file.path}.good');
+      return true;
+    } catch (e) {
+      debugPrint('[Prefs] could not refresh the good settings copy: $e');
+      return false;
+    }
+  }
+
+  /// Puts `<name>.good` back in place of [file] when it parses. Returns the
+  /// copy's modified time, or null when there was no usable copy.
+  static Future<DateTime?> restoreGoodCopy(File file) async {
+    try {
+      final good = File('${file.path}.good');
+      if (!await good.exists()) return null;
+      final text = await good.readAsString();
+      if (!_isSettingsJson(text)) {
+        debugPrint('[Prefs] good settings copy is unreadable too');
+        return null;
+      }
+      final when = await good.lastModified();
+      final tmp = File('${file.path}.restore.tmp');
+      await tmp.writeAsString(text, flush: true);
+      await tmp.rename(file.path);
+      return when;
+    } catch (e) {
+      debugPrint('[Prefs] could not restore the good settings copy: $e');
+      return null;
+    }
+  }
+
+  /// True when [file] is missing or holds only whitespace, which the
+  /// settings plugin silently reads as an empty store.
+  static Future<bool> isBlankStore(File file) async {
+    try {
+      if (!await file.exists()) return true;
+      if (await file.length() > 64) return false;
+      return (await file.readAsString()).trim().isEmpty;
+    } catch (e) {
+      debugPrint('[Prefs] could not inspect the settings file: $e');
+      return false;
+    }
+  }
+
+  static bool _isSettingsJson(String text) {
+    try {
+      return jsonDecode(text) is Map;
+    } on FormatException {
+      return false;
     }
   }
 

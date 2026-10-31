@@ -71,4 +71,69 @@ void main() {
       expect(await PrefsRecovery.moveCorruptFileAside(file), isFalse);
     });
   });
+
+  group('PrefsRecovery good copy', () {
+    test(
+      'a clean store is copied to .good and a torn one never replaces it',
+      () async {
+        final file = File(p.join(tmp.path, 'shared_preferences.json'));
+        await file.writeAsString('{"flutter.saved_prompts":"[]"}');
+        expect(await PrefsRecovery.writeGoodCopy(file), isTrue);
+        final good = File('${file.path}.good');
+        expect(await good.readAsString(), '{"flutter.saved_prompts":"[]"}');
+
+        await file.writeAsBytes(List.filled(64, 0));
+        expect(await PrefsRecovery.writeGoodCopy(file), isFalse);
+        expect(
+          await good.readAsString(),
+          '{"flutter.saved_prompts":"[]"}',
+          reason: 'a torn store must not overwrite the last good copy',
+        );
+      },
+    );
+
+    test('a corrupt store comes back from .good instead of defaults', () async {
+      final file = File(p.join(tmp.path, 'shared_preferences.json'));
+      await file.writeAsString('{"flutter.saved_prompts":"[1]"}');
+      await PrefsRecovery.writeGoodCopy(file);
+      await file.writeAsBytes(List.filled(64, 0));
+
+      expect(await PrefsRecovery.moveCorruptFileAside(file), isTrue);
+      final when = await PrefsRecovery.restoreGoodCopy(file);
+
+      expect(when, isNotNull);
+      expect(await file.readAsString(), '{"flutter.saved_prompts":"[1]"}');
+      expect(await File('${file.path}.corrupt').exists(), isTrue);
+    });
+
+    test('no usable .good copy leaves the store empty for defaults', () async {
+      final file = File(p.join(tmp.path, 'shared_preferences.json'));
+      expect(await PrefsRecovery.restoreGoodCopy(file), isNull);
+      await File('${file.path}.good').writeAsString('not json');
+      expect(await PrefsRecovery.restoreGoodCopy(file), isNull);
+      expect(await file.exists(), isFalse);
+    });
+
+    test('an empty store after a torn write is blank and heals from .good',
+        () async {
+      final file = File(p.join(tmp.path, 'shared_preferences.json'));
+      await file.writeAsString('{"flutter.theme":"plum"}');
+      await PrefsRecovery.writeGoodCopy(file);
+      // The plugin truncates before it writes; a crash in between leaves
+      // zero bytes, which it reads as "no settings" without an error.
+      await file.writeAsString('');
+
+      expect(await PrefsRecovery.isBlankStore(file), isTrue);
+      expect(await PrefsRecovery.restoreGoodCopy(file), isNotNull);
+      expect(await file.readAsString(), '{"flutter.theme":"plum"}');
+      expect(await PrefsRecovery.isBlankStore(file), isFalse);
+    });
+
+    test('a NUL-filled store is not blank, so the corrupt path handles it',
+        () async {
+      final file = File(p.join(tmp.path, 'shared_preferences.json'));
+      await file.writeAsBytes(List.filled(32, 0));
+      expect(await PrefsRecovery.isBlankStore(file), isFalse);
+    });
+  });
 }
