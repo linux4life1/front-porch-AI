@@ -32,6 +32,19 @@ import 'package:front_porch_ai/utils/utils.dart';
 const kGroupSettingsRealismTab = 2;
 const kGroupSettingsNeedsTab = 3;
 
+/// Porch Life's Realism permission as the editor opens (allowed without a
+/// StorageService above, as in widget goldens).
+bool _realismAllowed(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).realismSettings.realismAllowed;
+  } on ProviderNotFoundException {
+    return true;
+  }
+}
+
 WorldRepository? _worlds(BuildContext context) {
   try {
     return Provider.of<WorldRepository>(context, listen: false);
@@ -73,6 +86,7 @@ MemberGroupView memberGroupViewOfChat(
   return MemberGroupView(
     read: () => groupWideValuesOfChat(chat, worlds: worlds),
     changes: chat,
+    realismAllowed: _realismAllowed(context),
     onOpenRealism: open(kGroupSettingsRealismTab),
     onOpenChaos: open(kGroupSettingsRealismTab),
     onOpenNeeds: open(kGroupSettingsNeedsTab),
@@ -131,6 +145,7 @@ MemberGroupView memberGroupViewOfTemplate(
           readsMemberLorebooks ?? group.inheritCharacterLorebooks,
     ),
     linkLabel: 'Realism & Dynamics',
+    realismAllowed: _realismAllowed(context),
     onOpenRealism: onOpenRealism,
     onOpenNeeds: onOpenRealism,
     chaosWhere: "set in Group Settings, in the group's chat",

@@ -74,13 +74,9 @@ class MemberGroupView {
   /// Saves a changed [start] to the group's seed for this member.
   final Future<void> Function(GroupMemberStart start)? saveStart;
 
-  /// Porch Life lets the Realism Engine run. False hides the member's
-  /// Realism, Needs and Afterglow behind a note; their settings are kept.
-  /// No builder passes it yet: Porch Life's `realismDefault` only starts new
-  /// chats with Realism on (off for most people) and never stops a group's
-  /// Realism, so it cannot stand for "not allowed". The Realism permission
-  /// (`realismSettings.realismAllowed`) is what the builders pass once it
-  /// lands.
+  /// Porch Life lets the Realism Engine run (`realismSettings.realismAllowed`).
+  /// False hides the member's Realism, Needs and Afterglow behind a note;
+  /// their settings are kept.
   final bool realismAllowed;
 }
 

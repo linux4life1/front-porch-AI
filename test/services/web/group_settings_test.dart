@@ -1660,6 +1660,17 @@ void main() {
         [90, 30],
       );
     });
+
+    test("the detail carries Porch Life's Realism permission", () async {
+      final edit = GroupMemberEdit(db, storage, null, null);
+      expect((await edit.detail('g1', 'mem-mara'))!['realismAllowed'], isTrue);
+      await storage.realismSettings.setRealismAllowed(false);
+      expect(
+        (await edit.detail('g1', 'mem-mara'))!['realismAllowed'],
+        isFalse,
+        reason: 'the phone hides her Realism, Needs and Afterglow',
+      );
+    });
   });
 }
 

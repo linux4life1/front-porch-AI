@@ -189,6 +189,9 @@ class GroupMemberEdit {
               legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
             )?.toJson(),
       'lite': c.isLite,
+      // Porch Life's Realism permission: false hides the member's Realism,
+      // Needs and Afterglow behind a note, keeping their settings.
+      'realismAllowed': _storage.realismSettings.realismAllowed,
     };
   }
 

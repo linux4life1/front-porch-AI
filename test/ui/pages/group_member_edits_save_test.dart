@@ -1400,6 +1400,85 @@ void main() {
       );
     });
   });
+
+  // Porch Life's Realism permission off hides a member's Realism, Needs and
+  // Afterglow in both editors (each way in reads it), keeping her settings.
+  for (final way in ['the chat sidebar', 'Edit group']) {
+    testWidgets("$way's member editor hides Realism while Porch Life does "
+        'not allow it', (tester) async {
+      await tester.runAsync(() async {
+        await tester.binding.setSurfaceSize(const Size(1280, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await seedGroupRow();
+        final mara = member();
+        final chat = _SeededGroup(
+          [mara],
+          GroupChat(
+            id: _groupId,
+            name: 'Pair',
+            defaultMemberRealismState: _realismOn.defaultMemberJson,
+          ),
+        );
+        final library = _Library();
+        final storage = FakeStorageService();
+        final worlds = FakeWorldRepository();
+        addTearDown(library.dispose);
+        addTearDown(storage.dispose);
+        addTearDown(worlds.dispose);
+        addTearDown(chat.dispose);
+        await storage.realismSettings.setRealismAllowed(false);
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<AppDatabase>.value(value: db),
+              ChangeNotifierProvider<CharacterRepository>.value(value: library),
+              ChangeNotifierProvider<ChatService>.value(value: chat),
+              ChangeNotifierProvider<StorageService>.value(value: storage),
+              ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) => TextButton(
+                    onPressed: () => way == 'Edit group'
+                        ? editGroupMemberFromEditGroup(
+                            context,
+                            group: GroupChat(id: _groupId, name: 'Pair'),
+                            member: member(),
+                            memberId: _memberId,
+                            defaultMemberJson: _realismOn.defaultMemberJson,
+                            baselineJson: _realismOn.baselineJson,
+                            settingId: null,
+                            inheritCharacterLorebooks: false,
+                            onStartSaved: (_, _) {},
+                          )
+                        : showEditCharacterDialog(context, mara),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await pumpUntil(
+          tester,
+          () => find.byType(EditCharacterPage).evaluate().isNotEmpty,
+          why: 'the editor never opened',
+        );
+
+        expect(
+          find.text(
+            'Realism, Needs and Afterglow are hidden: the Realism Engine is '
+            "off in Porch Life. Mara's settings are kept.",
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Short-Term Bond'), findsNothing);
+        expect(find.text('Needs Simulation'), findsNothing);
+      });
+    });
+  }
 }
 
 /// An open group named Pair that records each member Afterglow it sets. Like
