@@ -14,6 +14,7 @@ import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/group_member_start.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
@@ -1670,6 +1671,34 @@ void main() {
       expect(
         [seeds['mem-mara']!['affection'], seeds['mem-mara']!['trust']],
         [90, 30],
+      );
+    });
+
+    test("a member's Group Settings preference alone is no start: the phone "
+        'offers none and a posted one switches nothing on', () async {
+      await db.updateGroup(
+        GroupsCompanion(
+          id: const Value('g1'),
+          defaultMemberRealismState: Value(
+            jsonEncode({
+              'perChar': {
+                'mem-mara': {'enjoysLowHygiene': true},
+              },
+            }),
+          ),
+          baselineRealismState: const Value('{}'),
+        ),
+      );
+      final edit = GroupMemberEdit(db, storage, null, null);
+      expect((await edit.detail('g1', 'mem-mara'))!['start'], isNull);
+      await edit.update('g1', 'mem-mara', {
+        'groupStart': {'trustLevel': 70},
+      });
+      expect(
+        groupNewChatsRunRealism(
+          (await db.getGroupById('g1'))!.defaultMemberRealismState,
+        ),
+        isFalse,
       );
     });
 

@@ -58,7 +58,7 @@ const _kReplyPieces = ['Nothing is being ', 'tracked right now.'];
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('a chat works with Realism Mode off, and the engine stays off', (
+  testWidgets('a chat works with the Realism Engine off, and it stays off', (
     tester,
   ) async {
     try {
