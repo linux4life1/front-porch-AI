@@ -512,6 +512,34 @@ void main() {
       expect(runs(), isTrue);
     });
 
+    test("the phone's unfocused group view shows the panel owner's own "
+        "Lust, not the loaded speaker's", () async {
+      await boot();
+      addTearDown(() => disposeChatThenCloseDb(chat, db));
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      final owner = members().first;
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(owner.card),
+        arousal: 20,
+      );
+      chat.nsfwService.setArousalLevel(70);
+      final ladder = chat.nsfwService.arousalTierNameForLevel;
+      expect(ladder(20), isNot(ladder(70)), reason: 'two different tiers');
+
+      final nsfw = ChatToolsFacade(chat, storage, null).state()['nsfw'] as Map;
+      expect(nsfw['arousalLevel'], 20);
+      expect(nsfw['arousalTier'], ladder(20));
+      final focused =
+          ChatToolsFacade(
+                chat,
+                storage,
+                null,
+              ).state(participantId: owner.id)['nsfw']
+              as Map;
+      expect(focused['arousalLevel'], 20, reason: 'the same, focused');
+    });
+
     List<face.AvatarImage> faces(String who) => [
       for (final (i, label) in ['neutral', 'joy', 'sadness', 'fear'].indexed)
         face.AvatarImage(
