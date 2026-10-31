@@ -32,6 +32,7 @@ import '../porch_accordion.dart';
 import 'ambitions_row.dart';
 import 'pockets_row.dart';
 import 'bond_bars.dart';
+import 'needs_line.dart';
 import 'time_strip.dart';
 import 'presence_word.dart';
 
@@ -169,20 +170,16 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               ),
             ],
           ],
+          if (!widget.isGroup && realismOn) ...[
+            const SizedBox(height: 10),
+            NeedsLine(chat: chat),
+          ],
           // The bars show while Needs run: the gate (Realism, this chat's
           // Needs switch, the Porch Life one), not the stored switch, or
           // they sit frozen with Needs off and read as live.
           if (!widget.isGroup &&
               chat.needsActive &&
               chat.needsSimulation.vector.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Needs',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
             const SizedBox(height: 4),
             NeedsGrid(
               needs: visibleNeeds(

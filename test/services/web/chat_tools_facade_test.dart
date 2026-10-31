@@ -281,6 +281,34 @@ void main() {
       expect(chat.asked, [true]);
     });
   });
+  group("the phone's Needs switch", () {
+    test("it is this chat's own, greyed while Porch Life has Needs off, and "
+        'flipping it asks the chat', () async {
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      final chat = _NeedsAsk();
+      final facade = ChatToolsFacade(chat, storage, null);
+      final router = Router();
+      WebChatToolsRoutes(facade, router);
+
+      await storage.realismSettings.setNeedsSimDefault(false);
+      expect(facade.state()['needsAllowed'], isFalse);
+      await storage.realismSettings.setNeedsSimDefault(true);
+      expect(facade.state()['needsAllowed'], isTrue);
+
+      final res = await router.call(
+        shelf.Request(
+          'POST',
+          Uri.parse('http://localhost/api/chat/tools/toggle'),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'name': 'needs', 'value': false}),
+        ),
+      );
+      expect(res.statusCode, 200);
+      expect(chat.asked, [false]);
+    });
+  });
 }
 
 /// Records what the phone's Afterglow switch asks of the chat.
@@ -309,4 +337,12 @@ class _GroupChat extends FakeChatService {
 
   @override
   String? get currentSessionId => 's-crew';
+}
+
+/// Records what the phone's Needs switch asks of the chat.
+class _NeedsAsk extends FakeChatService {
+  final asked = <bool>[];
+
+  @override
+  Future<void> setNeedsSimEnabled(bool on) async => asked.add(on);
 }

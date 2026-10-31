@@ -428,7 +428,7 @@ class ChatService extends ChangeNotifier
   String get wikiBaseUrl => _wikiBaseUrlImpl;
   Future<void> setWikiBaseUrl(String url) => _setWikiBaseUrlImpl(url);
   NeedsSimulation get needsSimulation => _needsSimulation;
-
+  Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
       _spatialStanceForGroupCharacterImpl(c);

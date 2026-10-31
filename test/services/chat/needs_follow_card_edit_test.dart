@@ -1,25 +1,26 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat sidebar has no Needs switch (2026-10-25); the character editor's
-// switch is the one place to turn Needs on or off for a 1:1 chat. A save that
-// moves the card's choice carries it into the open chat live and into the
-// stored flag of every other 1:1 chat with that character. A save that leaves
-// the choice alone touches no chat, and group chats keep their own switch.
+// Three layers (Needs): a character's card says how its NEW chats start, and
+// editing it never reaches a chat that already exists, open or closed. Each
+// chat keeps its own Needs switch, on the sidebar's Needs line and in the
+// phone's chat tools. (Until this change a moved card switch was carried into
+// every 1:1 chat with that character, because the sidebar had no switch.)
 
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -40,91 +41,108 @@ void main() {
 
   late AppDatabase db;
   late ChatService chat;
-  late CharacterCard card;
+  late CharacterFacade chars;
+  late String id;
 
-  Future<void> addSession(String id, {String? groupId, bool needs = false}) =>
-      db.insertSession(
-        SessionsCompanion.insert(
-          id: id,
-          characterId: const Value('char-a'),
-          groupId: Value(groupId),
-          needsSimEnabled: Value(needs),
-        ),
-      );
+  // Lived-in chats switched off: each holds the Needs it had. (A row that
+  // never saved a vector is a chat Needs never seeded, which follows its card
+  // and Porch Life when it opens; needsSimAfterHydrate.)
+  Future<void> addSession(String sid) => db.insertSession(
+    SessionsCompanion.insert(
+      id: sid,
+      characterId: Value(id),
+      needsSimEnabled: const Value(false),
+      needsVector: const Value('{"hunger":70,"energy":60}'),
+    ),
+  );
 
-  Future<bool> storedNeeds(String id) async =>
-      (await db.getSessionById(id))!.needsSimEnabled;
+  Future<bool> storedNeeds(String sid) async =>
+      (await db.getSessionById(sid))!.needsSimEnabled;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     db = AppDatabase.forTesting();
     final storage = StorageService();
+    await storage.setRootPath(
+      Directory.systemTemp.createTempSync('fpai_needs_card_').path,
+    );
+    final repo = CharacterRepository(db, storage);
     chat = ChatService(
       KoboldService(storage),
       UserPersonaService(db),
       storage,
       WorldRepository(storage, db),
     )..setDatabase(db);
+    chars = CharacterFacade(db, storage, null, chat, repo);
+    final made = await chars.create({
+      'name': 'Misty',
+      'needsSimEnabled': false,
+    });
+    id = made!['id'] as String;
     await addSession('open');
     await addSession('closed');
-    await addSession('group', groupId: 'g1');
-    card = CharacterCard(
-      name: 'Misty',
-      frontPorchExtensions: FrontPorchExtensions(needsSimEnabled: false),
-    )..dbId = 'char-a';
-    await chat.setActiveCharacter(card);
+    await chat.setActiveCharacter(
+      repo.characters.firstWhere((c) => c.dbId == id),
+    );
     await chat.loadSession('open');
   });
 
   tearDown(() => disposeChatThenCloseDb(chat, db));
 
-  test('turning Needs on in the editor turns it on in the open chat and '
-      'in the closed 1:1 chats, not the group', () async {
+  test("turning a card's Needs on in its editor leaves the chats it already "
+      'has as they are, open and closed', () async {
     expect(chat.needsSimEnabled, isFalse, reason: 'baseline');
 
-    card.frontPorchExtensions!.needsSimEnabled = true;
-    await chat.followCardNeedsChoice(card, before: false);
+    expect(await chars.update(id, {'needsSimEnabled': true}), isTrue);
 
-    expect(chat.needsSimEnabled, isTrue);
-    expect(chat.needsSimulation.vector, isNotEmpty, reason: 'bars seeded');
-    expect(await storedNeeds('open'), isTrue);
-    expect(await storedNeeds('closed'), isTrue);
-    expect(await storedNeeds('group'), isFalse);
-
-    await chat.loadSession('closed');
-    expect(chat.needsSimEnabled, isTrue, reason: 'the closed chat opens on');
-  });
-
-  test('turning Needs off in the editor turns it off again', () async {
-    card.frontPorchExtensions!.needsSimEnabled = true;
-    await chat.followCardNeedsChoice(card, before: false);
-
-    card.frontPorchExtensions!.needsSimEnabled = false;
-    await chat.followCardNeedsChoice(card, before: true);
-
-    expect(chat.needsSimEnabled, isFalse);
+    expect(chat.needsSimEnabled, isFalse, reason: 'the open chat');
     expect(await storedNeeds('open'), isFalse);
     expect(await storedNeeds('closed'), isFalse);
+    await chat.loadSession('closed');
+    expect(chat.needsSimEnabled, isFalse, reason: 'the closed chat opens off');
   });
 
-  test('a save that leaves the Needs choice alone touches no chat', () async {
-    // This chat runs Needs although the card says off (set before the
-    // sidebar switch was removed). Fixing a typo must not stop it.
-    await chat.setNeedsSimEnabled(true);
-    card.description = 'A neighbor.';
-    await chat.followCardNeedsChoice(card, before: false);
+  test(
+    'a chat started from a card with Needs off keeps it off after the '
+    'card is switched on, and turning that chat on later seeds its bars',
+    () async {
+      final made = await chars.create({
+        'name': 'Wren',
+        'firstMessage': 'The porch light hums.',
+        'needsSimEnabled': false,
+      });
+      final wren = made!['id'] as String;
+      final card = chars.cardByDbId(wren)!;
+      await chat.setActiveCharacter(card);
+      final started = chat.currentSessionId!;
+      expect(chat.needsSimEnabled, isFalse, reason: 'the card starts it off');
+      await chat.flushPendingSaves();
+      // Another of Wren's chats, to leave and come back to this one.
+      await db.insertSession(
+        SessionsCompanion.insert(id: 'wren-other', characterId: Value(wren)),
+      );
+      Future<void> reopen() async {
+        await chat.loadSession('wren-other');
+        await chat.loadSession(started);
+      }
 
-    expect(chat.needsSimEnabled, isTrue);
-    expect(await storedNeeds('closed'), isFalse);
-  });
+      expect(await chars.update(wren, {'needsSimEnabled': true}), isTrue);
+      await reopen();
+      expect(chat.needsSimEnabled, isFalse, reason: 'it kept its own choice');
 
-  test('editing another character leaves the open chat alone', () async {
-    final other = CharacterCard(
-      name: 'Rook',
-      frontPorchExtensions: FrontPorchExtensions(needsSimEnabled: true),
-    )..dbId = 'char-b';
-    await chat.followCardNeedsChoice(other, before: false);
-
-    expect(chat.needsSimEnabled, isFalse);
-  });
+      // Switched on while closed, as the existing-chats question does.
+      await chat.loadSession('wren-other');
+      await db.customUpdate(
+        'UPDATE sessions SET needs_sim_enabled = 1 WHERE id = ?',
+        variables: [Variable(started)],
+      );
+      await chat.loadSession(started);
+      expect(chat.needsSimEnabled, isTrue);
+      expect(
+        chat.needsSimulation.vector,
+        isNotEmpty,
+        reason: 'bars, not blank',
+      );
+    },
+  );
 }

@@ -257,11 +257,13 @@ extension ChatServiceSessionStateSave on ChatService {
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
         // Persist the kit even when the chat-gear switch is off (hide ≠
-        // erase). false+null is a never-seeded row; false+vector is OFF.
+        // erase). An empty map is a chat that made its choice with no kit
+        // yet, so a card edit or Porch Life never re-decides it; only rows
+        // saved before that (false+null) are decided once when they open.
         needsVector: drift.Value(
           _needsSimulation.vector.isNotEmpty
               ? jsonEncode(encodeNeedsPersist(_needsSimulation))
-              : null,
+              : '{}',
         ),
         // v47 — the 1:1 record. Group members keep theirs inside
         // groupRealismState above, which is why groups always survived a

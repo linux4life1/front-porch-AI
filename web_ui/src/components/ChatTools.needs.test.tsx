@@ -1,27 +1,25 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat tools list has no Needs switch (2026-10-25): Needs is set on the
-// card, so the per-chat switch and the clock-off line that sat under it are
-// gone, whatever the clock. One-Shot Eval moved out of this list to sit above
-// the tool-calling pill (OneShotEvalControl.test.tsx). Desktop twin: the
-// Character State case in test/ui/settings/after_dark_group_test.dart.
+// The phone's Needs switch for this chat (desktop: the sidebar's Needs line).
+// It shows while the chat's Realism is on and greys, with where to look,
+// while Porch Life's Needs is off; the chat's own choice is kept.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 import type { ToolsState } from './ChatToolsShared';
 
-const LINE = 'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
-
-let passageEnabled = true;
+let needsAllowed = true;
+const posts: { path: string; body: unknown }[] = [];
 
 function toolsState(): ToolsState {
   return {
     realismEnabled: true,
-    needsEnabled: true,
+    needsEnabled: false,
+    needsAllowed,
     realismOneShotEval: false,
     memory: {
       ragEnabled: false,
@@ -36,24 +34,20 @@ function toolsState(): ToolsState {
     summary: { text: '', paused: false, isGenerating: false, lastIndex: 0 },
     chaos: { enabled: false, nsfwEnabled: false, pressure: 0, hasPendingEvent: false },
     nsfw: { cooldownEnabled: false, cooldownTurnsRemaining: 0, arousalLevel: 0, arousalTier: '' },
-    time: {
-      weekday: 'Tuesday',
-      dayCount: 3,
-      timeOfDay: 'evening',
-      passageEnabled,
-      clockRunning: passageEnabled,
-    },
+    time: { weekday: 'Tuesday', dayCount: 3, timeOfDay: 'evening', passageEnabled: true, clockRunning: true },
     objectives: { primary: null, secondary: [], isChecking: false },
   };
 }
 
-// The tools snapshot answers; the panels' own loads never settle.
 vi.mock('../api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: {
     get: (url: string) =>
       /^\/api\/chat\/tools(\?|$)/.test(url) ? Promise.resolve(toolsState()) : new Promise(() => {}),
-    post: () => new Promise(() => {}),
+    post: (path: string, body: unknown) => {
+      posts.push({ path, body });
+      return new Promise(() => {});
+    },
   },
 }));
 
@@ -64,6 +58,8 @@ let root: Root;
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  needsAllowed = true;
+  posts.length = 0;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -81,22 +77,21 @@ async function renderTools() {
   });
 }
 
-describe('ChatTools without a Needs switch', () => {
-  for (const clockOn of [false, true]) {
-    it(`has no Needs switch or clock-off line (clock ${clockOn ? 'on' : 'off'})`, async () => {
-      passageEnabled = clockOn;
-      await renderTools();
-      expect(container.querySelector('.chat-tools')).not.toBeNull();
-      expect(container.textContent).not.toContain('Needs simulation');
-      expect(container.querySelector('.needs-clock-off')).toBeNull();
-      expect(container.textContent).not.toContain(LINE);
-    });
-  }
+const needsSwitch = () => container.querySelector<HTMLInputElement>('input[aria-label="Needs"]');
 
-  it('no longer carries One-Shot Eval', async () => {
-    await renderTools();
-    expect(container.querySelector('.chat-tools')).not.toBeNull();
-    expect(container.textContent).not.toContain('One-Shot Eval');
-    expect(container.textContent).not.toContain('Realism performance');
+it("flipping this chat's Needs switch sends it", async () => {
+  await renderTools();
+  expect(needsSwitch()!.checked).toBe(false);
+  expect(needsSwitch()!.disabled).toBe(false);
+  await act(async () => {
+    needsSwitch()!.click();
   });
+  expect(posts.map((p) => p.body)).toContainEqual({ name: 'needs', value: true });
+});
+
+it('greys out with where to look while Porch Life has Needs off', async () => {
+  needsAllowed = false;
+  await renderTools();
+  expect(needsSwitch()!.disabled).toBe(true);
+  expect(container.textContent).toContain('Off in Porch Life, so no chat runs Needs.');
 });

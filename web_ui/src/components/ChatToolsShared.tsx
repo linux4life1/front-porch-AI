@@ -14,6 +14,8 @@ export interface ToolsState {
   wikiSavedUrls?: string[];
   realismEnabled: boolean;
   needsEnabled: boolean;
+  /** Porch Life allows Needs (additive: absent on an older desktop). */
+  needsAllowed?: boolean;
   realismOneShotEval: boolean;
   // Tri-state One-Shot mode (2026-08-10). Optional: absent on an older
   // facade, in which case the legacy bool still tells us on-vs-not.

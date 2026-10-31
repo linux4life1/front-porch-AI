@@ -44,6 +44,9 @@ class CharacterFacade {
   final AppDatabase _db;
   final StorageService _storage;
   final CharacterRepository? _repo;
+
+  /// The library's cards (none before a repository is injected).
+  List<CharacterCard> get cards => _repo?.characters ?? const [];
   final FolderService? _folders;
   final ChatService? _chat;
 
@@ -307,16 +310,15 @@ class CharacterFacade {
     if (repo == null) return false;
     final card = cardByDbId(id);
     if (card == null) return false;
-    final needsBefore = card.frontPorchExtensions?.needsSimChoice;
     applyCharacterFields(
       card,
       fields,
       needsSimDefault: _storage.realismSettings.needsSimDefault,
     );
     applyCharacterWorlds(card, fields['worlds'], worlds);
+    // A card sets how its new chats start; chats that exist keep their own
+    // switches (the desktop editor's rule).
     await repo.updateCharacter(card);
-    // The desktop editor's rule: a moved Needs switch reaches the chats.
-    await _chat?.followCardNeedsChoice(card, before: needsBefore);
     return true;
   }
 

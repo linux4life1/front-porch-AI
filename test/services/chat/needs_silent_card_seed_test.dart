@@ -14,7 +14,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -86,14 +86,20 @@ void main() {
   }
 
   group('opening a character for the first time', () {
-    test('a card that says nothing follows the global switch', () async {
-      await boot();
-      final carmen = card('Carmen', FrontPorchExtensions(realismEnabled: true));
-      expect(carmen.frontPorchExtensions!.needsSimChoice, isNull);
-      await repo!.addCharacter(carmen);
-      await chat!.setActiveCharacter(carmen);
-      expectNeedsOn('a silent card took the Porch Life switch (on)');
-    });
+    test(
+      'a card that says nothing asks for Needs where Realism is on',
+      () async {
+        await boot();
+        final carmen = card(
+          'Carmen',
+          FrontPorchExtensions(realismEnabled: true),
+        );
+        expect(carmen.frontPorchExtensions!.needsSimChoice, isNull);
+        await repo!.addCharacter(carmen);
+        await chat!.setActiveCharacter(carmen);
+        expectNeedsOn('a silent card asked for Needs');
+      },
+    );
 
     test('a card with no Front Porch settings at all follows it too', () async {
       await boot();
@@ -101,7 +107,7 @@ void main() {
       await repo!.addCharacter(plain);
       await chat!.setActiveCharacter(plain);
       expect(chat!.realismEnabled, isTrue);
-      expectNeedsOn('the plain-card branch seeded Needs from the global');
+      expectNeedsOn('the plain-card branch seeded Needs');
     });
 
     test(
@@ -149,7 +155,8 @@ void main() {
       );
       await repo!.addCharacter(yes);
       await chat!.setActiveCharacter(yes);
-      expect(chat!.needsSimEnabled, isFalse);
+      // The chat keeps its card's choice; Porch Life vetoes it live.
+      expect(chat!.needsSimEnabled, isTrue);
       expect(chat!.needsActive, isFalse);
 
       final quiet = card('Quinn', FrontPorchExtensions(realismEnabled: true));
@@ -160,13 +167,14 @@ void main() {
   });
 
   group('reopening a chat saved with Needs off and no bars', () {
-    // The chat was started while the Porch Life switch was off, so its row
-    // says off with no saved bars: the stale row the hydrate promotion is
-    // for. With the switch back on, a card that asks gets Needs on reopen;
-    // a silent card must too, and a card that chose off must not.
+    // A row saved before chats recorded their own choice says off with no
+    // saved bars at all: the stale row the hydrate promotion is for. On
+    // reopen a card that asks gets Needs on, a silent card does too where
+    // the chat's Realism is on, and a card that chose off does not.
     Future<CharacterCard> savedOffThenReopen(
       FrontPorchExtensions ext, {
       bool realismGlobal = true,
+      bool legacyRow = true,
     }) async {
       await boot(needsGlobal: false, realismGlobal: realismGlobal);
       final c = card('Carmen', ext);
@@ -176,12 +184,17 @@ void main() {
       await chat!.setActiveCharacter(c);
       final sid = chat!.currentSessionId;
       expect(sid, isNotNull, reason: 'opening saves the greeting chat');
-      final row = await db!.getSessionById(sid!);
-      expect(row?.needsSimEnabled, isFalse);
-      expect(row?.needsVector ?? '', isEmpty);
 
       await storage!.realismSettings.setNeedsSimDefault(true);
       await chat!.setActiveCharacter(other);
+      if (legacyRow) {
+        // Saved before chats recorded their choice: off, no vector at all.
+        await db!.customUpdate(
+          'UPDATE sessions SET needs_sim_enabled = 0, needs_vector = NULL '
+          'WHERE id = ?',
+          variables: [Variable(sid!)],
+        );
+      }
       await chat!.setActiveCharacter(c);
       expect(chat!.currentSessionId, sid, reason: 'the saved chat reopened');
       return c;
@@ -189,7 +202,7 @@ void main() {
 
     test('a silent card is promoted to Needs on', () async {
       await savedOffThenReopen(FrontPorchExtensions(realismEnabled: true));
-      expectNeedsOn('hydrate treats a silent card as asking when global on');
+      expectNeedsOn('hydrate treats a silent card as asking');
     });
 
     test('a silent card in a Realism-off chat stays off', () async {
@@ -224,9 +237,18 @@ void main() {
       );
       expect(chat!.needsSimEnabled, isFalse);
     });
+
+    test("a chat started while Porch Life had Needs off keeps its card's "
+        'choice, and runs once Porch Life turns Needs on', () async {
+      await savedOffThenReopen(
+        FrontPorchExtensions(realismEnabled: true),
+        legacyRow: false,
+      );
+      expectNeedsOn("the chat's own switch, from its card");
+    });
   });
 
-  test('New Chat with a silent card follows the global switch', () async {
+  test('New Chat with a silent card asks for Needs', () async {
     await boot();
     final carmen = card('Carmen', FrontPorchExtensions(realismEnabled: true));
     await repo!.addCharacter(carmen);
@@ -235,12 +257,12 @@ void main() {
 
     await chat!.startNewChat();
 
-    expectNeedsOn('New Chat re-seeds Needs from the silent card + global');
+    expectNeedsOn('New Chat re-seeds Needs from the silent card');
     final row = await db!.getSessionById(chat!.currentSessionId!);
     expect(row?.needsSimEnabled, isTrue);
   });
 
-  test('a transcript imported onto a silent card follows it', () async {
+  test('a transcript imported onto a silent card asks for Needs', () async {
     await boot();
     final carmen = card('Carmen', FrontPorchExtensions(realismEnabled: true));
     await repo!.addCharacter(carmen);
@@ -259,7 +281,7 @@ void main() {
     );
     await chat!.importChatPackage(transcript);
 
-    expectNeedsOn('the import seed re-read the silent card + global');
+    expectNeedsOn('the import seed re-read the silent card');
   });
 
   test('a plain card through the real importer stays silent and starts '
