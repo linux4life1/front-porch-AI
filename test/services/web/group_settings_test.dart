@@ -1016,4 +1016,57 @@ void main() {
       );
     });
   });
+
+  // A member's own Afterglow switch is theirs in the group, so a member joins
+  // with it on: the card's switch says how new 1:1 chats start.
+  group('GroupFacade.createGroup: each member joins with Afterglow on', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+    late String shyId;
+    late String plainId;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      final chars = CharacterRepository(db, storage);
+      await chars.addCharacter(
+        CharacterCard(
+          name: 'Shy',
+          description: 'Starts new chats without Afterglow.',
+          frontPorchExtensions: FrontPorchExtensions(afterglowEnabled: false),
+        ),
+      );
+      await chars.addCharacter(
+        CharacterCard(name: 'Plain', description: 'No extensions.'),
+      );
+      shyId = chars.characters.firstWhere((c) => c.name == 'Shy').dbId!;
+      plainId = chars.characters.firstWhere((c) => c.name == 'Plain').dbId!;
+      groups = GroupChatRepository(storage, db);
+      facade = GroupFacade(groups, storage, chars, db);
+    });
+
+    tearDown(() => db.close());
+
+    test('a member whose card starts new chats without it joins with their '
+        'own switch on', () async {
+      final r = await facade.createGroup({
+        'name': 'Quiet Porch',
+        'memberIds': [shyId, plainId],
+      });
+      final members = await groups.getMembersForGroup(r!['id'] as String);
+      final shy = members.firstWhere((m) => m.originLibraryDbId == shyId);
+      expect(
+        FrontPorchExtensions.fromJson(
+          shy.frontPorchExtensions!,
+        ).afterglowEnabled,
+        isTrue,
+      );
+    });
+  });
 }

@@ -86,6 +86,8 @@ export interface ToolsState {
     // (additive: absent on an older desktop).
     afterglowAllowed?: boolean;
     afterglowSwitch?: boolean;
+    /** In a group, each member's own switch; absent in a 1:1. */
+    members?: { id: string; name: string; afterglow: boolean }[];
     refractoryMinutesRemaining: number;
     refractoryClockRunning: boolean;
     refractoryLabel: string;

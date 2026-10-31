@@ -32,6 +32,27 @@ class GroupMemberRealismCard extends StatelessWidget {
     required this.controller,
   });
 
+  Widget _afterglowRow(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        'Afterglow',
+        style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
+      ),
+      const SizedBox(width: 6),
+      SizedBox(
+        height: 24,
+        child: FittedBox(
+          child: Switch(
+            value: char.frontPorchExtensions?.afterglowEnabled ?? true,
+            activeThumbColor: AppColors.lustAccentOf(context),
+            onChanged: (v) => controller.updateMemberAfterglow(char, v),
+          ),
+        ),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = controller;
@@ -269,6 +290,10 @@ class GroupMemberRealismCard extends StatelessWidget {
                   _verifierSliders(context, id),
                   _authorityRow(context, id),
                 ],
+                // This member's own Afterglow switch, while Porch Life allows
+                // Afterglow and the group chat's switch is on.
+                if (afterglowEnabledOf(context) && cs.afterglowChatSwitch)
+                  _afterglowRow(context),
               ],
             ),
           ),

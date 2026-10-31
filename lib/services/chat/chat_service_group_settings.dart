@@ -74,10 +74,39 @@ extension ChatServiceGroupSettings on ChatService {
   bool get isGroupTurnOrderRandom =>
       _activeGroup?.turnOrder == TurnOrder.random;
 
-  /// Whether Afterglow (arousal / the Lust bar) is on for this chat: Porch
-  /// Life (with 18+ on) allows it and the chat's own switch is on, read live.
-  /// No gate reads a member's stored flag.
+  /// Whether Afterglow (arousal / the Lust bar) is on for the body the live
+  /// scalars hold: Porch Life (with 18+ on) allows it, the chat's own switch
+  /// is on and, in a group, the loaded member's own, read live. For one
+  /// member of the group, read [afterglowRunsFor].
   bool get isGroupNsfwEnabled => _nsfwService.nsfwCooldownEnabled;
+
+  /// Whether Afterglow runs for [member] in this chat: Porch Life (with 18+)
+  /// allows it, the chat's switch is on and, in a group, the member's own.
+  bool afterglowRunsFor(CharacterCard member) =>
+      _storageService.realismSettings.afterglowEnabled &&
+      (_activeGroup == null
+          ? _nsfwService.storedNsfwCooldownEnabled
+          : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
+
+  /// A group member's own Afterglow switch, kept on their card in this group
+  /// (unset reads on). Switching it either way settles their Lust and any
+  /// recovery, as the chat's switch does.
+  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
+    if (_activeGroup == null) return;
+    if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
+    member.frontPorchExtensions =
+        (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+          afterglowEnabled: on,
+        );
+    final id = _getCharacterIdFromCard(member);
+    _groupStore.memberForWrite(id)
+      ..arousal = 0
+      ..refractory = Refractory.none;
+    if (_nsfwService.loadedMemberId == id) {
+      _nsfwService.resetRuntimeArousalAndCooldown();
+    }
+    await persistGroupMemberExtensions(memberId: id);
+  }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).
   /// [random] true → a random member answers each turn; false → round-robin.

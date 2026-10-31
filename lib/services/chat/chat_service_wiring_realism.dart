@@ -310,8 +310,8 @@ extension ChatServiceWiringRealism on ChatService {
       // Porch Life (with 18+) allows it AND this chat's own switch is on.
       afterglowOn: () =>
           _storageService.realismSettings.afterglowEnabled &&
-          _afterglowChatSwitchImpl,
-      chatSwitchOn: () => _afterglowChatSwitchImpl,
+          _afterglowSwitchForLoadedImpl,
+      chatSwitchOn: () => _afterglowSwitchForLoadedImpl,
     );
   }
 

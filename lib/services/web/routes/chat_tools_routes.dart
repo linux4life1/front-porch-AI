@@ -145,6 +145,12 @@ class WebChatToolsRoutes {
       // The name it had before October, so an older phone's switch works.
       case 'nsfwCooldown':
         await _facade.setAfterglow(value);
+      // A group member's own Afterglow switch: also needs the member's id.
+      case 'memberAfterglow':
+        final id = body['id'];
+        if (id is! String || !await _facade.setMemberAfterglow(id, value)) {
+          return JsonResponse.badRequest('a group member id is required');
+        }
       case 'passageOfTime':
         await _facade.setPassageOfTime(value);
       case 'summaryPaused':

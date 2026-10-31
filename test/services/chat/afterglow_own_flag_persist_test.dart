@@ -355,6 +355,54 @@ void main() {
     expect(chat.nsfwService.arousalLevel, 30, reason: "Rue's Lust came along");
   });
 
+  test('forking a 1:1 that runs Afterglow keeps it running for the host, '
+      'whatever their card starts new chats with', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Nia', 'char-ownflag-nia', afterglow: false, realism: true),
+    );
+    expect(chat.afterglowChatSwitch, isFalse, reason: 'the card starts it off');
+    await chat.setAfterglowEnabled(true);
+    await chat.sendMessage('Evening.');
+    await settle();
+    chat.nsfwService.setArousalLevel(60);
+
+    final group = await chat.forkToGroupChat([
+      card('Rue', 'char-ownflag-rue', realism: true),
+    ], groupRepo);
+    expect(group, isNotNull);
+    final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(chat.afterglowRunsFor(nia), isTrue);
+    expect(chat.getArousalForGroupCharacter(nia), 60, reason: 'her Lust came');
+  });
+
+  test('collapsing to the 1:1 of a member switched off in the group leaves '
+      'its Afterglow off', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(card('Nia', 'char-ownflag-nia'));
+    await chat.sendMessage('Evening.');
+    await settle();
+    final rue = await libraryCard('Rue');
+    final group = await chat.forkToGroupChat([rue], groupRepo);
+    expect(group, isNotNull);
+    await chat.setMemberAfterglowEnabled(
+      chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      false,
+    );
+
+    final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(await chat.removeCharacterFromGroup(nia, groupRepo), isTrue);
+    expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
+    expect(chat.activeCharacter?.name, 'Rue');
+    expect(
+      await storedFlag(chat.currentSessionId!),
+      isFalse,
+      reason: 'Afterglow was not running for Rue in the group',
+    );
+  });
+
   test('branching a 1:1 from a message keeps the chat\'s own flag', () async {
     await chat.setActiveCharacter(card('Ivy', 'char-ownflag-ivy'));
     await chat.sendMessage('Evening.');
@@ -774,6 +822,68 @@ void main() {
           (await groupState(chat.currentSessionId!))['perChar']
               as Map<String, dynamic>;
       expect((perChar[nia] as Map?)?['arousal'] ?? 0, 0);
+    });
+
+    test("a member's own switch: off, Afterglow stops for them alone, their "
+        'Lust settles, and the switch stays on their row', () async {
+      await intoGroup();
+      final sid = chat.currentSessionId!;
+      final group = chat.activeGroup!;
+      final rueId = groupMemberStoreId(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      );
+      // Rue is partway up in the saved chat, edited from another character's.
+      await chat.setActiveCharacter(card('Ivo', 'char-gsw-ivo'));
+      final state = await groupState(sid);
+      final perChar = state['perChar'] as Map<String, dynamic>;
+      perChar[rueId] = {
+        ...?(perChar[rueId] as Map<String, dynamic>?),
+        'arousal': 40,
+      };
+      await db.customUpdate(
+        'UPDATE sessions SET group_realism_state = ? WHERE id = ?',
+        variables: [Variable(jsonEncode(state)), Variable(sid)],
+      );
+      await chat.setActiveGroup(group, groupRepo: groupRepo);
+      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+      final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+      expect(chat.getArousalForGroupCharacter(rue), 40);
+      expect(chat.afterglowRunsFor(rue), isTrue);
+
+      await chat.setMemberAfterglowEnabled(rue, false);
+      expect(chat.afterglowRunsFor(rue), isFalse);
+      expect(chat.afterglowRunsFor(nia), isTrue, reason: 'the rest keep it');
+      expect(chat.getArousalForGroupCharacter(rue), 0);
+      final row = await db
+          .customSelect(
+            'SELECT front_porch_extensions AS e FROM group_members '
+            'WHERE id = ?',
+            variables: [Variable(rue.dbId!)],
+          )
+          .getSingle();
+      final ext = FrontPorchExtensions.fromJson(
+        jsonDecode(row.data['e'] as String) as Map<String, dynamic>,
+      );
+      expect(ext.afterglowEnabled, isFalse, reason: "kept on Rue's own row");
+    });
+
+    test('a member switched off takes no climax; the rest of the cast still '
+        'do', () async {
+      await intoGroup();
+      final judges = RefractoryJudges()..climax = true;
+      chat.testLlmServiceOverride = judges;
+      final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
+      await chat.setMemberAfterglowEnabled(rue, false);
+
+      await chat.sendMessage('@Rue Evening.');
+      await settle();
+      expect(chat.messages.last.sender, 'Rue');
+      expect(chat.messages.last.activeMetadata?['climax_triggered'], isNull);
+
+      await chat.sendMessage('@Nia And you?');
+      await settle();
+      expect(chat.messages.last.sender, 'Nia');
+      expect(chat.messages.last.activeMetadata?['climax_triggered'], isTrue);
     });
 
     test("switching it off settles every member's Lust", () async {

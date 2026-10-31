@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// The plain toggles: engine, needs, one-shot, chaos, passage of time,
 /// Director, wiki base. Each writes the same setting the
@@ -75,6 +76,17 @@ class ChatToolsSwitches {
   Future<void> setAfterglow(bool v) async {
     await _chat.setAfterglowEnabled(v);
     _notify();
+  }
+
+  /// A group member's own Afterglow switch. False when [id] is not a member.
+  Future<bool> setMemberAfterglow(String id, bool v) async {
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      await _chat.setMemberAfterglowEnabled(c, v);
+      _notify();
+      return true;
+    }
+    return false;
   }
 
   Future<void> setPassageOfTime(bool v) async {

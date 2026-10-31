@@ -232,4 +232,75 @@ void main() {
     await storage.realismSettings.setAdultThemesEnabled(false);
     expect(chat.isGroupNsfwEnabled, isFalse, reason: 'Afterglow needs 18+');
   });
+
+  // Each member's own Afterglow switch. A beat ages and rewinds body by body,
+  // so a member switched off neither stops the rest of the cast's recovery
+  // nor gets one back.
+  test('a member switched off still lets the beat pass for the rest of the '
+      'cast', () async {
+    await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
+    expect(refractoryOf('Ada').minutes, 75);
+    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+
+    await speak('Bea', minutes: 30);
+    expect(
+      refractoryOf('Ada').minutes,
+      45,
+      reason: "Bea's beat passed for Ada",
+    );
+    expect(refractoryOf('Bea'), Refractory.none);
+  });
+
+  test('deleting a reply while the member the chat holds live is switched off '
+      'still gives the rest of the cast the beat back', () async {
+    await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
+    await speak('Bea', line: 'Evening.', minutes: 30);
+    expect(refractoryOf('Ada').minutes, 45);
+    expect(
+      chat.nsfwService.loadedMemberId,
+      chat.characterIdFor(member('Bea')),
+      reason: "baseline: the live scalars are Bea's after her turn",
+    );
+    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+
+    await chat.deleteMessage(chat.messages.length - 1);
+    await settle();
+    expect(refractoryOf('Ada').minutes, 75, reason: 'the beat is given back');
+  });
+
+  test('switching off the member the chat holds live settles them there too, '
+      'so switching them back on starts from calm', () async {
+    await speak('Ada', line: 'Evening.');
+    expect(
+      chat.nsfwService.loadedMemberId,
+      chat.characterIdFor(member('Ada')),
+      reason: "baseline: the live scalars are Ada's after her turn",
+    );
+    chat.nsfwService.setArousalLevel(60);
+
+    await chat.setMemberAfterglowEnabled(member('Ada'), false);
+    await chat.setMemberAfterglowEnabled(member('Ada'), true);
+    expect(
+      chat.nsfwService.arousalLevel,
+      0,
+      reason: 'what the phone shows for the group when no one is focused',
+    );
+  });
+
+  test('deleting a reply gives the beat back to the cast, and no recovery to '
+      'a member switched off since', () async {
+    await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
+    await speak('Bea', climax: true, turns: 4);
+    await speak('Ada', line: 'Stay a while.', minutes: 30);
+    expect(refractoryOf('Ada').minutes, 40);
+    expect(refractoryOf('Bea').minutes, 30);
+
+    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+    expect(refractoryOf('Bea'), Refractory.none, reason: 'off settles her');
+    // A tail delete puts every body back where the reply's beat found it.
+    await chat.deleteMessage(chat.messages.length - 1);
+    await settle();
+    expect(refractoryOf('Ada').minutes, 70);
+    expect(refractoryOf('Bea'), Refractory.none);
+  });
 }

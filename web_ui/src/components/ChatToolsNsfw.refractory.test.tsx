@@ -148,6 +148,33 @@ describe('ChatToolsNsfw Afterglow switch', () => {
     expect(container.textContent).toBe('');
   });
 
+  it("lists each group member's own switch while the chat's is on", () => {
+    const calls: Array<[string, boolean, Record<string, unknown> | undefined]> = [];
+    const members = [
+      { id: 'mem-ana', name: 'Ana', afterglow: true },
+      { id: 'mem-bea', name: 'Bea', afterglow: false },
+    ];
+    const show = (afterglowSwitch: boolean) =>
+      act(() => {
+        root.render(
+          createElement(ChatToolsNsfw, {
+            t: state({ afterglowAllowed: true, afterglowSwitch, members }),
+            toggle: (name: string, v: boolean, extra?: Record<string, unknown>) => {
+              calls.push([name, v, extra]);
+            },
+          }),
+        );
+      });
+    show(true);
+    const boxes = [...container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
+    expect(boxes.map((b) => b.checked), 'the chat, Ana, Bea').toEqual([true, true, false]);
+    act(() => boxes[2].click());
+    expect(calls).toEqual([['memberAfterglow', true, { id: 'mem-bea' }]]);
+
+    show(false);
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(1);
+  });
+
   it("shows nothing while the chat's Realism is off, as on the desktop", () => {
     render({ ...state({ afterglowAllowed: true, afterglowSwitch: true }), realismEnabled: false });
     expect(container.textContent).toBe('');

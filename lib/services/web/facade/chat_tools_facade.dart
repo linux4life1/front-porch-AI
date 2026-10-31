@@ -169,6 +169,8 @@ class ChatToolsFacade {
   Future<void> setChaosNsfw(bool v) => _switches.setChaosNsfw(v);
 
   Future<void> setAfterglow(bool v) => _switches.setAfterglow(v);
+  Future<bool> setMemberAfterglow(String id, bool v) =>
+      _switches.setMemberAfterglow(id, v);
   Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);
 
   Future<void> setDirectorMode(bool v) => _switches.setDirectorMode(v);

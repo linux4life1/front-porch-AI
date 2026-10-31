@@ -158,9 +158,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     final trustName = RelationshipService.trustTierLabel(trustTier);
     final trustColor = TierColors.tierColor(context, trustTier);
 
-    // Lust visibility follows the stable per-member group flag (the live
-    // nsfwService scalar is per-speaker-volatile in groups).
-    final lustOn = isRealism && chat.isGroupNsfwEnabled;
+    // Lust shows while Afterglow runs for THIS member: Porch Life, the group
+    // chat's switch and their own (the live scalars hold another speaker).
+    final lustOn = isRealism && chat.afterglowRunsFor(widget.character);
     // Arousal has its own ±100 ladder (level ÷ 10) and its own vocabulary, and
     // both must be read for THIS member. The tier came from the bond ladder,
     // and the name came from nsfwService.arousalTierName — the LIVE SPEAKER's

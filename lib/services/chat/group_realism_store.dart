@@ -53,6 +53,22 @@ class GroupRealismStore {
   /// counts only while Porch Life (with 18+) allows Afterglow.
   bool afterglowOn = true;
 
+  /// The member-extension write in flight, so a member's avatar and row are
+  /// written one save at a time.
+  Future<void> memberExtWrites = Future<void>.value();
+
+  /// The group chat's switch AND member [id]'s own: the Afterglow switch on
+  /// their card in this group, read live, unset reading on.
+  bool afterglowOnFor(String? id) {
+    if (!afterglowOn) return false;
+    for (final c in groupCharacters()) {
+      if (characterIdFor(c) == id) {
+        return c.frontPorchExtensions?.afterglowEnabled ?? true;
+      }
+    }
+    return true;
+  }
+
   /// The group member id whose realism state is being processed for the
   /// turn currently generating. Set the moment the speaker is picked in
   /// `_generateResponse` and cleared in its `finally`, so every realism

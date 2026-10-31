@@ -21,6 +21,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/member_realism_card.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -192,6 +193,48 @@ void main() {
     testWidgets('Porch Life Afterglow off: no switch', (tester) async {
       await pumpTab(tester, allowed: false);
       expect(find.text('Afterglow'), findsNothing);
+    });
+
+    testWidgets("each member's own switch sits on their card, and switches "
+        'that member alone', (tester) async {
+      await pumpTab(tester, allowed: true);
+      final ada = chat.groupCharacters.firstWhere((c) => c.name == 'Ada');
+      final bex = chat.groupCharacters.firstWhere((c) => c.name == 'Bex');
+      final adaSwitch = find.descendant(
+        of: find.widgetWithText(GroupMemberRealismCard, 'Ada'),
+        matching: find.byType(Switch),
+      );
+      expect(tester.widget<Switch>(adaSwitch).value, isTrue);
+
+      await tester.ensureVisible(adaSwitch);
+      var saved = false;
+      void done() => saved = true;
+      chat.addListener(done);
+      await tester.tap(adaSwitch);
+      // The switch saves Ada's card through the chat's database, real I/O the
+      // test clock does not drive; the chat tells its listeners once it is
+      // done.
+      for (var i = 0; i < 500 && !saved; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      chat.removeListener(done);
+      expect(saved, isTrue, reason: 'the switch saved');
+      final rows = await tester.runAsync(
+        () => repo.getMembersForGroup('grp-mood'),
+      );
+      final adaRow = rows!.firstWhere((m) => m.id == 'mem-ada');
+      expect(
+        FrontPorchExtensions.fromJson(
+          adaRow.frontPorchExtensions!,
+        ).afterglowEnabled,
+        isFalse,
+        reason: "kept on Ada's own row in this group",
+      );
+      expect(chat.afterglowRunsFor(ada), isFalse);
+      expect(chat.afterglowRunsFor(bex), isTrue);
     });
   });
 }
