@@ -276,6 +276,11 @@ void main() {
     ).popUntil((r) => r.isFirst);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    // What the closed dialogs started on the real database settles here.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump();
     expect(
       stacked,
       0,
@@ -283,9 +288,6 @@ void main() {
     );
     expect(editorOpen, isFalse);
     expect(shown, [2], reason: 'back on Group Settings → Realism');
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 100)),
-    );
   });
 
   group("the group chat's own Afterglow switch", () {
