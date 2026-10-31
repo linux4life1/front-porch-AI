@@ -4,8 +4,11 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/group_realism_controller.dart';
+import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
+    show realismAllowedOf;
 
-/// The group's master Realism Engine switch card.
+/// The group chat's own Realism Engine switch card. While Porch Life does
+/// not allow Realism it greys out at the chat's own choice, which is kept.
 class GroupRealismEngineCard extends StatelessWidget {
   final GroupRealismNeedsController controller;
 
@@ -14,6 +17,7 @@ class GroupRealismEngineCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final realismEnabled = controller.realismEnabled;
+    final allowed = realismAllowedOf(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -41,7 +45,7 @@ class GroupRealismEngineCard extends StatelessWidget {
               Switch(
                 value: realismEnabled,
                 activeTrackColor: AppColors.porchAmberOf(context),
-                onChanged: controller.updateRealism,
+                onChanged: allowed ? controller.updateRealism : null,
               ),
             ],
           ),
@@ -53,7 +57,19 @@ class GroupRealismEngineCard extends StatelessWidget {
               color: AppColors.textSecondary(context),
             ),
           ),
-          if (!realismEnabled)
+          if (!allowed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "The Realism Engine is off in Porch Life, so no chat runs it. "
+                "This chat's own choice is kept.",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiary(context),
+                ),
+              ),
+            ),
+          if (allowed && !realismEnabled)
             Padding(
               padding: EdgeInsets.only(top: 6),
               child: Text(
@@ -122,12 +138,15 @@ class GroupAfterglowCard extends StatelessWidget {
               color: AppColors.textSecondary(context),
             ),
           ),
-          if (on && !controller.realismEnabled)
+          if (on && !(controller.realismEnabled && realismAllowedOf(context)))
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Turn on the Realism Engine above for this to have any '
-                'effect.',
+                realismAllowedOf(context)
+                    ? 'Turn on the Realism Engine above for this to have any '
+                          'effect.'
+                    : 'The Realism Engine is off in Porch Life, so this has '
+                          'no effect for now.',
                 style: TextStyle(
                   fontSize: 10,
                   color: AppColors.textTertiary(context),

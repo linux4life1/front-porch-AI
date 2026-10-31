@@ -197,6 +197,8 @@ class SettingsSnapshot {
         'characterEvolutionEnabled':
             _storage.memorySettings.characterEvolutionEnabled,
         'realismDefault': _storage.realismSettings.realismDefault,
+        // Additive: Porch Life allows the Realism Engine (missing = on).
+        'realismAllowed': _storage.realismSettings.realismAllowed,
         'preferTextEvals': _storage.realismSettings.preferTextEvals,
       },
       // Spell check language. The browser does its own spell checking, so the

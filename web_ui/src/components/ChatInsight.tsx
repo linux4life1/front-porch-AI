@@ -190,8 +190,14 @@ export function ChatInsight({
       <>
       {realism.realismEnabled === false ? (
         <p className="muted realism-off">
-          Realism Mode is off — flip the switch to track bond, trust, mood,
-          and scene time for this character.
+          {/* Desktop Character State: Porch Life is named when it is what
+              stops Realism. Absent on an older desktop. */}
+          {realism.realismAllowed === false
+            ? "The Realism Engine is off in Porch Life. This chat's own choice is kept."
+            : realism.realismSwitch === true
+              ? // Allowed again mid-reply: the change lands when it settles.
+                'Realism starts again when this reply finishes.'
+              : 'Realism Mode is off — flip the switch to track bond, trust, mood, and scene time for this character.'}
         </p>
       ) : (
       <>

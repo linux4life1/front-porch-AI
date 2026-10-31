@@ -211,6 +211,7 @@ extension ChatServiceWiringRealism on ChatService {
   NeedsPass _buildNeedsPass() => NeedsPass(
     _realismScope(),
     loadIntoScalars: (id) => _realismDance.loadIntoScalars(id),
+    chatRealism: () => _realismChatSwitch,
   );
 
   NeedsRewinds _buildNeedsRewinds() => NeedsRewinds(
@@ -219,8 +220,11 @@ extension ChatServiceWiringRealism on ChatService {
         _afterglow.restoreAfterBeat(msg, id),
   );
 
-  StandingMood _buildStandingMood() =>
-      StandingMood(_realismScope(), weather: () => currentWeather);
+  StandingMood _buildStandingMood() => StandingMood(
+    _realismScope(),
+    weather: () => currentWeather,
+    needsActive: () => _needsPass.active,
+  );
 
   RealismSnapshot _buildRealismSnapshot() => RealismSnapshot(
     _realismScope(),
@@ -291,14 +295,8 @@ extension ChatServiceWiringRealism on ChatService {
   // applyChanceTimeResult in the controls part — spin AND accept re-gate
   // through the same lookup, so the two chokepoints cannot drift).
 
-  // ── NSFW cooldown & arousal (extracted to NsfwService) ─────────────────────
-  // State (cooldown enabled, refractory minutes, arousalLevel), tier calc, reset/seed/load/restore,
-  // group per-speaker load/save scalars, applyClimax live in _nsfwService (plain class).
-  // ChatService owns via late final + delegates. (Declared before needs for init safety because
-  // needs closes over the getArousal/getNsfw/getCooldown/setArousal cbs.)
-  // Reset helpers on service keep the multiple "keep reset blocks in sync" sites correct (now incl needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) + " ; no reset scalar) comments)
-  // without god privates. 0 new private methods in god.
-  // _runPostGenNeedsChecks thin (consolidated to needs_impact_evaluator); 3 group cbs only (onNotify/onSaveChat removed as dead; god owns save/notify for post-gen fidelity per plan). (cross-ref setActiveCharacter:1572 etc)
+  // ── NSFW cooldown & arousal (NsfwService owns the state). Declared before
+  // needs, which closes over its arousal and cooldown callbacks. ──
   NsfwService _buildNsfwService() {
     return NsfwService(
       getGroupInt: (charId, key, {int defaultValue = 0}) =>

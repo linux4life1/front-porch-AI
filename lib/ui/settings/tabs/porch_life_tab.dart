@@ -75,8 +75,9 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
-    // Porch Life Passage of Time is the only live clock gate.
-    final engineOn = storage.realismSettings.realismDefault;
+    // Porch Life Passage of Time is the only live clock gate. The engine row
+    // is the permission, not the "start new chats with it" default.
+    final engineOn = storage.realismSettings.realismAllowed;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
     final journalOn = storage.memorySettings.journalEnabled;

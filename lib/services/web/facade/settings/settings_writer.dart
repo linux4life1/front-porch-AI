@@ -141,6 +141,10 @@ class SettingsWriter {
       if (rd is bool) {
         await _storage.realismSettings.setRealismDefault(rd);
       }
+      final allowed = realism['realismAllowed'];
+      if (allowed is bool) {
+        await _storage.realismSettings.setRealismAllowed(allowed);
+      }
       final nsfw = realism['nsfwCooldownDefault'];
       if (nsfw is bool) {
         await _storage.realismSettings.setNsfwCooldownDefault(nsfw);

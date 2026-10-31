@@ -257,6 +257,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   final bool realismEnabled;
 
+  /// This chat's own Realism switch, which the Character State header and
+  /// the phone's tools show: here Porch Life allows Realism, so it is the
+  /// gate's own value.
+  @override
+  bool get realismChatSwitch => realismEnabled;
+  @override
+  bool get realismAllowed => true;
+
   /// Objectives running for this chat (v45). CharacterStateGroup reads this in
   /// build() to decide whether the Ambitions row renders, so the fake must
   /// answer it or the whole sidebar panel throws mid-build — which is exactly

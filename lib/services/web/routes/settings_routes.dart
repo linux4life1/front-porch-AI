@@ -35,6 +35,7 @@ class WebSettingsRoutes {
     router.get('/api/settings/existing-chats', (shelf.Request r) async {
       final f = _featureFor(r.url.queryParameters['feature']);
       if (f == null) return JsonResponse.badRequest('unknown feature');
+      if (_blockedByRealism(f)) return JsonResponse.ok({'count': 0});
       return JsonResponse.ok({'count': await _offer().countOff(f)});
     });
     router.post('/api/settings/existing-chats', (shelf.Request r) async {
@@ -63,17 +64,25 @@ class WebSettingsRoutes {
   ExistingChatsFeature? _featureFor(String? name) => switch (name) {
     'afterglow' => ExistingChatsFeature.afterglow,
     'needs' => ExistingChatsFeature.needs,
+    'realism' => ExistingChatsFeature.realism,
     _ => null,
   };
 
-  bool _allowed(ExistingChatsFeature f) => f == ExistingChatsFeature.needs
-      ? _deps.storage.realismSettings.needsSimDefault
-      : _deps.storage.realismSettings.afterglowEnabled;
+  bool _allowed(ExistingChatsFeature f) =>
+      existingChatsFeatureAllowed(_deps.storage.realismSettings, f);
+
+  /// While Realism is blocked no chat runs Needs or Afterglow, so there is
+  /// nothing to ask about them: an older phone asking gets a count of 0 and
+  /// no dialog, not an error.
+  bool _blockedByRealism(ExistingChatsFeature f) =>
+      f != ExistingChatsFeature.realism &&
+      !_deps.storage.realismSettings.realismAllowed;
 
   ExistingChatsOffer _offer() => ExistingChatsOffer(
     _deps.db,
     _facade.boundChat,
     cards: _deps.characterFacade?.cards,
+    realism: _deps.storage.realismSettings,
   );
   final SettingsFacade _facade;
 

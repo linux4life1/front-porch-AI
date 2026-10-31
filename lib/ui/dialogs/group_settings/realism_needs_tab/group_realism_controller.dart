@@ -77,7 +77,8 @@ class GroupRealismNeedsController extends ChangeNotifier {
     final cs = chatService;
     _chars = cs.groupCharacters;
 
-    _realismEnabled = cs.realismEnabled;
+    // The chat's own switch, kept while Porch Life blocks Realism.
+    _realismEnabled = cs.realismChatSwitch;
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
     _afterglowEnabled = cs.afterglowChatSwitch;
