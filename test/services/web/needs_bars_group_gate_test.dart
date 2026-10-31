@@ -247,4 +247,50 @@ void main() {
       reason: 'focused on the member, the phone reads their own switch',
     );
   });
+
+  test("the phone's Group Settings carries each member's Recovery while "
+      'Afterglow runs for them, and saves it to them', () async {
+    await boot();
+    addTearDown(() => disposeChatThenCloseDb(chat, db));
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final facade = ChatToolsFacade(chat, storage, null);
+    final router = shelf_router.Router();
+    WebChatToolsRoutes(facade, router);
+    final card = member().card;
+    final id = groupMemberStoreId(card);
+    Map<dynamic, dynamic> row() =>
+        ((facade.state()['group'] as Map)['members'] as List)
+            .cast<Map<dynamic, dynamic>>()
+            .firstWhere((m) => m['id'] == id);
+    expect(row()['afterglowRuns'], isTrue);
+
+    final res = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/chat/tools/member-recovery'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({
+          'id': id,
+          'recovery': {'recoveryMode': 'hard', 'recoveryMinutes': 45},
+        }),
+      ),
+    );
+    expect(res.statusCode, 200);
+    expect(card.frontPorchExtensions?.recovery.recoveryMinutes, 45);
+    expect((row()['recovery'] as Map)['recoveryMinutes'], 45);
+    final bare = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/chat/tools/member-recovery'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'id': id}),
+      ),
+    );
+    expect(bare.statusCode, 400, reason: 'no Recovery block, no reset');
+    expect(card.frontPorchExtensions?.recovery.recoveryMinutes, 45);
+
+    await chat.setMemberAfterglowEnabled(card, false);
+    expect(row()['afterglowRuns'], isFalse);
+  });
 }

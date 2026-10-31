@@ -18,6 +18,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_member_recovery.dart';
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
 
 /// Realism & Dynamics tab of the group editor. A spinner until the roster
@@ -32,6 +34,7 @@ class EditGroupRealismTab extends StatelessWidget {
     required this.defaultMemberJson,
     required this.baselineJson,
     required this.onChanged,
+    this.memberCards = const [],
   });
 
   final bool loaded;
@@ -39,6 +42,9 @@ class EditGroupRealismTab extends StatelessWidget {
   final String defaultMemberJson;
   final String baselineJson;
   final void Function(String defaultMemberJson, String baselineJson) onChanged;
+
+  /// The members' own cards, for each one's Recovery block.
+  final List<CharacterCard> memberCards;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +61,7 @@ class EditGroupRealismTab extends StatelessWidget {
       initialDefaultMemberJson: defaultMemberJson,
       initialBaselineJson: baselineJson,
       onChanged: onChanged,
+      footer: EditGroupMemberRecovery(members: memberCards),
     );
   }
 }

@@ -307,6 +307,16 @@ class ChatToolsSnapshot {
               'id': p.id,
               'name': p.name,
               'prompt': g.characterSystemPrompts[p.id] ?? '',
+              // The member's Recovery block, shown while Afterglow runs for
+              // them, as on their card in Group Settings (additive).
+              if (!p.isSceneGuest) ...{
+                'afterglowRuns': _chat.afterglowRunsFor(p.card),
+                'recovery':
+                    (p.card.frontPorchExtensions?.recovery ??
+                            RecoveryProfile.auto)
+                        .toFields(),
+                'sex': p.card.frontPorchExtensions?.sex ?? '',
+              },
             },
           )
           .toList(),

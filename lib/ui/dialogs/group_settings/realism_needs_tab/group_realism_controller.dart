@@ -174,6 +174,18 @@ class GroupRealismNeedsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A member's Recovery block, on their card in this group. Saved with the
+  /// member's other extensions.
+  void updateMemberRecovery(CharacterCard char, RecoveryProfile recovery) {
+    char.frontPorchExtensions =
+        (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+          recovery: recovery,
+        );
+    char.frontPorchExtensions?.ensureStableId();
+    notifyListeners();
+    _extPersister.schedule(char);
+  }
+
   void updateChaosNsfw(bool value) {
     _chaosNsfwEnabled = value;
     notifyListeners();
