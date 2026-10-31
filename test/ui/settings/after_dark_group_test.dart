@@ -878,7 +878,6 @@ void main() {
   });
 }
 
-/// A chat whose own Realism switch is on; [realismEnabled] is the gate.
 /// A 1:1 chat whose own Realism switch is off while Porch Life allows it.
 class _RealismOffChat extends FakeChatService {
   _RealismOffChat() : super(realismEnabled: false);
@@ -887,6 +886,7 @@ class _RealismOffChat extends FakeChatService {
   bool get realismChatSwitch => false;
 }
 
+/// A chat whose own Realism switch is on; [realismEnabled] is the gate.
 class _RealismChat extends FakeChatService {
   _RealismChat({required super.realismEnabled});
 
