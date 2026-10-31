@@ -27,6 +27,8 @@ When something goes wrong, this page is the fastest route back to chatting. Find
 ### Chat Problems
 - [Replies get cut off mid-sentence](#replies-get-cut-off-mid-sentence)
 - [Memory / RAG isn't working](#memory--rag-isnt-working)
+- [Realism, Needs or Afterglow isn't running in a chat](#realism-needs-or-afterglow-isnt-running-in-a-chat)
+- [A group member's edits don't stick](#a-group-members-edits-dont-stick)
 
 ### Voice Problems
 - [TTS not producing sound](#tts-not-producing-sound)
@@ -233,6 +235,31 @@ A few things can trip it:
 - **Stuck?** Toggle Memory (RAG) off and back on; if it stays stuck, restart the app.
 - **Memories exist but aren't recalled:** retrieval needs *meaningful* content to match on — one-word messages don't give it much. In the 1:1 panel, **Settings** (the sliders icon) raises **Memories per turn** and the **Window size** of each remembered chunk; in a group, **Memories per turn** is in the **Memory & RAG** tab. Window size is one global setting shared by every chat, so changing it in one place changes it for all of them.
 - **Waiting for a character to bring up something from an *earlier chat*? That won't happen, on purpose.** A character's own memories are scoped to the chat they were made in — a match from a different chat with that same character is deliberately skipped, so a fresh start can't drag in a storyline or a location you left behind. The Journal's memory cards work the same way. Two things *are* meant to cross chats: the opt-in **Sources** list in the 1:1 panel (press **Sources** and tick another character to let this one draw on *their* memories), and the Data Bank, which exists to be shared knowledge.
+
+### Realism, Needs or Afterglow isn't running in a chat
+
+Each of these has three switches, and the chat only runs it when the first and last agree:
+
+1. **Settings → Porch Life** allows it for every chat (**Realism Engine**, **Needs**, and **Afterglow** under After Dark, which shows only with 18+ themes on).
+2. **The character's card** (or the group, in Edit group and the new-group wizard) only sets how **new** chats start. Editing it never changes a chat you already have.
+3. **The chat's own switch** turns it on or off in that chat: Realism in the header of Character State, Needs on the Needs line, Afterglow on the Afterglow line. In a group: Group Settings → Realism (Realism and Afterglow) and Group Settings → Needs. On the phone, all three are in the chat tools.
+
+What you might see:
+
+- **The chat's switch is greyed out** with a note that it's off in Porch Life. Turn that row on in Porch Life. The chat kept its own choice and picks up from there.
+- **You turned it on in Porch Life and nothing changed in your chats.** Porch Life asked whether to turn it on in the chats that have it off, and that switch starts off. Flip the chat's own switch instead.
+- **It changed after the reply, not straight away.** A Porch Life change made while a reply is on its way waits until that reply finishes.
+- **Needs is on but nothing moves.** Needs runs only while that chat's Realism is on too.
+
+More: [FAQ → I turned it on in Porch Life but my chat doesn't show it](faq.md#i-turned-it-on-in-porch-life-but-my-chat-doesnt-show-it).
+
+### A group member's edits don't stick
+
+A group member is the group's own copy of a character. Edit them with **Edit Character** opened on that member: from the chat sidebar's settings menu while they're focused, from their **Edit** in Edit group, or on the phone from the chat header's Edit or the Edit link by each member in Group Settings. Those edits save to that member in this group.
+
+Editing the character from your library changes the library card and how its new chats start. The member's settings in a group you already have stay as they were. (Their expression pictures still come from the library.)
+
+Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) are in **Group Settings**, not in the member's editor.
 
 ---
 

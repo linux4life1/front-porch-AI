@@ -41,19 +41,27 @@ What that feels like in practice:
 - **The world keeps time.** Minutes and hours pass inside the scene, mornings turn to evenings, days accumulate on a real calendar, and characters remember where they are and what they were doing.
 - **Nothing overrides personality.** The Realism Engine colors *how* a character expresses themselves — a prickly character at maximum bond is still prickly, just softer around the edges with you.
 
-The whole system is optional and **off by default**. When it's off, no extra evaluation calls run at all and chats behave like a traditional character AI.
+The whole system is optional. A new one-on-one chat starts with it off unless the character's card turns it on; a new group starts with it on. When it's off in a chat, no extra evaluation calls run at all and that chat behaves like a traditional character AI.
 
 ---
 
 ## Turning It On
 
-You can control the Realism Engine at three levels:
+The Realism Engine, **Needs** and **Afterglow** each work in three layers. Each layer has one job, and none of them overwrites another.
 
-**1. In Settings (your default for new chats).** Open Settings → **Porch Life** (not General) and switch on **Realism Engine**. That's the default for new conversations. Journal, the story clock, Chaos, Pockets, and Objectives each have their **own** switch on that same tab — they no longer hide when Realism is off. Afterglow (older name: NSFW Cooldown), weather, Dreams, and the welcome-back recap live there too.
+**1. Settings → Porch Life allows it.** Open Settings → **Porch Life** (not General). The **Realism Engine** row there is a permission for every chat, and it is on unless you turn it off. With it off, no chat runs Realism (bonds, mood, Needs and Afterglow all pause), each chat's own Realism switch greys out with a note, and every chat keeps its own choice for when you turn it back on. Nested under it, **Start every new chat with Realism** starts new chats with Realism on even when the character's card doesn't ask for it, such as an imported card. **Needs** and **Afterglow** have their own Porch Life rows that work the same way: with Needs off, every chat's Needs line greys out; with Afterglow off, the Afterglow switches hide. Journal, the story clock, Chaos, Pockets, and Objectives each have their **own** switch on that same tab, and they don't need Realism. Weather, Dreams, and the welcome-back recap live there too.
 
-**2. On the character card.** The character creator and character editor both have a Realism Engine panel where you can set the opening state of a brand-new chat: starting short-term bond, long-term bond and trust, the opening emotion and its intensity, the time of day, the day number, and even the calendar date and clock time the story begins at. The same panel holds the optional features (**Afterglow**, Chaos Mode, the Director) and the character's needs baselines. These settings only seed *new* conversations — existing chats keep the state they've already built up.
+**2. The card, or the group, sets how new chats start.** The character creator and character editor both have a Realism Engine panel where you can set the opening state of a brand-new chat: whether Realism is on (**Enable Realism Engine**), starting short-term bond, long-term bond and trust, the opening emotion and its intensity, the time of day, the day number, and even the calendar date and clock time the story begins at. The same panel holds the optional features (**Afterglow**, Chaos Mode, the Director), the **Needs Simulation** switch and the character's needs baselines. For a group, the new-group wizard and Edit group set the same things for the group's new chats. These only seed *new* conversations. Editing a card or a group never changes a chat you already have.
 
-**3. In the chat itself.** In a one-on-one chat, the sidebar's **🎭 Character State** card has the master switch right in its header, and switching it on mid-conversation makes the engine read back through the conversation so it can catch up instead of starting cold. A group chat's header doesn't carry that switch — the group's master toggle is **Realism Engine for this group**, in **Group Settings → Realism**. **One-Shot Eval** (Auto / On / Off) sits at the top of the sidebar, right above the tool-calling pill; **Needs** has a switch in each 1:1 chat, on the **Needs** line in Character State and in the phone's chat tools, and a group chat's is in Group Settings → Needs. While Settings → Porch Life has Needs off, the line greys out with a note and the chat keeps its choice. A character's card sets how new chats start Needs; editing the card never changes a chat you already have. Turning Porch Life Needs on asks whether to turn it on in the chats that have it off. **Afterglow** has a switch in each chat, on the **Afterglow** line under the bond bars (in a group chat, in **Group Settings → Realism**); it shows while Settings → Porch Life allows Afterglow, in the After Dark group shown when 18+ themes are on. **Passage of Time** is only on Settings → Porch Life — that row is the live clock switch for every open chat.
+**3. Each chat has its own switch.** This is the one you flip when you want a chat to change.
+
+- **Realism:** in a one-on-one chat, the switch is in the header of the sidebar's **🎭 Character State** card. In a group chat, it's **Realism Engine for this group**, in **Group Settings → Realism**. On the phone, it's in the chat tools. Switching it on mid-conversation in a one-on-one makes the engine read back through the conversation so it can catch up instead of starting cold; a group picks up from its next turn.
+- **Needs:** on the **Needs** line in Character State (a group chat's is in Group Settings → Needs), and in the phone's chat tools.
+- **Afterglow:** on the **Afterglow** line under the bond bars (a group chat's is in Group Settings → Realism), and in the phone's chat tools. It shows only while Porch Life allows Afterglow, in the After Dark group that appears when 18+ themes are on.
+
+**Turning one back on in Porch Life.** When you turn the Realism Engine, Needs or Afterglow on in Porch Life, a short question counts the chats that have their own switch off and offers to turn it on in those too. The switch in that question starts off, so nothing changes unless you flip it, and only those chats' switches change. A one-on-one chat turned on this way, or saved while Realism was off in Porch Life, reads where things stand the first time you open it, once; a group chat picks up from its next turn. If you change Porch Life while a reply is on its way, the change waits until that reply finishes.
+
+**One-Shot Eval** (Auto / On / Off) sits at the top of the chat sidebar, right above the tool-calling pill. **Passage of Time** is only on Settings → Porch Life; that row is the live clock switch for every open chat.
 
 ![The settings page, where the Realism Engine defaults live](screenshots/new_settings.png)
 
@@ -119,7 +127,13 @@ For mature roleplay, the engine can track physical desire on a scale from **−1
 
 **NSFW Cooldown** is the sub-feature that makes intimate scenes end the way real ones do. When the engine notices the character has reached a peak, desire resets to neutral — sated, not repelled — and a recovery window opens for **three to seven turns**, judged from the scene and the character. During recovery the character is written as genuinely spent: oversensitive, wanting closeness rather than another round, settling back to normal in phases, with desire swings damped so nothing can drag them into aversion just because they finished. The sidebar shows the turns remaining under the Lust bar.
 
-None of the mechanics ever appear in the chat itself — no numbers, no "cooldown" talk. The character just behaves like a person. It takes three switches. **Afterglow** in Settings → Porch Life (After Dark, shown when 18+ themes are on) allows it at all; while it is off, no chat tracks Lust and the other switches are hidden. The **Afterglow** switch on a character's card, or on a group in Edit group and the new-group wizard, sets how new chats start it. Each chat then has its own switch to turn it on or off at will: on the Afterglow line in a 1:1's Character State, in Group Settings → Realism for a group chat, and in the chat tools on the phone. Switching a chat off settles its Lust and any recovery, and switching it back on starts it from calm. When Porch Life starts allowing Afterglow (its switch, or 18+ themes, turned on), it asks whether to turn Afterglow on in the chats that have their own switch off, 1:1 and group, counting them; nothing changes unless you flip that switch, and only those chats' switches change. In a group chat, each member also has their own switch, on their card in Group Settings → Realism and in the phone's chat tools, for a cast where only some take part: switched off, that member's Lust and recovery settle and are not tracked in this group, while the rest of the cast carry on. Every member joins a group with their own switch on; their card's switch only says how new 1:1 chats start. While Afterglow runs for a member, their **Recovery** block sits under their switch in Group Settings → Realism, in Edit group's Realism tab and in the phone's Group Settings, and it is saved on that member in this group. How a character recovers is set per character in the editor's **Recovery** block, shown while the card's Afterglow is on.
+None of the mechanics ever appear in the chat itself — no numbers, no "cooldown" talk. The character just behaves like a person. In Settings this is called **Afterglow** (older name: NSFW Cooldown), and it uses the same three layers as the rest of the engine (see [Turning It On](#turning-it-on)):
+
+- **Porch Life allows it.** **Afterglow** in Settings → Porch Life, in the After Dark group shown when 18+ themes are on. While it is off, no chat tracks Lust and the other Afterglow switches are hidden. Turning it on (or turning 18+ themes on while it's on) asks whether to turn Afterglow on in the chats that have their own switch off.
+- **The card or the group sets how new chats start.** The **Afterglow** switch on a character's card, or on a group in Edit group and the new-group wizard.
+- **Each chat has its own switch.** On the Afterglow line in a one-on-one's Character State, in Group Settings → Realism for a group chat, and in the chat tools on the phone. Switching a chat off settles its Lust and any recovery, and switching it back on starts it from calm.
+
+How a character recovers is set per character in the editor's **Recovery** block, shown while the card's Afterglow is on. In a group, each member also has their own Afterglow switch and Recovery block; see [In groups](#in-groups).
 
 ---
 
@@ -218,7 +232,7 @@ A few practical notes:
 
 ## The Needs Simulation
 
-The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor, which sets how that character's new chats start; each chat then has its own switch on the Needs line in Character State (a group's is in Group Settings → Needs). Each character tracks **seven needs**, each on a 0–100 scale:
+The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It uses the same three layers as the rest of the engine (see [Turning It On](#turning-it-on)): **Needs** in Settings → Porch Life allows it, the **Needs Simulation** switch on a character's card (or a group's) sets how new chats start, and each chat has its own switch on the Needs line in Character State (a group's is in Group Settings → Needs). Needs only runs while that chat's Realism is running too. Each character tracks **seven needs**, each on a 0–100 scale:
 
 | Need | When it runs low... |
 |---|---|
@@ -261,12 +275,24 @@ Everything above works in group chats, per character. Each member keeps their **
 
 A few group-specific notes:
 
-- **The master switch lives somewhere else.** A group's 🎭 Character State header shows only the tune icon — no on/off switch. The group's master toggle is **Realism Engine for this group**, on the **Realism** tab of Group Settings. The tune icon and its per-chat sub-toggles work the same as in a one-on-one.
+- **The master switch lives somewhere else.** A group's 🎭 Character State header has no on/off switch. The group's master toggle is **Realism Engine for this group**, on the **Realism** tab of Group Settings; the group's Needs switch is on the **Needs** tab, and its Afterglow switch is on the Realism tab.
 - Chips always belong to the character who spoke. The sidebar shows whoever is *focused* — tap a face in the row of avatars at the top of the sidebar to switch. (Tapping a member's card in the sidebar is different: that picks who speaks next.)
 - **Group members also track how they feel about each other**, not just about you — hidden dynamics that color how they speak to one another. This runs in groups of **four or fewer**; above that the app keeps everyone's feelings toward *you* fully simulated but drops the cross-member web, which would otherwise balloon the prompt.
 - **Director Mode is the exception.** When you're directing scenes rather than living in them, realism and needs tracking pause (state is preserved and resumes when you switch back). Directing is storyboarding; regular group chat is the lived-in simulation.
 
 The engine's behavior in a group is deliberately identical to a one-on-one chat — a character should feel like the same person whether you're alone with them or not.
+
+### In groups
+
+Each member of a group is the group's own copy of a character. Changing a member in a group never changes their library card or their one-on-one chats.
+
+- **Change a member with Edit Character.** Open it on the member: from the chat sidebar's settings menu while that member is focused, or from the member's Edit in Edit group. On the phone, Edit in a group chat's header opens it for the member you're looking at, and Group Settings has an Edit link by each member. A line at the top says whose copy you're editing. It saves everything about that member in this group: Ambitions, work, birthday, likes, Pockets, Recovery, Needs bars and pace, and their own Afterglow switch.
+- **Group-wide settings stay in Group Settings.** Realism on or off, time and day, Chaos, Needs and the chat's Afterglow belong to the whole group. A member's editor shows them as read-only lines that point to Group Settings.
+- **Where a member starts.** In the member's editor, the starting bonds, trust and mood set where that member starts in the group's *new* chats. Chats the group already has keep going as they are.
+- **New groups start from the cards.** A new group starts each member's bonds, trust, mood and Needs where their card starts a one-on-one chat, with anything you set in the wizard on top. A card with no Realism settings starts the way a one-on-one New Chat does. Groups you already have keep their saved starting values.
+- **Each member's own Afterglow.** While the group chat's Afterglow is on, each member has their own switch, on their card in Group Settings → Realism and in the phone's chat tools. Switched off, that member's Lust and recovery settle and are not tracked in this group, while the rest of the cast carry on. Every member joins a group with their own switch on; their card's switch only says how new one-on-one chats start. While Afterglow runs for a member, their **Recovery** block sits under their switch, and it is saved on that member in this group.
+- **The member card shows what's running for them.** In the sidebar, a member's card shows their own recovery countdown under their Lust, their Ambitions and Pockets even with the group's Realism off, and a portrait that follows their own mood.
+- **Same name, own voice.** Two members who share a name each keep their own voice and their own job.
 
 ---
 
@@ -286,7 +312,7 @@ The engine's check-ins are small and quick compared to the main reply, but they'
 
 - **One-Shot Eval** (at the top of the chat sidebar, above the tool-calling pill) folds four separate check-ins into a single combined call. It tracks the same things with noticeably less waiting — the go-to choice on slower machines and pay-per-token remote APIs. Very small models occasionally handle the combined question less gracefully than the separate ones; if your results get flaky, switch it back off.
 - **Stop anytime.** The processing overlay has a **Stop this reply** button. It stops the reply too (a note offers **Try again**), and stopping never corrupts anything.
-- **Toggle per chat.** Want a quick, lightweight conversation? Flip the Character State switch off in that chat — or, in a group, **Realism Engine for this group** in Group Settings → Realism — and realism costs nothing at all.
+- **Toggle per chat.** Want a quick, lightweight conversation? Flip the Character State switch off in that chat — or, in a group, **Realism Engine for this group** in Group Settings → Realism — and realism costs nothing at all. To stop it in every chat at once, turn off **Realism Engine** in Settings → Porch Life; each chat keeps its own switch for when you turn it back on.
 - **Tool calling helps.** A pill at the top of the sidebar reports whether the current model can answer the engine's questions with native tool calls. When it can, the answers come back cleanly structured; when it can't, the app falls back to plain text — which still works, just a little less reliably. It retests itself when you switch models or backends, and you can tap it to retest now.
 - The engine's notes to the model add only a few hundred tokens and are always counted inside your context budget — they will never push your conversation history out of the window.
 
@@ -296,10 +322,11 @@ The engine's check-ins are small and quick compared to the main reply, but they'
 
 A few quick answers to the most common head-scratchers:
 
-- **Bond and trust barely move.** That's usually correct behavior — ordinary chatting is *supposed* to produce small or zero changes. If nothing ever moves, check that realism is actually on for that chat — the Character State switch in a one-on-one, **Realism Engine for this group** in Group Settings → Realism in a group — and consider a stronger model: very small models sometimes ignore the check-in questions.
+- **Bond and trust barely move.** That's usually correct behavior — ordinary chatting is *supposed* to produce small or zero changes. If nothing ever moves, check that realism is actually on for that chat — the Character State switch in a one-on-one, **Realism Engine for this group** in Group Settings → Realism in a group. If that switch is greyed out, **Realism Engine** is off in Settings → Porch Life. Then consider a stronger model: very small models sometimes ignore the check-in questions.
 - **Evaluations come back empty.** A known quirk of some local models. Check the tool-calling pill at the top of the sidebar — a model that supports tool calls returns much cleaner results. If yours doesn't and you see empty evals often, a different model usually fixes it. More in [Troubleshooting](troubleshooting.md).
 - **Time is moving too fast or too slow.** The clock follows what the model says each exchange took, capped at three hours a turn. If a scene is dragging, an `(OOC: ...)` skip or the ‹ › chevrons will move it; if it's racing, the Story Calendar lets you set the date and time back to exactly where you want them.
 - **You want a clean slate.** Start a new chat with the character — the starting state on their card applies fresh, and the old chat keeps its own history.
+- **You edited the card and an old chat didn't change.** That's by design. A card only sets how *new* chats start. To change Realism, Needs or Afterglow in a chat you already have, use that chat's own switch.
 - **Everything is slow.** Turn on One-Shot Eval, or switch realism off for that particular chat. Running several heavy things at once (a big model, TTS, image generation) compounds on modest hardware.
 
 For deeper fixes, see [Troubleshooting](troubleshooting.md) or ask on [Discord](https://discord.gg/e4tET6rpdv) — I'm around, and so is a friendly community.
