@@ -98,6 +98,9 @@ void main() {
       // Engine) is still OFF — the default state — so the unmet-dependency
       // chip/warning have something real to report from the first frame.
       await storage.realismSettings.setNsfwCooldownDefault(true);
+      // The Realism Engine row is Porch Life's permission now, on unless
+      // turned off; Afterglow greys out under it, not under the default.
+      await storage.realismSettings.setRealismAllowed(false);
       expect(
         storage.realismSettings.realismDefault,
         isFalse,
