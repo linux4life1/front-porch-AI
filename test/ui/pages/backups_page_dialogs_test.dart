@@ -23,6 +23,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/backup/pending_restore.dart';
+import 'package:front_porch_ai/services/backup_service.dart';
 import 'package:front_porch_ai/ui/pages/backups_page.dart';
 
 void main() {
@@ -159,5 +161,66 @@ void main() {
       List.filled(16, 7),
       reason: 'Restore puts the backup in place of the live database',
     );
+  });
+
+  // A snapshot taken with its settings offers to restore them too. The
+  // library comes back at once; the settings wait for the next launch,
+  // because every running service already holds the current values.
+  Future<String> pumpWithSettings(WidgetTester tester) async {
+    await pumpPage(tester);
+    final root = BackupService.storageRoot!;
+    await tester.runAsync(
+      () => File(
+        BackupService.settingsPathFor(backup.path),
+      ).writeAsString('{"format":1,"nightly":false,"values":{}}'),
+    );
+    final nested = tester.state<NavigatorState>(find.byType(Navigator).last);
+    nested.pop();
+    await settle(tester);
+    nested.push(MaterialPageRoute<void>(builder: (_) => const BackupsPage()));
+    await settle(tester);
+    await tester.tap(find.widgetWithText(TextButton, 'Restore'));
+    await tester.pumpAndSettle();
+    return root;
+  }
+
+  Future<PendingRestore?> stagedAfterRestore(
+    WidgetTester tester,
+    String root,
+  ) async {
+    await tester.tap(dialogButton('Restore'));
+    await settle(tester);
+    PendingRestore? staged;
+    for (var i = 0; i < 20 && staged == null; i++) {
+      staged = await tester.runAsync<PendingRestore?>(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return PendingRestore.read(root);
+      });
+      await tester.pump();
+    }
+    return staged;
+  }
+
+  testWidgets('Restore with "Also restore settings" stages the settings for '
+      'the next launch', (tester) async {
+    final root = await pumpWithSettings(tester);
+    expect(
+      find.widgetWithText(CheckboxListTile, 'Also restore settings'),
+      findsOneWidget,
+    );
+    final staged = await stagedAfterRestore(tester, root);
+    expect(staged?.kind, PendingRestoreKind.settings);
+    await tester.runAsync(AppDatabase.closeAndReset);
+  });
+
+  testWidgets('Restore with "Also restore settings" unticked keeps the '
+      'current settings', (tester) async {
+    final root = await pumpWithSettings(tester);
+    await tester.tap(
+      find.widgetWithText(CheckboxListTile, 'Also restore settings'),
+    );
+    await tester.pump();
+    expect(await stagedAfterRestore(tester, root), isNull);
+    await tester.runAsync(AppDatabase.closeAndReset);
   });
 }
