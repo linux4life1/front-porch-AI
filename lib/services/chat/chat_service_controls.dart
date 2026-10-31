@@ -436,29 +436,29 @@ extension ChatServiceControls on ChatService {
   /// Write a group member's current extensions (pace, which needs are on,
   /// baselines) to the avatar and the group-members row.
   Future<void> persistGroupMemberExtensions({String? memberId}) {
+    if (_activeGroup == null) return Future<void>.value();
+    // Who to write is read now: a write queued behind another can run after
+    // the chat has moved to another group.
+    final targets = [
+      for (final c in _groupCharacters)
+        if (memberId == null || _getCharacterIdFromCard(c) == memberId) c,
+    ];
     // One write at a time: two saves of one member race on its avatar PNG.
     // The queue only orders them; each caller still sees its own error.
     final write = _groupStore.memberExtWrites.then(
-      (_) => _writeGroupMemberExtensions(memberId),
+      (_) => _writeGroupMemberExtensions(targets),
     );
     _groupStore.memberExtWrites = write.catchError((Object _) {});
     return write;
   }
 
-  Future<void> _writeGroupMemberExtensions(String? memberId) async {
-    if (_activeGroup == null) return;
-
+  Future<void> _writeGroupMemberExtensions(List<CharacterCard> targets) async {
     if (_characterRepository != null) {
       final v2Service = V2CardService();
       // The chat's own handle: in the app the same file as
       // AppDatabase.instance(), re-pointed with it on a swap.
       final db = _db;
 
-      final targets = memberId == null
-          ? _groupCharacters
-          : _groupCharacters.where(
-              (c) => _getCharacterIdFromCard(c) == memberId,
-            );
       for (final char in targets) {
         final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
         ext.ensureStableId();
