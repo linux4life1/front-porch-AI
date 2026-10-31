@@ -45,6 +45,14 @@ extension ChatServiceChatEntry on ChatService {
             ..avatarImages = old.avatarImages
             ..primeAvatarIndex = old.primeAvatarIndex;
         }
+        // Nor the row's provenance, its only link to its library card.
+        if (!identical(old, card) &&
+            card.originLibraryDbId == null &&
+            card.originStableId == null) {
+          card
+            ..originLibraryDbId = old.originLibraryDbId
+            ..originStableId = old.originStableId;
+        }
         // characters is an unmodifiable view; writing it throws on Save.
         _groupManager?.replaceCharacterAt(i, card);
         // Only while a turn's pass has lent the pointer to this member.
