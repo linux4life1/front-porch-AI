@@ -95,18 +95,15 @@ void main() {
 
       // Set up the exact bug this tab exists to fix: a dependent feature
       // (Afterglow) switched ON while its requirement (the Realism
-      // Engine) is still OFF — the default state — so the unmet-dependency
-      // chip/warning have something real to report from the first frame.
+      // Engine) is OFF, so the unmet-dependency chip/warning have something
+      // real to report from the first frame. The engine row is Porch Life's
+      // permission, on unless turned off, so the net turns it off.
       await storage.realismSettings.setNsfwCooldownDefault(true);
-      // The Realism Engine row is Porch Life's permission now, on unless
-      // turned off; Afterglow greys out under it, not under the default.
       await storage.realismSettings.setRealismAllowed(false);
       expect(
-        storage.realismSettings.realismDefault,
+        storage.realismSettings.realismAllowed,
         isFalse,
-        reason:
-            'this whole net is meaningless unless the engine starts '
-            'OFF, which is the production default',
+        reason: 'this whole net is meaningless unless the engine is OFF',
       );
 
       final scrollable = find.byType(Scrollable).first;
@@ -272,7 +269,7 @@ void main() {
             'storage.realismSettings.absenceBannerEnabled',
       );
 
-      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.realismSettings.realismAllowed, isFalse);
       expect(storage.realismSettings.weatherEnabled, isTrue);
       await tapRow('Story Weather');
       expect(
@@ -284,7 +281,7 @@ void main() {
             'this tab',
       );
 
-      expect(storage.realismSettings.realismDefault, isFalse);
+      expect(storage.realismSettings.realismAllowed, isFalse);
       expect(storage.memorySettings.journalEnabled, isTrue);
       await tapRow('The Journal');
       expect(
