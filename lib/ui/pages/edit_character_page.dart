@@ -45,11 +45,10 @@ class EditCharacterPage extends StatefulWidget {
   /// written to the group (via the caller) so nothing backflows to the library.
   final Future<void> Function(CharacterCard saved)? onSaveOverride;
 
-  /// Show the Realism/Needs section and the identity chips (default true).
-  /// Edit group's member Edit hides them and writes the member's realism and
-  /// Needs settings back as they were; the chat sidebar's editor shows them
-  /// and saves them to the member's row.
-  final bool showRealismTab;
+  /// The group this card is a member of, when editing a member's own copy:
+  /// the page says so, and its Realism section shows only the member's own
+  /// settings.
+  final String? memberOfGroup;
 
   /// Allow changing the avatar (default true). Disabled for group members in this
   /// pass, since a member's avatar lives at a private group path.
@@ -70,7 +69,7 @@ class EditCharacterPage extends StatefulWidget {
     this.saveLabel = 'Save',
     this.popWithCardOnSave = false,
     this.onSaveOverride,
-    this.showRealismTab = true,
+    this.memberOfGroup,
     this.allowAvatarChange = true,
     this.onSaved,
   });
@@ -249,7 +248,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       character: widget.character,
       draft: _draft,
     );
-    writer.writeFields(showRealismTab: widget.showRealismTab);
+    writer.writeFields();
     await writer.embedPng(Provider.of<StorageService>(context, listen: false));
     writer.writeLorebook();
 
@@ -361,7 +360,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         EditCharacterDetailsTab(
           character: widget.character,
           draft: _draft,
-          showRealismTab: widget.showRealismTab,
+          memberOfGroup: widget.memberOfGroup,
           onChanged: _rebuild,
         ),
         EditCharacterDialogueTab(draft: _draft, onChanged: _rebuild),

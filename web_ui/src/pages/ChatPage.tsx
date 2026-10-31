@@ -221,9 +221,16 @@ export function ChatPage() {
   // host, else the first cast member.
   const focused = cast.find((c) => c.id === focusedId) ?? cast.find((c) => c.isHost) ?? cast[0];
   const title = state.chatTitle || state.character?.name || 'Chat';
-  // Editing targets a real library character — the 1:1 host or a scene guest,
-  // never a group member (denormalized copies aren't web-editable).
+  // Edit opens the library card for the 1:1 host or a scene guest, and the
+  // group's own copy for a group member (the member editor).
   const editId = !state.isGroupMode ? focused?.dbId ?? state.character?.id : undefined;
+  const editPath = state.isGroupMode
+    ? focused?.dbId && state.groupId
+      ? `/groups/${state.groupId}/members/${focused.dbId}/edit`
+      : undefined
+    : editId
+      ? `/edit/${editId}`
+      : undefined;
   // A lite scene guest has no realism of its own. Falling through to
   // `state.realism` here showed the HOST's bond/trust/needs under the
   // guest's name; desktop shows a 'Lite NPC' banner instead.
@@ -282,7 +289,7 @@ export function ChatPage() {
           characterId={state.character?.id}
           isPhone={isPhone}
           hasStats={!!insight}
-          onEdit={editId ? () => navigate(`/edit/${editId}`) : undefined}
+          onEdit={editPath ? () => navigate(editPath) : undefined}
           onStats={() => setShowStats(true)}
           onPersona={() => setShowPersona(true)}
           onTheme={() => setShowTheme(true)}

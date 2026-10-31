@@ -39,6 +39,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     required this.realismVerificationStrictness,
     required this.onRealismVerificationStrictnessChanged,
     required this.showChaosToggle,
+    this.afterglowLabel,
+    this.afterglowSubtitle,
     required this.showVerificationToggle,
     this.recovery,
     this.onRecoveryChanged,
@@ -60,6 +62,10 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final ValueChanged<int>? onRealismVerificationStrictnessChanged;
   final bool showChaosToggle;
   final bool showVerificationToggle;
+
+  /// Words for the Afterglow switch when it is a group member's own.
+  final String? afterglowLabel;
+  final String? afterglowSubtitle;
 
   /// Recovery block (recovery overhaul PR 2). Rendered only when a caller
   /// supplies the value + setter (the group editors pass neither: per
@@ -104,10 +110,11 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
           if (showSwitch) ...[
             buildRealismToggleRow(
               icon: Icons.local_fire_department,
-              label: 'Afterglow',
+              label: afterglowLabel ?? 'Afterglow',
               subtitle:
+                  afterglowSubtitle ??
                   'Lust and recovery in new chats with this character. Chats '
-                  'you already have keep their own switch.',
+                      'you already have keep their own switch.',
               value: afterglowEnabled,
               onChanged: onAfterglowChanged!,
               context: context,

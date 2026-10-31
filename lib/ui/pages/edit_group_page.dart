@@ -345,14 +345,14 @@ class _EditGroupPageState extends State<EditGroupPage>
   }
 
   Future<void> _editMember(CharacterCard member, String memberId) async {
-    final edited = await editGroupMemberCard(context, member, memberId);
-    if (edited != null && mounted) {
-      // The member card was mutated in place, so a rebuild reflects the edits.
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('“${edited.name}” updated in this group.')),
-      );
-    }
+    final edited = await editGroupMemberCard(
+      context,
+      member,
+      memberId,
+      groupName: widget.group.name,
+    );
+    // The member card was mutated in place, so a rebuild reflects the edits.
+    if (edited != null && mounted) setState(() {});
   }
 
   @override

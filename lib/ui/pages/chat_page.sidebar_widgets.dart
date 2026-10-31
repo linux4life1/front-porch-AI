@@ -294,6 +294,8 @@ Future<void> showEditCharacterDialog(
   // re-keyed memories filed under the character's bare name.
   final member = isOpenGroupMember(chatService, character);
   final db = member ? liveDatabase(context) : null;
+  final afterglowBefore =
+      character.frontPorchExtensions?.afterglowEnabled ?? true;
   final opened = showDialog<void>(
     context: context,
     builder: (dialogCtx) => Dialog(
@@ -304,14 +306,19 @@ Future<void> showEditCharacterDialog(
         height: MediaQuery.of(dialogCtx).size.height - 96,
         child: EditCharacterPage(
           character: character,
+          memberOfGroup: member ? chatService.activeGroup?.name : null,
           onSaveOverride: db == null
               ? null
               : (card) => saveGroupMemberCard(db, card),
           // Light refresh only — never the full setActiveCharacter dance,
           // which cancels in-flight generation, full-reloads on rename,
           // and leaves group mode.
-          onSaved: (saved) async =>
-              chatService.refreshActiveCharacterCard(saved),
+          onSaved: (saved) async {
+            chatService.refreshActiveCharacterCard(saved);
+            if (member) {
+              await settleMemberAfterglow(chatService, saved, afterglowBefore);
+            }
+          },
         ),
       ),
     ),

@@ -6,6 +6,12 @@
 // lorebook (enabled + sticky depth), linked worlds, and the Realism Engine +
 // Needs Simulation seeds (via /detail's `realism` block ↔ the shared
 // realism_extensions_json helper). Posts to /api/characters/<id>.
+//
+// At /groups/<groupId>/members/<memberId>/edit it is a group member's editor
+// (the desktop member editor's twin): it edits the group's own copy through
+// /api/groups/<groupId>/members/<memberId>, says so in a banner, and shows
+// only the member's own settings. The library card and its other chats stay
+// as they are.
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -56,6 +62,8 @@ interface CharDetail {
   lorebook?: { entries: RawLore[] } | null;
   realism?: Partial<RealismValues> | null;
   ttsVoice?: string | null;
+  /** The member editor's group (its detail only). */
+  groupName?: string;
 }
 
 interface VoiceStatus {
@@ -77,7 +85,12 @@ const FIELDS: { key: keyof CharDetail; label: string; rows: number }[] = [
 export function CharacterEditPage() {
   const { adult: adultThemes, afterglow } = useAdultFlags();
   const clockOn = usePassageOfTime();
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string; groupId: string; memberId: string }>();
+  const member = params.groupId !== undefined && params.memberId !== undefined;
+  const id = member ? params.memberId : params.id;
+  const base = member
+    ? `/api/groups/${params.groupId}/members/${params.memberId}`
+    : `/api/characters/${params.id}`;
   const navigate = useNavigate();
   const [c, setC] = useState<CharDetail | null>(null);
   const [tags, setTags] = useState('');
@@ -105,7 +118,7 @@ export function CharacterEditPage() {
   useEffect(() => {
     if (!id) return;
     api
-      .get<CharDetail>(`/api/characters/${id}/detail`)
+      .get<CharDetail>(`${base}/detail`)
       .then((d) => {
         setC(d);
         setTags((d.tags ?? []).join(', '));
@@ -137,7 +150,7 @@ export function CharacterEditPage() {
       .get<VoiceStatus>('/api/voice/status')
       .then(setVoiceStatus)
       .catch(() => setVoiceStatus(null));
-  }, [id]);
+  }, [id, base]);
 
   // Mirror the desktop _updateTokenCount exactly: name + the seven text fields +
   // the alternate greetings. The lorebook is intentionally excluded (lore is
@@ -160,7 +173,7 @@ export function CharacterEditPage() {
     setSaving(true);
     setError('');
     try {
-      await api.post(`/api/characters/${id}`, {
+      await api.post(base, {
         name: c.name,
         description: c.description,
         personality: c.personality,
@@ -216,7 +229,14 @@ export function CharacterEditPage() {
           <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
         </div>
       </div>
-      <CharacterStatsCard characterId={c.id} />
+      {member ? (
+        <p className="card muted" data-testid="group-member-editor-banner">
+          {c.name} in {c.groupName}. Changes apply to {c.name} in this group; the
+          library card and its other chats stay as they are.
+        </p>
+      ) : (
+        <CharacterStatsCard characterId={c.id} />
+      )}
       <label>
         Name
         <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
@@ -345,23 +365,35 @@ export function CharacterEditPage() {
       />
 
       <h3 className="section-label">Realism Engine</h3>
-      <RealismFormSection v={rv} set={patch} showIntimate={adultThemes} afterglowOn={afterglow} />
+      <RealismFormSection
+        v={rv}
+        set={patch}
+        showIntimate={adultThemes}
+        afterglowOn={afterglow}
+        member={member ? c.name : undefined}
+      />
 
-      {rv.realismEnabled && (
+      {(member || rv.realismEnabled) && (
         <>
           <h3 className="section-label">Needs Simulation</h3>
-          <NeedsFormSection v={rv} set={patch} clockOn={clockOn} />
+          <NeedsFormSection v={rv} set={patch} clockOn={clockOn} showSwitch={!member} />
         </>
       )}
 
-      <h3 className="section-label">Avatars &amp; expressions</h3>
-      <AvatarManager characterId={c.id} />
+      {!member && (
+        <>
+          <h3 className="section-label">Avatars &amp; expressions</h3>
+          <AvatarManager characterId={c.id} />
+        </>
+      )}
 
       {error && <p className="error">{error}</p>}
       <div className="wizard-nav">
-        <button className="danger" disabled={deleting} onClick={del}>
-          {deleting ? 'Deleting…' : 'Delete character'}
-        </button>
+        {!member && (
+          <button className="danger" disabled={deleting} onClick={del}>
+            {deleting ? 'Deleting…' : 'Delete character'}
+          </button>
+        )}
         <button className="primary" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save character'}
         </button>

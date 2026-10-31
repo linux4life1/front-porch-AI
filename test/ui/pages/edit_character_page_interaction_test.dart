@@ -273,8 +273,7 @@ void main() {
       worlds: worlds,
     );
     addTearDown(d1.dispose);
-    EditCharacterCardWriter(character: untouched, draft: d1)
-        .writeFields(showRealismTab: false);
+    EditCharacterCardWriter(character: untouched, draft: d1).writeFields();
     expect(untouched.worldNames, ['Attic Books', 'Salt Reach']);
     expect(untouched.loreWorldNames, isNull);
     expect(d1.isDirty, isFalse);
@@ -289,7 +288,7 @@ void main() {
     d2.worldChoice = GroupWorldChoice(settingId: attic.id, loreIds: [reach.id]);
     expect(d2.isDirty, isTrue);
     final writer = EditCharacterCardWriter(character: moved, draft: d2);
-    writer.writeFields(showRealismTab: false);
+    writer.writeFields();
     expect(moved.worldNames, [attic.id]);
     expect(moved.loreWorldNames, [reach.id]);
     // Both were linked by name before, so nothing counts as newly added.

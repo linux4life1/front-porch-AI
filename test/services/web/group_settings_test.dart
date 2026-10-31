@@ -20,6 +20,9 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
+
+import '../../golden/support/fakes.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -1069,4 +1072,167 @@ void main() {
       );
     });
   });
+
+  // The web member editor, the desktop member editor's twin: a member's
+  // edit saves to their own row, and with the group open it edits the chat's
+  // copy and sets a changed Afterglow through the chat.
+  group('GroupMemberEdit', () {
+    late AppDatabase db;
+    late StorageService storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      await db.insertGroup(GroupsCompanion.insert(id: 'g1', name: 'Pair'));
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-mara',
+          groupId: 'g1',
+          name: 'Mara',
+          description: const Value('Keeps the lighthouse.'),
+        ),
+      );
+    });
+
+    tearDown(() => db.close());
+
+    Future<GroupMemberRow> row() async =>
+        (await db.getGroupMembers('g1')).single;
+
+    test("a closed group's member saves to their own row", () async {
+      final edit = GroupMemberEdit(db, storage, null, null);
+      final before = await edit.detail('g1', 'mem-mara');
+      expect(before?['groupName'], 'Pair', reason: "the page's banner");
+      expect(before?['description'], 'Keeps the lighthouse.');
+
+      expect(
+        await edit.update('g1', 'mem-mara', {
+          'description': 'Keeps the lamp.',
+          'afterglowEnabled': false,
+        }),
+        isTrue,
+      );
+
+      final saved = await row();
+      expect(saved.description, 'Keeps the lamp.');
+      expect(
+        FrontPorchExtensions.fromJson(
+          jsonDecode(saved.frontPorchExtensions!) as Map<String, dynamic>,
+        ).afterglowEnabled,
+        isFalse,
+      );
+      expect(await edit.detail('g1', 'mem-nobody'), isNull);
+      expect(await edit.update('g1', 'mem-nobody', const {}), isFalse);
+    });
+
+    test("an open group's member is edited on the chat's own copy, and a "
+        'changed Afterglow is set through the chat', () async {
+      final live =
+          CharacterCard(name: 'Mara', description: 'Keeps the lighthouse.')
+            ..dbId = 'mem-mara'
+            ..frontPorchExtensions = FrontPorchExtensions();
+      final chat = _OpenPair([live]);
+      addTearDown(chat.dispose);
+      final edit = GroupMemberEdit(db, storage, chat, null);
+
+      expect(
+        await edit.update('g1', 'mem-mara', {
+          'description': 'Keeps the lamp.',
+          'afterglowEnabled': false,
+        }),
+        isTrue,
+      );
+
+      expect(
+        live.description,
+        'Keeps the lamp.',
+        reason: "the chat's copy, so its next save cannot put the old back",
+      );
+      expect(chat.refreshed, [same(live)]);
+      expect(
+        chat.afterglowSets,
+        hasLength(1),
+        reason: 'the chat clears her Lust only when it sets the switch',
+      );
+      expect(chat.afterglowSets.single.$1, same(live));
+      expect(chat.afterglowSets.single.$2, isFalse);
+      expect((await row()).description, 'Keeps the lamp.');
+    });
+
+    test('a save keeps extensions the app could not read, in the row and '
+        "in the open chat's copy", () async {
+      // Imported from a foreign group card: a whole number stored as a
+      // decimal. The member loads with no extensions; the web page still
+      // posts every Realism field.
+      const foreign = '{"realism_engine":{"day_count":2.0}}';
+      await db.updateGroupMember(
+        const GroupMembersCompanion(
+          id: Value('mem-mara'),
+          frontPorchExtensions: Value(foreign),
+        ),
+      );
+      final live = CharacterCard(name: 'Mara')..dbId = 'mem-mara';
+      final chat = _OpenPair([live]);
+      addTearDown(chat.dispose);
+
+      expect(
+        await GroupMemberEdit(
+          db,
+          storage,
+          chat,
+          null,
+        ).update('g1', 'mem-mara', {
+          'description': 'Keeps the lamp.',
+          'realismEnabled': true,
+          'afterglowEnabled': true,
+        }),
+        isTrue,
+      );
+
+      final saved = await row();
+      expect(saved.description, 'Keeps the lamp.');
+      expect(saved.frontPorchExtensions, foreign);
+      expect(
+        live.frontPorchExtensions,
+        isNull,
+        reason: "the chat's copy would write the defaults on its next save",
+      );
+    });
+  });
+}
+
+/// Group g1 ("Pair") open in the chat on [members]. Like ChatService's, its
+/// member Afterglow setter does nothing when the card already holds [on].
+class _OpenPair extends FakeChatService {
+  _OpenPair(this.members);
+
+  final List<CharacterCard> members;
+  final refreshed = <CharacterCard>[];
+  final afterglowSets = <(CharacterCard, bool)>[];
+
+  @override
+  bool get isGroupMode => true;
+
+  @override
+  GroupChat? get activeGroup => GroupChat(id: 'g1', name: 'Pair');
+
+  @override
+  List<CharacterCard> get groupCharacters => members;
+
+  @override
+  void refreshActiveCharacterCard(CharacterCard card) => refreshed.add(card);
+
+  @override
+  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
+    if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
+    afterglowSets.add((member, on));
+    member.frontPorchExtensions =
+        (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+          afterglowEnabled: on,
+        );
+  }
 }

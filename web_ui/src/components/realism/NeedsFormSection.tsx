@@ -26,23 +26,29 @@ export function NeedsFormSection({
   v,
   set,
   clockOn,
+  showSwitch = true,
 }: {
   v: RealismValues;
   set: Patch;
   /** Porch Life's Passage of Time, for the clock-off line. */
   clockOn: boolean;
+  /** The on/off row. A group member's editor hides it: Needs is the group's
+   *  (Group Settings), so the member's own settings show as on. */
+  showSwitch?: boolean;
 }) {
   return (
     <div className="realism-section">
-      <ToggleRow
-        label="Needs simulation"
-        hint="Hunger, bladder, energy… (100 = full, 0 = critical) influence prompts & behavior when low"
-        value={v.needsSimEnabled}
-        onChange={(b) => set({ needsSimEnabled: b })}
-      />
+      {showSwitch && (
+        <ToggleRow
+          label="Needs simulation"
+          hint="Hunger, bladder, energy… (100 = full, 0 = critical) influence prompts & behavior when low"
+          value={v.needsSimEnabled}
+          onChange={(b) => set({ needsSimEnabled: b })}
+        />
+      )}
       <NeedsClockOffNote clockOn={clockOn} />
 
-      {v.needsSimEnabled && (
+      {(!showSwitch || v.needsSimEnabled) && (
         <>
           <div className="card realism-card">
             {NEEDS.map(([label, baseKey]) => {

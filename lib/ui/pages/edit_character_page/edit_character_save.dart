@@ -71,7 +71,7 @@ class EditCharacterCardWriter {
     );
   }
 
-  void writeFields({required bool showRealismTab}) {
+  void writeFields() {
     final d = draft;
     character.name = d.nameController.text;
     character.description = d.descriptionController.text;
@@ -95,9 +95,7 @@ class EditCharacterCardWriter {
     character.loreWorldNames = worlds.loreWorldIds;
 
     // Always persist extensions — even when realism is disabled — so that
-    // configured-but-disabled values survive the PNG round-trip. Skipped when
-    // the Realism section is hidden (group member): the member's existing
-    // realism/needs ext is group state and must be preserved untouched.
+    // configured-but-disabled values survive the PNG round-trip.
     // The identity chips — Ambitions, Likes & Dislikes, the 18+ pair and
     // Pockets & Wardrobe kit — live OUTSIDE the realism section. The
     // per-character Pockets switch on that panel sets
@@ -133,25 +131,15 @@ class EditCharacterCardWriter {
     final hasGreetingSeeds = compactGreetingSeeds(
       d.altGreetingSeeds,
     ).isNotEmpty;
-    if (showRealismTab &&
-        (d.realismEnabled ||
-            d.realismSettingsModified ||
-            hasIdentityContent ||
-            hasGreetingSeeds ||
-            character.frontPorchExtensions != null)) {
+    if (d.realismEnabled ||
+        d.realismSettingsModified ||
+        hasIdentityContent ||
+        hasGreetingSeeds ||
+        character.frontPorchExtensions != null) {
       debugPrint(
         '[_saveCharacter] Saving realism: enabled=${d.realismEnabled}, modified=${d.realismSettingsModified}',
       );
       _writeExtensions(greetingPairs.seeds);
-    } else if (!showRealismTab &&
-        (hasGreetingSeeds || character.frontPorchExtensions != null)) {
-      // Realism hidden (a group member): its other extensions stay as they
-      // were, but the greeting seeds sit with the greetings on the Dialogue
-      // tab, which is shown, so they save with them.
-      final base = character.frontPorchExtensions ?? FrontPorchExtensions();
-      character.frontPorchExtensions = base.copyWith(
-        greetingSeeds: greetingPairs.seeds,
-      );
     }
   }
 

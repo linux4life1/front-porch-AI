@@ -90,8 +90,12 @@ extension ChatServiceGroupSettings on ChatService {
 
   /// A group member's own Afterglow switch, kept on their card in this group
   /// (unset reads on). Switching it either way settles their Lust and any
-  /// recovery, as the chat's switch does.
-  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
+  /// recovery, as the chat's switch does. Class forwarder:
+  /// [ChatService.setMemberAfterglowEnabled].
+  Future<void> _setMemberAfterglowEnabledImpl(
+    CharacterCard member,
+    bool on,
+  ) async {
     if (_activeGroup == null) return;
     if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
     member.frontPorchExtensions =
