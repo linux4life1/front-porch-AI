@@ -217,6 +217,12 @@ Done when: part baseline 77 → 73, field bag down, manifest unchanged,
 `message_actions_test.dart` pass. The 42 test files that mention generated
 images, photos or web search pass unedited.
 
+Landed at 68 parts and 215 fields, all four parts retired. The shared
+coalescer lives in `lib/services/chat/doors/coalesced_notify.dart` and the
+shell's `_forwardDoorNotify` registers every door on it. Door-driven
+changes now reach listeners one microtask later than before; every named
+suite passed with that.
+
 ### WP3. Import and export door
 
 Parts retired (7, ~1,580 lines): `chat_service_sillytavern`,
@@ -237,6 +243,15 @@ Parts retired (7, ~1,580 lines): `chat_service_sillytavern`,
 Done when: part baseline → 66, `integration_test/porch_byaf_import_dialog_test.dart`,
 `lorebook_import_test.dart` and `backup_restore_test.dart` pass, and the 25
 test files that mention import or packages pass unedited.
+
+Landed at 72 parts and 224 fields with five of the seven parts retired.
+`chat_service_import_seed` and `chat_service_import_walk` stay because
+`test/hygiene/needs_gate_ratchet_test.dart` (`_stateAndRewinds`) names the
+seed file by path and `test/hygiene/realism_gate_ratchet_test.dart`
+(`_ownSwitch`) pins how often each names `_realismChatSwitch` (3 and 2).
+WP7 retires both with an `approved-test-change` that moves those entries.
+The importer takes a `TransferHost` of 25 typed callbacks, `seedScalars`
+among them; WP7 replaces them with the session store.
 
 ### WP4. Objectives door
 
@@ -259,6 +274,15 @@ Parts retired (4, ~1,500 lines): `chat_service_objectives`,
 
 Done when: part baseline → 62, the 86 objective test files pass unedited,
 `integration_test/group_realism_wiring_test.dart` passes.
+
+Landed at 65 parts and 208 fields with three of the four parts retired.
+`chat_service_speaker_objectives` stays, holding only the realism restore
+trio, post-gen Needs checks and mood decay, because
+`test/hygiene/needs_gate_ratchet_test.dart:60` names it by path and
+`test/services/chat/needs_beat_span_test.dart:264` greps it. Retiring it is
+a path-only `approved-test-change` for WP7 or WP10b, whichever takes the
+code. `objectivesActive` and `inObjectiveTurn` are read live through the
+door.
 
 ### WP5. Message operations door
 
