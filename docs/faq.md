@@ -53,6 +53,10 @@ If this page doesn’t cover it, try [Troubleshooting](troubleshooting.md). Stil
 - [Why does it say they're at work?](#why-does-it-say-theyre-at-work)
 - [What are Pockets?](#what-are-pockets)
 - [What is the Realism Engine?](#what-is-the-realism-engine)
+- [I turned it on in Porch Life but my chat doesn't show it](#i-turned-it-on-in-porch-life-but-my-chat-doesnt-show-it)
+- [The Realism switch is greyed out](#the-realism-switch-is-greyed-out)
+- [I edited the card but my old chat didn't change](#i-edited-the-card-but-my-old-chat-didnt-change)
+- [How do I change a group member's settings?](#how-do-i-change-a-group-members-settings)
 - [Does Realism make chat slow?](#does-realism-make-chat-slow)
 - [Reset bond / trust](#reset-bond--trust)
 
@@ -183,7 +187,7 @@ Also: thin character cards (no example dialogue) repeat. Add examples. Some mode
 2. Model too small.
 3. Temperature way too low or way too high. Try 0.85–1.0.
 4. Settings → **General** → system prompt fighting the card. Clear it or use a preset.
-5. Realism Engine off — no leftover mood between turns. Settings → **Porch Life**.
+5. Realism Engine off — no leftover mood between turns. Check the chat's own switch (Character State header, or Group Settings → Realism in a group), and Settings → **Porch Life** → **Realism Engine**.
 
 ### Where do I get characters?
 
@@ -358,6 +362,8 @@ Never: your chats. Delete the account from the app to wipe Stoop data. [Privacy]
 
 Journal, clock, Chaos, Pockets, Objectives each have **their own** switch. Realism is not the master key. Full list: [Porch Life](porch-life.md).
 
+**Realism Engine**, **Needs** and **Afterglow** on Porch Life *allow* the feature. Each chat still has its own switch: Realism in the header of Character State (a group's is in Group Settings → Realism), Needs on the Needs line, Afterglow on the Afterglow line. More: [Realism Engine → Turning It On](realism-engine.md#turning-it-on).
+
 **18+ themes** is still Settings → **General**.
 
 ### How does time work?
@@ -457,7 +463,45 @@ Clothes and stuff they carry. Own switch on Porch Life. Does **not** need Realis
 
 ### What is the Realism Engine?
 
-Optional. Mood, bond, trust, needs, goals. **Off** by default on new singles; **on** by default on new groups. The **story clock is a separate switch** (Passage of Time) — it is not “the engine.” Full tour: [Realism Engine](realism-engine.md).
+Optional. Mood, bond, trust, needs, goals. A new one-on-one chat starts with it **off** unless the card turns it on (or **Start every new chat with Realism** is on in Porch Life). The new-group wizard starts a group with it **on**; a group made from a one-on-one chat copies that chat's choice, and Edit group can set it off for the group's new chats. The **story clock is a separate switch** (Passage of Time) — it is not “the engine.” Full tour: [Realism Engine](realism-engine.md).
+
+### I turned it on in Porch Life but my chat doesn't show it
+
+Porch Life *allows* Realism, Needs and Afterglow. It doesn't flip them on in your chats. Each chat has its own switch:
+
+- **Realism:** the switch in the header of Character State. In a group: Group Settings → Realism → **Realism Engine for this group**.
+- **Needs:** the **Needs** line in Character State. In a group: Group Settings → Needs.
+- **Afterglow:** the **Afterglow** line under the bond bars. In a group: Group Settings → Realism. It only shows with 18+ themes on.
+
+On the phone, all three are in the chat tools.
+
+**Don't see the Needs or Afterglow line?** In a one-on-one chat, and in the phone's chat tools, they only appear while that chat's Realism is on. Switch Realism on first.
+
+When you turn one on in Porch Life, a question asks whether to turn it on in the chats that have it off. Its switch starts off. If you pressed **Done** without flipping it, those chats stayed as they were. Flip each chat's own switch.
+
+### The Realism switch is greyed out
+
+Usually, Settings → Porch Life → **Realism Engine** is off. With it off, no chat runs Realism, and every chat's Realism switch greys out with a note that points to Porch Life. Each chat keeps its own choice. Turn the Porch Life row back on and they carry on.
+
+The **Needs** switch greys out the same way, with a note that points to Porch Life, when Porch Life → **Needs** is off.
+
+The switches also grey out for a moment while a reply is being written. Wait for the reply to finish.
+
+### I edited the card but my old chat didn't change
+
+That's on purpose. The card's Realism panel only sets how **new** chats start: Realism, Needs, Afterglow, bonds, mood, the opening date. Chats you already have keep their own. To change one, use that chat's own switch (above), or start a new chat.
+
+Groups work the same way. Edit group and the new-group wizard set how the group's **new** chats start.
+
+### How do I change a group member's settings?
+
+Open **Edit Character** on that member. In a group chat, open Group Settings → **Realism** and press **Edit** on that member's summary. Or focus the member in the sidebar (tap their face) and pick Edit Character from the sidebar's **Main Settings** menu. Edit group's member **Edit** opens the same thing. On the phone: **Edit** in the chat header (for the member you're looking at), or the Edit link by each member in Group Settings.
+
+It edits that member in this group only. Their library card and their other chats stay as they are.
+
+Realism on or off, time and day, Chaos, Needs and the chat's Afterglow belong to the whole group. The member's editor shows them as read-only lines that say where each one is set. Opened from a chat, they show that chat's switches ("… in this chat"). Opened from Edit group, they show how the group's new chats start ("… for this group's new chats").
+
+Where the member starts in the group's new chats (bonds, trust, mood) has its own section in their editor: "Where *name* starts in this group's new chats".
 
 ### Does Realism make chat slow?
 
@@ -465,7 +509,7 @@ A bit. Extra short AI questions after each turn. In a chat, the **One-Shot Eval*
 
 ### Reset bond / trust
 
-Start a **new chat**. There is no reset inside an old one. Editor “starting values” only affect chats you start *after* you change them.
+Start a **new chat**. There is no reset inside an old one. Editor “starting values” only affect chats you start *after* you change them. In a group, a member's starting values in their editor (Edit Character on the member) set where they start in the group's new chats.
 
 ---
 
