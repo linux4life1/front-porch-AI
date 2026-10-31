@@ -56,7 +56,8 @@ bool existingChatsFeatureAllowed(
 /// column; Realism, its `realism_enabled` column. The chat open right now is
 /// read and switched live, so its next save cannot write the old value back.
 /// [cards] is the library, read for a card's own Needs choice. A closed
-/// chat switched to Realism is owed its starting-point scan ([realism]).
+/// chat switched to Realism is owed its starting-point scan, so turning
+/// Realism on needs [realism] (ChatService._scoreStartIfSavedBlocked pays).
 class ExistingChatsOffer {
   ExistingChatsOffer(
     this._db,
@@ -82,8 +83,23 @@ class ExistingChatsOffer {
       (await _off(feature)).length;
 
   /// Switches [feature] on in every chat that has it off; returns how many.
+  ///
+  /// Realism needs [realism]: each closed chat it switches on is owed its
+  /// starting-point scan, written once for all of them before any switch,
+  /// so no chat is turned on without its debt.
   Future<int> turnOn(ExistingChatsFeature feature) async {
+    final owes = _realism;
+    final isRealism = feature == ExistingChatsFeature.realism;
+    if (isRealism && owes == null) {
+      throw StateError('turning Realism on in chats needs RealismSettings');
+    }
     final off = await _off(feature);
+    if (isRealism) {
+      await owes!.oweRealismStart([
+        for (final c in off)
+          if (!c.open && c.id != _openSessionId) c.id,
+      ]);
+    }
     var changed = 0;
     for (final chat in off) {
       if (chat.open) {
@@ -105,8 +121,6 @@ class ExistingChatsOffer {
           'UPDATE sessions SET realism_enabled = 1 WHERE id = ?',
           variables: [Variable(chat.id)],
         );
-        // Scored when it next opens (ChatService._scoreStartIfSavedBlocked).
-        await _realism?.oweRealismStart([chat.id]);
       } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',

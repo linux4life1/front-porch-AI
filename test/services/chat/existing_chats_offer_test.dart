@@ -22,6 +22,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/existing_chats_offer.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/routes/routes.dart';
@@ -467,10 +468,19 @@ void main() {
       'Realism switch', () async {
     await realismSessions();
     const realism = ExistingChatsFeature.realism;
-    final offer = ExistingChatsOffer(db, null);
+    final before = await rows();
+    // Without Porch Life's settings it could not owe the scans: it refuses
+    // before writing anything.
+    await expectLater(
+      ExistingChatsOffer(db, null).turnOn(realism),
+      throwsStateError,
+    );
+    expect(await rows(), before);
+
+    final settings = RealismSettings();
+    final offer = ExistingChatsOffer(db, null, realism: settings);
     expect(await offer.countOff(realism), 2);
 
-    final before = await rows();
     expect(await offer.turnOn(realism), 2);
     final after = await rows();
     for (final id in before.keys) {
@@ -487,6 +497,10 @@ void main() {
     expect(after['solo-off']!['realism_enabled'], 1);
     expect(after['group-off']!['realism_enabled'], 1);
     expect(await offer.countOff(realism), 0);
+    expect(settings.realismStartOwed, {
+      'solo-off',
+      'group-off',
+    }, reason: 'each owed its starting-point scan, in one write');
   });
 
   test('Realism: the open chat is read and switched live, so its next save '
@@ -514,7 +528,11 @@ void main() {
       )..dbId = 'char-offer-realism',
     );
     final open = chat.currentSessionId!;
-    final offer = ExistingChatsOffer(db, chat);
+    final offer = ExistingChatsOffer(
+      db,
+      chat,
+      realism: storage.realismSettings,
+    );
     expect(await offer.countOff(ExistingChatsFeature.realism), 1);
 
     await offer.turnOn(ExistingChatsFeature.realism);
