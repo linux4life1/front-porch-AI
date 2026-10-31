@@ -136,4 +136,57 @@ void main() {
       expect(await PrefsRecovery.isBlankStore(file), isFalse);
     });
   });
+
+  group('PrefsRecovery.copyLegacyFolder', () {
+    Future<void> put(String path, String text) async {
+      final f = File(path);
+      await f.parent.create(recursive: true);
+      await f.writeAsString(text);
+    }
+
+    test('copies the old Windows folder into a new one without settings',
+        () async {
+      final legacy = p.join(tmp.path, 'com.antigravity', 'FPAI');
+      await put(p.join(legacy, 'shared_preferences.json'), '{"flutter.a":1}');
+      await put(p.join(legacy, 'k.secure'), 'sealed');
+      final current = p.join(tmp.path, 'FPAI');
+
+      expect(
+        await PrefsRecovery.copyLegacyFolder(
+          Directory(legacy),
+          Directory(current),
+        ),
+        2,
+      );
+      expect(
+        await File(p.join(current, 'shared_preferences.json')).readAsString(),
+        '{"flutter.a":1}',
+      );
+      expect(await File(p.join(current, 'k.secure')).exists(), isTrue);
+      expect(
+        await File(p.join(legacy, 'shared_preferences.json')).exists(),
+        isTrue,
+        reason: 'the old folder stays as a fallback',
+      );
+    });
+
+    test('never copies over settings the new folder already has', () async {
+      final legacy = p.join(tmp.path, 'old');
+      await put(p.join(legacy, 'shared_preferences.json'), '{"flutter.a":1}');
+      final current = p.join(tmp.path, 'new');
+      await put(p.join(current, 'shared_preferences.json'), '{"flutter.a":2}');
+
+      expect(
+        await PrefsRecovery.copyLegacyFolder(
+          Directory(legacy),
+          Directory(current),
+        ),
+        0,
+      );
+      expect(
+        await File(p.join(current, 'shared_preferences.json')).readAsString(),
+        '{"flutter.a":2}',
+      );
+    });
+  });
 }

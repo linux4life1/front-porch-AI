@@ -75,6 +75,55 @@ class PrefsRecovery {
     }
   }
 
+  /// Windows builds before this one named the settings folder
+  /// `%APPDATA%\com.antigravity\Front Porch AI` (the old `CompanyName` in
+  /// Runner.rc). It is now `%APPDATA%\Front Porch AI`. Copies the old
+  /// folder across on the first launch that finds the new one without a
+  /// settings file, so moving the folder costs nobody their settings or
+  /// stored keys. The old folder is left in place as a fallback.
+  static Future<void> moveLegacyWindowsFolder() async {
+    if (!Platform.isWindows) return;
+    try {
+      final appData = Platform.environment['APPDATA'];
+      if (appData == null || appData.isEmpty) return;
+      final legacy = Directory(
+        p.join(appData, 'com.antigravity', 'Front Porch AI'),
+      );
+      final current = await getApplicationSupportDirectory();
+      if (p.equals(legacy.path, current.path)) return;
+      final copied = await copyLegacyFolder(legacy, current);
+      if (copied > 0) {
+        debugPrint(
+          '[Prefs] moved $copied file(s) from ${legacy.path} to '
+          '${current.path}',
+        );
+      }
+    } catch (e) {
+      debugPrint('[Prefs] could not move the old settings folder: $e');
+    }
+  }
+
+  /// Copies every file of [from] into [to] that [to] does not have yet,
+  /// but only while [to] has no settings file of its own: once the new
+  /// folder holds settings, they are the user's and nothing is copied over
+  /// them. Returns how many files were copied. Pure file I/O for tests.
+  static Future<int> copyLegacyFolder(Directory from, Directory to) async {
+    if (!await from.exists()) return 0;
+    final settings = File(p.join(to.path, 'shared_preferences.json'));
+    if (await settings.exists() && await settings.length() > 0) return 0;
+    var copied = 0;
+    await for (final entity in from.list(recursive: true, followLinks: false)) {
+      if (entity is! File) continue;
+      final rel = p.relative(entity.path, from: from.path);
+      final target = File(p.join(to.path, rel));
+      if (await target.exists() && await target.length() > 0) continue;
+      await target.parent.create(recursive: true);
+      await entity.copy(target.path);
+      copied++;
+    }
+    return copied;
+  }
+
   /// Probes SharedPreferences and heals the JSON store if it is corrupt.
   /// Never throws: if healing is impossible the original error simply
   /// resurfaces at the next `getInstance()` call, where the startup guard
