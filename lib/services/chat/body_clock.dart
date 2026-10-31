@@ -43,7 +43,7 @@ Map<String, int> visibleNeeds(Map<String, int> vector, List<String> off) {
 /// saved before chats recorded their choice (off, no vector at all) promotes
 /// ON when its card asks for Needs.
 ///
-/// The chat-gear switch sticks both ways. An explicit ON stays ON. An
+/// The chat's own switch sticks both ways. An explicit ON stays ON. An
 /// explicit OFF keeps its saved vector (hide ≠ erase) and must not look
 /// like a never-seeded row — false + a vector stays OFF. Groups keep the
 /// stored flag; their on/off is derived from member seeds.
