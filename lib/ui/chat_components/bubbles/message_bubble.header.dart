@@ -257,19 +257,16 @@ class MessageBubbleHeader extends StatelessWidget {
                               context,
                               listen: false,
                             );
-                            String? voiceKey;
-                            if (chatService.activeGroup != null) {
-                              final charMatch = resolveGroupSpeakerForMessage(
-                                chatService.groupCharacters,
-                                message,
-                              );
-                              voiceKey = charMatch?.ttsVoice;
-                            } else {
-                              voiceKey = chatService.activeCharacter?.ttsVoice;
-                            }
                             tts.speak(
                               message.displayText,
-                              voiceKey: voiceKey,
+                              voiceKey: ttsVoiceForMessage(
+                                message,
+                                groupCast: chatService.activeGroup != null
+                                    ? chatService.groupCharacters
+                                    : null,
+                                host: chatService.activeCharacter,
+                                sceneGuests: chatService.sceneGuestCards,
+                              ),
                               messageId: msgId,
                             );
                           }

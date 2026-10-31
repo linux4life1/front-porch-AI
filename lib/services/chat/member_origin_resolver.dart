@@ -85,10 +85,29 @@ class MemberOriginResolver {
   /// cards named "Rachel" therefore keep their own faces — the old
   /// first-name-wins walk in [ChatService.originLibraryCardFor] was how
   /// the AppBar avatar swapped to the other Rachel.
+  ///
+  /// A group member's own dbId and avatar are named after the member row, so
+  /// for one the row's provenance decides: [CharacterCard.originLibraryDbId]
+  /// first (it survives a rename), then [CharacterCard.originStableId]. Only
+  /// a member with neither, or whose origin was deleted, falls to the name.
   static CharacterCard? resolveForCard(
     CharacterCard member,
     Iterable<CharacterCard> libraryCharacters,
   ) {
+    final originDb = member.originLibraryDbId;
+    if (originDb != null && originDb.isNotEmpty) {
+      for (final c in libraryCharacters) {
+        if (c.dbId == originDb) return c;
+      }
+    }
+    final originStable = member.originStableId;
+    if (originStable != null && originStable.isNotEmpty) {
+      return resolve(
+        stampedOriginStableId: originStable,
+        memberName: member.name,
+        libraryCharacters: libraryCharacters,
+      );
+    }
     final dbId = member.dbId;
     if (dbId != null && dbId.isNotEmpty) {
       for (final c in libraryCharacters) {
