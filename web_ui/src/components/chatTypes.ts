@@ -91,6 +91,8 @@ export interface Realism {
    * so those clients keep their current behaviour rather than going blank.
    */
   realismEnabled?: boolean;
+  /** Sent only while Realism is off: false when Porch Life is what stops it. */
+  realismAllowed?: boolean;
   bond: { score: number; tier: string; percent: number };
   longTerm: { score: number; tier: string; percent: number };
   trust: { level: number; tier: string; percent: number };

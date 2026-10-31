@@ -2,17 +2,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The existing-chats question (desktop parity: existing_chats_offer_dialog
-// .dart): once Porch Life allows Afterglow, count the chats whose own switch
-// is off and offer one switch, starting off, to turn it on in those too.
+// .dart): once Porch Life allows Realism, Afterglow or Needs, count the chats
+// whose own switch is off and offer one switch, starting off, to turn it on
+// in those too.
 // Nothing is shown when there are none; Done answers with the switch.
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 
-export type OfferFeature = 'afterglow' | 'needs';
+export type OfferFeature = 'afterglow' | 'needs' | 'realism';
+
+const NAMES: Record<OfferFeature, string> = { afterglow: 'Afterglow', needs: 'Needs', realism: 'Realism' };
 
 export function ExistingChatsOffer({ feature, onClose }: { feature: OfferFeature; onClose: () => void }) {
-  const name = feature === 'needs' ? 'Needs' : 'Afterglow';
+  const name = NAMES[feature];
+  const realism = feature === 'realism';
   const [count, setCount] = useState<number | null>(null);
   const [turnOn, setTurnOn] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +50,9 @@ export function ExistingChatsOffer({ feature, onClose }: { feature: OfferFeature
           <span>{name} is on</span>
         </div>
         <p className="muted dialog-msg">
-          New chats start with {name} unless their character&apos;s card, or a group chat&apos;s group, says otherwise.
+          {realism
+            ? "New chats start with Realism when their character's card, or a group chat's group, turns it on, or when Start every new chat with Realism is on."
+            : `New chats start with ${name} unless their character's card, or a group chat's group, says otherwise.`}
         </p>
         <label className="tool-toggle">
           <span>{count === 1 ? 'Turn it on in that chat too' : `Turn it on in those ${count} chats too`}</span>
@@ -54,6 +60,7 @@ export function ExistingChatsOffer({ feature, onClose }: { feature: OfferFeature
         </label>
         <p className="muted small">
           Only each chat&apos;s {name} switch changes. Cards stay as they are, and any chat can switch it off again.
+          {realism && ' A chat that never ran it reads where things stand the next time you open it.'}
         </p>
         {error && (
           <p className="error" role="alert">
