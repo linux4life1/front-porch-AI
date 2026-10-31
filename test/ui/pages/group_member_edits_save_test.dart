@@ -37,7 +37,7 @@
 // Red proofs: drop the member branch in showEditCharacterDialog (test 1) or
 // in UiSettingsDialog._updateCharacterExtension (test 2); have UI Settings
 // write the whole card (test 2); put back Edit group's content-only write
-// (test 3, voice); drop the Realism-hidden seed branch in
+// (test 3, voice); drop the extensions write in
 // EditCharacterCardWriter.writeFields (test 3, seed); drop Edit group's
 // refresh of the chat's copy (test 4); write a null extensions column when
 // the card holds none (test 5).
@@ -288,7 +288,12 @@ void main() {
       await pumpHost(
         tester,
         chat: _OpenGroup(const []),
-        onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+        ),
       );
 
       pickVoice(tester, 'af_heart');
@@ -327,7 +332,12 @@ void main() {
       await pumpHost(
         tester,
         chat: chat,
-        onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+        ),
       );
 
       pickVoice(tester, 'af_heart');
@@ -359,7 +369,12 @@ void main() {
       await pumpHost(
         tester,
         chat: _OpenGroup(const []),
-        onOpen: (context) => editGroupMemberCard(context, member(), _memberId),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+        ),
       );
 
       pickVoice(tester, 'af_heart');
@@ -510,6 +525,270 @@ void main() {
       expect(chat.refreshed, [same(live)], reason: "the chat's own member");
     });
   });
+
+  /// The editor host with Porch Life allowing Afterglow, so the member's own
+  /// switch shows.
+  Future<void> pumpAfterglowHost(
+    WidgetTester tester, {
+    required ChatService chat,
+    required void Function(BuildContext) onOpen,
+  }) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final library = _Library();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository();
+    addTearDown(library.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(worlds.dispose);
+    addTearDown(chat.dispose);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => onOpen(context),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+  }
+
+  Finder afterglowSwitch(String label) => find.descendant(
+    of: find.ancestor(of: find.text(label), matching: find.byType(Row)).first,
+    matching: find.byType(Switch),
+  );
+
+  FrontPorchExtensions? rowExtensions(GroupMemberRow row) =>
+      row.frontPorchExtensions == null
+      ? null
+      : FrontPorchExtensions.fromJson(
+          jsonDecode(row.frontPorchExtensions!) as Map<String, dynamic>,
+        );
+
+  testWidgets("Edit group's member Edit is Edit Character for the member: "
+      'it says whose copy it is and saves their own Afterglow', (tester) async {
+    await tester.runAsync(() async {
+      await pumpAfterglowHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member()..frontPorchExtensions = FrontPorchExtensions(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      final banner = find.byKey(const Key('group-member-editor-banner'));
+      expect(banner, findsOneWidget, reason: 'the editor says whose copy');
+      expect(tester.widget<Text>(banner).data, startsWith('Mara in Pair.'));
+      expect(
+        find.text('Enable Realism Engine'),
+        findsNothing,
+        reason: "Realism on or off is the group's, in Group Settings",
+      );
+      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
+        false,
+      );
+      await tester.pump();
+      await save(tester);
+
+      expect(
+        rowExtensions(await memberRow())?.afterglowEnabled,
+        isFalse,
+        reason: "Mara's own Afterglow reached her row in this group",
+      );
+    });
+  });
+
+  testWidgets("the chat sidebar's member Edit sets a changed Afterglow "
+      'through the chat, which clears her Lust', (tester) async {
+    await tester.runAsync(() async {
+      final mara = member()..frontPorchExtensions = FrontPorchExtensions();
+      final chat = _AfterglowGroup([mara]);
+      await pumpAfterglowHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('group-member-editor-banner')))
+            .data,
+        startsWith('Mara in Pair.'),
+      );
+      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
+        false,
+      );
+      await tester.pump();
+      await save(tester);
+
+      expect(
+        chat.afterglowSets,
+        hasLength(1),
+        reason:
+            'the editor set the switch on the card itself, so the chat '
+            'never cleared her Lust and cooldown',
+      );
+      expect(chat.afterglowSets.single.$1, same(mara));
+      expect(chat.afterglowSets.single.$2, isFalse);
+      expect(mara.frontPorchExtensions?.afterglowEnabled, isFalse);
+      expect(rowExtensions(await memberRow())?.afterglowEnabled, isFalse);
+    });
+  });
+
+  testWidgets("Edit group's member Edit sets a changed Afterglow through the "
+      'open chat', (tester) async {
+    await tester.runAsync(() async {
+      final live = member()..frontPorchExtensions = FrontPorchExtensions();
+      final chat = _AfterglowGroup([live]);
+      await pumpAfterglowHost(
+        tester,
+        chat: chat,
+        // Edit group's own copy, loaded from the row, not the chat's.
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member()..frontPorchExtensions = FrontPorchExtensions(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
+        false,
+      );
+      await tester.pump();
+      await save(tester);
+
+      expect(
+        chat.afterglowSets,
+        hasLength(1),
+        reason: 'the chat never cleared her Lust and cooldown',
+      );
+      expect(chat.afterglowSets.single.$1, same(chat.members.single));
+      expect(chat.afterglowSets.single.$2, isFalse);
+      expect(rowExtensions(await memberRow())?.afterglowEnabled, isFalse);
+    });
+  });
+
+  testWidgets("Edit group's member Edit keeps an Afterglow switched off in "
+      'the chat since Edit group loaded the member', (tester) async {
+    await tester.runAsync(() async {
+      // Group Settings switched Mara's own Afterglow off after Edit group
+      // loaded her with it on.
+      final off = FrontPorchExtensions(afterglowEnabled: false);
+      await db.updateGroupMember(
+        GroupMembersCompanion(
+          id: const Value(_memberId),
+          frontPorchExtensions: Value(jsonEncode(off.toJson())),
+        ),
+      );
+      final chat = _AfterglowGroup([member()..frontPorchExtensions = off]);
+      await pumpAfterglowHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member()..frontPorchExtensions = FrontPorchExtensions(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
+
+      final row = await memberRow();
+      expect(row.ttsVoice, 'af_heart');
+      expect(
+        rowExtensions(row)?.afterglowEnabled,
+        isFalse,
+        reason: "Edit group's older copy put her switch back on",
+      );
+      expect(
+        chat.members.single.frontPorchExtensions?.afterglowEnabled,
+        isFalse,
+      );
+      expect(chat.afterglowSets, isEmpty);
+    });
+  });
+
+  testWidgets("a member editor keeps extensions it could not read when its "
+      'Realism settings are changed', (tester) async {
+    await tester.runAsync(() async {
+      const foreign = '{"realism_engine":{"day_count":2.0}}';
+      await db.updateGroupMember(
+        const GroupMembersCompanion(
+          id: Value(_memberId),
+          frontPorchExtensions: Value(foreign),
+        ),
+      );
+      await pumpAfterglowHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
+        false,
+      );
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await save(tester);
+
+      final row = await memberRow();
+      expect(row.ttsVoice, 'af_heart', reason: 'the rest of the edit saves');
+      expect(
+        row.frontPorchExtensions,
+        foreign,
+        reason: 'defaults built over unreadable extensions replaced them',
+      );
+    });
+  });
+}
+
+/// An open group named Pair that records each member Afterglow it sets. Like
+/// ChatService's, its setter does nothing when the card already holds [on].
+class _AfterglowGroup extends _OpenGroup {
+  _AfterglowGroup(super.members);
+
+  final afterglowSets = <(CharacterCard, bool)>[];
+
+  @override
+  GroupChat? get activeGroup => GroupChat(id: _groupId, name: 'Pair');
+
+  @override
+  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
+    if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
+    afterglowSets.add((member, on));
+    member.frontPorchExtensions =
+        (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+          afterglowEnabled: on,
+        );
+  }
 }
 
 /// Group Realism on, with Afterglow for new chats, as Edit group loads it.

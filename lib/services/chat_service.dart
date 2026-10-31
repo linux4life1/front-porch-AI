@@ -277,13 +277,9 @@ class ChatService extends ChangeNotifier
   Pockets? pocketsFor(String characterId) =>
       _pocketsLedger.pocketsFor(characterId);
 
-  /// The one Pockets switch, exposed for UI gating. [pocketsFor] returning
-  /// null cannot distinguish "feature off" (panel absent) from "no record
-  /// yet" (panel present with just the add affordance) — this can. A CLASS
-  /// member, not an extension one, on purpose: the sidebar calls it in
-  /// build(), and the golden FakeChatService can only override class members
-  /// (its pocketsFor note documents the same contract — this getter riding
-  /// the extension is exactly how bcea783 turned a sidebar golden red).
+  /// The one Pockets switch, for UI gating: unlike a null [pocketsFor] it
+  /// tells "off" (no panel) from "no record yet". A class member: fakes
+  /// override only those (as an extension it turned a golden red, bcea783).
   bool get pocketsFeatureEnabled =>
       _storageService.realismSettings.pocketsEnabled;
 
@@ -469,6 +465,10 @@ class ChatService extends ChangeNotifier
   /// so goldens/fakes can override.
   Future<void> setPassageOfTimeEnabled(bool enabled) =>
       _setPassageOfTimeEnabledImpl(enabled);
+
+  /// A group member's own Afterglow switch (body in the group settings part).
+  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>
+      _setMemberAfterglowEnabledImpl(member, on);
 
   bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
 

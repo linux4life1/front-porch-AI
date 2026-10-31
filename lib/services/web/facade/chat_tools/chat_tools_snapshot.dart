@@ -313,6 +313,8 @@ class ChatToolsSnapshot {
               // The member's Recovery block, shown while Afterglow runs for
               // them, as on their card in Group Settings (additive).
               if (!p.isSceneGuest) ...{
+                // The member's row id, for their editor (additive).
+                'dbId': p.card.dbId,
                 'afterglowRuns': _chat.afterglowRunsFor(p.card),
                 'recovery':
                     (p.card.frontPorchExtensions?.recovery ??

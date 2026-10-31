@@ -45,10 +45,21 @@ async function ids(page: Page) {
       title: string;
     };
   }
-  return { character: porch.id, story: story.id };
+  // A group for the member editor, kept between runs like the story.
+  type Groups = { groups?: { id: string; name: string; members: { id: string }[] }[] };
+  const groups = async () => ((await (await page.request.get('/api/groups')).json()) as Groups).groups ?? [];
+  let group = (await groups()).find((g) => g.name === 'Sweep Group');
+  if (!group) {
+    const second = characters.find((c) => c.name === 'Second Guest') ?? characters.find((c) => c.id !== porch.id) ?? porch;
+    const made = (await (
+      await page.request.post('/api/groups', { data: { name: 'Sweep Group', memberIds: [porch.id, second.id] } })
+    ).json()) as { id: string };
+    group = (await groups()).find((g) => g.id === made.id);
+  }
+  return { character: porch.id, story: story.id, group: group?.id ?? '', member: group?.members[0]?.id ?? '' };
 }
 
-const ROUTES: ((i: { character: string; story: string }) => string)[] = [
+const ROUTES: ((i: { character: string; story: string; group: string; member: string }) => string)[] = [
   () => '/',
   () => '/chat',
   () => '/settings',
@@ -80,6 +91,8 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   (i) => `/stories/${i.story}/lore`,
   (i) => `/stories/${i.story}/log`,
   (i) => `/edit/${i.character}`,
+  // A group member's own editor.
+  (i) => `/groups/${i.group}/members/${i.member}/edit`,
 ];
 
 /**

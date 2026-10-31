@@ -93,6 +93,7 @@ export function App() {
         <Route path="/images" element={<ImageStudioPage />} />
         <Route path="/stoop/*" element={<StoopSection />} />
         <Route path="/edit/:id" element={<CharacterEditPage />} />
+        <Route path="/groups/:groupId/members/:memberId/edit" element={<CharacterEditPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

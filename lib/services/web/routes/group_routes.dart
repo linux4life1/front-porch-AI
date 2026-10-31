@@ -35,6 +35,8 @@ class WebGroupRoutes {
     router.get('/api/groups', _list);
     router.post('/api/groups', _create);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
+    router.get('/api/groups/<id>/members/<memberId>/detail', _memberDetail);
+    router.post('/api/groups/<id>/members/<memberId>', _memberUpdate);
     router.get('/api/groups/<id>/export.png', _export);
     router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
@@ -123,6 +125,38 @@ class WebGroupRoutes {
     final ok = await _facade.updateSettings(id, body);
     if (!ok) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// A member's card for the web member editor (the library `/detail` shape
+  /// plus groupId and groupName).
+  Future<shelf.Response> _memberDetail(
+    shelf.Request request,
+    String id,
+    String memberId,
+  ) async {
+    final detail = await _facade.memberEdit?.detail(id, memberId);
+    if (detail == null) return JsonResponse.error(404, 'Member not found');
+    return JsonResponse.ok(detail);
+  }
+
+  /// Save the member editor's fields to the member's row, then return the
+  /// fresh detail.
+  Future<shelf.Response> _memberUpdate(
+    shelf.Request request,
+    String id,
+    String memberId,
+  ) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final edit = _facade.memberEdit;
+    if (edit == null || !await edit.update(id, memberId, body)) {
+      return JsonResponse.error(404, 'Member not found');
+    }
+    return JsonResponse.ok(await edit.detail(id, memberId) ?? const {});
   }
 
   /// Realism, Needs and Inherit for the group's new chats, and the notice

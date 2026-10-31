@@ -42,6 +42,7 @@ export function RealismFormSection({
   showIntimate = false,
   afterglowOn = false,
   showChargenSuggestion = false,
+  member,
 }: {
   v: RealismValues;
   set: Patch;
@@ -54,9 +55,23 @@ export function RealismFormSection({
   /// The create wizard only: suggests a recovery preset from the authored
   /// intimacy notes, confirmed by the author, never applied silently.
   showChargenSuggestion?: boolean;
+  /// A group member's editor: the member's name. Only their own settings
+  /// show; the group's (Realism on or off, time and day, Chaos, Passage of
+  /// Time, and where each member starts) are in Group Settings and Edit group.
+  member?: string;
 }) {
+  const engineOn = member !== undefined || v.realismEnabled;
   return (
     <div className="realism-section">
+      {member !== undefined && (
+        <p className="muted small" data-testid="member-own-settings-note">
+          These are {member}&apos;s own settings in this group. The group&apos;s Realism, time
+          and day, Chaos and Needs, and where {member} starts in its new chats, are in Group
+          Settings.
+        </p>
+      )}
+      {member === undefined && (
+      <>
       <ToggleRow
         label="Enable Realism Engine"
         hint={
@@ -103,8 +118,12 @@ export function RealismFormSection({
             value={v.passageOfTimeEnabled}
             onChange={(b) => set({ passageOfTimeEnabled: b })}
           />
+      </>
+      )}
 
-          {v.realismEnabled && (
+          {engineOn && (
+          <>
+          {member === undefined && (
           <>
           {/* ── Relationship ── */}
           <h4 className="realism-head">Relationship</h4>
@@ -153,6 +172,8 @@ export function RealismFormSection({
               onChange={(s) => set({ emotionIntensity: s })}
             />
           </div>
+          </>
+          )}
 
           {/* ── Optional features ── */}
           <h4 className="realism-head">Optional features</h4>
@@ -164,8 +185,12 @@ export function RealismFormSection({
             {showIntimate && afterglowOn && (
               <>
                 <ToggleRow
-                  label="Afterglow"
-                  hint="Lust and recovery in new chats with this character. Chats you already have keep their own switch."
+                  label={member !== undefined ? `Afterglow for ${member}` : 'Afterglow'}
+                  hint={
+                    member !== undefined
+                      ? `Track ${member}'s Lust and recovery in this group. The group's Afterglow has to be on too.`
+                      : 'Lust and recovery in new chats with this character. Chats you already have keep their own switch.'
+                  }
                   value={v.afterglowEnabled !== false}
                   onChange={(b) => set({ afterglowEnabled: b })}
                 />

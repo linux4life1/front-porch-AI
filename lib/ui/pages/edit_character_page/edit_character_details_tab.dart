@@ -59,19 +59,21 @@ File? editCharacterAvatarFile(BuildContext context, CharacterCard character) {
 }
 
 /// The character editor's Details tab: avatar, identity, voice, prompts,
-/// the identity chip lists and (outside group members) the Realism section.
+/// the identity chip lists and the Realism section.
 class EditCharacterDetailsTab extends StatelessWidget {
   final CharacterCard character;
   final EditCharacterDraft draft;
-  final bool showRealismTab;
   final VoidCallback onChanged;
+
+  /// The group this card is a member of, when it is a member's own copy.
+  final String? memberOfGroup;
 
   const EditCharacterDetailsTab({
     super.key,
     required this.character,
     required this.draft,
-    required this.showRealismTab,
     required this.onChanged,
+    this.memberOfGroup,
   });
 
   void _edit(VoidCallback fn) {
@@ -89,6 +91,34 @@ class EditCharacterDetailsTab extends StatelessWidget {
     }
   }
 
+  /// The member's name as the editor has it now, so a rename shows at once.
+  String get _memberName {
+    final typed = draft.nameController.text.trim();
+    return typed.isEmpty ? character.name : typed;
+  }
+
+  /// Says whose copy this is: edits stay in the group.
+  Widget _memberBanner(BuildContext context, String group) {
+    final name = _memberName;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.formAccentOf(context).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.formAccentOf(context).withValues(alpha: 0.25),
+        ),
+      ),
+      child: Text(
+        '$name in $group. Changes apply to $name in this group; the library '
+        'card and its other chats stay as they are.',
+        key: const Key('group-member-editor-banner'),
+        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = draft;
@@ -101,6 +131,7 @@ class EditCharacterDetailsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (memberOfGroup != null) _memberBanner(context, memberOfGroup!),
               // ── Avatar (read-only). Portrait + expression images are managed
               //    in the Avatar Gallery (right-click a character on the home
               //    grid, or the chat sidebar) — no destructive change here.
@@ -340,60 +371,55 @@ class EditCharacterDetailsTab extends StatelessWidget {
               // chip. See ChipListEditor for why the old shape misled authors.
               // One shared widget (identity_chip_lists.dart) so the editor,
               // both creators and the web form cannot drift apart.
-              // Gated on the same flag as the SAVE, and that is the whole
-              // point of the condition. These chips used to render
-              // unconditionally while the save wrote them only under
-              // `showRealismTab` (edit_character_save.dart), so opening a group
-              // MEMBER from Edit group gave you fully editable Ambitions, Likes
-              // and Dislikes that were thrown away the moment you pressed Save —
-              // no error, no hint, the chips simply gone on reopen. Shown, they
-              // must save.
-              if (showRealismTab)
-                IdentityChipLists(
-                  ambitions: d.ambitions,
-                  onAmbitionsChanged: (v) => _edit(() => d.ambitions = v),
-                  planLines: d.planLines,
-                  onPlanLinesChanged: (v) => _edit(() => d.planLines = v),
-                  occupation: d.occupation,
-                  onOccupationChanged: (v) => _edit(() => d.occupation = v),
-                  occupationBrief: d.occupationBrief,
-                  onOccupationBriefChanged: (v) =>
-                      _edit(() => d.occupationBrief = v),
-                  hours: d.hours,
-                  onHoursChanged: (v) => _edit(() => d.hours = v),
-                  workDays: d.workDays,
-                  onWorkDaysChanged: (v) => _edit(() => d.workDays = v),
-                  birthday: d.birthday,
-                  onBirthdayChanged: (v) => _edit(() => d.birthday = v),
-                  birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
-                    d.realismStoryStartDate,
-                  ),
-                  likes: d.likes,
-                  onLikesChanged: (v) => _edit(() => d.likes = v),
-                  dislikes: d.dislikes,
-                  onDislikesChanged: (v) => _edit(() => d.dislikes = v),
-                  intimateInto: d.intimateInto,
-                  onIntimateIntoChanged: (v) => _edit(() => d.intimateInto = v),
-                  intimateNotInto: d.intimateNotInto,
-                  onIntimateNotIntoChanged: (v) =>
-                      _edit(() => d.intimateNotInto = v),
-                  // The install's 18+ master switch — the same one that shows
-                  // or hides the After Dark group in Settings.
-                  showIntimate: adultThemesEnabledOf(context),
-                  worn: d.worn,
-                  onWornChanged: (v) => _edit(() => d.worn = v),
-                  carrying: d.carrying,
-                  onCarryingChanged: (v) => _edit(() => d.carrying = v),
-                  pocketsEnabled: d.realismPocketsEnabled,
-                  onPocketsEnabledChanged: (v) => _edit(() {
-                    d.realismPocketsEnabled = v;
-                    d.realismSettingsModified = true;
-                  }),
+              IdentityChipLists(
+                ambitions: d.ambitions,
+                onAmbitionsChanged: (v) => _edit(() => d.ambitions = v),
+                planLines: d.planLines,
+                onPlanLinesChanged: (v) => _edit(() => d.planLines = v),
+                occupation: d.occupation,
+                onOccupationChanged: (v) => _edit(() => d.occupation = v),
+                occupationBrief: d.occupationBrief,
+                onOccupationBriefChanged: (v) =>
+                    _edit(() => d.occupationBrief = v),
+                hours: d.hours,
+                onHoursChanged: (v) => _edit(() => d.hours = v),
+                workDays: d.workDays,
+                onWorkDaysChanged: (v) => _edit(() => d.workDays = v),
+                birthday: d.birthday,
+                onBirthdayChanged: (v) => _edit(() => d.birthday = v),
+                birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
+                  d.realismStoryStartDate,
                 ),
+                likes: d.likes,
+                onLikesChanged: (v) => _edit(() => d.likes = v),
+                dislikes: d.dislikes,
+                onDislikesChanged: (v) => _edit(() => d.dislikes = v),
+                intimateInto: d.intimateInto,
+                onIntimateIntoChanged: (v) => _edit(() => d.intimateInto = v),
+                intimateNotInto: d.intimateNotInto,
+                onIntimateNotIntoChanged: (v) =>
+                    _edit(() => d.intimateNotInto = v),
+                // The install's 18+ master switch — the same one that shows
+                // or hides the After Dark group in Settings.
+                showIntimate: adultThemesEnabledOf(context),
+                worn: d.worn,
+                onWornChanged: (v) => _edit(() => d.worn = v),
+                carrying: d.carrying,
+                onCarryingChanged: (v) => _edit(() => d.carrying = v),
+                pocketsEnabled: d.realismPocketsEnabled,
+                onPocketsEnabledChanged: (v) => _edit(() {
+                  d.realismPocketsEnabled = v;
+                  d.realismSettingsModified = true;
+                }),
+              ),
 
-              // ── Realism Engine Summary ── (hidden in Edit group's member Edit)
-              if (showRealismTab)
-                EditCharacterRealismSection(draft: d, onChanged: onChanged),
+              // ── Realism Engine Summary ── (a member's own settings only, in
+              // a group member's editor)
+              EditCharacterRealismSection(
+                draft: d,
+                onChanged: onChanged,
+                memberName: memberOfGroup == null ? null : _memberName,
+              ),
 
               const SizedBox(height: 80), // Space for token badge
             ],

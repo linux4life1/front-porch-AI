@@ -29,10 +29,17 @@ class EditCharacterRealismSection extends StatelessWidget {
   final EditCharacterDraft draft;
   final VoidCallback onChanged;
 
+  /// Set when this is a group member's editor: only the member's own settings
+  /// are shown. The group's (Realism, time and day, Chaos, Needs on/off, its
+  /// Afterglow, and each member's start) are set in Group Settings and Edit
+  /// group, so they are not repeated here.
+  final String? memberName;
+
   const EditCharacterRealismSection({
     super.key,
     required this.draft,
     required this.onChanged,
+    this.memberName,
   });
 
   void _edit(VoidCallback fn) {
@@ -44,6 +51,7 @@ class EditCharacterRealismSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = draft;
+    final member = memberName;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -64,8 +72,13 @@ class EditCharacterRealismSection extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'These settings only affect new conversations with this character — '
-                  'your existing chats won\'t be changed. No cheating with the relationship values!',
+                  member != null
+                      ? "These are $member's own settings in this group. The "
+                            "group's Realism, time and day, Chaos and Needs, "
+                            "and where $member starts in its new chats, are "
+                            'in Group Settings and Edit group.'
+                      : 'These settings only affect new conversations with this character — '
+                            'your existing chats won\'t be changed. No cheating with the relationship values!',
                   style: TextStyle(
                     color: AppColors.formAccentOf(
                       context,
@@ -82,7 +95,16 @@ class EditCharacterRealismSection extends StatelessWidget {
 
         // Full editable Realism Engine form
         RealismFormSection(
-          enabled: d.realismEnabled,
+          enabled: member != null || d.realismEnabled,
+          showMasterEnabledToggle: member == null,
+          showTimeAndDay: member == null,
+          showChaosToggle: member == null,
+          showStartingState: member == null,
+          afterglowLabel: member == null ? null : 'Afterglow for $member',
+          afterglowSubtitle: member == null
+              ? null
+              : "Track $member's Lust and recovery in this group. The "
+                    "group's Afterglow has to be on too.",
           onEnabledChanged: (v) => _edit(() => d.realismEnabled = v),
           timeOfDay: d.realismTimeOfDay,
           onTimeOfDayChanged: (v) => _edit(() => d.realismTimeOfDay = v),
@@ -126,7 +148,8 @@ class EditCharacterRealismSection extends StatelessWidget {
           onRealismVerificationStrictnessChanged: (v) =>
               _edit(() => d.realismVerificationStrictness = v),
           needsFormSection: NeedsFormSection(
-            enabled: d.realismNeedsSim,
+            enabled: member != null || d.realismNeedsSim,
+            showSwitch: member == null,
             onEnabledChanged: (v) => _edit(() => d.realismNeedsSim = v),
             enjoysLowHygiene: d.realismEnjoysLowHygiene,
             onEnjoysLowHygieneChanged: (v) =>

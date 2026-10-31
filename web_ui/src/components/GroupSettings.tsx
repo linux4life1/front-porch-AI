@@ -9,6 +9,7 @@
 // turn-director (unrelated to the realism Director/Verifier).
 
 import { useEffect, useState } from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import { api } from '../api/client';
 import { describeActionFailure } from '../pages/chat/chatActionError';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
@@ -26,7 +27,7 @@ export interface GroupBlock {
   firstMessage: string;
   alternateGreetings?: string[];
   greetingSeeds?: (GreetingSeed | null)[];
-  members: ({ id: string; name: string; prompt: string } & MemberRecoveryRow)[];
+  members: ({ id: string; name: string; prompt: string; dbId?: string } & MemberRecoveryRow)[];
 }
 
 export function GroupSettings({
@@ -43,6 +44,8 @@ export function GroupSettings({
   /** Porch Life's Passage of Time, for the greetings' clock-off line. */
   clockOn: boolean;
 }) {
+  // The member editor is a page; a host without routing shows no link.
+  const inRouter = useInRouterContext();
   const [systemPrompt, setSystemPrompt] = useState(group.systemPrompt);
   const [scenario, setScenario] = useState(group.scenario);
   const [firstMessage, setFirstMessage] = useState(group.firstMessage);
@@ -141,7 +144,18 @@ export function GroupSettings({
         <GroupWorldsSection key={worldsGen} groupId={groupId} />
         <h4 className="section-label">Per-member prompt overrides</h4>
         {group.members.map((m) => (
-          <label key={m.id}>
+          <div key={m.id}>
+          {/* Members with a row id only: a scene guest is no member, and a
+              legacy member without one has no row to edit. */}
+          {inRouter && m.dbId && (
+            <Link
+              to={`/groups/${groupId}/members/${m.dbId}/edit`}
+              data-testid={`edit-member-${m.dbId}`}
+            >
+              Edit {m.name}
+            </Link>
+          )}
+          <label>
             {m.name}
             <textarea
               rows={2}
@@ -151,6 +165,7 @@ export function GroupSettings({
               placeholder="Extra instructions just for this member…"
             />
           </label>
+          </div>
         ))}
         <GroupMemberRecoverySection key={groupId} members={group.members} />
       </div>

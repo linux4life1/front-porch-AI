@@ -29,6 +29,10 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 class NeedsFormSection extends StatelessWidget {
   final bool enabled;
   final ValueChanged<bool> onEnabledChanged;
+
+  /// The on/off switch row. A group member's editor hides it: Needs is the
+  /// group's (Group Settings → Needs); the member's settings show as on.
+  final bool showSwitch;
   final bool enjoysLowHygiene;
   final ValueChanged<bool> onEnjoysLowHygieneChanged;
   final String needsPace;
@@ -56,6 +60,7 @@ class NeedsFormSection extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onEnabledChanged,
+    this.showSwitch = true,
     required this.enjoysLowHygiene,
     required this.onEnjoysLowHygieneChanged,
     this.needsPace = 'normal',
@@ -112,15 +117,16 @@ class NeedsFormSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Master toggle
-              RealismFormSection.buildToggleRow(
-                icon: Icons.battery_std,
-                label: 'Needs Simulation',
-                subtitle:
-                    'Hunger etc. (higher = more sated/less urgent; 100=full, 0=critical) — influences prompts & behavior when low',
-                value: enabled,
-                onChanged: onEnabledChanged,
-                context: context,
-              ),
+              if (showSwitch)
+                RealismFormSection.buildToggleRow(
+                  icon: Icons.battery_std,
+                  label: 'Needs Simulation',
+                  subtitle:
+                      'Hunger etc. (higher = more sated/less urgent; 100=full, 0=critical) — influences prompts & behavior when low',
+                  value: enabled,
+                  onChanged: onEnabledChanged,
+                  context: context,
+                ),
               // Lines up with the switch's subtitle (20 icon + 12 gap).
               const NeedsClockOffNote(
                 padding: EdgeInsets.only(left: 32, top: 6),

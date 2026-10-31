@@ -157,6 +157,14 @@ class RealismFormSection extends StatelessWidget {
   final bool showTimeAndDay;
   final bool showMasterEnabledToggle;
 
+  /// The starting bonds and emotion. A group member's start lives in the
+  /// group's own seeds (Edit group → Realism), so its editor hides them.
+  final bool showStartingState;
+
+  /// The Afterglow switch's words, for a group member's own switch.
+  final String? afterglowLabel;
+  final String? afterglowSubtitle;
+
   const RealismFormSection({
     super.key,
     required this.enabled,
@@ -225,6 +233,9 @@ class RealismFormSection extends StatelessWidget {
     this.showChaosToggle = true,
     this.showTimeAndDay = true,
     this.showMasterEnabledToggle = true,
+    this.showStartingState = true,
+    this.afterglowLabel,
+    this.afterglowSubtitle,
     this.storyStartDate,
     this.onStoryStartDateChanged,
     this.storyStartTime,
@@ -308,41 +319,43 @@ class RealismFormSection extends StatelessWidget {
           if (needsFormSection != null) needsFormSection!,
 
           // Relationship Section — one [sectionHeaderGap] above the header.
-          Column(
-            key: relationshipHeaderBlockKey,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: sectionHeaderGap),
-              RealismSectionHeader(
-                Icons.favorite,
-                'Relationship',
-                context.creatorPalette?.amber ?? AppColors.relationshipAccent,
-              ),
-              const SizedBox(height: 12),
-              RealismRelationshipCard(
-                shortTermBond: shortTermBond,
-                onShortTermBondChanged: onShortTermBondChanged,
-                longTermBond: longTermBond,
-                onLongTermBondChanged: onLongTermBondChanged,
-                trustLevel: trustLevel,
-                onTrustLevelChanged: onTrustLevelChanged,
-              ),
-            ],
-          ),
-          const SizedBox(height: sectionHeaderGap),
-          RealismSectionHeader(
-            Icons.mood,
-            'Starting Emotion',
-            context.creatorPalette?.amber ?? AppColors.emotionAccent,
-          ),
-          const SizedBox(height: 12),
-          RealismEmotionCard(
-            emotion: emotion,
-            onEmotionChanged: onEmotionChanged,
-            emotionIntensity: emotionIntensity,
-            onEmotionIntensityChanged: onEmotionIntensityChanged,
-            labelStyle: labelStyle,
-          ),
+          if (showStartingState) ...[
+            Column(
+              key: relationshipHeaderBlockKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: sectionHeaderGap),
+                RealismSectionHeader(
+                  Icons.favorite,
+                  'Relationship',
+                  context.creatorPalette?.amber ?? AppColors.relationshipAccent,
+                ),
+                const SizedBox(height: 12),
+                RealismRelationshipCard(
+                  shortTermBond: shortTermBond,
+                  onShortTermBondChanged: onShortTermBondChanged,
+                  longTermBond: longTermBond,
+                  onLongTermBondChanged: onLongTermBondChanged,
+                  trustLevel: trustLevel,
+                  onTrustLevelChanged: onTrustLevelChanged,
+                ),
+              ],
+            ),
+            const SizedBox(height: sectionHeaderGap),
+            RealismSectionHeader(
+              Icons.mood,
+              'Starting Emotion',
+              context.creatorPalette?.amber ?? AppColors.emotionAccent,
+            ),
+            const SizedBox(height: 12),
+            RealismEmotionCard(
+              emotion: emotion,
+              onEmotionChanged: onEmotionChanged,
+              emotionIntensity: emotionIntensity,
+              onEmotionIntensityChanged: onEmotionIntensityChanged,
+              labelStyle: labelStyle,
+            ),
+          ],
           const SizedBox(height: 20),
           RealismSectionHeader(
             Icons.tune,
@@ -373,6 +386,8 @@ class RealismFormSection extends StatelessWidget {
             showChargenSuggestion: showChargenSuggestion,
             afterglowEnabled: afterglowEnabled,
             onAfterglowChanged: onAfterglowChanged,
+            afterglowLabel: afterglowLabel,
+            afterglowSubtitle: afterglowSubtitle,
           ),
         ],
         if (showChaosToggle && !enabled) ...[
