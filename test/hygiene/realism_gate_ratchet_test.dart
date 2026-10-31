@@ -96,6 +96,8 @@ const _ownSwitchShown = <String, String>{
       'the group chat\'s switch in Group Settings',
   'lib/services/web/facade/chat_tools/chat_tools_snapshot.dart':
       'the phone\'s switch',
+  'lib/services/web/facade/chat_realism_read.dart':
+      'the insight panel says a change waits for the reply',
 };
 
 final _rawSwitch = RegExp(r'(?<![\w.])_realismChatSwitch\b');
