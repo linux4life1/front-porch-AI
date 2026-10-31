@@ -65,14 +65,16 @@ void main() {
       await file.writeAsString(jsonEncode({'flutter.a': 1}));
       // An open handle on the old file keeps reading the old, whole store
       // after a rename; an in-place truncate-and-write would change it.
-      final before = await file.open();
+      // Windows refuses to rename over a file someone holds open, so the
+      // handle half of the proof runs everywhere else.
+      final before = Platform.isWindows ? null : await file.open();
       final s = store();
 
-      await s.setValue('Int', 'flutter.a', 2);
+      expect(await s.setValue('Int', 'flutter.a', 2), isTrue);
 
-      final oldBytes = await before.read(64);
-      await before.close();
-      if (!Platform.isWindows) {
+      if (before != null) {
+        final oldBytes = await before.read(64);
+        await before.close();
         expect(jsonDecode(utf8.decode(oldBytes)), {'flutter.a': 1});
       }
       expect(jsonDecode(await file.readAsString()), {'flutter.a': 2});
@@ -111,5 +113,36 @@ void main() {
     await s.clear();
 
     expect(jsonDecode(await file.readAsString()), {'other.c': 3});
+  });
+
+  test('a save Windows will not rename keeps the old file whole and lands '
+      'once the file is free', () async {
+    await file.writeAsString(jsonEncode({'flutter.a': 1}));
+    var held = true;
+    final s = AtomicPrefsStore(
+      () async => file,
+      retryAfter: const Duration(milliseconds: 50),
+      rename: (tmp, target) async {
+        if (held) {
+          throw FileSystemException('Access is denied', target);
+        }
+        await tmp.rename(target);
+      },
+    );
+
+    expect(await s.setValue('Int', 'flutter.a', 2), isFalse);
+    expect(jsonDecode(await file.readAsString()), {
+      'flutter.a': 1,
+    }, reason: 'a refused rename never truncates the settings file');
+    expect(await s.getAll(), {'flutter.a': 2}, reason: 'kept in memory');
+
+    held = false;
+    for (var i = 0; i < 40; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 25));
+      if ((jsonDecode(await file.readAsString()) as Map)['flutter.a'] == 2) {
+        break;
+      }
+    }
+    expect(jsonDecode(await file.readAsString()), {'flutter.a': 2});
   });
 }

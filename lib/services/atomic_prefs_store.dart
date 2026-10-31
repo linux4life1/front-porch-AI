@@ -42,7 +42,20 @@ import 'package:shared_preferences_platform_interface/types.dart';
 /// in flight go out together in the next one, and each caller's future
 /// completes once a write that includes its change is on disk.
 class AtomicPrefsStore extends SharedPreferencesStorePlatform {
-  AtomicPrefsStore(this._locate);
+  AtomicPrefsStore(
+    this._locate, {
+    @visibleForTesting Future<void> Function(File tmp, String target)? rename,
+    @visibleForTesting this.retryAfter = const Duration(seconds: 2),
+  }) : _rename = rename ?? _defaultRename;
+
+  static Future<void> _defaultRename(File tmp, String target) =>
+      tmp.rename(target);
+
+  final Future<void> Function(File tmp, String target) _rename;
+
+  /// How long a save that could not land waits before it tries again.
+  final Duration retryAfter;
+  Timer? _retry;
 
   /// Makes this the store for `SharedPreferences` on Windows and Linux. It
   /// must run before the first `SharedPreferences.getInstance()`.
@@ -114,18 +127,32 @@ class AtomicPrefsStore extends SharedPreferencesStorePlatform {
       await _renameWithRetry(tmp, file.path);
       return true;
     } catch (e) {
-      debugPrint('[Prefs] could not save settings: $e');
+      // The old file is still whole (a failed rename changes nothing) and
+      // the new values are still in memory, so nothing is lost yet: mark the
+      // store dirty and try again shortly, until it lands.
+      debugPrint('[Prefs] could not save settings, retrying soon: $e');
+      _dirty = true;
+      _retry ??= Timer(retryAfter, () {
+        _retry = null;
+        if (!_dirty) return;
+        _queue = _queue.then((_) {
+          if (!_dirty) return true;
+          _dirty = false;
+          return _writeNow();
+        });
+      });
       return false;
     }
   }
 
-  /// Windows virus scanners and indexers can hold the target open for a
-  /// moment, which fails the rename with access denied. A short retry rides
-  /// that out; the temp file stays whole in the meantime.
-  static Future<void> _renameWithRetry(File tmp, String target) async {
+  /// Windows virus scanners, indexers, OneDrive or another copy of the app
+  /// can hold the target open, which fails the rename (dart:io renames with
+  /// MoveFileEx and replace-existing) with access denied. A short retry
+  /// rides out a brief hold; a longer one goes to the timer in [_writeNow].
+  Future<void> _renameWithRetry(File tmp, String target) async {
     for (var attempt = 0; ; attempt++) {
       try {
-        await tmp.rename(target);
+        await _rename(tmp, target);
         return;
       } on FileSystemException {
         if (attempt >= 4) rethrow;
