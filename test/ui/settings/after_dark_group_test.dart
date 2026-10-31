@@ -179,8 +179,8 @@ void main() {
   // carries no settings switch but Afterglow's own, on the line it controls.
   // The gear sat in the header code both modes share; the fake cannot build
   // group mode, so 1:1 pins it.
-  testWidgets('Character State has no gear and no Needs switch; Afterglow '
-      'has its own line', (tester) async {
+  testWidgets('Character State has no gear; Needs and Afterglow each have '
+      'their own line', (tester) async {
     final storage = _AdultStorage();
     final chat = FakeChatService();
     addTearDown(() {
@@ -226,8 +226,9 @@ void main() {
     );
     expect(
       find.byType(Switch),
-      findsNWidgets(2),
-      reason: 'the Realism master switch and the Afterglow line',
+      findsNWidgets(3),
+      reason:
+          'the Realism master switch, the Needs line and the Afterglow line',
     );
   });
 
@@ -304,8 +305,8 @@ void main() {
       expect(find.text('Afterglow'), findsNothing);
       expect(
         find.byType(Switch),
-        findsOneWidget,
-        reason: 'only the Realism master switch',
+        findsNWidgets(2),
+        reason: 'the Realism master switch and the Needs line',
       );
     });
 
@@ -409,6 +410,147 @@ void main() {
     expect(stored, isTrue, reason: 'the chat that had it off has it on');
     expect(chat.asked, [true], reason: 'the open chat is switched live');
   });
+  group("Character State's Needs line", () {
+    Future<_NeedsChat> mount(
+      WidgetTester tester, {
+      required bool allowed,
+    }) async {
+      final storage = _AdultStorage();
+      final chat = _NeedsChat();
+      addTearDown(() {
+        storage.dispose();
+        chat.dispose();
+      });
+      await storage.realismSettings.setNeedsSimDefault(allowed);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: CharacterStateGroup(
+                  chat: chat,
+                  isGroup: false,
+                  initiallyExpanded: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return chat;
+    }
+
+    Switch needsSwitch(WidgetTester tester) => tester.widget<Switch>(
+      find.descendant(
+        of: find.byType(NeedsLine),
+        matching: find.byType(Switch),
+      ),
+    );
+
+    testWidgets("its switch shows this chat's own choice, and flipping it asks "
+        'the chat', (tester) async {
+      final chat = await mount(tester, allowed: true);
+      expect(needsSwitch(tester).value, isTrue, reason: "the chat's own");
+      expect(needsSwitch(tester).onChanged, isNotNull);
+      needsSwitch(tester).onChanged!(false);
+      expect(chat.asked, [false]);
+    });
+
+    testWidgets('Porch Life Needs off: it greys out and says where to look, '
+        "keeping the chat's choice", (tester) async {
+      await mount(tester, allowed: false);
+      expect(
+        find.byType(NeedsLine),
+        findsOneWidget,
+        reason: 'greyed, not hidden',
+      );
+      expect(needsSwitch(tester).onChanged, isNull);
+      expect(needsSwitch(tester).value, isTrue, reason: "the chat's choice");
+      expect(
+        find.text(
+          "Off in Porch Life, so no chat runs Needs. This chat's choice is kept.",
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('turning Porch Life Needs on asks about the chats that have it '
+      'off, and Done with its switch on turns it on in them', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(() => tester.runAsync(db.close));
+    await tester.runAsync(
+      () => db
+          .into(db.sessions)
+          .insert(
+            SessionsCompanion.insert(
+              id: 'lived-in',
+              characterId: const Value('char-a'),
+              needsSimEnabled: const Value(false),
+              needsVector: const Value('{"hunger":70}'),
+            ),
+          ),
+    );
+    final storage = _AdultStorage();
+    final chat = FakeChatService();
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await storage.realismSettings.setNeedsSimDefault(false);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: const MaterialApp(home: Scaffold(body: PorchLifeTab())),
+      ),
+    );
+    await settle(tester);
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 300 && !done(); i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    // As its switch does (the row is greyed while this fake's engine is off).
+    tester
+        .widget<FeatureRow>(find.widgetWithText(FeatureRow, 'Needs'))
+        .onChanged(true);
+    final question = find.text('Turn it on in that chat too');
+    await until(() => question.evaluate().isNotEmpty);
+    expect(find.text('Needs is on'), findsOneWidget);
+    await tester.tap(
+      find.widgetWithText(SwitchListTile, 'Turn it on in that chat too'),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Done'));
+    bool? stored;
+    for (var i = 0; i < 100 && stored != true; i++) {
+      bool? read;
+      db
+          .customSelect(
+            "SELECT needs_sim_enabled AS n FROM sessions WHERE id = 'lived-in'",
+          )
+          .getSingle()
+          .then((r) => read = r.read<bool>('n'));
+      await until(() => read != null);
+      stored = read;
+    }
+    expect(stored, isTrue, reason: 'the chat that had it off has it on');
+  });
 }
 
 /// Records what the Afterglow line asks of the chat.
@@ -417,4 +559,11 @@ class _SwitchChat extends FakeChatService {
 
   @override
   Future<void> setAfterglowEnabled(bool enabled) async => asked.add(enabled);
+}
+
+class _NeedsChat extends FakeChatService {
+  final asked = <bool>[];
+
+  @override
+  Future<void> setNeedsSimEnabled(bool enabled) async => asked.add(enabled);
 }

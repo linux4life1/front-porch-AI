@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -67,7 +68,12 @@ class PorchLifeEngineCard extends StatelessWidget {
               'with it or not at all. Individual chats can still switch '
               'them off in the sidebar.',
           value: storage.realismSettings.needsSimDefault,
-          onChanged: storage.realismSettings.setNeedsSimDefault,
+          onChanged: (v) async {
+            final was = storage.realismSettings.needsSimDefault;
+            await storage.realismSettings.setNeedsSimDefault(v);
+            if (!context.mounted) return;
+            await offerNeedsInExistingChats(context, wasAllowed: was);
+          },
           showChildWhenOff: true,
           child: storage.realismSettings.passageOfTimeDefault
               ? null

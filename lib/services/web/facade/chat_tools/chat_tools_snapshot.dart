@@ -58,6 +58,9 @@ class ChatToolsSnapshot {
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
       'realismEnabled': _chat.realismEnabled,
       'needsEnabled': _chat.needsSimEnabled,
+      // Porch Life allows Needs: while it does not, the phone greys this
+      // chat's switch, as the desktop's Needs line does (additive).
+      'needsAllowed': rs.needsSimDefault,
       'realismOneShotEval': rs.realismOneShotEval,
       'realismOneShotMode': rs.oneShotMode.name,
       'focusedId': focused?.id,

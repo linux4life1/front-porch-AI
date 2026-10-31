@@ -30,26 +30,20 @@ class WebSettingsRoutes {
     : _facade = _deps.settingsFacade! {
     router.get('/api/settings', _get);
     router.post('/api/settings', _post);
-    // The existing-chats question once Porch Life allows Afterglow: how many
+    // The existing-chats question once Porch Life allows a feature: how many
     // chats have their own switch off, and turning those on.
-    router.get(
-      '/api/settings/existing-chats',
-      (shelf.Request r) async =>
-          _offerFor(r.url.queryParameters['feature']).then(
-            (o) async => o == null
-                ? JsonResponse.badRequest('unknown feature')
-                : JsonResponse.ok({'count': await o.countAfterglowOff()}),
-          ),
-    );
+    router.get('/api/settings/existing-chats', (shelf.Request r) async {
+      final f = _featureFor(r.url.queryParameters['feature']);
+      if (f == null) return JsonResponse.badRequest('unknown feature');
+      return JsonResponse.ok({'count': await _offer().countOff(f)});
+    });
     router.post('/api/settings/existing-chats', (shelf.Request r) async {
       final body = await RequestBody.readJsonMap(r);
-      final o = await _offerFor(body['feature']?.toString());
-      if (o == null) return JsonResponse.badRequest('unknown feature');
+      final f = _featureFor(body['feature']?.toString());
+      if (f == null) return JsonResponse.badRequest('unknown feature');
       // Porch Life may have stopped allowing it since the question opened.
-      if (!_deps.storage.realismSettings.afterglowEnabled) {
-        return JsonResponse.ok({'changed': 0});
-      }
-      return JsonResponse.ok({'changed': await o.turnAfterglowOn()});
+      if (!_allowed(f)) return JsonResponse.ok({'changed': 0});
+      return JsonResponse.ok({'changed': await _offer().turnOn(f)});
     });
     // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).
     router.get(
@@ -65,10 +59,22 @@ class WebSettingsRoutes {
 
   final WebServerDeps _deps;
 
-  Future<ExistingChatsOffer?> _offerFor(String? feature) async =>
-      feature == 'afterglow'
-      ? ExistingChatsOffer(_deps.db, _facade.boundChat)
-      : null;
+  /// The feature named on the wire, or null for one it does not know.
+  ExistingChatsFeature? _featureFor(String? name) => switch (name) {
+    'afterglow' => ExistingChatsFeature.afterglow,
+    'needs' => ExistingChatsFeature.needs,
+    _ => null,
+  };
+
+  bool _allowed(ExistingChatsFeature f) => f == ExistingChatsFeature.needs
+      ? _deps.storage.realismSettings.needsSimDefault
+      : _deps.storage.realismSettings.afterglowEnabled;
+
+  ExistingChatsOffer _offer() => ExistingChatsOffer(
+    _deps.db,
+    _facade.boundChat,
+    cards: _deps.characterFacade?.cards,
+  );
   final SettingsFacade _facade;
 
   Future<shelf.Response> _get(shelf.Request request) async =>

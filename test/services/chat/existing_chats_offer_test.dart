@@ -313,4 +313,122 @@ void main() {
       'count': 0,
     });
   });
+  test('Needs: counts the chats with their own Needs off that open off, and '
+      "turning them on changes only those chats' Needs switch", () async {
+    Future<void> session(
+      String id, {
+      String? character,
+      String? group,
+      String? vector,
+      bool deleted = false,
+    }) => db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: id,
+            characterId: Value(character),
+            groupId: Value(group),
+            needsSimEnabled: const Value(false),
+            needsVector: Value(vector),
+            deletedAt: Value(deleted ? DateTime(2026, 10, 1) : null),
+          ),
+        );
+    await db.insertGroup(GroupsCompanion.insert(id: 'g-n', name: 'N'));
+    await session('lived-in', character: 'char-a', vector: '{"hunger":70}');
+    await session('card-off', character: 'char-off');
+    // No vector and a card that says nothing: it opens on as it is.
+    await session('card-silent', character: 'char-a');
+    await session('group-off', group: 'g-n');
+    await session(
+      'trash',
+      character: 'char-a',
+      vector: '{"hunger":70}',
+      deleted: true,
+    );
+    await db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: 'already-on',
+            characterId: const Value('char-a'),
+            needsSimEnabled: const Value(true),
+          ),
+        );
+    final cards = [
+      CharacterCard(name: 'A')..dbId = 'char-a',
+      CharacterCard(
+        name: 'Off',
+        frontPorchExtensions: FrontPorchExtensions(needsSimEnabled: false),
+      )..dbId = 'char-off',
+    ];
+    final offer = ExistingChatsOffer(db, null, cards: cards);
+    const needs = ExistingChatsFeature.needs;
+    expect(await offer.countOff(needs), 3);
+
+    final before = await rows();
+    expect(await offer.turnOn(needs), 3);
+    final after = await rows();
+    for (final id in before.keys) {
+      final changed = {
+        for (final k in before[id]!.keys)
+          if (before[id]![k] != after[id]![k]) k,
+      };
+      expect(
+        changed,
+        ['lived-in', 'card-off', 'group-off'].contains(id)
+            ? {'needs_sim_enabled'}
+            : isEmpty,
+        reason: id,
+      );
+    }
+    expect(await offer.countOff(needs), 0);
+  });
+  test("the phone's relay asks about Needs too, and turns it on only while "
+      'Porch Life allows it', () async {
+    await db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: 'lived-in',
+            characterId: const Value('char-a'),
+            needsSimEnabled: const Value(false),
+            needsVector: const Value('{"hunger":70}'),
+          ),
+        );
+    FlutterSecureStorage.setMockInitialValues({});
+    final storage = StorageService();
+    await storage.initialized;
+    final router = Router();
+    WebSettingsRoutes(
+      WebServerDeps(
+        storage: storage,
+        db: db,
+        auth: AuthService(db),
+        settingsFacade: SettingsFacade(storage, FakeLLMProvider()),
+      ),
+      router,
+    );
+    Future<Map<String, dynamic>> call(String method, [Object? body]) async {
+      final res = await router.call(
+        shelf.Request(
+          method,
+          Uri.parse(
+            'http://localhost/api/settings/existing-chats'
+            '${method == 'GET' ? '?feature=needs' : ''}',
+          ),
+          headers: {'content-type': 'application/json'},
+          body: body == null ? null : jsonEncode(body),
+        ),
+      );
+      expect(res.statusCode, 200);
+      return jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    }
+
+    expect(await call('GET'), {'count': 1});
+    await storage.realismSettings.setNeedsSimDefault(false);
+    expect(await call('POST', {'feature': 'needs'}), {'changed': 0});
+    await storage.realismSettings.setNeedsSimDefault(true);
+    expect(await call('POST', {'feature': 'needs'}), {'changed': 1});
+    expect(await call('GET'), {'count': 0});
+  });
 }

@@ -28,7 +28,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
-import { ExistingChatsOffer } from './ExistingChatsOffer';
+import { ExistingChatsOffer, type OfferFeature } from './ExistingChatsOffer';
 import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 interface PorchLifeState {
@@ -380,8 +380,8 @@ function SearchKeyRow({
 export function PorchLifeSettings() {
   const [st, setSt] = useState<PorchLifeState | null>(null);
   const [error, setError] = useState('');
-  // The existing-chats question, asked once Afterglow becomes allowed.
-  const [offer, setOffer] = useState(false);
+  // The existing-chats question, asked once Afterglow or Needs becomes allowed.
+  const [offer, setOffer] = useState<OfferFeature | null>(null);
 
   useEffect(() => {
     void api
@@ -402,7 +402,8 @@ export function PorchLifeSettings() {
     api
       .post('/api/settings', { realism: { [key]: value } })
       .then(() => {
-        if (!allowed(prev) && allowed(next)) setOffer(true);
+        if (!allowed(prev) && allowed(next)) setOffer('afterglow');
+        else if (!prev.needsSimDefault && next.needsSimDefault) setOffer('needs');
       })
       .catch((e) => {
         setSt(prev);
@@ -426,7 +427,7 @@ export function PorchLifeSettings() {
 
   return (
     <section className="card pl-section" data-testid="porch-life-card">
-      {offer && <ExistingChatsOffer onClose={() => setOffer(false)} />}
+      {offer && <ExistingChatsOffer key={offer} feature={offer} onClose={() => setOffer(null)} />}
       <h3>Porch Life</h3>
       <p className="muted small pl-intro">
         Everything that makes a character feel like they live somewhere. Each switch says plainly what it needs — many need nothing at all.

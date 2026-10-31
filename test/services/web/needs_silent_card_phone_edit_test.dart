@@ -112,10 +112,11 @@ void main() {
     expect(await choiceOnDisk(id), isFalse);
   });
 
-  // 2026-10-25: the chat sidebar's Needs switch is gone, so the card's switch
-  // is how a chat's Needs turn on or off. The phone save carries it too.
-  test('moving the switch on the phone turns Needs off in the open chat and '
-      'its other 1:1 chats', () async {
+  // Three layers: the card says how NEW chats start, and each chat keeps its
+  // own switch (the sidebar's Needs line, the phone's chat tools). Until the
+  // switch came back (2026-10-25 to this change) the card's reached them.
+  test('moving the switch on the phone leaves the open chat and its other '
+      '1:1 chats as they are', () async {
     await boot(needsGlobal: true);
     final id = await importPlainCard();
     final chat = ChatService(
@@ -144,8 +145,8 @@ void main() {
       final form = await phoneForm(id);
       await phone.update(id, {...form, 'needsSimEnabled': false});
 
-      expect(chat.needsSimEnabled, isFalse);
-      expect((await db.getSessionById('closed'))!.needsSimEnabled, isFalse);
+      expect(chat.needsSimEnabled, isTrue);
+      expect((await db.getSessionById('closed'))!.needsSimEnabled, isTrue);
     } finally {
       chat.dispose();
       for (var i = 0; i < 5; i++) {

@@ -113,6 +113,23 @@ export function ChatTools({
   return (
     <div className="chat-tools">
       <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
+      {/* This chat's own Needs switch (desktop: the sidebar's Needs line). It
+          greys while Porch Life's Needs is off; the chat's choice is kept. */}
+      {t.realismEnabled && (
+        <label className="tool-toggle">
+          <span>Needs</span>
+          <input
+            type="checkbox"
+            aria-label="Needs"
+            checked={t.needsEnabled}
+            disabled={t.needsAllowed === false}
+            onChange={(e) => toggle('needs', e.target.checked)}
+          />
+        </label>
+      )}
+      {t.realismEnabled && t.needsAllowed === false && (
+        <p className="muted small">Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.</p>
+      )}
       <div className="tool-row">
         <button className="link-btn budget-link" onClick={() => setShowBudget(true)}>
           📊 Context budget — what the model was sent

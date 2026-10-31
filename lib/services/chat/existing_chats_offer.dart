@@ -21,45 +21,65 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show Refractory, RefractoryKeys;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
-/// The existing-chats question: when Porch Life starts allowing Afterglow,
+/// A Porch Life feature the existing-chats question asks about.
+enum ExistingChatsFeature { afterglow, needs }
+
+/// The existing-chats question: when Porch Life starts allowing a feature,
 /// the chats whose own switch is off are counted and, only if asked, switched
 /// on. Nothing else in those chats changes (a group chat that never saved
 /// its own blob takes its group's, see [_afterglowOff]), and no card or group
 /// template is touched. A chat in the trash is left alone.
 ///
-/// A 1:1 chat's switch is its `nsfw_cooldown_enabled` column; a group chat's
-/// is the `afterglow` key of its realism blob, which falls back to the
-/// group's template until the chat saves its own (as the chat reads it when
-/// it opens). The chat open right now is read and switched live, so its next
-/// save cannot write the old value back.
+/// Afterglow: a 1:1 chat's switch is its `nsfw_cooldown_enabled` column; a
+/// group chat's is the `afterglow` key of its realism blob, which falls back
+/// to the group's template until the chat saves its own (as the chat reads it
+/// when it opens). Needs: every chat's switch is its `needs_sim_enabled`
+/// column. The chat open right now is read and switched live, so its next
+/// save cannot write the old value back. [cards] is the library, read for a
+/// card's own Needs choice.
 class ExistingChatsOffer {
-  ExistingChatsOffer(this._db, this._chat);
+  ExistingChatsOffer(this._db, this._chat, {List<CharacterCard>? cards})
+    : _cards = cards ?? const [];
 
   final AppDatabase _db;
   final ChatService? _chat;
+  final List<CharacterCard> _cards;
 
   /// How many chats have their own Afterglow switch off.
-  Future<int> countAfterglowOff() async => (await _afterglowOff()).length;
+  Future<int> countAfterglowOff() => countOff(ExistingChatsFeature.afterglow);
 
   /// Switches Afterglow on in every chat that has it off; returns how many.
-  Future<int> turnAfterglowOn() async {
-    final off = await _afterglowOff();
+  Future<int> turnAfterglowOn() => turnOn(ExistingChatsFeature.afterglow);
+
+  /// How many chats have their own switch for [feature] off.
+  Future<int> countOff(ExistingChatsFeature feature) async =>
+      (await _off(feature)).length;
+
+  /// Switches [feature] on in every chat that has it off; returns how many.
+  Future<int> turnOn(ExistingChatsFeature feature) async {
+    final off = await _off(feature);
     var changed = 0;
     for (final chat in off) {
       if (chat.open) {
         // Read from memory, so it is only ever switched live: a chat left
         // since has saved its own state, which a blind write would replace.
         if (chat.id != _openSessionId) continue;
-        await _chat!.setAfterglowEnabled(true);
+        await _switchOpenOn(feature);
       } else if (chat.id == _openSessionId) {
         // Opened since it was counted: its next save would write the old
         // value back over a raw write, so it is switched live too.
-        await _chat!.setAfterglowEnabled(true);
+        await _switchOpenOn(feature);
+      } else if (feature == ExistingChatsFeature.needs) {
+        await _db.customUpdate(
+          'UPDATE sessions SET needs_sim_enabled = 1 WHERE id = ?',
+          variables: [Variable(chat.id)],
+        );
       } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',
@@ -77,6 +97,41 @@ class ExistingChatsOffer {
       changed++;
     }
     return changed;
+  }
+
+  Future<void> _switchOpenOn(ExistingChatsFeature feature) =>
+      feature == ExistingChatsFeature.needs
+      ? _chat!.setNeedsSimEnabled(true)
+      : _chat!.setAfterglowEnabled(true);
+
+  Future<List<_OffChat>> _off(ExistingChatsFeature feature) =>
+      feature == ExistingChatsFeature.needs ? _needsOff() : _afterglowOff();
+
+  /// Each chat with Needs off. A 1:1 chat stored off with no saved vector
+  /// opens on unless its card says off (the hydrate rule with Porch Life's
+  /// Needs on, `needsSimAfterHydrate`), so only those count.
+  Future<List<_OffChat>> _needsOff() async {
+    final open = _openSessionId;
+    final off = <_OffChat>[];
+    if (open != null && _chat != null && !_chat.needsSimEnabled) {
+      off.add(_OffChat(open, isGroup: _chat.isGroupMode, open: true));
+    }
+    final rows =
+        await (_db.select(_db.sessions)..where(
+              (t) => t.deletedAt.isNull() & t.needsSimEnabled.equals(false),
+            ))
+            .get();
+    for (final r in rows) {
+      if (r.id == open) continue;
+      final isGroup = r.groupId != null;
+      final vector = r.needsVector;
+      if (!isGroup && (vector == null || vector.isEmpty)) {
+        final card = _cards.where((c) => c.dbId == r.characterId).firstOrNull;
+        if (card?.frontPorchExtensions?.needsSimChoice != false) continue;
+      }
+      off.add(_OffChat(r.id, isGroup: isGroup));
+    }
+    return off;
   }
 
   String? get _openSessionId => _chat?.currentSessionId;

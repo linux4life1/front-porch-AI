@@ -9,17 +9,20 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 
-export function ExistingChatsOffer({ onClose }: { onClose: () => void }) {
+export type OfferFeature = 'afterglow' | 'needs';
+
+export function ExistingChatsOffer({ feature, onClose }: { feature: OfferFeature; onClose: () => void }) {
+  const name = feature === 'needs' ? 'Needs' : 'Afterglow';
   const [count, setCount] = useState<number | null>(null);
   const [turnOn, setTurnOn] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     api
-      .get<{ count: number }>('/api/settings/existing-chats?feature=afterglow')
+      .get<{ count: number }>(`/api/settings/existing-chats?feature=${feature}`)
       .then((r) => (r.count > 0 ? setCount(r.count) : onClose()))
       .catch((e) => {
-        console.warn('[porch-life] could not count chats with Afterglow off', e);
+        console.warn(`[porch-life] could not count chats with ${name} off`, e);
         onClose();
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -29,29 +32,28 @@ export function ExistingChatsOffer({ onClose }: { onClose: () => void }) {
   const done = () => {
     if (!turnOn) return onClose();
     api
-      .post('/api/settings/existing-chats', { feature: 'afterglow' })
+      .post('/api/settings/existing-chats', { feature })
       .then(onClose)
       .catch((e) => {
-        console.warn('[porch-life] could not turn Afterglow on in existing chats', e);
+        console.warn(`[porch-life] could not turn ${name} on in existing chats`, e);
         setError('Could not turn it on in those chats. Try Done again.');
       });
   };
   return (
     <div className="drawer-backdrop center" onClick={onClose}>
-      <div className="modal" role="dialog" aria-label="Afterglow is on" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-label={`${name} is on`} onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
-          <span>Afterglow is on</span>
+          <span>{name} is on</span>
         </div>
         <p className="muted dialog-msg">
-          New chats start with Afterglow unless their character&apos;s card, or a group chat&apos;s group, says
-          otherwise.
+          New chats start with {name} unless their character&apos;s card, or a group chat&apos;s group, says otherwise.
         </p>
         <label className="tool-toggle">
           <span>{count === 1 ? 'Turn it on in that chat too' : `Turn it on in those ${count} chats too`}</span>
           <input type="checkbox" checked={turnOn} onChange={(e) => setTurnOn(e.target.checked)} />
         </label>
         <p className="muted small">
-          Only each chat&apos;s Afterglow switch changes. Cards stay as they are, and any chat can switch it off again.
+          Only each chat&apos;s {name} switch changes. Cards stay as they are, and any chat can switch it off again.
         </p>
         {error && (
           <p className="error" role="alert">

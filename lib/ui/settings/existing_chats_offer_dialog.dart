@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/existing_chats_offer.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -31,44 +32,82 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 Future<void> offerAfterglowInExistingChats(
   BuildContext context, {
   required bool wasAllowed,
+}) => _offer(context, ExistingChatsFeature.afterglow, wasAllowed: wasAllowed);
+
+/// The same question once Porch Life's Needs is turned on.
+Future<void> offerNeedsInExistingChats(
+  BuildContext context, {
+  required bool wasAllowed,
+}) => _offer(context, ExistingChatsFeature.needs, wasAllowed: wasAllowed);
+
+/// The library's cards, for each 1:1 chat's card choice; none where the
+/// screen has no library (a card then reads as having made no choice).
+List<CharacterCard> _libraryOf(BuildContext context) {
+  try {
+    return Provider.of<CharacterRepository>(context, listen: false).characters;
+  } catch (_) {
+    return const [];
+  }
+}
+
+bool _allowed(StorageService storage, ExistingChatsFeature feature) =>
+    feature == ExistingChatsFeature.needs
+    ? storage.realismSettings.needsSimDefault
+    : storage.realismSettings.afterglowEnabled;
+
+Future<void> _offer(
+  BuildContext context,
+  ExistingChatsFeature feature, {
+  required bool wasAllowed,
 }) async {
   final storage = Provider.of<StorageService>(context, listen: false);
-  if (wasAllowed || !storage.realismSettings.afterglowEnabled) return;
+  if (wasAllowed || !_allowed(storage, feature)) return;
   final offer = ExistingChatsOffer(
     liveDatabase(context),
     Provider.of<ChatService>(context, listen: false),
+    cards: _libraryOf(context),
   );
   final int count;
   try {
-    count = await offer.countAfterglowOff();
+    count = await offer.countOff(feature);
   } catch (e) {
-    debugPrint('[PorchLife] could not count chats with Afterglow off: $e');
+    debugPrint(
+      '[PorchLife] could not count chats with ${feature.name} off: $e',
+    );
     return;
   }
   if (count == 0 || !context.mounted) return;
+  final needs = feature == ExistingChatsFeature.needs;
   final turnOn = await showWarmDialog<bool>(
     context,
-    title: 'Afterglow is on',
-    icon: Icons.local_fire_department,
-    accent: AppColors.lustAccentOf(context),
+    title: needs ? 'Needs is on' : 'Afterglow is on',
+    icon: needs ? Icons.favorite_border : Icons.local_fire_department,
+    accent: needs
+        ? AppColors.porchAmberOf(context)
+        : AppColors.lustAccentOf(context),
     width: 380,
-    content: ExistingChatsOfferBody(count: count),
+    content: ExistingChatsOfferBody(count: count, feature: feature),
   );
   // Porch Life may have stopped allowing it while the question was open.
-  if (turnOn != true || !storage.realismSettings.afterglowEnabled) return;
+  if (turnOn != true || !_allowed(storage, feature)) return;
   try {
-    await offer.turnAfterglowOn();
+    await offer.turnOn(feature);
   } catch (e) {
-    debugPrint('[PorchLife] could not turn Afterglow on in existing chats: $e');
+    debugPrint('[PorchLife] could not turn ${feature.name} on in chats: $e');
   }
 }
 
 /// The question's body: what new chats do, one switch for the [count] chats
 /// that have it off (starting off), and Done, which answers with the switch.
 class ExistingChatsOfferBody extends StatefulWidget {
-  const ExistingChatsOfferBody({super.key, required this.count});
+  const ExistingChatsOfferBody({
+    super.key,
+    required this.count,
+    this.feature = ExistingChatsFeature.afterglow,
+  });
 
   final int count;
+  final ExistingChatsFeature feature;
 
   @override
   State<ExistingChatsOfferBody> createState() => _ExistingChatsOfferBodyState();
@@ -80,20 +119,26 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
   @override
   Widget build(BuildContext context) {
     final n = widget.count;
+    final name = widget.feature == ExistingChatsFeature.needs
+        ? 'Needs'
+        : 'Afterglow';
+    final accent = widget.feature == ExistingChatsFeature.needs
+        ? AppColors.porchAmberOf(context)
+        : AppColors.lustAccentOf(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          "New chats start with Afterglow unless their character's card, "
-          "or a group chat's group, says otherwise.",
+          "New chats start with $name unless their character's card, or a "
+          "group chat's group, says otherwise.",
           style: TextStyle(color: AppColors.textSecondary(context)),
         ),
         const SizedBox(height: 12),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           value: _turnOn,
-          activeThumbColor: AppColors.lustAccentOf(context),
+          activeThumbColor: accent,
           onChanged: (v) => setState(() => _turnOn = v),
           title: Text(
             n == 1
@@ -102,8 +147,8 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
             style: TextStyle(color: AppColors.textPrimary(context)),
           ),
           subtitle: Text(
-            "Only each chat's Afterglow switch changes. Cards stay as they "
-            'are, and any chat can switch it off again.',
+            "Only each chat's $name switch changes. Cards stay as they are, "
+            'and any chat can switch it off again.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textSecondary(context),
@@ -114,9 +159,7 @@ class _ExistingChatsOfferBodyState extends State<ExistingChatsOfferBody> {
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.lustAccentOf(context),
-            ),
+            style: FilledButton.styleFrom(backgroundColor: accent),
             onPressed: () => Navigator.of(context).pop(_turnOn),
             child: const Text('Done'),
           ),
