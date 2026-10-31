@@ -346,10 +346,12 @@ extension ChatServiceSendHandoff on ChatService {
   }) async {
     _stoppedReplyAnchor = null;
     _answeringUnansweredLine = true;
+    _userTurn.open();
     try {
       await _answerTrailingUserTurn(webQuery, wikiQuery, forceSpeaker);
     } finally {
       _answeringUnansweredLine = false;
+      _userTurn.close();
     }
   }
 

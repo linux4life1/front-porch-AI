@@ -18,17 +18,16 @@
 
 part of '../chat_service.dart';
 
-/// One permission watch and one start queue per service.
+/// One permission watch, start queue and user-turn hold per service.
 final Expando<RealismPermissionWatch> _realismPermissionWatch = Expando();
 final Expando<RealismStartQueue> _realismStartQueue = Expando();
+final Expando<UserTurnHold> _userTurnHold = Expando();
 
 /// Public runtime toggle/control surface for the Realism, Needs, Chaos and
 /// Chance-Time systems: the feature enable switches (realism, NSFW cooldown,
 /// passage of time, needs sim, chaos mode/NSFW), time nudging, the chance-time
 /// wheel + apply, chaos-pressure tick, and the per-need decay-rate setters
-/// (1:1 and group). Extracted verbatim from the god file (zero behaviour
-/// change). The decay-rate setters keep their existing 1:1-vs-group branch, so
-/// Realism/Needs parity is unchanged by the move.
+/// (1:1 and group). The decay-rate setters keep their 1:1-vs-group branch.
 extension ChatServiceControls on ChatService {
   // ── Public Toggle Methods ──
 
@@ -42,15 +41,20 @@ extension ChatServiceControls on ChatService {
   RealismPermissionWatch get _realismPermission =>
       _realismPermissionWatch[this] ??= RealismPermissionWatch(
         allowed: () => _storageService.realismSettings.realismAllowed,
-        turnBusy: () => _isTurnBusy,
+        turnBusy: () => _realismTurnBusy,
         turn: this,
         onChange: _onRealismPermissionChanged,
         ready: _storageService.initialized,
       );
 
+  /// A turn in flight, the user's line and its pre-reply judges included.
+  bool get _realismTurnBusy => _isTurnBusy || _userTurn.held;
+  UserTurnHold get _userTurn =>
+      _userTurnHold[this] ??= UserTurnHold(notifyListeners);
+
   RealismStartQueue get _realismStart =>
       _realismStartQueue[this] ??= RealismStartQueue(
-        busy: () => _isTurnBusy || _isProcessingGreeting,
+        busy: () => _realismTurnBusy || _isProcessingGreeting,
         turn: this,
         chatId: () => _currentSessionId,
         start: _startRealismNow,

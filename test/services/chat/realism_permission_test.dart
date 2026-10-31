@@ -61,9 +61,24 @@ class _CountingLlm extends LLMService {
   /// While set, every call but the reply waits for it (a scan in flight).
   Completer<void>? hold;
 
+  /// Run once, at the first Realism judge call.
+  void Function()? onFirstJudge;
+
+  /// The gate as each call saw it, while [turnBusy].
+  bool Function()? gate;
+  final gateAtCallsDuringTurn = <bool>[];
+
   void _add(String call) {
     calls.add(call);
-    if (turnBusy?.call() ?? false) callsDuringTurn.add(call);
+    if (turnBusy?.call() ?? false) {
+      callsDuringTurn.add(call);
+      if (gate != null) gateAtCallsDuringTurn.add(gate!());
+    }
+    if (_isRealism(call)) {
+      final hook = onFirstJudge;
+      onFirstJudge = null;
+      hook?.call();
+    }
   }
 
   Iterable<String> get realismCallsDuringTurn =>
@@ -210,8 +225,17 @@ void main() {
     return row.read<bool>('r');
   }
 
+  /// True from the send until sendMessage returns: the user's turn, its
+  /// pre-reply judges included.
+  var sending = false;
+
   Future<void> send(String text) async {
-    await chat!.sendMessage(text);
+    sending = true;
+    try {
+      await chat!.sendMessage(text);
+    } finally {
+      sending = false;
+    }
     await drain();
   }
 
@@ -223,7 +247,7 @@ void main() {
     );
   }
 
-  bool turnBusy() => chat!.isGenerating || chat!.isSettlingTurn;
+  bool turnBusy() => sending || chat!.isGenerating || chat!.isSettlingTurn;
 
   /// One entry per starting-point scan begun: whether a turn was in flight.
   List<bool> watchScans() {
@@ -596,6 +620,84 @@ void main() {
     expect(chat!.realismEnabled, isTrue);
   });
 
+  test('Porch Life allowing Realism just after the user line lands: the '
+      'scan waits for the whole turn, then runs once', () async {
+    await boot();
+    await rs().setRealismAllowed(false);
+    await chat!.setActiveCharacter(await card('Nell', realism: true));
+    await send('We have been talking a while.');
+
+    final scans = watchScans();
+    const line = 'One more thing before you answer.';
+    var flipped = false;
+    void flipOnUserLine() {
+      final last = chat!.messages.lastOrNull;
+      if (flipped || last == null || !last.isUser || last.text != line) return;
+      flipped = true;
+      unawaited(rs().setRealismAllowed(true));
+    }
+
+    chat!.addListener(flipOnUserLine);
+    addTearDown(() => chat?.removeListener(flipOnUserLine));
+    llm.turnBusy = turnBusy;
+    await send(line);
+
+    expect(flipped, isTrue);
+    expect(llm.realismCallsDuringTurn, isEmpty, reason: 'nothing beside it');
+    expect(scans, [false], reason: 'one scan, after sendMessage settled');
+  });
+
+  test("the chat's own switch turned on just after the user line lands (the "
+      'phone): the scan waits for the whole turn', () async {
+    await boot();
+    await chat!.setActiveCharacter(await card('Rue', realism: false));
+    await send('Talking with Realism off.');
+
+    final scans = watchScans();
+    const line = 'And one more line.';
+    var flipped = false;
+    void flipOnUserLine() {
+      final last = chat!.messages.lastOrNull;
+      if (flipped || last == null || !last.isUser || last.text != line) return;
+      flipped = true;
+      unawaited(chat!.setRealismEnabled(true));
+    }
+
+    chat!.addListener(flipOnUserLine);
+    addTearDown(() => chat?.removeListener(flipOnUserLine));
+    await send(line);
+    expect(flipped, isTrue);
+    // The turn's own judges may give it a start (then no scan is owed); a
+    // scan, if any, starts only once sendMessage has settled.
+    expect(scans, isNot(contains(true)), reason: 'none beside the turn');
+    expect(scans.length, lessThanOrEqualTo(1));
+  });
+
+  test('Porch Life blocking Realism on the first pre-reply judge: the user '
+      'turn keeps Realism to its end, and stops from the next turn', () async {
+    await boot();
+    await chat!.setActiveCharacter(await card('Mara', realism: true));
+    await send('Hello there.');
+
+    llm.calls.clear();
+    llm.turnBusy = turnBusy;
+    llm.gate = () => chat!.realismEnabled;
+    llm.onFirstJudge = () => unawaited(rs().setRealismAllowed(false));
+    await send('Still here.');
+
+    expect(rs().realismAllowed, isFalse);
+    expect(llm.calls, contains('emotion'), reason: 'every judge still ran');
+    expect(
+      llm.gateAtCallsDuringTurn,
+      everyElement(isTrue),
+      reason: 'no change to the gate until the turn settled',
+    );
+    expect(chat!.realismEnabled, isFalse, reason: 'it lands after the turn');
+    llm.calls.clear();
+    await send('And now?');
+    expect(llm.realismCalls, isEmpty);
+  });
+
   test("the chat's own switch turned on mid-reply (the phone) scores its "
       'starting point after the turn, not beside it', () async {
     await boot();
@@ -735,6 +837,15 @@ void main() {
       isNotNull,
     );
     expect(chat!.realismChatSwitch, isTrue, reason: 'the fork carries it');
+  });
+
+  test('a deleted chat is owed no starting-point scan', () async {
+    await boot();
+    final id = await closedChat('Dee', DateTime.now());
+    await rs().oweRealismStart([id, 'other-chat']);
+    await db!.deleteSessionById(id);
+    await drain();
+    expect(rs().realismStartOwed, {'other-chat'});
   });
 
   test("the phone's member feed asks the chat service whether Porch Life "

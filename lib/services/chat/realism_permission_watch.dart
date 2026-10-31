@@ -80,6 +80,26 @@ class RealismPermissionWatch {
   }
 }
 
+/// A user turn from its send to its settle. The reply's own flags rise only
+/// once the user's line has been added and scored, so without this a
+/// Porch Life change or a start scan could land between the pre-reply
+/// judges and the reply. Nested holds count; the last release notifies.
+class UserTurnHold {
+  UserTurnHold(this._notify);
+
+  final VoidCallback _notify;
+  int _open = 0;
+
+  bool get held => _open > 0;
+
+  void open() => _open++;
+
+  void close() {
+    if (_open == 0) return;
+    if (--_open == 0) _notify();
+  }
+}
+
 /// The scan that scores a chat's starting point when its Realism starts
 /// running. It never runs beside a turn or another scan: asked for while
 /// either is in flight, it waits for them to settle, then runs once for the

@@ -252,6 +252,7 @@ extension ChatServiceSend on ChatService {
       // Unknown command — fall through and send as a normal message.
     }
 
+    _userTurn.open(); // Porch Life's Realism waits for the whole turn.
     _toolProbe.beginUserSend();
     _webSearchService.beginUserSend();
     _wikiSearchService.beginUserSend();
@@ -491,6 +492,7 @@ extension ChatServiceSend on ChatService {
       );
     } finally {
       _toolProbe.endUserSend(_evalBackendIdentity);
+      _userTurn.close();
     }
   }
 }
