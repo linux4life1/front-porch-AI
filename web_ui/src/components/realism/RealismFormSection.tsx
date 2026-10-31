@@ -10,27 +10,15 @@
 
 import { Slider, ToggleRow, SelectRow } from './controls';
 import { ChipList } from './ChipList';
+import { RecoveryBlock } from './RecoveryBlock';
 import {
   type RealismValues,
-  RECOVERY_MAX_MINUTES,
-  RECOVERY_MIN_MINUTES,
-  RECOVERY_PRESETS,
   chipsToInventory,
   inventoryToChips,
   INTENSITY_OPTIONS,
   TIME_OPTIONS,
   longTermTier,
-  recoveryClockOffHint,
-  PCD_OPTIONS,
-  recoveryFromPreset,
-  recoveryPresetKey,
-  recoveryResolvesLine,
-  recoverySoftGateHint,
-  recoverySuggestionLine,
-  recoveryWithMinutes,
-  recoveryWithPcdMood,
   shortTermTier,
-  suggestRecoveryPresetKey,
   titleCase,
   trustTier,
 } from './realismTypes';
@@ -182,7 +170,14 @@ export function RealismFormSection({
                   onChange={(b) => set({ afterglowEnabled: b })}
                 />
                 {v.afterglowEnabled !== false && (
-                  <RecoveryBlock v={v} set={set} showChargenSuggestion={showChargenSuggestion} />
+                  <RecoveryBlock
+                    recovery={v.recovery}
+                    sex={v.sex}
+                    intimateInto={v.intimateInto}
+                    intimateNotInto={v.intimateNotInto}
+                    onChange={(recovery) => set({ recovery })}
+                    showChargenSuggestion={showChargenSuggestion}
+                  />
                 )}
               </>
             )}
@@ -458,90 +453,6 @@ function BirthdayFields({ v, set }: { v: RealismValues; set: Patch }) {
         <button className="link-btn" type="button" onClick={() => set({ birthday: '' })}>
           Clear
         </button>
-      )}
-    </div>
-  );
-}
-
-/** Slider position when the card fixes no length: the middle named value,
- *  so the slider reads as "where Custom would start", not as a 0 that
- *  contradicts the judge-decides label. (Mirror of RecoveryBlock
- *  .neutralSliderMinutes on desktop.) */
-const NEUTRAL_RECOVERY_MINUTES = 90;
-
-function RecoveryBlock({
-  v,
-  set,
-  showChargenSuggestion,
-}: {
-  v: RealismValues;
-  set: Patch;
-  showChargenSuggestion: boolean;
-}) {
-  const r = v.recovery ?? { recoveryMode: 'auto' as const, recoveryMinutes: null };
-  const presetKey = recoveryPresetKey(r);
-  // The soft gate has no length (decision 4) — its slider parked at a
-  // misleading 90 and dragging it flipped the card to a hard lock.
-  // Maintainer ruling 2026-10-18: hide it for 'none' (mirror of desktop
-  // RecoveryBlock); a plain-English line takes its place.
-  const softGate = presetKey === 'none';
-  const sliderValue = r.recoveryMinutes ?? NEUTRAL_RECOVERY_MINUTES;
-  const suggestion =
-    showChargenSuggestion && presetKey === 'auto'
-      ? recoverySuggestionLine(suggestRecoveryPresetKey(v.intimateInto ?? [], v.intimateNotInto ?? []))
-      : null;
-  return (
-    <div className="recovery-block" data-testid="recovery-block">
-      <span className="recovery-head">Recovery after intimacy</span>
-      <p className="muted small">How this character comes down after climax.</p>
-      <SelectRow
-        label="Recovery preset"
-        value={presetKey}
-        options={RECOVERY_PRESETS.map((p) => ({ value: p.key, label: p.label }))}
-        onChange={(key) =>
-          set({
-            recovery:
-              key === 'custom'
-                ? recoveryWithMinutes(r, sliderValue)
-                : recoveryFromPreset(key, r.pcdMood ?? 'off'),
-          })
-        }
-      />
-      {!softGate && (
-        <Slider
-          label="Recovery minutes"
-          min={RECOVERY_MIN_MINUTES}
-          max={RECOVERY_MAX_MINUTES}
-          value={sliderValue}
-          badge={`${sliderValue} min`}
-          onChange={(n) => set({ recovery: recoveryWithMinutes(r, n) })}
-        />
-      )}
-      <small className="muted" data-testid="recovery-clock-off-hint">
-        {softGate ? recoverySoftGateHint() : recoveryClockOffHint(r.recoveryMinutes)}
-      </small>
-      <small className="muted" data-testid="recovery-resolves-line">
-        {recoveryResolvesLine(r, v.sex ?? '')}
-      </small>
-      {/* PR 8: the grey-drift dial. Opt-in by law — Off ships and Off is
-          what every pre-PR-8 card reads (mirror of desktop RecoveryBlock). */}
-      <div data-testid="recovery-pcd-row">
-        <SelectRow
-          label="Grey drift after"
-          value={r.pcdMood ?? 'off'}
-          options={PCD_OPTIONS.map((o) => ({ value: o.key, label: o.label }))}
-          onChange={(mood) => set({ recovery: recoveryWithPcdMood(r, mood) })}
-        />
-        <small className="muted">
-          A hollow, misty mood some people feel minutes to an hour after
-          intimacy — real, brief, and not about their partner. How often it
-          visits after a climax.
-        </small>
-      </div>
-      {suggestion && (
-        <small className="recovery-suggestion" data-testid="recovery-suggestion">
-          {suggestion}
-        </small>
       )}
     </div>
   );

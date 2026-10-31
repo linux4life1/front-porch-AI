@@ -33,6 +33,7 @@ class WebChatToolsRoutes {
     router.post('/api/chat/tools/settings', _settings);
     router.post('/api/chat/tools/wiki', _wiki);
     router.post('/api/chat/tools/toggle', _toggle);
+    router.post('/api/chat/tools/member-recovery', _memberRecovery);
     router.post('/api/chat/tools/time', _time);
     router.get('/api/chat/tools/calendar', _calendar);
     router.get('/api/chat/tools/timeline', _timeline);
@@ -461,6 +462,17 @@ class WebChatToolsRoutes {
             : null,
       ),
     );
+  }
+
+  /// A group member's Recovery block: {id, recovery}.
+  Future<shelf.Response> _memberRecovery(shelf.Request request) async {
+    final body = await _json(request);
+    final id = body['id'];
+    if (id is! String ||
+        !await _facade.setMemberRecovery(id, body['recovery'])) {
+      return JsonResponse.badRequest('a group member id is required');
+    }
+    return JsonResponse.ok(_snapshot(request));
   }
 
   Future<Map<String, dynamic>> _json(shelf.Request request) async {

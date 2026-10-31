@@ -485,6 +485,7 @@ class _EditGroupPageState extends State<EditGroupPage>
           members: _realismMembers,
           defaultMemberJson: _defaultMemberRealismState,
           baselineJson: _baselineRealismState,
+          memberCards: _members,
           onChanged: (d, b) {
             _defaultMemberRealismState = d;
             _baselineRealismState = b;

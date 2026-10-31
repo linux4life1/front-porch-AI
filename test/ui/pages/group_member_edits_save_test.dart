@@ -59,6 +59,7 @@ import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
@@ -371,6 +372,63 @@ void main() {
         foreign,
         reason: 'a card that loaded without extensions wrote NULL over them',
       );
+    });
+  });
+
+  testWidgets("Edit group's Realism tab saves each member's Recovery block "
+      "to the member's row, while Porch Life allows Afterglow", (tester) async {
+    await tester.runAsync(() async {
+      final storage = FakeStorageService();
+      final chat = _OpenGroup(const []);
+      addTearDown(storage.dispose);
+      addTearDown(chat.dispose);
+      final mara = member();
+      Future<void> pumpTab() async {
+        await tester.pumpWidget(
+          MultiProvider(
+            providers: [
+              Provider<AppDatabase>.value(value: db),
+              ChangeNotifierProvider<ChatService>.value(value: chat),
+              ChangeNotifierProvider<StorageService>.value(value: storage),
+            ],
+            child: MaterialApp(
+              home: Scaffold(
+                body: EditGroupRealismTab(
+                  key: UniqueKey(),
+                  loaded: true,
+                  members: const [],
+                  defaultMemberJson: '{}',
+                  baselineJson: '{}',
+                  onChanged: (_, _) {},
+                  memberCards: [mara],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await pumpTab();
+      expect(find.byType(RecoveryBlock), findsNothing, reason: 'not allowed');
+
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      await pumpTab();
+      tester
+          .widget<RecoveryBlock>(find.byType(RecoveryBlock))
+          .onChanged(RecoveryProfile.auto.withMinutes(60));
+      int? minutes;
+      for (var i = 0; i < 100 && minutes != 60; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final raw = (await memberRow()).frontPorchExtensions;
+        minutes = raw == null
+            ? null
+            : FrontPorchExtensions.fromJson(
+                jsonDecode(raw) as Map<String, dynamic>,
+              ).recovery.recoveryMinutes;
+      }
+      expect(minutes, 60, reason: "the change reached Mara's row");
     });
   });
 }

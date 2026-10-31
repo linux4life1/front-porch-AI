@@ -8,6 +8,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
@@ -292,8 +293,28 @@ class GroupMemberRealismCard extends StatelessWidget {
                 ],
                 // This member's own Afterglow switch, while Porch Life allows
                 // Afterglow and the group chat's switch is on.
-                if (afterglowEnabledOf(context) && cs.afterglowChatSwitch)
+                if (afterglowEnabledOf(context) && cs.afterglowChatSwitch) ...[
                   _afterglowRow(context),
+                  // Their Recovery block while their own switch is on, as the
+                  // card editor shows it under the card's switch.
+                  if (char.frontPorchExtensions?.afterglowEnabled ?? true)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: RecoveryBlock(
+                        recovery:
+                            char.frontPorchExtensions?.recovery ??
+                            RecoveryProfile.auto,
+                        sex: char.frontPorchExtensions?.sex ?? '',
+                        intimateInto:
+                            char.frontPorchExtensions?.intimateInto ?? const [],
+                        intimateNotInto:
+                            char.frontPorchExtensions?.intimateNotInto ??
+                            const [],
+                        onChanged: (r) =>
+                            controller.updateMemberRecovery(char, r),
+                      ),
+                    ),
+                ],
               ],
             ),
           ),

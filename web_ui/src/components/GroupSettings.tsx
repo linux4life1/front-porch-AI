@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { describeActionFailure } from '../pages/chat/chatActionError';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
+import { GroupMemberRecoverySection, type MemberRecoveryRow } from './groupSetting/GroupMemberRecoverySection';
 import { GroupNewChatsSection } from './groupSetting/GroupNewChatsSection';
 import { GroupWorldsSection } from './groupSetting/GroupWorldsSection';
 import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
@@ -25,7 +26,7 @@ export interface GroupBlock {
   firstMessage: string;
   alternateGreetings?: string[];
   greetingSeeds?: (GreetingSeed | null)[];
-  members: { id: string; name: string; prompt: string }[];
+  members: ({ id: string; name: string; prompt: string } & MemberRecoveryRow)[];
 }
 
 export function GroupSettings({
@@ -151,6 +152,7 @@ export function GroupSettings({
             />
           </label>
         ))}
+        <GroupMemberRecoverySection key={groupId} members={group.members} />
       </div>
     </details>
   );

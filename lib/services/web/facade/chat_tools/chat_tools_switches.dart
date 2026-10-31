@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
@@ -83,6 +84,21 @@ class ChatToolsSwitches {
     for (final c in _chat.groupCharacters) {
       if (groupMemberStoreId(c) != id) continue;
       await _chat.setMemberAfterglowEnabled(c, v);
+      _notify();
+      return true;
+    }
+    return false;
+  }
+
+  /// A group member's Recovery block. False when [id] is not a member.
+  Future<bool> setMemberRecovery(String id, Object? fields) async {
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      c.frontPorchExtensions =
+          (c.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+            recovery: RecoveryProfile.fromFields(fields),
+          );
+      await _chat.persistGroupMemberExtensions(memberId: id);
       _notify();
       return true;
     }

@@ -40,12 +40,16 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
   /// Called with (defaultMemberRealismState, baselineRealismState) on every edit.
   final void Function(String defaultMemberJson, String baselineJson) onChanged;
 
+  /// Shown under the members, inside the same scroll.
+  final Widget? footer;
+
   const GroupRealismDynamicsEditor({
     super.key,
     required this.members,
     required this.initialDefaultMemberJson,
     required this.initialBaselineJson,
     required this.onChanged,
+    this.footer,
   });
 
   @override
@@ -273,6 +277,7 @@ class _GroupRealismDynamicsEditorState
               onRelationshipChanged: _updateRelationship,
             ),
           ],
+          ?widget.footer,
         ],
       ),
     );

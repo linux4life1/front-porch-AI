@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/member_realism_card.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -235,6 +236,61 @@ void main() {
       );
       expect(chat.afterglowRunsFor(ada), isFalse);
       expect(chat.afterglowRunsFor(bex), isTrue);
+    });
+
+    testWidgets("each member's Recovery block sits under their own switch, "
+        'saves to that member, and hides while their switch is off', (
+      tester,
+    ) async {
+      await pumpTab(tester, allowed: true);
+      final adaCard = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+      final adaBlock = find.descendant(
+        of: adaCard,
+        matching: find.byType(RecoveryBlock),
+      );
+      expect(adaBlock, findsOneWidget);
+
+      // Both edits save through the chat's database, real I/O the test clock
+      // does not drive; the chat tells its listeners once a save is done.
+      Future<void> untilSaved(void Function() edit) async {
+        var saved = false;
+        void done() => saved = true;
+        chat.addListener(done);
+        edit();
+        for (var i = 0; i < 500 && !saved; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump(const Duration(milliseconds: 10));
+        }
+        chat.removeListener(done);
+        expect(saved, isTrue, reason: 'the edit saved');
+      }
+
+      await untilSaved(
+        () => tester
+            .widget<RecoveryBlock>(adaBlock)
+            .onChanged(RecoveryProfile.auto.withMinutes(60)),
+      );
+      final rows = await tester.runAsync(
+        () => repo.getMembersForGroup('grp-mood'),
+      );
+      expect(
+        FrontPorchExtensions.fromJson(
+          rows!.firstWhere((m) => m.id == 'mem-ada').frontPorchExtensions!,
+        ).recovery.recoveryMinutes,
+        60,
+        reason: "kept on Ada's own row in this group",
+      );
+
+      final adaSwitch = find.descendant(
+        of: adaCard,
+        matching: find.byType(Switch),
+      );
+      await tester.ensureVisible(adaSwitch);
+      await untilSaved(() => tester.tap(adaSwitch));
+      await tester.pump();
+      expect(adaBlock, findsNothing, reason: 'her own switch is off');
     });
   });
 }
