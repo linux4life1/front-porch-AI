@@ -121,6 +121,62 @@ extension ChatServiceGroupRead on ChatService {
     return _groupRealism[id]?.arousal ?? 0;
   }
 
+  /// The member's own recovery in the 1:1 chip's words, with its minutes and
+  /// whether it is a soft window: off their own entry, never the live
+  /// scalars, which hold whoever was loaded last. Empty while none runs and
+  /// while Afterglow does not run for them.
+  ({String chip, bool soft, int minutes}) getRefractoryForGroupCharacter(
+    CharacterCard character,
+  ) {
+    if (!isGroupRealismActive || !afterglowRunsFor(character)) {
+      return (chip: '', soft: false, minutes: 0);
+    }
+    final body =
+        _groupRealism[_getCharacterIdFromCard(character)]?.refractory ??
+        Refractory.none;
+    final words = describeRefractory(
+      body.minutes,
+      clockRunning: _clockRunning,
+      soft: body.soft,
+      peaks: body.peaksLastHour,
+    );
+    return (chip: words.chip, soft: body.soft, minutes: body.minutes);
+  }
+
+  /// Porch Life's Expressions switch: the phone shows a mood picture only
+  /// while it is on, as the desktop sidebar does.
+  bool get expressionsEnabled =>
+      _storageService.expressionSettings.expressionEnabled;
+
+  /// The face label for [character]. In 1:1, the chat's label. In a group,
+  /// the member's own mood: the live label (ONNX) is theirs only when it was
+  /// classified from a reply they wrote, never a System row or a streaming
+  /// placeholder.
+  String? expressionLabelFor(CharacterCard character) {
+    if (_activeGroup == null) return currentExpressionLabel;
+    if (_storageService.expressionSettings.expressionClassificationMode ==
+        'onnx') {
+      // Read first: it keeps the classifier following new replies.
+      final live = currentExpressionLabel;
+      final source = _expressionService.onnxLabelSource;
+      final speaker = source == null || source.sender == 'System'
+          ? null
+          : resolveGroupSpeakerForMessage(
+              _groupCharacters,
+              source,
+              logOnMiss: false,
+            );
+      if (speaker != null &&
+          _getCharacterIdFromCard(speaker) ==
+              _getCharacterIdFromCard(character)) {
+        return live;
+      }
+    }
+    return _expressionService.labelForEmotion(
+      getEmotionForGroupCharacter(character) ?? '',
+    );
+  }
+
   String? getEmotionIntensityForGroupCharacter(CharacterCard character) {
     if (!isGroupRealismActive) return null;
     final id = _getCharacterIdFromCard(character);

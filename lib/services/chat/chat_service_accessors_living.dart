@@ -296,16 +296,25 @@ extension ChatServiceRealismDoors on ChatService {
   }
 
   /// Test-only: seed a member slot so a later soft turn can prove it does
-  /// not leak this member's Needs / bond into the guest prompt.
+  /// not leak this member's Needs / bond into the guest prompt, or so the
+  /// member card can show that member's own mood, Lust and recovery.
   @visibleForTesting
   void debugSeedGroupSpeakerState(
     String charId, {
     Map<String, int>? needs,
     int? longTermTier,
+    String? emotion,
+    int? arousal,
+    Refractory? refractory,
   }) {
     if (needs != null) _groupStore.setNeeds(charId, needs);
     if (longTermTier != null) {
       _groupStore.memberForWrite(charId).longTermTier = longTermTier;
+    }
+    if (emotion != null) _groupStore.memberForWrite(charId).emotion = emotion;
+    if (arousal != null) _groupStore.memberForWrite(charId).arousal = arousal;
+    if (refractory != null) {
+      _groupStore.memberForWrite(charId).refractory = refractory;
     }
   }
 }

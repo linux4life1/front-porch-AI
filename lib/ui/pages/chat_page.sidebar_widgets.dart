@@ -80,7 +80,7 @@ class ChatSidebarPortrait extends StatelessWidget {
             final avatarDir = storage.characterAvatarDir(character.name);
             expressionFile = File('${avatarDir.path}/${avatar.filename}');
             expressionKey = avatar.id;
-            final label = chat.currentExpressionLabel;
+            final label = chat.expressionLabelFor(character);
             expressionEmoji = label != null ? EmotionLabels.emoji[label] : null;
           }
         }
@@ -114,7 +114,7 @@ class ChatSidebarPortrait extends StatelessWidget {
           if (fallback == 'none') {
             return const SizedBox.shrink();
           } else if (fallback == 'emoji') {
-            final label = chat.currentExpressionLabel ?? 'neutral';
+            final label = chat.expressionLabelFor(character) ?? 'neutral';
             final emoji = EmotionLabels.emoji[label] ?? '🎭';
             fallbackWidget = Center(
               child: Text(

@@ -14,7 +14,7 @@ import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { ChatTools } from './ChatTools';
 import { type CastMember } from './CastBar';
-import { LookSwiper } from './ChatAvatar';
+import { LookSwiper, Portrait } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
 
@@ -124,11 +124,19 @@ export function ChatInsight({
           ))}
         </div>
       )}
-      {/* Mood-expression portrait for the 1:1 host (and 1:1 scene guests). NOT
-          shown in groups — member avatars don't resolve, so we'd only get a
-          broken image. Hidden on phones too via CSS ([data-layout="phone"]
+      {/* Mood-expression portrait for the 1:1 host (and 1:1 scene guests), and
+          in a group for the focused member, wearing their own mood rather
+          than the chat's. Hidden on phones via CSS ([data-layout="phone"]
           .portrait-wrap). Self-hides if its image fails. */}
-      {isGroup ? null : focusedIsHost ? (
+      {isGroup ? (
+        focusedId ? (
+          <Portrait
+            primary={`/api/chat/expression-avatar?participant=${encodeURIComponent(focusedId)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
+            fallback={focusedPlaceholderPortrait ? undefined : focusedAvatarUrl}
+            mood={realism.mood || realism.emotion}
+          />
+        ) : null
+      ) : focusedIsHost ? (
         <LookSwiper
           characterId={characterId}
           basePrimary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
@@ -203,6 +211,9 @@ export function ChatInsight({
       />
       {realism.lustOn === true && (
         <div className="stat-line"><span>Lust</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
+      )}
+      {realism.lustOn === true && realism.refractoryLabel && (
+        <div className="stat-line"><span className="muted">{realism.refractoryLabel}</span></div>
       )}
       </>
       )}

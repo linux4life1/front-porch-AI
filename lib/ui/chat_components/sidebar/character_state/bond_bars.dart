@@ -124,35 +124,49 @@ class BondBars extends StatelessWidget {
           ),
           if (nsfw.refractoryMinutesRemaining > 0) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                // Rose chip with a thermometer while a soft window runs
-                // (the mockup's 🌡️ "Tender for… · peak K"); the frost-
-                // colored hourglass stays for a hard lock.
-                Icon(
-                  nsfw.refractory.soft
-                      ? Icons.device_thermostat
-                      : Icons.hourglass_bottom,
-                  size: 12,
-                  color: AppColors.lustAccentOf(context),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  // Same words as the eval prompt and the phone: story
-                  // minutes, or replies while Passage of Time is off.
-                  child: Text(
-                    nsfw.refractoryWords.chip,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.lustAccentOf(context),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            RefractoryLine(
+              chip: nsfw.refractoryWords.chip,
+              soft: nsfw.refractory.soft,
             ),
           ],
         ],
+      ],
+    );
+  }
+}
+
+/// The recovery countdown under a Lust bar: the 1:1 host's, and each group
+/// member's own on their card.
+class RefractoryLine extends StatelessWidget {
+  const RefractoryLine({super.key, required this.chip, required this.soft});
+
+  /// Same words as the eval prompt and the phone: story minutes, or replies
+  /// while Passage of Time is off.
+  final String chip;
+  final bool soft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Rose chip with a thermometer while a soft window runs (the
+        // mockup's 🌡️ "Tender for… · peak K"); the hourglass for a hard lock.
+        Icon(
+          soft ? Icons.device_thermostat : Icons.hourglass_bottom,
+          size: 12,
+          color: AppColors.lustAccentOf(context),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            chip,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.lustAccentOf(context),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

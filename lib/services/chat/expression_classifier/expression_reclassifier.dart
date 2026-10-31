@@ -51,7 +51,10 @@ class ExpressionReclassifier {
   ///
   /// [onLabel] receives a valid standard label (inside the guarded call, so a
   /// throw from it is logged like any other reclassify error).
-  Future<void> reclassify(
+  ///
+  /// True when the model was asked, whatever came back; false for the two
+  /// cheap skips that make no call, which a caller may retry.
+  Future<bool> reclassify(
     String unknownEmotion, {
     required void Function(String label) onLabel,
   }) async {
@@ -59,12 +62,12 @@ class ExpressionReclassifier {
       debugPrint(
         '[Expression] reclassify: skipped — realism engine is evaluating',
       );
-      return;
+      return false;
     }
     final llmService = getLlmServiceForReclass();
     if (!llmService.isReady) {
       debugPrint('[Expression] reclassify: LLM not ready, skipping');
-      return;
+      return false;
     }
 
     try {
@@ -164,5 +167,6 @@ class ExpressionReclassifier {
     } catch (e) {
       debugPrint('[Expression] reclassify error: $e');
     }
+    return true;
   }
 }

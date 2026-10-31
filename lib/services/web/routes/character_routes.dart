@@ -311,11 +311,13 @@ class WebCharacterRoutes {
     );
   }
 
-  /// Serve the active character's current expression portrait (mood-driven).
-  /// Returns 404 when expressions aren't in use so the client falls back to the
-  /// static character avatar.
+  /// Serve the active character's current expression portrait (mood-driven),
+  /// or `?participant=<cast id>`'s own. Returns 404 when expressions aren't in
+  /// use so the client falls back to the static character avatar.
   shelf.Response _expressionAvatar(shelf.Request request) {
-    final file = _facade.activeExpressionAvatarFile();
+    final file = _facade.activeExpressionAvatarFile(
+      participantId: request.url.queryParameters['participant'],
+    );
     if (file == null) return shelf.Response.notFound('No expression avatar');
     return shelf.Response.ok(
       file.readAsBytesSync(),

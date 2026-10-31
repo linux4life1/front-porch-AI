@@ -108,6 +108,11 @@ export interface Realism {
    *  chat's own switch is on. The Lust line shows only then, as the desktop's
    *  Lust bar; an older server sends none and the line stays hidden. */
   lustOn?: boolean;
+  /** The recovery countdown under the Lust line, in the desktop's words
+   *  (this member's own in a group); empty or absent when none runs. */
+  refractoryLabel?: string;
+  /** A group member's own face label: the cache key for their portrait. */
+  expressionLabel?: string;
   fixation: string;
   needsEnabled: boolean;
   needs: Record<string, number>;
