@@ -40,7 +40,7 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
   /// Called with (defaultMemberRealismState, baselineRealismState) on every edit.
   final void Function(String defaultMemberJson, String baselineJson) onChanged;
 
-  /// Shown under the members, inside the same scroll.
+  /// Shown under the members while the group's Realism and Afterglow are on.
   final Widget? footer;
 
   const GroupRealismDynamicsEditor({
@@ -276,8 +276,8 @@ class _GroupRealismDynamicsEditorState
               avatar: _avatar,
               onRelationshipChanged: _updateRelationship,
             ),
+            if (_afterglow) ?widget.footer,
           ],
-          ?widget.footer,
         ],
       ),
     );

@@ -22,7 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/member_realism_card.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -252,11 +252,11 @@ void main() {
 
       // Both edits save through the chat's database, real I/O the test clock
       // does not drive; the chat tells its listeners once a save is done.
-      Future<void> untilSaved(void Function() edit) async {
+      Future<void> untilSaved(Future<void> Function() edit) async {
         var saved = false;
         void done() => saved = true;
         chat.addListener(done);
-        edit();
+        await edit();
         for (var i = 0; i < 500 && !saved; i++) {
           await tester.runAsync(
             () => Future<void>.delayed(const Duration(milliseconds: 10)),
@@ -268,7 +268,7 @@ void main() {
       }
 
       await untilSaved(
-        () => tester
+        () async => tester
             .widget<RecoveryBlock>(adaBlock)
             .onChanged(RecoveryProfile.auto.withMinutes(60)),
       );

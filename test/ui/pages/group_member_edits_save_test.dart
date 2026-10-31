@@ -59,7 +59,8 @@ import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
+import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
@@ -397,8 +398,8 @@ void main() {
                   key: UniqueKey(),
                   loaded: true,
                   members: const [],
-                  defaultMemberJson: '{}',
-                  baselineJson: '{}',
+                  defaultMemberJson: _realismOn.defaultMemberJson,
+                  baselineJson: _realismOn.baselineJson,
                   onChanged: (_, _) {},
                   memberCards: [mara],
                 ),
@@ -431,4 +432,90 @@ void main() {
       expect(minutes, 60, reason: "the change reached Mara's row");
     });
   });
+
+  testWidgets("Edit group's Recovery block writes only Recovery, onto the "
+      "open chat's own member, and skips a member switched off", (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      // Since Edit group loaded Mara, Group Settings switched her own
+      // Afterglow off: her row and the open chat's copy say off.
+      final off = FrontPorchExtensions(afterglowEnabled: false);
+      await db.updateGroupMember(
+        GroupMembersCompanion(
+          id: const Value(_memberId),
+          frontPorchExtensions: Value(jsonEncode(off.toJson())),
+        ),
+      );
+      final live = member()..frontPorchExtensions = off;
+      final loaded = member()..frontPorchExtensions = FrontPorchExtensions();
+      final shy = CharacterCard(name: 'Shy')
+        ..dbId = 'mem-shy'
+        ..frontPorchExtensions = FrontPorchExtensions(afterglowEnabled: false);
+      final storage = FakeStorageService();
+      final chat = _OpenGroup([live]);
+      addTearDown(storage.dispose);
+      addTearDown(chat.dispose);
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<AppDatabase>.value(value: db),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: EditGroupRealismTab(
+                loaded: true,
+                members: const [],
+                defaultMemberJson: _realismOn.defaultMemberJson,
+                baselineJson: _realismOn.baselineJson,
+                onChanged: (_, _) {},
+                memberCards: [loaded, shy],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byType(RecoveryBlock),
+        findsOneWidget,
+        reason: "Shy's own switch is off",
+      );
+
+      tester
+          .widget<RecoveryBlock>(find.byType(RecoveryBlock))
+          .onChanged(RecoveryProfile.auto.withMinutes(60));
+      FrontPorchExtensions? row;
+      for (var i = 0; i < 100 && row?.recovery.recoveryMinutes != 60; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final raw = (await memberRow()).frontPorchExtensions;
+        row = raw == null
+            ? null
+            : FrontPorchExtensions.fromJson(
+                jsonDecode(raw) as Map<String, dynamic>,
+              );
+      }
+      expect(row?.recovery.recoveryMinutes, 60);
+      expect(
+        row?.afterglowEnabled,
+        isFalse,
+        reason: "the page's older copy did not write her switch back on",
+      );
+      expect(live.frontPorchExtensions?.recovery.recoveryMinutes, 60);
+      expect(live.frontPorchExtensions?.afterglowEnabled, isFalse);
+      expect(chat.refreshed, [same(live)], reason: "the chat's own member");
+    });
+  });
 }
+
+/// Group Realism on, with Afterglow for new chats, as Edit group loads it.
+final _realismOn = buildGroupRealismBlobs(
+  seeds: {_memberId: defaultGroupMemberRealismSeed()},
+  needsEnabled: true,
+  timeOfDay: 'morning',
+  dayCount: 1,
+);

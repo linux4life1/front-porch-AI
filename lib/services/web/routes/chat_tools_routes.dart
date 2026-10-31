@@ -470,7 +470,9 @@ class WebChatToolsRoutes {
     final id = body['id'];
     if (id is! String ||
         !await _facade.setMemberRecovery(id, body['recovery'])) {
-      return JsonResponse.badRequest('a group member id is required');
+      return JsonResponse.badRequest(
+        'a group member id and a recovery are required',
+      );
     }
     return JsonResponse.ok(_snapshot(request));
   }

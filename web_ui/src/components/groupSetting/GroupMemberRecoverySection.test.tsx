@@ -67,3 +67,25 @@ it("shows a member's Recovery block only while Afterglow runs for them, and save
   expect((posts[0].body as { id: string }).id).toBe('mem-ana');
   expect((posts[0].body as { recovery: { recoveryMode: string } }).recovery.recoveryMode).toBe('soft');
 });
+
+it('shows a change made elsewhere once nothing of its own is waiting to save', async () => {
+  const show = (recovery: unknown) =>
+    act(() => {
+      root.render(
+        createElement(GroupMemberRecoverySection, {
+          members: [{ id: 'mem-ana', name: 'Ana', afterglowRuns: true, recovery }],
+        }),
+      );
+    });
+  const preset = () => container.querySelector<HTMLSelectElement>('[data-testid="member-recovery-mem-ana"] select')!;
+  show({ recoveryMode: 'auto' });
+  act(() => {
+    preset().value = 'none';
+    preset().dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await act(async () => {
+    vi.advanceTimersByTime(500);
+  });
+  show({ recoveryMode: 'hard', recoveryMinutes: 30 });
+  expect(preset().value, 'the desktop set Short (30) since').toBe('short');
+});

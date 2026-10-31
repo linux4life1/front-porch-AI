@@ -279,6 +279,16 @@ void main() {
     expect(res.statusCode, 200);
     expect(card.frontPorchExtensions?.recovery.recoveryMinutes, 45);
     expect((row()['recovery'] as Map)['recoveryMinutes'], 45);
+    final bare = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/chat/tools/member-recovery'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'id': id}),
+      ),
+    );
+    expect(bare.statusCode, 400, reason: 'no Recovery block, no reset');
+    expect(card.frontPorchExtensions?.recovery.recoveryMinutes, 45);
 
     await chat.setMemberAfterglowEnabled(card, false);
     expect(row()['afterglowRuns'], isFalse);

@@ -18,7 +18,7 @@
 
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show Value, Variable;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -64,6 +64,36 @@ GroupMembersCompanion groupMemberCardColumns(CharacterCard card) {
         : Value(jsonEncode(ext.toJson())),
     rawExtensions: raw == null ? const Value.absent() : Value(jsonEncode(raw)),
     updatedAt: Value(DateTime.now()),
+  );
+}
+
+/// Saves only a group member's Recovery block onto their row, keeping every
+/// other extension the row holds now: a copy loaded earlier (Edit group) may
+/// be behind a change made since, such as the member's own Afterglow switch.
+Future<void> saveGroupMemberRecovery(
+  AppDatabase db,
+  String id,
+  RecoveryProfile recovery,
+) async {
+  final row = await db
+      .customSelect(
+        'SELECT front_porch_extensions AS e FROM group_members WHERE id = ?',
+        variables: [Variable(id)],
+      )
+      .getSingleOrNull();
+  if (row == null) throw StateError('no group member row $id');
+  final raw = row.data['e'] as String?;
+  final ext = raw == null || raw.isEmpty
+      ? FrontPorchExtensions()
+      : FrontPorchExtensions.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+  await db.updateGroupMember(
+    GroupMembersCompanion(
+      id: Value(id),
+      frontPorchExtensions: Value(
+        jsonEncode(ext.copyWith(recovery: recovery).toJson()),
+      ),
+      updatedAt: Value(DateTime.now()),
+    ),
   );
 }
 

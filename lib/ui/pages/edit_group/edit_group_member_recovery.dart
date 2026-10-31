@@ -25,13 +25,14 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/recovery_block.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Each member's Recovery block in Edit group, while Porch Life allows
-/// Afterglow. Like the member's Edit, it saves to the member's own row (the
-/// page's Save writes only the group), a moment after the last change, and
-/// the open chat's copy of the member follows.
+/// Afterglow and the member's own switch is on (the editor shows it only
+/// while the group's Afterglow is on). Like the member's Edit, it saves to the
+/// member's own row a moment after the last change, outside the page's Save,
+/// and the open chat's own member takes the new Recovery.
 class EditGroupMemberRecovery extends StatefulWidget {
   const EditGroupMemberRecovery({super.key, required this.members});
 
@@ -73,10 +74,24 @@ class _EditGroupMemberRecoveryState extends State<EditGroupMemberRecovery> {
     ChatService chat,
     CharacterCard member,
   ) async {
+    final recovery =
+        member.frontPorchExtensions?.recovery ?? RecoveryProfile.auto;
     try {
-      await saveGroupMemberExtensions(db, member);
-      if (isOpenGroupMember(chat, member)) {
-        chat.refreshActiveCharacterCard(member);
+      // Only Recovery: the rest of the member may have changed since this
+      // page loaded them, and an older copy must not write it back.
+      await saveGroupMemberRecovery(db, member.dbId!, recovery);
+      CharacterCard? live;
+      if (chat.isGroupMode) {
+        for (final c in chat.groupCharacters) {
+          if (c.dbId == member.dbId) live = c;
+        }
+      }
+      if (live != null) {
+        live.frontPorchExtensions =
+            (live.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+              recovery: recovery,
+            );
+        chat.refreshActiveCharacterCard(live);
       }
     } catch (e) {
       debugPrint('[EditGroup] Recovery for ${member.name} not saved: $e');
@@ -96,7 +111,10 @@ class _EditGroupMemberRecoveryState extends State<EditGroupMemberRecovery> {
   Widget build(BuildContext context) {
     final members = [
       for (final m in widget.members)
-        if (m.dbId != null && m.dbId!.isNotEmpty) m,
+        if (m.dbId != null &&
+            m.dbId!.isNotEmpty &&
+            (m.frontPorchExtensions?.afterglowEnabled ?? true))
+          m,
     ];
     if (!afterglowEnabledOf(context) || members.isEmpty) {
       return const SizedBox.shrink();

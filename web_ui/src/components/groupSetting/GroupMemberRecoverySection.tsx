@@ -42,6 +42,11 @@ export function GroupMemberRecoverySection({ members }: { members: MemberRecover
         setError(describeActionFailure('save the Recovery block', e));
       });
   };
+  // A fresh snapshot is the truth again for every member not waiting to save,
+  // so a change made elsewhere shows here instead of being posted over.
+  useEffect(() => {
+    setValues((v) => Object.fromEntries(Object.entries(v).filter(([id]) => pending.current[id])));
+  }, [members]);
   // Leaving the panel must not drop the last change.
   useEffect(() => () => Object.keys(pending.current).forEach(send), []);
 

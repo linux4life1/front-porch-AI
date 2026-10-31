@@ -90,8 +90,10 @@ class ChatToolsSwitches {
     return false;
   }
 
-  /// A group member's Recovery block. False when [id] is not a member.
+  /// A group member's Recovery block. False when [id] is not a member or
+  /// [fields] is not a Recovery block, so a bare call resets nothing.
   Future<bool> setMemberRecovery(String id, Object? fields) async {
+    if (fields is! Map) return false;
     for (final c in _chat.groupCharacters) {
       if (groupMemberStoreId(c) != id) continue;
       c.frontPorchExtensions =
