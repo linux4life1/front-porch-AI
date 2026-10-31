@@ -30,11 +30,15 @@
 // stripped, and string contents too unless the marker quotes one; whitespace
 // between tokens free). It is not proof of behaviour; the member editor
 // tests (group_member_edits_save_test, CharacterEditPage.member.test.tsx) pin
-// behaviour. Some editor marker on a member-editor surface (_editorSurfaces)
-// and some reader marker outside the models and the relay must name the
-// field itself (its name or JSON key), and a place two fields claim, however
-// its marker is spaced, must say why it is shared, so an entry copied from
-// another field, or pointed at the codec, fails. A read that happens
+// behaviour. Some editor marker on a member-editor surface (_editorSurfaces:
+// the desktop files the member editor renders, by name, and every file the
+// phone's member editor and Group Settings import) and some reader marker
+// outside the models, the relay and those editors must name the field
+// itself (its name or JSON key), and a place two fields claim, however its
+// marker is spaced, must say why it is shared, so an entry copied from
+// another field, or pointed at the codec or the editor's own draft, fails.
+// A noPhone reason says the phone has no such control in 1:1 either, or
+// what the phone uses, sends or reaches instead. A read that happens
 // in a helper is a chain: the group read first, then each `hop` the place
 // before it calls.
 //
@@ -555,17 +559,90 @@ class _Place {
 
 const _placeKeys = {'path', 'in', 'marker', 'shared', 'hop', 'why'};
 
-/// Where a member's value is edited: the member editors (desktop and
-/// phone), the form widgets they share, UI Settings, and the group's own
-/// promote and demote. The editor that names a field must be one of these,
-/// never a codec, a decoder, the relay or a model.
-const _editorSurfaces = [
-  'lib/ui/pages/edit_character_page',
-  'lib/ui/widgets/',
-  'lib/ui/dialogs/ui_settings',
+/// Where a member's value is edited on desktop: Edit Character opened on the
+/// member and the form widgets it renders, UI Settings, Group Settings, and
+/// the group's own promote and demote. Named file by file: the widgets
+/// barrel exports far more than the editor renders (a 1:1-only call
+/// overlay, for one), so an import walk would let any widget in.
+const _desktopEditorSurfaces = [
+  'lib/ui/pages/edit_character_page.dart',
+  'lib/ui/pages/edit_character_page/',
+  'lib/ui/widgets/realism_form_section.dart',
+  'lib/ui/widgets/realism_form_section/',
+  'lib/ui/widgets/needs_form_section.dart',
+  'lib/ui/widgets/identity_chip_lists.dart',
+  'lib/ui/widgets/greeting_seed_form.dart',
+  'lib/ui/widgets/greeting_seed_form/',
+  'lib/ui/dialogs/ui_settings_dialog.dart',
+  'lib/ui/dialogs/ui_settings/',
+  'lib/ui/dialogs/group_settings/',
   'lib/services/chat/group_lite.dart',
-  'web_ui/src/',
 ];
+
+/// The phone's member editor and Group Settings: every file their relative
+/// imports reach.
+const _webEditorRoots = [
+  'web_ui/src/pages/CharacterEditPage.tsx',
+  'web_ui/src/components/GroupSettings.tsx',
+];
+
+/// The editor surfaces: the desktop list and the phone's import walk. The
+/// editor that names a field must be on one, never a codec, a decoder, the
+/// relay or a model.
+final List<String> _editorSurfaces = [
+  ..._desktopEditorSurfaces,
+  ..._webReach(_webEditorRoots),
+];
+
+/// The non-test files [roots] reach through relative `import` / `export`.
+List<String> _webReach(List<String> roots) {
+  final seen = <String>{};
+  final queue = [...roots];
+  final spec = RegExp(r'''(?:\bfrom\s*|\bimport\s*)['"](\.{1,2}/[^'"]+)['"]''');
+  while (queue.isNotEmpty) {
+    final file = queue.removeLast();
+    if (!seen.add(file)) continue;
+    final dir = file.substring(0, file.lastIndexOf('/'));
+    for (final m in spec.allMatches(_read(file).withStrings)) {
+      final base = _normalize('$dir/${m[1]}');
+      for (final candidate in [
+        base,
+        '$base.tsx',
+        '$base.ts',
+        '$base/index.tsx',
+        '$base/index.ts',
+      ]) {
+        if (RegExp(r'\.tsx?$').hasMatch(candidate) &&
+            !RegExp(r'\.test\.tsx?$').hasMatch(candidate) &&
+            File(candidate).existsSync()) {
+          queue.add(candidate);
+          break;
+        }
+      }
+    }
+  }
+  return seen.toList()..sort();
+}
+
+/// [path] with `.` and `..` segments resolved.
+String _normalize(String path) {
+  final out = <String>[];
+  for (final part in path.split('/')) {
+    if (part == '.' || part.isEmpty) continue;
+    if (part == '..') {
+      if (out.isNotEmpty) out.removeLast();
+    } else {
+      out.add(part);
+    }
+  }
+  return out.join('/');
+}
+
+/// A noPhone reason says why the phone lacks the control: it lacks it in
+/// 1:1 too ("in 1:1 either"), or it names what the phone does instead.
+final _noPhoneReason = RegExp(
+  r'in 1:1 either|\bthe phone (?:uses|sends|reaches)\b',
+);
 
 /// Never where a group reads a field: the models and codecs, the relay.
 /// A model helper counts only as a hop from a read outside these.
@@ -932,6 +1009,14 @@ void main() {
       if (web && e.containsKey('noPhone')) {
         problems.add('$key: noPhone with a phone control');
       }
+      if (e['noPhone'] case final String why
+          when !_noPhoneReason.hasMatch(why)) {
+        problems.add(
+          '$key.noPhone: say why the phone has no such control: that it has '
+          'none in 1:1 either ("in 1:1 either"), or what the phone uses, '
+          'sends or reaches instead',
+        );
+      }
       final relay = _relays[prefix];
       if (web && relay != null) {
         for (final (side, fns) in [('set', relay.set), ('get', relay.get)]) {
@@ -963,17 +1048,20 @@ void main() {
       ]) {
         // The editor that names the field is a member-editor surface; the
         // reader is outside the models, or a hop from a read outside them.
+        // The editor's own draft load or save is not a group read.
+        bool readsInChat(String path) =>
+            !_under(path, _notReaders) && !_under(path, _editorSurfaces);
         bool counts(_Place p) => role == 'editor'
             ? _under(p.path, _editorSurfaces)
-            : !_under(p.path, _notReaders) ||
-                  (p.hop != null && !_under(places.first.path, _notReaders));
+            : readsInChat(p.path) ||
+                  (p.hop != null && readsInChat(places.first.path));
         if (places.isNotEmpty &&
             !places.any(
               (p) => counts(p) && names.any((n) => _names(p.marker, n)),
             )) {
           problems.add(
             '$key: no $role marker names ${names.join(' or ')} '
-            '${role == 'editor' ? 'on a member editor ($_editorSurfaces)' : 'outside the models and the relay (or as a hop from a read outside them)'}; '
+            '${role == 'editor' ? 'on a member editor (_editorSurfaces)' : 'outside the models, the relay and the editors (or as a hop from a read outside them)'}; '
             'point at where this field itself is '
             '${role == 'editor' ? 'set' : 'read'}',
           );
