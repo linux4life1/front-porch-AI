@@ -16,6 +16,7 @@ import { AltGreetingsEditor } from './AltGreetingsEditor';
 import { GroupMemberRecoverySection, type MemberRecoveryRow } from './groupSetting/GroupMemberRecoverySection';
 import { GroupNewChatsSection } from './groupSetting/GroupNewChatsSection';
 import { GroupWorldsSection } from './groupSetting/GroupWorldsSection';
+import { memberSummaryDetail, parseMemberStart } from './realism/memberGroup';
 import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
 
 export interface GroupBlock {
@@ -67,6 +68,37 @@ export function GroupSettings({
   // Bumped when the forked-group notice sets where new chats meet, so the
   // worlds section reloads what was saved.
   const [worldsGen, setWorldsGen] = useState(0);
+
+  // Each member's line (desktop GroupMemberSummaryRow): where they start in
+  // new chats of the group and their own Afterglow. Their editor (the Edit
+  // link) holds every setting of theirs. An older app has no such route.
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let live = true;
+    // Started inside a promise so any failure, even a synchronous one, lands
+    // in the catch below and the rest of Group Settings keeps working.
+    Promise.resolve()
+      .then(() => api.get<{ members?: unknown[] }>(`/api/groups/${groupId}/member-summaries`))
+      .then((r) => {
+        if (!live) return;
+        const out: Record<string, string> = {};
+        for (const m of r?.members ?? []) {
+          if (typeof m !== 'object' || m === null) continue;
+          const row = m as Record<string, unknown>;
+          if (typeof row.id !== 'string') continue;
+          out[row.id] = memberSummaryDetail(
+            parseMemberStart(row.start),
+            typeof row.afterglow === 'boolean' ? row.afterglow : null,
+            row.lite === true,
+          );
+        }
+        setSummaries(out);
+      })
+      .catch((e) => console.warn('[group] member summaries failed', e));
+    return () => {
+      live = false;
+    };
+  }, [groupId]);
 
   // Each field saves on blur. A failed save used to vanish silently; the
   // text is still in its box, so say so and let the next blur retry.
@@ -147,6 +179,11 @@ export function GroupSettings({
           <div key={m.id}>
           {/* Members with a row id only: a scene guest is no member, and a
               legacy member without one has no row to edit. */}
+          {m.dbId && summaries[m.dbId] && (
+            <p className="muted small" data-testid={`member-summary-${m.dbId}`}>
+              {m.name} · {summaries[m.dbId]}
+            </p>
+          )}
           {inRouter && m.dbId && (
             <Link
               to={`/groups/${groupId}/members/${m.dbId}/edit`}

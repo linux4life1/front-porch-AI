@@ -5,6 +5,7 @@
 // needs_form_section.dart. Per-need on/off, a starting baseline (0-100), pace,
 // and an "enjoys low hygiene" toggle. Reused by character create + edit.
 
+import type { ReactNode } from 'react';
 import { Slider, ToggleRow } from './controls';
 import { NeedsClockOffNote } from './NeedsClockOffNote';
 import { type RealismValues } from './realismTypes';
@@ -27,6 +28,7 @@ export function NeedsFormSection({
   set,
   clockOn,
   showSwitch = true,
+  groupLine,
 }: {
   v: RealismValues;
   set: Patch;
@@ -35,16 +37,20 @@ export function NeedsFormSection({
   /** The on/off row. A group member's editor hides it: Needs is the group's
    *  (Group Settings), so the member's own settings show as on. */
   showSwitch?: boolean;
+  /** Where the switch is when it is hidden: the group's own Needs, read-only. */
+  groupLine?: ReactNode;
 }) {
   return (
     <div className="realism-section">
-      {showSwitch && (
+      {showSwitch ? (
         <ToggleRow
           label="Needs simulation"
           hint="Hunger, bladder, energy… (100 = full, 0 = critical) influence prompts & behavior when low"
           value={v.needsSimEnabled}
           onChange={(b) => set({ needsSimEnabled: b })}
         />
+      ) : (
+        groupLine
       )}
       <NeedsClockOffNote clockOn={clockOn} />
 

@@ -2257,3 +2257,42 @@ test('a new group starts each member from their character card', { tag: SERIAL }
     for (const id of ids) await page.request.post(`/api/characters/${id}/delete`);
   }
 });
+
+// A group member's editor on the phone shows the group's own switches as
+// read-only lines, and where the member starts in the group's new chats
+// saves to the group's seed for them (Long-Term Bond under its own key),
+// never to their card.
+test("a member's start in the group's new chats saves to the group", { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+  const name = `Start Crew ${test.info().project.name}`;
+  const created = await request.post('/api/groups', { data: { name, memberIds } });
+  expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+  const groupId = ((await created.json()) as { id: string }).id;
+  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
+  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
+  type Start = { longTermBond: number; trustLevel: number };
+  const detail = async () =>
+    (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
+      start: Start | null;
+      group: { realism: boolean } | null;
+    };
+  try {
+    const before = (await detail()).start!;
+    expect((await detail()).group?.realism).toBe(true);
+    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
+    await expect(page.getByTestId('group-line-realism')).toContainText('Realism Engine · On for this group');
+    await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
+
+    const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');
+    await longTerm.focus();
+    await longTerm.press('End');
+    await page.getByRole('button', { name: 'Save character' }).click();
+    await expect.poll(async () => (await detail()).start?.longTermBond).toBe(300);
+    expect((await detail()).start?.trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+  } finally {
+    await request.post(`/api/groups/${groupId}/delete`);
+  }
+});
