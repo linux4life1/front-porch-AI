@@ -244,7 +244,7 @@ Outside of full auto-play, a **next character** button in the toolbar shows who'
 
 Each member keeps their own lorebooks, relationship scores, needs, expression images, and voice. It's a real ensemble, not one AI wearing different name tags.
 
-**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Per-member settings live in the member's editor (**Edit Character** on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. See [Realism Engine → In groups](realism-engine.md#in-groups).
+**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Most per-member settings live in the member's editor (**Edit Character** on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. Each member's Needs starting values, Pace and per-need switches are in Group Settings → Needs. See [Realism Engine → In groups](realism-engine.md#in-groups).
 
 Groups sit on the home screen next to your characters, and (since 1.2) can be filed into folders the same way.
 

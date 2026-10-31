@@ -99,7 +99,7 @@ Home → **Start New Chat** always asks which **persona**. It does not inherit t
 
 Each member keeps lorebooks, relationship, needs, expressions, voice.
 
-**Group Settings** (on the group, not global Settings): General, Realism, Needs, Memory & RAG, Lore/Worlds, **Prompt Engineering**. Per-member settings live in the member's editor (Edit Character on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. [In groups](realism-engine.md#in-groups).
+**Group Settings** (on the group, not global Settings): General, Realism, Needs, Memory & RAG, Lore/Worlds, **Prompt Engineering**. Most per-member settings live in the member's editor (Edit Character on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. Each member's Needs starting values, Pace and per-need switches are in Group Settings → Needs. [In groups](realism-engine.md#in-groups).
 
 **A 1:1 and a group are the same chat with a different headcount.** `/join`, `/join --full`, `/promote`, `/exit` change the cast in place. History stays.
 
