@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
@@ -61,7 +60,9 @@ class MemberGroupView {
   /// Opens where the group sets Needs; null shows it without a link.
   final void Function(BuildContext context)? onOpenNeeds;
 
-  /// Opens where the group sets Chaos; null shows [chaosWhere] instead.
+  /// Opens where the open chat sets Chaos; null shows [chaosWhere] instead.
+  /// A group's new chats have no such switch: their line says where their
+  /// Chaos comes from.
   final void Function(BuildContext context)? onOpenChaos;
   final String chaosWhere;
 
@@ -78,7 +79,11 @@ class MemberGroupView {
   /// A fresh [start] after the persisted definition was read again (the
   /// editor's Group Settings link closed); the editor takes it unless the
   /// user has moved the start since.
-  final ValueListenable<GroupMemberStart?>? startUpdates;
+  final ValueNotifier<GroupMemberStart?>? startUpdates;
+
+  /// Releases [startUpdates]: the editor's opener calls it once the editor
+  /// has closed.
+  void dispose() => startUpdates?.dispose();
 
   /// Where the group's Realism for new chats is set, for the line shown in
   /// place of the start when there is none.
@@ -129,12 +134,20 @@ MemberGroupRows memberGroupRows(
         ),
       ],
     ),
+    // A group's new chats take Chaos from Porch Life's default, else from
+    // what the group was made with; no switch changes that afterwards.
     chaos: GroupWideLine(
       icon: Icons.casino,
       text: 'Chaos Mode · ${on(values.chaos)}',
-      linkLabel: view.onOpenChaos == null ? null : 'Group Settings',
-      onOpen: link(view.onOpenChaos),
-      where: view.chaosWhere,
+      linkLabel: values.open && view.onOpenChaos != null
+          ? 'Group Settings'
+          : null,
+      onOpen: values.open ? link(view.onOpenChaos) : null,
+      where: values.open
+          ? view.chaosWhere
+          : values.chaosFromPorchLife
+          ? "on because Porch Life's Chaos default is on"
+          : 'the setting the group was made with',
     ),
     afterglow: GroupWideLine(
       icon: Icons.local_fire_department,
@@ -154,14 +167,24 @@ Widget memberGroupNeedsLine(
   BuildContext context,
   MemberGroupView view,
   GroupWideValues values,
-) => GroupWideLine(
-  icon: Icons.battery_std,
-  text:
-      'Needs · ${values.needs ? 'On' : 'Off'} '
-      '${values.open ? 'in this chat' : "for this group's new chats"}',
-  linkLabel: view.linkLabel,
-  onOpen: view.onOpenNeeds == null ? null : () => view.onOpenNeeds!(context),
-);
+) {
+  // Porch Life off keeps the group's own Needs switch greyed: no link to it.
+  final offInPorchLife = !values.open && values.needsOffInPorchLife;
+  return GroupWideLine(
+    icon: Icons.battery_std,
+    text:
+        'Needs · ${values.needs ? 'On' : 'Off'} '
+        '${values.open ? 'in this chat' : "for this group's new chats"}',
+    linkLabel: view.linkLabel,
+    onOpen: view.onOpenNeeds == null || offInPorchLife
+        ? null
+        : () => view.onOpenNeeds!(context),
+    where: offInPorchLife
+        ? "Off in Porch Life, so no chat runs Needs. This group's choice for "
+              'new chats is kept.'
+        : null,
+  );
+}
 
 /// What the editor says a group does with a member's own [greeting] seeds,
 /// [lorebook], [worlds] and [scenario].

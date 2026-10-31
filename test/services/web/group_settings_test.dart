@@ -1755,6 +1755,35 @@ void main() {
       expect((d['start'] as Map)['trustLevel'], 40);
     });
 
+    // New Chat seeds Chaos as the group's OR Porch Life's default, and Needs
+    // only while Porch Life runs it; the phone's lines say so.
+    test("a closed group's Chaos and Needs for new chats follow Porch "
+        'Life', () async {
+      final edit = GroupMemberEdit(db, storage, null, null);
+      await storage.realismSettings.setChaosModeDefault(false);
+      await db.updateGroup(
+        const GroupsCompanion(id: Value('g1'), chaosModeEnabled: Value(false)),
+      );
+      var group = (await edit.detail('g1', 'mem-mara'))!['group'] as Map;
+      expect(
+        [group['chaos'], group['chaosFromPorchLife'], group['needs']],
+        [false, false, true],
+      );
+
+      await storage.realismSettings.setChaosModeDefault(true);
+      await storage.realismSettings.setNeedsSimDefault(false);
+      group = (await edit.detail('g1', 'mem-mara'))!['group'] as Map;
+      expect(
+        [
+          group['chaos'],
+          group['chaosFromPorchLife'],
+          group['needs'],
+          group['needsOffInPorchLife'],
+        ],
+        [true, true, false, true],
+      );
+    });
+
     test("the detail carries Porch Life's Realism permission", () async {
       final edit = GroupMemberEdit(db, storage, null, null);
       expect((await edit.detail('g1', 'mem-mara'))!['realismAllowed'], isTrue);

@@ -23,6 +23,10 @@ export interface GroupLines {
   readsMemberLorebooks: boolean;
   /** The group is open in the chat: the lines are that chat's own switches. */
   open: boolean;
+  /** New chats: Porch Life's Chaos default is on, so they start with Chaos. */
+  chaosFromPorchLife: boolean;
+  /** New chats: Porch Life runs no Needs (the group's choice is kept). */
+  needsOffInPorchLife: boolean;
 }
 
 /** Where the member starts in new chats of the group. */
@@ -49,6 +53,8 @@ export function parseGroupLines(raw: unknown): GroupLines | null {
     settingName: typeof raw.settingName === 'string' ? raw.settingName : null,
     readsMemberLorebooks: b('readsMemberLorebooks'),
     open: b('open'),
+    chaosFromPorchLife: b('chaosFromPorchLife'),
+    needsOffInPorchLife: b('needsOffInPorchLife'),
   };
 }
 
@@ -103,7 +109,9 @@ export const NEW_CHATS_REALISM_WHERE = 'Group settings → Realism for new chats
 /** The lines and where each is set on the phone. Each says what it
  *  describes: while the group is open in the chat, that chat's own switches
  *  (in its tools); otherwise how the group's new chats start (Realism, Needs
- *  and Afterglow in Group settings, Chaos and the clock in a chat of it). */
+ *  and Afterglow in Group settings, the clock in a chat of it). A group's
+ *  new chats take Chaos from Porch Life's default, else from what the group
+ *  was made with, and no switch changes that afterwards. */
 export function groupLineTexts(g: GroupLines): Record<'realism' | 'time' | 'chaos' | 'afterglow' | 'needs', LineText> {
   const chat = "set in this chat's tools";
   const settings = g.open ? chat : `set in ${NEW_CHATS_REALISM_WHERE}`;
@@ -117,9 +125,22 @@ export function groupLineTexts(g: GroupLines): Record<'realism' | 'time' | 'chao
         : `Time & Day · this group's new chats start at: ${g.timeLabel}`,
       where: inChat,
     },
-    chaos: { text: `Chaos Mode · ${on(g.chaos)}`, where: inChat },
+    chaos: {
+      text: `Chaos Mode · ${on(g.chaos)}`,
+      where: g.open
+        ? chat
+        : g.chaosFromPorchLife
+          ? "on because Porch Life's Chaos default is on"
+          : 'the setting the group was made with',
+    },
     afterglow: { text: `Afterglow · ${on(g.afterglow)}`, where: settings },
-    needs: { text: `Needs · ${on(g.needs)}`, where: settings },
+    needs: {
+      text: `Needs · ${on(g.needs)}`,
+      where:
+        !g.open && g.needsOffInPorchLife
+          ? "Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept."
+          : settings,
+    },
   };
 }
 

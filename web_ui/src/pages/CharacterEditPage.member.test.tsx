@@ -240,7 +240,7 @@ describe("the group member editor and the member's group", () => {
       'set in Group settings → Realism for new chats, in a chat of this group',
     );
     expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
-      '· set in a chat of this group',
+      '· the setting the group was made with',
     );
 
     await act(async () => setRange(slider('Long-term bond'), '120'));
@@ -334,6 +334,25 @@ describe("the group member editor and the member's group", () => {
 // lines are that chat's own switches; the start beside them is how the
 // group's new chats begin, and when those run without Realism there is none
 // to set, and the editor says where that is set.
+// New Chat seeds a group's Chaos as its own setting OR Porch Life's Chaos
+// default, and its Needs only while Porch Life runs Needs.
+describe("the group member editor's lines for new chats", () => {
+  it("say Chaos comes from Porch Life's default, and Needs is off in Porch Life", async () => {
+    detailIs({
+      ...IN_GROUP,
+      group: { ...IN_GROUP.group, chaosFromPorchLife: true, needsOffInPorchLife: true },
+    });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
+      "· on because Porch Life's Chaos default is on",
+    );
+    expect(container.querySelector('[data-testid="group-line-needs"]')?.textContent).toContain(
+      "· Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept.",
+    );
+  });
+});
+
 describe('the group member editor while its group is open in the chat', () => {
   const OPEN = { ...IN_GROUP, group: { ...IN_GROUP.group, open: true } };
 

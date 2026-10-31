@@ -309,6 +309,16 @@ Future<void> showEditCharacterDialog(
     persisted = read;
   }
   if (!context.mounted) return;
+  // Built once, outside the builder, and released when the editor closes.
+  final view = member
+      ? memberGroupViewOfChat(
+          context,
+          chatService,
+          character,
+          persisted: persisted,
+          showTab: groupSettingsTab,
+        )
+      : null;
   final opened = showDialog<void>(
     context: context,
     builder: (dialogCtx) => Dialog(
@@ -320,15 +330,7 @@ Future<void> showEditCharacterDialog(
         child: EditCharacterPage(
           character: character,
           memberOfGroup: member ? chatService.activeGroup?.name : null,
-          memberGroup: member
-              ? memberGroupViewOfChat(
-                  context,
-                  chatService,
-                  character,
-                  persisted: persisted,
-                  showTab: groupSettingsTab,
-                )
-              : null,
+          memberGroup: view,
           onSaveOverride: db == null
               ? null
               : (card) => saveGroupMemberCard(db, card),
@@ -354,6 +356,7 @@ Future<void> showEditCharacterDialog(
     });
   }
   await opened;
+  view?.dispose();
 }
 
 /// The "Main Settings" popup button.

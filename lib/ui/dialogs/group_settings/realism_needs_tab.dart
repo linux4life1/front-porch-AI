@@ -19,11 +19,16 @@ class GroupRealismNeedsTab extends StatefulWidget {
   /// member's editor opened from here links back to it, not to a second
   /// Group Settings.
   final void Function(int tab)? onShowTab;
+
+  /// Fires when the dialog's Save has written the group's row, so the
+  /// members' summaries read it again.
+  final Listenable? rowSaved;
   const GroupRealismNeedsTab({
     super.key,
     required this.chatService,
     this.groupRepo,
     this.onShowTab,
+    this.rowSaved,
   });
 
   @override
@@ -43,12 +48,13 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
     widget.chatService.addListener(_onServiceChanged);
     _controller = GroupRealismNeedsController(widget.chatService)
       ..addListener(_onControllerChanged);
+    widget.rowSaved?.addListener(_readPersisted);
     _readPersisted();
   }
 
   Future<void> _readPersisted() async {
     final id = widget.chatService.activeGroup?.id;
-    if (id == null) return;
+    if (id == null || !mounted) return;
     try {
       final row = await liveDatabase(context).getGroupById(id);
       if (!mounted) return;
@@ -69,6 +75,7 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   @override
   void dispose() {
     widget.chatService.removeListener(_onServiceChanged);
+    widget.rowSaved?.removeListener(_readPersisted);
     _controller
       ..removeListener(_onControllerChanged)
       ..dispose();

@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -32,6 +34,11 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
   late TabController _tabController;
   final _generalTabKey = GlobalKey<GroupGeneralTabState>();
 
+  /// Bumped once Save's write has landed: the Realism tab's summaries read
+  /// the saved row.
+  final _rowSaved = ValueNotifier<int>(0);
+  Future<void>? _write;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +52,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
   @override
   void dispose() {
     _tabController.dispose();
+    _rowSaved.dispose();
     super.dispose();
   }
 
@@ -60,7 +68,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
     _generalTabKey.currentState?.applyToLiveGroup();
     final g = widget.chatService.activeGroup;
     if (g == null || widget.groupRepo == null) return false;
-    widget.groupRepo!.save(g);
+    _write = widget.groupRepo!.save(g);
     return true;
   }
 
@@ -187,6 +195,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                       chatService: widget.chatService,
                       groupRepo: widget.groupRepo,
                       onShowTab: _tabController.animateTo,
+                      rowSaved: _rowSaved,
                     ),
                     GroupNeedsTab(
                       chatService: widget.chatService,
@@ -241,6 +250,13 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                               content: Text('Group settings saved.'),
                               backgroundColor: AccentColors.emeraldFill,
                             ),
+                          );
+                          // The dialog stays open: its summaries follow the
+                          // row once written.
+                          unawaited(
+                            _write!.then((_) {
+                              if (mounted) _rowSaved.value++;
+                            }),
                           );
                         }
                       },
