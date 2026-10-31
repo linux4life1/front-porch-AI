@@ -16,20 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/backups/backup_restart.dart';
+import 'package:front_porch_ai/ui/pages/backups/full_backup_card.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Local database Backups & Restore.
-///
-/// Extracted from the (removed) Cloud Sync page so the local-backup feature
-/// lives on its own — it was never cloud-dependent (it's driven entirely by
-/// the on-device [BackupService]).
+/// Backups & Restore: automatic snapshots (database plus settings) and full
+/// backups to a file of the user's choosing (library, settings and the
+/// user's own files). See [BackupService] and `lib/services/backup/`.
 class BackupsPage extends StatefulWidget {
   const BackupsPage({super.key});
 
@@ -38,6 +35,14 @@ class BackupsPage extends StatefulWidget {
 }
 
 class _BackupsPageState extends State<BackupsPage> {
+  late Future<List<BackupEntry>> _entries = BackupService.listEntries();
+  final _pendingKey = GlobalKey<PendingRestoreBannerState>();
+
+  void _refresh() {
+    setState(() => _entries = BackupService.listEntries());
+    _pendingKey.currentState?.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -51,12 +56,14 @@ class _BackupsPageState extends State<BackupsPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _sectionHeader(context, 'Database Backups'),
+          PendingRestoreBanner(key: _pendingKey),
+          _sectionHeader(context, 'Automatic Snapshots'),
           const SizedBox(height: 8),
-          if (isPreRelease)
-            _disabledNotice(context, theme)
-          else
-            _backupBody(context, theme),
+          _snapshotBody(context, theme),
+          const SizedBox(height: 24),
+          _sectionHeader(context, 'Full Backup'),
+          const SizedBox(height: 8),
+          FullBackupCard(onChanged: _refresh),
         ],
       ),
     );
@@ -72,51 +79,16 @@ class _BackupsPageState extends State<BackupsPage> {
     );
   }
 
-  Widget _disabledNotice(BuildContext context, ThemeData theme) {
-    final accent = AppColors.porchAmberOf(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: accent.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.backup, size: 48, color: accent.withValues(alpha: 0.6)),
-          const SizedBox(height: 12),
-          Text(
-            'Backups Disabled',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Database backups are disabled in nightly builds to prevent '
-            'confusion between nightly and stable databases. Backups will be '
-            're-enabled once $stableVersionBase goes stable.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: accent,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _backupBody(BuildContext context, ThemeData theme) {
+  Widget _snapshotBody(BuildContext context, ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Backups are created automatically every 30 minutes. The newest '
-          '${BackupService.maxBackups} are always kept, plus one per day for the '
-          'last ${BackupService.dailyRetentionDays} days — fine-grained recent '
-          'history and a rolling week of daily restore points.',
+          'A snapshot of your library and settings is taken every 30 '
+          'minutes. The newest ${BackupService.maxBackups} are always kept, '
+          'plus one per day for the last ${BackupService.dailyRetentionDays} '
+          'days. Snapshots stay on this computer; for a copy you can keep '
+          'elsewhere, make a full backup below.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: AppColors.textSecondary(context),
           ),
@@ -144,8 +116,8 @@ class _BackupsPageState extends State<BackupsPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<File>>(
-                future: BackupService.listBackups(),
+              FutureBuilder<List<BackupEntry>>(
+                future: _entries,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
@@ -170,9 +142,9 @@ class _BackupsPageState extends State<BackupsPage> {
                     );
                   }
                   return Column(
-                    children: backups
-                        .map((b) => _backupTile(context, theme, b))
-                        .toList(),
+                    children: [
+                      for (final b in backups) _backupTile(context, theme, b),
+                    ],
                   );
                 },
               ),
@@ -183,13 +155,13 @@ class _BackupsPageState extends State<BackupsPage> {
     );
   }
 
-  Widget _backupTile(BuildContext context, ThemeData theme, File backup) {
-    final stat = backup.statSync();
-    final sizeMb = (stat.size / (1024 * 1024)).toStringAsFixed(1);
-    final modified = stat.modified.toLocal();
-    final timeStr =
-        '${modified.month}/${modified.day}/${modified.year} '
-        '${modified.hour}:${modified.minute.toString().padLeft(2, '0')}';
+  static String _time(DateTime t) =>
+      '${t.month}/${t.day}/${t.year} '
+      '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+
+  Widget _backupTile(BuildContext context, ThemeData theme, BackupEntry b) {
+    final sizeMb = (b.size / (1024 * 1024)).toStringAsFixed(1);
+    final timeStr = _time(b.modified);
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
@@ -205,7 +177,9 @@ class _BackupsPageState extends State<BackupsPage> {
         ),
       ),
       subtitle: Text(
-        '$sizeMb MB',
+        b.hasSettings
+            ? '$sizeMb MB · library and settings'
+            : '$sizeMb MB · library only',
         style: theme.textTheme.bodySmall?.copyWith(
           color: AppColors.textTertiary(context),
         ),
@@ -214,7 +188,7 @@ class _BackupsPageState extends State<BackupsPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           TextButton(
-            onPressed: () => _confirmRestore(context, backup.path),
+            onPressed: () => _confirmRestore(context, b),
             child: Text(
               'Restore',
               style: TextStyle(color: AppColors.porchAmberOf(context)),
@@ -227,7 +201,7 @@ class _BackupsPageState extends State<BackupsPage> {
               color: AppColors.negativeAccentOf(context),
             ),
             tooltip: 'Delete backup',
-            onPressed: () => _confirmDelete(context, backup, timeStr, sizeMb),
+            onPressed: () => _confirmDelete(context, b, timeStr, sizeMb),
           ),
         ],
       ),
@@ -247,12 +221,12 @@ class _BackupsPageState extends State<BackupsPage> {
         ),
       ),
     );
-    setState(() {}); // refresh the list
+    _refresh();
   }
 
   Future<void> _confirmDelete(
     BuildContext context,
-    File backup,
+    BackupEntry backup,
     String timeStr,
     String sizeMb,
   ) async {
@@ -279,9 +253,9 @@ class _BackupsPageState extends State<BackupsPage> {
     );
     if (confirmed != true) return;
     try {
-      await backup.delete();
+      await BackupService.deleteBackup(backup.file);
       if (!mounted) return;
-      setState(() {});
+      _refresh();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Backup deleted')));
@@ -293,16 +267,36 @@ class _BackupsPageState extends State<BackupsPage> {
     }
   }
 
-  void _confirmRestore(BuildContext context, String backupPath) {
+  void _confirmRestore(BuildContext context, BackupEntry backup) {
+    var withSettings = backup.hasSettings;
     showWarmDialog<void>(
       context,
       title: 'Restore Backup?',
       icon: Icons.warning_amber_rounded,
       accent: AppColors.porchAmberOf(context),
-      content: const WarmDialogText(
-        'This will replace your current database with the backup. '
-        'All changes made after this backup was created will be lost.\n\n'
-        'Your library reloads in place, so you should not need to restart.',
+      content: StatefulBuilder(
+        builder: (context, setLocal) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const WarmDialogText(
+              'This will replace your current database with the backup. '
+              'All changes made after this backup was created will be lost.\n\n'
+              'Your library reloads in place, so you should not need to restart.',
+            ),
+            if (backup.hasSettings)
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: withSettings,
+                onChanged: (v) => setLocal(() => withSettings = v ?? false),
+                title: const Text('Also restore settings'),
+                subtitle: const Text(
+                  'Saved prompts, presets and every other setting come back '
+                  'the next time you open Front Porch AI.',
+                ),
+              ),
+          ],
+        ),
       ),
       actions: [
         Builder(builder: (ctx) => warmDialogCancel(ctx)),
@@ -310,17 +304,21 @@ class _BackupsPageState extends State<BackupsPage> {
           builder: (ctx) => warmDialogConfirm(
             ctx,
             label: 'Restore',
-            onPressed: () => _restore(ctx, backupPath),
+            onPressed: () => _restore(ctx, backup, withSettings),
           ),
         ),
       ],
     );
   }
 
-  Future<void> _restore(BuildContext dialogContext, String backupPath) async {
+  Future<void> _restore(
+    BuildContext dialogContext,
+    BackupEntry backup,
+    bool withSettings,
+  ) async {
     Navigator.of(dialogContext).pop();
     try {
-      await BackupService.restoreBackup(backupPath);
+      await BackupService.restoreBackup(backup.file.path);
       if (!mounted) return;
       // Reopening the database is not enough on its own: every repository and
       // service captured the instance restoreBackup just closed, so without the
@@ -328,14 +326,49 @@ class _BackupsPageState extends State<BackupsPage> {
       // next action. Never cleans orphaned portraits — an older snapshot is
       // *supposed* to be missing newer characters.
       final rebound = await reopenAndRebindDatabase(context);
+      // Settings cannot be swapped under a running app (every service holds
+      // the old values), so they wait for the next launch.
+      var settingsStaged = false;
+      if (withSettings) {
+        try {
+          await BackupService.stageSnapshotSettings(backup);
+          settingsStaged = true;
+        } catch (e) {
+          debugPrint('[Backup] could not stage settings: $e');
+        }
+      }
       if (!mounted) return;
+      _refresh();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            rebound != null
-                ? 'Backup restored. Your library is back to that snapshot.'
-                : 'Backup restored to disk, but the app could not reload it — '
-                      'please close and reopen Front Porch AI.',
+          duration: Duration(seconds: settingsStaged ? 10 : 4),
+          action: settingsStaged
+              ? SnackBarAction(
+                  label: 'Quit now',
+                  onPressed: quitToFinishRestore,
+                )
+              : null,
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                rebound != null
+                    ? 'Backup restored. Your library is back to that snapshot.'
+                    : 'Backup restored to disk, but the app could not reload it — '
+                          'please close and reopen Front Porch AI.',
+              ),
+              if (settingsStaged)
+                const Text(
+                  'Your settings come back the next time you open '
+                  'Front Porch AI.',
+                ),
+              if (withSettings && !settingsStaged)
+                const Text(
+                  "The settings in that backup couldn't be read, so your "
+                  'current settings stay.',
+                ),
+            ],
           ),
         ),
       );

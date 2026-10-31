@@ -6,6 +6,7 @@
 
 export 'auth_routes.dart';
 export 'backend_routes.dart';
+export 'backup_routes.dart';
 export 'character_routes.dart';
 export 'chargen_routes.dart';
 export 'chat_overlay_routes.dart';

@@ -24,6 +24,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:front_porch_ai/services/backup/pending_restore.dart';
+import 'package:front_porch_ai/ui/pages/backups/backup_restart.dart';
 import 'package:front_porch_ai/app/app.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
@@ -256,6 +258,8 @@ class _MyAppState extends State<MyApp>
                       actions: [warmDialogCancel(context, label: 'OK')],
                     );
                   }
+                  final restored = PendingRestore.lastOutcome;
+                  if (restored != null) showRestoreOutcome(context, restored);
                   checkForAppUpdates(context).then((_) {
                     if (context.mounted) checkKoboldEngine(context);
                   });

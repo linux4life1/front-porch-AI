@@ -32,6 +32,7 @@ import { StoryRunLogPage } from './pages/StoryRunLogPage';
 import { ModelsPage } from './pages/ModelsPage';
 import { ImageStudioPage } from './pages/ImageStudioPage';
 import { AccountPage } from './pages/AccountPage';
+import { BackupsPage } from './pages/BackupsPage';
 import { StoopSection } from './pages/stoop/StoopSection';
 import { restoreSpellCheckLang, syncSpellCheckLang } from './spellCheckLang';
 import { useDesktopTheme } from './theme/useDesktopTheme';
@@ -95,6 +96,7 @@ export function App() {
         <Route path="/edit/:id" element={<CharacterEditPage />} />
         <Route path="/groups/:groupId/members/:memberId/edit" element={<CharacterEditPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="/backups" element={<BackupsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Layout>
