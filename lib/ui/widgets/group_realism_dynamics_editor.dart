@@ -117,7 +117,7 @@ class _GroupRealismDynamicsEditorState
       // relationships map is always present.
       final seed = existing != null
           ? Map<String, dynamic>.from(existing)
-          : defaultGroupMemberRealismSeed();
+          : groupMemberStartingSeed(m.extensions);
       seed['relationships'] = <String, int>{
         ...((seed['relationships'] as Map?)?.map(
               (k, v) => MapEntry(k.toString(), (v as num).toInt()),
@@ -386,29 +386,34 @@ class _GroupRealismDynamicsEditorState
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.borderOf(context)),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          leading: _avatar(m, 18),
-          title: Text(
-            m.name,
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary(context),
+      // The tile's ink paints on the nearest Material; without this one it
+      // would sit under the card's colour (Flutter asserts on that).
+      child: Material(
+        type: MaterialType.transparency,
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: _avatar(m, 18),
+            title: Text(
+              m.name,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(context),
+              ),
             ),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              GroupMemberRealismEditor(
+                seed: seed,
+                needsEnabled: _needsEnabled,
+                onNeedsEnabledChanged: (v) {
+                  setState(() => _needsEnabled = v);
+                  _emit();
+                },
+                onUpdate: (delta) => _updateMember(m.mid, delta),
+              ),
+            ],
           ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          children: [
-            GroupMemberRealismEditor(
-              seed: seed,
-              needsEnabled: _needsEnabled,
-              onNeedsEnabledChanged: (v) {
-                setState(() => _needsEnabled = v);
-                _emit();
-              },
-              onUpdate: (delta) => _updateMember(m.mid, delta),
-            ),
-          ],
         ),
       ),
     );

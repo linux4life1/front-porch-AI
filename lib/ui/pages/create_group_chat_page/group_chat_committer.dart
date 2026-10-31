@@ -104,7 +104,7 @@ class GroupChatCommitter {
         charPrompts[mid] = promptCtrl.text.trim();
       }
       final seed = seeds[id] = groupMemberStartingSeed(
-        source,
+        source.frontPorchExtensions,
         d.memberRealismSeeds[id] ?? const {},
       );
       final memberFp = groupMemberExtensions(

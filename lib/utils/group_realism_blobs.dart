@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import 'package:front_porch_ai/utils/group_member_card_seed.dart';
 
 /// Canonical (de)serialization for a group's per-member realism/needs/dynamics
 /// seeds ↔ the two GroupChat blobs (`defaultMemberRealismState`,
@@ -398,12 +399,15 @@ String withGroupOpeningAlts(
 /// The blobs a group stores once Realism and Needs for new chats are
 /// switched to [realismOn] / [needsOn], as the desktop realism editor writes
 /// them. Off keeps only the alternate greetings. On keeps every stored seed
-/// and scene time, adds a neutral seed for each of [memberIds] that has
-/// none, and gives seeds starting needs when Needs comes on.
+/// and scene time, and gives each of [memberIds] that has none the seed
+/// their card starts them at (groupMemberStartingSeed, from [memberCards]:
+/// member id → their row's extensions), as a new group does. When Needs
+/// comes on, a seed without needs gets that card's starting bars.
 GroupRealismBlobs switchGroupTemplateRealism({
   required String defaultMemberJson,
   required String baselineJson,
   required Iterable<String> memberIds,
+  Map<String, FrontPorchExtensions?> memberCards = const {},
   required bool realismOn,
   required bool needsOn,
 }) {
@@ -419,18 +423,22 @@ GroupRealismBlobs switchGroupTemplateRealism({
       baselineJson: '{}',
     );
   }
-  final fresh = defaultGroupMemberRealismSeed();
   final seeds = <String, Map<String, dynamic>>{
     for (final e in parseGroupRealismSeeds(defaultMemberJson).entries)
       e.key: Map<String, dynamic>.from(e.value),
   };
+  // A member whose card the caller did not pass gets the neutral seed.
+  Map<String, dynamic> first(String id) => memberCards.containsKey(id)
+      ? groupMemberStartingSeed(memberCards[id])
+      : defaultGroupMemberRealismSeed();
   for (final id in memberIds) {
-    seeds.putIfAbsent(id, () => Map<String, dynamic>.from(fresh));
+    seeds.putIfAbsent(id, () => first(id));
   }
   if (needsOn) {
-    for (final s in seeds.values) {
+    for (final e in seeds.entries) {
+      final s = e.value;
       if (s['needs'] is! Map || (s['needs'] as Map).isEmpty) {
-        s['needs'] = Map<String, int>.from(fresh['needs'] as Map);
+        s['needs'] = first(e.key)['needs'];
       }
     }
   }

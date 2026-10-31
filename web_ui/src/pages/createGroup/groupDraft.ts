@@ -152,11 +152,11 @@ const clamp = (v: unknown, lo: number, hi: number, fallback: number) =>
 
 /** Where a member starts, read from their card's `realism` (the
  *  /api/characters/<id>/detail payload), as the relay's
- *  groupMemberSeedFromCard reads it: the card's bonds, mood, verification
- *  and Needs. A card with none (a plain imported card) starts neutral. */
+ *  groupMemberSeedFromExtensions reads it: the card's bonds, mood,
+ *  verification and Needs. A card with none (a plain imported card) reads
+ *  as the defaults, as New Chat reads it in a 1:1. */
 export function memberRealismFromCard(realism: Partial<RealismValues> | null | undefined): MemberRealism {
-  if (realism == null) return { ...NEUTRAL_MEMBER };
-  const r = realismFromDetail(realism);
+  const r = realismFromDetail(realism ?? {});
   const emotion = (r.characterEmotion ?? '').trim();
   const baseline = (v: number) => clamp(v, 0, 100, 80);
   return {
@@ -187,26 +187,32 @@ export function memberRealism(d: GroupDraft, id: string, base: MemberRealism = N
   return { ...base, ...d.members[id] };
 }
 
-/** The bonds and mood a preset sets. */
-const PRESET_KEYS = ['affection', 'trust', 'emotion', 'emotionIntensity'] as const;
+/** The keys of [next] that differ from [shown]: what one edit of a
+ *  member's card changed, so only that is kept and posted. */
+export function changedKeys(shown: MemberRealism, next: MemberRealism): Partial<MemberRealism> {
+  return Object.fromEntries(
+    Object.entries(next).filter(
+      ([k, v]) => JSON.stringify(v) !== JSON.stringify((shown as unknown as Record<string, unknown>)[k]),
+    ),
+  ) as Partial<MemberRealism>;
+}
 
 /** Every member of [memberIds] set to [preset], as the desktop's Neutral
- *  and High Bond buttons replace each member's whole seed: their card seed
- *  from [bases] (the preset itself without one) with the preset's bonds and
- *  mood. Long-Term Bond is left unset, so it follows Short-Term Bond. */
+ *  and High Bond buttons do: the preset's bonds and mood over each card,
+ *  the member's other edits gone. Long-Term Bond is the preset's
+ *  Short-Term Bond, as on the desktop, so what shows is what saves. */
 export function membersAtPreset(
   memberIds: string[],
   preset: MemberRealism,
-  bases: Record<string, MemberRealism> = {},
 ): Record<string, Partial<MemberRealism>> {
-  return Object.fromEntries(
-    memberIds.map((id) => {
-      const base: MemberRealism = { ...(bases[id] ?? preset) };
-      delete base.longTermScore;
-      const picked = Object.fromEntries(PRESET_KEYS.map((k) => [k, preset[k]]));
-      return [id, { ...base, ...picked }];
-    }),
-  );
+  const picked: Partial<MemberRealism> = {
+    affection: preset.affection,
+    longTermScore: preset.affection,
+    trust: preset.trust,
+    emotion: preset.emotion,
+    emotionIntensity: preset.emotionIntensity,
+  };
+  return Object.fromEntries(memberIds.map((id) => [id, { ...picked }]));
 }
 
 export const EMPTY_DRAFT: GroupDraft = {
@@ -308,11 +314,9 @@ export function createBody(args: {
       dayCount: d.dayCount,
       ...(d.storyStartDate ? { storyStartDate: d.storyStartDate } : {}),
       ...(d.storyStartTime ? { storyStartTime: d.storyStartTime } : {}),
-      // A member the wizard left alone posts nothing: the relay starts them
-      // from their card, so a card seed still loading never posts neutral.
-      members: Object.fromEntries(
-        memberIds.filter((id) => id in d.members).map((id) => [id, memberRealism(d, id)]),
-      ),
+      // Only what the wizard changed: the relay lays it over each card, so
+      // nothing the step did not show ever travels.
+      members: Object.fromEntries(memberIds.filter((id) => id in d.members).map((id) => [id, d.members[id]])),
       relationships: liveRelationships(d, memberIds),
     },
   };

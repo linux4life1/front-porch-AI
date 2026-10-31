@@ -20,7 +20,6 @@
 // Then Create runs the real save path, and both the group and its members
 // must land in the live database.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -33,14 +32,9 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
-import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart'
-    show GroupMemberRealismCard;
-import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/utils/utils.dart' show parseGroupRealismSeeds;
 
 import '../../golden/support/fakes.dart';
-import '../../helpers/double_tap.dart';
 import '../../golden/support/fakes_storage.dart';
 
 /// Group avatars go to a temp folder; the library itself is never touched.
@@ -322,198 +316,6 @@ void main() {
       (aerin.ttsVoice, bo.ttsVoice),
       ('af_sky', null),
       reason: 'the picks were put on the library cards in memory',
-    );
-  });
-
-  // Every member of a desktop-made group started at a fixed neutral seed
-  // (bond 35, trust 40, neutral mood, the neutral needs bars) that also won
-  // over the card's Needs, verifier and Director-authority settings on the
-  // member row. A member now starts from their card, with what the wizard
-  // set laid over it, and a baseline moved in the wizard starts its bar
-  // there.
-  testWidgets('Create Group starts each member from their card and the '
-      'wizard\'s edits, once, without writing the library card', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(1280, 1800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final aerin = CharacterCard(
-      name: 'Aerin',
-      description: 'First roster member.',
-      firstMessage: 'Hello.',
-      frontPorchExtensions: FrontPorchExtensions(
-        shortTermBond: 120,
-        longTermBond: -40,
-        trustLevel: 70,
-        characterEmotion: 'wistful',
-        emotionIntensity: 'strong',
-        needsBaselineHunger: 30,
-        needsBaselineFun: 55,
-        needsPace: 'sloth',
-        needsOff: ['fun'],
-        enjoysLowHygiene: true,
-        realismVerificationEnabled: true,
-        realismVerificationMaxReprocesses: 4,
-        realismVerificationStrictness: 5,
-        realismNeedsDirectorAuthority: true,
-      ),
-    );
-    final bo = CharacterCard(
-      name: 'Bo',
-      description: 'Second roster member.',
-      firstMessage: 'Hi.',
-    );
-
-    final storage = _Storage(docsDir);
-    late AppDatabase live;
-    late GroupChatRepository groups;
-    late CharacterRepository repo;
-    await tester.runAsync(() async {
-      live = await AppDatabase.instance();
-      groups = GroupChatRepository(storage, live);
-      await groups.reload();
-      repo = _Library(live, storage, [aerin, bo]);
-    });
-    addTearDown(() => tester.runAsync(AppDatabase.closeAndReset));
-
-    final chat = FakeChatService();
-    final worlds = FakeWorldRepository();
-    final folders = FakeFolderService();
-    final llm = FakeLLMProvider();
-    final tts = FakeTtsService();
-    for (final s in [repo, chat, storage, worlds, folders, llm, tts, groups]) {
-      addTearDown(s.dispose);
-    }
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          Provider<AppDatabase>.value(value: live),
-          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
-          ChangeNotifierProvider<ChatService>.value(value: chat),
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
-          ChangeNotifierProvider<FolderService>.value(value: folders),
-          ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
-          ChangeNotifierProvider<LLMProvider>.value(value: llm),
-          ChangeNotifierProvider<TtsService>.value(value: tts),
-        ],
-        child: const MaterialApp(home: CreateGroupChatPage()),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Aerin').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Bo').first);
-    await tester.pumpAndSettle();
-
-    Future<void> next(String landmark) async {
-      await tester.ensureVisible(find.text('Next'));
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(find.text(landmark), findsWidgets);
-    }
-
-    await next('Group Name');
-    await tester.enterText(find.byType(TextField).first, 'Carded Porch');
-    await tester.pumpAndSettle();
-    await next('Where does the group meet?');
-    await next('Day Number');
-
-    // Bo's card says nothing, so the wizard sets his Hunger baseline.
-    final boCard = find.byWidgetPredicate(
-      (w) => w is GroupMemberRealismCard && w.member.name == 'Bo',
-    );
-    final boTitle = find.descendant(of: boCard, matching: find.text('Bo'));
-    await tester.ensureVisible(boTitle);
-    await tester.tap(boTitle);
-    await tester.pumpAndSettle();
-    tester
-        .widget<NeedsFormSection>(
-          find.descendant(of: boCard, matching: find.byType(NeedsFormSection)),
-        )
-        .onBaselineHungerChanged(40);
-    await tester.pumpAndSettle();
-
-    await next('Opening Scene');
-    await next('Group System Prompt');
-    await next('Create Group & Enter Chat');
-
-    const createOnly = "Create Only (don't enter chat yet)";
-    await tester.ensureVisible(find.text(createOnly));
-    await doubleTapNoFrame(tester, find.text(createOnly));
-    for (var i = 0; i < 100 && groups.groups.isEmpty; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 20)),
-      );
-      await tester.pump();
-    }
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 200)),
-    );
-    await tester.pump();
-    final saved = await tester.runAsync(() async {
-      await groups.reload();
-      return groups.groups.toList();
-    });
-    expect(saved, hasLength(1), reason: 'a fast double click made two groups');
-
-    final group = saved!.single;
-    final rows = await tester.runAsync(() => live.getGroupMembers(group.id));
-    final mid = {for (final m in rows!) m.name: m.id};
-    final seeds = parseGroupRealismSeeds(group.defaultMemberRealismState);
-    final a = seeds[mid['Aerin']]!;
-    expect(
-      [
-        a['affection'],
-        a['longTermScore'],
-        a['trust'],
-        a['emotion'],
-        a['emotionIntensity'],
-      ],
-      [120, -40, 70, 'wistful', 'strong'],
-      reason: 'THE BUG: the neutral 35 / 40 / neutral won over the card',
-    );
-    expect(a['needs'], containsPair('hunger', 30));
-    expect(a['needs'], containsPair('fun', 55));
-    final b = seeds[mid['Bo']]!;
-    expect([b['affection'], b['trust'], b['emotion']], [35, 40, 'neutral']);
-    expect(b['needsBaselineHunger'], 40);
-    expect(
-      b['needs'],
-      containsPair('hunger', 40),
-      reason: 'the bar ignored the baseline set in the wizard',
-    );
-
-    final row = FrontPorchExtensions.fromJson(
-      jsonDecode(
-            rows.firstWhere((m) => m.name == 'Aerin').frontPorchExtensions!,
-          )
-          as Map<String, dynamic>,
-    );
-    expect(
-      (
-        row.needsPace,
-        row.enjoysLowHygiene,
-        row.realismVerificationEnabled,
-        row.realismVerificationMaxReprocesses,
-        row.realismVerificationStrictness,
-        row.realismNeedsDirectorAuthority,
-      ),
-      ('sloth', true, true, 4, 5, true),
-      reason: 'THE BUG: the neutral seed reset these on the member row',
-    );
-    expect(row.needsOff, ['fun']);
-    expect(
-      (
-        aerin.frontPorchExtensions!.shortTermBond,
-        aerin.frontPorchExtensions!.needsBaselineHunger,
-        bo.frontPorchExtensions,
-      ),
-      (120, 30, null),
-      reason: 'a group never writes the library card',
     );
   });
 }

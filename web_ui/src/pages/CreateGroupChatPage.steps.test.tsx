@@ -165,17 +165,22 @@ it("posts each member's Voice from Details, the global voice included", async ()
   }
 });
 
-// The Realism step drew every member at the neutral seed and Create posted
-// that seed for each, over their cards. It now reads each picked card and
-// posts nothing for a member left alone, so the relay starts them from it.
-it("shows each member's card on Realism, and posts no seed for one left alone", async () => {
+/// The Realism step drew every member at the neutral seed and Create posted
+// that seed for each, over their cards. It now reads each picked card,
+// posts only what the wizard changed, and keeps a member closed until
+// their card has loaded, with a retry when it fails.
+const summary = (id: string) =>
+  container.querySelector(`[data-testid="group-realism-member-${id}"] summary`)?.textContent ?? '';
+const pending = (id: string) => container.querySelector(`[data-testid="group-realism-member-${id}-pending"]`);
+
+it("shows each member's card on Realism, and posts only what was changed", async () => {
   const { api } = await import('../api/client');
   const original = api.get;
   const asked: string[] = [];
   const spy = vi.spyOn(api, 'get').mockImplementation(async (path: string) => {
     if (path.includes('/detail')) asked.push(path);
     return path === '/api/characters/j/detail'
-      ? { realism: { shortTermBond: -60, trustLevel: -25, characterEmotion: 'guarded' } }
+      ? { realism: { shortTermBond: -60, trustLevel: -25, characterEmotion: 'guarded', needsPace: 'fast' } }
       : original(path);
   });
   try {
@@ -183,17 +188,61 @@ it("shows each member's card on Realism, and posts no seed for one left alone", 
     click('Marlow');
     while (!text().includes('Realism Engine for this group')) click('Next');
     await act(async () => {});
-    const summary = (id: string) =>
-      container.querySelector(`[data-testid="group-realism-member-${id}"] summary`)?.textContent ?? '';
     expect(summary('j')).toContain('guarded • Bond -60 / Trust -25');
-    expect(summary('m')).toContain('neutral • Bond 35 / Trust 40');
+    expect(summary('m'), 'a plain card starts where a 1:1 does').toContain('neutral • Bond 0 / Trust 0');
     expect(asked.filter((p) => p.endsWith('/j/detail')), 'each card is read once').toHaveLength(1);
+    const emotion = container.querySelector<HTMLInputElement>(
+      '[data-testid="group-realism-member-j"] input[placeholder="e.g. curious, guarded, amused"]',
+    )!;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(emotion, 'fond');
+    act(() => {
+      emotion.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     while (!text().includes('Create & open')) click('Next');
     await act(async () => {
       button('Create & open').click();
     });
     const create = posts.find((p) => p.path === '/api/groups');
-    expect((create?.body as { realism: { members: object } }).realism.members).toEqual({});
+    expect((create?.body as { realism: { members: object } }).realism.members).toEqual({ j: { emotion: 'fond' } });
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it("keeps a member closed while their card loads, and offers a retry when it can't", async () => {
+  const { api } = await import('../api/client');
+  const original = api.get;
+  let release: (v: unknown) => void = () => {};
+  let marlowCalls = 0;
+  const spy = vi.spyOn(api, 'get').mockImplementation(async (path: string) => {
+    if (path === '/api/characters/j/detail') return new Promise((r) => (release = r));
+    if (path === '/api/characters/m/detail') {
+      marlowCalls += 1;
+      if (marlowCalls === 1) throw new Error('offline');
+      return { realism: { shortTermBond: 12 } };
+    }
+    return original(path);
+  });
+  try {
+    click('Juniper');
+    click('Marlow');
+    while (!text().includes('Realism Engine for this group')) click('Next');
+    await act(async () => {});
+    expect(pending('j')?.textContent).toContain("Loading Juniper's card");
+    expect(button('High Bond').disabled, 'no preset over a card still loading').toBe(true);
+    expect(pending('m')?.textContent).toContain("Couldn't load Marlow's card.");
+
+    await act(async () => {
+      [...pending('m')!.querySelectorAll('button')].find((b) => b.textContent === 'Retry')!.click();
+    });
+    expect(marlowCalls).toBe(2);
+    expect(summary('m')).toContain('Bond 12');
+
+    await act(async () => {
+      release({ realism: { shortTermBond: -60, characterEmotion: 'guarded' } });
+    });
+    expect(summary('j')).toContain('guarded • Bond -60');
+    expect(button('High Bond').disabled).toBe(false);
   } finally {
     spy.mockRestore();
   }

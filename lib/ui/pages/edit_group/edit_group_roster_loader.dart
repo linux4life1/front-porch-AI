@@ -41,13 +41,15 @@ loadEditGroupRoster(
     if (fn == null) continue;
     final avatarPath = p.join(storage.groupsDir.path, groupId, 'avatars', fn);
     if (!await File(avatarPath).exists()) continue;
-    cards.add(m.toCharacterCard(resolvedImagePath: avatarPath));
+    final card = m.toCharacterCard(resolvedImagePath: avatarPath);
+    cards.add(card);
     realism.add(
       GroupRealismMember(
         mid: m.id,
         name: m.name,
         originStableId: m.originStableId,
         avatarPath: avatarPath,
+        extensions: card.frontPorchExtensions,
       ),
     );
   }

@@ -303,17 +303,20 @@ class GroupWizardDraft extends ChangeNotifier {
   }
 
   /// Neutral and High Bond: each member's card seed with the preset's bonds
-  /// and mood. Long-Term Bond is left unset, so it follows Short-Term Bond.
+  /// and mood. Long-Term Bond is set to the preset's Short-Term Bond, so the
+  /// slider and the saved seed agree (the web's presets set the same keys).
   void bulkSeedRealism(String mode) {
     final preset = switch (mode) {
       'neutral' => const {
         'affection': 35,
+        'longTermScore': 35,
         'trust': 40,
         'emotion': 'neutral',
         'emotionIntensity': 'mild',
       },
       'highBond' => const {
         'affection': 75,
+        'longTermScore': 75,
         'trust': 70,
         'emotion': 'affection',
         'emotionIntensity': 'moderate',
@@ -324,9 +327,7 @@ class GroupWizardDraft extends ChangeNotifier {
     update(() {
       for (final c in members) {
         final id = stableId(c);
-        memberRealismSeeds[id] = defaultRealismSeedFor(c)
-          ..remove('longTermScore')
-          ..addAll(preset);
+        memberRealismSeeds[id] = defaultRealismSeedFor(c)..addAll(preset);
         _syncNeedsBaselines(id);
       }
     });

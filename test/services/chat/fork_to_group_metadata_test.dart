@@ -491,9 +491,13 @@ void main() {
     await chat.addGeneratedImageMessage('/pictures/porch.png', 'a porch');
     final groups = GroupChatRepository(storage, db);
 
-    final group = await chat.forkToGroupChat([
-      card('Marisol', 'char-fork-card-guest'),
-    ], groups);
+    // Marisol arrives as a guest (/promote's path), so her row is a lite
+    // copy; she starts where her card starts her, as in the wizard.
+    final group = await chat.forkToGroupChat(
+      [card('Marisol', 'char-fork-card-guest')],
+      groups,
+      liteArrivalKeys: {'char-fork-card-guest'},
+    );
 
     await groups.reload();
     final saved = groups.getById(group!.id)!;
@@ -516,9 +520,15 @@ void main() {
     expect(nia['needsPace'], 'fast');
     final marisol = seeds[mid['Marisol']]!;
     expect(
-      [marisol['affection'], marisol['trust'], marisol['emotion']],
-      [35, 40, 'neutral'],
-      reason: 'a card that says nothing starts neutral, as before',
+      [
+        marisol['affection'],
+        marisol['longTermScore'],
+        marisol['trust'],
+        marisol['emotion'],
+      ],
+      [0, 0, 0, 'neutral'],
+      reason: 'a card that says nothing starts where a 1:1 with it does',
     );
+    expect(marisol['needs'], containsPair('social', 80));
   });
 }

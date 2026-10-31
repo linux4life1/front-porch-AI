@@ -105,6 +105,10 @@ class GroupNewChats {
         defaultMemberJson: g.defaultMemberRealismState,
         baselineJson: g.baselineRealismState,
         memberIds: ids,
+        memberCards: {
+          for (final m in members)
+            m.id: m.toCharacterCard(resolvedImagePath: '').frontPorchExtensions,
+        },
         realismOn: realism ?? cur.realismOn,
         needsOn: needs ?? cur.needsOn,
       );

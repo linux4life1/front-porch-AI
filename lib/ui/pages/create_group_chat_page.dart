@@ -152,6 +152,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     _creating = true;
     try {
       await _commitGroup(enterChat: enterChat);
+    } catch (e, st) {
+      debugPrint('[CreateGroup] create failed: $e\n$st');
+      _showSnack('Could not create the group: $e');
     } finally {
       _creating = false;
     }

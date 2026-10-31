@@ -138,7 +138,7 @@ class GroupCreateDraft {
       final libId = source.dbId;
       if (libId == null || !idMap.containsKey(libId)) continue;
       final seed = groupMemberStartingSeed(
-        source,
+        source.frontPorchExtensions,
         memberSeedOverrides(_realism['members'], libId),
       );
       final r = rels[libId];

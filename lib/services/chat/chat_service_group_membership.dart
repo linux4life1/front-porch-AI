@@ -127,13 +127,19 @@ extension ChatServiceGroupMembership on ChatService {
     // and every additional character. Without this, the group loads empty
     // (setActiveGroup / GroupTurnManager will have no one to speak).
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
-    await _createGroupMember(group.id, _activeCharacter!);
+    // Member id → the extensions of the card each was made from: a guest's
+    // row holds a lite copy, which is not what new chats start from.
+    final madeFrom = <String, FrontPorchExtensions?>{
+      await _createGroupMember(group.id, _activeCharacter!):
+          _activeCharacter!.frontPorchExtensions,
+    };
     for (final c in orderedArrivals) {
       final key = _getCharacterIdFromCard(c);
       final asLite =
           liteArrivalKeys.contains(key) ||
           (c.dbId != null && liteArrivalKeys.contains(c.dbId));
-      await _createGroupMember(group.id, c, asLite: asLite);
+      madeFrom[await _createGroupMember(group.id, c, asLite: asLite)] =
+          c.frontPorchExtensions;
     }
 
     // Create a new session for the group and copy all messages
@@ -254,7 +260,7 @@ extension ChatServiceGroupMembership on ChatService {
 
     // Only after the forked chat has loaded: these are the settings for
     // the group's NEW chats, and the chat above must keep the 1:1's state.
-    await _saveForkTemplate(group, groupRepo, hostState);
+    await _saveForkTemplate(group, groupRepo, hostState, madeFrom);
 
     // Run any custom entrances WITHOUT blocking the caller, so the wizard can
     // navigate to the group immediately and the entrance messages stream into
@@ -349,11 +355,16 @@ extension ChatServiceGroupMembership on ChatService {
     GroupChat group,
     GroupChatRepository groupRepo,
     Map<String, dynamic> hostState,
+    Map<String, FrontPorchExtensions?> madeFrom,
   ) async {
     try {
       if (hostState['realismOn'] as bool? ?? false) {
         final blobs = cardGroupRealismBlobs({
-          for (final c in _groupCharacters) _getCharacterIdFromCard(c): c,
+          for (final c in _groupCharacters)
+            if (_getCharacterIdFromCard(c) case final id)
+              id: madeFrom.containsKey(id)
+                  ? madeFrom[id]
+                  : c.frontPorchExtensions,
         }, needsEnabled: hostState['needsSimEnabled'] as bool? ?? false);
         group.defaultMemberRealismState = blobs.defaultMemberJson;
         group.baselineRealismState = blobs.baselineJson;

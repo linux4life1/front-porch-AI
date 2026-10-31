@@ -215,7 +215,14 @@ export function CreateGroupChatPage() {
           />
         )}
 
-        {step === 3 && <RealismStep draft={draft} set={set} members={members} cards={cards} />}
+        {step === 3 && <RealismStep
+            draft={draft}
+            set={set}
+            members={members}
+            cards={cards.seeds}
+            failedCards={cards.failed}
+            onRetryCard={cards.retry}
+          />}
 
         {step === 5 && <PromptsLoreStep draft={draft} set={set} members={members} />}
 
