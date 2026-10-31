@@ -260,5 +260,32 @@ void main() {
           jsonDecode(await current.readAsString()) as Map<String, dynamic>;
       expect(healed['flutter.beta_saved_prompts'], 'edited since the move');
     });
+
+    test('the old folder is copied once: a key deleted after the move stays '
+        'deleted', () async {
+      final legacy = p.join(tmp.path, 'com.antigravity', 'FPAI');
+      await put(p.join(legacy, 'a.secure'), 'old a');
+      await put(p.join(legacy, 'cache', 'img.png'), 'png');
+      final current = Directory(p.join(tmp.path, 'FPAI'));
+
+      expect(
+        await PrefsRecovery.copyLegacyFiles(Directory(legacy), current),
+        2,
+      );
+      // The user signs out or clears the cache in the new folder.
+      await File(p.join(current.path, 'a.secure')).delete();
+      await File(p.join(current.path, 'cache', 'img.png')).delete();
+
+      expect(
+        await PrefsRecovery.copyLegacyFiles(Directory(legacy), current),
+        0,
+      );
+      expect(File(p.join(current.path, 'a.secure')).existsSync(), isFalse);
+      expect(
+        File(p.join(current.path, 'cache', 'img.png')).existsSync(),
+        isFalse,
+      );
+      expect(File(p.join(legacy, 'a.secure')).existsSync(), isTrue);
+    });
   });
 }

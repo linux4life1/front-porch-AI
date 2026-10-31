@@ -111,7 +111,12 @@ class AtomicPrefsStore extends SharedPreferencesStorePlatform {
       final text = await file.readAsString();
       if (text.isNotEmpty) {
         final data = jsonDecode(text);
-        if (data is Map) values = data.cast<String, Object>();
+        // Valid JSON that is not an object is as broken as a torn file: read
+        // as empty, the next save would overwrite it. Recovery handles it.
+        if (data is! Map) {
+          throw const FormatException('settings file is not a JSON object');
+        }
+        values = data.cast<String, Object>();
       }
     }
     return values;

@@ -128,11 +128,17 @@ class PrefsRecovery {
       'flutter.${nightly ? 'beta_' : ''}moved_from_legacy_windows_folder';
 
   /// Copies the files of [from] that [to] does not have (stored keys and
-  /// anything else the app keeps there). The settings file and its own
-  /// copies are left to [mergeLegacySettingsFile]; an existing file is
-  /// never overwritten. Returns how many files were copied.
+  /// anything else the app keeps there), once: a marker file in [to] records
+  /// the copy, so a file removed from the new folder later (a deleted key, a
+  /// cleared cache) never comes back from the old one, which stays in place.
+  /// The files are shared by both channels, so one copy serves both. The
+  /// settings file and its own copies are left to
+  /// [mergeLegacySettingsFile]; an existing file is never overwritten.
+  /// Returns how many files were copied.
   static Future<int> copyLegacyFiles(Directory from, Directory to) async {
     if (!await from.exists()) return 0;
+    final marker = File(p.join(to.path, _filesMovedMarker));
+    if (await marker.exists()) return 0;
     var copied = 0;
     await for (final entity in from.list(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
@@ -144,8 +150,13 @@ class PrefsRecovery {
       await entity.copy(target.path);
       copied++;
     }
+    // Written only after every file is across: a copy cut short runs again.
+    await to.create(recursive: true);
+    await marker.writeAsString(DateTime.now().toUtc().toIso8601String());
     return copied;
   }
+
+  static const String _filesMovedMarker = '.moved_from_com.antigravity';
 
   /// Brings this channel's settings from the old settings file into the
   /// new one, once per channel. The old values win for this channel's keys:

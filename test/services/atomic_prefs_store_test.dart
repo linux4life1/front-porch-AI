@@ -163,4 +163,10 @@ void main() {
       expect(prefs.getString('remote_model_name'), 'smoke');
     },
   );
+
+  test('a settings file that is JSON but not an object throws instead of '
+      'reading as empty', () async {
+    await file.writeAsString('[]');
+    await expectLater(store().getAll(), throwsA(isA<FormatException>()));
+  });
 }
