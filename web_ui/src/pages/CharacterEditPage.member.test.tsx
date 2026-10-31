@@ -226,7 +226,9 @@ describe("the group member editor and the member's group", () => {
       'Needs · Off for this group',
       'Where Mara starts in new chats of this group.',
       'Used when a greeting opens a chat of this group.',
-      'This group meets in Harborside.',
+      "This group meets in Harborside: the group's world sets the place and weather",
+      'While Group settings has "Inherit character & world lorebooks" on, Mara\'s own worlds add their lore when Mara speaks; it is on for this group.',
+      "The group shares one scene: it uses its own Scenario, or, while it has none, its first member's.",
       'The group reads it when Group settings has "Inherit character & world lorebooks" on; it is on for this group.',
     ]) {
       expect(text(), line).toContain(line);

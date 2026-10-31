@@ -1001,10 +1001,36 @@ void main() {
       );
       await tester.tap(find.text('Worlds'));
       await tester.pumpAndSettle();
+      // A group turn reads the speaker's own worlds' lore while the group
+      // inherits lorebooks; only the place and weather are the group's alone.
       expect(
-        find.textContaining(
-          "This group has no Setting world yet. A member's own worlds "
-          "aren't used in a group",
+        find.text(
+          "This group has no Setting world yet: the group's world sets the "
+          'place and weather, and is set in Group Settings. While Group '
+          'Settings → Lorebook & Worlds has "Inherit character lorebooks" on, '
+          "Mara's own worlds add their lore when Mara speaks; it is off for "
+          'this group.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining("aren't used in a group"), findsNothing);
+    });
+  });
+
+  testWidgets("a member editor says the group shares one scenario", (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final mara = member();
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair')),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+      expect(
+        find.text(
+          'The group shares one scene: it uses its own Scenario, or, while '
+          "it has none, its first member's.",
         ),
         findsOneWidget,
       );
@@ -1535,6 +1561,15 @@ void main() {
         find.textContaining(
           'when Edit group → Lore & Worlds has "Inherit character & world '
           'lorebooks" on',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Worlds'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          'While Edit group → Lore & Worlds has "Inherit character & world '
+          "lorebooks\" on, Mara's own worlds add their lore when Mara speaks",
         ),
         findsOneWidget,
       );

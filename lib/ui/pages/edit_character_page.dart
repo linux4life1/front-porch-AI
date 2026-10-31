@@ -414,6 +414,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           draft: _draft,
           memberOfGroup: widget.memberOfGroup,
           memberGroup: group,
+          scenarioNote: notes?.scenario,
           start: _start,
           onStartChanged: (s) => setState(() => _start = s),
           onChanged: _rebuild,
