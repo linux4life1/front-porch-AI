@@ -734,7 +734,7 @@
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
           "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
         }
       ]
     },
@@ -792,7 +792,7 @@
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
           "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
         }
       ]
     },
@@ -815,7 +815,7 @@
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
           "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
         }
       ]
     },
@@ -962,7 +962,7 @@
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
           "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
         }
       ],
       "noEditor": "no editor writes a character's chat font, in 1:1 either"
@@ -999,7 +999,7 @@
           "path": "lib/ui/pages/chat_page_overlays.dart",
           "in": "ChatSurface.build",
           "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
         }
       ]
     },
@@ -1219,14 +1219,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.characterEmotion"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "_mood.seed(resolved.characterEmotion"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.characterEmotion",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1264,14 +1265,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.currentTask"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "FrontPorchExtensions(currentTask: resolved.currentTask)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.currentTask",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1309,14 +1311,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.dayCount"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "dayCount: resolved.dayCount"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.dayCount",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1354,14 +1357,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.emotionIntensity"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "resolved.emotionIntensity)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.emotionIntensity",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1399,14 +1403,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.inventory"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "Pockets.fromJson(resolved.inventory)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.inventory",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1444,14 +1449,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.longTermBond"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "longTermBond: resolved.longTermBond"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.longTermBond",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1488,15 +1494,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineBladder"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineBladder",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1533,15 +1540,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineComfort"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineComfort",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1578,15 +1586,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineEnergy"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineEnergy",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1623,15 +1632,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineFun"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineFun",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1668,15 +1678,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineHunger"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineHunger",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1713,15 +1724,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineHygiene"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineHygiene",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1758,15 +1770,16 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.needsBaselineSocial"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineSocial",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1804,14 +1817,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.shortTermBond"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "shortTermBond: resolved.shortTermBond"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.shortTermBond",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1849,14 +1863,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.storyStartDate"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "storyStartDate: resolved.storyStartDate"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.storyStartDate",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1894,14 +1909,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.storyStartTime"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "storyStartTime: resolved.storyStartTime"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.storyStartTime",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1939,14 +1955,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.timeOfDay"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "timeOfDay: resolved.timeOfDay"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.timeOfDay",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -1984,14 +2001,15 @@
       ],
       "reader": [
         {
-          "path": "lib/models/greeting/greeting_opening.dart",
-          "in": "resolveGreetingOpening",
-          "marker": "o?.trustLevel"
-        },
-        {
           "path": "lib/services/chat/chat_service_greeting_seed.dart",
           "in": "_applyGreetingOpeningSeed",
           "marker": "trustLevel: resolved.trustLevel"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.trustLevel",
+          "hop": "the overlay merge the greeting seed calls"
         }
       ]
     },
@@ -3073,8 +3091,17 @@
           "marker": "recovery.withPcdMood(mood)"
         },
         {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "value: recovery.pcdMood"
+        },
+        {
           "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
           "marker": "recoveryWithPcdMood(r, mood)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "value={r.pcdMood ?? 'off'}"
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
@@ -3120,8 +3147,17 @@
           "marker": "recovery.withMinutes(v.round())"
         },
         {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "(recovery.recoveryMinutes ?? neutralSliderMinutes)"
+        },
+        {
           "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
           "marker": "recoveryWithMinutes(r, n)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "r.recoveryMinutes ?? NEUTRAL_RECOVERY_MINUTES"
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
@@ -3157,6 +3193,10 @@
         {
           "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
           "marker": "recoveryFromPreset(key,"
+        },
+        {
+          "path": "web_ui/src/components/realism/realismTypes.ts",
+          "marker": "return { recoveryMode: p.recoveryMode,"
         },
         {
           "path": "web_ui/src/components/realism/RealismFormSection.tsx",
@@ -3316,19 +3356,7 @@
         }
       ],
       "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
-      "reader": [
-        {
-          "path": "lib/services/storage/settings/ui_settings.dart",
-          "in": "getUserBubbleColor",
-          "marker": "character?.frontPorchExtensions?.userBubbleColor"
-        },
-        {
-          "path": "lib/ui/pages/chat_page_overlays.dart",
-          "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
-        }
-      ]
+      "soloOnly": "your own bubbles take their colours from the 1:1 host, and a group has none (bubbleHost): they use your Settings colours, so a member's copy is never read in a group (a theme preset's border accent reads the preset, not the card). The member's UI Settings says so"
     },
     "ext.userTextColor": {
       "editor": [
@@ -3339,19 +3367,7 @@
         }
       ],
       "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
-      "reader": [
-        {
-          "path": "lib/services/storage/settings/ui_settings.dart",
-          "in": "getUserTextColor",
-          "marker": "character?.frontPorchExtensions?.userTextColor"
-        },
-        {
-          "path": "lib/ui/pages/chat_page_overlays.dart",
-          "in": "ChatSurface.build",
-          "marker": "resolveGroupSpeakerForMessage(",
-          "shared": "every bubble style is read from the card of the member who wrote the message"
-        }
-      ]
+      "soloOnly": "your own bubbles take their colours from the 1:1 host, and a group has none (bubbleHost): they use your Settings colours, so a member's copy is never read in a group (a theme preset's border accent reads the preset, not the card). The member's UI Settings says so"
     },
     "ext.workDays": {
       "editor": [

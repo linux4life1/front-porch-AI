@@ -30,9 +30,11 @@
 // stripped, and string contents too unless the marker quotes one; whitespace
 // between tokens free). It is not proof of behaviour; the member editor
 // tests (group_member_edits_save_test, CharacterEditPage.member.test.tsx) pin
-// behaviour. Some editor and some reader marker must name the field itself
-// (its name or JSON key), and a place two fields claim must say why it is
-// shared, so an entry copied from another field fails. A read that happens
+// behaviour. Some editor marker on a member-editor surface (_editorSurfaces)
+// and some reader marker outside the models and the relay must name the
+// field itself (its name or JSON key), and a place two fields claim, however
+// its marker is spaced, must say why it is shared, so an entry copied from
+// another field, or pointed at the codec, fails. A read that happens
 // in a helper is a chain: the group read first, then each `hop` the place
 // before it calls.
 //
@@ -543,13 +545,39 @@ class _Place {
   final String? hop;
   final Set<String> unknown;
 
-  String get identity => '$path|${inFn ?? ''}|$marker';
+  /// The same place however the marker is spaced.
+  String get identity =>
+      '$path|${inFn ?? ''}|${marker.replaceAll(RegExp(r'\s+'), '')}';
 
   @override
   String toString() => '$path${inFn == null ? '' : ' in $inFn'} "$marker"';
 }
 
 const _placeKeys = {'path', 'in', 'marker', 'shared', 'hop', 'why'};
+
+/// Where a member's value is edited: the member editors (desktop and
+/// phone), the form widgets they share, UI Settings, and the group's own
+/// promote and demote. The editor that names a field must be one of these,
+/// never a codec, a decoder, the relay or a model.
+const _editorSurfaces = [
+  'lib/ui/pages/edit_character_page',
+  'lib/ui/widgets/',
+  'lib/ui/dialogs/ui_settings',
+  'lib/services/chat/group_lite.dart',
+  'web_ui/src/',
+];
+
+/// Never where a group reads a field: the models and codecs, the relay.
+/// A model helper counts only as a hop from a read outside these.
+const _notReaders = [
+  'lib/models/',
+  'lib/services/web/util/realism_extensions_json.dart',
+  'lib/services/web/facade/character/character_card_edits.dart',
+  'lib/services/group_member_start.dart',
+];
+
+bool _under(String path, List<String> prefixes) =>
+    prefixes.any((p) => path.startsWith(p));
 
 /// Whether [marker] names [name] as a whole token.
 bool _names(String marker, String name) =>
@@ -933,11 +961,21 @@ void main() {
         ('editor', _places(e['editor'])),
         ('reader', _places(e['reader'])),
       ]) {
+        // The editor that names the field is a member-editor surface; the
+        // reader is outside the models, or a hop from a read outside them.
+        bool counts(_Place p) => role == 'editor'
+            ? _under(p.path, _editorSurfaces)
+            : !_under(p.path, _notReaders) ||
+                  (p.hop != null && !_under(places.first.path, _notReaders));
         if (places.isNotEmpty &&
-            !places.any((p) => names.any((n) => _names(p.marker, n)))) {
+            !places.any(
+              (p) => counts(p) && names.any((n) => _names(p.marker, n)),
+            )) {
           problems.add(
-            '$key: no $role marker names ${names.join(' or ')}; point at '
-            'where this field itself is ${role == 'editor' ? 'set' : 'read'}',
+            '$key: no $role marker names ${names.join(' or ')} '
+            '${role == 'editor' ? 'on a member editor ($_editorSurfaces)' : 'outside the models and the relay (or as a hop from a read outside them)'}; '
+            'point at where this field itself is '
+            '${role == 'editor' ? 'set' : 'read'}',
           );
         }
         for (final p in places) {
