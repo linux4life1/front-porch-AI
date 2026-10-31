@@ -220,6 +220,65 @@ void main() {
     );
   });
 
+  // Opened from inside Group Settings, the editor's group lines opened a
+  // second Group Settings over the first. They close the editor back to the
+  // dialog it came from, on the tab the line names.
+  testWidgets("a member's editor opened from Group Settings links back to "
+      'its tab, not to a second Group Settings', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+    final shown = <int>[];
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(
+              chatService: chat,
+              groupRepo: repo,
+              onShowTab: shown.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      find.byType(GroupSettingsDialog),
+      findsNothing,
+      reason: 'THE BUG: a second Group Settings opened over the first',
+    );
+    expect(find.byType(EditCharacterPage), findsNothing);
+    expect(shown, [2], reason: 'back on Group Settings → Realism');
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+  });
+
   group("the group chat's own Afterglow switch", () {
     Future<void> pumpTab(WidgetTester tester, {required bool allowed}) async {
       await tester.binding.setSurfaceSize(const Size(900, 2400));

@@ -83,6 +83,25 @@ class EditCharacterPage extends StatefulWidget {
   State<EditCharacterPage> createState() => _EditCharacterPageState();
 }
 
+/// Closes the character editor that holds [context], asking first when it
+/// has unsaved edits, as its back button does. [onLeave] runs only when it
+/// closes, just before (whoever awaits the editor resumes after it), so a
+/// link out of a member's editor that the user backs out of with "Keep
+/// editing" leaves everything where it was. True when it closed.
+Future<bool> leaveCharacterEditor(
+  BuildContext context, {
+  VoidCallback? onLeave,
+}) async {
+  final page = context.findAncestorStateOfType<_EditCharacterPageState>();
+  if (page == null || !page.mounted) return false;
+  final dirty = page._draft.isDirty || page._startMoved;
+  if (dirty && !await confirmDiscardChanges(page.context)) return false;
+  if (!page.mounted) return false;
+  onLeave?.call();
+  Navigator.of(page.context).pop();
+  return true;
+}
+
 class _EditCharacterPageState extends State<EditCharacterPage>
     with SingleTickerProviderStateMixin {
   late final EditCharacterDraft _draft;
@@ -259,15 +278,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   Future<void> _saveCharacter() async {
     if (_saving) return;
     _saving = true;
-    final writer = EditCharacterCardWriter(
-      character: widget.character,
-      draft: _draft,
-    );
-    writer.writeFields();
-    await writer.embedPng(Provider.of<StorageService>(context, listen: false));
-    writer.writeLorebook();
-
+    var left = false;
     try {
+      final writer = EditCharacterCardWriter(
+        character: widget.character,
+        draft: _draft,
+      );
+      writer.writeFields();
+      await writer.embedPng(
+        Provider.of<StorageService>(context, listen: false),
+      );
+      writer.writeLorebook();
+
       if (widget.onSaveOverride != null) {
         // Delegated persistence (e.g. a group member → its group row, never the
         // library). The field updates + PNG save above already ran on the card.
@@ -306,6 +328,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       }
 
       if (mounted) {
+        left = true;
         // Continue mode (e.g. the Stoop update flow): return the saved card so
         // the caller can proceed, instead of the standard "updated" toast + pop.
         if (widget.popWithCardOnSave) {
@@ -318,7 +341,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         }
       }
     } catch (e) {
-      _saving = false;
+      debugPrint('[EditCharacter] save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -328,6 +351,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           ),
         );
       }
+    } finally {
+      // A save that did not leave the page (it failed) lets Save try again.
+      if (!left) _saving = false;
     }
   }
 
@@ -374,7 +400,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     final group = widget.memberOfGroup == null ? null : widget.memberGroup;
     final notes = group == null
         ? null
-        : memberTabNotes(_draft.nameController.text, group.read());
+        : memberTabNotes(_draft.nameController.text, group.read(), group);
     return EditCharacterScaffold(
       characterName: widget.character.name,
       saveLabel: widget.saveLabel,

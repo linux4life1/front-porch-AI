@@ -21,6 +21,8 @@ export interface GroupLines {
   timeLabel: string;
   settingName: string | null;
   readsMemberLorebooks: boolean;
+  /** The group is open in the chat: the lines are that chat's own switches. */
+  open: boolean;
 }
 
 /** Where the member starts in new chats of the group. */
@@ -46,6 +48,7 @@ export function parseGroupLines(raw: unknown): GroupLines | null {
     timeLabel: typeof raw.timeLabel === 'string' ? raw.timeLabel : '',
     settingName: typeof raw.settingName === 'string' ? raw.settingName : null,
     readsMemberLorebooks: b('readsMemberLorebooks'),
+    open: b('open'),
   };
 }
 
@@ -79,22 +82,34 @@ export function memberSummaryDetail(
 
 const onOff = (v: boolean) => (v ? 'On' : 'Off');
 
-/** One of the group's own switches, read-only. */
-export function GroupLine({ text, testId }: { text: string; testId?: string }) {
+export interface LineText {
+  text: string;
+  /** Where the phone sets it. */
+  where: string;
+}
+
+/** One of the group's own switches, read-only, and where it is set. */
+export function GroupLine({ line, testId }: { line: LineText; testId?: string }) {
   return (
     <p className="card muted small group-line" data-testid={testId}>
-      {text} <span className="muted">· set in Group Settings</span>
+      {line.text} <span className="muted">· {line.where}</span>
     </p>
   );
 }
 
-export function groupLineTexts(g: GroupLines) {
+/** The lines and where each is set on the phone: the open chat's own
+ *  switches are in its tools; a closed group's settings for new chats are
+ *  in Group settings, and its Chaos and clock only in a chat of the group. */
+export function groupLineTexts(g: GroupLines): Record<'realism' | 'time' | 'chaos' | 'afterglow' | 'needs', LineText> {
+  const chat = "set in this chat's tools";
+  const settings = g.open ? chat : 'set in Group settings, in a chat of this group';
+  const inChat = g.open ? chat : 'set in a chat of this group';
   return {
-    realism: `Realism Engine · ${onOff(g.realism)} for this group`,
-    time: `Time & Day · shared by the group: ${g.timeLabel}`,
-    chaos: `Chaos Mode · ${onOff(g.chaos)} for this group`,
-    afterglow: `Afterglow · ${onOff(g.afterglow)} for this group`,
-    needs: `Needs · ${onOff(g.needs)} for this group`,
+    realism: { text: `Realism Engine · ${onOff(g.realism)} for this group`, where: settings },
+    time: { text: `Time & Day · shared by the group: ${g.timeLabel}`, where: inChat },
+    chaos: { text: `Chaos Mode · ${onOff(g.chaos)} for this group`, where: inChat },
+    afterglow: { text: `Afterglow · ${onOff(g.afterglow)} for this group`, where: settings },
+    needs: { text: `Needs · ${onOff(g.needs)} for this group`, where: settings },
   };
 }
 
@@ -171,10 +186,10 @@ export function memberSectionNotes(name: string, g: GroupLines) {
   return {
     greeting: 'Used when a greeting opens a chat of this group.',
     lorebook:
-      `${name}'s lorebook. The group reads it when Group Settings → Lorebook & Worlds has ` +
-      `"Inherit character lorebooks" on; it is ${g.readsMemberLorebooks ? 'on' : 'off'} for this group.`,
+      `${name}'s lorebook. The group reads it when Group settings has ` +
+      `"Inherit character & world lorebooks" on; it is ${g.readsMemberLorebooks ? 'on' : 'off'} for this group.`,
     worlds:
       `${g.settingName ? `This group meets in ${g.settingName}.` : 'This group has no Setting world yet.'} ` +
-      "A member's own worlds aren't used in a group; the group's world is set in Group Settings.",
+      "A member's own worlds aren't used in a group; the group's world is set in Group settings.",
   };
 }

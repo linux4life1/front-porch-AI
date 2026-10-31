@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
+import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
@@ -1592,6 +1593,71 @@ void main() {
       expect(
         await GroupMemberEdit(db, storage, null, null).summaries('nope'),
         isNull,
+      );
+    });
+
+    test("a member with no seed posting her start leaves the group's Needs "
+        'off for new chats', () async {
+      final needsOff = buildGroupRealismBlobs(
+        seeds: {'mem-bo': defaultGroupMemberRealismSeed()},
+        needsEnabled: false,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.updateGroup(
+        GroupsCompanion(
+          id: const Value('g1'),
+          defaultMemberRealismState: Value(needsOff.defaultMemberJson),
+          baselineRealismState: Value(needsOff.baselineJson),
+        ),
+      );
+      await GroupMemberEdit(db, storage, null, null).update('g1', 'mem-mara', {
+        'groupStart': {'trustLevel': 70},
+      });
+
+      final stored = (await db.getGroupById('g1'))!.defaultMemberRealismState;
+      expect(parseGroupRealismSeeds(stored)['mem-mara']!['trust'], 70);
+      expect(groupTemplateRealismOf(stored).needsOn, isFalse);
+    });
+
+    test("a seed an older group filed under the member's origin is the start "
+        'the phone shows and saves', () async {
+      await db.updateGroupMember(
+        GroupMembersCompanion(
+          id: const Value('mem-mara'),
+          memberState: Value(
+            GroupMember.encodeProvenance(originStableId: 'mara-origin'),
+          ),
+        ),
+      );
+      final legacy = buildGroupRealismBlobs(
+        seeds: {
+          'mara-origin': {...defaultGroupMemberRealismSeed(), 'affection': 90},
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await db.updateGroup(
+        GroupsCompanion(
+          id: const Value('g1'),
+          defaultMemberRealismState: Value(legacy.defaultMemberJson),
+          baselineRealismState: Value(legacy.baselineJson),
+        ),
+      );
+      final edit = GroupMemberEdit(db, storage, null, null);
+      final start = (await edit.detail('g1', 'mem-mara'))!['start'] as Map;
+      expect(start['shortTermBond'], 90);
+      await edit.update('g1', 'mem-mara', {
+        'groupStart': {'trustLevel': 30},
+      });
+      final seeds = parseGroupRealismSeeds(
+        (await db.getGroupById('g1'))!.defaultMemberRealismState,
+      );
+      expect(seeds.keys, ['mem-mara']);
+      expect(
+        [seeds['mem-mara']!['affection'], seeds['mem-mara']!['trust']],
+        [90, 30],
       );
     });
   });

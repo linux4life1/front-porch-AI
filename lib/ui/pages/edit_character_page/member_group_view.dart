@@ -31,7 +31,12 @@ class MemberGroupView {
     this.changes,
     this.linkLabel = 'Group Settings',
     this.onOpenRealism,
+    this.onOpenChaos,
     this.onOpenNeeds,
+    this.chaosWhere = 'set in Group Settings',
+    this.loreWhere =
+        'Group Settings → Lorebook & Worlds has "Inherit character lorebooks"',
+    this.worldsWhere = 'Group Settings',
     this.start,
     this.saveStart,
     this.realismAllowed = true,
@@ -52,6 +57,15 @@ class MemberGroupView {
 
   /// Opens where the group sets Needs; null shows it without a link.
   final void Function(BuildContext context)? onOpenNeeds;
+
+  /// Opens where the group sets Chaos; null shows [chaosWhere] instead.
+  final void Function(BuildContext context)? onOpenChaos;
+  final String chaosWhere;
+
+  /// Where the member's way in sets the group's lorebook reading and its
+  /// world, for the Lorebook and Worlds tabs' notes.
+  final String loreWhere;
+  final String worldsWhere;
 
   /// Where the member starts in new chats of the group. Null when the
   /// group's new chats start without Realism (no member seeds).
@@ -103,8 +117,9 @@ MemberGroupRows memberGroupRows(
     chaos: GroupWideLine(
       icon: Icons.casino,
       text: 'Chaos Mode · ${on(values.chaos)} for this group',
-      linkLabel: view.linkLabel,
-      onOpen: realismLink,
+      linkLabel: view.onOpenChaos == null ? null : 'Group Settings',
+      onOpen: link(view.onOpenChaos),
+      where: view.chaosWhere,
     ),
     afterglow: GroupWideLine(
       icon: Icons.local_fire_department,
@@ -132,18 +147,21 @@ Widget memberGroupNeedsLine(
 /// member's own [greeting] seeds, [lorebook] and [worlds].
 typedef MemberTabNotes = ({String greeting, String lorebook, String worlds});
 
-MemberTabNotes memberTabNotes(String typedName, GroupWideValues values) {
+MemberTabNotes memberTabNotes(
+  String typedName,
+  GroupWideValues values,
+  MemberGroupView view,
+) {
   final name = typedName.trim().isEmpty ? 'This member' : typedName.trim();
   final setting = values.settingName;
   return (
     greeting: 'Used when this greeting opens a chat of this group.',
     lorebook:
-        "$name's lorebook. The group reads it when Group Settings → Lorebook "
-        '& Worlds has "Inherit character lorebooks" on; it is '
-        '${values.readsMemberLorebooks ? 'on' : 'off'} for this group.',
+        "$name's lorebook. The group reads it when ${view.loreWhere} on; "
+        'it is ${values.readsMemberLorebooks ? 'on' : 'off'} for this group.',
     worlds:
         '${setting == null ? 'This group has no Setting world yet.' : 'This group meets in $setting.'} '
         "A member's own worlds aren't used in a group; the group's world is "
-        'set in Group Settings.',
+        'set in ${view.worldsWhere}.',
   );
 }

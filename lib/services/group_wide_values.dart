@@ -35,6 +35,7 @@ class GroupWideValues {
     required this.dayCount,
     this.settingName,
     this.readsMemberLorebooks = false,
+    this.open = false,
   });
 
   final bool realism;
@@ -51,6 +52,10 @@ class GroupWideValues {
 
   /// Lore → "Inherit character lorebooks".
   final bool readsMemberLorebooks;
+
+  /// Read from the open chat (its own switches), not the group's settings
+  /// for new chats.
+  final bool open;
 
   /// "Late morning, Day 3".
   String get timeLabel {
@@ -71,6 +76,7 @@ class GroupWideValues {
     'timeLabel': timeLabel,
     'settingName': settingName,
     'readsMemberLorebooks': readsMemberLorebooks,
+    'open': open,
   };
 }
 
@@ -100,6 +106,7 @@ GroupWideValues groupWideValuesOfChat(
     dayCount: chat.timeService.dayCount,
     settingName: group == null ? null : groupSettingNameIn(group, worlds),
     readsMemberLorebooks: group?.inheritCharacterLorebooks ?? false,
+    open: true,
   );
 }
 

@@ -437,7 +437,7 @@ export function CharacterEditPage() {
             clockOn={clockOn}
             showSwitch={!member}
             groupLine={
-              group ? <GroupLine text={groupLineTexts(group).needs} testId="group-line-needs" /> : undefined
+              group ? <GroupLine line={groupLineTexts(group).needs} testId="group-line-needs" /> : undefined
             }
           />
         </>

@@ -21,6 +21,8 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
+    show leaveCharacterEditor;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
     show memberGroupViewOfTemplate;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group_details_tab.dart';
@@ -40,7 +42,8 @@ const kEditGroupRealismTab = 3;
 /// where it meets: [settingId], and [inheritCharacterLorebooks]). A start
 /// the editor saves reaches the group's row and comes back through
 /// [onStartSaved]. Returns true when the editor's "Realism & Dynamics" link
-/// closed it, so the page shows that tab.
+/// closed it, so the page shows that tab; a link the user backed out of
+/// ("Keep editing") does not count, whatever closes the editor later.
 Future<bool> editGroupMemberFromEditGroup(
   BuildContext context, {
   required GroupChat group,
@@ -54,6 +57,14 @@ Future<bool> editGroupMemberFromEditGroup(
   onStartSaved,
 }) async {
   var toRealism = false;
+  // A group made before the id-keying fix filed seeds under the member's
+  // origin; the editor reads and moves those.
+  final legacy = await groupMemberLegacyKeys(
+    liveDatabase(context),
+    group.id,
+    memberId,
+  );
+  if (!context.mounted) return false;
   String? settingName;
   try {
     final worlds = Provider.of<WorldRepository>(context, listen: false);
@@ -76,10 +87,9 @@ Future<bool> editGroupMemberFromEditGroup(
       settingName: settingName,
       readsMemberLorebooks: inheritCharacterLorebooks,
       onStartSaved: onStartSaved,
-      onOpenRealism: (editor) {
-        toRealism = true;
-        Navigator.of(editor).maybePop();
-      },
+      legacyIds: legacy,
+      onOpenRealism: (editor) =>
+          leaveCharacterEditor(editor, onLeave: () => toRealism = true),
     ),
   );
   return toRealism;

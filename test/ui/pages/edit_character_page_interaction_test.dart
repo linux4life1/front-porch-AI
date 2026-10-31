@@ -37,6 +37,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -413,4 +414,65 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved?.frontPorchExtensions?.realismNeedsDirectorAuthority, isTrue);
   });
+
+  // Writing the card's picture threw before the save's try, so the error
+  // escaped unseen and the "a save is running" guard stayed up: Save did
+  // nothing for the rest of the page's life.
+  testWidgets('a save that fails says so and lets Save try again', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repo = _RepoWithCover();
+    final chat = FakeChatService();
+    final storage = _NoCharactersDir();
+    final worlds = FakeWorldRepository();
+    addTearDown(repo.dispose);
+    addTearDown(chat.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(worlds.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ],
+        child: MaterialApp(
+          home: EditCharacterPage(
+            character: CharacterCard(name: 'Flora', imagePath: 'flora.png'),
+            onSaveOverride: (_) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(find.textContaining('Error updating character'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 10));
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    expect(storage.asked, 2, reason: 'THE BUG: the second Save did nothing');
+    expect(find.byType(EditCharacterPage), findsOneWidget);
+  });
+}
+
+/// A library folder that cannot be reached when a save writes the card's
+/// picture (the editor's avatar, drawn while building, still finds one).
+class _NoCharactersDir extends FakeStorageService {
+  int asked = 0;
+
+  @override
+  Directory get charactersDir {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      return Directory.systemTemp;
+    }
+    asked++;
+    throw const FileSystemException('characters folder unavailable');
+  }
 }

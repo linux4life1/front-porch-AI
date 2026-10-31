@@ -101,15 +101,33 @@ class GroupMemberStart {
       Object.hash(shortTerm, longTerm, trust, emotion, emotionIntensity);
 }
 
+/// The entry member [mid] has in a member-keyed group [store]: their own,
+/// or one a group made before the id-keying fix filed under one of
+/// [legacyIds] (the member's origin or name key), as Edit group's Realism
+/// tab finds it.
+Map<String, dynamic>? _ownEntry(
+  Map<String, dynamic> store,
+  String mid,
+  Iterable<String> legacyIds,
+) {
+  for (final key in [mid, ...legacyIds]) {
+    final v = store[key];
+    if (v is Map) return Map<String, dynamic>.from(v);
+  }
+  return null;
+}
+
 /// Member [mid]'s start in a group whose definition holds
-/// [defaultMemberJson]. A member with no seed of their own reads from their
-/// card's extensions [card], as Edit group's Realism tab shows them. Null
-/// when the definition has no member seeds at all: the group's new chats
-/// start without Realism, so there is no start to set.
+/// [defaultMemberJson]. A member with no seed of their own (under [mid] or
+/// a [legacyIds] key) reads from their card's extensions [card], as Edit
+/// group's Realism tab shows them. Null when the definition has no member
+/// seeds at all: the group's new chats start without Realism, so there is
+/// no start to set.
 GroupMemberStart? groupMemberStartIn(
   String defaultMemberJson,
   String mid, {
   FrontPorchExtensions? card,
+  Iterable<String> legacyIds = const [],
 }) {
   final Map<String, Map<String, dynamic>> seeds;
   try {
@@ -118,7 +136,9 @@ GroupMemberStart? groupMemberStartIn(
     return null;
   }
   if (seeds.isEmpty) return null;
-  return groupMemberStartOfSeed(seeds[mid] ?? groupMemberStartingSeed(card));
+  return groupMemberStartOfSeed(
+    _ownEntry(seeds, mid, legacyIds) ?? groupMemberStartingSeed(card),
+  );
 }
 
 /// The start a member's [seed] (their `perChar` entry) holds. Long-Term
@@ -141,15 +161,20 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
 }
 
 /// The two group realism blobs with member [mid]'s start set to [start].
-/// Every other key of their seed, and every other member, is kept. A
-/// definition with no member seeds comes back as it is: a seed there would
-/// switch Realism on for the group's new chats.
+/// Every other key of their seed, and every other member, is kept. A seed
+/// filed under one of [legacyIds] moves onto [mid] (and other members'
+/// feelings toward it follow), so nothing it holds is dropped later. A
+/// member with no seed gets one from their [card], without its Needs bars
+/// while the group's new chats run without Needs: a seed with bars reads as
+/// Needs on. A definition with no member seeds comes back as it is: a seed
+/// there would switch Realism on for the group's new chats.
 ({String defaultMemberJson, String baselineJson}) withGroupMemberStart({
   required String defaultMemberJson,
   required String baselineJson,
   required String mid,
   required GroupMemberStart start,
   FrontPorchExtensions? card,
+  Iterable<String> legacyIds = const [],
 }) {
   final unchanged = (
     defaultMemberJson: defaultMemberJson,
@@ -165,9 +190,34 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
     return unchanged;
   }
   final perChar = Map<String, dynamic>.from(definition['perChar'] as Map);
-  final seed = perChar[mid] is Map
-      ? Map<String, dynamic>.from(perChar[mid] as Map)
-      : groupMemberStartingSeed(card);
+  final legacy = [
+    for (final id in legacyIds)
+      if (id.isNotEmpty && id != mid) id,
+  ];
+  final own = _ownEntry(perChar, mid, legacy);
+  final seed = own ?? groupMemberStartingSeed(card);
+  if (own == null && !groupTemplateRealismOf(defaultMemberJson).needsOn) {
+    seed.remove('needs');
+  }
+  for (final id in legacy) {
+    perChar.remove(id);
+  }
+  if (legacy.isNotEmpty) {
+    for (final entry in perChar.entries.toList()) {
+      final other = entry.value;
+      final rels = other is Map ? other['relationships'] : null;
+      if (rels is! Map || !rels.keys.any((k) => legacy.contains('$k'))) {
+        continue;
+      }
+      perChar[entry.key] = {
+        ...Map<String, dynamic>.from(other as Map),
+        'relationships': {
+          for (final r in rels.entries)
+            legacy.contains('${r.key}') ? mid : '${r.key}': r.value,
+        },
+      };
+    }
+  }
   perChar[mid] = applyBaselineToMemberSeed(
     seed,
     affection: start.shortTerm,
@@ -188,10 +238,14 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
     baseline = <String, dynamic>{};
   }
   final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
+  final ownBaseline = _ownEntry(baseline, mid, legacy);
+  for (final id in legacy) {
+    baseline.remove(id);
+  }
   baseline[mid] = {
     'timeOfDay': time?.timeOfDay ?? 'morning',
     'dayCount': time?.dayCount ?? 1,
-    if (baseline[mid] is Map) ...Map<String, dynamic>.from(baseline[mid]),
+    ...?ownBaseline,
     GroupRealismKeys.affection: start.shortTerm,
     GroupRealismKeys.longTermScore: start.longTerm,
     GroupRealismKeys.trust: start.trust,
@@ -204,11 +258,34 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
   );
 }
 
+/// The keys a group made before the id-keying fix may have filed member
+/// [mid]'s entries under: the library character they were copied from, as
+/// their row records it.
+Future<List<String>> groupMemberLegacyKeys(
+  AppDatabase db,
+  String groupId,
+  String mid,
+) async {
+  for (final row in await db.getGroupMembers(groupId)) {
+    if (row.id != mid) continue;
+    final origin = GroupMember.fromRow(row).originStableId;
+    return [if (origin != null && origin.isNotEmpty) origin];
+  }
+  return const [];
+}
+
 /// Saves member [mid]'s [start] into group [groupId]'s definition, onto the
 /// blobs stored now (an editor holding an older copy writes only the start),
 /// and into the open chat's copy of the group when it is that group, so its
-/// next New Chat starts there. Returns the blobs written, or null when the
-/// group has no member seeds (nothing is written).
+/// next New Chat starts there. A seed under the member's origin key (from
+/// their row) or one of [legacyIds] moves onto [mid].
+///
+/// The open chat's copy can hold member seeds its row does not have yet:
+/// Group Settings applies its edits to the open chat and writes them on
+/// Done. Then the start goes into the chat's copy, and the row is written
+/// from it, so it is neither dropped nor kept only in memory. Returns the
+/// blobs written to the row, or null when neither has member seeds (nothing
+/// is written).
 Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
   AppDatabase db, {
   required String groupId,
@@ -216,16 +293,36 @@ Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
   required GroupMemberStart start,
   FrontPorchExtensions? card,
   ChatService? chat,
+  Iterable<String> legacyIds = const [],
 }) async {
   final row = await db.getGroupById(groupId);
   if (row == null) throw StateError('no group $groupId');
-  final next = withGroupMemberStart(
-    defaultMemberJson: row.defaultMemberRealismState,
-    baselineJson: row.baselineRealismState,
-    mid: mid,
-    start: start,
-    card: card,
-  );
+  final keys = {...legacyIds, ...await groupMemberLegacyKeys(db, groupId, mid)};
+  ({String defaultMemberJson, String baselineJson}) onto(String d, String b) =>
+      withGroupMemberStart(
+        defaultMemberJson: d,
+        baselineJson: b,
+        mid: mid,
+        start: start,
+        card: card,
+        legacyIds: keys,
+      );
+  final candidate = chat?.activeGroup;
+  final open = candidate != null && candidate.id == groupId ? candidate : null;
+  final live = open == null
+      ? null
+      : onto(open.defaultMemberRealismState, open.baselineRealismState);
+  var next = onto(row.defaultMemberRealismState, row.baselineRealismState);
+  if (next.defaultMemberJson == row.defaultMemberRealismState &&
+      live != null &&
+      live.defaultMemberJson != open!.defaultMemberRealismState) {
+    next = live;
+  }
+  if (live != null) {
+    open!
+      ..defaultMemberRealismState = live.defaultMemberJson
+      ..baselineRealismState = live.baselineJson;
+  }
   if (next.defaultMemberJson == row.defaultMemberRealismState) return null;
   await db.updateGroup(
     GroupsCompanion(
@@ -235,18 +332,5 @@ Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
       updatedAt: Value(DateTime.now()),
     ),
   );
-  final open = chat?.activeGroup;
-  if (open != null && open.id == groupId) {
-    final live = withGroupMemberStart(
-      defaultMemberJson: open.defaultMemberRealismState,
-      baselineJson: open.baselineRealismState,
-      mid: mid,
-      start: start,
-      card: card,
-    );
-    open
-      ..defaultMemberRealismState = live.defaultMemberJson
-      ..baselineRealismState = live.baselineJson;
-  }
   return next;
 }

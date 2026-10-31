@@ -227,11 +227,19 @@ describe("the group member editor and the member's group", () => {
       'Where Mara starts in new chats of this group.',
       'Used when a greeting opens a chat of this group.',
       'This group meets in Harborside.',
-      '"Inherit character lorebooks" on; it is on for this group.',
+      'The group reads it when Group settings has "Inherit character & world lorebooks" on; it is on for this group.',
     ]) {
       expect(text(), line).toContain(line);
     }
     expect(text()).not.toContain('Enable Realism Engine');
+    // A closed group: its new-chat settings are in Group settings, its Chaos
+    // only in a chat of the group (the phone's Chaos is in the chat's tools).
+    expect(container.querySelector('[data-testid="group-line-realism"]')?.textContent).toContain(
+      'set in Group settings, in a chat of this group',
+    );
+    expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
+      '· set in a chat of this group',
+    );
 
     await act(async () => setRange(slider('Long-term bond'), '120'));
     await act(async () => saveButton().click());

@@ -129,6 +129,7 @@ class GroupMemberEdit {
               g.defaultMemberRealismState,
               m.id,
               card: ext,
+              legacyIds: [?GroupMember.fromRow(m).originStableId],
             )?.toJson(),
             'afterglow': afterglowShown ? ext?.afterglowEnabled ?? true : null,
             'lite': c.isLite,
@@ -185,6 +186,7 @@ class GroupMemberEdit {
               definition.defaultMemberRealismState,
               memberId,
               card: ext,
+              legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
             )?.toJson(),
       'lite': c.isLite,
     };
@@ -236,6 +238,7 @@ class GroupMemberEdit {
             definition.defaultMemberRealismState,
             memberId,
             card: ext,
+            legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
           );
     if (now == null) return;
     final next = GroupMemberStart.fromJson(json, now);

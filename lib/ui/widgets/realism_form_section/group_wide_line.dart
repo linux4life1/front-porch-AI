@@ -29,6 +29,7 @@ class GroupWideLine extends StatelessWidget {
     required this.text,
     this.linkLabel,
     this.onOpen,
+    this.where,
   });
 
   final IconData icon;
@@ -37,6 +38,9 @@ class GroupWideLine extends StatelessWidget {
   /// The link's words ("Group Settings"); no link without [onOpen].
   final String? linkLabel;
   final VoidCallback? onOpen;
+
+  /// Where the group sets it, said in words when there is no link to it.
+  final String? where;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +73,14 @@ class GroupWideLine extends StatelessWidget {
               ),
             ],
           ),
+          if ((onOpen == null || linkLabel == null) && where != null)
+            Text(
+              where!,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+              ),
+            ),
           if (onOpen != null && linkLabel != null)
             TextButton(
               onPressed: onOpen,

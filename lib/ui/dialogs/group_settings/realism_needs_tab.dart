@@ -12,10 +12,16 @@ import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/reali
 class GroupRealismNeedsTab extends StatefulWidget {
   final ChatService chatService;
   final GroupChatRepository? groupRepo;
+
+  /// Switches the Group Settings dialog holding this tab to another tab: a
+  /// member's editor opened from here links back to it, not to a second
+  /// Group Settings.
+  final void Function(int tab)? onShowTab;
   const GroupRealismNeedsTab({
     super.key,
     required this.chatService,
     this.groupRepo,
+    this.onShowTab,
   });
 
   @override
@@ -233,6 +239,7 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
                   cs: cs,
                   isRealismActive: isRealismActive,
                   controller: _controller,
+                  onShowTab: widget.onShowTab,
                 ),
               ),
 

@@ -186,6 +186,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                     GroupRealismNeedsTab(
                       chatService: widget.chatService,
                       groupRepo: widget.groupRepo,
+                      onShowTab: _tabController.animateTo,
                     ),
                     GroupNeedsTab(
                       chatService: widget.chatService,

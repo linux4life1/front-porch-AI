@@ -23,6 +23,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
     show showGroupSettings;
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
+    show leaveCharacterEditor;
 import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -38,14 +40,17 @@ WorldRepository? _worlds(BuildContext context) {
   }
 }
 
-/// The member editor's view of the group open in [chat], from the chat
-/// sidebar: the chat's own switches, links to Group Settings, and [member]'s
-/// start in the group's new chats.
+/// The member editor's view of the group open in [chat]: the chat's own
+/// switches, links to Group Settings, and [member]'s start in the group's
+/// new chats. Opened from inside Group Settings ([showTab] is its tab
+/// switch), a link closes the editor back to that dialog's tab instead of
+/// opening a second one.
 MemberGroupView memberGroupViewOfChat(
   BuildContext context,
   ChatService chat,
-  CharacterCard member,
-) {
+  CharacterCard member, {
+  void Function(int tab)? showTab,
+}) {
   final group = chat.activeGroup;
   final worlds = _worlds(context);
   final mid = groupMemberStoreId(member);
@@ -58,16 +63,27 @@ MemberGroupView memberGroupViewOfChat(
   } on ProviderNotFoundException {
     canOpen = false;
   }
-  void Function(BuildContext)? open(int tab) =>
-      !canOpen ? null : (ctx) => showGroupSettings(ctx, chat, initialTab: tab);
+  final back = showTab;
+  void Function(BuildContext)? open(int tab) => back != null
+      ? (ctx) => leaveCharacterEditor(ctx, onLeave: () => back(tab))
+      : !canOpen
+      ? null
+      : (ctx) => showGroupSettings(ctx, chat, initialTab: tab);
+  final legacy = [member.stableGroupId];
   return MemberGroupView(
     read: () => groupWideValuesOfChat(chat, worlds: worlds),
     changes: chat,
     onOpenRealism: open(kGroupSettingsRealismTab),
+    onOpenChaos: open(kGroupSettingsRealismTab),
     onOpenNeeds: open(kGroupSettingsNeedsTab),
     start: group == null
         ? null
-        : groupMemberStartIn(group.defaultMemberRealismState, mid, card: ext),
+        : groupMemberStartIn(
+            group.defaultMemberRealismState,
+            mid,
+            card: ext,
+            legacyIds: legacy,
+          ),
     saveStart: group == null
         ? null
         : (start) => saveGroupMemberStart(
@@ -77,6 +93,7 @@ MemberGroupView memberGroupViewOfChat(
             start: start,
             card: ext,
             chat: chat,
+            legacyIds: legacy,
           ),
   );
 }
@@ -86,7 +103,9 @@ MemberGroupView memberGroupViewOfChat(
 /// page holds now. A saved start is written to the group's row at once (and
 /// to the open chat's copy of the group); [onStartSaved] hands the page the
 /// blobs with it, so its own Save keeps it. [onOpenRealism] goes back to the
-/// page's Realism & Dynamics tab, where the group sets these.
+/// page's Realism & Dynamics tab, where the group sets these; Chaos is not
+/// there (it is Group Settings', in the group's chat), so its line says so.
+/// [legacyIds] are keys an older group filed the member's seed under.
 MemberGroupView memberGroupViewOfTemplate(
   BuildContext context, {
   required GroupChat group,
@@ -98,6 +117,7 @@ MemberGroupView memberGroupViewOfTemplate(
   bool? readsMemberLorebooks,
   void Function(String defaultMemberJson, String baselineJson)? onStartSaved,
   void Function(BuildContext context)? onOpenRealism,
+  List<String> legacyIds = const [],
 }) {
   final db = liveDatabase(context);
   final chat = Provider.of<ChatService>(context, listen: false);
@@ -113,10 +133,16 @@ MemberGroupView memberGroupViewOfTemplate(
     linkLabel: 'Realism & Dynamics',
     onOpenRealism: onOpenRealism,
     onOpenNeeds: onOpenRealism,
+    chaosWhere: "set in Group Settings, in the group's chat",
+    loreWhere:
+        'Edit group → Lore & Worlds has "Inherit character & world '
+        'lorebooks"',
+    worldsWhere: 'Edit group → Lore & Worlds',
     start: groupMemberStartIn(
       defaultMemberJson,
       memberId,
       card: memberExtensions,
+      legacyIds: legacyIds,
     ),
     saveStart: (start) async {
       await saveGroupMemberStart(
@@ -126,6 +152,7 @@ MemberGroupView memberGroupViewOfTemplate(
         start: start,
         card: memberExtensions,
         chat: chat,
+        legacyIds: legacyIds,
       );
       final mine = withGroupMemberStart(
         defaultMemberJson: defaultMemberJson,
@@ -133,6 +160,7 @@ MemberGroupView memberGroupViewOfTemplate(
         mid: memberId,
         start: start,
         card: memberExtensions,
+        legacyIds: legacyIds,
       );
       onStartSaved?.call(mine.defaultMemberJson, mine.baselineJson);
     },

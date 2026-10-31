@@ -28,6 +28,9 @@ class GroupMemberRealismCard extends StatelessWidget {
   final bool isRealismActive;
   final GroupRealismNeedsController controller;
 
+  /// The holding Group Settings dialog's tab switch, for the editor's links.
+  final void Function(int tab)? onShowTab;
+
   const GroupMemberRealismCard({
     super.key,
     required this.index,
@@ -35,6 +38,7 @@ class GroupMemberRealismCard extends StatelessWidget {
     required this.cs,
     required this.isRealismActive,
     required this.controller,
+    this.onShowTab,
   });
 
   Widget _afterglowRow(BuildContext context) => Row(
@@ -102,11 +106,13 @@ class GroupMemberRealismCard extends StatelessWidget {
                 group.defaultMemberRealismState,
                 groupMemberStoreId(char),
                 card: char.frontPorchExtensions,
+                legacyIds: [char.stableGroupId],
               ),
         afterglow: afterglowShown ? ownAfterglow : null,
         lite: char.isLite,
       ),
-      onEdit: () => showEditCharacterDialog(context, char),
+      onEdit: () =>
+          showEditCharacterDialog(context, char, groupSettingsTab: onShowTab),
       below: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

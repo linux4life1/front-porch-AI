@@ -289,6 +289,7 @@ Future<void> showEditCharacterDialog(
   BuildContext context,
   CharacterCard character, {
   bool ensureRelationshipVisible = false,
+  void Function(int tab)? groupSettingsTab,
 }) async {
   final chatService = Provider.of<ChatService>(context, listen: false);
   // A group member is the group's own copy: Save writes its row, never the
@@ -310,7 +311,12 @@ Future<void> showEditCharacterDialog(
           character: character,
           memberOfGroup: member ? chatService.activeGroup?.name : null,
           memberGroup: member
-              ? memberGroupViewOfChat(context, chatService, character)
+              ? memberGroupViewOfChat(
+                  context,
+                  chatService,
+                  character,
+                  showTab: groupSettingsTab,
+                )
               : null,
           onSaveOverride: db == null
               ? null

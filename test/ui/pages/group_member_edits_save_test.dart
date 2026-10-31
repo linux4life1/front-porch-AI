@@ -62,6 +62,8 @@ import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.
     show MemberGroupView, memberGroupViewOfTemplate;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
+    show GroupWideLine;
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -1117,6 +1119,285 @@ void main() {
       final ext = rowExtensions(await memberRow());
       expect(ext?.realismVerificationEnabled, isTrue);
       expect(ext?.realismNeedsDirectorAuthority, isTrue);
+    });
+  });
+
+  // ── Review round: the start never changes what else the group says ──
+
+  /// Group Realism on with Needs off for new chats, seeded for Bo only:
+  /// Mara joined later (Add character) and has no seed.
+  final needsOff = buildGroupRealismBlobs(
+    seeds: {
+      'mem-bo': {...defaultGroupMemberRealismSeed()}..remove('needs'),
+    },
+    needsEnabled: false,
+    timeOfDay: 'morning',
+    dayCount: 1,
+  );
+
+  Future<void> openFromEditGroup(
+    WidgetTester tester, {
+    required String defaultMemberJson,
+    required String baselineJson,
+    void Function(bool toRealism)? done,
+    void Function(String defaultMemberJson)? handed,
+  }) => pumpHost(
+    tester,
+    chat: _OpenGroup(const []),
+    onOpen: (context) async {
+      final toRealism = await editGroupMemberFromEditGroup(
+        context,
+        group: GroupChat(id: _groupId, name: 'Pair'),
+        member: member(),
+        memberId: _memberId,
+        defaultMemberJson: defaultMemberJson,
+        baselineJson: baselineJson,
+        settingId: null,
+        inheritCharacterLorebooks: false,
+        onStartSaved: (d, _) => handed?.call(d),
+      );
+      done?.call(toRealism);
+    },
+  );
+
+  Future<void> storeBlobs(String defaultMemberJson, String baselineJson) =>
+      db.updateGroup(
+        GroupsCompanion(
+          id: const Value(_groupId),
+          defaultMemberRealismState: Value(defaultMemberJson),
+          baselineRealismState: Value(baselineJson),
+        ),
+      );
+
+  testWidgets("a member with no seed saving her start leaves a group's Needs "
+      'off for new chats', (tester) async {
+    await tester.runAsync(() async {
+      await storeBlobs(needsOff.defaultMemberJson, needsOff.baselineJson);
+      String? handed;
+      await openFromEditGroup(
+        tester,
+        defaultMemberJson: needsOff.defaultMemberJson,
+        baselineJson: needsOff.baselineJson,
+        handed: (d) => handed = d,
+      );
+      form(tester).onTrustLevelChanged(70);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final stored = (await db.getGroupById(_groupId))!;
+      expect(
+        parseGroupRealismSeeds(
+          stored.defaultMemberRealismState,
+        )[_memberId]!['trust'],
+        70,
+      );
+      expect(
+        groupTemplateRealismOf(stored.defaultMemberRealismState).needsOn,
+        isFalse,
+        reason: "THE BUG: her new seed's Needs bars switched Needs on",
+      );
+      expect(groupTemplateRealismOf(handed!).needsOn, isFalse);
+    });
+  });
+
+  testWidgets("a seed an older group filed under the member's origin is the "
+      'one her editor shows, and saving moves it onto her', (tester) async {
+    await tester.runAsync(() async {
+      await db.updateGroupMember(
+        GroupMembersCompanion(
+          id: const Value(_memberId),
+          memberState: Value(
+            GroupMember.encodeProvenance(originStableId: 'mara-origin'),
+          ),
+        ),
+      );
+      final legacy = buildGroupRealismBlobs(
+        seeds: {
+          'mara-origin': {
+            ...defaultGroupMemberRealismSeed(),
+            'affection': 90,
+            'needs': {'hunger': 20},
+          },
+          'mem-bo': {
+            ...defaultGroupMemberRealismSeed(),
+            'relationships': {'mara-origin': 40},
+          },
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await storeBlobs(legacy.defaultMemberJson, legacy.baselineJson);
+      await openFromEditGroup(
+        tester,
+        defaultMemberJson: legacy.defaultMemberJson,
+        baselineJson: legacy.baselineJson,
+      );
+
+      expect(
+        form(tester).shortTermBond,
+        90,
+        reason: "THE BUG: the editor showed her card's values instead",
+      );
+      form(tester).onTrustLevelChanged(30);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final stored = (await db.getGroupById(_groupId))!;
+      final seeds = parseGroupRealismSeeds(stored.defaultMemberRealismState);
+      expect(seeds.containsKey('mara-origin'), isFalse);
+      expect(
+        [seeds[_memberId]!['affection'], seeds[_memberId]!['trust']],
+        [90, 30],
+      );
+      expect(seeds[_memberId]!['needs'], {
+        'hunger': 20,
+      }, reason: 'what the old seed held is kept');
+      expect(seeds['mem-bo']!['relationships'], {_memberId: 40});
+      expect(
+        (jsonDecode(stored.baselineRealismState) as Map).containsKey(
+          'mara-origin',
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  // The guard the deleted Edit group member editor carried: Long-Term Bond
+  // an old editor saved into trust reads back as Long-Term Bond, and the
+  // next save un-mixes it.
+  testWidgets('a start whose Long-Term Bond was saved into trust reads it '
+      'back as Long-Term Bond and saves it un-mixed', (tester) async {
+    await tester.runAsync(() async {
+      final mixed = buildGroupRealismBlobs(
+        seeds: {
+          _memberId: {
+            ...defaultGroupMemberRealismSeed(),
+            'affection': 35,
+            'trust': 250,
+          },
+        },
+        needsEnabled: true,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      await storeBlobs(mixed.defaultMemberJson, mixed.baselineJson);
+      await openFromEditGroup(
+        tester,
+        defaultMemberJson: mixed.defaultMemberJson,
+        baselineJson: mixed.baselineJson,
+      );
+
+      expect((form(tester).longTermBond, form(tester).trustLevel), (250, 50));
+      form(tester).onShortTermBondChanged(60);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final seed = parseGroupRealismSeeds(
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+      )[_memberId]!;
+      expect(
+        [seed['affection'], seed['longTermScore'], seed['trust']],
+        [60, 250, 50],
+      );
+    });
+  });
+
+  testWidgets("the open chat's Realism seeds that its row does not have yet "
+      "keep the start a member's editor saves", (tester) async {
+    await tester.runAsync(() async {
+      // Group Settings turned Realism on in the open chat and has not saved
+      // the group: its row still has no seeds.
+      final mara = member();
+      final open = GroupChat(
+        id: _groupId,
+        name: 'Pair',
+        defaultMemberRealismState: _realismOn.defaultMemberJson,
+        baselineRealismState: _realismOn.baselineJson,
+      );
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], open),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+      form(tester).onTrustLevelChanged(-20);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      int? trustIn(String json) =>
+          parseGroupRealismSeeds(json)[_memberId]?['trust'] as int?;
+      expect(
+        trustIn(open.defaultMemberRealismState),
+        -20,
+        reason: 'THE BUG: the start was dropped',
+      );
+      expect(
+        trustIn((await db.getGroupById(_groupId))!.defaultMemberRealismState),
+        -20,
+      );
+    });
+  });
+
+  testWidgets("Edit group's Realism & Dynamics link backed out of with Keep "
+      'editing does not move the page later', (tester) async {
+    await tester.runAsync(() async {
+      bool? toRealism;
+      await openFromEditGroup(
+        tester,
+        defaultMemberJson: _realismOn.defaultMemberJson,
+        baselineJson: _realismOn.baselineJson,
+        done: (v) => toRealism = v,
+      );
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      final link = find.text('Realism & Dynamics ›').first;
+      await tester.ensureVisible(link);
+      await tester.pumpAndSettle();
+      await tester.tap(link);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Keep editing'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EditCharacterPage), findsOneWidget);
+
+      await saveTwiceFast(tester);
+      await pumpUntil(tester, () => toRealism != null, why: 'never closed');
+      expect(toRealism, isFalse, reason: 'THE BUG: Save jumped to the tab');
+    });
+  });
+
+  testWidgets("Edit group's member editor says where Chaos and the lorebook "
+      'really are set', (tester) async {
+    await tester.runAsync(() async {
+      await openFromEditGroup(
+        tester,
+        defaultMemberJson: _realismOn.defaultMemberJson,
+        baselineJson: _realismOn.baselineJson,
+      );
+      final chaos = find.ancestor(
+        of: find.text('Chaos Mode · Off for this group'),
+        matching: find.byType(GroupWideLine),
+      );
+      expect(
+        find.descendant(of: chaos, matching: find.byType(TextButton)),
+        findsNothing,
+        reason: 'Realism & Dynamics has no Chaos switch',
+      );
+      expect(
+        find.descendant(
+          of: chaos,
+          matching: find.text("set in Group Settings, in the group's chat"),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Lorebook'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          'when Edit group → Lore & Worlds has "Inherit character & world '
+          'lorebooks" on',
+        ),
+        findsOneWidget,
+      );
     });
   });
 }

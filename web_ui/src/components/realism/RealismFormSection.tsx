@@ -88,9 +88,9 @@ export function RealismFormSection({
       )}
       {member !== undefined && lines && (
         <>
-          <GroupLine text={lines.realism} testId="group-line-realism" />
-          <GroupLine text={lines.time} testId="group-line-time" />
-          {hiddenNote && <GroupLine text={lines.chaos} testId="group-line-chaos" />}
+          <GroupLine line={lines.realism} testId="group-line-realism" />
+          <GroupLine line={lines.time} testId="group-line-time" />
+          {hiddenNote && <GroupLine line={lines.chaos} testId="group-line-chaos" />}
         </>
       )}
       {member !== undefined && hiddenNote && (
@@ -167,9 +167,9 @@ export function RealismFormSection({
           <div className="card realism-card">
             {member !== undefined && lines && (
               <>
-                <GroupLine text={lines.chaos} testId="group-line-chaos" />
+                <GroupLine line={lines.chaos} testId="group-line-chaos" />
                 {showIntimate && afterglowOn && (
-                  <GroupLine text={lines.afterglow} testId="group-line-afterglow" />
+                  <GroupLine line={lines.afterglow} testId="group-line-afterglow" />
                 )}
               </>
             )}

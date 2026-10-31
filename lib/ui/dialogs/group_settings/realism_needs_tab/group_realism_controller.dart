@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_ext_persist.dart';
 
 /// Editing state and write-through logic behind the Group Settings Realism
@@ -35,31 +33,11 @@ class GroupRealismNeedsController extends ChangeNotifier {
 
   List<CharacterCard> _chars = [];
 
-  // Per-member Director/Verifier (Realism Verification) settings for groups.
-  // Wired the same as 1:1 via per-member CharacterCard.frontPorchExtensions + impersonation.
-  // UI exposed here for existing groups (previously only in creation flow).
-  final Map<String, bool> verificationEnabled = {};
-  final Map<String, int> verificationMaxReprocesses = {};
-  final Map<String, int> verificationStrictness = {};
-  final Map<String, bool> needsDirectorAuthority = {};
-
   // Baseline seeding state (only bond/trust/emotion/time/day)
   final Map<String, Map<String, dynamic>> baselineSeeds = {};
 
-  // Per-character editable realism baselines (seeded from baselineSeeds + card ext).
-  final Map<String, int> editShortTermBond = {};
-  final Map<String, int> editLongTermBond = {};
-  final Map<String, int> editTrustLevel = {};
-  final Map<String, String> editEmotion = {};
-  final Map<String, String> editEmotionIntensity = {};
-
-  // Text controllers for inline editing fields.
-  final Map<String, TextEditingController> _emotionControllers = {};
-
-  // The Director/Verifier settings below live on the member's card ext — the
-  // blob key each one also writes is read at group CREATION only. The ext only
-  // reaches disk through this persister, so without it every one of them was
-  // back to its old value on the next launch.
+  // A member's Recovery lives on their card ext, which only reaches disk
+  // through this persister.
   late final GroupMemberExtPersister _extPersister = GroupMemberExtPersister(
     chatService,
   );
@@ -82,9 +60,7 @@ class GroupRealismNeedsController extends ChangeNotifier {
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
     _afterglowEnabled = cs.afterglowChatSwitch;
 
-    // Group-wide Time & Day, plus the per-member seed blob the ENGINE reads on
-    // a fresh chat (parseGroupRealismSeeds → GroupMemberRealism).
-    Map<String, dynamic> perCharSeeds = const {};
+    // Group-wide Time & Day.
     final group = cs.activeGroup;
     if (group != null) {
       final gs = group.defaultMemberRealismState;
@@ -94,8 +70,6 @@ class GroupRealismNeedsController extends ChangeNotifier {
         _groupDayCount = (map['dayCount'] as num?)?.toInt() ?? 1;
         _groupStoryStartDate = map['storyStartDate'] as String?;
         _groupStoryStartTime = map['storyStartTime'] as String?;
-        perCharSeeds =
-            (map['perChar'] as Map?)?.cast<String, dynamic>() ?? const {};
       }
     }
     groupDayCountController = TextEditingController(
@@ -109,40 +83,8 @@ class GroupRealismNeedsController extends ChangeNotifier {
       baselineSeeds[id] = Map<String, dynamic>.from(
         cs.getBaselineSeedForGroupCharacter(c),
       );
-
-      // Load per-member Director/Verifier settings (if present on the member's card ext)
-      verificationEnabled[id] =
-          c.frontPorchExtensions?.realismVerificationEnabled ?? false;
-      verificationMaxReprocesses[id] =
-          c.frontPorchExtensions?.realismVerificationMaxReprocesses ?? 1;
-      verificationStrictness[id] =
-          c.frontPorchExtensions?.realismVerificationStrictness ?? 3;
-      needsDirectorAuthority[id] =
-          c.frontPorchExtensions?.realismNeedsDirectorAuthority ?? false;
-
-      // Load the three relationship sliders. Their key mapping, the legacy
-      // repair and the clamps all live in the shared leaf (and are tested
-      // there) — this is a bug-prone corner, not a two-liner.
-      final seed = baselineSeeds[id]!;
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: seed,
-        perCharSeed: (perCharSeeds[id] as Map?)?.cast<String, dynamic>(),
-      );
-      editShortTermBond[id] = bond.shortTerm;
-      editLongTermBond[id] = bond.longTerm;
-      editTrustLevel[id] = bond.trust;
-      editEmotion[id] = (seed['emotion'] as String?) ?? 'neutral';
-      editEmotionIntensity[id] = emotionIntensityFromSeed(
-        seed['emotionIntensity'],
-      );
     }
   }
-
-  /// The member's Starting Emotion field controller, created on first use.
-  TextEditingController emotionControllerFor(String id) =>
-      _emotionControllers[id] ??= TextEditingController(
-        text: editEmotion[id] ?? 'neutral',
-      );
 
   // ── Master toggles ──
 
@@ -261,146 +203,6 @@ class GroupRealismNeedsController extends ChangeNotifier {
 
   void resetCharacterRealism(CharacterCard character) {
     chatService.resetRealismForGroupCharacter(character);
-  }
-
-  // ── Editable realism baselines ──
-
-  void updateEditShortTermBond(CharacterCard char, int value) =>
-      _updateEdit(char, (id) => editShortTermBond[id] = value);
-
-  void updateEditLongTermBond(CharacterCard char, int value) =>
-      _updateEdit(char, (id) => editLongTermBond[id] = value);
-
-  void updateEditTrustLevel(CharacterCard char, int value) =>
-      _updateEdit(char, (id) => editTrustLevel[id] = value);
-
-  void updateEditEmotion(CharacterCard char, String value) =>
-      _updateEdit(char, (id) => editEmotion[id] = value);
-
-  void updateEditEmotionIntensity(CharacterCard char, String value) =>
-      _updateEdit(char, (id) => editEmotionIntensity[id] = value);
-
-  void _updateEdit(CharacterCard char, void Function(String id) write) {
-    final id = groupMemberStoreId(char);
-    write(id);
-    notifyListeners();
-    _applyEditToBaselineSeedAndCard(char, id);
-  }
-
-  void _applyEditToBaselineSeedAndCard(CharacterCard char, String id) {
-    final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
-    char.frontPorchExtensions = ext.copyWith(
-      shortTermBond: editShortTermBond[id] ?? 50,
-      longTermBond: editLongTermBond[id] ?? 50,
-      trustLevel: editTrustLevel[id] ?? 50,
-      characterEmotion: editEmotion[id] ?? 'neutral',
-      emotionIntensity: editEmotionIntensity[id] ?? 'moderate',
-    );
-
-    // Update the baseline seed via ChatService.
-    try {
-      chatService.setBaselineSeedForGroupCharacter(char, {
-        'affection': editShortTermBond[id] ?? 50,
-        'longTermScore': editLongTermBond[id] ?? 50,
-        'trust': editTrustLevel[id] ?? 50,
-        'emotion': editEmotion[id] ?? 'neutral',
-        'emotionIntensity': editEmotionIntensity[id] ?? 'moderate',
-      });
-    } catch (_) {
-      // Non-fatal
-    }
-
-    // Persist to group defaultMemberRealismState.
-    try {
-      final group = chatService.activeGroup;
-      if (group != null) {
-        final map =
-            group.defaultMemberRealismState.isNotEmpty &&
-                group.defaultMemberRealismState != '{}'
-            ? (jsonDecode(group.defaultMemberRealismState)
-                      as Map<String, dynamic>? ??
-                  {})
-            : <String, dynamic>{};
-        final perChar = (map['perChar'] as Map<String, dynamic>? ?? {})
-            .cast<String, dynamic>();
-        final current = (perChar[id] as Map<String, dynamic>? ?? {})
-            .cast<String, dynamic>();
-        // ENGINE key names — the card-ext names written here before made four
-        // of the five sliders a no-op (GroupMemberRealism reads only
-        // affection/longTermScore/trust/emotion/emotionIntensity and passes
-        // everything else through untouched).
-        applyBaselineToMemberSeed(
-          current,
-          affection: editShortTermBond[id] ?? 50,
-          longTermScore: editLongTermBond[id] ?? 50,
-          trust: editTrustLevel[id] ?? 50,
-          emotion: editEmotion[id] ?? 'neutral',
-          emotionIntensity: editEmotionIntensity[id] ?? 'moderate',
-        );
-        perChar[id] = current;
-        map['perChar'] = perChar;
-        group.defaultMemberRealismState = jsonEncode(map);
-      }
-    } catch (_) {
-      // Non-fatal
-    }
-  }
-
-  // ── Per-member Director/Verifier ──
-
-  void updateMemberVerificationEnabled(CharacterCard char, bool value) =>
-      _updateMemberVerifier(
-        char,
-        'verificationEnabled',
-        value,
-        (id) => verificationEnabled[id] = value,
-        (ext) => ext.copyWith(realismVerificationEnabled: value),
-      );
-
-  void updateMemberVerificationMaxReprocesses(CharacterCard char, int value) =>
-      _updateMemberVerifier(
-        char,
-        'verificationMaxReprocesses',
-        value,
-        (id) => verificationMaxReprocesses[id] = value,
-        (ext) => ext.copyWith(realismVerificationMaxReprocesses: value),
-      );
-
-  void updateMemberVerificationStrictness(CharacterCard char, int value) =>
-      _updateMemberVerifier(
-        char,
-        'verificationStrictness',
-        value,
-        (id) => verificationStrictness[id] = value,
-        (ext) => ext.copyWith(realismVerificationStrictness: value),
-      );
-
-  void updateMemberNeedsDirectorAuthority(CharacterCard char, bool value) =>
-      _updateMemberVerifier(
-        char,
-        'needsDirectorAuthority',
-        value,
-        (id) => needsDirectorAuthority[id] = value,
-        (ext) => ext.copyWith(realismNeedsDirectorAuthority: value),
-      );
-
-  void _updateMemberVerifier(
-    CharacterCard char,
-    String blobKey,
-    Object value,
-    void Function(String id) write,
-    FrontPorchExtensions Function(FrontPorchExtensions) patch,
-  ) {
-    final id = groupMemberStoreId(char);
-    write(id);
-    char.frontPorchExtensions = patch(
-      char.frontPorchExtensions ?? FrontPorchExtensions(),
-    );
-    char.frontPorchExtensions?.ensureStableId();
-    notifyListeners();
-
-    persistGroupMemberPref(chatService, id, blobKey, value);
-    _extPersister.schedule(char);
   }
 
   @override
