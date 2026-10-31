@@ -96,12 +96,12 @@ class GroupMemberCardLook {
   final bool isDirector;
 
   /// The Realism rows only while the group's Realism runs. Ambitions and
-  /// Pockets answer to their own switches, so they show either way, as on
-  /// the 1:1 Character State.
+  /// Pockets (and the Objectives row) answer to their own switches, so they
+  /// show either way, as on the 1:1 Character State.
   List<Widget> expandedChildren(BuildContext context) => [
     if (isRealism) ..._realismRows(context),
     ..._ambitionsAndPockets(context),
-    if (isRealism) ..._objectivesRow(),
+    if (chat.objectivesActive) ..._objectivesRow(),
   ];
 
   List<Widget> _realismRows(BuildContext context) {

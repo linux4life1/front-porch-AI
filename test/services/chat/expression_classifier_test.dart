@@ -445,9 +445,83 @@ void main() {
       );
       expect(svc.resolveExpressionAvatar(card)?.id, 'joy');
       expect(
-        svc.resolveExpressionAvatarFor(card, label: 'sadness')?.id,
+        svc.resolveExpressionAvatarFor(card, labelOf: () => 'sadness')?.id,
         'sadness',
       );
+    });
+
+    // A label read can ask the LLM, so nothing reads one for a character
+    // with no face to wear it.
+    test('a character with no expression images never reads its label, so '
+        'nothing asks the LLM', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(reclassPrompts: prompts);
+      final bare = CharacterCard(name: 'b', personality: '', scenario: '');
+      expect(
+        svc.resolveExpressionAvatarFor(
+          bare,
+          labelOf: () => svc.labelForEmotion('wibbly'),
+        ),
+        isNull,
+      );
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty);
+
+      final faced = CharacterCard(
+        name: 'f',
+        personality: '',
+        scenario: '',
+        avatarImages: [
+          AvatarImage(
+            id: 'n',
+            label: 'neutral',
+            displayOrder: 0,
+            characterId: 'f',
+            filename: 'n.png',
+            createdAt: DateTime.utc(2026),
+          ),
+        ],
+      );
+      svc.resolveExpressionAvatarFor(
+        faced,
+        labelOf: () => svc.labelForEmotion('wibbly'),
+      );
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'with a face, the read asks');
+    });
+
+    test('in ONNX mode a member word maps or reads neutral, with no LLM '
+        'call, as 1:1 ONNX does', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(
+        storageMode: 'onnx',
+        reclassPrompts: prompts,
+      );
+      expect(svc.labelForEmotion('sad'), 'sadness');
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty);
+    });
+
+    test('a skipped re-classify is asked again on a later read, and a word '
+        'is asked once while in flight', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(
+        isEvaluatingRealism: true,
+        reclassPrompts: prompts,
+      );
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty, reason: 'skipped while Realism evaluates');
+
+      svc.setIsEvaluatingRealism(false);
+      svc.labelForEmotion('wibbly');
+      svc.labelForEmotion('wibbly');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'asked again, once');
+      svc.labelForEmotion('wibbly');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'an answered word is kept');
     });
   });
 }

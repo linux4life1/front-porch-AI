@@ -18,6 +18,8 @@
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show NeedsSimulation, moodDisplayLine, visibleNeedsFor;
+import 'package:front_porch_ai/services/avatar_gallery.dart'
+    show expressionsFrom;
 import 'package:front_porch_ai/services/services.dart';
 
 /// Realism-READ leaf for [ChatFacade] (web server). Pure reads of existing
@@ -92,9 +94,14 @@ class ChatRealismRead {
         // desktop's member card does.
         'lustOn': _chat.afterglowRunsFor(card),
         // Their own recovery under it, and their own face's label (the
-        // portrait's cache key). Both additive.
+        // portrait's cache key), read only while a face can show: a label
+        // read can ask the LLM. Both additive.
         'refractoryLabel': _chat.getRefractoryForGroupCharacter(card).chip,
-        'expressionLabel': _chat.expressionLabelFor(card) ?? '',
+        'expressionLabel':
+            _chat.expressionsEnabled &&
+                expressionsFrom(card.avatarImages).isNotEmpty
+            ? (_chat.expressionLabelFor(card) ?? '')
+            : '',
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
         // Gate needs on the SAME flag the host path uses (see snapshot()):
         // getNeedsForGroupCharacter always returns a full vector while group
@@ -153,7 +160,8 @@ class ChatRealismRead {
       'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
       'lustOn': nsfw.nsfwCooldownEnabled,
       // The desktop's line under the Lust bar (additive; empty when none).
-      'refractoryLabel': nsfw.nsfwCooldownEnabled
+      // In a group the live scalars hold whoever was loaded last, so none.
+      'refractoryLabel': nsfw.nsfwCooldownEnabled && !_chat.isGroupMode
           ? nsfw.refractoryWords.chip
           : '',
       'fixation': rel.activeFixation,

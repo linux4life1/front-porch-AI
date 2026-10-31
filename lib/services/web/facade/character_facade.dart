@@ -407,11 +407,10 @@ class CharacterFacade {
   }
 
   /// The on-disk mood picture for the active character, or for cast member
-  /// [participantId] (a group member wears their own mood), via
-  /// [ChatService.resolveExpressionAvatar]; null when none matches.
+  /// [participantId] (their own mood); null while Expressions are off.
   File? activeExpressionAvatarFile({String? participantId}) {
     final chat = _chat;
-    if (chat == null) return null;
+    if (chat == null || !chat.expressionsEnabled) return null;
     final activeChar = participantId == null
         ? chat.activeCharacter
         : chat.cast.where((p) => p.id == participantId).firstOrNull?.card;

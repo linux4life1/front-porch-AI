@@ -143,25 +143,33 @@ extension ChatServiceGroupRead on ChatService {
     return (chip: words.chip, soft: body.soft, minutes: body.minutes);
   }
 
+  /// Porch Life's Expressions switch: the phone shows a mood picture only
+  /// while it is on, as the desktop sidebar does.
+  bool get expressionsEnabled =>
+      _storageService.expressionSettings.expressionEnabled;
+
   /// The face label for [character]. In 1:1, the chat's label. In a group,
-  /// the member's own mood: the live label (ONNX, which reads only the last
-  /// reply) is theirs only when ONNX is on and they wrote that reply.
+  /// the member's own mood: the live label (ONNX) is theirs only when it was
+  /// classified from a reply they wrote, never a System row or a streaming
+  /// placeholder.
   String? expressionLabelFor(CharacterCard character) {
     if (_activeGroup == null) return currentExpressionLabel;
     if (_storageService.expressionSettings.expressionClassificationMode ==
         'onnx') {
-      final lastReply = _messages.where((m) => !m.isUser).lastOrNull;
-      final speaker = lastReply == null
+      // Read first: it keeps the classifier following new replies.
+      final live = currentExpressionLabel;
+      final source = _expressionService.onnxLabelSource;
+      final speaker = source == null || source.sender == 'System'
           ? null
           : resolveGroupSpeakerForMessage(
               _groupCharacters,
-              lastReply,
+              source,
               logOnMiss: false,
             );
       if (speaker != null &&
           _getCharacterIdFromCard(speaker) ==
               _getCharacterIdFromCard(character)) {
-        return currentExpressionLabel;
+        return live;
       }
     }
     return _expressionService.labelForEmotion(

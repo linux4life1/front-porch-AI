@@ -315,7 +315,11 @@ void main() {
     List<ChatParticipant> members() =>
         chat.cast.where((p) => !p.isHost).toList();
 
-    Future<void> pumpCard(WidgetTester tester, CharacterCard card) async {
+    Future<void> pumpCard(
+      WidgetTester tester,
+      CharacterCard card, {
+      VoidCallback? onOpenObjectives,
+    }) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -329,6 +333,7 @@ void main() {
                   isNextSpeaker: false,
                   isExpanded: true,
                   onTap: () {},
+                  onOpenObjectives: onOpenObjectives,
                 ),
               ),
             ),
@@ -439,6 +444,52 @@ void main() {
       );
     });
 
+    testWidgets("a member's Objectives row follows Objectives, not Realism", (
+      tester,
+    ) async {
+      await tester.runAsync(boot);
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await tester.runAsync(() async {
+        await storage.realismSettings.setObjectivesEnabled(true);
+        await chat.setRealismEnabled(false);
+      });
+      final ana = members().first;
+      await pumpCard(tester, ana.card, onOpenObjectives: () {});
+      expect(find.textContaining('active objectives'), findsOneWidget);
+
+      await tester.runAsync(
+        () => storage.realismSettings.setObjectivesEnabled(false),
+      );
+      expect(chat.objectivesActive, isFalse);
+      await pumpCard(tester, ana.card, onOpenObjectives: () {});
+      expect(
+        find.textContaining('active objectives'),
+        findsNothing,
+        reason: 'Objectives off in Porch Life',
+      );
+    });
+
+    test("the phone's unfocused group view shows the panel owner's own "
+        "recovery, never the loaded speaker's", () async {
+      await boot();
+      addTearDown(() => disposeChatThenCloseDb(chat, db));
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      final owner = members().first;
+      chat.debugSeedGroupSpeakerState(
+        chat.characterIdFor(owner.card),
+        refractory: Refractory.fromMinutes(30),
+      );
+      chat.nsfwService.setRefractory(Refractory.fromMinutes(45));
+
+      final nsfw = ChatToolsFacade(chat, storage, null).state()['nsfw'] as Map;
+      expect(nsfw['refractoryMinutesRemaining'], 30);
+      expect(nsfw['refractoryLabel'], startsWith('Refractory: '));
+      expect(ChatRealismRead(chat).snapshot()['refractoryLabel'], isEmpty);
+    });
+
     List<face.AvatarImage> faces(String who) => [
       for (final (i, label) in ['neutral', 'joy', 'sadness', 'fear'].indexed)
         face.AvatarImage(
@@ -455,6 +506,7 @@ void main() {
         'desktop and the phone', () async {
       await boot();
       addTearDown(() => disposeChatThenCloseDb(chat, db));
+      await storage.expressionSettings.setExpressionEnabled(true);
       final [ana, bea] = members();
       ana.card.avatarImages = faces('ana');
       bea.card.avatarImages = faces('bea');
@@ -548,8 +600,67 @@ void main() {
       expect(find.text(EmotionLabels.emoji['joy']!), findsNothing);
     });
 
-    testWidgets('with ONNX on, only the member who wrote the last reply wears '
-        "the classifier's label", (tester) async {
+    // A label read can ask the LLM (the side lane), so the phone reads a
+    // member's face label only while Expressions are on and they have a
+    // face to wear it, as the desktop sidebar does.
+    test('with Expressions off, a member read asks the LLM nothing and the '
+        'phone gets no mood picture', () async {
+      await boot();
+      addTearDown(() => disposeChatThenCloseDb(chat, db));
+      final asks = <String>[];
+      final saved = debugPrint;
+      debugPrint = (String? m, {int? wrapWidth}) {
+        if (m != null && m.contains('[Expression] reclassify')) asks.add(m);
+      };
+      addTearDown(() => debugPrint = saved);
+      final [ana, bea] = members();
+      bea.card.avatarImages = faces('bea');
+      for (final who in [ana, bea]) {
+        chat.debugSeedGroupSpeakerState(
+          chat.characterIdFor(who.card),
+          emotion: 'wibbly',
+        );
+      }
+      final dir = Directory(
+        p.join(storage.charactersDir.path, 'Bea', 'avatars'),
+      )..createSync(recursive: true);
+      File(p.join(dir.path, 'bea-neutral.png')).writeAsBytesSync([1, 2, 3]);
+      final router = shelf_router.Router();
+      WebCharacterRoutes(
+        CharacterFacade(db, storage, null, chat, null),
+        router,
+        thumbnails: ThumbnailCache(Directory.systemTemp),
+      );
+      Future<int> face(ChatParticipant who) async => (await router.call(
+        shelf.Request(
+          'GET',
+          Uri.parse(
+            'http://localhost/api/chat/expression-avatar'
+            '?participant=${Uri.encodeQueryComponent(who.id)}',
+          ),
+        ),
+      )).statusCode;
+      Object? label(ChatParticipant who) =>
+          ChatRealismRead(chat).participantRealism(who.id)!['expressionLabel'];
+
+      expect(label(ana), isEmpty, reason: 'no face to wear');
+      expect(label(bea), isEmpty, reason: 'Expressions off');
+      expect(await face(bea), 404);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(asks, isEmpty);
+
+      await storage.expressionSettings.setExpressionEnabled(true);
+      expect(label(ana), isEmpty, reason: 'still no face to wear');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(asks, isEmpty);
+      expect(label(bea), isNotNull);
+      expect(await face(bea), 200);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(asks, isNotEmpty, reason: 'with a face, the read asks');
+    });
+
+    testWidgets('with ONNX on, only the member whose reply the classifier '
+        'read wears its label', (tester) async {
       await tester.runAsync(boot);
       addTearDown(
         () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
@@ -558,7 +669,9 @@ void main() {
         () =>
             storage.expressionSettings.setExpressionClassificationMode('onnx'),
       );
-      final lastReply = chat.messages.lastWhere((m) => !m.isUser);
+      final lastReply = chat.messages.lastWhere(
+        (m) => !m.isUser && m.text.isNotEmpty,
+      );
       final writer = resolveGroupSpeakerForMessage(
         chat.groupCharacters,
         lastReply,
@@ -574,13 +687,38 @@ void main() {
         chat.characterIdFor(other),
         emotion: 'sad',
       );
-      final live = chat.currentExpressionLabel;
-      expect(live, isNot('fear'), reason: 'the classifier has not said fear');
 
+      expect(
+        chat.expressionLabelFor(writer),
+        'fear',
+        reason: 'nothing classified yet: the live label is nobody reading',
+      );
+      expect(chat.expressionLabelFor(other), 'sadness');
+
+      // The scripted classifier only feeds the attribution under test.
+      chat.setExpressionClassifierService(_ScriptedClassifier(storage));
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pump();
+      final live = chat.currentExpressionLabel;
+      expect(live, isNot('fear'));
       expect(chat.expressionLabelFor(writer), live);
       expect(chat.expressionLabelFor(other), 'sadness');
-      // The classifier's debounce never runs here: no model download.
       chat.expressionService.resetForFreshChat();
     });
   });
+}
+
+/// Stands in for the ONNX model (no download): always the same reading.
+class _ScriptedClassifier extends ExpressionClassifierService {
+  _ScriptedClassifier(super.storage);
+
+  @override
+  Future<void> ensureInitialized({
+    required String Function() getCurrentEmotion,
+    required Future<String> Function(String unknownEmotion) reclassify,
+  }) async {}
+
+  @override
+  Future<EmotionResult?> classify(String text) async =>
+      const EmotionResult(emotion: 'surprise', confidence: 1);
 }

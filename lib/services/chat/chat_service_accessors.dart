@@ -151,7 +151,7 @@ extension ChatServiceAccessors on ChatService {
     bool rerollIfSame = false,
   }) => _expressionService.resolveExpressionAvatarFor(
     character,
-    label: expressionLabelFor(character),
+    labelOf: () => expressionLabelFor(character),
     rerollIfSame: rerollIfSame,
   );
 
