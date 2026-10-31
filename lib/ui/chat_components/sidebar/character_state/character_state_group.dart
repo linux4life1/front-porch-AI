@@ -101,12 +101,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     final realismOn = widget.isGroup
         ? chat.isGroupRealismActive
         : chat.realismEnabled;
-    // Porch Life allows Realism: this chat's switch then is the gate itself.
-    // While it does not, the switch greys out at the chat's own choice.
+    // The switch shows this chat's own choice. While Porch Life blocks
+    // Realism it greys out there; a change made mid-reply lands when the
+    // reply settles, and the note says so meanwhile.
     final realismAllowed = realismAllowedOf(context);
-    final realismSwitch = realismAllowed
-        ? chat.realismEnabled
-        : chat.realismChatSwitch;
+    final realismSwitch = chat.realismChatSwitch;
     // Hoisted: this used to be called twice in the Ambitions guard below, and
     // it warms the ambition-progress cache on each call — cheap, but this
     // sidebar rebuilds on every notify during streaming, so once is right.
@@ -153,11 +152,14 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
         children: [
           if (!realismOn && !widget.isGroup)
             Text(
-              realismAllowed
-                  ? 'Realism Mode is off — flip the switch to track bond, '
-                        'trust, mood, and scene time for this character.'
-                  : "The Realism Engine is off in Porch Life. This chat's "
-                        'own choice is kept.',
+              !realismAllowed
+                  ? "The Realism Engine is off in Porch Life. This chat's "
+                        'own choice is kept.'
+                  : realismSwitch
+                  // Allowed again mid-reply: it lands when the reply settles.
+                  ? 'Realism starts again when this reply finishes.'
+                  : 'Realism Mode is off — flip the switch to track bond, '
+                        'trust, mood, and scene time for this character.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),

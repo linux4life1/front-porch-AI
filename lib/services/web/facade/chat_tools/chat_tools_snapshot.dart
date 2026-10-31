@@ -70,12 +70,10 @@ class ChatToolsSnapshot {
       // Whether Realism runs: Porch Life allows it AND this chat's switch.
       'realismEnabled': _chat.realismEnabled,
       // Additive: Porch Life allows Realism, and this chat's own switch,
-      // which the phone greys at its own choice while Porch Life does not.
-      // While it does, the gate above is the switch.
+      // which the phone shows (greyed at its choice while Porch Life
+      // blocks Realism).
       'realismAllowed': rs.realismAllowed,
-      'realismSwitch': rs.realismAllowed
-          ? _chat.realismEnabled
-          : _chat.realismChatSwitch,
+      'realismSwitch': _chat.realismChatSwitch,
       'needsEnabled': _chat.needsSimEnabled,
       // Porch Life allows Needs: while it does not, the phone greys this
       // chat's switch, as the desktop's Needs line does (additive).

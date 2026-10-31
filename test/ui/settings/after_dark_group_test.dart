@@ -620,6 +620,43 @@ void main() {
       expect(find.textContaining('flip the switch'), findsNothing);
     });
 
+    testWidgets("1:1: allowed again mid-reply, the switch shows the chat's "
+        'own choice and says when Realism comes back', (tester) async {
+      // The gate (realismEnabled) still reads the turn's permission.
+      final storage = _AdultStorage();
+      final chat = _RealismChat(realismEnabled: false);
+      addTearDown(() {
+        storage.dispose();
+        chat.dispose();
+      });
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: CharacterStateGroup(
+                  chat: chat,
+                  isGroup: false,
+                  initiallyExpanded: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(realismSwitch(tester).value, isTrue, reason: "the chat's own");
+      expect(
+        find.text('Realism starts again when this reply finishes.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('flip the switch'), findsNothing);
+    });
+
     testWidgets("a group chat's switch in Group Settings greys the same way", (
       tester,
     ) async {
