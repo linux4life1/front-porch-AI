@@ -71,48 +71,6 @@ extension ChatServiceSpeakerObjectives on ChatService {
     };
   }
 
-  /// Updates the immutable creation baseline for a group member.
-  /// Only allowed fields are accepted. This should only be called during group creation seeding.
-  void setBaselineSeedForGroupCharacter(
-    CharacterCard character,
-    Map<String, dynamic> values,
-  ) {
-    if (_activeGroup == null) return;
-    final charId = _getCharacterIdFromCard(character);
-
-    Map<String, dynamic> baseline;
-    try {
-      baseline = Map<String, dynamic>.from(
-        jsonDecode(_activeGroup!.baselineRealismState),
-      );
-    } catch (_) {
-      baseline = {};
-    }
-
-    // NOTE: this REPLACES the per-character entry with exactly this shape, so a
-    // key missing here is silently dropped no matter what the caller passes.
-    // 'longTermScore' was missing, which is half of why the Group Settings
-    // "Long-Term Bond" slider never persisted — the editor wrote it into
-    // 'trust' instead, and even the correct key would have been discarded here.
-    // Defaults to affection, matching how RelationshipService seeds a member
-    // that predates the key.
-    baseline[charId] = {
-      'affection': (values['affection'] as num?)?.toInt() ?? 50,
-      'longTermScore':
-          (values['longTermScore'] as num?)?.toInt() ??
-          (values['affection'] as num?)?.toInt() ??
-          50,
-      'trust': (values['trust'] as num?)?.toInt() ?? 50,
-      'emotion': (values['emotion'] as String?) ?? 'neutral',
-      'emotionIntensity': (values['emotionIntensity'] as String?) ?? 'moderate',
-      'timeOfDay': (values['timeOfDay'] as String?) ?? 'morning',
-      'dayCount': (values['dayCount'] as num?)?.toInt() ?? 1,
-    };
-
-    _activeGroup!.baselineRealismState = jsonEncode(baseline);
-    notifyListeners();
-  }
-
   /// Loads the personal objectives for the current/next speaker into _activeObjectives
   /// when in group mode. This makes the existing objective UI, generation, and injection
   /// work per-character in groups without duplicating the entire objective system.

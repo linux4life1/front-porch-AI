@@ -23,6 +23,8 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
+    show MemberGroupView;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -32,12 +34,15 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 /// greeting seeds and the member's own Realism and Needs settings included.
 /// When the group is open in the chat, its copy of the member is replaced
 /// too, so a later save from the chat cannot put the old values back.
-/// Returns the edited card, or null when the editor was backed out of.
+/// [memberGroup] is what it shows of the group (its lines and the member's
+/// start). Returns the edited card, or null when the editor was backed out
+/// of.
 Future<CharacterCard?> editGroupMemberCard(
   BuildContext context,
   CharacterCard member,
   String memberId, {
   required String groupName,
+  MemberGroupView? memberGroup,
 }) async {
   // The live database, not the startup snapshot `Provider<AppDatabase>`
   // holds: a backup restore closes that one.
@@ -49,6 +54,7 @@ Future<CharacterCard?> editGroupMemberCard(
       builder: (_) => EditCharacterPage(
         character: member,
         memberOfGroup: groupName,
+        memberGroup: memberGroup,
         allowAvatarChange: false,
         popWithCardOnSave: true,
         onSaveOverride: (card) async {

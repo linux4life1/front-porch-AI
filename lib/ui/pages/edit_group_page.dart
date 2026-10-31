@@ -345,15 +345,28 @@ class _EditGroupPageState extends State<EditGroupPage>
     }
   }
 
+  // A start it saves is on the group's row already: a clean page stays clean.
   Future<void> _editMember(CharacterCard member, String memberId) async {
-    final edited = await editGroupMemberCard(
+    final toRealism = await editGroupMemberFromEditGroup(
       context,
-      member,
-      memberId,
-      groupName: widget.group.name,
+      group: widget.group,
+      member: member,
+      memberId: memberId,
+      defaultMemberJson: _defaultMemberRealismState,
+      baselineJson: _baselineRealismState,
+      settingId: _worldChoice.settingId,
+      inheritCharacterLorebooks: _inheritCharacterLorebooks,
+      onStartSaved: (d, b) {
+        final clean = !_isDirty();
+        _defaultMemberRealismState = d;
+        _baselineRealismState = b;
+        _realismGen++;
+        if (clean) _startFingerprint = _fingerprint();
+      },
     );
-    // The member card was mutated in place, so a rebuild reflects the edits.
-    if (edited != null && mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {}); // The member card was mutated in place.
+    if (toRealism) _tabController.animateTo(kEditGroupRealismTab);
   }
 
   @override
@@ -376,21 +389,7 @@ class _EditGroupPageState extends State<EditGroupPage>
             indicatorColor: AppColors.formAccentOf(context),
             indicatorWeight: 3,
             isScrollable: true,
-            tabs: const [
-              Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
-              Tab(
-                icon: Icon(Icons.chat_bubble_outline, size: 18),
-                text: 'Dialogue',
-              ),
-              Tab(
-                icon: Icon(Icons.auto_stories_outlined, size: 18),
-                text: 'Lore & Worlds',
-              ),
-              Tab(
-                icon: Icon(Icons.favorite_outline, size: 18),
-                text: 'Realism & Dynamics',
-              ),
-            ],
+            tabs: kEditGroupTabs,
           ),
           actions: [
             Padding(
@@ -486,7 +485,9 @@ class _EditGroupPageState extends State<EditGroupPage>
           members: _realismMembers,
           defaultMemberJson: _defaultMemberRealismState,
           baselineJson: _baselineRealismState,
-          memberCards: _members,
+          onEditMember: (mid) => _members
+              .where((c) => c.dbId == mid)
+              .forEach((c) => _editMember(c, mid)),
           onChanged: (d, b) {
             _defaultMemberRealismState = d;
             _baselineRealismState = b;

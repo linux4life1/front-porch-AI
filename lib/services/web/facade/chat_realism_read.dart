@@ -140,7 +140,7 @@ class ChatRealismRead {
       // PRESERVES the last numbers rather than zeroing them, so without this
       // flag the web panel had no way to tell a live score from a frozen one —
       // it rendered the full dashboard forever while desktop replaced it with
-      // "Realism Mode is off". Additive and nullable-safe for older clients.
+      // "The Realism Engine is off for this chat". Additive and nullable-safe for older clients.
       'realismEnabled': _chat.realismEnabled,
       // Additive, sent only while it is off: false when Porch Life is what
       // stops it, so the panel says where to look (desktop Character State).

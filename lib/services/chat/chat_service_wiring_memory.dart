@@ -252,7 +252,7 @@ extension ChatServiceWiringMemory on ChatService {
       // and the milestone all run — but bond and trust are ENGINE scalars, and
       // with the engine off every other writer is gated. That left a kept
       // promise as the sole thing moving those numbers, in a chat whose own
-      // sidebar says "Realism Mode is off": invisible movement the user was
+      // sidebar says "The Realism Engine is off": invisible movement the user was
       // told was not being tracked. The promise still resolves; only the score
       // write is skipped.
       applyTrustDelta: (d) {

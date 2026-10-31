@@ -76,6 +76,14 @@ it('names Porch Life while it blocks Realism', () => {
   expect(line).not.toContain('flip the switch');
 });
 
+it('names the Realism Engine, not "Realism Mode", when the chat\'s own switch is off', () => {
+  render({ ...base, realismAllowed: true });
+  const line = container.querySelector('.realism-off')!.textContent;
+  expect(line).toBe(
+    'The Realism Engine is off for this chat — flip the switch to track bond, trust, mood, and scene time for this character.',
+  );
+});
+
 it("keeps today's line when the chat's own switch is what is off", () => {
   render(base);
   const line = container.querySelector('.realism-off')!.textContent;

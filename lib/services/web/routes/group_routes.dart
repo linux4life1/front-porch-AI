@@ -37,6 +37,7 @@ class WebGroupRoutes {
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
     router.get('/api/groups/<id>/members/<memberId>/detail', _memberDetail);
     router.post('/api/groups/<id>/members/<memberId>', _memberUpdate);
+    router.get('/api/groups/<id>/member-summaries', _memberSummaries);
     router.get('/api/groups/<id>/export.png', _export);
     router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
@@ -137,6 +138,17 @@ class WebGroupRoutes {
     final detail = await _facade.memberEdit?.detail(id, memberId);
     if (detail == null) return JsonResponse.error(404, 'Member not found');
     return JsonResponse.ok(detail);
+  }
+
+  /// Each member's start in the group's new chats and own Afterglow, for
+  /// the phone's Group Settings summaries.
+  Future<shelf.Response> _memberSummaries(
+    shelf.Request request,
+    String id,
+  ) async {
+    final rows = await _facade.memberEdit?.summaries(id);
+    if (rows == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok({'members': rows});
   }
 
   /// Save the member editor's fields to the member's row, then return the

@@ -160,3 +160,237 @@ describe('the group member editor', () => {
     expect(link?.closest('label'), 'the link is not part of the prompt box label').toBeNull();
   });
 });
+
+// The member editor, finished to the mock: the group's own switches are
+// read-only lines, and where the member starts in the group's new chats is
+// the group's seed for them (`groupStart`), never their card's own bonds.
+const IN_GROUP = {
+  ...MEMBER,
+  alternateGreetings: ['You came back.'],
+  group: {
+    realism: true,
+    needs: false,
+    chaos: true,
+    afterglow: true,
+    timeLabel: 'Evening, Day 3',
+    settingName: 'Harborside',
+    readsMemberLorebooks: true,
+  },
+  start: {
+    shortTermBond: 35,
+    longTermBond: 35,
+    trustLevel: 40,
+    characterEmotion: 'neutral',
+    emotionIntensity: 'mild',
+  },
+};
+
+function detailIs(detail: object) {
+  get.mockImplementation((url: string) =>
+    Promise.resolve(
+      url === '/api/groups/g1/members/mem-mara/detail'
+        ? detail
+        : url === '/api/worlds'
+          ? { worlds: [] }
+          : {},
+    ),
+  );
+}
+
+function slider(label: string): HTMLInputElement {
+  const row = [...container.querySelectorAll('.realism-slider')].find(
+    (r) => r.querySelector('.realism-slider-head > span')?.textContent === label,
+  );
+  if (!row) throw new Error(`no slider "${label}"`);
+  return row.querySelector('input') as HTMLInputElement;
+}
+
+function setRange(el: HTMLInputElement, value: string) {
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, value);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+const saveButton = () =>
+  [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save character')!;
+
+describe("the group member editor and the member's group", () => {
+  it("shows the group's switches as lines and sends a moved start as the group's seed", async () => {
+    detailIs(IN_GROUP);
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    for (const line of [
+      "Realism Engine · On for this group's new chats",
+      "Time & Day · this group's new chats start at: Evening, Day 3",
+      "Chaos Mode · On for this group's new chats",
+      "Afterglow · On for this group's new chats",
+      "Needs · Off for this group's new chats",
+      "Where Mara starts in this group's new chats.",
+      'Used when a greeting opens a chat of this group.',
+      "This group meets in Harborside: the group's world sets the place and weather",
+      'While Group settings has "Inherit character & world lorebooks" on, Mara\'s own worlds add their lore when Mara speaks; it is on for this group.',
+      "The group shares one scene: it uses its own Scenario, or, while it has none, its first member's.",
+      'The group reads it when Group settings has "Inherit character & world lorebooks" on; it is on for this group.',
+    ]) {
+      expect(text(), line).toContain(line);
+    }
+    expect(text()).not.toContain('Enable Realism Engine');
+    // A closed group: its new-chat settings are in Group settings, its Chaos
+    // only in a chat of the group (the phone's Chaos is in the chat's tools).
+    expect(container.querySelector('[data-testid="group-line-realism"]')?.textContent).toContain(
+      'set in Group settings → Realism for new chats, in a chat of this group',
+    );
+    expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
+      '· the setting the group was made with',
+    );
+
+    await act(async () => setRange(slider('Long-term bond'), '120'));
+    await act(async () => saveButton().click());
+
+    expect(post).toHaveBeenCalledTimes(1);
+    const [, body] = post.mock.calls[0];
+    expect(body.groupStart).toEqual({ ...IN_GROUP.start, longTermBond: 120 });
+    expect(body.longTermBond, "the card's own bond stays as it was").not.toBe(120);
+  });
+
+  it('sends no start when it did not move, so another device’s change stays', async () => {
+    detailIs(IN_GROUP);
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+    await act(async () => saveButton().click());
+    expect(post.mock.calls[0][1].groupStart).toBeUndefined();
+  });
+
+  it("keeps a lite member's Realism, Needs and Afterglow for when they are promoted", async () => {
+    detailIs({ ...IN_GROUP, lite: true });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(
+      container.querySelector('[data-testid="member-hidden-note"]')?.textContent,
+    ).toBe(
+      "Mara's Realism, Needs and Afterglow start when they are promoted to a full member of this group.",
+    );
+    for (const hidden of ['Short-term bond', 'Needs Simulation', 'Afterglow for Mara']) {
+      expect(text(), hidden).not.toContain(hidden);
+    }
+    expect(text()).toContain("Chaos Mode · On for this group's new chats");
+  });
+
+  it('hides Realism, Needs and Afterglow while Porch Life does not allow Realism', async () => {
+    detailIs({ ...IN_GROUP, realismAllowed: false });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(
+      container.querySelector('[data-testid="member-hidden-note"]')?.textContent,
+    ).toBe(
+      "Realism, Needs and Afterglow are hidden: the Realism Engine is off in Porch Life. Mara's settings are kept.",
+    );
+    for (const hidden of ['Short-term bond', 'Needs Simulation', 'Afterglow for Mara']) {
+      expect(text(), hidden).not.toContain(hidden);
+    }
+  });
+
+  it("Group Settings sums up where each member starts, beside their editor's link", async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/groups/g1/member-summaries'
+          ? {
+              members: [
+                {
+                  id: 'mem-mara',
+                  name: 'Mara',
+                  start: { ...IN_GROUP.start, longTermBond: 25, trustLevel: 30 },
+                  afterglow: true,
+                  lite: false,
+                },
+              ],
+            }
+          : {},
+      ),
+    );
+    await mountAt(
+      '/here',
+      <GroupSettings
+        group={{
+          name: 'Pair',
+          systemPrompt: '',
+          scenario: '',
+          firstMessage: '',
+          members: [{ id: 'mem-mara', dbId: 'mem-mara', name: 'Mara', prompt: '' }],
+        } as never}
+        groupId="g1"
+        onToggleDirector={() => {}}
+        clockOn
+      />,
+    );
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(
+      container.querySelector('[data-testid="member-summary-mem-mara"]')?.textContent,
+    ).toBe('Mara · Close / Trusting · Afterglow on');
+  });
+});
+
+// Each line says what it describes. While the group is open in the chat the
+// lines are that chat's own switches; the start beside them is how the
+// group's new chats begin, and when those run without Realism there is none
+// to set, and the editor says where that is set.
+// New Chat seeds a group's Chaos as its own setting OR Porch Life's Chaos
+// default, and its Needs only while Porch Life runs Needs.
+describe("the group member editor's lines for new chats", () => {
+  it("say Chaos comes from Porch Life's default, and Needs is off in Porch Life", async () => {
+    detailIs({
+      ...IN_GROUP,
+      group: { ...IN_GROUP.group, chaosFromPorchLife: true, needsOffInPorchLife: true },
+    });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(container.querySelector('[data-testid="group-line-chaos"]')?.textContent).toContain(
+      "· on because Porch Life's Chaos default is on",
+    );
+    expect(container.querySelector('[data-testid="group-line-needs"]')?.textContent).toContain(
+      "· Off in Porch Life, so no chat runs Needs. This group's choice for new chats is kept.",
+    );
+  });
+});
+
+describe('the group member editor while its group is open in the chat', () => {
+  const OPEN = { ...IN_GROUP, group: { ...IN_GROUP.group, open: true } };
+
+  it("words the group's lines as this chat's own switches", async () => {
+    detailIs(OPEN);
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    for (const line of [
+      'Realism Engine · On in this chat',
+      'Time & Day · in this chat: Evening, Day 3',
+      'Chaos Mode · On in this chat',
+      'Needs · Off in this chat',
+      "Where Mara starts in this group's new chats.",
+    ]) {
+      expect(text(), line).toContain(line);
+    }
+    expect(container.querySelector('[data-testid="group-line-realism"]')?.textContent).toContain(
+      "set in this chat's tools",
+    );
+  });
+
+  it("keeps this chat's Needs choice in view and says Porch Life runs no Needs", async () => {
+    detailIs({ ...OPEN, group: { ...OPEN.group, needs: true, needsOffInPorchLife: true } });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    const needs = container.querySelector('[data-testid="group-line-needs"]')?.textContent;
+    expect(needs).toContain('Needs · On in this chat');
+    expect(needs).toContain("· Off in Porch Life, so no chat runs Needs. This chat's choice is kept.");
+  });
+
+  it("says there is no start to set while the group's new chats run without Realism", async () => {
+    detailIs({ ...OPEN, start: null });
+    await mountAt('/groups/g1/members/mem-mara/edit', <></>);
+
+    expect(text()).toContain('Realism Engine · On in this chat');
+    expect(container.querySelector('[data-testid="member-no-start-note"]')?.textContent).toBe(
+      "This group's new chats start without Realism, so there's no start to set. Set in Group settings → Realism for new chats, in a chat of this group.",
+    );
+    expect(text()).not.toContain('Short-term bond');
+  });
+});

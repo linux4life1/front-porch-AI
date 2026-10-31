@@ -22,6 +22,7 @@ import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/group_fork_source.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -31,11 +32,14 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 /// touches a chat that already exists, except Inherit, which every chat of
 /// the group reads live.
 class GroupNewChats {
-  GroupNewChats(this._groups, [this._db, this._worlds]);
+  GroupNewChats(this._groups, [this._db, this._worlds, this._storage]);
 
   final GroupChatRepository _groups;
   final AppDatabase? _db;
   final WorldRepository? _worlds;
+
+  /// Porch Life, for `needsAllowed`; absent reads as allowed.
+  final StorageService? _storage;
 
   World? _lookup(String id) => _worlds?.worldById(id);
 
@@ -50,8 +54,9 @@ class GroupNewChats {
     }
   }
 
-  /// `{realism, needs, afterglow, inherit, forkSource}` for [groupId], or null when
-  /// the group is unknown. `forkSource` is null unless the group was made
+  /// `{realism, needs, needsAllowed, afterglow, inherit, forkSource}` for
+  /// [groupId], or null when the group is unknown. `needsAllowed` is Porch
+  /// Life's Needs: false greys the Needs switch at the group's own choice. `forkSource` is null unless the group was made
   /// from a 1:1 whose settings it is missing.
   Future<Map<String, dynamic>?> stateOf(String groupId) async {
     final g = _groups.getById(groupId);
@@ -61,6 +66,7 @@ class GroupNewChats {
     return {
       'realism': r.realismOn,
       'needs': r.needsOn,
+      'needsAllowed': _storage?.realismSettings.needsSimDefault ?? true,
       'afterglow': groupAfterglowIn(g.defaultMemberRealismState),
       'inherit': g.inheritCharacterLorebooks,
       'forkSource': s == null || !s.differsFrom(g)

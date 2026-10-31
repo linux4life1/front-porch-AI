@@ -17,9 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The character editor's Realism section (engine toggles + seeds). Every
@@ -29,17 +32,31 @@ class EditCharacterRealismSection extends StatelessWidget {
   final EditCharacterDraft draft;
   final VoidCallback onChanged;
 
-  /// Set when this is a group member's editor: only the member's own settings
-  /// are shown. The group's (Realism, time and day, Chaos, Needs on/off, its
-  /// Afterglow, and each member's start) are set in Group Settings and Edit
-  /// group, so they are not repeated here.
+  /// Set when this is a group member's editor. The member's own settings are
+  /// switches; the group's (Realism, time and day, Chaos, Afterglow, Needs)
+  /// are read-only lines from [group], and the start is the group's seed for
+  /// the member ([start]), never their card's.
   final String? memberName;
+
+  /// The member's group: its lines and links.
+  final MemberGroupView? group;
+
+  /// Where the member starts in new chats of the group, as edited.
+  final GroupMemberStart? start;
+  final ValueChanged<GroupMemberStart>? onStartChanged;
+
+  /// A lite member: Realism, Needs and Afterglow start at promotion.
+  final bool lite;
 
   const EditCharacterRealismSection({
     super.key,
     required this.draft,
     required this.onChanged,
     this.memberName,
+    this.group,
+    this.start,
+    this.onStartChanged,
+    this.lite = false,
   });
 
   void _edit(VoidCallback fn) {
@@ -48,10 +65,49 @@ class EditCharacterRealismSection extends StatelessWidget {
     onChanged();
   }
 
+  /// Why the member's Realism, Needs and Afterglow are hidden, or null.
+  String? _hiddenNote(String member) {
+    if (lite) {
+      return "$member's Realism, Needs and Afterglow start when they are "
+          'promoted to a full member of this group.';
+    }
+    if (group?.realismAllowed == false) {
+      return 'Realism, Needs and Afterglow are hidden: the Realism Engine is '
+          "off in Porch Life. $member's settings are kept.";
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final changes = group?.changes;
+    if (changes == null) return _build(context);
+    return ListenableBuilder(
+      listenable: changes,
+      builder: (context, _) => _build(context),
+    );
+  }
+
+  Widget _build(BuildContext context) {
     final d = draft;
     final member = memberName;
+    final view = group;
+    final values = view?.read();
+    final hidden = member == null ? null : _hiddenNote(member);
+    var rows = view == null || values == null || member == null
+        ? null
+        : memberGroupRows(context, view, values, memberName: member);
+    if (rows != null && hidden != null) {
+      // The Optional Features card is hidden with the engine, so the
+      // group's Chaos line joins the others.
+      rows = MemberGroupRows(
+        header: Column(children: [rows.header, rows.chaos]),
+        chaos: const SizedBox.shrink(),
+        startNote: rows.startNote,
+      );
+    }
+    final s = start;
+    void setStart(GroupMemberStart next) => onStartChanged?.call(next);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -73,10 +129,9 @@ class EditCharacterRealismSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   member != null
-                      ? "These are $member's own settings in this group. The "
-                            "group's Realism, time and day, Chaos and Needs, "
-                            "and where $member starts in its new chats, are "
-                            'in Group Settings and Edit group.'
+                      ? "These are $member's own settings in this group. A "
+                            "read-only line is the group's own, set for "
+                            'everyone in it.'
                       : 'These settings only affect new conversations with this character — '
                             'your existing chats won\'t be changed. No cheating with the relationship values!',
                   style: TextStyle(
@@ -92,14 +147,16 @@ class EditCharacterRealismSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        if (hidden != null) MemberEditorNote(hidden),
 
         // Full editable Realism Engine form
         RealismFormSection(
-          enabled: member != null || d.realismEnabled,
+          enabled: member != null ? hidden == null : d.realismEnabled,
           showMasterEnabledToggle: member == null,
           showTimeAndDay: member == null,
           showChaosToggle: member == null,
-          showStartingState: member == null,
+          showStartingState: member == null || s != null,
+          memberRows: rows,
           afterglowLabel: member == null ? null : 'Afterglow for $member',
           afterglowSubtitle: member == null
               ? null
@@ -116,18 +173,28 @@ class EditCharacterRealismSection extends StatelessWidget {
           storyStartTime: d.realismStoryStartTime,
           onStoryStartTimeChanged: (v) =>
               _edit(() => d.realismStoryStartTime = v),
-          shortTermBond: d.realismShortTermBond,
-          onShortTermBondChanged: (v) =>
-              _edit(() => d.realismShortTermBond = v),
-          longTermBond: d.realismLongTermBond,
-          onLongTermBondChanged: (v) => _edit(() => d.realismLongTermBond = v),
-          trustLevel: d.realismTrustLevel,
-          onTrustLevelChanged: (v) => _edit(() => d.realismTrustLevel = v),
-          emotion: d.realismEmotion,
-          onEmotionChanged: (v) => _edit(() => d.realismEmotion = v),
-          emotionIntensity: d.realismEmotionIntensity,
-          onEmotionIntensityChanged: (v) =>
-              _edit(() => d.realismEmotionIntensity = v),
+          // A member's start is the group's seed for them (s), never the
+          // bonds and mood on their card.
+          shortTermBond: s?.shortTerm ?? d.realismShortTermBond,
+          onShortTermBondChanged: (v) => s != null
+              ? setStart(s.copyWith(shortTerm: v))
+              : _edit(() => d.realismShortTermBond = v),
+          longTermBond: s?.longTerm ?? d.realismLongTermBond,
+          onLongTermBondChanged: (v) => s != null
+              ? setStart(s.copyWith(longTerm: v))
+              : _edit(() => d.realismLongTermBond = v),
+          trustLevel: s?.trust ?? d.realismTrustLevel,
+          onTrustLevelChanged: (v) => s != null
+              ? setStart(s.copyWith(trust: v))
+              : _edit(() => d.realismTrustLevel = v),
+          emotion: s?.emotion ?? d.realismEmotion,
+          onEmotionChanged: (v) => s != null
+              ? setStart(s.copyWith(emotion: v))
+              : _edit(() => d.realismEmotion = v),
+          emotionIntensity: s?.emotionIntensity ?? d.realismEmotionIntensity,
+          onEmotionIntensityChanged: (v) => s != null
+              ? setStart(s.copyWith(emotionIntensity: v))
+              : _edit(() => d.realismEmotionIntensity = v),
           recovery: d.recovery,
           onRecoveryChanged: (v) => _edit(() => d.recovery = v),
           sex: d.sex,
@@ -147,9 +214,15 @@ class EditCharacterRealismSection extends StatelessWidget {
           realismVerificationStrictness: d.realismVerificationStrictness,
           onRealismVerificationStrictnessChanged: (v) =>
               _edit(() => d.realismVerificationStrictness = v),
+          needsDirectorAuthority: d.realismNeedsDirectorAuthority,
+          onNeedsDirectorAuthorityChanged: (v) =>
+              _edit(() => d.realismNeedsDirectorAuthority = v),
           needsFormSection: NeedsFormSection(
             enabled: member != null || d.realismNeedsSim,
             showSwitch: member == null,
+            groupLine: view == null || values == null
+                ? null
+                : memberGroupNeedsLine(context, view, values),
             onEnabledChanged: (v) => _edit(() => d.realismNeedsSim = v),
             enjoysLowHygiene: d.realismEnjoysLowHygiene,
             onEnjoysLowHygieneChanged: (v) =>

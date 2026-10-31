@@ -12,15 +12,18 @@ import { Slider, ToggleRow, SelectRow } from './controls';
 import { ChipList } from './ChipList';
 import { RecoveryBlock } from './RecoveryBlock';
 import {
+  type GroupLines,
+  type MemberStart,
+  GroupLine,
+  RelationshipFields,
+  groupLineTexts,
+} from './memberGroup';
+import {
   type RealismValues,
   chipsToInventory,
   inventoryToChips,
-  INTENSITY_OPTIONS,
   TIME_OPTIONS,
-  longTermTier,
-  shortTermTier,
   titleCase,
-  trustTier,
 } from './realismTypes';
 import {
   DEFAULT_END_MIN,
@@ -43,6 +46,11 @@ export function RealismFormSection({
   afterglowOn = false,
   showChargenSuggestion = false,
   member,
+  group,
+  start,
+  setStart,
+  hiddenNote,
+  noStartNote,
 }: {
   v: RealismValues;
   set: Patch;
@@ -55,19 +63,43 @@ export function RealismFormSection({
   /// The create wizard only: suggests a recovery preset from the authored
   /// intimacy notes, confirmed by the author, never applied silently.
   showChargenSuggestion?: boolean;
-  /// A group member's editor: the member's name. Only their own settings
-  /// show; the group's (Realism on or off, time and day, Chaos, Passage of
-  /// Time, and where each member starts) are in Group Settings and Edit group.
+  /// A group member's editor: the member's name. Their own settings are
+  /// switches; the group's (Realism, time and day, Chaos, Afterglow) show as
+  /// read-only lines from [group].
   member?: string;
+  /// The member's group, read-only (absent from an older app).
+  group?: GroupLines | null;
+  /// Where the member starts in new chats of the group: the group's seed for
+  /// them. Absent when the group's new chats start without Realism.
+  start?: MemberStart | null;
+  setStart?: (start: MemberStart) => void;
+  /// Why the member's Realism, Needs and Afterglow are hidden (a lite member,
+  /// or Realism not allowed in Porch Life); their settings are kept.
+  hiddenNote?: string;
+  /** Said in the start's place when the group's new chats start without
+   *  Realism, and where that is set. */
+  noStartNote?: string;
 }) {
-  const engineOn = member !== undefined || v.realismEnabled;
+  const engineOn = member !== undefined ? !hiddenNote : v.realismEnabled;
+  const lines = group ? groupLineTexts(group) : null;
   return (
     <div className="realism-section">
       {member !== undefined && (
         <p className="muted small" data-testid="member-own-settings-note">
-          These are {member}&apos;s own settings in this group. The group&apos;s Realism, time
-          and day, Chaos and Needs, and where {member} starts in its new chats, are in Group
-          Settings.
+          These are {member}&apos;s own settings in this group. A read-only line is the
+          group&apos;s own, set for everyone in it.
+        </p>
+      )}
+      {member !== undefined && lines && (
+        <>
+          <GroupLine line={lines.realism} testId="group-line-realism" />
+          <GroupLine line={lines.time} testId="group-line-time" />
+          {hiddenNote && <GroupLine line={lines.chaos} testId="group-line-chaos" />}
+        </>
+      )}
+      {member !== undefined && hiddenNote && (
+        <p className="card muted small" data-testid="member-hidden-note">
+          {hiddenNote}
         </p>
       )}
       {member === undefined && (
@@ -123,61 +155,33 @@ export function RealismFormSection({
 
           {engineOn && (
           <>
-          {member === undefined && (
-          <>
-          {/* ── Relationship ── */}
-          <h4 className="realism-head">Relationship</h4>
-          <div className="card realism-card">
-            <Slider
-              label="Short-term bond"
-              min={-300}
-              max={300}
-              value={v.shortTermBond}
-              badge={`${shortTermTier(v.shortTermBond)} (${v.shortTermBond})`}
-              onChange={(n) => set({ shortTermBond: n })}
+          {/* ── Relationship + Starting emotion: the card's own in a 1:1
+              editor; in a member's, the group's seed for them. ── */}
+          {member === undefined && <RelationshipFields v={v} set={set} />}
+          {member !== undefined && start && setStart && (
+            <RelationshipFields
+              v={start}
+              set={(p) => setStart({ ...start, ...p })}
+              note={`Where ${member} starts in this group's new chats.`}
             />
-            <Slider
-              label="Long-term bond"
-              min={-300}
-              max={300}
-              value={v.longTermBond}
-              badge={`${longTermTier(v.longTermBond)} (${v.longTermBond})`}
-              onChange={(n) => set({ longTermBond: n })}
-            />
-            <Slider
-              label="Trust level"
-              min={-100}
-              max={100}
-              value={v.trustLevel}
-              badge={`${trustTier(v.trustLevel)} (${v.trustLevel})`}
-              onChange={(n) => set({ trustLevel: n })}
-            />
-          </div>
-
-          {/* ── Starting emotion ── */}
-          <h4 className="realism-head">Starting emotion</h4>
-          <div className="realism-grid-2">
-            <label className="realism-field">
-              <span>Emotion</span>
-              <input
-                value={v.characterEmotion}
-                placeholder="e.g. curious, guarded, amused"
-                onChange={(e) => set({ characterEmotion: e.target.value })}
-              />
-            </label>
-            <SelectRow
-              label="Intensity"
-              value={v.emotionIntensity}
-              options={INTENSITY_OPTIONS.map((i) => ({ value: i, label: titleCase(i) }))}
-              onChange={(s) => set({ emotionIntensity: s })}
-            />
-          </div>
-          </>
+          )}
+          {member !== undefined && !start && noStartNote && (
+            <p className="muted small" data-testid="member-no-start-note">
+              {noStartNote}
+            </p>
           )}
 
           {/* ── Optional features ── */}
           <h4 className="realism-head">Optional features</h4>
           <div className="card realism-card">
+            {member !== undefined && lines && (
+              <>
+                <GroupLine line={lines.chaos} testId="group-line-chaos" />
+                {showIntimate && afterglowOn && (
+                  <GroupLine line={lines.afterglow} testId="group-line-afterglow" />
+                )}
+              </>
+            )}
             {/* The card's Afterglow switch: how new chats with this character
                 start. Absent, not greyed, unless Porch Life (with 18+) allows
                 Afterglow. Its Recovery block shows while the switch is on

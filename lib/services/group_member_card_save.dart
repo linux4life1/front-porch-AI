@@ -68,36 +68,6 @@ GroupMembersCompanion groupMemberCardColumns(CharacterCard card) {
   );
 }
 
-/// Saves only a group member's Recovery block onto their row, keeping every
-/// other extension the row holds now: a copy loaded earlier (Edit group) may
-/// be behind a change made since, such as the member's own Afterglow switch.
-Future<void> saveGroupMemberRecovery(
-  AppDatabase db,
-  String id,
-  RecoveryProfile recovery,
-) async {
-  final row = await db
-      .customSelect(
-        'SELECT front_porch_extensions AS e FROM group_members WHERE id = ?',
-        variables: [Variable(id)],
-      )
-      .getSingleOrNull();
-  if (row == null) throw StateError('no group member row $id');
-  final raw = row.data['e'] as String?;
-  final ext = raw == null || raw.isEmpty
-      ? FrontPorchExtensions()
-      : FrontPorchExtensions.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-  await db.updateGroupMember(
-    GroupMembersCompanion(
-      id: Value(id),
-      frontPorchExtensions: Value(
-        jsonEncode(ext.copyWith(recovery: recovery).toJson()),
-      ),
-      updatedAt: Value(DateTime.now()),
-    ),
-  );
-}
-
 /// Saves only a group member's extensions (chat colours, avatar lock): the
 /// rest of the row may have changed since this copy was loaded, in Edit
 /// group, and a whole-row write from it would put the old values back.
