@@ -3,8 +3,13 @@
 
 part of '../chat_service.dart';
 
-/// Phase 0 import seed + session head for `.fpchat` (kept separate so the
-/// package I/O file stays under the 500-line cap).
+/// Phase 0 import seed + session head for `.fpchat`: the Realism and clock
+/// scalars of an imported chat, and the wiring of the transfer doors
+/// (`lib/services/chat/doors/transfer/`) that call them.
+///
+/// These bodies write the bag's scalars, so they stay in the library until
+/// the session store (WP7) and the Realism graph (WP9) own that state; the
+/// doors reach them only through the [TransferHost] built below.
 extension ChatServiceImportSeed on ChatService {
   // ── Phase 0: live-state seed for imported sessions ──────────────────────
 
@@ -398,86 +403,58 @@ extension ChatServiceImportSeed on ChatService {
     }
   }
 
-  /// Thin `fpai.cast`: group roster (lite marked) or live 1:1 scene guests.
-  /// Ids + name + tier only — no card blobs. 1:1 guests never rode
-  /// `group_realism_state` in the package (that key is group-only).
-  List<Map<String, dynamic>> _captureCastForPackage() {
-    if (_activeGroup != null) {
-      return [
-        for (final c in _groupCharacters)
-          encodeFpchatCastMember(
-            id: _getCharacterIdFromCard(c),
-            name: c.name,
-            lite: c.isLite,
-          ),
-      ];
-    }
-    return [
-      for (final g in _sceneGuest.cards)
-        encodeFpchatCastMember(
-          id: _getCharacterIdFromCard(g),
-          name: g.name,
-          lite: true,
-        ),
-    ];
-  }
+  // ── Transfer doors (import / export) ────────────────────────────────────
 
-  /// Restore [fpai.cast] after Phase 0 seed wiped guests. Missing/empty
-  /// is a no-op (legacy packages). Unknown ids are skipped — no invented
-  /// cards. Dialogue-only imports never call this.
-  Future<void> _applyCastFromPackage(dynamic raw) async {
-    final cast = parseFpchatCast(raw);
-    if (cast.isEmpty) return;
-    if (_activeGroup != null) {
-      var changed = false;
-      for (final entry in cast) {
-        if (!entry.lite) continue;
-        final live = matchFpchatCastMember(_groupCharacters, entry);
-        if (live == null || live.isLite) continue;
-        final stamped = cloneFrontPorchTier(
-          live.frontPorchExtensions,
-          lite: true,
-        );
-        live.frontPorchExtensions = stamped;
-        if (live.dbId != null) {
-          await _db.updateGroupMember(
-            GroupMembersCompanion(
-              id: drift.Value(live.dbId!),
-              frontPorchExtensions: drift.Value(
-                encodeMemberFrontPorch(stamped),
-              ),
-            ),
-          );
-        }
-        changed = true;
-      }
-      if (changed) await _reloadGroupRoster();
-      return;
-    }
-    final hostId = _session.activeCharacter != null
-        ? _getCharacterIdFromCard(_session.activeCharacter!)
-        : '';
-    final library = _characterRepository?.characters ?? const <CharacterCard>[];
-    for (final entry in cast) {
-      if (!entry.lite) continue;
-      final lib = matchFpchatCastMember(library, entry);
-      if (lib == null || lib.dbId == null) continue;
-      if (_getCharacterIdFromCard(lib) == hostId) continue;
-      if (_sceneGuest.ids.contains(lib.dbId)) continue;
-      await _enterSceneGuest(lib, speak: false);
-    }
-  }
+  ChatImporter _buildChatImporter() => ChatImporter(
+    _session,
+    _buildTransferHost(),
+    saveChat: _saveChat,
+    notify: notifyListeners,
+  );
 
-  /// Register a 1:1 Scene Guest without an entrance turn (import + tests).
-  @visibleForTesting
-  Future<void> debugEnterSceneGuestSilent(CharacterCard guest) =>
-      _enterSceneGuest(guest, speak: false);
+  ChatPackager _buildChatPackager() =>
+      ChatPackager(_session, _buildTransferHost(), importer: chatImporter);
 
-  /// Seed a transcript so [exportToFpchat] has something to pack.
-  @visibleForTesting
-  void debugSeedTranscriptForFpchat(List<ChatMessage> msgs) {
-    _session.messages
-      ..clear()
-      ..addAll(msgs);
-  }
+  /// What the transfer doors reach in this library. Every entry past the
+  /// services is debt the session store (WP7) and Realism graph (WP9) retire.
+  TransferHost _buildTransferHost() => TransferHost(
+    db: () => _db,
+    storage: _storageService,
+    personas: _userPersonaService,
+    imageGen: () => _imageGenService,
+    memory: () => _memoryService,
+    characters: () => _characterRepository,
+    journalStore: () => _journalStore,
+    growthDesk: () => _growthDesk,
+    sceneGuests: _sceneGuest,
+    seedScalars: _seedLiveRealismForImportedSession,
+    captureSessionHead: _captureSessionHeadForPackage,
+    applySessionHead: _applySessionHeadFromPackage,
+    restoreWalkingBack: (from) =>
+        _restoreRealismStateWalkingBack(fromIndex: from),
+    captureRealismState: () => _realismSnapshot.capture(),
+    isTurnBusy: () => _isTurnBusy,
+    isGenerating: () => _isGenerating,
+    markNewChat: (fresh) => _isNewChat = fresh,
+    computeAbsenceGap: () => _computeAbsenceGap(const []),
+    catchUpRecap: (lastIndex) {
+      _summary = '';
+      _summaryLastIndex = lastIndex;
+    },
+    invalidateGreetingEval: _invalidateGreetingEval,
+    seedChatWorlds: () => _seedChatWorldsForNewSession(),
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    reloadGroupRoster: _reloadGroupRoster,
+    enterSceneGuestSilently: (guest) => _enterSceneGuest(guest, speak: false),
+    loadActiveObjectives: _loadActiveObjectives,
+    loadSpeakerObjectives: _loadObjectivesForCurrentSpeaker,
+    awaitHistoryHydrated: _awaitHistoryHydrated,
+    historyBasePosition: () => _history.basePosition,
+    formatForRagEmbedding: _formatMessagesForRagEmbedding,
+    sessionsFor: getSessionsForId,
+    setActiveCharacter: setActiveCharacter,
+    loadSession: loadSession,
+    deleteSessionQuietly: (id) => deleteSession(id, startReplacement: false),
+  );
 }

@@ -124,7 +124,7 @@ extension ChatServiceMessageOps on ChatService {
   }
 
   Future<bool> _yieldSettlingTurn() async {
-    if (_isGenerating || _isImporting || _skipAsked) return false;
+    if (_isGenerating || isImporting || _skipAsked) return false;
     if (!_isPostGenerating) {
       // Fast path used to return without touching the flags, so a leftover
       // latch from a prior yield survived into the next regen.
@@ -150,7 +150,7 @@ extension ChatServiceMessageOps on ChatService {
     if (_session.messages.isEmpty || _sceneGuest.busy) return;
     // Continue KEEPS the reply. Aborting its scoring would leave the first
     // half unbookkept and only score the new fragment. Wait like Send.
-    if (_isGenerating || _isImporting || _skipAsked) return;
+    if (_isGenerating || isImporting || _skipAsked) return;
     if (_isPostGenerating) await _waitForTurnToSettle();
 
     // Only continue if the last message is from a bot (non-user, non-system).

@@ -56,7 +56,7 @@ extension ChatServiceSend on ChatService {
     if (_isLoadingSession || _chatSwitches > 0) {
       return 'The chat is still opening.';
     }
-    if (_isImporting) return 'A chat import is still running.';
+    if (isImporting) return 'A chat import is still running.';
     if (_entrancesInFlight || _sceneGuest.busy) {
       return 'A character is still joining the scene.';
     }
@@ -93,7 +93,7 @@ extension ChatServiceSend on ChatService {
     if (_photoTurnInFlight) return;
     // Import clears `_session.messages` and remints the session. A Send during that
     // window appends into a list the import is about to throw away.
-    if (_isImporting) return;
+    if (isImporting) return;
     // No new user turn while a generation is live (streaming, draining, or
     // finalizing). A send mid-turn interleaves this method's own message
     // inserts (dream block) with the active turn's writes on one shared
