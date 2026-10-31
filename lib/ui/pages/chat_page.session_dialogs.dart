@@ -33,15 +33,23 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
-/// Group Settings, from the sidebar button.
-void showGroupSettings(BuildContext context, ChatService chatService) {
+/// Group Settings, from the sidebar button, or on [initialTab] from a group
+/// member's editor (its lines link to Realism and Needs).
+void showGroupSettings(
+  BuildContext context,
+  ChatService chatService, {
+  int initialTab = 0,
+}) {
   final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
   showDialog(
     context: context,
     // Outside tap used to discard General the same way X/Close did.
     barrierDismissible: false,
-    builder: (dialogContext) =>
-        GroupSettingsDialog(chatService: chatService, groupRepo: groupRepo),
+    builder: (dialogContext) => GroupSettingsDialog(
+      chatService: chatService,
+      groupRepo: groupRepo,
+      initialTab: initialTab,
+    ),
   );
 }
 

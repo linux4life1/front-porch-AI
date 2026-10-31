@@ -50,6 +50,10 @@ class EditCharacterPage extends StatefulWidget {
   /// settings.
   final String? memberOfGroup;
 
+  /// The member's group, when [memberOfGroup] is set: its own switches as
+  /// read-only lines, and where the member starts in its new chats.
+  final MemberGroupView? memberGroup;
+
   /// Allow changing the avatar (default true). Disabled for group members in this
   /// pass, since a member's avatar lives at a private group path.
   final bool allowAvatarChange;
@@ -70,6 +74,7 @@ class EditCharacterPage extends StatefulWidget {
     this.popWithCardOnSave = false,
     this.onSaveOverride,
     this.memberOfGroup,
+    this.memberGroup,
     this.allowAvatarChange = true,
     this.onSaved,
   });
@@ -82,6 +87,10 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     with SingleTickerProviderStateMixin {
   late final EditCharacterDraft _draft;
   late final TabController _tabController;
+
+  /// The member's start as edited; saved to the group's seed when it moved.
+  late GroupMemberStart? _start = widget.memberGroup?.start;
+  bool get _startMoved => _start != widget.memberGroup?.start;
 
   @override
   void initState() {
@@ -243,7 +252,13 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     }
   }
 
+  /// A save is running: a second tap of Save before it ends writes nothing
+  /// (it would write the row twice and pop the page twice).
+  bool _saving = false;
+
   Future<void> _saveCharacter() async {
+    if (_saving) return;
+    _saving = true;
     final writer = EditCharacterCardWriter(
       character: widget.character,
       draft: _draft,
@@ -280,6 +295,12 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         await _backfillAddedWorlds(writer.addedWorlds);
       }
 
+      final start = _start;
+      final saveStart = widget.memberGroup?.saveStart;
+      if (_startMoved && start != null && saveStart != null) {
+        await saveStart(start);
+      }
+
       if (widget.onSaved != null) {
         await widget.onSaved!(widget.character);
       }
@@ -297,6 +318,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         }
       }
     } catch (e) {
+      _saving = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -343,12 +365,16 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   @override
   Widget build(BuildContext context) {
     return UnsavedChangesGuard(
-      isDirty: () => _draft.isDirty,
+      isDirty: () => _draft.isDirty || _startMoved,
       child: _scaffold(),
     );
   }
 
   Widget _scaffold() {
+    final group = widget.memberOfGroup == null ? null : widget.memberGroup;
+    final notes = group == null
+        ? null
+        : memberTabNotes(_draft.nameController.text, group.read());
     return EditCharacterScaffold(
       characterName: widget.character.name,
       saveLabel: widget.saveLabel,
@@ -361,10 +387,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           character: widget.character,
           draft: _draft,
           memberOfGroup: widget.memberOfGroup,
+          memberGroup: group,
+          start: _start,
+          onStartChanged: (s) => setState(() => _start = s),
           onChanged: _rebuild,
         ),
-        EditCharacterDialogueTab(draft: _draft, onChanged: _rebuild),
+        EditCharacterDialogueTab(
+          draft: _draft,
+          onChanged: _rebuild,
+          greetingNote: notes?.greeting,
+        ),
         EditCharacterLorebookTab(
+          memberNote: notes?.lorebook,
           entries: _loreEntries,
           onImportFile: _importLorebookJson,
           onExportFile: _exportLorebookJson,
@@ -375,6 +409,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           onChanged: _rebuild,
         ),
         EditCharacterWorldsTab(
+          memberNote: notes?.worlds,
           value: _draft.worldChoice,
           onChanged: (c) => setState(() => _draft.worldChoice = c),
           characterName: _draft.nameController.text,

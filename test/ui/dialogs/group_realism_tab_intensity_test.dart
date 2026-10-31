@@ -20,8 +20,9 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/member_realism_card.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
@@ -126,17 +127,97 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    final shown = tester
-        .widgetList<DropdownButtonFormField<String>>(
-          find.byType(DropdownButtonFormField<String>),
-        )
-        .map((d) => d.initialValue)
-        .where(emotionIntensities.contains)
-        .toList();
-    expect(shown, [
-      'mild',
-      'strong',
-    ], reason: 'Ada as made; Bex read from intense');
+    expect(find.byType(GroupMemberRealismCard), findsNWidgets(2));
+    // The strength is edited in each member's editor now, which reads the
+    // group's seed for them; the old tab's `intense` reads as `strong`.
+    final group = chat.activeGroup!;
+    expect(
+      [
+        for (final id in ['mem-ada', 'mem-bex'])
+          groupMemberStartIn(
+            group.defaultMemberRealismState,
+            id,
+          )!.emotionIntensity,
+      ],
+      ['mild', 'strong'],
+      reason: 'Ada as made; Bex read from intense',
+    );
+  });
+
+  // Each member was a cut-down copy of the member editor here (bonds, mood,
+  // the verifier). Now it says where they start and Edit opens their editor;
+  // the chat's own controls for them stay.
+  testWidgets("each member's summary says where they start in new chats and "
+      "Edit opens their editor, whose group lines link to Group Settings", (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    expect(
+      find.descendant(of: ada, matching: find.text(' · Close / Trusting')),
+      findsOneWidget,
+      reason: "the group's seed for her: 35 / 40",
+    );
+    expect(find.text('Short-Term Bond'), findsNothing);
+    expect(find.text('Director/Verifier'), findsNothing);
+
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(EditCharacterPage), findsOneWidget);
+    expect(
+      find.text('Where Ada starts in new chats of this group.'),
+      findsOneWidget,
+    );
+
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.descendant(
+        of: find.byType(GroupSettingsDialog),
+        matching: find.text('Realism — The Porch'),
+      ),
+      findsOneWidget,
+      reason: "the group's Realism lines open Group Settings on Realism",
+    );
+    Navigator.of(tester.element(find.byType(GroupSettingsDialog))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    Navigator.of(tester.element(find.byType(EditCharacterPage))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
   });
 
   group("the group chat's own Afterglow switch", () {

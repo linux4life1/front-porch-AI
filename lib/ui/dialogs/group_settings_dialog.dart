@@ -13,10 +13,14 @@ class GroupSettingsDialog extends StatefulWidget {
   final ChatService chatService;
   final GroupChatRepository? groupRepo;
 
+  /// The tab it opens on (a member's editor links to Realism or Needs).
+  final int initialTab;
+
   const GroupSettingsDialog({
     super.key,
     required this.chatService,
     this.groupRepo,
+    this.initialTab = 0,
   });
 
   @override
@@ -31,7 +35,11 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(
+      length: 6,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, 5),
+    );
   }
 
   @override

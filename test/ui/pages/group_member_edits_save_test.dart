@@ -46,6 +46,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show TableInfo, TableUpdateQuery;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -57,14 +58,16 @@ import 'package:front_porch_ai/ui/dialogs/ui_settings/ui_settings_controls.dart'
 import 'package:front_porch_ai/ui/dialogs/ui_settings_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
+    show MemberGroupView, memberGroupViewOfTemplate;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
+import '../../helpers/double_tap.dart';
 
 const _groupId = 'grp-edits';
 const _memberId = 'mem-mara';
@@ -391,141 +394,6 @@ void main() {
     });
   });
 
-  testWidgets("Edit group's Realism tab saves each member's Recovery block "
-      "to the member's row, while Porch Life allows Afterglow", (tester) async {
-    await tester.runAsync(() async {
-      final storage = FakeStorageService();
-      final chat = _OpenGroup(const []);
-      addTearDown(storage.dispose);
-      addTearDown(chat.dispose);
-      final mara = member();
-      Future<void> pumpTab() async {
-        await tester.pumpWidget(
-          MultiProvider(
-            providers: [
-              Provider<AppDatabase>.value(value: db),
-              ChangeNotifierProvider<ChatService>.value(value: chat),
-              ChangeNotifierProvider<StorageService>.value(value: storage),
-            ],
-            child: MaterialApp(
-              home: Scaffold(
-                body: EditGroupRealismTab(
-                  key: UniqueKey(),
-                  loaded: true,
-                  members: const [],
-                  defaultMemberJson: _realismOn.defaultMemberJson,
-                  baselineJson: _realismOn.baselineJson,
-                  onChanged: (_, _) {},
-                  memberCards: [mara],
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pump();
-      }
-
-      await pumpTab();
-      expect(find.byType(RecoveryBlock), findsNothing, reason: 'not allowed');
-
-      await storage.realismSettings.setAdultThemesEnabled(true);
-      await storage.realismSettings.setNsfwCooldownDefault(true);
-      await pumpTab();
-      tester
-          .widget<RecoveryBlock>(find.byType(RecoveryBlock))
-          .onChanged(RecoveryProfile.auto.withMinutes(60));
-      int? minutes;
-      for (var i = 0; i < 100 && minutes != 60; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        final raw = (await memberRow()).frontPorchExtensions;
-        minutes = raw == null
-            ? null
-            : FrontPorchExtensions.fromJson(
-                jsonDecode(raw) as Map<String, dynamic>,
-              ).recovery.recoveryMinutes;
-      }
-      expect(minutes, 60, reason: "the change reached Mara's row");
-    });
-  });
-
-  testWidgets("Edit group's Recovery block writes only Recovery, onto the "
-      "open chat's own member, and skips a member switched off", (
-    tester,
-  ) async {
-    await tester.runAsync(() async {
-      // Since Edit group loaded Mara, Group Settings switched her own
-      // Afterglow off: her row and the open chat's copy say off.
-      final off = FrontPorchExtensions(afterglowEnabled: false);
-      await db.updateGroupMember(
-        GroupMembersCompanion(
-          id: const Value(_memberId),
-          frontPorchExtensions: Value(jsonEncode(off.toJson())),
-        ),
-      );
-      final live = member()..frontPorchExtensions = off;
-      final loaded = member()..frontPorchExtensions = FrontPorchExtensions();
-      final shy = CharacterCard(name: 'Shy')
-        ..dbId = 'mem-shy'
-        ..frontPorchExtensions = FrontPorchExtensions(afterglowEnabled: false);
-      final storage = FakeStorageService();
-      final chat = _OpenGroup([live]);
-      addTearDown(storage.dispose);
-      addTearDown(chat.dispose);
-      await storage.realismSettings.setAdultThemesEnabled(true);
-      await storage.realismSettings.setNsfwCooldownDefault(true);
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            Provider<AppDatabase>.value(value: db),
-            ChangeNotifierProvider<ChatService>.value(value: chat),
-            ChangeNotifierProvider<StorageService>.value(value: storage),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: EditGroupRealismTab(
-                loaded: true,
-                members: const [],
-                defaultMemberJson: _realismOn.defaultMemberJson,
-                baselineJson: _realismOn.baselineJson,
-                onChanged: (_, _) {},
-                memberCards: [loaded, shy],
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(
-        find.byType(RecoveryBlock),
-        findsOneWidget,
-        reason: "Shy's own switch is off",
-      );
-
-      tester
-          .widget<RecoveryBlock>(find.byType(RecoveryBlock))
-          .onChanged(RecoveryProfile.auto.withMinutes(60));
-      FrontPorchExtensions? row;
-      for (var i = 0; i < 100 && row?.recovery.recoveryMinutes != 60; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        final raw = (await memberRow()).frontPorchExtensions;
-        row = raw == null
-            ? null
-            : FrontPorchExtensions.fromJson(
-                jsonDecode(raw) as Map<String, dynamic>,
-              );
-      }
-      expect(row?.recovery.recoveryMinutes, 60);
-      expect(
-        row?.afterglowEnabled,
-        isFalse,
-        reason: "the page's older copy did not write her switch back on",
-      );
-      expect(live.frontPorchExtensions?.recovery.recoveryMinutes, 60);
-      expect(live.frontPorchExtensions?.afterglowEnabled, isFalse);
-      expect(chat.refreshed, [same(live)], reason: "the chat's own member");
-    });
-  });
-
   /// The editor host with Porch Life allowing Afterglow, so the member's own
   /// switch shows.
   Future<void> pumpAfterglowHost(
@@ -848,6 +716,409 @@ void main() {
       );
     });
   });
+
+  // ── The member editor, finished to the mock ──
+  //
+  // The group's own switches show as read-only lines (a group never has two
+  // switches for one thing), and where the member starts in the group's new
+  // chats is the group's seed for her, never her card's own bonds.
+
+  /// The group's row with Realism on for new chats, as the wizard saves it.
+  Future<void> seedGroupRow() => db.updateGroup(
+    GroupsCompanion(
+      id: const Value(_groupId),
+      defaultMemberRealismState: Value(_realismOn.defaultMemberJson),
+      baselineRealismState: Value(_realismOn.baselineJson),
+    ),
+  );
+
+  RealismFormSection form(WidgetTester tester) =>
+      tester.widget<RealismFormSection>(find.byType(RealismFormSection));
+
+  /// Counts writes to [table] from here on.
+  int Function() countWrites(TableInfo<dynamic, dynamic> table) {
+    var n = 0;
+    final sub = db
+        .tableUpdates(TableUpdateQuery.onTable(table))
+        .listen((_) => n++);
+    addTearDown(sub.cancel);
+    return () => n;
+  }
+
+  Future<void> saveTwiceFast(WidgetTester tester) async {
+    await doubleTapNoFrame(tester, find.text('Save'));
+    await pumpUntil(
+      tester,
+      () => find.byType(EditCharacterPage).evaluate().isEmpty,
+      why: 'Save never closed the editor (it failed)',
+    );
+    // Let the change notifications of the last write arrive.
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+
+  testWidgets("the chat sidebar's member editor shows the group's switches "
+      "as lines and saves her start to the group's seed, once", (tester) async {
+    await tester.runAsync(() async {
+      await seedGroupRow();
+      final mara = member();
+      final open = GroupChat(
+        id: _groupId,
+        name: 'Pair',
+        defaultMemberRealismState: _realismOn.defaultMemberJson,
+        baselineRealismState: _realismOn.baselineJson,
+      );
+      final chat = _SeededGroup([mara], open);
+      await pumpHost(
+        tester,
+        chat: chat,
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
+      expect(find.text('Chaos Mode · Off for this group'), findsOneWidget);
+      expect(find.text('Needs · On for this group'), findsOneWidget);
+      expect(
+        find.textContaining('Time & Day · shared by the group: '),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Enable Realism Engine'),
+        findsNothing,
+        reason: 'the group never gets a second Realism switch',
+      );
+      expect(
+        find.text('Where Mara starts in new chats of this group.'),
+        findsOneWidget,
+      );
+      expect(
+        (form(tester).shortTermBond, form(tester).trustLevel),
+        (35, 40),
+        reason: "the group's seed for her, as the wizard saved it",
+      );
+
+      form(tester).onShortTermBondChanged(90);
+      await tester.pump();
+      form(tester).onLongTermBondChanged(150);
+      await tester.pump();
+      form(tester).onTrustLevelChanged(-30);
+      await tester.pump();
+      form(tester).onEmotionChanged('wary');
+      await tester.pump();
+      final groupWrites = countWrites(db.groups);
+      final memberWrites = countWrites(db.groupMembers);
+      await saveTwiceFast(tester);
+
+      final row = (await db.getGroupById(_groupId))!;
+      final seed = parseGroupRealismSeeds(
+        row.defaultMemberRealismState,
+      )[_memberId]!;
+      expect(
+        [
+          seed['affection'],
+          seed['longTermScore'],
+          seed['trust'],
+          seed['emotion'],
+        ],
+        [90, 150, -30, 'wary'],
+        reason: "her start is the group's seed for her",
+      );
+      final baseline =
+          (jsonDecode(row.baselineRealismState) as Map)[_memberId] as Map;
+      expect(
+        [baseline['affection'], baseline['longTermScore'], baseline['trust']],
+        [90, 150, -30],
+      );
+      expect(
+        parseGroupRealismSeeds(
+          open.defaultMemberRealismState,
+        )[_memberId]!['affection'],
+        90,
+        reason: "the open chat's next New Chat starts there",
+      );
+      expect(
+        rowExtensions(await memberRow())?.shortTermBond,
+        isNot(90),
+        reason: "never her card's own bonds",
+      );
+      expect(groupWrites(), 1, reason: 'one Save, one start write');
+      expect(memberWrites(), 1, reason: 'one Save, one row write');
+    });
+  });
+
+  testWidgets("Edit group's member editor saves her start to the group's row "
+      "and hands it to the page; Long-Term Bond keeps its own key", (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      await seedGroupRow();
+      String? handed;
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+          memberGroup: memberGroupViewOfTemplate(
+            context,
+            group: GroupChat(id: _groupId, name: 'Pair'),
+            memberId: _memberId,
+            memberExtensions: null,
+            defaultMemberJson: _realismOn.defaultMemberJson,
+            baselineJson: _realismOn.baselineJson,
+            onStartSaved: (d, _) => handed = d,
+          ),
+        ),
+      );
+
+      expect(find.text('Realism Engine · On for this group'), findsOneWidget);
+      form(tester).onLongTermBondChanged(120);
+      await tester.pump();
+      final groupWrites = countWrites(db.groups);
+      await saveTwiceFast(tester);
+
+      final seed = parseGroupRealismSeeds(
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+      )[_memberId]!;
+      expect(
+        (seed['longTermScore'], seed['trust']),
+        (120, 40),
+        reason: 'Long-Term Bond went into trust',
+      );
+      expect(
+        parseGroupRealismSeeds(handed!)[_memberId]!['longTermScore'],
+        120,
+        reason: "Edit group's own Save keeps the start it shows",
+      );
+      expect(groupWrites(), 1);
+    });
+  });
+
+  testWidgets("a group whose new chats start without Realism shows it off "
+      'and has no start to set', (tester) async {
+    await tester.runAsync(() async {
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          groupName: 'Pair',
+          memberGroup: memberGroupViewOfTemplate(
+            context,
+            group: GroupChat(id: _groupId, name: 'Pair'),
+            memberId: _memberId,
+            memberExtensions: null,
+            defaultMemberJson: '{}',
+            baselineJson: '{}',
+          ),
+        ),
+      );
+
+      expect(find.text('Realism Engine · Off for this group'), findsOneWidget);
+      expect(
+        find.text('Short-Term Bond'),
+        findsNothing,
+        reason: 'a seed written here would switch Realism on for the group',
+      );
+      final groupWrites = countWrites(db.groups);
+      pickVoice(tester, 'af_heart');
+      await tester.pump();
+      await saveTwiceFast(tester);
+      expect(groupWrites(), 0);
+      expect(
+        (await db.getGroupById(_groupId))!.defaultMemberRealismState,
+        '{}',
+      );
+    });
+  });
+
+  testWidgets("Edit group's member editor links the group's lines back to "
+      'its Realism & Dynamics tab', (tester) async {
+    await tester.runAsync(() async {
+      bool? toRealism;
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) async {
+          toRealism = await editGroupMemberFromEditGroup(
+            context,
+            group: GroupChat(id: _groupId, name: 'Pair'),
+            member: member(),
+            memberId: _memberId,
+            defaultMemberJson: _realismOn.defaultMemberJson,
+            baselineJson: _realismOn.baselineJson,
+            settingId: null,
+            inheritCharacterLorebooks: true,
+            onStartSaved: (_, _) {},
+          );
+        },
+      );
+
+      final link = find.text('Realism & Dynamics ›').first;
+      await tester.ensureVisible(link);
+      await tester.pumpAndSettle();
+      await tester.tap(link);
+      await pumpUntil(
+        tester,
+        () => toRealism != null,
+        why: 'the link never closed the editor',
+      );
+      expect(toRealism, isTrue, reason: 'the page shows its Realism tab');
+    });
+  });
+
+  testWidgets("a member editor says what the group does with her greetings, "
+      'lorebook and worlds', (tester) async {
+    await tester.runAsync(() async {
+      final mara = member();
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair')),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      await tester.tap(find.text('Dialogue'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Used when this greeting opens a chat of this group.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Lorebook'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          "Mara's lorebook. The group reads it when Group Settings → "
+          'Lorebook & Worlds has "Inherit character lorebooks" on; it is off',
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Worlds'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(
+          "This group has no Setting world yet. A member's own worlds "
+          "aren't used in a group",
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('a lite member keeps Realism, Needs and Afterglow for when '
+      'she is promoted', (tester) async {
+    await tester.runAsync(() async {
+      await seedGroupRow();
+      final mara = member()
+        ..frontPorchExtensions = FrontPorchExtensions(tier: 'lite');
+      await pumpAfterglowHost(
+        tester,
+        chat: _SeededGroup(
+          [mara],
+          GroupChat(
+            id: _groupId,
+            name: 'Pair',
+            defaultMemberRealismState: _realismOn.defaultMemberJson,
+          ),
+        ),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      expect(
+        find.text(
+          "Mara's Realism, Needs and Afterglow start when they are promoted "
+          'to a full member of this group.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Short-Term Bond'), findsNothing);
+      expect(find.text('Needs Simulation'), findsNothing);
+      expect(find.text('Afterglow for Mara'), findsNothing);
+      expect(find.text('Chaos Mode · Off for this group'), findsOneWidget);
+    });
+  });
+
+  testWidgets('a member editor hides Realism, Needs and Afterglow while '
+      'Porch Life does not allow Realism, and keeps her settings', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      CharacterCard? saved;
+      final mara = member()
+        ..frontPorchExtensions = FrontPorchExtensions(needsPace: 'fast');
+      await pumpAfterglowHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => EditCharacterPage(
+              character: mara,
+              memberOfGroup: 'Pair',
+              onSaveOverride: (c) async => saved = c,
+              memberGroup: MemberGroupView(
+                read: () => const GroupWideValues(
+                  realism: true,
+                  needs: true,
+                  chaos: false,
+                  afterglow: true,
+                  timeOfDay: 'evening',
+                  dayCount: 3,
+                ),
+                realismAllowed: false,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.text(
+          'Realism, Needs and Afterglow are hidden: the Realism Engine is off '
+          "in Porch Life. Mara's settings are kept.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Needs Simulation'), findsNothing);
+      expect(find.text('Afterglow for Mara'), findsNothing);
+      expect(
+        find.text('Realism Verification (Director/Verifier)'),
+        findsNothing,
+      );
+      expect(
+        find.text('Time & Day · shared by the group: Evening, Day 3'),
+        findsOneWidget,
+      );
+      await saveTwiceFast(tester);
+      expect(saved?.frontPorchExtensions?.needsPace, 'fast');
+    });
+  });
+
+  testWidgets("a member's Director authority saves to her own row", (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final mara = member()..frontPorchExtensions = FrontPorchExtensions();
+      await pumpHost(
+        tester,
+        chat: _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair')),
+        onOpen: (context) => showEditCharacterDialog(context, mara),
+      );
+
+      expect(find.text('Director authority (needs)'), findsNothing);
+      form(tester).onRealismVerificationChanged(true);
+      await tester.pump();
+      expect(find.text('Director authority (needs)'), findsOneWidget);
+      form(tester).onNeedsDirectorAuthorityChanged!(true);
+      await tester.pump();
+      await saveTwiceFast(tester);
+
+      final ext = rowExtensions(await memberRow());
+      expect(ext?.realismVerificationEnabled, isTrue);
+      expect(ext?.realismNeedsDirectorAuthority, isTrue);
+    });
+  });
 }
 
 /// An open group named Pair that records each member Afterglow it sets. Like
@@ -878,3 +1149,14 @@ final _realismOn = buildGroupRealismBlobs(
   timeOfDay: 'morning',
   dayCount: 1,
 );
+
+/// An open group named Pair whose definition is [group] (its realism blobs
+/// are the ones the editor reads and saves into).
+class _SeededGroup extends _OpenGroup {
+  _SeededGroup(super.members, this.group);
+
+  final GroupChat group;
+
+  @override
+  GroupChat? get activeGroup => group;
+}

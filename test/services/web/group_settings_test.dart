@@ -1457,6 +1457,144 @@ void main() {
       );
     });
   });
+
+  // The web member editor shows the group's own switches read-only, and the
+  // member's start in the group's new chats (`groupStart`) saves to the
+  // group's seed for them, never to their card.
+  group("GroupMemberEdit: the member's group and start", () {
+    late AppDatabase db;
+    late StorageService storage;
+    final blobs = buildGroupRealismBlobs(
+      seeds: {'mem-mara': defaultGroupMemberRealismSeed()},
+      needsEnabled: true,
+      timeOfDay: 'evening',
+      dayCount: 3,
+    );
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      await db.insertGroup(
+        GroupsCompanion.insert(
+          id: 'g1',
+          name: 'Pair',
+          defaultMemberRealismState: Value(blobs.defaultMemberJson),
+          baselineRealismState: Value(blobs.baselineJson),
+          chaosModeEnabled: const Value(true),
+        ),
+      );
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-mara',
+          groupId: 'g1',
+          name: 'Mara',
+        ),
+      );
+    });
+
+    tearDown(() => db.close());
+
+    test("a closed group's detail carries its settings for new chats and "
+        'where she starts', () async {
+      final d = (await GroupMemberEdit(
+        db,
+        storage,
+        null,
+        null,
+      ).detail('g1', 'mem-mara'))!;
+      final group = d['group'] as Map<String, dynamic>;
+      expect(
+        [group['realism'], group['needs'], group['chaos'], group['timeLabel']],
+        [true, true, true, 'Evening, Day 3'],
+      );
+      expect(d['start'], {
+        'shortTermBond': 35,
+        'longTermBond': 35,
+        'trustLevel': 40,
+        'characterEmotion': 'neutral',
+        'emotionIntensity': 'mild',
+      });
+      expect(d['lite'], isFalse);
+    });
+
+    test("a posted groupStart saves to the group's seed for her, Long-Term "
+        "Bond under its own key, and never to her card", () async {
+      final edit = GroupMemberEdit(db, storage, null, null);
+      expect(
+        await edit.update('g1', 'mem-mara', {
+          'groupStart': {'longTermBond': 120, 'trustLevel': 'lots'},
+        }),
+        isTrue,
+      );
+
+      final g = (await db.getGroupById('g1'))!;
+      final seed = parseGroupRealismSeeds(
+        g.defaultMemberRealismState,
+      )['mem-mara']!;
+      expect(
+        (seed['affection'], seed['longTermScore'], seed['trust']),
+        (35, 120, 40),
+        reason: 'a field left out, or of the wrong type, keeps its value',
+      );
+      expect(
+        ((jsonDecode(g.baselineRealismState) as Map)['mem-mara']
+            as Map)['longTermScore'],
+        120,
+      );
+      final raw = (await db.getGroupMembers('g1')).single.frontPorchExtensions;
+      final ext = raw == null
+          ? null
+          : FrontPorchExtensions.fromJson(
+              jsonDecode(raw) as Map<String, dynamic>,
+            );
+      expect(ext?.longTermBond, isNot(120), reason: "never her card's bond");
+    });
+
+    test('a group whose new chats start without Realism has no start and '
+        'takes none', () async {
+      await db.updateGroup(
+        const GroupsCompanion(
+          id: Value('g1'),
+          defaultMemberRealismState: Value('{}'),
+          baselineRealismState: Value('{}'),
+        ),
+      );
+      final edit = GroupMemberEdit(db, storage, null, null);
+      expect((await edit.detail('g1', 'mem-mara'))!['start'], isNull);
+      await edit.update('g1', 'mem-mara', {
+        'groupStart': {'shortTermBond': 90},
+      });
+      expect(
+        (await db.getGroupById('g1'))!.defaultMemberRealismState,
+        '{}',
+        reason: 'a seed written here would switch Realism on for the group',
+      );
+    });
+
+    test("Group Settings' summaries say where each member starts", () async {
+      final rows = (await GroupMemberEdit(
+        db,
+        storage,
+        null,
+        null,
+      ).summaries('g1'))!;
+      expect(rows.single['id'], 'mem-mara');
+      expect((rows.single['start'] as Map)['trustLevel'], 40);
+      expect(
+        rows.single['afterglow'],
+        isNull,
+        reason: 'Porch Life keeps Afterglow off',
+      );
+      expect(
+        await GroupMemberEdit(db, storage, null, null).summaries('nope'),
+        isNull,
+      );
+    });
+  });
 }
 
 /// Group g1 ("Pair") open in the chat on [members]. Like ChatService's, its

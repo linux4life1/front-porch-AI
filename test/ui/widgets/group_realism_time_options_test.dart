@@ -23,9 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
 import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/fakes_storage.dart';
@@ -113,43 +111,6 @@ void main() {
     final lateNight =
         jsonDecode(await _pump(tester, _blobs('late night'))) as Map;
     expect(lateNight['timeOfDay'], 'night');
-  });
-
-  // Edit group's member editor showed and saved Long-Term Bond through the
-  // seed's trust. A seed it already wrote that way reads back as Long-Term
-  // Bond, and the next move un-mixes it.
-  testWidgets('the member editor keeps Long-Term Bond out of trust', (
-    tester,
-  ) async {
-    final storage = FakeStorageService();
-    addTearDown(storage.dispose);
-    final deltas = <Map<String, dynamic>>[];
-    await tester.pumpWidget(
-      ChangeNotifierProvider<StorageService>.value(
-        value: storage,
-        child: MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: GroupMemberRealismEditor(
-                seed: const {'affection': 35, 'trust': 250},
-                needsEnabled: false,
-                onNeedsEnabledChanged: (_) {},
-                onUpdate: deltas.add,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final form = tester.widget<RealismFormSection>(
-      find.byType(RealismFormSection),
-    );
-    expect((form.longTermBond, form.trustLevel), (250, 50));
-
-    form.onLongTermBondChanged(100);
-    expect(deltas.single, {'affection': 35, 'longTermScore': 100, 'trust': 50});
   });
 
   testWidgets("Edit group's Afterglow switch sets how the group's new chats "
@@ -267,5 +228,102 @@ void main() {
       reason: 'THE BUG: the member came on at the neutral 35 / 40',
     );
     expect(nia['needs'], containsPair('hunger', 35));
+  });
+
+  // Each member was a cut-down copy of the member editor here (bonds, needs,
+  // a verifier the chat never read). Now it is a summary, and Edit opens the
+  // member's own editor.
+  testWidgets("Edit group's Realism tab shows each member as a summary whose "
+      'Edit opens their editor', (tester) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final blobs = buildGroupRealismBlobs(
+      seeds: {
+        'mem-n': {
+          ...defaultGroupMemberRealismSeed(),
+          'longTermScore': 25,
+          'trust': 30,
+        },
+      },
+      needsEnabled: true,
+      timeOfDay: 'morning',
+      dayCount: 1,
+    );
+    final opened = <String>[];
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismDynamicsEditor(
+              members: [
+                GroupRealismMember(
+                  mid: 'mem-n',
+                  name: 'Nia',
+                  extensions: FrontPorchExtensions(afterglowEnabled: false),
+                ),
+              ],
+              initialDefaultMemberJson: blobs.defaultMemberJson,
+              initialBaselineJson: blobs.baselineJson,
+              onChanged: (_, _) {},
+              onEditMember: opened.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.byKey(const ValueKey('member-summary-mem-n'));
+    expect(
+      find.descendant(
+        of: row,
+        matching: find.text(' · Close / Trusting · Afterglow off'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Short-Term Bond'), findsNothing);
+    await tester.tap(find.descendant(of: row, matching: find.text('Edit')));
+    await tester.pumpAndSettle();
+    expect(opened, ['mem-n']);
+  });
+
+  testWidgets("Edit group's Needs switch for new chats is the group's own", (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final blobs = _blobs('morning');
+    var emitted = blobs.defaultMemberJson;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupRealismDynamicsEditor(
+            members: const [GroupRealismMember(mid: 'm1', name: 'Ada')],
+            initialDefaultMemberJson: blobs.defaultMemberJson,
+            initialBaselineJson: blobs.baselineJson,
+            onChanged: (d, _) => emitted = d,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final tile = find.widgetWithText(SwitchListTile, 'Needs');
+    expect(tester.widget<SwitchListTile>(tile).value, isTrue);
+    await tester.tap(tile);
+    await tester.pumpAndSettle();
+    expect(groupTemplateRealismOf(emitted).needsOn, isFalse);
+    expect(
+      groupTemplateRealismOf(emitted).realismOn,
+      isTrue,
+      reason: 'the members keep their seeds',
+    );
   });
 }

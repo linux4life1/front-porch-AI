@@ -355,4 +355,62 @@ void main() {
     await tester.pumpAndSettle();
     expect(saved?.frontPorchExtensions?.afterglowEnabled, isTrue);
   });
+
+  // The web editor had Director authority over Needs; the desktop one did
+  // not, so a card's authority could only be set from the phone.
+  testWidgets("the card's Director authority shows with Verification on and "
+      'saves on the card', (tester) async {
+    CharacterCard? saved;
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final repo = _RepoWithCover();
+    final chat = FakeChatService();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository();
+    addTearDown(repo.dispose);
+    addTearDown(chat.dispose);
+    addTearDown(storage.dispose);
+    addTearDown(worlds.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+        ],
+        child: MaterialApp(
+          home: EditCharacterPage(
+            character: CharacterCard(
+              name: 'Flora',
+              frontPorchExtensions: FrontPorchExtensions(
+                realismEnabled: true,
+                realismVerificationEnabled: true,
+              ),
+            ),
+            onSaveOverride: (c) async => saved = c,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final row = find.widgetWithText(Row, 'Director authority (needs)').last;
+    await tester.scrollUntilVisible(
+      row,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    final authority = find.descendant(of: row, matching: find.byType(Switch));
+    expect(tester.widget<Switch>(authority).value, isFalse);
+    await tester.tap(authority);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(saved?.frontPorchExtensions?.realismNeedsDirectorAuthority, isTrue);
+  });
 }
