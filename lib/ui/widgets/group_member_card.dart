@@ -176,27 +176,15 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? AppColors.frostAccentOf(context)
         : AppColors.lustAccentOf(context);
 
-    final ext = widget.character.frontPorchExtensions;
     CharacterRepository? repo;
     try {
       repo = Provider.of<CharacterRepository>(context, listen: false);
     } on ProviderNotFoundException {
       repo = null;
     }
-    final library = MemberOriginResolver.resolve(
-      stampedOriginStableId: null,
-      memberName: widget.character.name,
-      libraryCharacters: repo?.characters ?? const [],
-    );
-    final work = workFieldsForGroupMember(
-      copyOccupation: ext?.occupation ?? '',
-      copyHours: ext?.hours ?? '',
-      copyOccupationBrief: ext?.occupationBrief ?? '',
-      copyWorkDays: ext?.workDays,
-      libraryOccupation: library?.frontPorchExtensions?.occupation,
-      libraryHours: library?.frontPorchExtensions?.hours,
-      libraryOccupationBrief: library?.frontPorchExtensions?.occupationBrief,
-      libraryWorkDays: library?.frontPorchExtensions?.workDays,
+    final work = workFieldsForMember(
+      widget.character,
+      repo?.characters ?? const [],
     );
     final where = derivePresence(
       occupation: work.occupation,

@@ -18,10 +18,15 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/voice_facade.dart';
+import 'package:front_porch_ai/services/web/routes/voice_routes.dart';
+import '../../golden/support/fakes.dart';
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -280,4 +285,186 @@ void main() {
       );
     },
   );
+
+  // Voice is the member's, found by the id stamped on the line. Two members
+  // named Alex used to share whichever voice the first Alex had, and the web
+  // Speak button sent no speaker at all, so every line read the global voice.
+  group('each group member speaks in their own voice', () {
+    const gid = 'grp-voice';
+    const sid = 'sess-voice';
+    late _VoiceLog tts;
+
+    setUp(() async {
+      tts = _VoiceLog();
+      await storage.ttsSettings.setTtsEnabled(true);
+      await storage.ttsSettings.setTtsAutoPlay(true);
+      chat.setTtsService(tts);
+      await db.insertGroup(GroupsCompanion.insert(id: gid, name: 'Two Alexes'));
+      for (final m in const [
+        ('mem-north', 'NORTH', 'voice-north'),
+        ('mem-south', 'SOUTH', 'voice-south'),
+      ]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(
+            id: m.$1,
+            groupId: gid,
+            name: 'Alex',
+            personality: Value('Alex from the ${m.$2} side.'),
+            systemPrompt: Value('You are Alex from the ${m.$2} side.'),
+            avatarFilename: Value('${m.$1}.png'),
+            ttsVoice: Value(m.$3),
+          ),
+        );
+      }
+      await db.insertSession(
+        SessionsCompanion.insert(id: sid, groupId: const Value(gid)),
+      );
+      for (final (i, seed) in const [
+        ('Alex', false, 'mem-north', 'North pours the syrup.'),
+        ('You', true, null, 'Evening, both of you.'),
+        ('Alex', false, 'mem-south', 'South leans on the rail.'),
+        ('Alex', false, null, 'A line from before lines were stamped.'),
+      ].indexed) {
+        await db.insertMessage(
+          MessagesCompanion.insert(
+            id: '$sid-$i',
+            sessionId: sid,
+            position: i,
+            sender: seed.$1,
+            isUser: seed.$2,
+            characterId: Value(seed.$3),
+            swipes: Value(jsonEncode([seed.$4])),
+          ),
+        );
+      }
+      await chat.setActiveGroup(
+        GroupChat(id: gid, name: 'Two Alexes'),
+        groupRepo: GroupChatRepository(storage, db),
+      );
+    });
+
+    CharacterCard alex(String side) =>
+        chat.groupCharacters.firstWhere((c) => c.personality.contains(side));
+
+    test('auto-play reads the voice of the member who replied', () async {
+      for (final side in const ['SOUTH', 'NORTH']) {
+        chat.setNextCharacter(alex(side));
+        llm.reply = '*$side Alex says a word.*';
+        final before = tts.spoken.length;
+        if (side == 'SOUTH') {
+          await chat.sendMessage('Say something, South.');
+        } else {
+          await chat.triggerNextCharacter();
+        }
+        await drainUntil(
+          () =>
+              tts.spoken.length > before &&
+              !chat.isGenerating &&
+              !chat.isSettlingTurn,
+        );
+        expect(tts.spoken, hasLength(before + 1), reason: '$side spoke once');
+        expect(
+          tts.spoken.last,
+          side == 'SOUTH' ? 'voice-south' : 'voice-north',
+          reason:
+              'matching by name gave both Alexes the first Alex\'s voice '
+              '($side turn)',
+        );
+      }
+    });
+
+    test('the web relay speaks a line in the voice stamped on it, and a '
+        'renamed member keeps theirs', () async {
+      final relay = _relay(tts, storage, chat);
+      int at(String text) =>
+          chat.messages.indexWhere((m) => m.displayText == text);
+
+      Future<String?> voiceOf(String text) async {
+        await relay({'text': text, 'messageIndex': at(text)});
+        return tts.generated.last;
+      }
+
+      expect(await voiceOf('South leans on the rail.'), 'voice-south');
+      expect(await voiceOf('North pours the syrup.'), 'voice-north');
+      expect(
+        await voiceOf('A line from before lines were stamped.'),
+        isNull,
+        reason:
+            'an unstamped line two members could have said reads the '
+            'global voice, not a guess',
+      );
+
+      alex('SOUTH').name = 'Sandy';
+      expect(
+        await voiceOf('South leans on the rail.'),
+        'voice-south',
+        reason: 'the stamped id still finds South after a rename',
+      );
+
+      await relay({'text': 'Any.', 'voiceKey': 'picked', 'messageIndex': 0});
+      expect(tts.generated.last, 'picked', reason: 'an explicit voice wins');
+      await relay({'text': 'Any.', 'messageIndex': 99});
+      expect(tts.generated.last, isNull, reason: 'a stale index is global');
+      await relay({'text': 'Any.'});
+      expect(tts.generated.last, isNull, reason: 'no index is global');
+    });
+  });
+
+  test('the web relay reads a 1:1 character\'s own voice', () async {
+    final tts = _VoiceLog();
+    await storage.ttsSettings.setTtsEnabled(true);
+    final host = CharacterCard(
+      name: 'Mara',
+      firstMessage: 'The porch light hums.',
+      imagePath: '/tmp/Mara_voice.png',
+      ttsVoice: 'voice-mara',
+    );
+    await chat.setActiveCharacter(host);
+    await _relay(tts, storage, chat)({
+      'text': 'The porch light hums.',
+      'messageIndex': 0,
+    });
+    expect(tts.generated.single, 'voice-mara');
+  });
+}
+
+/// POSTs a body to the real `/api/tts/speak` route over a [VoiceFacade] that
+/// reads [chat], the way the web server wires it.
+Future<void> Function(Map<String, Object?> body) _relay(
+  _VoiceLog tts,
+  StorageService storage,
+  ChatService chat,
+) {
+  final router = Router();
+  WebVoiceRoutes(
+    VoiceFacade(tts, FakeSttService(), storage, chat: chat),
+    router,
+  );
+  return (body) async {
+    await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/tts/speak'),
+        body: jsonEncode(body),
+        headers: {'content-type': 'application/json'},
+      ),
+    );
+  };
+}
+
+/// Records the voice each speak and synthesis call asked for.
+class _VoiceLog extends FakeTtsService {
+  final List<String?> spoken = [];
+  final List<String?> generated = [];
+
+  @override
+  Future<void> speak(String text, {String? voiceKey, String? messageId}) async {
+    spoken.add(voiceKey);
+  }
+
+  @override
+  Future<File?> generateAudioFile(String text, {String? voiceKey}) async {
+    generated.add(voiceKey);
+    return null;
+  }
 }

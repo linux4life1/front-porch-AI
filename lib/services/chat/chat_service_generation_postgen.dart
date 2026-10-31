@@ -257,19 +257,13 @@ extension ChatServiceGenerationPostGen on ChatService {
           _messages.contains(t.streamTarget)) {
         final lastMsg = t.streamTarget;
         final msgId = 'msg_${_messages.indexOf(t.streamTarget)}';
-        // Resolve per-character voice, falling back to global default
-        String? voiceKey;
-        if (_activeGroup != null) {
-          final charMatch = _groupCharacters
-              .where((c) => c.name == lastMsg.sender)
-              .firstOrNull;
-          voiceKey = charMatch?.ttsVoice;
-        } else {
-          voiceKey = _activeCharacter?.ttsVoice;
-        }
         _ttsService!.speak(
           lastMsg.displayText,
-          voiceKey: voiceKey,
+          voiceKey: ttsVoiceForMessage(
+            lastMsg,
+            groupCast: _activeGroup != null ? _groupCharacters : null,
+            host: _activeCharacter,
+          ),
           messageId: msgId,
         );
       }

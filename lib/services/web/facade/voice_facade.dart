@@ -21,6 +21,7 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// Audio bytes plus the MIME type to serve them with.
@@ -31,11 +32,13 @@ typedef AudioPayload = ({Uint8List bytes, String contentType});
 /// speech-to-text over an uploaded mic recording. Thin over [TtsService] and
 /// [SttService]; all engine selection / model handling stays in those services.
 class VoiceFacade {
-  VoiceFacade(this._tts, this._stt, this._storage);
+  VoiceFacade(this._tts, this._stt, this._storage, {ChatService? chat})
+    : _chat = chat;
 
   final TtsService _tts;
   final SttService _stt;
   final StorageService _storage;
+  final ChatService? _chat;
 
   /// Capability snapshot for the web client to decide which controls to show.
   Map<String, dynamic> status() => {
@@ -72,9 +75,21 @@ class VoiceFacade {
 
   /// Synthesize [text] to audio bytes (no host playback). Returns the bytes plus
   /// their MIME type, or null when TTS is off / produced nothing.
-  Future<AudioPayload?> speak(String text, {String? voiceKey}) async {
+  ///
+  /// [messageIndex] (the web message's `index`) speaks in the voice of
+  /// whoever said that line of the open chat, by the rule desktop's Speak
+  /// button reads ([ttsVoiceForMessage]). An explicit [voiceKey] wins; a
+  /// missing or out-of-range index reads the global voice.
+  Future<AudioPayload?> speak(
+    String text, {
+    String? voiceKey,
+    int? messageIndex,
+  }) async {
     if (!_storage.ttsSettings.ttsEnabled || text.trim().isEmpty) return null;
-    final file = await _tts.generateAudioFile(text, voiceKey: voiceKey);
+    final voice = (voiceKey != null && voiceKey.isNotEmpty)
+        ? voiceKey
+        : _voiceForMessageAt(messageIndex);
+    final file = await _tts.generateAudioFile(text, voiceKey: voice);
     if (file == null || !file.existsSync()) return null;
     final bytes = await file.readAsBytes();
     // ElevenLabs returns mp3; every other engine returns a (merged) WAV.
@@ -82,6 +97,18 @@ class VoiceFacade {
         ? 'audio/mpeg'
         : 'audio/wav';
     return (bytes: bytes, contentType: contentType);
+  }
+
+  String? _voiceForMessageAt(int? index) {
+    final chat = _chat;
+    if (chat == null || index == null) return null;
+    final messages = chat.messages;
+    if (index < 0 || index >= messages.length) return null;
+    return ttsVoiceForMessage(
+      messages[index],
+      groupCast: chat.activeGroup != null ? chat.groupCharacters : null,
+      host: chat.activeCharacter,
+    );
   }
 
   /// Transcribe uploaded mic audio recorded on the client device. [bytes] is the

@@ -10,8 +10,10 @@ import { useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { trackVoice } from './voiceActivity';
 
-/** 🔊 Synthesize a message and play it on this device. */
-export function SpeakButton({ text }: { text: string }) {
+/** 🔊 Synthesize a message and play it on this device. [messageIndex] lets
+ *  the host speak it in the voice of whoever said that line (in a group,
+ *  the member the message is stamped with, never a same-named one). */
+export function SpeakButton({ text, messageIndex }: { text: string; messageIndex?: number }) {
   const [busy, setBusy] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -19,7 +21,7 @@ export function SpeakButton({ text }: { text: string }) {
     if (busy || !text.trim()) return;
     setBusy(true);
     try {
-      const blob = await api.postForBlob('/api/tts/speak', { text });
+      const blob = await api.postForBlob('/api/tts/speak', { text, messageIndex });
       const url = URL.createObjectURL(blob);
       const audio = new Audio(url);
       audioRef.current = audio;

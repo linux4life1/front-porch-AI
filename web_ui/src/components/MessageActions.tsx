@@ -158,7 +158,7 @@ export function MessageActions({
       {m.isUser && isLast && (
         <button className="icon-btn" title="Generate reply" disabled={busy} onClick={() => onRegenerate()}>⟳</button>
       )}
-      {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} />}
+      {canSpeak && !m.isUser && m.text.trim() !== '' && <SpeakButton text={m.text} messageIndex={m.index} />}
       {!m.isUser && m.hasContext && (
         <button className="icon-btn" title="Inspect prompt" onClick={() => setInspecting(true)}>📊</button>
       )}

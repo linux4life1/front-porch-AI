@@ -57,7 +57,12 @@ class WebVoiceRoutes {
     final text = body['text']?.toString() ?? '';
     if (text.trim().isEmpty) return JsonResponse.badRequest('text is required');
     final voiceKey = body['voiceKey']?.toString();
-    final audio = await _facade.speak(text, voiceKey: voiceKey);
+    final index = body['messageIndex'];
+    final audio = await _facade.speak(
+      text,
+      voiceKey: voiceKey,
+      messageIndex: index is num ? index.toInt() : null,
+    );
     if (audio == null) {
       return JsonResponse.error(503, 'TTS is off or produced no audio');
     }

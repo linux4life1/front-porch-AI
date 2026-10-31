@@ -71,3 +71,26 @@ CharacterCard? resolveGroupSpeakerForMessage(
   }
   return null;
 }
+
+/// The TTS voice that speaks [msg]. Null means the global voice.
+///
+/// In a group ([groupCast] non-null) it is the voice on the member who said
+/// it, found by [resolveGroupSpeakerForMessage]: two members who share a name
+/// keep their own voices, and a renamed member keeps theirs. An old line with
+/// no stamped id whose name two members share reads the global voice rather
+/// than the wrong member's. In a 1:1 it is [host]'s voice.
+///
+/// Desktop auto-play and the web relay's `/api/tts/speak` read this; the
+/// bubble's Speak button reads the same resolver.
+String? ttsVoiceForMessage(
+  ChatMessage msg, {
+  required List<CharacterCard>? groupCast,
+  CharacterCard? host,
+}) {
+  if (groupCast == null) return host?.ttsVoice;
+  return resolveGroupSpeakerForMessage(
+    groupCast,
+    msg,
+    logOnMiss: false,
+  )?.ttsVoice;
+}

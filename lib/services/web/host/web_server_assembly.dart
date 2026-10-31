@@ -158,7 +158,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
 
   final voiceFacade = (tts != null && stt != null)
-      ? VoiceFacade(tts, stt, storage)
+      ? VoiceFacade(tts, stt, storage, chat: chatService)
       : null;
 
   // Snapshots are rebuilt server-side from authoritative card text + roles, so
