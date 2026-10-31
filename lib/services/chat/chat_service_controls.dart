@@ -18,10 +18,9 @@
 
 part of '../chat_service.dart';
 
-/// One permission watch per service (see [ChatServiceControls]).
-final Expando<RealismPermissionWatch> _realismPermissionWatch = Expando(
-  'ChatService Realism permission watch',
-);
+/// One permission watch and one start queue per service.
+final Expando<RealismPermissionWatch> _realismPermissionWatch = Expando();
+final Expando<RealismStartQueue> _realismStartQueue = Expando();
 
 /// Public runtime toggle/control surface for the Realism, Needs, Chaos and
 /// Chance-Time systems: the feature enable switches (realism, NSFW cooldown,
@@ -34,18 +33,27 @@ extension ChatServiceControls on ChatService {
   // ── Public Toggle Methods ──
 
   /// The Realism gate every reader goes through: Porch Life allows Realism
-  /// AND this chat's own switch, both read live. Saves, seeds and carries
-  /// keep the raw [_realismChatSwitch], so Porch Life off never overwrites a
-  /// chat's choice (test/hygiene/realism_gate_ratchet_test.dart).
-  bool get _realismEnabled =>
-      _storageService.realismSettings.realismAllowed && _realismChatSwitch;
+  /// (as of this turn's start) AND this chat's own switch. Saves, seeds and
+  /// carries keep the raw [_realismChatSwitch], so Porch Life off never
+  /// overwrites a chat's choice (test/hygiene/realism_gate_ratchet_test.dart).
+  bool get _realismEnabled => _realismPermission.allowed && _realismChatSwitch;
 
-  /// Tells the open chat when Porch Life's permission changes.
+  /// Porch Life's permission, landing between turns.
   RealismPermissionWatch get _realismPermission =>
       _realismPermissionWatch[this] ??= RealismPermissionWatch(
         allowed: () => _storageService.realismSettings.realismAllowed,
+        turnBusy: () => _isTurnBusy,
+        turn: this,
         onChange: _onRealismPermissionChanged,
         ready: _storageService.initialized,
+      );
+
+  RealismStartQueue get _realismStart =>
+      _realismStartQueue[this] ??= RealismStartQueue(
+        busy: () => _isTurnBusy || _isProcessingGreeting,
+        turn: this,
+        chatId: () => _currentSessionId,
+        start: _startRealismNow,
       );
 
   void _onRealismPermissionChanged(bool allowed) {
@@ -73,9 +81,12 @@ extension ChatServiceControls on ChatService {
   /// A 1:1 chat's Realism has started running: its switch turned on, Porch
   /// Life allowing it again, or [_scoreStartIfSavedBlocked]. With no
   /// baseline yet it scores its starting point, once, from the greeting
-  /// placed while Realism was off or from the history so far. A group
-  /// scores from its next turn, as it always has.
-  void _onRealismStarted() {
+  /// placed while Realism was off or from the history so far: between
+  /// turns, never beside one or a second scan ([RealismStartQueue]). A
+  /// group scores from its next turn, as it always has.
+  void _onRealismStarted() => _realismStart.request();
+
+  void _startRealismNow() {
     if (!_realismEnabled || _activeGroup != null || _activeCharacter == null) {
       return;
     }
@@ -88,16 +99,6 @@ extension ChatServiceControls on ChatService {
       debugPrint('[Realism] No baseline detected — running retroactive scan.');
       _runRetroactiveBaselineEval();
     }
-  }
-
-  /// Opening [s]: a 1:1 chat last saved before Porch Life last started
-  /// allowing Realism was saved while its Realism could not run (started
-  /// while blocked, or switched on while closed by the existing-chats
-  /// question), so it starts now. One eval per such chat opened; none on an
-  /// install that never blocked Realism.
-  void _scoreStartIfSavedBlocked(Session s) {
-    final since = _storageService.realismSettings.realismAllowedSince;
-    if (since != null && s.updatedAt.isBefore(since)) _onRealismStarted();
   }
 
   Future<void> _setPassageOfTimeEnabledImpl(bool enabled) async {

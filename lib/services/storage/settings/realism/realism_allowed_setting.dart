@@ -15,26 +15,41 @@ import '../settings_base.dart';
 ///
 /// A missing pref reads as ON, so an install upgrading to this switch keeps
 /// every chat exactly as it was and nothing is written at startup. Read live
-/// from the preferences (no load step), so every chat sees a change on its
-/// next read. Not `realismDefault`: that one only starts new chats with
-/// Realism on, and it stays off for most people.
+/// from the preferences (no load step). Not `realismDefault`: that one only
+/// starts new chats with Realism on, and it stays off for most people.
+///
+/// It also remembers what a closed chat needs to score its starting point
+/// when it next opens: the last stretch Realism was blocked, and the chats
+/// the existing-chats question switched on.
 mixin RealismAllowedSetting on SettingsBase {
   static const _key = 'realism_allowed';
+  static const _blockedKey = 'realism_blocked_at';
   static const _sinceKey = 'realism_allowed_since';
+  static const _owedKey = 'realism_start_owed';
 
   // What this run set, ahead of the preferences (which may not be loaded).
   bool? _allowedSet;
+  DateTime? _blockedSet;
   DateTime? _sinceSet;
+  Set<String>? _owedSet;
 
   bool get realismAllowed => _allowedSet ?? prefs?.getBool(k(_key)) ?? true;
 
-  /// When Porch Life last went from blocking Realism to allowing it; null
-  /// when it never has. A chat last saved before then was saved while its
-  /// Realism could not run, so it scores its starting point when it opens.
-  DateTime? get realismAllowedSince {
-    if (_sinceSet != null) return _sinceSet;
-    final ms = prefs?.getInt(k(_sinceKey));
-    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  /// When Porch Life last started blocking Realism; null when it never has.
+  DateTime? get realismBlockedAt => _blockedSet ?? _readTime(_blockedKey);
+
+  /// When Porch Life last went from blocking Realism to allowing it.
+  DateTime? get realismAllowedSince => _sinceSet ?? _readTime(_sinceKey);
+
+  /// Whether a chat last saved at [savedAt] was saved while Realism was
+  /// blocked: in the last blocked stretch, compared in whole seconds as
+  /// session rows keep their times.
+  bool savedWhileRealismBlocked(DateTime savedAt) {
+    final from = realismBlockedAt;
+    final to = realismAllowedSince;
+    if (from == null || to == null || to.isBefore(from)) return false;
+    final at = _seconds(savedAt);
+    return !at.isBefore(from) && at.isBefore(to);
   }
 
   /// [now] is when it changed (the caller's clock; tests pass their own).
@@ -42,10 +57,46 @@ mixin RealismAllowedSetting on SettingsBase {
     final was = realismAllowed;
     _allowedSet = value;
     await prefs?.setBool(k(_key), value);
-    if (value && !was) {
-      final at = _sinceSet = now ?? DateTime.now();
-      await prefs?.setInt(k(_sinceKey), at.millisecondsSinceEpoch);
+    if (value != was) {
+      final at = _seconds(now ?? DateTime.now());
+      if (value) {
+        _sinceSet = at;
+      } else {
+        _blockedSet = at;
+      }
+      await prefs?.setInt(
+        k(value ? _sinceKey : _blockedKey),
+        at.millisecondsSinceEpoch,
+      );
     }
     notify();
   }
+
+  /// Chats the existing-chats question switched on while closed: each scores
+  /// its starting point when it next opens, wherever its last save fell.
+  Set<String> get realismStartOwed =>
+      _owedSet ??= (prefs?.getStringList(k(_owedKey)) ?? const []).toSet();
+
+  Future<void> oweRealismStart(Iterable<String> sessionIds) =>
+      _writeOwed({...realismStartOwed, ...sessionIds});
+
+  /// The chat opened: whatever it was owed is being paid now.
+  Future<void> settleRealismStart(String sessionId) async {
+    if (!realismStartOwed.contains(sessionId)) return;
+    await _writeOwed({...realismStartOwed}..remove(sessionId));
+  }
+
+  Future<void> _writeOwed(Set<String> ids) async {
+    _owedSet = ids;
+    await prefs?.setStringList(k(_owedKey), ids.toList());
+  }
+
+  DateTime? _readTime(String key) {
+    final ms = prefs?.getInt(k(key));
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  static DateTime _seconds(DateTime t) => DateTime.fromMillisecondsSinceEpoch(
+    t.millisecondsSinceEpoch ~/ 1000 * 1000,
+  );
 }

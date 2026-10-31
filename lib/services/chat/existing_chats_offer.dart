@@ -25,10 +25,23 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show Refractory, RefractoryKeys;
 import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// A Porch Life feature the existing-chats question asks about.
 enum ExistingChatsFeature { afterglow, needs, realism }
+
+/// Whether Porch Life allows [feature] now, so the question may be asked
+/// and answered. Needs and Afterglow run only inside Realism, so they are
+/// asked about only while Realism is allowed (desktop and the phone's relay).
+bool existingChatsFeatureAllowed(
+  RealismSettings rs,
+  ExistingChatsFeature feature,
+) => switch (feature) {
+  ExistingChatsFeature.realism => rs.realismAllowed,
+  ExistingChatsFeature.needs => rs.realismAllowed && rs.needsSimDefault,
+  ExistingChatsFeature.afterglow => rs.realismAllowed && rs.afterglowEnabled,
+};
 
 /// The existing-chats question: when Porch Life starts allowing a feature,
 /// the chats whose own switch is off are counted and, only if asked, switched
@@ -42,14 +55,21 @@ enum ExistingChatsFeature { afterglow, needs, realism }
 /// when it opens). Needs: every chat's switch is its `needs_sim_enabled`
 /// column; Realism, its `realism_enabled` column. The chat open right now is
 /// read and switched live, so its next save cannot write the old value back.
-/// [cards] is the library, read for a card's own Needs choice.
+/// [cards] is the library, read for a card's own Needs choice. A closed
+/// chat switched to Realism is owed its starting-point scan ([realism]).
 class ExistingChatsOffer {
-  ExistingChatsOffer(this._db, this._chat, {List<CharacterCard>? cards})
-    : _cards = cards ?? const [];
+  ExistingChatsOffer(
+    this._db,
+    this._chat, {
+    List<CharacterCard>? cards,
+    RealismSettings? realism,
+  }) : _cards = cards ?? const [],
+       _realism = realism;
 
   final AppDatabase _db;
   final ChatService? _chat;
   final List<CharacterCard> _cards;
+  final RealismSettings? _realism;
 
   /// How many chats have their own Afterglow switch off.
   Future<int> countAfterglowOff() => countOff(ExistingChatsFeature.afterglow);
@@ -81,12 +101,12 @@ class ExistingChatsOffer {
           variables: [Variable(chat.id)],
         );
       } else if (feature == ExistingChatsFeature.realism) {
-        // Its row stays as it last saved, so the chat scores its starting
-        // point when it is next opened (ChatService._scoreStartIfSavedBlocked).
         await _db.customUpdate(
           'UPDATE sessions SET realism_enabled = 1 WHERE id = ?',
           variables: [Variable(chat.id)],
         );
+        // Scored when it next opens (ChatService._scoreStartIfSavedBlocked).
+        await _realism?.oweRealismStart([chat.id]);
       } else if (!chat.isGroup) {
         await _db.customUpdate(
           'UPDATE sessions SET nsfw_cooldown_enabled = 1 WHERE id = ?',

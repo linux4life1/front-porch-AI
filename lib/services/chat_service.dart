@@ -425,6 +425,7 @@ class ChatService extends ChangeNotifier
   Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;
   bool get realismChatSwitch => _realismChatSwitch;
+  bool get realismAllowed => _storageService.realismSettings.realismAllowed;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
       _spatialStanceForGroupCharacterImpl(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>

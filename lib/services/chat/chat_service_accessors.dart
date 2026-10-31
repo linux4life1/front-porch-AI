@@ -210,9 +210,6 @@ extension ChatServiceAccessors on ChatService {
 
   bool get isCancellingRealismEval => _isCancellingRealismEval;
 
-  /// Porch Life allows Realism; [realismEnabled] is whether it runs here.
-  bool get realismAllowed => _storageService.realismSettings.realismAllowed;
-
   void _onBackendIdentityMaybeChanged() {
     if (_disposed) return;
     ToolChoiceStyleProbe.instance.reset(_evalBackendIdentity);

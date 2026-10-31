@@ -75,7 +75,8 @@ bool afterglowEnabledOf(BuildContext context) {
 bool realismAllowedOf(BuildContext context) {
   try {
     return Provider.of<StorageService>(context).realismSettings.realismAllowed;
-  } catch (_) {
+  } catch (e) {
+    debugPrint('[Realism] no storage in scope, reading Porch Life as on: $e');
     return true;
   }
 }

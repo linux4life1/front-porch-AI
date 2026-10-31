@@ -138,12 +138,15 @@ class GroupAfterglowCard extends StatelessWidget {
               color: AppColors.textSecondary(context),
             ),
           ),
-          if (on && !controller.realismEnabled)
+          if (on && !(controller.realismEnabled && realismAllowedOf(context)))
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Turn on the Realism Engine above for this to have any '
-                'effect.',
+                realismAllowedOf(context)
+                    ? 'Turn on the Realism Engine above for this to have any '
+                          'effect.'
+                    : 'The Realism Engine is off in Porch Life, so this has '
+                          'no effect for now.',
                 style: TextStyle(
                   fontSize: 10,
                   color: AppColors.textTertiary(context),

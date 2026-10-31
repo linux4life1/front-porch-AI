@@ -57,16 +57,8 @@ List<CharacterCard> _libraryOf(BuildContext context) {
   }
 }
 
-/// Whether Porch Life allows [feature] now. Needs and Afterglow run only
-/// inside Realism, so they are asked about only while Realism is allowed.
-bool _allowed(StorageService storage, ExistingChatsFeature feature) {
-  final rs = storage.realismSettings;
-  return switch (feature) {
-    ExistingChatsFeature.realism => rs.realismAllowed,
-    ExistingChatsFeature.needs => rs.realismAllowed && rs.needsSimDefault,
-    ExistingChatsFeature.afterglow => rs.realismAllowed && rs.afterglowEnabled,
-  };
-}
+bool _allowed(StorageService storage, ExistingChatsFeature feature) =>
+    existingChatsFeatureAllowed(storage.realismSettings, feature);
 
 Future<void> _offer(
   BuildContext context,
@@ -79,6 +71,7 @@ Future<void> _offer(
     liveDatabase(context),
     Provider.of<ChatService>(context, listen: false),
     cards: _libraryOf(context),
+    realism: storage.realismSettings,
   );
   final int count;
   try {

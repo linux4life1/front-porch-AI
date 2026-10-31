@@ -446,4 +446,16 @@ extension ChatServiceSessionLoad on ChatService {
       debugPrint('[ChatService] Error loading session $sessionId: $e');
     }
   }
+
+  /// Opening [s]: a 1:1 chat saved while Porch Life blocked Realism, or one
+  /// the existing-chats question switched on while it was closed, never ran
+  /// Realism there, so it scores its starting point now: one eval per such
+  /// chat opened, none on an install that never blocked Realism.
+  void _scoreStartIfSavedBlocked(Session s) {
+    final rs = _storageService.realismSettings;
+    final owed = rs.realismStartOwed.contains(s.id);
+    if (!owed && !rs.savedWhileRealismBlocked(s.updatedAt)) return;
+    if (owed) unawaited(rs.settleRealismStart(s.id));
+    _onRealismStarted();
+  }
 }

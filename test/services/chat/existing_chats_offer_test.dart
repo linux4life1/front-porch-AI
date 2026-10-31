@@ -570,4 +570,60 @@ void main() {
     expect(await call('POST', {'feature': 'realism'}), {'changed': 2});
     expect(await call('GET'), {'count': 0});
   });
+
+  test("while Realism is blocked the phone's relay has nothing to ask about "
+      'Needs or Afterglow: an older phone gets a count of 0, not an error, '
+      'and nothing changes', () async {
+    await seed();
+    await db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: 'needs-off',
+            characterId: const Value('char-n'),
+            needsSimEnabled: const Value(false),
+            needsVector: const Value('{"hunger":70}'),
+          ),
+        );
+    FlutterSecureStorage.setMockInitialValues({});
+    final storage = StorageService();
+    await storage.initialized;
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final router = Router();
+    WebSettingsRoutes(
+      WebServerDeps(
+        storage: storage,
+        db: db,
+        auth: AuthService(db),
+        settingsFacade: SettingsFacade(storage, FakeLLMProvider()),
+      ),
+      router,
+    );
+    Future<Map<String, dynamic>> call(String method, String feature) async {
+      final res = await router.call(
+        shelf.Request(
+          method,
+          Uri.parse(
+            'http://localhost/api/settings/existing-chats'
+            '${method == 'GET' ? '?feature=$feature' : ''}',
+          ),
+          headers: {'content-type': 'application/json'},
+          body: method == 'GET' ? null : jsonEncode({'feature': feature}),
+        ),
+      );
+      expect(res.statusCode, 200);
+      return jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    }
+
+    expect((await call('GET', 'needs'))['count'], greaterThan(0));
+    expect((await call('GET', 'afterglow'))['count'], greaterThan(0));
+    await storage.realismSettings.setRealismAllowed(false);
+    final before = await rows();
+    for (final f in ['needs', 'afterglow']) {
+      expect(await call('GET', f), {'count': 0}, reason: f);
+      expect(await call('POST', f), {'changed': 0}, reason: f);
+    }
+    expect(await rows(), before, reason: 'nothing changed');
+  });
 }

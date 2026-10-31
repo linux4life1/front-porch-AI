@@ -10,15 +10,21 @@
 
 // Realism runs behind one gate. `_realismEnabled` (a getter in
 // lib/services/chat/chat_service_controls.dart) is Porch Life's Realism
-// permission AND the chat's own switch, both read live; every reader in the
-// ChatService library, and every leaf through its RealismScope, reads it, so
-// Porch Life off stops Realism in every open chat on its next read.
+// permission AND the chat's own switch; every reader in the ChatService
+// library, and every leaf through its RealismScope, reads it, so Porch Life
+// off stops Realism in every open chat from its next turn.
 //
 // The chat's own switch, `_realismChatSwitch`, is what a chat stores: saves,
 // seeds and carries read and write it, and nothing else may. A save that
 // wrote the gate would replace a chat's own choice with whatever Porch Life
 // said at that moment, the bug PR 0 fixed for Afterglow's 1:1 save. A pass
 // that read the raw switch would run Realism with Porch Life off.
+//
+// The allow-list pins how many times each file names the raw switch, so a
+// new read cannot hide in a file that already has one, and a carry that
+// went back to the gate (a package export, a cast collapse) shows as a
+// count that dropped. realism_permission_test.dart pins those carries by
+// behaviour too.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,32 +38,52 @@ List<String> _chatServiceLibrary() => [
   ...dartFiles('lib/services/chat'),
 ];
 
-/// Files that read or write the chat's own switch, and why that is right.
-const _ownSwitch = <String, String>{
-  'lib/services/chat_service.dart':
-      'the public switch, a class member so a test double can answer it',
-  'lib/services/chat/chat_service_fields.dart': 'declares it',
-  _gateFile: 'the gate, the public switch and its setter',
-  'lib/services/chat/chat_service_session_hydrate.dart':
-      'restores it from the session row',
-  'lib/services/chat/chat_service_session_state_save.dart':
-      'saves it, never the gate',
-  'lib/services/chat/chat_service_chat_entry.dart':
-      'resets it and seeds a new 1:1 chat from the card',
-  'lib/services/chat/chat_service_session_manage.dart':
-      'seeds a new chat from the card',
-  'lib/services/chat/chat_service_import_seed.dart':
-      'seeds an import and carries it in a chat package',
-  'lib/services/chat/chat_service_import_walk.dart':
-      'keeps it across a fork walk-back',
-  'lib/services/chat/chat_service_group_entry.dart':
-      'resets it and seeds a group chat from its group',
-  'lib/services/chat/chat_service_group_membership.dart':
-      'carries a 1:1 chat\'s choice into the group it becomes',
-  'lib/services/chat/chat_service_cast_shrink.dart':
-      'carries the choice through a cast collapse',
-  'lib/services/chat/chat_service_wiring_realism.dart':
-      'a silent card seeds Needs from the chat\'s own choice',
+/// Files that read or write the chat's own switch: how many times, and why
+/// each is right.
+const _ownSwitch = <String, (int, String)>{
+  'lib/services/chat_service.dart': (1, 'the public switch, for test doubles'),
+  'lib/services/chat/chat_service_fields.dart': (1, 'declares it'),
+  _gateFile: (2, 'the gate; the switch\'s setter'),
+  'lib/services/chat/chat_service_session_hydrate.dart': (
+    1,
+    'restores it from the session row',
+  ),
+  'lib/services/chat/chat_service_session_state_save.dart': (
+    1,
+    'saves it, never the gate',
+  ),
+  'lib/services/chat/chat_service_chat_entry.dart': (
+    4,
+    'resets it; seeds a new 1:1 chat from the card, then ORs the default',
+  ),
+  'lib/services/chat/chat_service_session_manage.dart': (
+    1,
+    'seeds a new chat from the card',
+  ),
+  'lib/services/chat/chat_service_import_seed.dart': (
+    3,
+    'seeds an import; exports and imports it in a chat package',
+  ),
+  'lib/services/chat/chat_service_import_walk.dart': (
+    2,
+    'keeps it across a fork walk-back',
+  ),
+  'lib/services/chat/chat_service_group_entry.dart': (
+    2,
+    'resets it; seeds a group chat from its group',
+  ),
+  'lib/services/chat/chat_service_group_membership.dart': (
+    2,
+    'carries a 1:1 chat\'s choice, and its state, into the group it becomes',
+  ),
+  'lib/services/chat/chat_service_cast_shrink.dart': (
+    3,
+    'carries the choice back through a cast collapse',
+  ),
+  'lib/services/chat/chat_service_wiring_realism.dart': (
+    1,
+    'a silent card seeds Needs from the chat\'s own choice',
+  ),
 };
 
 /// Outside the library, files that show the switch's position, and why.
@@ -87,10 +113,18 @@ bool _isLibraryFile(String path, DartSource source) =>
     path == 'lib/services/chat_service.dart' ||
     source.source.contains("part of '../chat_service.dart';");
 
-/// A leaf callback named for Realism being on that is handed the raw switch.
-final _leafHandedRaw = RegExp(
-  r'[rR]ealismEnabled\s*:\s*\(\)\s*=>\s*_realismChatSwitch',
-);
+/// A closure handing the raw switch to a leaf, whatever it is named; the
+/// name, when it is a named argument, is read from just before it.
+final _rawClosure = RegExp(r'\(\)\s*=>\s*_realismChatSwitch\b');
+final _argName = RegExp(r'(\w+)\s*:\s*$');
+
+String? _argumentNameBefore(String code, int offset) {
+  final from = offset < 80 ? 0 : offset - 80;
+  return _argName.firstMatch(code.substring(from, offset))?[1];
+}
+
+/// The one leaf input that is the chat's own choice, not the gate.
+const _rawLeafInputs = {'chatRealism'};
 
 void main() {
   test('the Realism gate is defined once, with no setter', () {
@@ -114,14 +148,17 @@ void main() {
     );
   });
 
-  test("the chat's own Realism switch is read only where a chat stores, "
-      'seeds or carries it', () {
+  test("the chat's own Realism switch is named exactly where, and as often "
+      'as, a chat stores, seeds or carries it', () {
     final problems = <String>[];
     for (final path in _chatServiceLibrary()) {
-      if (_ownSwitch.containsKey(path)) continue;
-      for (final hit in DartSource.read(path).hits(_rawSwitch)) {
-        problems.add('$path:${hit.line}: ${hit.text.trim()}');
-      }
+      final hits = DartSource.read(path).hits(_rawSwitch);
+      final pinned = _ownSwitch[path]?.$1 ?? 0;
+      if (hits.length == pinned) continue;
+      problems.add(
+        '$path: $pinned pinned, ${hits.length} found\n'
+        '${hits.map((h) => '  ${h.line}: ${h.text.trim()}').join('\n')}',
+      );
     }
     expect(
       problems,
@@ -129,17 +166,22 @@ void main() {
       reason:
           'Realism runs behind _realismEnabled ($_gateFile): Porch Life '
           'allows it AND the chat\'s switch. A pass reading '
-          '_realismChatSwitch runs with Porch Life off. Read _realismEnabled, '
-          'or, if the line saves, seeds or carries the chat\'s choice, add '
-          'the file to _ownSwitch with its reason.\n${problems.join('\n')}',
+          '_realismChatSwitch runs with Porch Life off; a save, seed or '
+          'carry reading the gate overwrites the chat\'s choice. Fix the '
+          'line, or, if it really stores, seeds or carries the chat\'s '
+          'choice, change its count in _ownSwitch with the reason.'
+          '\n${problems.join('\n')}',
     );
   });
 
-  test('every leaf is handed the gate, not the raw switch', () {
+  test('every leaf is handed the gate, except its one own-choice input', () {
     final problems = <String>[];
     for (final path in _chatServiceLibrary()) {
-      for (final hit in DartSource.read(path).hits(_leafHandedRaw)) {
-        problems.add('$path:${hit.line}: ${hit.text.trim()}');
+      final source = DartSource.read(path);
+      for (final m in _rawClosure.allMatches(source.code)) {
+        final name = _argumentNameBefore(source.code, m.start);
+        if (_rawLeafInputs.contains(name)) continue;
+        problems.add('$path:${source.lineOf(m.start) + 1}: ${m[0]}');
       }
     }
     expect(problems, isEmpty, reason: problems.join('\n'));
@@ -168,14 +210,12 @@ void main() {
     );
   });
 
-  test('every file allowed the switch still reads it', () {
+  test('every file allowed to show the switch still does', () {
     // A stale entry would quietly widen the allow-list.
     final unused = [
-      for (final path in _ownSwitch.keys)
-        if (DartSource.read(path).hits(_rawSwitch).isEmpty) path,
       for (final path in _ownSwitchShown.keys)
         if (DartSource.read(path).hits(_publicSwitch).isEmpty) path,
     ];
-    expect(unused, isEmpty, reason: 'drop these from the allow-lists');
+    expect(unused, isEmpty, reason: 'drop these from _ownSwitchShown');
   });
 }

@@ -13,21 +13,26 @@
 // The scripted model only feeds the gate under test: these tests count
 // which calls are made, never what a reply or a score says.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value, Variable;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/existing_chats_offer.dart';
+import 'package:front_porch_ai/services/chat/fpchat_codec.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import '../../golden/support/fakes.dart' show FakeChatService;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -46,16 +51,34 @@ void _setupPathProviderMock() {
 class _CountingLlm extends LLMService {
   final calls = <String>[];
 
+  /// The calls made while [turnBusy] said a turn was in flight.
+  final callsDuringTurn = <String>[];
+  bool Function()? turnBusy;
+
+  /// Run once, when the character's reply starts streaming.
+  void Function()? onReply;
+
+  /// While set, every call but the reply waits for it (a scan in flight).
+  Completer<void>? hold;
+
+  void _add(String call) {
+    calls.add(call);
+    if (turnBusy?.call() ?? false) callsDuringTurn.add(call);
+  }
+
+  Iterable<String> get realismCallsDuringTurn =>
+      callsDuringTurn.where(_isRealism);
+
+  static bool _isRealism(String c) =>
+      c != 'chat' &&
+      c != 'time' &&
+      c != 'with_user' &&
+      c != 'tools:report_ping' &&
+      c != 'tools:report_scene_time';
+
   /// Every call the Realism Engine makes, one-shot or one per judge.
-  Iterable<String> get realismCalls => calls.where(
-    (c) =>
-        c != 'chat' &&
-        c != 'time' &&
-        c != 'with_user' &&
-        // The backend's tool-support probe, not an eval.
-        c != 'tools:report_ping' &&
-        c != 'tools:report_scene_time',
-  );
+  /// (Not the clock, the presence read or the backend's tool probe.)
+  Iterable<String> get realismCalls => calls.where(_isRealism);
 
   @override
   Future<LlmToolResponse?> generateWithTools(
@@ -65,40 +88,45 @@ class _CountingLlm extends LLMService {
     final names = [
       for (final tool in tools) (tool['function'] as Map?)?['name'] as String?,
     ];
-    calls.add('tools:${names.join(',')}');
+    _add('tools:${names.join(',')}');
+    await hold?.future;
     return null;
   }
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     if (params.systemPrompt != null) {
-      calls.add('chat');
+      _add('chat');
+      final hook = onReply;
+      onReply = null;
+      hook?.call();
       yield '*She leans on the rail.*';
       return;
     }
+    await hold?.future;
     final p = params.prompt;
     if (p.contains('relationship_delta')) {
-      calls.add('relationship');
+      _add('relationship');
       yield '{"relationship_delta":2,"trust_delta":1,'
           '"bond_reason":"steady","trust_reason":"warm"}';
       return;
     }
     if (p.contains('WITH USER') || p.contains('"with_user"')) {
-      calls.add('with_user');
+      _add('with_user');
       yield '{"with_user": true}';
       return;
     }
     if (p.contains('emotion_intensity')) {
-      calls.add('emotion');
+      _add('emotion');
       yield '{"emotion":"calm","emotion_intensity":"mild"}';
       return;
     }
     if (p.contains('minutes_elapsed')) {
-      calls.add('time');
+      _add('time');
       yield '{"minutes_elapsed": 10, "new_day": false}';
       return;
     }
-    calls.add('other');
+    _add('other');
     yield '';
   }
 
@@ -121,19 +149,19 @@ void main() {
 
   RealismSettings rs() => storage!.realismSettings;
 
+  /// Until the turn and any scan have settled. Bounded in real time, not in
+  /// event-loop turns, so a loaded machine cannot cut a scan short.
   Future<void> drain() async {
-    for (
-      var i = 0;
-      i < 400 &&
-          (chat!.isGenerating ||
-              chat!.isSettlingTurn ||
-              chat!.isProcessingGreeting);
-      i++
-    ) {
-      await Future<void>.delayed(Duration.zero);
-    }
-    for (var i = 0; i < 20; i++) {
-      await Future<void>.delayed(Duration.zero);
+    bool busy() =>
+        chat!.isGenerating ||
+        chat!.isSettlingTurn ||
+        chat!.isProcessingGreeting;
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    for (var quiet = 0; quiet < 20 && DateTime.now().isBefore(deadline);) {
+      await Future<void>.delayed(
+        busy() ? const Duration(milliseconds: 5) : Duration.zero,
+      );
+      quiet = busy() ? 0 : quiet + 1;
     }
   }
 
@@ -185,6 +213,32 @@ void main() {
   Future<void> send(String text) async {
     await chat!.sendMessage(text);
     await drain();
+  }
+
+  Future<void> backdate(String sessionId, DateTime savedAt) async {
+    await chat!.flushPendingSaves();
+    await db!.customUpdate(
+      'UPDATE sessions SET updated_at = ? WHERE id = ?',
+      variables: [Variable<DateTime>(savedAt), Variable(sessionId)],
+    );
+  }
+
+  bool turnBusy() => chat!.isGenerating || chat!.isSettlingTurn;
+
+  /// One entry per starting-point scan begun: whether a turn was in flight.
+  List<bool> watchScans() {
+    final starts = <bool>[];
+    final previous = debugPrint;
+    debugPrint = (String? m, {int? wrapWidth}) {
+      if (m != null &&
+          (m.startsWith('[Realism] Running retroactive baseline scan') ||
+              m.startsWith('[Realism] Running post-greeting baseline eval'))) {
+        starts.add(turnBusy());
+      }
+      previous(m, wrapWidth: wrapWidth);
+    };
+    addTearDown(() => debugPrint = previous);
+    return starts;
   }
 
   tearDown(() => disposeChatThenCloseDb(chat, db));
@@ -272,7 +326,11 @@ void main() {
   test('a 1:1 chat saved while Realism was blocked scores its starting point '
       'once, when it is next opened', () async {
     await boot();
-    await rs().setRealismAllowed(false);
+    final now = DateTime.now();
+    await rs().setRealismAllowed(
+      false,
+      now: now.subtract(const Duration(hours: 2)),
+    );
     final nell = await card('Nell', realism: true);
     final other = await card('Otto', realism: false);
     await chat!.setActiveCharacter(nell);
@@ -280,14 +338,9 @@ void main() {
     final id = chat!.currentSessionId!;
     await chat!.setActiveCharacter(other);
     await chat!.flushPendingSaves();
-    // Saved an hour before Porch Life allowed Realism again.
-    await db!.customUpdate(
-      'UPDATE sessions SET updated_at = ? WHERE id = ?',
-      variables: [
-        Variable<DateTime>(DateTime.now().subtract(const Duration(hours: 1))),
-        Variable(id),
-      ],
-    );
+    // Saved an hour into the block, an hour before Porch Life allowed
+    // Realism again.
+    await backdate(id, now.subtract(const Duration(hours: 1)));
 
     await rs().setRealismAllowed(true);
     await drain();
@@ -502,4 +555,210 @@ void main() {
     await send('Still here.');
     expect(llm.realismCalls, isNotEmpty);
   });
+
+  test('Porch Life allowing Realism mid-reply: the turn finishes as it '
+      'started, and the chat scores its starting point once, after it '
+      'settles', () async {
+    await boot();
+    await rs().setRealismAllowed(false);
+    await chat!.setActiveCharacter(await card('Nell', realism: true));
+    await send('We have been talking a while.');
+
+    final scans = watchScans();
+    var flipped = false;
+    final gateDuringTurn = <bool>[];
+    void seeGate() {
+      if (flipped && turnBusy()) gateDuringTurn.add(chat!.realismEnabled);
+    }
+
+    chat!.addListener(seeGate);
+    addTearDown(() => chat?.removeListener(seeGate));
+    llm.turnBusy = turnBusy;
+    llm.onReply = () {
+      flipped = true;
+      unawaited(rs().setRealismAllowed(true));
+    };
+    await send('And a little more.');
+
+    expect(flipped, isTrue);
+    expect(rs().realismAllowed, isTrue);
+    expect(
+      llm.realismCallsDuringTurn,
+      isEmpty,
+      reason: 'no judge beside the reply',
+    );
+    expect(
+      gateDuringTurn,
+      isNot(contains(true)),
+      reason: 'the turn keeps the permission it started with',
+    );
+    expect(scans, [false], reason: 'one scan, after the turn settled');
+    expect(chat!.realismEnabled, isTrue);
+  });
+
+  test("the chat's own switch turned on mid-reply (the phone) scores its "
+      'starting point after the turn, not beside it', () async {
+    await boot();
+    await chat!.setActiveCharacter(await card('Rue', realism: false));
+    await send('Talking with Realism off.');
+
+    final scans = watchScans();
+    llm.onReply = () => unawaited(chat!.setRealismEnabled(true));
+    await send('More talk.');
+    expect(chat!.realismChatSwitch, isTrue);
+    expect(scans, [false]);
+  });
+
+  test(
+    'Porch Life turned off and on again while the scan runs: one scan',
+    () async {
+      await boot();
+      await rs().setRealismAllowed(false);
+      await chat!.setActiveCharacter(await card('Nell', realism: true));
+      await send('We have been talking a while.');
+
+      final scans = watchScans();
+      // The scan's evals wait, so it has scored nothing yet.
+      llm.hold = Completer<void>();
+      await rs().setRealismAllowed(true);
+      expect(scans, [false]);
+      expect(chat!.isProcessingGreeting, isTrue, reason: 'the scan is running');
+      await rs().setRealismAllowed(false);
+      await rs().setRealismAllowed(true);
+      expect(scans, [false], reason: 'not a second scan beside the first');
+      llm.hold!.complete();
+      await drain();
+      expect(scans, [false], reason: 'and none after: it has its start now');
+    },
+  );
+
+  Future<String> closedChat(String name, DateTime savedAt) async {
+    final c = await card(name, realism: false);
+    await chat!.setActiveCharacter(c);
+    await send('Talking with Realism off.');
+    final id = chat!.currentSessionId!;
+    await chat!.setActiveCharacter(await card('$name-other', realism: false));
+    await backdate(id, savedAt);
+    return id;
+  }
+
+  test('a chat last saved before Realism was blocked does not score its '
+      'start when it opens', () async {
+    await boot();
+    final now = DateTime.now();
+    final id = await closedChat('Bo', now.subtract(const Duration(hours: 3)));
+    // A chat with Realism on that never ran it, saved before the block.
+    await db!.customUpdate(
+      'UPDATE sessions SET realism_enabled = 1 WHERE id = ?',
+      variables: [Variable(id)],
+    );
+    await rs().setRealismAllowed(
+      false,
+      now: now.subtract(const Duration(hours: 2)),
+    );
+    await rs().setRealismAllowed(true);
+    await drain();
+    llm.calls.clear();
+
+    await chat!.loadSession(id);
+    await drain();
+    expect(chat!.realismEnabled, isTrue);
+    expect(llm.realismCalls, isEmpty, reason: 'it was not saved while blocked');
+  });
+
+  test(
+    'a chat the existing-chats question switched on scores its start '
+    'when it next opens, wherever its last save fell, and only once',
+    () async {
+      await boot();
+      final now = DateTime.now();
+      final id = await closedChat('Cy', now.subtract(const Duration(hours: 3)));
+      await rs().setRealismAllowed(
+        false,
+        now: now.subtract(const Duration(hours: 2)),
+      );
+      await rs().setRealismAllowed(true);
+      await ExistingChatsOffer(
+        db!,
+        chat,
+        realism: rs(),
+      ).turnOn(ExistingChatsFeature.realism);
+      await drain();
+      llm.calls.clear();
+
+      await chat!.loadSession(id);
+      await drain();
+      expect(llm.realismCalls, isNotEmpty, reason: 'scored on its first open');
+      final scan = llm.realismCalls.length;
+      expect(rs().realismStartOwed, isNot(contains(id)));
+
+      await chat!.startNewChat();
+      await chat!.loadSession(id);
+      await drain();
+      expect(llm.realismCalls.length, scan, reason: 'once');
+    },
+  );
+
+  test('while blocked, a package export and a fork into a group carry the '
+      "chat's own switch", () async {
+    await boot();
+    await rs().setRealismAllowed(false);
+    Future<CharacterCard> pngCard(String name) async {
+      final c = CharacterCard(
+        name: name,
+        firstMessage: 'Evening.',
+        frontPorchExtensions: FrontPorchExtensions(realismEnabled: true),
+      );
+      final dir = Directory.systemTemp.createTempSync('realism_gate_card_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      c.imagePath = '${dir.path}${Platform.pathSeparator}${name}_1.png';
+      await V2CardService().saveCardAsPng(c, c.imagePath!, null);
+      await repo!.addCharacter(c);
+      return c;
+    }
+
+    await chat!.setActiveCharacter(await pngCard('Tess'));
+    await send('Evening.');
+    expect(chat!.realismEnabled, isFalse);
+
+    final zip = await chat!.exportToFpchat();
+    final fpai = decodeFpchatBytes(zip!).chatJson['fpai'] as Map;
+    expect(
+      (fpai['session'] as Map)['realism_enabled'],
+      isTrue,
+      reason: "the package carries the chat's own choice",
+    );
+
+    final groups = GroupChatRepository(storage!, db!);
+    expect(
+      await chat!.forkToGroupChat([await pngCard('Uma')], groups),
+      isNotNull,
+    );
+    expect(chat!.realismChatSwitch, isTrue, reason: 'the fork carries it');
+  });
+
+  test("the phone's member feed asks the chat service whether Porch Life "
+      'allows Realism, so a test double can answer it', () {
+    chat = null; // no real chat in this one: the shared teardown skips it
+    db = null;
+    final fake = _BlockedGroupChat();
+    addTearDown(fake.dispose);
+    expect(ChatRealismRead(fake).participantRealism(fake.cast.single.id), {
+      'realismEnabled': false,
+      'realismAllowed': false,
+    });
+  });
+}
+
+/// A group chat whose Porch Life blocks Realism, as a test double.
+class _BlockedGroupChat extends FakeChatService {
+  _BlockedGroupChat() : super(realismEnabled: false);
+
+  @override
+  bool get realismAllowed => false;
+
+  @override
+  List<ChatParticipant> get cast => [
+    ChatParticipant(card: CharacterCard(name: 'Ana'), isHost: false),
+  ];
 }
