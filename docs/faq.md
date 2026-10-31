@@ -463,39 +463,43 @@ Clothes and stuff they carry. Own switch on Porch Life. Does **not** need Realis
 
 ### What is the Realism Engine?
 
-Optional. Mood, bond, trust, needs, goals. A new one-on-one chat starts with it **off** unless the card turns it on (or **Start every new chat with Realism** is on in Porch Life). A new group starts with it **on**. The **story clock is a separate switch** (Passage of Time) — it is not “the engine.” Full tour: [Realism Engine](realism-engine.md).
+Optional. Mood, bond, trust, needs, goals. A new one-on-one chat starts with it **off** unless the card turns it on (or **Start every new chat with Realism** is on in Porch Life). The new-group wizard starts a group with it **on**; a group made from a one-on-one chat copies that chat's choice, and Edit group can set it off for the group's new chats. The **story clock is a separate switch** (Passage of Time) — it is not “the engine.” Full tour: [Realism Engine](realism-engine.md).
 
 ### I turned it on in Porch Life but my chat doesn't show it
 
 Porch Life *allows* Realism, Needs and Afterglow. It doesn't flip them on in your chats. Each chat has its own switch:
 
 - **Realism:** the switch in the header of Character State. In a group: Group Settings → Realism → **Realism Engine for this group**.
-- **Needs:** the **Needs** line in Character State. In a group: Group Settings → Needs. Needs runs only while that chat's Realism is on.
+- **Needs:** the **Needs** line in Character State. In a group: Group Settings → Needs.
 - **Afterglow:** the **Afterglow** line under the bond bars. In a group: Group Settings → Realism. It only shows with 18+ themes on.
 
 On the phone, all three are in the chat tools.
+
+**Don't see the Needs or Afterglow line?** In a one-on-one chat, and in the phone's chat tools, they only appear while that chat's Realism is on. Switch Realism on first.
 
 When you turn one on in Porch Life, a question asks whether to turn it on in the chats that have it off. Its switch starts off. If you pressed **Done** without flipping it, those chats stayed as they were. Flip each chat's own switch.
 
 ### The Realism switch is greyed out
 
-Settings → Porch Life → **Realism Engine** is off. With it off, no chat runs Realism, and every chat's Realism switch greys out with a note. Each chat keeps its own choice. Turn the Porch Life row back on and they carry on.
+Usually, Settings → Porch Life → **Realism Engine** is off. With it off, no chat runs Realism, and every chat's Realism switch greys out with a note that points to Porch Life. Each chat keeps its own choice. Turn the Porch Life row back on and they carry on.
 
-The **Needs** line greys out the same way when Porch Life → **Needs** is off.
+The **Needs** switch greys out the same way, with a note that points to Porch Life, when Porch Life → **Needs** is off.
+
+The switches also grey out for a moment while a reply is being written. Wait for the reply to finish.
 
 ### I edited the card but my old chat didn't change
 
-That's on purpose. A character's card only sets how **new** chats start: Realism, Needs, Afterglow, bonds, mood, the opening date. Chats you already have keep their own. To change one, use that chat's own switch (above), or start a new chat.
+That's on purpose. The card's Realism panel only sets how **new** chats start: Realism, Needs, Afterglow, bonds, mood, the opening date. Chats you already have keep their own. To change one, use that chat's own switch (above), or start a new chat.
 
 Groups work the same way. Edit group and the new-group wizard set how the group's **new** chats start.
 
 ### How do I change a group member's settings?
 
-Open **Edit Character** on that member. In a group chat, focus the member in the sidebar (tap their face), then pick Edit Character from the sidebar's settings menu. Edit group's member **Edit** opens the same thing. On the phone: **Edit** in the chat header (for the member you're looking at), or the Edit link by each member in Group Settings.
+Open **Edit Character** on that member. In a group chat, open Group Settings and press **Edit** on that member's summary. Or focus the member in the sidebar (tap their face) and pick Edit Character from the sidebar's **Main Settings** menu. Edit group's member **Edit** opens the same thing. On the phone: **Edit** in the chat header (for the member you're looking at), or the Edit link by each member in Group Settings.
 
 It edits that member in this group only. Their library card and their other chats stay as they are.
 
-Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) live in **Group Settings**. The member's editor shows them as lines that point there.
+Realism on or off, time and day, Chaos, Needs and the chat's Afterglow belong to the whole group. The member's editor shows them as lines that point to where the group sets them (Group Settings in a chat, or Edit group's Realism & Dynamics).
 
 ### Does Realism make chat slow?
 

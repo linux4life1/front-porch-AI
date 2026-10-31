@@ -4,7 +4,7 @@ The living-character **defaults** live in **Settings → Porch Life**. Not Gener
 
 **Realism Engine is not the master key.** Journal, the story clock, Chaos, Pockets, and Objectives each have their own switch. Turn on what you want. New chats pick up those defaults. An open chat can still override most of them on the sidebar line they control, or in Group Settings for a group.
 
-**Realism Engine, Needs and Afterglow allow, they don't switch on.** With one of these rows off, no chat runs it, and each chat's own switch greys out (Afterglow's hides) but keeps its choice. With it on, each chat's own switch decides, and the character's card (or the group) only sets how new chats start. Turning one of them on asks whether to turn it on in the chats that have it off; that switch starts off. Details: [Realism Engine → Turning It On](realism-engine.md#turning-it-on). **Passage of Time** is the exception: Settings → Porch Life is the only live clock switch. On means every open chat's clock runs. Off pauses them immediately.
+**Realism Engine, Needs and Afterglow allow, they don't switch on.** With one of these rows off, no chat runs it, and each chat's own switch greys out with a note that points to Porch Life (Afterglow's hides) but keeps its choice. With it on, each chat's own switch decides, and the character's card (or the group) only sets how new chats start. Turning one of them on asks whether to turn it on in the chats that have it off; that switch starts off. Details: [Realism Engine → Turning It On](realism-engine.md#turning-it-on). **Passage of Time** is the exception: Settings → Porch Life is the only live clock switch. On means every open chat's clock runs. Off pauses them immediately.
 
 **18+ themes** is Settings → **General**. Off hides After Dark and intimate card fields. It does not erase what you already set.
 
@@ -19,7 +19,7 @@ The numbers, moods, and needs deep-dive is the [Realism Engine guide](realism-en
 | Row | Needs | What it does |
 |---|---|---|
 | **Realism Engine** | — | Allows mood, bond, trust, lingering feeling in every chat. On unless you turn it off. Off: no chat runs it; each chat keeps its own switch. |
-| **Start every new chat with Realism** | Realism Engine | New one-on-one chats start with Realism on even when the card doesn't ask. Off by default. New groups start with it on either way. |
+| **Start every new chat with Realism** | Realism Engine | New one-on-one chats start with Realism on even when the card doesn't ask. Off by default. Groups don't use it: the new-group wizard starts a group with Realism on, a group made from a one-on-one chat copies that chat's choice, and Edit group can set it off for new chats. |
 | **Needs** | Engine, to turn a need into a mood | Allows hunger, bladder, energy, social, fun, hygiene, comfort. Each chat has its own Needs switch. |
 | **Passage of Time** | A model (see clock below) | Story clock. Own switch. |
 | **Story Weather** | Passage of Time | Sky from the *story* date. °F is display-only under this. |

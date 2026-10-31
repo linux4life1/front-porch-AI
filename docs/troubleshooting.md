@@ -246,20 +246,21 @@ Each of these has three switches, and the chat only runs it when the first and l
 
 What you might see:
 
-- **The chat's switch is greyed out** with a note that it's off in Porch Life. Turn that row on in Porch Life. The chat kept its own choice and picks up from there.
+- **The chat's switch is greyed out** with a note that points to Porch Life. Turn that row on in Porch Life. The chat kept its own choice and picks up from there. (The switches also grey out for a moment while a reply is being written.)
 - **You turned it on in Porch Life and nothing changed in your chats.** Porch Life asked whether to turn it on in the chats that have it off, and that switch starts off. Flip the chat's own switch instead.
-- **It changed after the reply, not straight away.** A Porch Life change made while a reply is on its way waits until that reply finishes.
+- **There's no Needs or Afterglow line at all.** In a one-on-one chat, and in the phone's chat tools, they only appear while that chat's Realism is on. Switch Realism on first.
+- **Realism changed after the reply, not straight away.** A change to Porch Life's **Realism Engine** row made while a reply is on its way waits until that reply finishes. Needs and Afterglow changes apply straight away.
 - **Needs is on but nothing moves.** Needs runs only while that chat's Realism is on too.
 
 More: [FAQ → I turned it on in Porch Life but my chat doesn't show it](faq.md#i-turned-it-on-in-porch-life-but-my-chat-doesnt-show-it).
 
 ### A group member's edits don't stick
 
-A group member is the group's own copy of a character. Edit them with **Edit Character** opened on that member: from the chat sidebar's settings menu while they're focused, from their **Edit** in Edit group, or on the phone from the chat header's Edit or the Edit link by each member in Group Settings. Those edits save to that member in this group.
+A group member is the group's own copy of a character. Edit them with **Edit Character** opened on that member: from the **Edit** on their summary in Group Settings, from the sidebar's **Main Settings** menu while they're focused, from their **Edit** in Edit group, or on the phone from the chat header's Edit or the Edit link by each member in Group Settings. Those edits save to that member in this group.
 
 Editing the character from your library changes the library card and how its new chats start. The member's settings in a group you already have stay as they were. (Their expression pictures still come from the library.)
 
-Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) are in **Group Settings**, not in the member's editor.
+Settings for the whole group (Realism on or off, time and day, Chaos, Needs, the chat's Afterglow) are set by the group, not in the member's editor. The editor shows them as lines that point to where the group sets them (Group Settings in a chat, or Edit group's Realism & Dynamics).
 
 ---
 

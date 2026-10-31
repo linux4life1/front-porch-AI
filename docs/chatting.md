@@ -17,7 +17,7 @@ How a conversation actually works. If the AI will not talk at all, start with [F
   | Card | What it is |
   |---|---|
   | Author's Note | Temporary “it is raining; they are exhausted.” Strength **1–10** = Subtle / Moderate / Strong. |
-  | Character State | Mood, bond/trust, needs, **story clock**, weather, ambitions. Realism switch in its header (1:1), Needs and Afterglow on their own lines. One-Shot is at the top of the sidebar. Passage of Time is Settings → Porch Life only. |
+  | Character State | Mood, bond/trust, needs, **story clock**, weather, ambitions. Realism switch in its header (1:1), Needs and Afterglow on their own lines, which only appear while the chat's Realism is on. One-Shot is at the top of the sidebar. Passage of Time is Settings → Porch Life only. |
   | Journal & Memory | Diary + RAG. [User Guide](user-guide.md#long-term-memory). |
   | Objectives | Goals. Groups open these from the focused member, not a fifth card. |
   | Story Tools | Chaos / Chance Time, Dynamic Responses (AFK), Places, lorebooks. |
@@ -99,7 +99,7 @@ Home → **Start New Chat** always asks which **persona**. It does not inherit t
 
 Each member keeps lorebooks, relationship, needs, expressions, voice.
 
-**Group Settings** (on the group, not global Settings): General, Realism, Needs, Memory & RAG, Lore/Worlds, **Prompt Engineering**. Per-member Realism/Needs live on member cards. Edit Character on a member edits that member in this group only. [In groups](realism-engine.md#in-groups).
+**Group Settings** (on the group, not global Settings): General, Realism, Needs, Memory & RAG, Lore/Worlds, **Prompt Engineering**. Per-member settings live in the member's editor (Edit Character on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. [In groups](realism-engine.md#in-groups).
 
 **A 1:1 and a group are the same chat with a different headcount.** `/join`, `/join --full`, `/promote`, `/exit` change the cast in place. History stays.
 

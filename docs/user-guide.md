@@ -244,7 +244,7 @@ Outside of full auto-play, a **next character** button in the toolbar shows who'
 
 Each member keeps their own lorebooks, relationship scores, needs, expression images, and voice. It's a real ensemble, not one AI wearing different name tags.
 
-**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Per-member Realism and Needs live on the member cards. To change one member, open **Edit Character** on them; it edits that member in this group only. See [Realism Engine → In groups](realism-engine.md#in-groups).
+**Group Settings** (from the group, not global Settings) has tabs: General, Realism, Needs, Memory & RAG, Lore/Worlds, and **Prompt Engineering** (per-group system / post-history text). Per-member settings live in the member's editor (**Edit Character** on that member), opened from the member's summary in Group Settings, from Edit group, or from the sidebar. It edits that member in this group only. See [Realism Engine → In groups](realism-engine.md#in-groups).
 
 Groups sit on the home screen next to your characters, and (since 1.2) can be filed into folders the same way.
 
@@ -286,7 +286,7 @@ The feature that makes characters feel alive instead of stateless. When it's on,
 
 Everything shows up in the chat sidebar under **Character State** — relationship bars, current mood, needs, the scene clock, the weather chip, ambitions — and small chips under each reply show what changed and why.
 
-The engine, Needs and Afterglow each have three layers. **Settings → Porch Life** allows them for every chat (off there, no chat runs them, and each chat keeps its own choice). The character editor, or a group's wizard and Edit group, sets how **new** chats start; editing a card never changes a chat you already have. And each chat has its own switch: in a one-on-one chat the Realism switch sits on the **Character State** card in the sidebar, with Needs and Afterglow on their own lines below it; in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle, and Group Settings → Needs. On the phone, they're in the chat tools.
+The engine, Needs and Afterglow each have three layers. **Settings → Porch Life** allows them for every chat (off there, no chat runs them, and each chat keeps its own choice). The character editor, or a group's wizard and Edit group, sets how **new** chats start; editing a card never changes a chat you already have. And each chat has its own switch: in a one-on-one chat the Realism switch sits on the **Character State** card in the sidebar, with Needs and Afterglow on their own lines below it (they only appear while that chat's Realism is on, so switch Realism on first); in a group chat that card has no such switch — use **Group Settings → Realism**, which has a "Realism Engine for this group" toggle, and Group Settings → Needs. On the phone, they're in the chat tools, where Needs and Afterglow also wait for Realism.
 
 **The full deep-dive — every system, number, and tuning knob — lives in the [Realism Engine guide](realism-engine.md).**
 
