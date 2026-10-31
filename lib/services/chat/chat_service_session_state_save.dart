@@ -203,12 +203,9 @@ extension ChatServiceSessionStateSave on ChatService {
     final summaryText = kept.text ?? '';
     final summaryIndex = kept.cursor ?? 0;
 
-    // A 1:1 chat switched off holds no Lust: whatever a rewind, a re-score or
-    // a receipt reloaded while it was off is not saved, so a stored "off"
-    // never reads as the October overwrite the open repairs.
-    final settled =
-        _activeGroup == null && !_nsfwService.storedNsfwCooldownEnabled;
-    final body = settled ? Refractory.none : _nsfwService.refractory;
+    // Written whatever the chat's Afterglow switch says: off hides Lust and
+    // recovery and keeps them, so switching back on finds them as they were.
+    final body = _nsfwService.refractory;
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;
@@ -282,7 +279,7 @@ extension ChatServiceSessionStateSave on ChatService {
               : null,
         ),
         groupRealismState: drift.Value(groupRealismJson),
-        arousalLevel: drift.Value(settled ? 0 : _nsfwService.arousalLevel),
+        arousalLevel: drift.Value(_nsfwService.arousalLevel),
         // v55 — story minutes. The old cooldown_turns_* columns are no longer
         // written; a row that never had minutes reads them once on load.
         refractoryMinutesRemaining: drift.Value(body.minutes),

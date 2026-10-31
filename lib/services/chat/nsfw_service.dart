@@ -79,10 +79,15 @@ class NsfwService {
   final bool Function()? _afterglowOn;
 
   /// This chat's own Afterglow switch alone, without Porch Life (in a group,
-  /// the group chat's AND the loaded member's own). While it is off the chat
-  /// holds no Lust, so a rewind (regen, swipe, delete, branch,
-  /// import) keeps it settled instead of reloading a stamp's.
+  /// the group chat's AND the loaded member's own). Off hides Lust and
+  /// recovery and holds them where they were: no rewind (regen, swipe,
+  /// delete) moves them, and switching back on shows them again. A copy into
+  /// another chat ([carry]) still brings them along.
   final bool Function()? _chatSwitchOn;
+
+  /// Inside [carry]: a fork, collapse, branch or package import copying a
+  /// chat's state, which lands whatever the switch says.
+  bool _carrying = false;
 
   // Owned state (moved verbatim from ChatService).
   bool _nsfwCooldownEnabled = false;
@@ -117,13 +122,6 @@ class NsfwService {
   /// [nsfwCooldownEnabled]: that one answers the live gate, and saving it
   /// replaced each chat's choice with Porch Life's.
   bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
-
-  /// The Lust and recovery a message stamp records: none while this chat's
-  /// own switch is off, so a rewind after it is switched back on finds none
-  /// of what a receipt or a re-score left in memory meanwhile.
-  int get stampArousal => chatSwitchOn ? _arousalLevel : 0;
-  Refractory get stampRefractory =>
-      chatSwitchOn ? _refractory : Refractory.none;
 
   /// This chat's own Afterglow switch, without Porch Life (in a group, the
   /// group chat's AND the loaded member's own).
@@ -314,14 +312,10 @@ class NsfwService {
     return effective;
   }
 
-  /// Mirrors original setNsfwCooldownEnabled behavior for the thin god
-  /// wrapper (which performs the async save + notify).
+  /// The 1:1 chat's own switch. Off hides Lust and recovery and keeps them;
+  /// neither way zeroes anything (the thin god wrapper saves and notifies).
   void setNsfwCooldownEnabled(bool enabled) {
     _nsfwCooldownEnabled = enabled;
-    if (!enabled) {
-      _refractory = Refractory.none;
-      _arousalLevel = 0;
-    }
   }
 
   // Direct scalar sets / load helpers for the documented "keep reset blocks in sync" sites
@@ -366,13 +360,26 @@ class NsfwService {
   void restoreNsfwFromMessageState(Map<String, dynamic> state) =>
       _restoreFromSnapshot(state);
 
-  /// A key the snapshot does not carry keeps its current value. Snapshots
-  /// saved before minutes carry turns, read once as turns × 15.
-  void _restoreFromSnapshot(Map<String, dynamic> state) {
-    if (!(_chatSwitchOn?.call() ?? true)) {
-      resetRuntimeArousalAndCooldown();
-      return;
+  /// Runs [body] as a copy of a chat's state into another chat (fork,
+  /// collapse, branch, package import): its restores land whatever the
+  /// switch says, so a chat switched off carries its kept Lust and recovery
+  /// along instead of losing them.
+  T carry<T>(T Function() body) {
+    final was = _carrying;
+    _carrying = true;
+    try {
+      return body();
+    } finally {
+      _carrying = was;
     }
+  }
+
+  /// A key the snapshot does not carry keeps its current value. Snapshots
+  /// saved before minutes carry turns, read once as turns × 15. While the
+  /// chat's own switch is off a rewind leaves Lust and recovery where the
+  /// switch found them (hide, never erase); a [carry] still lands.
+  void _restoreFromSnapshot(Map<String, dynamic> state) {
+    if (!_carrying && !chatSwitchOn) return;
     final al = state['arousalLevel'];
     _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
         .clamp(-100, 100);

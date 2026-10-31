@@ -194,8 +194,8 @@ extension ChatServiceCastShrink on ChatService {
     //    re-homed session's stale columns are overwritten here with the
     //    survivor's state). Realism values are gated on realism being on; the
     //    enable-flags, author note and evolution carry regardless.
-    // Seed, never setNsfwCooldownEnabled: its "off" zeroes Lust. First, so
-    // the restore below reads the switch the 1:1 keeps.
+    // The 1:1 keeps the switch the group chat showed for the survivor; off
+    // only hides her Lust and recovery, which come along either way.
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: soleNsfwEnabled);
     if (wasRealismOn && snapshot != null) {
       _realismChatSwitch = true;

@@ -382,7 +382,7 @@ class AfterglowPass {
     RefractoryBody Function(RefractoryBody) step,
   ) {
     if (_activeGroup != null && id.isEmpty) return;
-    // A body switched off holds no recovery to age or record.
+    // A body switched off keeps its recovery as is: no aging, no receipt.
     if (!_switchOnFor(id)) return;
     final live = _activeGroup == null || id == loadedId;
     final before = _refractoryBody(id, live: live);
@@ -450,7 +450,7 @@ class AfterglowPass {
     String? skip,
     String? keepArousalOf,
   }) {
-    // Nothing comes back into a body switched off.
+    // A body switched off is held where it is: no receipt moves it.
     if (_activeGroup == null && !_nsfwService.chatSwitchOn) return;
     final receipt = refractoryReceipt(raw);
     if (receipt.isEmpty) return;

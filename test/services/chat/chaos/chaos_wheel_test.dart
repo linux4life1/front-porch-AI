@@ -413,6 +413,18 @@ void main() {
       expect(seenLockedOver(300), isNotEmpty);
     });
 
+    // Afterglow off hides the recovery and keeps it; a hidden lock must not
+    // steer the wheel, as no lock did while off used to zero it.
+    test("a chat switched off keeps its lock hidden, and the wheel serves "
+        'them', () async {
+      chat.nsfwService.setRefractory(Refractory.fromJudgeTurns(6));
+      expect(chat.afterglowChatSwitch, isTrue);
+      expect(seenLockedOver(100), isEmpty, reason: 'baseline: the lock holds');
+      await chat.setAfterglowEnabled(false);
+      expect(chat.nsfwService.refractory.running, isTrue, reason: 'kept');
+      expect(seenLockedOver(300), isNotEmpty);
+    });
+
     test('the gate is live: releasing the lock serves them again', () {
       chat.nsfwService.setRefractory(Refractory.fromJudgeTurns(4));
       expect(seenLockedOver(100), isEmpty);

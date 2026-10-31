@@ -27,11 +27,12 @@
 // a member with no flag of her own handed her the gate (or, read from the
 // register, another member's flag).
 //
-// Since each chat's own switch came back: a 1:1 chat the October save left
-// off while it held Lust is repaired when it opens; a chat switched off stays
-// off and settled through a rewind or a receipt, and starts from calm when
-// switched back on; a chat package carries the switch; and a fork and a
-// collapse carry the switch and the Lust that goes with it.
+// Since each chat's own switch came back: off hides Lust and recovery and
+// keeps them, through a rewind, a receipt, a save and a reopen, and on shows
+// them where they were (zeroing them was a bug; off hides, never erases, as
+// Pockets does). The stored switch alone decides: a chat stored off opens off
+// whatever it holds. A chat package carries the switch, and a fork, a
+// collapse, a branch and a package carry the switch and the Lust with it.
 //
 // Red proofs, one site at a time: put `nsfwCooldownEnabled` back for
 // `storedNsfwCooldownEnabled` in the save (chat_service_session_state_save),
@@ -355,6 +356,52 @@ void main() {
     expect(chat.nsfwService.arousalLevel, 30, reason: "Rue's Lust came along");
   });
 
+  test("a collapse from a group chat switched off keeps the survivor's Lust "
+      'and leaves the 1:1 off', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final nia = await libraryCard('Nia', realism: true);
+    await chat.setActiveCharacter(nia);
+    await chat.sendMessage('Evening.');
+    await settle();
+    final rue = await libraryCard('Rue', realism: true);
+    final group = await chat.forkToGroupChat([rue], groupRepo);
+    expect(group, isNotNull);
+    final sid = chat.currentSessionId!;
+    final rueId = groupMemberStoreId(
+      chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+    );
+    // Rue is partway up, edited from another character's chat as above.
+    await chat.setActiveCharacter(card('Ivo', 'char-ownflag-ivo'));
+    final row = await db
+        .customSelect(
+          'SELECT group_realism_state AS v FROM sessions WHERE id = ?',
+          variables: [Variable(sid)],
+        )
+        .getSingle();
+    final state = jsonDecode(row.data['v'] as String) as Map<String, dynamic>;
+    final perChar = state['perChar'] as Map<String, dynamic>;
+    perChar[rueId] = {
+      ...?(perChar[rueId] as Map<String, dynamic>?),
+      'arousal': 30,
+    };
+    // The row's own column is a stale 1:1 value the collapse must overwrite.
+    await db.customUpdate(
+      'UPDATE sessions SET group_realism_state = ?, arousal_level = 5 '
+      'WHERE id = ?',
+      variables: [Variable(jsonEncode(state)), Variable(sid)],
+    );
+    await chat.setActiveGroup(group!, groupRepo: groupRepo);
+    expect(chat.currentSessionId, sid);
+    await chat.setAfterglowEnabled(false);
+
+    final niaMember = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(await chat.removeCharacterFromGroup(niaMember, groupRepo), isTrue);
+    expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
+    expect(chat.afterglowChatSwitch, isFalse, reason: 'the group chat was off');
+    expect(chat.nsfwService.arousalLevel, 30, reason: "Rue's kept Lust came");
+  });
+
   test('forking a 1:1 that runs Afterglow keeps it running for the host, '
       'whatever their card starts new chats with', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
@@ -420,6 +467,32 @@ void main() {
     );
   });
 
+  test('branching a chat switched off copies the Lust its message recorded, '
+      'still off', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Ivy', 'char-ownflag-ivy', realism: true),
+    );
+    chat.nsfwService.setArousalLevel(20);
+    await chat.sendMessage('Evening.');
+    await settle();
+    final at = chat.messages.length - 1;
+    chat.nsfwService.setArousalLevel(35);
+    await chat.sendMessage('Still up?');
+    await settle();
+    await chat.setAfterglowEnabled(false);
+    final parent = chat.currentSessionId!;
+
+    // A branch is a copy of the chat at that reply, not a rewind of this
+    // one: it takes the reply's stamp even with the switch off.
+    await chat.forkFromMessage(at);
+    await settle();
+    expect(chat.currentSessionId, isNot(parent));
+    expect(chat.afterglowChatSwitch, isFalse);
+    expect(chat.nsfwService.arousalLevel, 20, reason: "the reply's own Lust");
+  });
+
   test('branching a group from a message keeps each member\'s own '
       'flag', () async {
     await chat.setActiveCharacter(card('Juno', 'char-ownflag-juno'));
@@ -445,21 +518,22 @@ void main() {
     );
   });
 
-  test('a 1:1 chat stored off that holds Lust, a recovery or a warmth tail '
-      'opens on, keeping it; one with none stays off', () async {
+  // The trap: the open used to read "stored off but holding Lust or a
+  // recovery" as the October overwrite and switch the chat back on. Off now
+  // keeps both, so that is exactly a chat the user switched off.
+  test('a 1:1 chat stored off opens off whatever Lust, recovery or warmth '
+      'tail it holds, and keeps them', () async {
     await chat.setActiveCharacter(card('Mara', 'char-ownflag-mara'));
     await chat.sendMessage('Evening.');
     await settle();
     final sid = chat.currentSessionId!;
-    // v1.6.1 saved Porch Life's off over a chat's own on and left what it
-    // held. A chat switched off holds nothing, so "nothing" stays off.
-    for (final (held, setting, on) in [
-      ('Lust', 'arousal_level = 40', true),
-      ('aversion', 'arousal_level = -20', true),
-      ('a recovery', 'refractory_minutes_remaining = 30', true),
-      ('an old recovery in turns', 'cooldown_turns_remaining = 2', true),
-      ('a warmth tail', 'refractory_tail_minutes = 20', true),
-      ('nothing', 'arousal_level = 0', false),
+    for (final (held, setting) in [
+      ('Lust', 'arousal_level = 40'),
+      ('aversion', 'arousal_level = -20'),
+      ('a recovery', 'refractory_minutes_remaining = 30'),
+      ('an old recovery in turns', 'cooldown_turns_remaining = 2'),
+      ('a warmth tail', 'refractory_tail_minutes = 20'),
+      ('nothing', 'arousal_level = 0'),
     ]) {
       // Leaving a chat saves it, so it is edited from the next one.
       await chat.startNewChat();
@@ -470,21 +544,26 @@ void main() {
         variables: [Variable(sid)],
       );
       await chat.loadSession(sid);
-      expect(chat.afterglowChatSwitch, on, reason: held);
+      expect(chat.afterglowChatSwitch, isFalse, reason: held);
     }
     await chat.startNewChat();
     await db.customUpdate(
       'UPDATE sessions SET nsfw_cooldown_enabled = 0, arousal_level = 40, '
-      'refractory_minutes_remaining = NULL, refractory_tail_minutes = NULL '
-      'WHERE id = ?',
+      'refractory_minutes_remaining = 30, refractory_minutes_total = 30, '
+      'refractory_tail_minutes = NULL WHERE id = ?',
       variables: [Variable(sid)],
     );
     await chat.loadSession(sid);
-    expect(chat.nsfwService.arousalLevel, 40, reason: 'the repair keeps it');
+    expect(chat.afterglowChatSwitch, isFalse);
+    expect(chat.nsfwService.arousalLevel, 40, reason: 'off keeps it');
+    expect(chat.nsfwService.refractory.minutes, 30, reason: 'and the recovery');
+    // Its next save keeps it off too.
+    await chat.startNewChat();
+    expect(await storedFlag(sid), isFalse);
   });
 
-  test('a chat switched off stays settled: a rewind does not bring a '
-      "stamp's Lust back", () async {
+  test('a chat switched off keeps its Lust through a regenerate, a save and '
+      'a reopen', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     await chat.setActiveCharacter(
@@ -499,23 +578,67 @@ void main() {
     expect(chat.nsfwService.arousalLevel, 40, reason: 'the stamps hold Lust');
 
     await chat.setAfterglowEnabled(false);
-    expect(chat.nsfwService.arousalLevel, 0);
-    await chat.regenerateLastMessage();
-    await settle();
     expect(
       chat.nsfwService.arousalLevel,
-      0,
-      reason: "the regen's rewind reloaded the earlier stamp's Lust",
+      40,
+      reason: 'off hides, never erases',
     );
+    await chat.regenerateLastMessage();
+    await settle();
+    expect(chat.nsfwService.arousalLevel, 40);
 
     await chat.startNewChat();
     await chat.loadSession(sid);
     expect(chat.afterglowChatSwitch, isFalse);
-    expect(chat.nsfwService.arousalLevel, 0);
+    expect(chat.nsfwService.arousalLevel, 40);
   });
 
-  test("a chat switched off stays off when a regenerate's receipt brings a "
-      'recovery back: it is not saved, and the chat opens off', () async {
+  // Stamps record the real Lust while a chat is off, so a rewind after it is
+  // switched back on puts back what the chat kept, never a zero.
+  test('a regenerate and a swipe of replies written while a chat was off put '
+      'back the Lust it kept', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Ines', 'char-ownflag-ines', realism: true),
+    );
+    await chat.sendMessage('Evening.');
+    await settle();
+    chat.nsfwService.setArousalLevel(40);
+    await chat.setAfterglowEnabled(false);
+    await chat.sendMessage('Still up?');
+    await settle();
+    await chat.sendMessage('Stay a while.');
+    await settle();
+    final last = chat.messages.length - 1;
+    // A second swipe of the last reply, written while off.
+    await chat.regenerateLastMessage();
+    await settle();
+    expect(chat.messages[last].swipes.length, 2);
+
+    await chat.setAfterglowEnabled(true);
+    expect(chat.nsfwService.arousalLevel, 40);
+    // The regenerate rewinds to the reply before, also written while off.
+    await chat.regenerateLastMessage();
+    await settle();
+    expect(
+      chat.nsfwService.arousalLevel,
+      40,
+      reason: "the stamp of a reply written while off recorded none",
+    );
+    chat.nsfwService.setArousalLevel(70);
+    await chat.swipeMessage(last, -1);
+    await settle();
+    expect(chat.messages[last].swipeIndex, 1);
+    expect(
+      chat.nsfwService.arousalLevel,
+      40,
+      reason: 'the swipe written while off puts back the Lust it kept',
+    );
+  });
+
+  test('a regenerate in a chat switched off leaves its recovery where the '
+      'switch found it, stamps it, saves it, and the chat opens off', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     final judges = RefractoryJudges()..climax = true;
@@ -532,25 +655,26 @@ void main() {
     final sid = chat.currentSessionId!;
 
     await chat.setAfterglowEnabled(false);
+    final kept = chat.nsfwService.refractory;
+    expect(kept.running, isTrue, reason: 'off hides the recovery, keeps it');
     await chat.regenerateLastMessage();
     await settle();
-    // The receipt put the recovery back before the replay; the replay's
-    // stamp must not keep it, or a rewind after switching on would.
+    expect(
+      chat.nsfwService.refractory,
+      kept,
+      reason: "neither the receipt nor the clock moves a body that is off",
+    );
     final stamp = Map<String, dynamic>.from(
       chat.messages.last.activeMetadata?['realism_state'] as Map,
     );
-    expect(Refractory.read(stamp)?.running ?? false, isFalse);
-    expect(stamp['arousalLevel'] ?? 0, 0);
+    expect(Refractory.read(stamp)?.minutes, kept.minutes);
     final row = await db
         .customSelect(
-          'SELECT arousal_level AS a, refractory_minutes_remaining AS m, '
-          'refractory_tail_minutes AS t FROM sessions WHERE id = ?',
+          'SELECT refractory_minutes_remaining AS m FROM sessions WHERE id = ?',
           variables: [Variable(sid)],
         )
         .getSingle();
-    expect(row.data['a'], 0);
-    expect(row.data['m'] ?? 0, 0, reason: 'no recovery saved in an off chat');
-    expect(row.data['t'], isNull);
+    expect(row.data['m'], kept.minutes, reason: 'an off chat saves its own');
 
     await chat.startNewChat();
     await chat.loadSession(sid);
@@ -559,10 +683,11 @@ void main() {
       isFalse,
       reason: 'switched off, stays off',
     );
+    expect(chat.nsfwService.refractory.minutes, kept.minutes);
   });
 
-  test('saving a 1:1 chat that is switched off writes no Lust or recovery, '
-      'whatever a re-score left in memory, so it opens off', () async {
+  test('a 1:1 chat switched off and back on keeps its Lust and recovery, '
+      'saved, and still there when the chat is opened again', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     await chat.setActiveCharacter(
@@ -571,10 +696,10 @@ void main() {
     await chat.sendMessage('Evening.');
     await settle();
     final sid = chat.currentSessionId!;
-    await chat.setAfterglowEnabled(false);
-    // What "Score again" can leave behind in a chat that is off.
     chat.nsfwService.setArousalLevel(-12);
     chat.nsfwService.setRefractory(const Refractory(minutes: 75, total: 75));
+    await chat.setAfterglowEnabled(false);
+    expect(chat.nsfwService.nsfwCooldownEnabled, isFalse, reason: 'hidden');
 
     await chat.startNewChat(); // leaving the chat saves it
     final row = await db
@@ -584,18 +709,21 @@ void main() {
           variables: [Variable(sid)],
         )
         .getSingle();
-    expect(row.data['a'], 0);
-    expect(row.data['m'] ?? 0, 0);
+    expect(row.data['a'], -12, reason: 'the save wrote 0 for an off chat');
+    expect(row.data['m'], 75);
     await chat.loadSession(sid);
     expect(
       chat.afterglowChatSwitch,
       isFalse,
       reason: 'switched off, stays off',
     );
+    await chat.setAfterglowEnabled(true);
+    expect(chat.nsfwService.arousalLevel, -12);
+    expect(chat.nsfwService.refractory.minutes, 75);
   });
 
-  test('deleting a reply while a chat is off brings no recovery back into '
-      'it', () async {
+  test('deleting a reply while a chat is off leaves its recovery where the '
+      'switch found it', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     final judges = RefractoryJudges()..climax = true;
@@ -611,10 +739,11 @@ void main() {
     await settle();
 
     await chat.setAfterglowEnabled(false);
+    final kept = chat.nsfwService.refractory;
     // A tail delete replays the reply's beat receipt.
     await chat.deleteMessage(chat.messages.length - 1);
     await settle();
-    expect(chat.nsfwService.refractory.running, isFalse);
+    expect(chat.nsfwService.refractory, kept);
   });
 
   test('a chat that is off records no beat receipts, so a regenerate after '
@@ -661,8 +790,8 @@ void main() {
     expect(chat.nsfwService.arousalLevel, 0, reason: 'not 0 - 12 + 0');
   });
 
-  test('switching a chat back on starts it from calm, whatever was left in '
-      'it while it was off', () async {
+  test('switching a chat back on shows its Lust and recovery where they '
+      'were', () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     await chat.setActiveCharacter(
@@ -670,14 +799,13 @@ void main() {
     );
     await chat.sendMessage('Evening.');
     await settle();
-    await chat.setAfterglowEnabled(false);
-    // A re-score or a receipt can leave Lust or a recovery in memory.
     chat.nsfwService.setArousalLevel(25);
     chat.nsfwService.setRefractory(const Refractory(minutes: 30, total: 30));
+    await chat.setAfterglowEnabled(false);
 
     await chat.setAfterglowEnabled(true);
-    expect(chat.nsfwService.arousalLevel, 0);
-    expect(chat.nsfwService.refractory.running, isFalse);
+    expect(chat.nsfwService.arousalLevel, 25);
+    expect(chat.nsfwService.refractory.minutes, 30);
   });
 
   test('switching on a chat that is already on leaves its Lust alone, as the '
@@ -723,6 +851,42 @@ void main() {
         isFalse,
         reason: 'the package came from a chat switched off',
       );
+    });
+  }
+
+  for (final group in [false, true]) {
+    test("a chat package from a chat switched off carries the Lust it kept "
+        "(${group ? 'group' : '1:1'})", () async {
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      final tess = await libraryCard('Tess', realism: true);
+      await chat.setActiveCharacter(tess);
+      await chat.sendMessage('Evening.');
+      await settle();
+      chat.nsfwService.setArousalLevel(25);
+      await chat.sendMessage('Still up?');
+      await settle();
+      if (group) {
+        final g = await chat.forkToGroupChat([
+          await libraryCard('Uma', realism: true),
+        ], groupRepo);
+        expect(g, isNotNull);
+      }
+      int lust() => group
+          ? chat.getArousalForGroupCharacter(
+              chat.groupCharacters.firstWhere((c) => c.name == 'Tess'),
+            )
+          : chat.nsfwService.arousalLevel;
+      expect(lust(), 25);
+      await chat.setAfterglowEnabled(false);
+      final zip = await chat.exportToFpchat();
+      expect(zip, isNotNull);
+
+      await chat.startNewChat();
+      final result = await chat.importChatPackage(zip!);
+      expect(result.fullRestore, isTrue);
+      expect(chat.afterglowChatSwitch, isFalse);
+      expect(lust(), 25, reason: 'the package carried what the chat kept');
     });
   }
 
@@ -802,14 +966,13 @@ void main() {
       expect(chat.afterglowChatSwitch, isTrue, reason: "the group's new one");
     });
 
-    test('forking a 1:1 chat that is switched off carries no Lust into the '
-        'group', () async {
+    test('forking a 1:1 chat that is switched off carries its kept Lust into '
+        'the group, still off', () async {
       await chat.setActiveCharacter(card('Nia', 'char-gsw-nia', realism: true));
       await chat.sendMessage('Evening.');
       await settle();
-      await chat.setAfterglowEnabled(false);
-      // Whatever a re-score or a receipt left in memory while it was off.
       chat.nsfwService.setArousalLevel(25);
+      await chat.setAfterglowEnabled(false);
       final g = await chat.forkToGroupChat([
         card('Rue', 'char-gsw-rue', realism: true),
       ], groupRepo);
@@ -821,16 +984,20 @@ void main() {
       final perChar =
           (await groupState(chat.currentSessionId!))['perChar']
               as Map<String, dynamic>;
-      expect((perChar[nia] as Map?)?['arousal'] ?? 0, 0);
+      expect((perChar[nia] as Map?)?['arousal'], 25);
     });
 
     test("a member's own switch: off, Afterglow stops for them alone, their "
-        'Lust settles, and the switch stays on their row', () async {
+        'Lust is kept, the rest are untouched, and the switch stays on their '
+        'row', () async {
       await intoGroup();
       final sid = chat.currentSessionId!;
       final group = chat.activeGroup!;
       final rueId = groupMemberStoreId(
         chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+      );
+      final niaId = groupMemberStoreId(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Nia'),
       );
       // Rue is partway up in the saved chat, edited from another character's.
       await chat.setActiveCharacter(card('Ivo', 'char-gsw-ivo'));
@@ -839,6 +1006,12 @@ void main() {
       perChar[rueId] = {
         ...?(perChar[rueId] as Map<String, dynamic>?),
         'arousal': 40,
+        'refractoryMinutesRemaining': 45,
+        'refractoryMinutesTotal': 45,
+      };
+      perChar[niaId] = {
+        ...?(perChar[niaId] as Map<String, dynamic>?),
+        'arousal': 15,
       };
       await db.customUpdate(
         'UPDATE sessions SET group_realism_state = ? WHERE id = ?',
@@ -853,7 +1026,23 @@ void main() {
       await chat.setMemberAfterglowEnabled(rue, false);
       expect(chat.afterglowRunsFor(rue), isFalse);
       expect(chat.afterglowRunsFor(nia), isTrue, reason: 'the rest keep it');
-      expect(chat.getArousalForGroupCharacter(rue), 0);
+      expect(chat.getArousalForGroupCharacter(rue), 40, reason: 'kept');
+      expect(
+        Refractory.read(chat.getRealismStateForGroupCharacter(rue)!)?.minutes,
+        45,
+        reason: 'her recovery is kept',
+      );
+      expect(
+        chat.getRefractoryForGroupCharacter(rue).minutes,
+        0,
+        reason: 'and hidden',
+      );
+      expect(chat.getArousalForGroupCharacter(nia), 15, reason: 'untouched');
+      await chat.setMemberAfterglowEnabled(rue, true);
+      expect(chat.getArousalForGroupCharacter(rue), 40, reason: 'back as was');
+      expect(chat.getRefractoryForGroupCharacter(rue).minutes, 45);
+      expect(chat.getArousalForGroupCharacter(nia), 15);
+      await chat.setMemberAfterglowEnabled(rue, false);
       final row = await db
           .customSelect(
             'SELECT front_porch_extensions AS e FROM group_members '
@@ -886,7 +1075,8 @@ void main() {
       expect(chat.messages.last.activeMetadata?['climax_triggered'], isTrue);
     });
 
-    test("switching it off settles every member's Lust", () async {
+    test("switching it off and on keeps every member's Lust, saved and "
+        'live', () async {
       await intoGroup();
       final sid = chat.currentSessionId!;
       final rue = groupMemberStoreId(
@@ -897,9 +1087,16 @@ void main() {
       // Rue is partway up in the saved chat.
       final state = await groupState(sid);
       final perChar = state['perChar'] as Map<String, dynamic>;
+      final nia = groupMemberStoreId(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Nia'),
+      );
       perChar[rue] = {
         ...?(perChar[rue] as Map<String, dynamic>?),
         'arousal': 60,
+      };
+      perChar[nia] = {
+        ...?(perChar[nia] as Map<String, dynamic>?),
+        'arousal': 20,
       };
       await db.customUpdate(
         'UPDATE sessions SET group_realism_state = ? WHERE id = ?',
@@ -909,7 +1106,13 @@ void main() {
 
       await chat.setAfterglowEnabled(false);
       final saved = (await groupState(sid))['perChar'] as Map<String, dynamic>;
-      expect((saved[rue] as Map)['arousal'], 0);
+      expect((saved[rue] as Map)['arousal'], 60);
+      expect((saved[nia] as Map)['arousal'], 20);
+      await chat.setAfterglowEnabled(true);
+      CharacterCard member(String name) =>
+          chat.groupCharacters.firstWhere((c) => c.name == name);
+      expect(chat.getArousalForGroupCharacter(member('Rue')), 60);
+      expect(chat.getArousalForGroupCharacter(member('Nia')), 20);
     });
   });
 }

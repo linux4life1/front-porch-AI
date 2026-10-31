@@ -268,8 +268,8 @@ void main() {
     expect(refractoryOf('Ada').minutes, 75, reason: 'the beat is given back');
   });
 
-  test('switching off the member the chat holds live settles them there too, '
-      'so switching them back on starts from calm', () async {
+  test('switching off and back on the member the chat holds live keeps their '
+      'Lust there too', () async {
     await speak('Ada', line: 'Evening.');
     expect(
       chat.nsfwService.loadedMemberId,
@@ -279,16 +279,17 @@ void main() {
     chat.nsfwService.setArousalLevel(60);
 
     await chat.setMemberAfterglowEnabled(member('Ada'), false);
+    expect(chat.nsfwService.arousalLevel, 60, reason: 'off hides, keeps');
     await chat.setMemberAfterglowEnabled(member('Ada'), true);
     expect(
       chat.nsfwService.arousalLevel,
-      0,
+      60,
       reason: 'what the phone shows for the group when no one is focused',
     );
   });
 
-  test('deleting a reply gives the beat back to the cast, and no recovery to '
-      'a member switched off since', () async {
+  test('deleting a reply gives the beat back to the cast, and leaves a member '
+      'switched off since where the switch found her', () async {
     await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
     await speak('Bea', climax: true, turns: 4);
     await speak('Ada', line: 'Stay a while.', minutes: 30);
@@ -296,11 +297,15 @@ void main() {
     expect(refractoryOf('Bea').minutes, 30);
 
     await chat.setMemberAfterglowEnabled(member('Bea'), false);
-    expect(refractoryOf('Bea'), Refractory.none, reason: 'off settles her');
+    expect(refractoryOf('Bea').minutes, 30, reason: 'off keeps her recovery');
     // A tail delete puts every body back where the reply's beat found it.
     await chat.deleteMessage(chat.messages.length - 1);
     await settle();
     expect(refractoryOf('Ada').minutes, 70);
-    expect(refractoryOf('Bea'), Refractory.none);
+    expect(
+      refractoryOf('Bea').minutes,
+      30,
+      reason: 'no receipt moves a body that is off',
+    );
   });
 }

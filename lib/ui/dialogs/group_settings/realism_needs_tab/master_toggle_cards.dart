@@ -130,9 +130,9 @@ class GroupAfterglowCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Lust, climax and recovery for the cast in this chat. Off settles '
-            "everyone's Lust. Only takes effect while the Realism Engine above "
-            'is on.',
+            'Lust, climax and recovery for the cast in this chat. Off hides '
+            "everyone's Lust and keeps it. Only takes effect while the Realism "
+            'Engine above is on.',
             style: TextStyle(
               fontSize: 11,
               color: AppColors.textSecondary(context),

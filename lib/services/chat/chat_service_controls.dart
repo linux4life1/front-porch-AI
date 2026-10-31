@@ -293,22 +293,16 @@ extension ChatServiceControls on ChatService {
 
   /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or the
   /// group chat's. It counts only while Porch Life (with 18+) allows
-  /// Afterglow. Either way the chat starts from calm: off zeroes Lust and
-  /// any recovery, as it always has, and on starts from calm whatever a
-  /// receipt left in memory while it was off (stamps recorded none).
+  /// Afterglow. Off hides Lust and recovery and holds them where they are
+  /// (hide, never erase, as Pockets does); on shows them again, unchanged.
+  /// Nothing zeroes them either way, in a 1:1 or for any group member.
   Future<void> _setAfterglowEnabledImpl(bool enabled) async {
     if (enabled == _afterglowChatSwitchImpl) return;
     if (_activeGroup == null) {
       _nsfwService.setNsfwCooldownEnabled(enabled);
     } else {
       _groupStore.afterglowOn = enabled;
-      for (final id in _groupRealism.keys.toList()) {
-        _groupStore.memberForWrite(id)
-          ..arousal = 0
-          ..refractory = Refractory.none;
-      }
     }
-    _nsfwService.resetRuntimeArousalAndCooldown();
     await _saveChat();
     notifyListeners();
   }
@@ -348,17 +342,19 @@ extension ChatServiceControls on ChatService {
   /// refractory — never the live scalars, which may still hold the
   /// previous speaker's. No match answers false: chaos fails open and
   /// spins today's wheel. Soft bodies answer false by decision — their
-  /// desire is honest.
+  /// desire is honest. A body whose own switch is off answers false too: it
+  /// keeps its recovery hidden, and a hidden lock must not steer the wheel.
   bool _hardLockForSpeakerNamed(String name) {
     if (_activeGroup == null) {
+      if (!_nsfwService.storedNsfwCooldownEnabled) return false;
       final r = _nsfwService.refractory;
       return r.running && !r.soft;
     }
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
     if (card == null) return false;
-    final r =
-        _groupStore.members[_getCharacterIdFromCard(card)]?.refractory ??
-        Refractory.none;
+    final id = _getCharacterIdFromCard(card);
+    if (!_groupStore.afterglowOnFor(id)) return false;
+    final r = _groupStore.members[id]?.refractory ?? Refractory.none;
     return r.running && !r.soft;
   }
 

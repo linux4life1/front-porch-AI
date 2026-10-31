@@ -89,8 +89,10 @@ extension ChatServiceGroupSettings on ChatService {
           : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
 
   /// A group member's own Afterglow switch, kept on their card in this group
-  /// (unset reads on). Switching it either way settles their Lust and any
-  /// recovery, as the chat's switch does. Class forwarder:
+  /// (unset reads on). Off hides their Lust and any recovery and holds them
+  /// where they are; on shows them again, unchanged, as the chat's switch
+  /// does. Nothing of theirs, stored or live, is zeroed, and the rest of the
+  /// cast is untouched. Class forwarder:
   /// [ChatService.setMemberAfterglowEnabled].
   Future<void> _setMemberAfterglowEnabledImpl(
     CharacterCard member,
@@ -102,14 +104,9 @@ extension ChatServiceGroupSettings on ChatService {
         (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
           afterglowEnabled: on,
         );
-    final id = _getCharacterIdFromCard(member);
-    _groupStore.memberForWrite(id)
-      ..arousal = 0
-      ..refractory = Refractory.none;
-    if (_nsfwService.loadedMemberId == id) {
-      _nsfwService.resetRuntimeArousalAndCooldown();
-    }
-    await persistGroupMemberExtensions(memberId: id);
+    await persistGroupMemberExtensions(
+      memberId: _getCharacterIdFromCard(member),
+    );
   }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).
