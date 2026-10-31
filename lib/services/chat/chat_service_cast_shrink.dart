@@ -33,7 +33,7 @@ extension ChatServiceCastShrink on ChatService {
   /// Returns true if it collapsed.
   Future<bool> _collapseGroupToSolo(GroupChatRepository groupRepo) async {
     final group = _activeGroup;
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (group == null || sessionId == null) return false;
     if (_groupCharacters.length != 1) return false;
 
@@ -186,7 +186,7 @@ extension ChatServiceCastShrink on ChatService {
     // 4) Re-enter as a 1:1 on the re-homed session (newest → loaded). Safety net:
     //    force the exact session if some other session of this character is newer.
     await setActiveCharacter(origin);
-    if (_currentSessionId != sessionId) {
+    if (_session.currentSessionId != sessionId) {
       await loadSession(sessionId);
     }
 
@@ -341,14 +341,14 @@ extension ChatServiceCastShrink on ChatService {
     // COPY the host's 1:1 objectives + RAG memory + growth onto the new group
     // so nothing is lost on conversion (COPY, not move — the original 1:1
     // stays the revert snapshot; collapse re-keys these in place instead).
-    if (hostSessionId != null && _currentSessionId != null) {
+    if (hostSessionId != null && _session.currentSessionId != null) {
       // Growth rings + any undistilled legacy evolved text -> the host MEMBER
       // instance id in the new group session (the legacy blob lands in the
       // group_evolved_* maps so the distill migration still finds it there).
       await _growthStore.carryOwnerGrowth(
         fromSessionId: hostSessionId,
         fromCharId: originalCharId,
-        toSessionId: _currentSessionId!,
+        toSessionId: _session.currentSessionId!,
         toCharId: hostId,
         fromIsGroup: false,
         toIsGroup: true,
@@ -365,7 +365,7 @@ extension ChatServiceCastShrink on ChatService {
             id: const Uuid().v4(),
             characterId: hostId,
             objective: o.objective,
-            chatId: drift.Value(_currentSessionId),
+            chatId: drift.Value(_session.currentSessionId),
             tasks: drift.Value(o.tasks),
             active: drift.Value(o.active),
             isPrimary: drift.Value(o.isPrimary),
@@ -391,7 +391,7 @@ extension ChatServiceCastShrink on ChatService {
         )) {
           await _db.insertJournalCard(
             JournalMemoriesCompanion(
-              sessionId: drift.Value(_currentSessionId!),
+              sessionId: drift.Value(_session.currentSessionId!),
               characterId: drift.Value(hostId),
               content: drift.Value(card.content),
               category: drift.Value(card.category),
@@ -420,7 +420,7 @@ extension ChatServiceCastShrink on ChatService {
           originalCharId,
           hostSessionId,
           toCharacterId: _getCharacterId(),
-          toSessionId: _currentSessionId!,
+          toSessionId: _session.currentSessionId!,
         );
       } catch (e) {
         debugPrint('[Cast] host RAG carry-on-fork (non-fatal): $e');

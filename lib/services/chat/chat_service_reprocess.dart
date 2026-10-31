@@ -48,7 +48,7 @@ extension ChatServiceReprocess on ChatService {
     String? webQuery,
     String? wikiQuery,
   }) async {
-    if (_messages.isEmpty || _sceneGuest.busy) return;
+    if (_session.messages.isEmpty || _sceneGuest.busy) return;
     if (!await _yieldSettlingTurn()) return;
     _memoryPassEpoch++;
     // Backend gate BEFORE any guest-tail splice — same restore problem as
@@ -57,8 +57,8 @@ extension ChatServiceReprocess on ChatService {
 
     // Walk back past the trailing guest replies to the host message beneath them.
     int hostIndex = -1;
-    for (int i = _messages.length - 1; i >= 0; i--) {
-      final m = _messages[i];
+    for (int i = _session.messages.length - 1; i >= 0; i--) {
+      final m = _session.messages[i];
       if (m.isUser || m.sender == 'System') {
         return; // user/System tail — nothing to regen
       }
@@ -77,7 +77,7 @@ extension ChatServiceReprocess on ChatService {
     if (hostIndex < 0) return; // only guest messages present — no host to regen
 
     // Host already last → plain regen (no guests to pop).
-    if (hostIndex == _messages.length - 1) {
+    if (hostIndex == _session.messages.length - 1) {
       await regenerateLastMessage(
         critique: critique,
         webQuery: webQuery,
@@ -89,15 +89,15 @@ extension ChatServiceReprocess on ChatService {
     // Reconstruct the user text that prompted the host turn for the re-chime gate.
     String userText = '';
     for (int i = hostIndex - 1; i >= 0; i--) {
-      if (_messages[i].isUser) {
-        userText = _messages[i].text;
+      if (_session.messages[i].isUser) {
+        userText = _session.messages[i].text;
         break;
       }
     }
 
     // Remove the now-stale trailing guest replies from UI + context, then regen
     // the (now last) host message and re-run the chime gate on the new reply.
-    _messages.removeRange(hostIndex + 1, _messages.length);
+    _session.messages.removeRange(hostIndex + 1, _session.messages.length);
     await _saveChat(replaceAll: true);
     notifyListeners();
     await regenerateLastMessage(
@@ -113,7 +113,7 @@ extension ChatServiceReprocess on ChatService {
     String? webQuery,
     String? wikiQuery,
   }) async {
-    if (_messages.isEmpty || _sceneGuest.busy) return;
+    if (_session.messages.isEmpty || _sceneGuest.busy) return;
     if (!await _yieldSettlingTurn()) return;
     _memoryPassEpoch++;
     // Hold the settling flag across the WHOLE regen — the realism revert +
@@ -137,7 +137,7 @@ extension ChatServiceReprocess on ChatService {
       _clockWriter.restoreCapturedThroughReader();
       rethrow;
     } finally {
-      _groupManager?.endRegeneration();
+      _session.groupManager?.endRegeneration();
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
       _clockReader.applyTipClock();
@@ -165,12 +165,13 @@ extension ChatServiceReprocess on ChatService {
     // Check if the last message is from the character. Narration banners
     // (dreams, Chance Time) carry a character-name sender but must never be
     // regen targets — a regen would swipe a chat reply into the banner.
-    if (!_messages.last.isUser &&
-        _messages.last.sender != 'System' &&
-        _messages.last.activeMetadata?['is_dream'] != true &&
-        _messages.last.activeMetadata?['is_chance_time_narration'] != true) {
+    if (!_session.messages.last.isUser &&
+        _session.messages.last.sender != 'System' &&
+        _session.messages.last.activeMetadata?['is_dream'] != true &&
+        _session.messages.last.activeMetadata?['is_chance_time_narration'] !=
+            true) {
       // New swipe; pop first so the cite is persist index, not window 23.
-      final lastMsg = _messages.removeLast();
+      final lastMsg = _session.messages.removeLast();
       // Is this a Scene Guest message? If so the whole regen must stay a
       // parity-safe GUEST turn: skip every Realism/Needs revert + re-eval below
       // and regenerate spoken as the guest (guestSpeaker), exactly like the
@@ -183,7 +184,7 @@ extension ChatServiceReprocess on ChatService {
       // BEFORE journal invalidation — the bubble stays on screen, so its
       // cites must stay too.
       if (regenGuest == null && _isGuestAuthoredMessage(lastMsg)) {
-        _messages.add(lastMsg); // put it back untouched
+        _session.messages.add(lastMsg); // put it back untouched
         notifyListeners();
         _setGuestStatus(
           'Can’t regenerate "${lastMsg.sender}" — they have left the scene.',
@@ -226,7 +227,7 @@ extension ChatServiceReprocess on ChatService {
       // In group mode the original speaker re-speaks. The rotation is held
       // and put back by regenerateLastMessage's finally, success or not.
       if (regenSpeakerCard != null) {
-        _groupManager?.beginRegeneration(regenSpeakerCard);
+        _session.groupManager?.beginRegeneration(regenSpeakerCard);
       }
 
       // Roll back objective mutations recorded for the rejected turn (eval
@@ -259,7 +260,7 @@ extension ChatServiceReprocess on ChatService {
         regenSpeakerCard: regenSpeakerCard,
         regenSpeakerSid: regenSpeakerSid,
       )) {
-        _messages.add(lastMsg);
+        _session.messages.add(lastMsg);
         _clockWriter.restoreCapturedThroughReader();
         _restoreRealismStateForSpeaker(lastMsg);
         _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
@@ -275,7 +276,7 @@ extension ChatServiceReprocess on ChatService {
       _timeline.invalidateFrom(
         persistMessagePosition(
           base: _history.basePosition,
-          index: _messages.length,
+          index: _session.messages.length,
         ),
       );
 
@@ -321,7 +322,7 @@ extension ChatServiceReprocess on ChatService {
 
         await _realismJudges.runPreGenJudges(
           onChunk: handleChunk,
-          logSpeakerName: _activeCharacter?.name,
+          logSpeakerName: _session.activeCharacter?.name,
         );
 
         // Check for cancellation after evals complete
@@ -347,7 +348,7 @@ extension ChatServiceReprocess on ChatService {
           // below) left the message displaying chips the sidebar and the
           // session row no longer agreed with, and `_saveChat()` persisted the
           // wrong scalars. 1:1-only branch, host-only (guests never get here).
-          _messages.add(lastMsg);
+          _session.messages.add(lastMsg);
           _clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
@@ -397,7 +398,7 @@ extension ChatServiceReprocess on ChatService {
         // as the cancel point above: _generateResponse has still not run, so
         // this local is the only place the message still exists.
         if (_realismEvalCancelled) {
-          _messages.add(lastMsg);
+          _session.messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
           _clockReader.applyTipClock();
@@ -451,7 +452,7 @@ extension ChatServiceReprocess on ChatService {
         _timeService.renoteSkip(skipped, to: skipTo, slept: slept);
       }
 
-      final preGenLen = _messages.length;
+      final preGenLen = _session.messages.length;
       _armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
       await _generateResponse(
         GenerationMode.normal,
@@ -470,7 +471,7 @@ extension ChatServiceReprocess on ChatService {
       // message — but ONLY when _generateResponse actually appended one. It
       // can return empty-handed (the group per-speaker realism cancel path
       // saves-and-returns before assembling blocks) or append a System error
-      // banner (any phase-1..4 throw). The old guard read `_messages.last`
+      // banner (any phase-1..4 throw). The old guard read `_session.messages.last`
       // alone, so an empty return dropped the popped reply — with every
       // alternate swipe it held — forever (and in a group whose previous
       // entry was ANOTHER member's reply, it merged that member's message
@@ -483,7 +484,7 @@ extension ChatServiceReprocess on ChatService {
         rejectedSwipeIndex: rejectedSwipeIndex,
         preGenLen: preGenLen,
       );
-    } else if (_messages.last.isUser) {
+    } else if (_session.messages.last.isUser) {
       // No reply to swipe: rewind to the user line's stamp and score it again.
       // A failed member is forced, not picked: the rotation already moved
       // past them, and a pick would move it again.

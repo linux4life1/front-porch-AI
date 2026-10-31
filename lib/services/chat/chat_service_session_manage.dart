@@ -61,7 +61,7 @@ extension ChatServiceSessionManage on ChatService {
   /// immediately, so switching and then closing the app is not silently
   /// forgotten. No-op when no chat is open.
   Future<void> persistSessionPersona() async {
-    if (_currentSessionId == null) return;
+    if (_session.currentSessionId == null) return;
     await _saveChat();
     unawaited(_birthdaySync.ensure());
   }
@@ -72,7 +72,7 @@ extension ChatServiceSessionManage on ChatService {
   /// inheritance is exactly what showPersonaPickerDialog exists to prevent, and
   /// it used to leak in through here whenever the picker was skipped.
   Future<void> _openNewChat({String? personaId}) async {
-    if (_activeCharacter == null && _activeGroup == null) return;
+    if (_session.activeCharacter == null && _activeGroup == null) return;
     _clearTodayPointer();
 
     // Persist the departing chat as whoever we still are. Switching to
@@ -95,7 +95,7 @@ extension ChatServiceSessionManage on ChatService {
     await _refreshCharacterForNewChat();
 
     debugPrint(
-      '[ChatService] 🟡 startNewChat: clearing messages (had ${_messages.length})',
+      '[ChatService] 🟡 startNewChat: clearing messages (had ${_session.messages.length})',
     );
     // Departing row was flushed above, before the default persona switch.
     await _invalidateGreetingEval();
@@ -103,9 +103,10 @@ extension ChatServiceSessionManage on ChatService {
 
     // Seed Realism Engine state from V2.5 card extensions for 1:1 mode only,
     // ensuring realism settings persist across chat sessions (group mode handled elsewhere)
-    if (_activeCharacter != null && _activeGroup == null) {
+    if (_session.activeCharacter != null && _activeGroup == null) {
       final extSeed =
-          _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
+          _session.activeCharacter!.frontPorchExtensions ??
+          FrontPorchExtensions();
 
       // Global "Enable Realism Mode" default is an OR override so imported
       // cards (no realism setup) get realism + baseline generation without the
@@ -122,7 +123,6 @@ extension ChatServiceSessionManage on ChatService {
       // 1:1 vs group parity: group seeding paths untouched (resetForFresh + per-speaker load/save scalars).
       // See relationship_service.dart (seedFromCardV2OrExt + public migrate docs) + expanded
       // "keep reset blocks in sync" + "incomplete zeroing... now complete (see CLAUDE.md)"
-      // (see CLAUDE.md full list + incomplete zeroing hygiene; buffer removal complete)
       // Clear ALL per-chat relationship registers first, THEN re-seed bond/trust
       // from the card. seedFromCardV2OrExt only sets affection/long-term/trust +
       // their tiers — it deliberately does NOT touch the active fixation, spatial
@@ -219,7 +219,7 @@ extension ChatServiceSessionManage on ChatService {
       // Group mode or no active character: reset to defaults but preserve existing extensions-based values
       // (pending covered by service.resetForFreshChat below)
 
-      if (_activeGroup == null && _messages.isNotEmpty) {
+      if (_activeGroup == null && _session.messages.isNotEmpty) {
         // Will be populated later with greeting in non-group modes
         // Preserve realism state for proper post-greeting eval (don't reset here)
       } else {
@@ -251,12 +251,8 @@ extension ChatServiceSessionManage on ChatService {
         }
         _nsfwService.resetForFreshChat();
         // Lorebook trigger reset via extracted service (keeps reset blocks in sync with setActiveCharacter:1572 / _loadLast empty / setActiveGroup / startNew ext-seed; see "incomplete zeroing of secondary ... on 0-session/new-character/group" + startNew 1:1+group now complete + full list in keep-sync comments incl llm_eval_engine). (cross-ref setActiveCharacter:1572 etc)
-        // See "keep reset blocks in sync" comments (setActiveGroup, startNewChat, load* , setActive* all must hit this; now includes needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) + " )" for group/0-session/new-chat hygiene; incomplete zeroing now complete).
-        // (cross-ref setActiveCharacter:1572)
         _lorebookScanner.resetLorebookTriggerState();
         // Don't touch dayCount/time etc directly — seeded from extensions or loaded session (or reset above for fresh no-ext path).
-        // Time reset helper kept in sync with other blocks.
-        // needs_impact_evaluator (stateless/prompt-only; no reset calls needed) covered in keep-sync lists.
 
         // Explicit zero for secondary config flags in group/non-ext/0-session/new-chat path (keeps "incomplete zeroing... now complete (see CLAUDE.md)" true in *code* not just comments; matches ext-seed 1:1 + setActiveCharacter + setActiveGroup defensive; cross-ref setActiveCharacter:1572 + full list in keep-sync comments incl + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + " ; authority mode for needs; hygiene listed, no code zero line)") + "needsSimulation. (reason support kept for Director chips) ; cleared via sim initializeFresh/clearVector/resetBuffers on all paths; now complete)".
         _needsSimEnabled = false;
@@ -384,7 +380,7 @@ extension ChatServiceSessionManage on ChatService {
       }
 
       if (greetingText.isNotEmpty) {
-        _messages.add(
+        _session.messages.add(
           ChatMessage(
             text: greetingText,
             sender: greetingSender,
@@ -394,7 +390,7 @@ extension ChatServiceSessionManage on ChatService {
         );
         _lorebookScanner.scanLatest();
         _clockWriter.writeSlotClock(
-          _messages.isEmpty ? null : _messages.first,
+          _session.messages.isEmpty ? null : _session.messages.first,
           kind: SlotClockWrite.seed,
         );
         // Overlay 0 / inherit baseline into live emotion and slots.
@@ -409,33 +405,37 @@ extension ChatServiceSessionManage on ChatService {
           );
         }
       }
-      _groupManager?.resetTurnState();
-    } else if (_activeCharacter != null) {
+      _session.groupManager?.resetTurnState();
+    } else if (_session.activeCharacter != null) {
       // 1:1 mode
-      final opening = _activeCharacter!.allGreetings;
+      final opening = _session.activeCharacter!.allGreetings;
       if (opening.isNotEmpty) {
-        _messages.add(
+        _session.messages.add(
           ChatMessage(
             text: _buildFirstMessage(
-              _activeCharacter!,
+              _session.activeCharacter!,
               greetingText: opening.first,
             ),
-            sender: _activeCharacter!.name,
+            sender: _session.activeCharacter!.name,
             isUser: false,
           ),
         );
         _lorebookScanner.scanLatest();
         _clockWriter.writeSlotClock(
-          _messages.isEmpty ? null : _messages.first,
+          _session.messages.isEmpty ? null : _session.messages.first,
           kind: SlotClockWrite.seed,
         );
-        if (_activeCharacter!.firstMessage.trim().isEmpty) {
-          await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
+        if (_session.activeCharacter!.firstMessage.trim().isEmpty) {
+          await _applyGreetingOpeningSeed(
+            card: _session.activeCharacter!,
+            index: 0,
+          );
         }
       }
     }
 
-    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+        .toString();
     _computeAbsenceGap(
       const [],
     ); // fresh session — no real-world gap (Living Time §2)
@@ -448,7 +448,7 @@ extension ChatServiceSessionManage on ChatService {
     _sessionThemeOverrides = ChatThemeOverrides();
     try {
       final lastThemeJson = await _db.getLastSessionThemeOverrides(
-        characterId: _activeCharacter?.dbId,
+        characterId: _session.activeCharacter?.dbId,
         groupId: _activeGroup?.id,
       );
       if (lastThemeJson != null) {
@@ -488,8 +488,8 @@ extension ChatServiceSessionManage on ChatService {
     // member, all four ways a conversation can start, and a reload — the seed
     // this baseline fires is a head start for the sidebar, not the mechanism.
     if (_activeGroup == null &&
-        _messages.isNotEmpty &&
-        _activeCharacter!.frontPorchExtensions == null) {
+        _session.messages.isNotEmpty &&
+        _session.activeCharacter!.frontPorchExtensions == null) {
       _greetingEvalPending = true;
       if (_realismEnabled) {
         _runPostGreetingEval();

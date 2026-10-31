@@ -24,7 +24,7 @@ extension ChatServiceImpersonate on ChatService {
     String prefix = '',
     required Function(String accumulated) onToken,
   }) async {
-    if ((_activeCharacter == null && _activeGroup == null) ||
+    if ((_session.activeCharacter == null && _activeGroup == null) ||
         _isTurnBusy ||
         _sceneGuest.busy) {
       return;
@@ -46,7 +46,7 @@ extension ChatServiceImpersonate on ChatService {
         speakingCharacter =
             _impersonateGroupSpeaker() ?? _pickPresentGroupSpeaker();
       } else {
-        speakingCharacter = _activeCharacter!;
+        speakingCharacter = _session.activeCharacter!;
       }
 
       // Build prompt the same way _generateResponse does
@@ -78,7 +78,7 @@ extension ChatServiceImpersonate on ChatService {
       // main generation path uses. Read-only: impersonation never scans or
       // mutates trigger state.
       final loreInjection = _lorebookInjector.buildInjection(
-        sessionSeed: _currentSessionId ?? '',
+        sessionSeed: _session.currentSessionId ?? '',
         contextSize: _sessionGenSettings.resolveContextSize(_storageService),
       );
       String loreBefore = loreInjection.beforeChar;
@@ -242,7 +242,7 @@ extension ChatServiceImpersonate on ChatService {
         ScenarioFade.wrapScenario(
           scenario,
           ScenarioFade.strengthForUserMessageCount(
-            _messages.where((m) => m.isUser).length,
+            _session.messages.where((m) => m.isUser).length,
           ),
         ),
         loreExTop,
@@ -279,7 +279,7 @@ extension ChatServiceImpersonate on ChatService {
           depthLore: loreDepth,
         );
         history = result.history;
-      } else if (_messages.isNotEmpty) {
+      } else if (_session.messages.isNotEmpty) {
         // Same overflow floor as the main generate path: last user line +
         // everything after (think-stripped). Not raw .text (Nina-class hole).
         history = _overflowContinuityHistory().history;
@@ -302,7 +302,7 @@ extension ChatServiceImpersonate on ChatService {
         impersonating: true,
         characterNames: _activeGroup != null
             ? _groupCharacters.map((c) => c.name).toList()
-            : [_activeCharacter!.name],
+            : [_session.activeCharacter!.name],
       );
 
       final genParams = GenerationParams(
@@ -389,8 +389,8 @@ extension ChatServiceImpersonate on ChatService {
   /// Last character line the user is answering. Skips banners and the
   /// director. Null when nobody has spoken yet.
   CharacterCard? _impersonateGroupSpeaker() {
-    for (var i = _messages.length - 1; i >= 0; i--) {
-      final message = _messages[i];
+    for (var i = _session.messages.length - 1; i >= 0; i--) {
+      final message = _session.messages[i];
       if (message.isUser || message.isStatusBanner) continue;
       if (message.sender == 'System' || message.characterId == '__director__') {
         continue;

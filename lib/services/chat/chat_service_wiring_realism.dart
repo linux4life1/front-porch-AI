@@ -111,18 +111,16 @@ extension ChatServiceWiringRealism on ChatService {
 
   /// The open chat as the story clock reads it — live getters only.
   StoryClockScope _storyClockScope() => StoryClockScope(
-    messages: _messages,
+    session: _session,
     history: _history,
     time: () => _timeService,
     clockRunning: () => _clockRunning,
-    activeGroup: () => _activeGroup,
-    activeCharacter: () => _activeCharacter,
   );
 
   StoryClockWriter _buildClockWriter() => StoryClockWriter(
     _storyClockScope(),
     _clockReader,
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     saveChat: _saveChat,
     notify: notifyListeners,
     setGuestStatus: _setGuestStatus,
@@ -131,23 +129,23 @@ extension ChatServiceWiringRealism on ChatService {
   /// Group members in a group, else the 1:1 character when one is set.
   Iterable<CharacterCard> _clockCast() => _activeGroup != null
       ? _groupCharacters
-      : [_activeCharacter].whereType<CharacterCard>();
+      : [_session.activeCharacter].whereType<CharacterCard>();
 
   EpisodeCrumbMinter _buildEpisodeCrumbs() => EpisodeCrumbMinter(
     clockRunning: () => _clockRunning,
     memorySettings: () => _storageService.memorySettings,
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     cast: _clockCast,
     time: () => _timeService,
     history: _history,
-    messageCount: () => _messages.length,
+    messageCount: () => _session.messages.length,
     workFieldsFor: _workFieldsFor,
     characterIdFor: _getCharacterIdFromCard,
     journalStore: () => _journalStore,
   );
 
   BirthdaySync _buildBirthdaySync() => BirthdaySync(
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     memorySettings: () => _storageService.memorySettings,
     time: () => _timeService,
     persona: () => _userPersonaService.persona,
@@ -170,19 +168,15 @@ extension ChatServiceWiringRealism on ChatService {
     groupCharacters: () => _groupCharacters,
     characterIdFor: _getCharacterIdFromCard,
     hostId: _getCharacterId,
-    activeCharacter: () => _activeCharacter,
+    activeCharacter: () => _session.activeCharacter,
     isGenerating: () => _isGenerating,
     nextCharacter: () => nextCharacter,
     workFieldsFor: _workFieldsFor,
   );
 
   /// The open chat as Realism and Needs read and write it — live only.
-  RealismScope _realismScope() => RealismScope(
-    messages: _messages,
-    activeCharacter: () => _activeCharacter,
-    setActiveCharacter: (c) => _activeCharacter = c,
-    activeGroup: () => _activeGroup,
-    groupCharacters: () => _groupCharacters,
+  RealismScope _realismScope() => RealismScope.of(
+    session: _session,
     observerMode: () => _observerMode,
     realismEnabled: () => _realismEnabled,
     needsSimEnabled: () => _needsSimEnabled,
@@ -239,14 +233,17 @@ extension ChatServiceWiringRealism on ChatService {
     hostRecord: () => _pockets,
     setHostRecord: (p) => _pockets = p,
     originLibraryCardFor: originLibraryCardFor,
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     storyDayCount: () => storyDayCount,
     memorySettings: () => _storageService.memorySettings,
     itemCards: () => _itemCards,
   );
 
-  PocketsRewinds _buildPocketsRewinds() =>
-      PocketsRewinds(_messages, _pocketsLedger, itemCards: () => _itemCards);
+  PocketsRewinds _buildPocketsRewinds() => PocketsRewinds(
+    _session.messages,
+    _pocketsLedger,
+    itemCards: () => _itemCards,
+  );
 
   PocketsPass _buildPocketsPass() => PocketsPass(
     _realismScope(),
@@ -254,7 +251,7 @@ extension ChatServiceWiringRealism on ChatService {
     _buildPocketsEval(),
     fusedReply: () => _replyFacts.raw,
     itemCards: () => _itemCards,
-    currentSessionId: () => _currentSessionId,
+    currentSessionId: () => _session.currentSessionId,
     storyDayCount: () => storyDayCount,
     memorySettings: () => _storageService.memorySettings,
   );
@@ -356,13 +353,13 @@ extension ChatServiceWiringRealism on ChatService {
         return m;
       },
       getRecentExchangeLowerText: () {
-        if (_messages.length < 2) return '';
-        return _messages.reversed
+        if (_session.messages.length < 2) return '';
+        return _session.messages.reversed
             .take(2)
             .map((m) => m.displayText.toLowerCase())
             .join(' ');
       },
-      getMessageCount: () => _messages.length,
+      getMessageCount: () => _session.messages.length,
       getIsGroupRealismActive: () => isGroupRealismActive,
       getGroupAffectionScore: (charId, {int defaultValue = 0}) =>
           _groupRealism[charId]?.affection ?? defaultValue,
@@ -415,14 +412,14 @@ extension ChatServiceWiringRealism on ChatService {
           _rescoreCrossings.add(crossing);
           return;
         }
-        _plantTierCrossing(crossing, citeLength: _messages.length);
+        _plantTierCrossing(crossing, citeLength: _session.messages.length);
       },
     );
   }
 
   /// [citeLength] is the transcript length the reply being scored lands at.
   void _plantTierCrossing(TierCrossing crossing, {required int citeLength}) {
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (sessionId == null) return;
     final charId = _groupStore.currentSpeakerId();
     if (charId.isEmpty) return;
@@ -464,7 +461,7 @@ extension ChatServiceWiringRealism on ChatService {
       getLlmServiceForReclass: () => _sideLaneLlm,
       getIsGenerating: () => _isGenerating,
       getCharacterEmotion: () => _characterEmotion,
-      getMessages: () => _messages,
+      getMessages: () => _session.messages,
       getIsThinkingModelForReclass: () {
         // Preserve original expression reclass isThinking logic (ignores testLlmOverride for isLocal,
         // consistent with pre-extraction).

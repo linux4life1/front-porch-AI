@@ -11,10 +11,11 @@ extension ChatServiceImportWalk on ChatService {
   Future<void> _rewindScalarsFromCardKeepingToggles({
     bool seedClock = false,
   }) async {
-    if (_activeCharacter == null || _activeGroup != null) return;
+    if (_session.activeCharacter == null || _activeGroup != null) return;
 
     final ext =
-        _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
+        _session.activeCharacter!.frontPorchExtensions ??
+        FrontPorchExtensions();
     final keepRealism = _realismChatSwitch;
     final keepNeeds = _needsSimEnabled;
     final keepObj = _objectivesEnabled;
@@ -56,7 +57,7 @@ extension ChatServiceImportWalk on ChatService {
     // Per-char AND — null-while-off erases session column (HIDES≠erase).
     // Global on + this card off must leave the hidden kit alone; seed
     // already skips off characters, so a wipe here would be permanent.
-    final charId = _getCharacterIdFromCard(_activeCharacter!);
+    final charId = _getCharacterIdFromCard(_session.activeCharacter!);
     if (pocketsEnabledFor(charId)) {
       _pockets = null;
       seedPocketsFromCards();
@@ -89,8 +90,8 @@ extension ChatServiceImportWalk on ChatService {
       final sid = _getCharacterIdFromCard(c);
       if (sid.isEmpty) continue;
       ChatMessage? stamp;
-      for (var i = start; i >= 0 && i < _messages.length; i--) {
-        final m = _messages[i];
+      for (var i = start; i >= 0 && i < _session.messages.length; i--) {
+        final m = _session.messages[i];
         if (m.isUser) continue;
         final speaker = _resolveGroupSpeakerForMessage(m);
         if (speaker == null || _getCharacterIdFromCard(speaker) != sid) {
@@ -134,8 +135,9 @@ extension ChatServiceImportWalk on ChatService {
     seedPocketsFromCards();
 
     CharacterCard? scratch;
-    if (_messages.isNotEmpty) {
-      final tip = _messages[start.clamp(0, _messages.length - 1)];
+    if (_session.messages.isNotEmpty) {
+      final tip =
+          _session.messages[start.clamp(0, _session.messages.length - 1)];
       if (!tip.isUser && tip.sender != 'System') {
         final hits = _groupCharacters
             .where((c) => c.name == tip.sender)
@@ -161,7 +163,7 @@ extension ChatServiceImportWalk on ChatService {
   }) async {
     _cancelIdleTimer();
 
-    if (_messages.isEmpty) {
+    if (_session.messages.isEmpty) {
       if (_activeGroup != null) {
         await _restoreGroupRealismWalkingBack(0);
       } else {
@@ -171,7 +173,7 @@ extension ChatServiceImportWalk on ChatService {
       }
       return;
     }
-    final start = fromIndex.clamp(0, _messages.length - 1);
+    final start = fromIndex.clamp(0, _session.messages.length - 1);
 
     if (_activeGroup != null) {
       await _restoreGroupRealismWalkingBack(start);
@@ -183,7 +185,7 @@ extension ChatServiceImportWalk on ChatService {
     // message, and stopping here would keep the parent's live trust.
     var restored = false;
     for (var i = start; i >= 0; i--) {
-      final m = _messages[i];
+      final m = _session.messages[i];
       final meta = m.activeMetadata;
       if (meta?['realism_state'] is Map) {
         _restoreRealismStateForSpeaker(m, restoreClock: false);

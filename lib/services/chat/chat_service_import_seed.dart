@@ -46,9 +46,10 @@ extension ChatServiceImportSeed on ChatService {
     _sceneGuest.offeredOrIgnoredNames.clear();
     _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
-    if (_activeCharacter != null && _activeGroup == null) {
+    if (_session.activeCharacter != null && _activeGroup == null) {
       final extSeed =
-          _activeCharacter!.frontPorchExtensions ?? FrontPorchExtensions();
+          _session.activeCharacter!.frontPorchExtensions ??
+          FrontPorchExtensions();
       _realismChatSwitch =
           extSeed.realismEnabled ||
           _storageService.realismSettings.realismDefault;
@@ -353,7 +354,7 @@ extension ChatServiceImportSeed on ChatService {
       // alone, which would ignore an unstamped import.
       final synth = ChatMessage(
         text: '',
-        sender: _activeCharacter?.name ?? '',
+        sender: _session.activeCharacter?.name ?? '',
         isUser: false,
         metadata: {'realism_state': state},
       );
@@ -366,8 +367,8 @@ extension ChatServiceImportSeed on ChatService {
     // realism_state restore then refuses put-back when this card authored
     // Pockets off. Write the captured record anyway — restore, not invent.
     if (_activeGroup == null && head['pockets'] is Map) {
-      final id = _activeCharacter != null
-          ? _getCharacterIdFromCard(_activeCharacter!)
+      final id = _session.activeCharacter != null
+          ? _getCharacterIdFromCard(_session.activeCharacter!)
           : '';
       if (id.isNotEmpty) {
         setPocketsFor(id, Pockets.fromJson(head['pockets']));
@@ -453,8 +454,8 @@ extension ChatServiceImportSeed on ChatService {
       if (changed) await _reloadGroupRoster();
       return;
     }
-    final hostId = _activeCharacter != null
-        ? _getCharacterIdFromCard(_activeCharacter!)
+    final hostId = _session.activeCharacter != null
+        ? _getCharacterIdFromCard(_session.activeCharacter!)
         : '';
     final library = _characterRepository?.characters ?? const <CharacterCard>[];
     for (final entry in cast) {
@@ -475,7 +476,7 @@ extension ChatServiceImportSeed on ChatService {
   /// Seed a transcript so [exportToFpchat] has something to pack.
   @visibleForTesting
   void debugSeedTranscriptForFpchat(List<ChatMessage> msgs) {
-    _messages
+    _session.messages
       ..clear()
       ..addAll(msgs);
   }

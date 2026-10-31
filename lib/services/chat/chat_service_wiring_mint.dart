@@ -53,9 +53,9 @@ extension ChatServicePlaceMint on ChatService {
     }
     final grounding = [
       for (final m
-          in _messages.length <= 6
-              ? _messages
-              : _messages.sublist(_messages.length - 6))
+          in _session.messages.length <= 6
+              ? _session.messages
+              : _session.messages.sublist(_session.messages.length - 6))
         if (m.displayText.trim().isNotEmpty) m.displayText.trim(),
     ].join('\n');
     // Constructed at the call site like SceneGuestFactory (this file is

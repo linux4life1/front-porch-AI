@@ -57,7 +57,8 @@ extension ChatServiceSendHandoff on ChatService {
     // post-turn work below may run — no idle-timer arming, no chip attach,
     // no guest chime-ins against the notice text (pre-move parity: the old
     // in-sendMessage guard returned before all of this).
-    if (_messages.isNotEmpty && _messages.last.text == _kBackendDownNotice) {
+    if (_session.messages.isNotEmpty &&
+        _session.messages.last.text == _kBackendDownNotice) {
       return;
     }
     // First exchange complete — arm idle timer
@@ -155,19 +156,21 @@ extension ChatServiceSendHandoff on ChatService {
       // _activeGroup == null. Mirroring was a no-op, and the eval path deliberately
       // does NOT reload the host from that empty map (doing so reset
       // bond/trust/emotion/needs to defaults). See RealismDance.evaluateForUpcomingSpeaker.
-      if (_activeGroup == null && _activeCharacter != null) {
+      if (_activeGroup == null && _session.activeCharacter != null) {
         // Run the SINGLE eval path for the host now — on a user turn only.
         // (Regen of a reply and Continue bypass this. Generate reply on a
         // trailing user message rewinds to the stamp first, then re-enters
         // here. Each caller checks cancellation before generating.)
-        await _realismDance.evaluateForUpcomingSpeaker(_activeCharacter!);
+        await _realismDance.evaluateForUpcomingSpeaker(
+          _session.activeCharacter!,
+        );
       }
     } else if (_clockRunning && addressedGuest == null) {
       // PoT is on and the engine did not run this turn. Stamp the user
       // turn's story day so RAG can ground retrieved lines. The post-reply
       // decide still lives in _finalizeGenerationTurn.
-      if (_messages.isNotEmpty) {
-        final last = _messages.last;
+      if (_session.messages.isNotEmpty) {
+        final last = _session.messages.last;
         if (last.isUser) {
           last.metadata = {
             ...?last.metadata,
@@ -200,10 +203,11 @@ extension ChatServiceSendHandoff on ChatService {
         _entrancesInFlight) {
       return;
     }
-    final primaryResponse = _messages.isNotEmpty && !_messages.last.isUser
-        ? _messages.last.displayText
+    final primaryResponse =
+        _session.messages.isNotEmpty && !_session.messages.last.isUser
+        ? _session.messages.last.displayText
         : '';
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     await _ensureSceneGuestDirector().runChimeIns(
       userText: userText,
       primaryResponse: primaryResponse,
@@ -230,14 +234,14 @@ extension ChatServiceSendHandoff on ChatService {
   /// call) lives inside the parked future.
   void _maybeKickDreamPrefetch() {
     _dreamService.checkRollover(
-      sessionId: _currentSessionId,
+      sessionId: _session.currentSessionId,
       dayCount: _timeService.dayCount,
     );
-    if (!_dreamService.pending || _currentSessionId == null) return;
+    if (!_dreamService.pending || _session.currentSessionId == null) return;
     _dreamService.clear();
     String? lastCharId;
     var lastSpeakerFound = false;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (!m.isUser &&
           m.sender != 'System' &&
           m.activeMetadata?['is_dream'] != true) {
@@ -249,14 +253,14 @@ extension ChatServiceSendHandoff on ChatService {
     final ownerCard = !lastSpeakerFound
         ? null
         : lastCharId == null
-        ? _activeCharacter
+        ? _session.activeCharacter
         : (_groupCharacters
                   .where((c) => _getCharacterIdFromCard(c) == lastCharId)
                   .firstOrNull ??
-              _activeCharacter);
+              _session.activeCharacter);
     if (ownerCard == null) return;
     final ownerId = _getCharacterIdFromCard(ownerCard);
-    final sessionId = _currentSessionId!;
+    final sessionId = _session.currentSessionId!;
     // Inputs sampled NOW, at the end of the day being dreamed about — if
     // anything more faithful than the old next-morning sample.
     final fixation = _relationshipService.activeFixation;
@@ -320,9 +324,9 @@ extension ChatServiceSendHandoff on ChatService {
   /// scores the latest user line is stamped on it — an auto-advance or Next
   /// responder too, or deleting both replies would re-score that one twice.
   void _stampGroupUserTurnBaseline(String charId) {
-    final i = _messages.lastIndexWhere((m) => m.isUser);
+    final i = _session.messages.lastIndexWhere((m) => m.isUser);
     if (i < 0) return;
-    final meta = _messages[i].metadata ??= <String, dynamic>{};
+    final meta = _session.messages[i].metadata ??= <String, dynamic>{};
     final raw = meta[kRealismPreTurnBySpeaker];
     final bySpeaker = raw is Map
         ? Map<String, dynamic>.from(raw)
@@ -360,8 +364,8 @@ extension ChatServiceSendHandoff on ChatService {
     String? wikiQuery,
     CharacterCard? forceSpeaker,
   ) async {
-    final userMsg = _messages.last;
-    final baseAt = _messages.length;
+    final userMsg = _session.messages.last;
+    final baseAt = _session.messages.length;
     _rewindToUserTurnBaseline(userMsg);
     // Group scores inside _generateResponse's dance for the picked speaker.
     // A group line from before stamps has nothing to rewind to, so it keeps
@@ -403,7 +407,7 @@ extension ChatServiceSendHandoff on ChatService {
     }
     // Cancelled or failed with no reply: leave the line unscored, as it was
     // before the tap, 1:1 and group alike. A kept partial reply is answered.
-    final answered = _messages
+    final answered = _session.messages
         .skip(baseAt)
         .any((m) => !m.isUser && m.sender != 'System' && m.text.isNotEmpty);
     if (!answered) {
@@ -448,8 +452,8 @@ extension ChatServiceSendHandoff on ChatService {
   /// scored registers to the last accepted reply. Needs and pockets were
   /// already refunded by the delete that left this line trailing.
   bool _rewindRelationshipToLastAcceptedReply() {
-    for (var i = _messages.length - 2; i >= 0; i--) {
-      final m = _messages[i];
+    for (var i = _session.messages.length - 2; i >= 0; i--) {
+      final m = _session.messages[i];
       if (m.isUser || m.sender == 'System') continue;
       final state = m.activeMetadata?['realism_state'];
       if (state is! Map) continue;

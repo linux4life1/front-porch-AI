@@ -25,7 +25,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       isResting: (o) =>
           o is Objective &&
           objectiveFixated(
-            messages: _messages,
+            messages: _session.messages,
             questTexts: openQuestMentionTexts(
               o.objective,
               tasksForObjective(o),
@@ -43,7 +43,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getShouldTrackInterCharacterRelationships: () =>
           _shouldTrackInterCharacterRelationships,
       getGroupInt: (charId, key, {int defaultValue = 0}) =>
@@ -122,7 +122,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
         day <= 1
             ? null
             : WeatherSegments.segmentWeatherFor(
-                sessionSeed: _currentSessionId!,
+                sessionSeed: _session.currentSessionId!,
                 dayCount: day - 1,
                 date: _timeService.clock.subtract(const Duration(days: 1)),
                 hour: 23,
@@ -135,7 +135,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   }
 
   SegmentWeather _segmentAt(int hour) => WeatherSegments.segmentWeatherFor(
-    sessionSeed: _currentSessionId!,
+    sessionSeed: _session.currentSessionId!,
     dayCount: _timeService.dayCount,
     date: _timeService.clock,
     hour: hour,
@@ -161,7 +161,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       getClockMinutes: () => _timeService.clockMinutes,
       getWeekday: () => _timeService.clock.weekday,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -172,8 +172,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   AmbitionInjection _buildAmbitionInjection() {
     return AmbitionInjection(
       ambitionService: _ambitionService,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -183,7 +183,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
 
   PreferencesInjection _buildPreferencesInjection() {
     return PreferencesInjection(
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -207,7 +207,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
 
   InventoryInjection _buildInventoryInjection() {
     return InventoryInjection(
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -231,8 +231,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
     return PromiseDebtInjection(
       getCurrentStoryDay: () => _clockRunning ? _timeService.dayCount : null,
       promiseDebtService: _promiseDebtService,
-      getSessionId: () => _currentSessionId,
-      getActiveCharacter: () => _activeCharacter,
+      getSessionId: () => _session.currentSessionId,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -245,7 +245,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
     return NsfwInjection(
       nsfwService: _nsfwService,
       getRealismEnabled: () => _realismEnabled,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
@@ -263,7 +263,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   /// mutual scan already excludes them.
   bool _pcdActive() {
     return pcdWindowActive(
-      messages: _messages,
+      messages: _session.messages,
       speakerId: _activeGroup != null ? _groupStore.currentSpeakerId() : null,
       isUser: (m) => m.isUser || _isGuestAuthoredMessage(m),
       climaxStamped: (m) => m.activeMetadata?['climax_triggered'] == true,
@@ -283,7 +283,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   bool _mutualAfterglowOpening() {
     if (!_nsfwService.isOpeningAfterglowTurn) return false;
     final group = _activeGroup != null;
-    for (final m in _messages.reversed) {
+    for (final m in _session.messages.reversed) {
       if (m.isUser) continue;
       // A scene guest's prose is not the host's body (M7 review): the
       // mutual beat belongs to the character the lock is counting.
@@ -322,7 +322,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getGroupNeeds: _groupStore.needsOf,
       getCharacterIdFromCard: _getCharacterIdFromCard,
       getNeedsOff: () =>
-          _activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
+          _session.activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
     );
   }
 
@@ -398,7 +398,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getGroupCharacters: () => _groupCharacters,
-      getActiveCharacter: () => _activeCharacter,
+      getActiveCharacter: () => _session.activeCharacter,
       getCharacterIdFromCard: _getCharacterIdFromCard,
     );
   }

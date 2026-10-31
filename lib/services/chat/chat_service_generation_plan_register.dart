@@ -78,7 +78,7 @@ extension ChatServiceGenerationPlanRegister on ChatService {
       t.loreBefore,
       t.growthBlock,
       t.loreAfter,
-      ScenarioFade.wrapForChat(t.scenario, _messages),
+      ScenarioFade.wrapForChat(t.scenario, _session.messages),
       t.loreExTop,
       t.loreExBottom,
     ]);

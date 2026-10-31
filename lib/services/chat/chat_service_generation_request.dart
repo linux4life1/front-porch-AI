@@ -87,9 +87,9 @@ extension ChatServiceGenerationRequest on ChatService {
     // We still stop on other speakers or the user (to catch unwanted new turns).
     String? continueSpeakerName;
     if (t.mode == GenerationMode.continue_ &&
-        _messages.isNotEmpty &&
-        !_messages.last.isUser) {
-      continueSpeakerName = _messages.last.sender;
+        _session.messages.isNotEmpty &&
+        !_session.messages.last.isUser) {
+      continueSpeakerName = _session.messages.last.sender;
     }
 
     // Group rosters are rotated so the soonest next speakers come first —
@@ -109,7 +109,7 @@ extension ChatServiceGenerationRequest on ChatService {
           ? [...names.sublist(idx + 1), ...names.sublist(0, idx + 1)]
           : names;
     } else {
-      stopCharacterNames = [_activeCharacter!.name];
+      stopCharacterNames = [_session.activeCharacter!.name];
     }
 
     final stopList = t.stopList = buildPrioritizedStops(
@@ -272,7 +272,7 @@ extension ChatServiceGenerationRequest on ChatService {
         mouth: genParams,
         catalog: catalog,
         lastUserMessage: _latestUserLineForDoorbell(),
-        wikiWindow: wikiWindowFromMessages(_messages),
+        wikiWindow: wikiWindowFromMessages(_session.messages),
       );
       if (jobs.isNotEmpty) {
         await _withWorkerLane(() async {
@@ -393,9 +393,9 @@ extension ChatServiceGenerationRequest on ChatService {
   /// Latest user line for the web-search doorbell. promptText, so a photo
   /// is the caption marker and a think block is already stripped.
   String _latestUserLineForDoorbell() {
-    for (var i = _messages.length - 1; i >= 0; i--) {
-      if (!_messages[i].isUser) continue;
-      return _messages[i].promptText.trim();
+    for (var i = _session.messages.length - 1; i >= 0; i--) {
+      if (!_session.messages[i].isUser) continue;
+      return _session.messages[i].promptText.trim();
     }
     return '';
   }

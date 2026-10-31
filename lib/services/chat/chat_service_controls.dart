@@ -56,7 +56,7 @@ extension ChatServiceControls on ChatService {
       _realismStartQueue[this] ??= RealismStartQueue(
         busy: () => _realismTurnBusy || _isProcessingGreeting,
         turn: this,
-        chatId: () => _currentSessionId,
+        chatId: () => _session.currentSessionId,
         start: _startRealismNow,
       );
 
@@ -91,7 +91,9 @@ extension ChatServiceControls on ChatService {
   void _onRealismStarted() => _realismStart.request();
 
   void _startRealismNow() {
-    if (!_realismEnabled || _activeGroup != null || _activeCharacter == null) {
+    if (!_realismEnabled ||
+        _activeGroup != null ||
+        _session.activeCharacter == null) {
       return;
     }
     if (_greetingEvalPending && !_realismDance.hasBaseline) {
@@ -99,7 +101,7 @@ extension ChatServiceControls on ChatService {
         '[Realism] Consuming pending greeting eval (Realism started).',
       );
       _runPostGreetingEval();
-    } else if (!_realismDance.hasBaseline && _messages.length > 1) {
+    } else if (!_realismDance.hasBaseline && _session.messages.length > 1) {
       debugPrint('[Realism] No baseline detected — running retroactive scan.');
       _runRetroactiveBaselineEval();
     }
@@ -140,7 +142,7 @@ extension ChatServiceControls on ChatService {
           'comfort': 80,
         });
       } else {
-        final ext = _activeCharacter?.frontPorchExtensions;
+        final ext = _session.activeCharacter?.frontPorchExtensions;
         if (ext != null) {
           _needsSimulation.initializeFreshWithDefaults(
             NeedsSimulation.baselinesFromExtensions(ext),
@@ -216,7 +218,7 @@ extension ChatServiceControls on ChatService {
     final oldStart = _timeService.startDate;
     _timeService.setStartDate(date);
     final delta = _timeService.startDate.difference(oldStart);
-    shiftMessageClockStamps(_messages, delta);
+    shiftMessageClockStamps(_session.messages, delta);
     await _shiftPersistedSessionClockStamps(delta);
     _clockReader.applyTipClock();
     unawaited(_birthdaySync.ensure());
@@ -225,7 +227,7 @@ extension ChatServiceControls on ChatService {
   }
 
   Future<void> _shiftPersistedSessionClockStamps(Duration delta) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null || delta == Duration.zero) return;
     final rows = await _db.getMessagesForSession(sid);
     final seen = Set<Map>.identity();
@@ -331,7 +333,7 @@ extension ChatServiceControls on ChatService {
   /// member already name one.
   void _previewChanceTimeSpeaker() {
     if (_activeGroup == null || _upcomingGroupSpeaker != null) return;
-    _groupManager?.previewRandomSpeaker();
+    _session.groupManager?.previewRandomSpeaker();
   }
 
   /// Accepting an event holds the member it names as the next random pick,
@@ -339,16 +341,15 @@ extension ChatServiceControls on ChatService {
   void _holdChanceTimeSpeaker(String name) {
     if (_activeGroup == null || _upcomingGroupSpeaker != null) return;
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
-    if (card != null) _groupManager?.previewSpeaker(card);
+    if (card != null) _session.groupManager?.previewSpeaker(card);
   }
 
-  /// PR 6: is the body Chance Time names mid a HARD refractory lock? 1:1
-  /// reads the live scalars (they hold the host, who is the attribution);
-  /// groups map the NAME back to its card and read that member's STORED
-  /// refractory — never the live scalars, which may still hold the
-  /// previous speaker's. No match answers false: chaos fails open and
-  /// spins today's wheel. Soft bodies answer false by decision — their
-  /// desire is honest.
+  /// PR 6: is the body Chance Time names mid a HARD refractory lock? 1:1 reads
+  /// the live scalars (they hold the host, who is the attribution); groups map
+  /// the NAME back to its card and read that member's STORED refractory —
+  /// never the live scalars, which may still hold the previous speaker's. No
+  /// match answers false: chaos fails open and spins today's wheel. Soft bodies
+  /// answer false by decision — their desire is honest.
   bool _hardLockForSpeakerNamed(String name) {
     if (_activeGroup == null) {
       final r = _nsfwService.refractory;

@@ -88,7 +88,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // winners → budget fill → per-position ordering). Pure read — the
     // scanner already updated trigger state for this turn.
     final loreInjection = _lorebookInjector.buildInjection(
-      sessionSeed: _currentSessionId ?? '',
+      sessionSeed: _session.currentSessionId ?? '',
       contextSize: _sessionGenSettings.resolveContextSize(_storageService),
     );
     _lastLoreOverflow = loreInjection.overflowDropped;
@@ -242,7 +242,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // not fully voice/narrate them. A guest turn instead gets a short line
     // grounding it as a visitor in the host's scene.
     if (_activeGroup == null) {
-      final hostName = _activeCharacter?.name ?? 'the main character';
+      final hostName = _session.activeCharacter?.name ?? 'the main character';
       if (t.guestSpeaker != null) {
         // A guest turn reuses the host's full transcript, so the identity
         // switch must be unmistakable or the model conflates the guest with
@@ -252,7 +252,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         // line just sent (Discord 2026-08-15).
         var latestUser = '';
         var latestHost = '';
-        for (final m in _messages.reversed) {
+        for (final m in _session.messages.reversed) {
           if (m.sender == 'System') continue;
           if (m.isUser) {
             latestUser = m.promptText.trim();
@@ -330,7 +330,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     //
     // It takes the recap and nothing else. It used to also take the lag in
     // messages behind the Journal pass cursor (_summaryLastIndex vs
-    // _messages.length) to decide whether to stamp the block "the conversation
+    // _session.messages.length) to decide whether to stamp the block "the conversation
     // has moved on since it was written" — that stamp measured as a NET
     // NEGATIVE (models quoted it back as the contradiction) and was deleted,
     // taking the derivation with it.
@@ -348,7 +348,7 @@ extension ChatServiceGenerationBlocks on ChatService {
       isGuest: t.guestSpeaker != null || t.speakingCharacter.isLite,
       asOf: _clockRunning
           ? recapAsOf(
-              messages: _messages,
+              messages: _session.messages,
               cursor: _summaryLastIndex,
               startDate: _timeService.startDate,
               currentDay: _timeService.dayCount,
@@ -359,13 +359,13 @@ extension ChatServiceGenerationBlocks on ChatService {
     // Cued query for journal cold-resurface AND RAG (not last-3 live lines
     // alone). Guests skip both. Compose even when the Journal toggle is off
     // so RAG still searches by feeling / fixation / last words.
-    if (!_isLiteTurn(t) && _currentSessionId != null) {
+    if (!_isLiteTurn(t) && _session.currentSessionId != null) {
       final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
       final cards = speakerId.isEmpty
           ? const <JournalMemoryData>[]
           : [
               for (final c in await _journalStore.cardsFor(
-                _currentSessionId!,
+                _session.currentSessionId!,
                 speakerId,
               ))
                 cooledForStoryDay(c, _timeService.dayCount),
@@ -380,7 +380,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         emotion: _characterEmotion,
         fixation: _relationshipService.activeFixation,
         hotJournalLine: t.ragHotJournalLine,
-        lastWords: lastWordsFromMessages(_messages),
+        lastWords: lastWordsFromMessages(_session.messages),
       );
     }
 
@@ -393,7 +393,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // the exact lines never ride the prompt twice.
     if (_storageService.memorySettings.journalEnabled &&
         !_isLiteTurn(t) &&
-        _currentSessionId != null) {
+        _session.currentSessionId != null) {
       await _birthdaySync.ensure();
       final journal = await _journalInjection.buildJournalBlock(
         characterId: _getCharacterIdFromCard(t.speakingCharacter),
@@ -403,8 +403,8 @@ extension ChatServiceGenerationBlocks on ChatService {
         // not the last-3 live lines. promptText still rides lastWords so
         // photo captions reach cold-resurface the way they reach RAG.
         queryText: t.ragQuery,
-        lastWords: lastSpokenLineFromMessages(_messages),
-        messageCount: _messages.length,
+        lastWords: lastSpokenLineFromMessages(_session.messages),
+        messageCount: _session.messages.length,
       );
       t.journalBlock = journal.text;
       t.expandedJournalPositions = journal.expandedPositions;

@@ -2931,7 +2931,7 @@
         {
           "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
           "in": "_buildNeedsImpactEvaluator",
-          "marker": "_activeCharacter?.frontPorchExtensions?.realismNeedsDirectorAuthority"
+          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismNeedsDirectorAuthority"
         }
       ]
     },
@@ -2967,7 +2967,7 @@
         {
           "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
           "in": "_buildRealismVerifier",
-          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationEnabled"
+          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationEnabled"
         }
       ]
     },
@@ -3003,7 +3003,7 @@
         {
           "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
           "in": "_buildRealismVerifier",
-          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationMaxReprocesses"
+          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationMaxReprocesses"
         }
       ]
     },
@@ -3039,7 +3039,7 @@
         {
           "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
           "in": "_buildRealismVerifier",
-          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationStrictness"
+          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationStrictness"
         }
       ]
     },

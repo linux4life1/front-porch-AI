@@ -25,7 +25,7 @@ extension ChatServiceSessionStateSave on ChatService {
   /// save writes this text, including a deliberate clear.
   void _rememberRecapEdit(String text) {
     _summary = text;
-    final id = _currentSessionId;
+    final id = _session.currentSessionId;
     if (id != null) _recapBoundSessionId = id;
     _recapClearArmed = text.trim().isEmpty;
   }
@@ -34,20 +34,20 @@ extension ChatServiceSessionStateSave on ChatService {
     // Turn taken = this write. Snapshot at enqueue so a later reload
     // cannot shrink the queued transcript. [replaceAll] is only for
     // delete/regen-pop — the default upsert cannot erase a landed turn.
-    if ((_activeCharacter == null && _activeGroup == null) ||
-        _currentSessionId == null) {
+    if ((_session.activeCharacter == null && _activeGroup == null) ||
+        _session.currentSessionId == null) {
       return;
     }
     if (replaceAll) await _awaitHistoryHydrated();
-    if (_messages.isEmpty) {
+    if (_session.messages.isEmpty) {
       debugPrint(
         '[ChatService] ⚠ _saveChat called with empty messages for '
-        'session $_currentSessionId — skipping to protect existing data.',
+        'session ${_session.currentSessionId} — skipping to protect existing data.',
       );
       return;
     }
-    final sessionId = _currentSessionId!;
-    final snapshot = List<ChatMessage>.from(_messages);
+    final sessionId = _session.currentSessionId!;
+    final snapshot = List<ChatMessage>.from(_session.messages);
     final positionBase = _history.basePosition;
     _saveChain = _saveChain.then((_) async {
       for (var i = 0; i < 3; i++) {
@@ -84,7 +84,7 @@ extension ChatServiceSessionStateSave on ChatService {
     // transcript onto ITS session, but do not stamp this chat's live
     // scalars onto that row (that is the inverse of the cross-chat wipe
     // this method's sessionId local was introduced to stop).
-    if (_currentSessionId != sessionId) {
+    if (_session.currentSessionId != sessionId) {
       await _replaceSessionMessages(
         sessionId,
         snapshot,
@@ -161,14 +161,14 @@ extension ChatServiceSessionStateSave on ChatService {
     String? groupDbId;
     if (_activeGroup != null) {
       groupDbId = _activeGroup!.id;
-    } else if (_activeCharacter?.dbId != null) {
-      characterDbId = _activeCharacter!.dbId;
+    } else if (_session.activeCharacter?.dbId != null) {
+      characterDbId = _session.activeCharacter!.dbId;
     }
 
     // Hydrate must not overwrite the row's binding with the previous chat's
     // still-live persona. A partial omit is not possible on insertOnConflict
     // update (absent → default null), so keep the existing id when set.
-    // Same for character/group: a save after `_activeCharacter =` but
+    // Same for character/group: a save after `_session.activeCharacter =` but
     // before session detach used to rebind chat A onto the incoming card.
     var personaId = _userPersonaService.persona.id;
     final existing = await _db.getSessionById(sessionId);

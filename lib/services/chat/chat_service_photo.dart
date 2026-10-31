@@ -123,27 +123,27 @@ extension ChatServicePhoto on ChatService {
   /// speaker) or we are continuing the assistant reply that immediately
   /// followed it. Blind backends get null (they rely on the history marker).
   Future<List<String>?> buildTurnImages(GenerationMode mode) async {
-    if (_llmProvider == null || _messages.isEmpty) return null;
+    if (_llmProvider == null || _session.messages.isEmpty) return null;
     var lastUserIdx = -1;
-    for (var i = _messages.length - 1; i >= 0; i--) {
-      if (_messages[i].isUser) {
+    for (var i = _session.messages.length - 1; i >= 0; i--) {
+      if (_session.messages[i].isUser) {
         lastUserIdx = i;
         break;
       }
     }
     if (lastUserIdx < 0) return null;
-    final md = _messages[lastUserIdx].activeMetadata;
+    final md = _session.messages[lastUserIdx].activeMetadata;
     final path = md?['is_user_image'] == true
         ? md!['image_path'] as String?
         : null;
     if (path == null) return null;
 
-    final last = _messages.length - 1;
+    final last = _session.messages.length - 1;
     final isFreshOrRegen = lastUserIdx == last;
     final isContinueOfReply =
         mode == GenerationMode.continue_ &&
         lastUserIdx == last - 1 &&
-        !_messages.last.isUser;
+        !_session.messages.last.isUser;
     if (!isFreshOrRegen && !isContinueOfReply) return null;
 
     final support = await VisionSupportResolver.instance.resolveForActiveLlm(

@@ -43,8 +43,8 @@ extension ChatServiceSceneGuest on ChatService {
     if (_activeGroup != null || m.isUser || m.sender == 'System') return false;
     final cid = m.characterId;
     if (cid == null || cid.isEmpty) return false; // legacy / host-authored
-    final hostId = _activeCharacter != null
-        ? _getCharacterIdFromCard(_activeCharacter!)
+    final hostId = _session.activeCharacter != null
+        ? _getCharacterIdFromCard(_session.activeCharacter!)
         : null;
     return cid != hostId;
   }
@@ -169,8 +169,8 @@ extension ChatServiceSceneGuest on ChatService {
   void _noteStoppedReply({required bool replyKept}) {
     if (replyKept) {
       _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
-    } else if (_isEvaluatingRealism && _messages.isNotEmpty) {
-      _stoppedReplyAnchor = _messages.last;
+    } else if (_isEvaluatingRealism && _session.messages.isNotEmpty) {
+      _stoppedReplyAnchor = _session.messages.last;
     }
   }
 
@@ -179,15 +179,15 @@ extension ChatServiceSceneGuest on ChatService {
   /// on, another chat opens, Try again starts, or the user dismisses it.
   String? get stoppedReplyNotice {
     final anchor = _stoppedReplyAnchor;
-    if (anchor == null || _messages.isEmpty) return null;
-    if (!identical(_messages.last, anchor)) return null;
+    if (anchor == null || _session.messages.isEmpty) return null;
+    if (!identical(_session.messages.last, anchor)) return null;
     return 'You stopped this reply before it was written.';
   }
 
   /// Try again regenerates the trailing user line, so it is offered only
   /// while the chat still ends on one.
   bool get canRetryStoppedReply =>
-      stoppedReplyNotice != null && _messages.last.isUser;
+      stoppedReplyNotice != null && _session.messages.last.isUser;
 
   void dismissStoppedReplyNotice() {
     if (_stoppedReplyAnchor == null) return;
@@ -231,7 +231,7 @@ extension ChatServiceSceneGuest on ChatService {
       _setGuestStatus('"$displayName" is already in the scene.', isError: true);
       return;
     }
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     _sceneGuest.busy = true;
     notifyListeners();
     try {
@@ -290,7 +290,7 @@ extension ChatServiceSceneGuest on ChatService {
     if (igs == null || !igs.isConfigured) return;
     if (cardPath == null || cardPath.isEmpty || desc.isEmpty) return;
     final prompt = desc.length > 500 ? desc.substring(0, 500) : desc;
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     final dbId = card.dbId;
     unawaited(() async {
       String? tmpPath;
@@ -339,7 +339,7 @@ extension ChatServiceSceneGuest on ChatService {
       _setGuestStatus('Busy — try again in a moment.', isError: true);
       return;
     }
-    final token = _currentSessionId;
+    final token = _session.currentSessionId;
     _sceneGuest.busy = true;
     notifyListeners();
     try {

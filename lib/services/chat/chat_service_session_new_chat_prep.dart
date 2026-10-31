@@ -21,31 +21,31 @@ part of '../chat_service.dart';
 /// startNewChat prep — character refresh, transcript reset, opening greeting.
 extension ChatServiceSessionNewChatPrep on ChatService {
   Future<void> _refreshCharacterForNewChat() async {
-    // Refresh _activeCharacter from the repository so we pick up any edits
+    // Refresh _session.activeCharacter from the repository so we pick up any edits
     // made in the character editor (personality, description, etc.)
-    if (_activeCharacter != null && _characterRepository != null) {
+    if (_session.activeCharacter != null && _characterRepository != null) {
       final freshChar = _characterRepository!.characters
           .cast<CharacterCard?>()
           .firstWhere(
-            (c) => c!.dbId == _activeCharacter!.dbId,
+            (c) => c!.dbId == _session.activeCharacter!.dbId,
             orElse: () => null,
           );
       if (freshChar != null) {
         // Preserve any runtime-loaded extensions if the repository instance lacks them
-        final existingExt = _activeCharacter!.frontPorchExtensions;
-        final existingRaw = _activeCharacter!.rawExtensions;
+        final existingExt = _session.activeCharacter!.frontPorchExtensions;
+        final existingRaw = _session.activeCharacter!.rawExtensions;
 
-        _activeCharacter = freshChar;
+        _session.activeCharacter = freshChar;
 
         if (existingExt != null &&
-            _activeCharacter!.frontPorchExtensions == null) {
-          _activeCharacter!.frontPorchExtensions = existingExt;
-          _activeCharacter!.rawExtensions = existingRaw;
+            _session.activeCharacter!.frontPorchExtensions == null) {
+          _session.activeCharacter!.frontPorchExtensions = existingExt;
+          _session.activeCharacter!.rawExtensions = existingRaw;
           debugPrint(
             '[startNewChat] Preserved existing extensions during character refresh',
           );
         } else if (existingExt == null &&
-            _activeCharacter!.frontPorchExtensions == null) {
+            _session.activeCharacter!.frontPorchExtensions == null) {
           debugPrint(
             '[startNewChat] DEBUG: existingExt was null AND freshChar had null extensions.',
           );
@@ -59,28 +59,28 @@ extension ChatServiceSessionNewChatPrep on ChatService {
 
     // Fallback: If extensions are STILL missing, forcefully reload from PNG.
     // This catches edge cases where repository/memory loses sync with the file.
-    if (_activeCharacter != null &&
-        _activeCharacter!.frontPorchExtensions == null) {
+    if (_session.activeCharacter != null &&
+        _session.activeCharacter!.frontPorchExtensions == null) {
       debugPrint(
         '[startNewChat] DEBUG: Extensions are missing. Attempting PNG fallback.',
       );
-      if (_activeCharacter!.imagePath != null) {
+      if (_session.activeCharacter!.imagePath != null) {
         debugPrint(
-          '[startNewChat] DEBUG: Image path exists: ${_activeCharacter!.imagePath}',
+          '[startNewChat] DEBUG: Image path exists: ${_session.activeCharacter!.imagePath}',
         );
         try {
           final v2Service = V2CardService();
           final reloaded = await v2Service.readCard(
-            _activeCharacter!.imagePath!,
+            _session.activeCharacter!.imagePath!,
           );
           if (reloaded == null) {
             debugPrint(
               '[startNewChat] DEBUG: readCard returned null. Failed to parse PNG.',
             );
           } else if (reloaded.frontPorchExtensions != null) {
-            _activeCharacter!.frontPorchExtensions =
+            _session.activeCharacter!.frontPorchExtensions =
                 reloaded.frontPorchExtensions;
-            _activeCharacter!.rawExtensions = reloaded.rawExtensions;
+            _session.activeCharacter!.rawExtensions = reloaded.rawExtensions;
             debugPrint(
               '[startNewChat] Force-reloaded frontPorchExtensions from PNG',
             );
@@ -99,7 +99,7 @@ extension ChatServiceSessionNewChatPrep on ChatService {
   }
 
   Future<void> _resetNewChatTranscript() async {
-    _messages.clear();
+    _session.messages.clear();
     _history.reset();
     _greetingIndex = 0;
     // A fresh chat starts with no Scene Guests (they don't carry across sessions).
@@ -113,7 +113,7 @@ extension ChatServiceSessionNewChatPrep on ChatService {
     _sceneGuest.turnsSinceCastScan = 0;
     _sceneGuest.pendingDetection = null;
     _sceneGuest.offeredOrIgnoredNames.clear();
-    _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+    _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
     _summary = '';
     _summaryLastIndex = 0;
     _selectedLooks
@@ -142,7 +142,7 @@ extension ChatServiceSessionNewChatPrep on ChatService {
     debugPrint('[startNewChat] Marked as new chat - memories will be filtered');
 
     // Save the current session (preserves objectives for this session)
-    if (_currentSessionId != null) {
+    if (_session.currentSessionId != null) {
       await _saveChat();
     }
 
@@ -155,18 +155,19 @@ extension ChatServiceSessionNewChatPrep on ChatService {
         false; // growth-pass flag zero in startNew 1:1/ext-seed branch (both startNew explicit; keep reset blocks in sync)
 
     // Create new session ID for the new chat
-    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _session.currentSessionId = DateTime.now().millisecondsSinceEpoch
+        .toString();
     _computeAbsenceGap(
       const [],
     ); // fresh session — no real-world gap (Living Time §2)
 
     // Clear memory sources to prevent old memories from being retrieved
     // Cross-character memory can still be re-selected by user after new chat starts
-    if (_activeCharacter?.dbId != null) {
+    if (_session.activeCharacter?.dbId != null) {
       try {
         await _db.updateCharacter(
           CharactersCompanion(
-            id: drift.Value(_activeCharacter!.dbId!),
+            id: drift.Value(_session.activeCharacter!.dbId!),
             memorySources: drift.Value('[]'),
           ),
         );

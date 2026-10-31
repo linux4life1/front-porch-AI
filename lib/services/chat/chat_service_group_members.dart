@@ -164,7 +164,7 @@ extension ChatServiceGroupMembers on ChatService {
       }
     }
     _inheritGroupExpressionAvatars(resolved);
-    _groupManager?.refreshCharacters(resolved);
+    _session.groupManager?.refreshCharacters(resolved);
     if (!asLite && _needsSimEnabled && _groupStore.needsOf(mid).isEmpty) {
       _groupStore.setNeeds(
         mid,
@@ -203,7 +203,7 @@ extension ChatServiceGroupMembers on ChatService {
       }
     }
     _inheritGroupExpressionAvatars(resolved);
-    _groupManager?.refreshCharacters(resolved);
+    _session.groupManager?.refreshCharacters(resolved);
     return resolved;
   }
 

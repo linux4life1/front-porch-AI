@@ -37,8 +37,8 @@ extension ChatServiceGenerationEntry on ChatService {
       if (await _abortIfBackendDown()) return null;
       // Continue is regen's sibling for WHO is speaking. Infer guest / group
       // member from the bubble; refuse rather than guess.
-      if (mode == GenerationMode.continue_ && _messages.isNotEmpty) {
-        final last = _messages.last;
+      if (mode == GenerationMode.continue_ && _session.messages.isNotEmpty) {
+        final last = _session.messages.last;
         guestSpeaker ??= _sceneGuestForMessage(last);
         if (guestSpeaker == null && _isGuestAuthoredMessage(last)) {
           _setGuestStatus(

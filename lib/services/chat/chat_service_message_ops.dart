@@ -29,13 +29,12 @@ extension ChatServiceMessageOps on ChatService {
     int direction, {
     String? critique,
   }) async {
-    if (messageIndex < 0 || messageIndex >= _messages.length) return;
-    final msg = _messages[messageIndex];
+    if (messageIndex < 0 || messageIndex >= _session.messages.length) return;
+    final msg = _session.messages[messageIndex];
     if (msg.isUser || msg.sender == 'System') return;
 
     final newIndex = msg.swipeIndex + direction;
 
-    // Swiping left
     if (direction < 0) {
       if (newIndex >= 0) {
         await _commitSwipeIndex(messageIndex, newIndex);
@@ -43,10 +42,9 @@ extension ChatServiceMessageOps on ChatService {
       return;
     }
 
-    // Swiping right
     if (newIndex < msg.swipes.length) {
       await _commitSwipeIndex(messageIndex, newIndex);
-    } else if (messageIndex == _messages.length - 1) {
+    } else if (messageIndex == _session.messages.length - 1) {
       // Past last swipe on last message — regenerate (aborts settling evals)
       await regenerateLastMessage(critique: critique);
     }
@@ -57,15 +55,16 @@ extension ChatServiceMessageOps on ChatService {
   /// beat left (guest replies have no speaker Realism of their own).
   /// Buried swipes are navigation, not time travel.
   Future<void> _commitSwipeIndex(int messageIndex, int newIndex) async {
-    final msg = _messages[messageIndex];
+    final msg = _session.messages[messageIndex];
     if (newIndex == msg.swipeIndex) return;
     if (newIndex < 0 || newIndex >= msg.swipes.length) return;
 
     final isGuestMsg = _isGuestAuthoredMessage(msg);
     final isTip =
         !isGuestMsg &&
-        _messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
-    final isGuestTip = isGuestMsg && messageIndex == _messages.length - 1;
+        _session.messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
+    final isGuestTip =
+        isGuestMsg && messageIndex == _session.messages.length - 1;
 
     msg.swipeIndex = newIndex;
     if (isTip || isGuestTip) {
@@ -148,7 +147,7 @@ extension ChatServiceMessageOps on ChatService {
   }
 
   Future<void> continueGeneration() async {
-    if (_messages.isEmpty || _sceneGuest.busy) return;
+    if (_session.messages.isEmpty || _sceneGuest.busy) return;
     // Continue KEEPS the reply. Aborting its scoring would leave the first
     // half unbookkept and only score the new fragment. Wait like Send.
     if (_isGenerating || _isImporting || _skipAsked) return;
@@ -156,12 +155,13 @@ extension ChatServiceMessageOps on ChatService {
 
     // Only continue if the last message is from a bot (non-user, non-system).
     // Narration banners (dreams, Chance Time) are excluded: continue_ streams
-    // straight into _messages.last, which would append a chat reply to the
+    // straight into _session.messages.last, which would append a chat reply to the
     // banner (the dream-corruption class, 2026-07-28).
-    if (!_messages.last.isUser &&
-        _messages.last.sender != 'System' &&
-        _messages.last.activeMetadata?['is_dream'] != true &&
-        _messages.last.activeMetadata?['is_chance_time_narration'] != true) {
+    if (!_session.messages.last.isUser &&
+        _session.messages.last.sender != 'System' &&
+        _session.messages.last.activeMetadata?['is_dream'] != true &&
+        _session.messages.last.activeMetadata?['is_chance_time_narration'] !=
+            true) {
       await _generateResponse(GenerationMode.continue_);
     }
   }
@@ -170,19 +170,19 @@ extension ChatServiceMessageOps on ChatService {
   /// Used after cloud sync or DB migration updates the database — preserves the
   /// user's active chat instead of wiping it.
   Future<void> reloadCurrentSession() async {
-    if (_currentSessionId == null) return;
+    if (_session.currentSessionId == null) return;
     debugPrint(
-      '[ChatService] 🔄 reloadCurrentSession: reloading session $_currentSessionId '
-      '(currently ${_messages.length} messages in memory)',
+      '[ChatService] 🔄 reloadCurrentSession: reloading session ${_session.currentSessionId} '
+      '(currently ${_session.messages.length} messages in memory)',
     );
-    await loadSession(_currentSessionId!);
+    await loadSession(_session.currentSessionId!);
   }
 
   void clearChat() async {
     debugPrint(
-      '[ChatService] 🟡 clearChat: clearing ${_messages.length} messages',
+      '[ChatService] 🟡 clearChat: clearing ${_session.messages.length} messages',
     );
-    _messages.clear();
+    _session.messages.clear();
     await _saveChat();
     notifyListeners();
   }
@@ -202,22 +202,22 @@ extension ChatServiceMessageOps on ChatService {
     await _db.deleteSessionById(sessionId);
 
     // If we deleted the current session, switch to another
-    if (sessionId == _currentSessionId) {
+    if (sessionId == _session.currentSessionId) {
       final remaining = await getSessions();
       if (remaining.isNotEmpty) {
         if (startReplacement) {
           await loadSession(remaining.first['id']);
         } else {
-          _messages.clear();
-          _currentSessionId = null;
+          _session.messages.clear();
+          _session.currentSessionId = null;
         }
       } else {
         // No sessions left — start fresh only when the open chat asked.
         debugPrint(
           '[ChatService] 🟡 deleteSession: no sessions left, clearing messages',
         );
-        _messages.clear();
-        _currentSessionId = null;
+        _session.messages.clear();
+        _session.currentSessionId = null;
         if (startReplacement) {
           await startNewChat();
         }
@@ -232,26 +232,26 @@ extension ChatServiceMessageOps on ChatService {
     // the aborted turn's writes landed (2026-07-28). Stop before deleting
     // THAT bubble. An earlier one is already finished — a group mate's
     // long generation must not trap it.
-    if (index < 0 || index >= _messages.length) return;
-    if (_isTurnBusy && index == _messages.length - 1) return;
+    if (index < 0 || index >= _session.messages.length) return;
+    if (_isTurnBusy && index == _session.messages.length - 1) return;
     final dbPos = persistMessagePosition(
       base: _history.basePosition,
       index: index,
     );
-    final wasTail = index == _messages.length - 1;
+    final wasTail = index == _session.messages.length - 1;
     // Middle-of-history delete needs the full prefix so replaceAll
     // cannot drop the 11k rows we have not loaded yet.
     if (!wasTail && _history.hasMore) {
       await _awaitHistoryHydrated();
       index = dbPos;
-      if (index < 0 || index >= _messages.length) return;
-      if (_isTurnBusy && index == _messages.length - 1) return;
+      if (index < 0 || index >= _session.messages.length) return;
+      if (_isTurnBusy && index == _session.messages.length - 1) return;
     }
     // Re-read after the hydration await. The turn may have finished,
     // in which case this is an ordinary delete.
     final duringTurn = _isTurnBusy;
-    if (index >= 0 && index < _messages.length) {
-      final deleted = _messages[index];
+    if (index >= 0 && index < _session.messages.length) {
+      final deleted = _session.messages[index];
 
       // Pockets stamp restore runs AFTER realism time-travel below (not
       // here). realism_state.pockets was historically pre-gen and, even
@@ -287,7 +287,7 @@ extension ChatServiceMessageOps on ChatService {
         deleted,
       );
 
-      _messages.removeAt(index);
+      _session.messages.removeAt(index);
 
       // Persist index, not the on-screen 0..23 of a tail window.
       _timeline.invalidateFrom(dbPos);
@@ -319,11 +319,11 @@ extension ChatServiceMessageOps on ChatService {
           deleted.sender != 'System' &&
           deleted.activeMetadata?['realism_state'] is Map &&
           deletedSid != null &&
-          (_messages.isEmpty ||
-              _resolveGroupSpeakerForMessage(_messages.last) !=
+          (_session.messages.isEmpty ||
+              _resolveGroupSpeakerForMessage(_session.messages.last) !=
                   deletedSpeaker)) {
-        for (int i = _messages.length - 1; i >= 0; i--) {
-          final m = _messages[i];
+        for (int i = _session.messages.length - 1; i >= 0; i--) {
+          final m = _session.messages[i];
           final speaker = _resolveGroupSpeakerForMessage(m);
           if (speaker != null &&
               _getCharacterIdFromCard(speaker) == deletedSid &&
@@ -359,7 +359,7 @@ extension ChatServiceMessageOps on ChatService {
 
       if (wasTail && _history.hasMore) {
         await _saveChat(replaceAll: false);
-        final sid = _currentSessionId;
+        final sid = _session.currentSessionId;
         if (sid != null) {
           await _db.deleteMessagesAtPosition(sid, dbPos);
         }
@@ -433,8 +433,8 @@ extension ChatServiceMessageOps on ChatService {
       ...othersAfter.keys,
       if (_activeGroup != null)
         for (final c in _groupCharacters) _getCharacterIdFromCard(c),
-      if (_activeGroup == null && _activeCharacter != null)
-        _getCharacterIdFromCard(_activeCharacter!),
+      if (_activeGroup == null && _session.activeCharacter != null)
+        _getCharacterIdFromCard(_session.activeCharacter!),
     };
     final live = <String, Pockets>{
       for (final id in ids)

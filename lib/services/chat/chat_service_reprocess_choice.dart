@@ -187,13 +187,13 @@ extension ChatServiceFeelingsRescore on ChatService {
     const refused = FeelingsRescore.refused;
     if (_isTurnBusy || !_realismActiveThisMode) return refused;
     if (reprocessFeelingsTargetFor(index) == null) return refused;
-    final msg = _messages[index];
-    final userMsg =
-        _messages[_messages.lastIndexWhere((m) => m.isUser, index - 1)];
+    final msg = _session.messages[index];
+    final userMsg = _session
+        .messages[_session.messages.lastIndexWhere((m) => m.isUser, index - 1)];
     final inGroup = _activeGroup != null;
     final speaker = inGroup
         ? _resolveGroupSpeakerForMessage(msg)
-        : _activeCharacter;
+        : _session.activeCharacter;
     if (speaker == null) return refused;
     final sid = inGroup ? _getCharacterIdFromCard(speaker) : '';
     final userMeta = userMsg.metadata ?? const <String, dynamic>{};
@@ -203,7 +203,7 @@ extension ChatServiceFeelingsRescore on ChatService {
         : (bySpeaker is Map ? bySpeaker[sid] : null);
     if (rawStamp is! Map) return refused;
 
-    final preActive = _activeCharacter;
+    final preActive = _session.activeCharacter;
     final prePin = _groupStore.turnSpeakerId;
     final preObjectives = _activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
@@ -231,7 +231,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       _rescoringFeelings = false;
       _rescoreCrossings.clear();
       _pendingRealismMetadata = null;
-      _activeCharacter = preActive;
+      _session.activeCharacter = preActive;
       _groupStore.turnSpeakerId = prePin;
       _activeObjectives = preObjectives;
       _evalChunkTimer?.cancel();
@@ -254,7 +254,7 @@ extension ChatServiceFeelingsRescore on ChatService {
   }) async {
     final inGroup = sid.isNotEmpty;
     final groupSid = inGroup ? sid : null;
-    _activeCharacter = speaker;
+    _session.activeCharacter = speaker;
     if (inGroup) {
       _groupStore.turnSpeakerId = sid;
       _realismDance.loadIntoScalars(sid);
@@ -434,7 +434,7 @@ extension ChatServiceFeelingsRescore on ChatService {
         }
       }
     }
-    final session = _currentSessionId;
+    final session = _session.currentSessionId;
     if (session == null) return const [];
     final List<Objective> all;
     try {

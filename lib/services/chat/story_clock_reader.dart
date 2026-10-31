@@ -5,6 +5,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/session_open_window.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
@@ -13,23 +14,20 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 /// Porch Life Passage of Time flips take effect on the next call.
 class StoryClockScope {
   const StoryClockScope({
-    required this.messages,
+    required this.session,
     required this.history,
     required this.time,
     required this.clockRunning,
-    required this.activeGroup,
-    required this.activeCharacter,
   });
 
-  /// The chat's in-memory message list (the same list object, not a copy).
-  final List<ChatMessage> messages;
+  /// The open chat: its messages (the same list object, not a copy), the
+  /// active character and the group.
+  final ChatSessionState session;
   final SessionHistoryWindow history;
   final TimeService Function() time;
 
   /// Porch Life `passageOfTimeDefault`, read live.
   final bool Function() clockRunning;
-  final GroupChat? Function() activeGroup;
-  final CharacterCard? Function() activeCharacter;
 }
 
 /// One clock path, read side: live = the visible tip slot's resolved
@@ -40,7 +38,7 @@ class StoryClockReader {
 
   final StoryClockScope _scope;
 
-  List<ChatMessage> get _messages => _scope.messages;
+  List<ChatMessage> get _messages => _scope.session.messages;
   TimeService get _timeService => _scope.time();
 
   /// Last non-user, non-system bot — guests below a host are the tip.
@@ -174,7 +172,7 @@ class StoryClockReader {
     var tod = 'morning';
     String? startTime;
     String? cardStart;
-    final group = _scope.activeGroup();
+    final group = _scope.session.activeGroup;
     if (group != null) {
       final seed = parseGroupTimeSeed(
         group.defaultMemberRealismState,
@@ -186,7 +184,7 @@ class StoryClockReader {
         cardStart = seed.storyStartDate;
       }
     } else {
-      final ext = _scope.activeCharacter()?.frontPorchExtensions;
+      final ext = _scope.session.activeCharacter?.frontPorchExtensions;
       if (ext != null) {
         if (ext.timeOfDay.isNotEmpty) tod = ext.timeOfDay;
         startTime = ext.storyStartTime;

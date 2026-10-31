@@ -114,13 +114,13 @@ extension ChatServiceObjectiveTasks on ChatService {
           });
         }
         _mood.setMember(owner, next);
-        final loaded = _activeCharacter;
+        final loaded = _session.activeCharacter;
         if (loaded != null && _getCharacterIdFromCard(loaded) == owner) {
           _mood.set(next.label, next.intensity, cause: next.cause);
         }
       }
     }
-    final sessionId = _currentSessionId;
+    final sessionId = _session.currentSessionId;
     if (!_storageService.memorySettings.journalEnabled || sessionId == null) {
       return;
     }

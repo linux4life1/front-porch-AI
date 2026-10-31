@@ -36,7 +36,7 @@ extension ChatServicePlannerResolve on ChatService {
   }
 
   Future<void> _persistTodayObjectiveId(String? id) async {
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (sid == null) return;
     await _db.patchSession(
       SessionsCompanion(
@@ -52,7 +52,7 @@ extension ChatServicePlannerResolve on ChatService {
   /// rows are asked next.
   Future<Objective?> _heldTodayRow() async {
     final id = _todayObjectiveId;
-    final sid = _currentSessionId;
+    final sid = _session.currentSessionId;
     if (id == null) return null;
     final listed = _activeObjectives.where((o) => o.id == id).firstOrNull;
     if (listed != null || sid == null) return listed;
@@ -108,7 +108,7 @@ extension ChatServicePlannerResolve on ChatService {
   /// never tasks, never an ambition, never evicts other secondaries.
   Future<void> _upsertTodayObjective(String line) async {
     final trimmed = line.trim();
-    if (trimmed.isEmpty || _currentSessionId == null) return;
+    if (trimmed.isEmpty || _session.currentSessionId == null) return;
     final heldId = _todayObjectiveId;
     if (heldId != null) {
       final held = await _heldTodayRow();
@@ -172,8 +172,8 @@ extension ChatServicePlannerResolve on ChatService {
     final cite = _objectiveTurnCite();
     _nudgePlannerMood(fate, line);
     if (fate == PlannerTodayFate.abandoned) return;
-    final sessionId = _currentSessionId;
-    final card = _activeCharacter;
+    final sessionId = _session.currentSessionId;
+    final card = _session.activeCharacter;
     final mood = _characterEmotion;
     final owner =
         ownerId ??

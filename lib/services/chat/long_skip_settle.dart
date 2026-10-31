@@ -21,14 +21,14 @@ class LongSkipSettle {
 
   void settle() {
     final rel = _scope.relationship();
-    final ext = _scope.activeCharacter()?.frontPorchExtensions;
+    final ext = _scope.session.activeCharacter?.frontPorchExtensions;
     MoodRegisters(
       _scope,
     ).seed(ext?.characterEmotion ?? '', ext?.emotionIntensity ?? '');
     rel.updateFixationFromEvalResult('none');
     rel.setSpatialStance('');
-    if (_scope.activeGroup() == null) return;
-    for (final card in _scope.groupCharacters()) {
+    if (_scope.session.activeGroup == null) return;
+    for (final card in _scope.session.groupCharacters) {
       final member = _scope.groups.members[_scope.characterIdFor(card)];
       if (member == null) continue;
       final cardExt = card.frontPorchExtensions;

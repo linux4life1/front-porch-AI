@@ -33,14 +33,16 @@ extension ChatServiceGroupMembership on ChatService {
     Set<String> liteArrivalKeys = const {},
   }) async {
     if (_isTurnBusy) return null;
-    if (_activeCharacter == null || _characterRepository == null) return null;
-    if (_messages.isEmpty) return null;
+    if (_session.activeCharacter == null || _characterRepository == null) {
+      return null;
+    }
+    if (_session.messages.isEmpty) return null;
     // 1:1 → group only. Forking from an existing group would rebuild a group
     // from just the active speaker (dropping the other members), so refuse it —
     // use "Add Character to Group" for an existing group instead.
     if (_activeGroup != null) return null;
 
-    final originalCharId = _getCharacterIdFromCard(_activeCharacter!);
+    final originalCharId = _getCharacterIdFromCard(_session.activeCharacter!);
 
     // Capture the host's full live 1:1 state BEFORE the fork switches into group
     // mode (setActiveGroup, below, resets the working registers). It is carried
@@ -50,9 +52,9 @@ extension ChatServiceGroupMembership on ChatService {
     // via _growthStore.carryOwnerGrowth in the fork carry (no capture needed).
     // Present lite guests become SOFT members (tier kept) unless the
     // caller listed them as a full arrival (join --full of that guest).
-    final String hostName = _activeCharacter!.name;
+    final String hostName = _session.activeCharacter!.name;
     final String? hostSessionId =
-        _currentSessionId; // 1:1 session (objectives source)
+        _session.currentSessionId; // 1:1 session (objectives source)
     // Capture UNCONDITIONALLY: the enable-flags, author note, and objectives
     // must carry even when realism is OFF (a user can have quests or an author
     // note with realism disabled). Only the realism snapshot itself is
@@ -87,7 +89,10 @@ extension ChatServiceGroupMembership on ChatService {
     // Build a default group name
     final name = groupName?.isNotEmpty == true
         ? groupName!
-        : [_activeCharacter!.name, ...arrivals.map((c) => c.name)].join(' & ');
+        : [
+            _session.activeCharacter!.name,
+            ...arrivals.map((c) => c.name),
+          ].join(' & ');
 
     // Create the group
     final group = GroupChat(
@@ -98,8 +103,8 @@ extension ChatServiceGroupMembership on ChatService {
       scenario: scenario ?? '',
       // The host's worlds become the group's template, so a later "New chat"
       // in this group starts where the 1:1 would have.
-      worldIds: List<String>.of(_activeCharacter!.worldNames),
-      loreWorldIds: switch (_activeCharacter!.loreWorldNames) {
+      worldIds: List<String>.of(_session.activeCharacter!.worldNames),
+      loreWorldIds: switch (_session.activeCharacter!.loreWorldNames) {
         final lore? => List<String>.of(lore),
         null => null,
       },
@@ -127,7 +132,7 @@ extension ChatServiceGroupMembership on ChatService {
     // and every additional character. Without this, the group loads empty
     // (setActiveGroup / GroupTurnManager will have no one to speak).
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
-    await _createGroupMember(group.id, _activeCharacter!);
+    await _createGroupMember(group.id, _session.activeCharacter!);
     for (final c in orderedArrivals) {
       final key = _getCharacterIdFromCard(c);
       final asLite =
@@ -139,8 +144,8 @@ extension ChatServiceGroupMembership on ChatService {
     // Create a new session for the group and copy all messages
     final newSessionId = DateTime.now().millisecondsSinceEpoch.toString();
     final copiedMessages = <MessagesCompanion>[];
-    for (int i = 0; i < _messages.length; i++) {
-      final m = _messages[i];
+    for (int i = 0; i < _session.messages.length; i++) {
+      final m = _session.messages[i];
       // Back-fill characterId on AI messages (null in 1:1 mode)
       String? charId = m.characterId;
       if (!m.isUser && charId == null) {
@@ -161,7 +166,7 @@ extension ChatServiceGroupMembership on ChatService {
           // and realism_state / needs_pre_turn_vector / pockets_before are the
           // baseline every later regen, swipe and delete rewinds to. Omitting
           // these two columns inserted NULLs, and setActiveGroup below then
-          // re-hydrates _messages from exactly these rows — so the converted
+          // re-hydrates _session.messages from exactly these rows — so the converted
           // group lost every image and every stamp on the whole transcript.
           // Encoded identically to _replaceSessionMessages (the other copy
           // path) so both write the same shape.
@@ -190,7 +195,7 @@ extension ChatServiceGroupMembership on ChatService {
         summaryLastIndex: drift.Value(
           _summaryLastIndex > 0 ? _summaryLastIndex : null,
         ),
-        parentSession: drift.Value(_currentSessionId),
+        parentSession: drift.Value(_session.currentSessionId),
         // setActiveGroup re-activates the persona from this row; without it
         // the group fell back to the default persona instead of the 1:1's.
         userPersonaId: drift.Value(
@@ -198,7 +203,7 @@ extension ChatServiceGroupMembership on ChatService {
               ? null
               : _userPersonaService.persona.id,
         ),
-        forkIndex: drift.Value(_messages.length - 1),
+        forkIndex: drift.Value(_session.messages.length - 1),
         trustLevel: drift.Value(_relationshipService.trustLevel),
         activeFixation: drift.Value(_relationshipService.activeFixation),
         fixationLifespan: drift.Value(_relationshipService.fixationLifespan),
@@ -232,13 +237,13 @@ extension ChatServiceGroupMembership on ChatService {
 
     debugPrint(
       '[ChatService] \u{1F500} Forked 1:1 chat to group "${group.name}" '
-      '(${_messages.length} messages copied)',
+      '(${_session.messages.length} messages copied)',
     );
 
     // Switch to the new group (this loads the session we just created)
     await setActiveGroup(group, groupRepo: groupRepo);
 
-    // Writes to _currentSessionId, so only once the group session is live.
+    // Writes to _session.currentSessionId, so only once the group session is live.
     if (hostSessionId != null) await _copyWikiForForkedSession(hostSessionId);
 
     // Carry the captured 1:1 host realism into the host member's per-character
@@ -284,7 +289,7 @@ extension ChatServiceGroupMembership on ChatService {
               if (!ok) {
                 // Surface the failure so the user isn't left wondering why the
                 // group loaded with no entrance.
-                _messages.add(
+                _session.messages.add(
                   statusBannerMessage(
                     '⚠ ${resolved.name}\'s entrance could not be generated.',
                   ),
@@ -295,7 +300,7 @@ extension ChatServiceGroupMembership on ChatService {
             } else {
               // Opening line: the entrance IS the user's text, verbatim — it
               // becomes the character's message as-is, no LLM generation.
-              _messages.add(
+              _session.messages.add(
                 ChatMessage(
                   text: text,
                   sender: resolved.name,
@@ -323,7 +328,7 @@ extension ChatServiceGroupMembership on ChatService {
             final lastEntrant = _groupCharacters.firstWhere(
               (c) => c.name == lastEntrantName,
             );
-            _groupManager?.advanceAfterRegeneration(lastEntrant);
+            _session.groupManager?.advanceAfterRegeneration(lastEntrant);
           }
           _entrancesInFlight = false; // user turns allowed again
           // The turn pointer changed after generation finished. GroupTurnManager

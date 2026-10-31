@@ -12,11 +12,11 @@ extension ChatServiceGreetingSeed on ChatService {
   /// Who owns the opening bubble. Custom group greetings have no member id
   /// and therefore no alt-greet picker.
   CharacterCard? _greetingOwnerCard() {
-    if (_activeGroup == null) return _activeCharacter;
-    if (_messages.isEmpty) {
+    if (_activeGroup == null) return _session.activeCharacter;
+    if (_session.messages.isEmpty) {
       return _groupCharacters.isEmpty ? null : _groupCharacters.first;
     }
-    final cid = _messages.first.characterId;
+    final cid = _session.messages.first.characterId;
     if (cid == null || cid.isEmpty) return null;
     for (final c in _groupCharacters) {
       if (_getCharacterIdFromCard(c) == cid) return c;
@@ -25,7 +25,7 @@ extension ChatServiceGreetingSeed on ChatService {
   }
 
   bool get _isOpeningGreetingChat =>
-      _messages.length == 1 && !_messages.first.isUser;
+      _session.messages.length == 1 && !_session.messages.first.isUser;
 
   /// Existing chat start. Null only for a new chat whose live is
   /// still today so creation can seed today once. A lived-in clock
@@ -178,20 +178,22 @@ extension ChatServiceGreetingSeed on ChatService {
       target: card,
     );
 
-    if (_messages.isNotEmpty) {
-      _messages.first.activeMetadata ??= {};
-      _messages.first.activeMetadata![kGreetingIndexMetadataKey] = index;
+    if (_session.messages.isNotEmpty) {
+      _session.messages.first.activeMetadata ??= {};
+      _session.messages.first.activeMetadata![kGreetingIndexMetadataKey] =
+          index;
       if (_characterEmotion.isNotEmpty) {
-        _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
+        _session.messages.first.activeMetadata!['emotion_label'] =
+            _characterEmotion;
       }
       // Reload must not invent a greeting snap / dayCount. That leftover
       // is frozen (equals itself) and the dayCount rung then synthesises
       // afternoon instead of the session live clock (HIGH-1).
       if (scheduleEval) {
-        _messages.first.activeMetadata!['realism_state'] = _realismSnapshot
-            .capture();
+        _session.messages.first.activeMetadata!['realism_state'] =
+            _realismSnapshot.capture();
         _clockWriter.writeSlotClock(
-          _messages.isEmpty ? null : _messages.first,
+          _session.messages.isEmpty ? null : _session.messages.first,
           kind: SlotClockWrite.seed,
         );
       }
@@ -217,21 +219,22 @@ extension ChatServiceGreetingSeed on ChatService {
   }
 
   void _stampGreetingIndex(int index) {
-    if (_messages.isEmpty) return;
-    _messages.first.activeMetadata ??= {};
-    _messages.first.activeMetadata![kGreetingIndexMetadataKey] = index;
+    if (_session.messages.isEmpty) return;
+    _session.messages.first.activeMetadata ??= {};
+    _session.messages.first.activeMetadata![kGreetingIndexMetadataKey] = index;
   }
 
   void _restoreGreetingIndex() {
-    if (_messages.isEmpty) {
+    if (_session.messages.isEmpty) {
       _greetingIndex = 0;
       return;
     }
     final resolved = _resolvedOpeningGreetings();
     _greetingIndex = recoverGreetingIndex(
       resolvedGreetings: resolved,
-      currentText: _messages.first.text,
-      storedIndex: _messages.first.activeMetadata?[kGreetingIndexMetadataKey],
+      currentText: _session.messages.first.text,
+      storedIndex:
+          _session.messages.first.activeMetadata?[kGreetingIndexMetadataKey],
     );
   }
 
@@ -304,17 +307,19 @@ extension ChatServiceGreetingSeed on ChatService {
       );
     }
 
-    if (_messages.isNotEmpty) {
-      _messages.first.activeMetadata ??= {};
-      _messages.first.activeMetadata![kGreetingIndexMetadataKey] = index;
+    if (_session.messages.isNotEmpty) {
+      _session.messages.first.activeMetadata ??= {};
+      _session.messages.first.activeMetadata![kGreetingIndexMetadataKey] =
+          index;
       if (_characterEmotion.isNotEmpty) {
-        _messages.first.activeMetadata!['emotion_label'] = _characterEmotion;
+        _session.messages.first.activeMetadata!['emotion_label'] =
+            _characterEmotion;
       }
       if (scheduleEval) {
-        _messages.first.activeMetadata!['realism_state'] = _realismSnapshot
-            .capture();
+        _session.messages.first.activeMetadata!['realism_state'] =
+            _realismSnapshot.capture();
         _clockWriter.writeSlotClock(
-          _messages.isEmpty ? null : _messages.first,
+          _session.messages.isEmpty ? null : _session.messages.first,
           kind: SlotClockWrite.seed,
         );
       }
@@ -378,7 +383,7 @@ extension ChatServiceGreetingSeed on ChatService {
       await _applyGroupCustomGreetingSeed(_greetingIndex, scheduleEval: false);
       return;
     }
-    final owner = _greetingOwnerCard() ?? _activeCharacter;
+    final owner = _greetingOwnerCard() ?? _session.activeCharacter;
     if (owner != null) {
       final ext = owner.frontPorchExtensions;
       final firstMesEmpty = greetingFirstMesEmpty(owner.firstMessage);

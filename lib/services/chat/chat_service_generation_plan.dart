@@ -81,8 +81,8 @@ extension ChatServiceGenerationPlan on ChatService {
     // and place it as the prompt suffix so the LLM continues from it naturally.
     // Wrapped in try-finally to guarantee restoration even on exception.
     ChatMessage? _continuePoppedMessage;
-    if (t.mode == GenerationMode.continue_ && _messages.isNotEmpty) {
-      _continuePoppedMessage = _messages.removeLast();
+    if (t.mode == GenerationMode.continue_ && _session.messages.isNotEmpty) {
+      _continuePoppedMessage = _session.messages.removeLast();
       // Think-stripped / photo-aware (promptText), same contract as history
       // lines — raw .text re-injects closed <think> plans into the Continue
       // suffix (Nina-class hole on the Continue path only; audit P0.2).
@@ -270,7 +270,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // diary if needed; stays armed through regen of this AI message until
       // the *next* user send clears it.
       final porchDiaryId = _getCharacterIdFromCard(t.speakingCharacter);
-      final porchSessionId = _currentSessionId;
+      final porchSessionId = _session.currentSessionId;
       if (porchSessionId != null) {
         await _porchMemoryImport.ensureArmedForDiary(
           sessionId: porchSessionId,
@@ -401,7 +401,7 @@ extension ChatServiceGenerationPlan on ChatService {
       }
       // Zero/negative budget: last user line + everything after it (think-
       // stripped). Raw lastMsg.text re-injects <think> (audit 2026-08-11).
-      if (t.historyBudget <= 0 && _messages.isNotEmpty) {
+      if (t.historyBudget <= 0 && _session.messages.isNotEmpty) {
         // All of it is the latest beat, so all of it renders last.
         final overflow = _overflowContinuityHistory();
         t.history = '';
@@ -411,7 +411,7 @@ extension ChatServiceGenerationPlan on ChatService {
     } finally {
       // ── Restore the popped continue message back into the list ──
       if (_continuePoppedMessage != null) {
-        _messages.add(_continuePoppedMessage);
+        _session.messages.add(_continuePoppedMessage);
       }
     }
 
