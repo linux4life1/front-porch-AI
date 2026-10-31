@@ -307,6 +307,17 @@ swipe, reprocess or impersonate pass unedited, and these suites pass:
 `integration_test/regen_shortcut_test.dart`, `swipe_fork_cancel_test.dart`,
 `needs_reprocess_test.dart`, `message_actions_test.dart`.
 
+Landed at 62 parts and 206 fields with three of the six parts retired.
+`chat_service_message_ops` (stop and cancel, delete's Needs baseline),
+`chat_service_regen_revert` (`_revertRegenRealismBaseline`) and
+`chat_service_reprocess` (the regen judge replay) stay because
+`test/services/chat/catastrophe_clear_on_cancel_test.dart`,
+`test/hygiene/needs_gate_ratchet_test.dart` and
+`test/services/chat/trust_repair_regen_latch_test.dart` name them by path.
+The door takes typed hook groups (`edit_hooks.dart`) that WP7, WP9a and
+WP10b retire. The door's own changes notify synchronously because the
+overlay and the web push listen for the exact eval transitions.
+
 ### WP6. Cast door
 
 Parts retired (9, ~2,900 lines): `chat_service_cast`,
@@ -328,6 +339,16 @@ Done when: part baseline → 47, the 180 test files that mention guests,
 greetings, idle or the away pulse pass unedited, and
 `integration_test/group_smoke_test.dart`, `place_mint_journey_test.dart`
 and `chat_switch_smoke_test.dart` pass.
+
+Landed at 57 parts and 190 fields with five of the nine parts retired.
+`cast_shrink` (`realism_gate_ratchet_test`), `greeting_seed` and
+`group_lite` (`needs_gate_ratchet_test`) and `idle_autonomous`
+(`afk_cue_speaker_test`) stay as the pinned code only. The cast classes
+take a synchronous `notify` because the banner and greeting flags are
+order-sensitive mid-turn. Other parts reach the moved names through
+one-line private forwarders in `chat_service_wiring_mint.dart`; each
+later package retires the ones it owns. WP2's and WP3's cast callbacks
+now point at the door.
 
 ### WP7. Session store door
 
@@ -509,6 +530,17 @@ Parts retired (2): `chat_service_accessors`, `chat_service_fields`.
 
 Done when: part count 0, full unit suite, all 42 integration suites on
 Linux, web tests and web E2E green.
+
+## Parts the ratchets pin by path
+
+`test/hygiene/needs_gate_ratchet_test.dart` (`_stateAndRewinds`) and
+`test/hygiene/realism_gate_ratchet_test.dart` (`_ownSwitch`) list part
+files by path, and a few leaf tests grep a part for a member name. A part
+they name cannot be deleted without re-pointing the entry at the door file
+that now holds the same code. From WP7 on, each package carries exactly
+those path-only re-points for the parts in its scope, with counts
+unchanged and every edit listed in the commit body; that is the
+`approved-test-change` the test-integrity rule asks for.
 
 ## Sequencing
 
