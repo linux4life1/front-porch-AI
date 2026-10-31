@@ -17,10 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 
 /// This 1:1 chat's own Needs switch, on the line it controls (no gear). While
 /// Porch Life's Needs is off it greys out and says where to look; the chat's
@@ -32,9 +32,7 @@ class NeedsLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final allowed = Provider.of<StorageService>(
-      context,
-    ).realismSettings.needsSimDefault;
+    final allowed = porchLifeAllowsNeedsOf(context);
     final accent = AppColors.porchAmberOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,15 +71,7 @@ class NeedsLine extends StatelessWidget {
             ),
           ],
         ),
-        if (!allowed)
-          Text(
-            "Off in Porch Life, so no chat runs Needs. This chat's choice is "
-            'kept.',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textTertiary(context),
-            ),
-          ),
+        if (!allowed) const NeedsOffInPorchLifeNote(),
       ],
     );
   }

@@ -706,6 +706,46 @@ void main() {
     });
   });
 
+  // The feature is the Realism Engine everywhere else; this line still said
+  // "Realism Mode".
+  testWidgets("a 1:1 chat with its own Realism switch off names the Realism "
+      'Engine', (tester) async {
+    final storage = _AdultStorage();
+    final chat = _RealismOffChat();
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CharacterStateGroup(
+                chat: chat,
+                isGroup: false,
+                initiallyExpanded: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.text(
+        'The Realism Engine is off for this chat — flip the switch to track '
+        'bond, trust, mood, and scene time for this character.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Realism Mode'), findsNothing);
+  });
+
   testWidgets('Needs and Afterglow grey out under the Realism Engine '
       'permission, not under "Start every new chat with Realism"', (
     tester,
@@ -836,6 +876,14 @@ void main() {
     }
     expect(stored, {'solo-off': true, 'group-off': true, 'solo-on': true});
   });
+}
+
+/// A 1:1 chat whose own Realism switch is off while Porch Life allows it.
+class _RealismOffChat extends FakeChatService {
+  _RealismOffChat() : super(realismEnabled: false);
+
+  @override
+  bool get realismChatSwitch => false;
 }
 
 /// A chat whose own Realism switch is on; [realismEnabled] is the gate.

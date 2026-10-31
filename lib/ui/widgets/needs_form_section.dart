@@ -33,6 +33,10 @@ class NeedsFormSection extends StatelessWidget {
   /// The on/off switch row. A group member's editor hides it: Needs is the
   /// group's (Group Settings → Needs); the member's settings show as on.
   final bool showSwitch;
+
+  /// Shown where the switch is when it is hidden: the group's own Needs,
+  /// read-only, in a member's editor.
+  final Widget? groupLine;
   final bool enjoysLowHygiene;
   final ValueChanged<bool> onEnjoysLowHygieneChanged;
   final String needsPace;
@@ -61,6 +65,7 @@ class NeedsFormSection extends StatelessWidget {
     required this.enabled,
     required this.onEnabledChanged,
     this.showSwitch = true,
+    this.groupLine,
     required this.enjoysLowHygiene,
     required this.onEnjoysLowHygieneChanged,
     this.needsPace = 'normal',
@@ -126,7 +131,9 @@ class NeedsFormSection extends StatelessWidget {
                   value: enabled,
                   onChanged: onEnabledChanged,
                   context: context,
-                ),
+                )
+              else
+                ?groupLine,
               // Lines up with the switch's subtitle (20 icon + 12 gap).
               const NeedsClockOffNote(
                 padding: EdgeInsets.only(left: 32, top: 6),

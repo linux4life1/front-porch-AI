@@ -158,8 +158,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                   : realismSwitch
                   // Allowed again mid-reply: it lands when the reply settles.
                   ? 'Realism starts again when this reply finishes.'
-                  : 'Realism Mode is off — flip the switch to track bond, '
-                        'trust, mood, and scene time for this character.',
+                  : 'The Realism Engine is off for this chat — flip the '
+                        'switch to track bond, trust, mood, and scene time for '
+                        'this character.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textTertiary(context),

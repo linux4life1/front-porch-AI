@@ -50,6 +50,10 @@ class EditCharacterPage extends StatefulWidget {
   /// settings.
   final String? memberOfGroup;
 
+  /// The member's group, when [memberOfGroup] is set: its own switches as
+  /// read-only lines, and where the member starts in its new chats.
+  final MemberGroupView? memberGroup;
+
   /// Allow changing the avatar (default true). Disabled for group members in this
   /// pass, since a member's avatar lives at a private group path.
   final bool allowAvatarChange;
@@ -70,6 +74,7 @@ class EditCharacterPage extends StatefulWidget {
     this.popWithCardOnSave = false,
     this.onSaveOverride,
     this.memberOfGroup,
+    this.memberGroup,
     this.allowAvatarChange = true,
     this.onSaved,
   });
@@ -78,10 +83,45 @@ class EditCharacterPage extends StatefulWidget {
   State<EditCharacterPage> createState() => _EditCharacterPageState();
 }
 
+/// Closes the character editor that holds [context], asking first when it
+/// has unsaved edits, as its back button does. [onLeave] runs only when it
+/// closes, just before (whoever awaits the editor resumes after it), so a
+/// link out of a member's editor that the user backs out of with "Keep
+/// editing" leaves everything where it was. True when it closed.
+Future<bool> leaveCharacterEditor(
+  BuildContext context, {
+  VoidCallback? onLeave,
+}) async {
+  final page = context.findAncestorStateOfType<_EditCharacterPageState>();
+  if (page == null || !page.mounted) return false;
+  final dirty = page._draft.isDirty || page._startMoved;
+  if (dirty && !await confirmDiscardChanges(page.context)) return false;
+  if (!page.mounted) return false;
+  onLeave?.call();
+  Navigator.of(page.context).pop();
+  return true;
+}
+
 class _EditCharacterPageState extends State<EditCharacterPage>
     with SingleTickerProviderStateMixin {
   late final EditCharacterDraft _draft;
   late final TabController _tabController;
+
+  /// The member's start as the group holds it, and as edited; saved to the
+  /// group's seed when it moved.
+  late GroupMemberStart? _startBase = widget.memberGroup?.start;
+  late GroupMemberStart? _start = _startBase;
+  bool get _startMoved => _start != _startBase;
+
+  /// The group's start was read again (its Group Settings link closed): an
+  /// unmoved start follows it, a moved one is kept.
+  void _onStartReloaded() {
+    final fresh = widget.memberGroup?.startUpdates?.value;
+    setState(() {
+      if (!_startMoved) _start = fresh;
+      _startBase = fresh;
+    });
+  }
 
   @override
   void initState() {
@@ -92,6 +132,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       worlds: _worldsOrNull(),
     );
     _tabController = TabController(length: 4, vsync: this);
+    widget.memberGroup?.startUpdates?.addListener(_onStartReloaded);
   }
 
   WorldRepository? _worldsOrNull() {
@@ -120,6 +161,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   @override
   void dispose() {
+    widget.memberGroup?.startUpdates?.removeListener(_onStartReloaded);
     _draft.dispose();
     _tabController.dispose();
     super.dispose();
@@ -243,16 +285,25 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     }
   }
 
-  Future<void> _saveCharacter() async {
-    final writer = EditCharacterCardWriter(
-      character: widget.character,
-      draft: _draft,
-    );
-    writer.writeFields();
-    await writer.embedPng(Provider.of<StorageService>(context, listen: false));
-    writer.writeLorebook();
+  /// A save is running: a second tap of Save before it ends writes nothing
+  /// (it would write the row twice and pop the page twice).
+  bool _saving = false;
 
+  Future<void> _saveCharacter() async {
+    if (_saving) return;
+    _saving = true;
+    var left = false;
     try {
+      final writer = EditCharacterCardWriter(
+        character: widget.character,
+        draft: _draft,
+      );
+      writer.writeFields();
+      await writer.embedPng(
+        Provider.of<StorageService>(context, listen: false),
+      );
+      writer.writeLorebook();
+
       if (widget.onSaveOverride != null) {
         // Delegated persistence (e.g. a group member → its group row, never the
         // library). The field updates + PNG save above already ran on the card.
@@ -280,11 +331,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         await _backfillAddedWorlds(writer.addedWorlds);
       }
 
+      final start = _start;
+      final saveStart = widget.memberGroup?.saveStart;
+      if (_startMoved && start != null && saveStart != null) {
+        await saveStart(start);
+      }
+
       if (widget.onSaved != null) {
         await widget.onSaved!(widget.character);
       }
 
       if (mounted) {
+        left = true;
         // Continue mode (e.g. the Stoop update flow): return the saved card so
         // the caller can proceed, instead of the standard "updated" toast + pop.
         if (widget.popWithCardOnSave) {
@@ -297,6 +355,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         }
       }
     } catch (e) {
+      debugPrint('[EditCharacter] save failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -306,6 +365,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           ),
         );
       }
+    } finally {
+      // A save that did not leave the page (it failed) lets Save try again.
+      if (!left) _saving = false;
     }
   }
 
@@ -343,12 +405,16 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   @override
   Widget build(BuildContext context) {
     return UnsavedChangesGuard(
-      isDirty: () => _draft.isDirty,
+      isDirty: () => _draft.isDirty || _startMoved,
       child: _scaffold(),
     );
   }
 
   Widget _scaffold() {
+    final group = widget.memberOfGroup == null ? null : widget.memberGroup;
+    final notes = group == null
+        ? null
+        : memberTabNotes(_draft.nameController.text, group.read(), group);
     return EditCharacterScaffold(
       characterName: widget.character.name,
       saveLabel: widget.saveLabel,
@@ -361,10 +427,19 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           character: widget.character,
           draft: _draft,
           memberOfGroup: widget.memberOfGroup,
+          memberGroup: group,
+          scenarioNote: notes?.scenario,
+          start: _start,
+          onStartChanged: (s) => setState(() => _start = s),
           onChanged: _rebuild,
         ),
-        EditCharacterDialogueTab(draft: _draft, onChanged: _rebuild),
+        EditCharacterDialogueTab(
+          draft: _draft,
+          onChanged: _rebuild,
+          greetingNote: notes?.greeting,
+        ),
         EditCharacterLorebookTab(
+          memberNote: notes?.lorebook,
           entries: _loreEntries,
           onImportFile: _importLorebookJson,
           onExportFile: _exportLorebookJson,
@@ -375,6 +450,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
           onChanged: _rebuild,
         ),
         EditCharacterWorldsTab(
+          memberNote: notes?.worlds,
           value: _draft.worldChoice,
           onChanged: (c) => setState(() => _draft.worldChoice = c),
           characterName: _draft.nameController.text,

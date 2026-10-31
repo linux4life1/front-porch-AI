@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 
 // Mirrors ContextViewerDialog.sectionColors on desktop.
-const SECTION_COLORS: Record<string, string> = {
+export const SECTION_COLORS: Record<string, string> = {
   'System Prompt': '#3B82F6', // theme-keep: legend identity colour
   Lorebook: '#8B5CF6', // theme-keep: legend identity colour
   Persona: '#06B6D4', // theme-keep: legend identity colour
@@ -21,6 +21,8 @@ const SECTION_COLORS: Record<string, string> = {
   'Chat History': '#6366F1', // theme-keep: legend identity colour
   'Post-History': '#EF4444', // theme-keep: legend identity colour
   Journal: '#F97316', // theme-keep: legend identity colour
+  'Realism Engine': '#EC4899', // theme-keep: legend identity colour
+  // A send saved before the section was renamed keeps its colour.
   'Realism Mode': '#EC4899', // theme-keep: legend identity colour
   Memories: '#14B8A6', // theme-keep: legend identity colour
   'Speaker Card': '#7C3AED', // theme-keep: legend identity colour

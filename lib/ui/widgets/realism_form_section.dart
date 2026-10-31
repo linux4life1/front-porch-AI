@@ -165,6 +165,15 @@ class RealismFormSection extends StatelessWidget {
   final String? afterglowLabel;
   final String? afterglowSubtitle;
 
+  /// A group member's editor: the group's own lines, read-only, where a 1:1
+  /// card has its switches.
+  final MemberGroupRows? memberRows;
+
+  /// The Director's authority over Needs scores (needs Verification on).
+  /// Absent without a setter.
+  final bool needsDirectorAuthority;
+  final ValueChanged<bool>? onNeedsDirectorAuthorityChanged;
+
   const RealismFormSection({
     super.key,
     required this.enabled,
@@ -236,6 +245,9 @@ class RealismFormSection extends StatelessWidget {
     this.showStartingState = true,
     this.afterglowLabel,
     this.afterglowSubtitle,
+    this.memberRows,
+    this.needsDirectorAuthority = false,
+    this.onNeedsDirectorAuthorityChanged,
     this.storyStartDate,
     this.onStoryStartDateChanged,
     this.storyStartTime,
@@ -289,6 +301,7 @@ class RealismFormSection extends StatelessWidget {
         // Time / Chaos / identity chips are Porch Life — they run without
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
+        ?memberRows?.header,
         if (showTimeAndDay) ...[
           RealismSectionHeader(
             Icons.schedule,
@@ -318,6 +331,10 @@ class RealismFormSection extends StatelessWidget {
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
           if (needsFormSection != null) needsFormSection!,
 
+          if (!showStartingState && memberRows?.noStartNote != null) ...[
+            const SizedBox(height: sectionHeaderGap),
+            MemberEditorNote(memberRows!.noStartNote!),
+          ],
           // Relationship Section — one [sectionHeaderGap] above the header.
           if (showStartingState) ...[
             Column(
@@ -330,6 +347,10 @@ class RealismFormSection extends StatelessWidget {
                   'Relationship',
                   context.creatorPalette?.amber ?? AppColors.relationshipAccent,
                 ),
+                if (memberRows != null) ...[
+                  const SizedBox(height: 4),
+                  Text(memberRows!.startNote, style: labelStyle),
+                ],
                 const SizedBox(height: 12),
                 RealismRelationshipCard(
                   shortTermBond: shortTermBond,
@@ -388,6 +409,10 @@ class RealismFormSection extends StatelessWidget {
             onAfterglowChanged: onAfterglowChanged,
             afterglowLabel: afterglowLabel,
             afterglowSubtitle: afterglowSubtitle,
+            chaosLine: memberRows?.chaos,
+            afterglowLine: memberRows?.afterglow,
+            needsDirectorAuthority: needsDirectorAuthority,
+            onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),
         ],
         if (showChaosToggle && !enabled) ...[

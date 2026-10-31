@@ -7,6 +7,7 @@
 // dropdown handed a value that is not one of its items fails its assertion.
 // So every group made with the default broke the tab. A real group, so the
 // seed comes through the real ChatService door the tab reads.
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -20,10 +21,13 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/member_realism_card.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section.dart'
+    show RealismFormSection;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -126,17 +130,167 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
-    final shown = tester
-        .widgetList<DropdownButtonFormField<String>>(
-          find.byType(DropdownButtonFormField<String>),
-        )
-        .map((d) => d.initialValue)
-        .where(emotionIntensities.contains)
-        .toList();
-    expect(shown, [
-      'mild',
-      'strong',
-    ], reason: 'Ada as made; Bex read from intense');
+    expect(find.byType(GroupMemberRealismCard), findsNWidgets(2));
+    // The strength is edited in each member's editor now, which reads the
+    // group's seed for them; the old tab's `intense` reads as `strong`.
+    final group = chat.activeGroup!;
+    expect(
+      [
+        for (final id in ['mem-ada', 'mem-bex'])
+          groupMemberStartIn(
+            group.defaultMemberRealismState,
+            id,
+          )!.emotionIntensity,
+      ],
+      ['mild', 'strong'],
+      reason: 'Ada as made; Bex read from intense',
+    );
+  });
+
+  // Each member was a cut-down copy of the member editor here (bonds, mood,
+  // the verifier). Now it says where they start and Edit opens their editor;
+  // the chat's own controls for them stay.
+  testWidgets("each member's summary says where they start in new chats and "
+      "Edit opens their editor, whose group lines link to Group Settings", (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    expect(
+      find.descendant(of: ada, matching: find.text(' · Close / Trusting')),
+      findsOneWidget,
+      reason: "the group's seed for her: 35 / 40",
+    );
+    expect(find.text('Short-Term Bond'), findsNothing);
+    expect(find.text('Director/Verifier'), findsNothing);
+
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(EditCharacterPage), findsOneWidget);
+    expect(
+      find.text("Where Ada starts in this group's new chats."),
+      findsOneWidget,
+    );
+
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(
+      find.descendant(
+        of: find.byType(GroupSettingsDialog),
+        matching: find.text('Realism — The Porch'),
+      ),
+      findsOneWidget,
+      reason: "the group's Realism lines open Group Settings on Realism",
+    );
+    Navigator.of(tester.element(find.byType(GroupSettingsDialog))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    Navigator.of(tester.element(find.byType(EditCharacterPage))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+  });
+
+  // Opened from inside Group Settings, the editor's group lines opened a
+  // second Group Settings over the first. They close the editor back to the
+  // dialog it came from, on the tab the line names.
+  testWidgets("a member's editor opened from Group Settings links back to "
+      'its tab, not to a second Group Settings', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+    final shown = <int>[];
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(
+              chatService: chat,
+              groupRepo: repo,
+              onShowTab: shown.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Read, then close whatever is still open before checking: a check
+    // failing over open dialogs would leave the chat unable to close.
+    final stacked = find.byType(GroupSettingsDialog).evaluate().length;
+    final editorOpen = find.byType(EditCharacterPage).evaluate().isNotEmpty;
+    Navigator.of(
+      tester.element(find.byType(GroupRealismNeedsTab).first),
+    ).popUntil((r) => r.isFirst);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // What the closed dialogs started on the real database settles here.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pump();
+    expect(
+      stacked,
+      0,
+      reason: 'THE BUG: a second Group Settings opened over the first',
+    );
+    expect(editorOpen, isFalse);
+    expect(shown, [2], reason: 'back on Group Settings → Realism');
   });
 
   group("the group chat's own Afterglow switch", () {
@@ -293,4 +447,346 @@ void main() {
       expect(adaBlock, findsNothing, reason: 'her own switch is off');
     });
   });
+
+  /// The group's blobs with Ada starting at [affection] / [trust].
+  String adaAt(int affection, int trust) => buildGroupRealismBlobs(
+    seeds: {
+      'mem-ada': {
+        ...defaultGroupMemberRealismSeed(),
+        'affection': affection,
+        'longTermScore': affection,
+        'trust': trust,
+      },
+      'mem-bex': defaultGroupMemberRealismSeed(),
+    },
+    needsEnabled: true,
+    timeOfDay: 'morning',
+    dayCount: 1,
+  ).defaultMemberJson;
+
+  // The summary read this chat's copy of the group, which holds Group
+  // Settings edits Done has not saved; the group's next New Chat starts
+  // from its saved row, as the phone's summary says.
+  testWidgets("each member's summary reads the group's saved row, not this "
+      "chat's unsaved copy", (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    chat.activeGroup!.defaultMemberRealismState = adaAt(300, 100);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.widgetWithText(GroupMemberRealismCard, 'Ada'),
+        matching: find.text(' · Close / Trusting'),
+      ),
+      findsOneWidget,
+      reason: "the saved row: 35 / 40, not the copy's 300 / 100",
+    );
+  });
+
+  // Group Settings opened from a member's editor can save the group (Done).
+  // The editor kept the start it read as it opened, so its Save wrote that
+  // back over the one just saved.
+  testWidgets("a member's editor reads her start again when its Group "
+      'Settings link closes', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    RealismFormSection form() =>
+        tester.widget<RealismFormSection>(find.byType(RealismFormSection));
+    expect(form().shortTermBond, 35);
+
+    // The group's row moves after the editor read it, as Group Settings'
+    // Done writes it. One plain statement: a write that wakes the table's
+    // watchers waits on their reads, which only a frame moves on.
+    await tester.runAsync(
+      () => db.customStatement(
+        'UPDATE groups SET default_member_realism_state = ? WHERE id = ?',
+        [adaAt(90, 10), 'grp-mood'],
+      ),
+    );
+    await tester.pump();
+    expect(form().shortTermBond, 35, reason: 'nothing read it yet');
+
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    Navigator.of(tester.element(find.byType(GroupSettingsDialog))).pop();
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(
+      (form().shortTermBond, form().trustLevel),
+      (90, 10),
+      reason: 'the start the group saved',
+    );
+    Navigator.of(tester.element(find.byType(EditCharacterPage))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+  });
+
+  // Save writes the group's row and keeps Group Settings open. The members'
+  // summaries kept the row they read as the dialog opened.
+  testWidgets("Group Settings' Save brings the members' summaries up to the "
+      'row it wrote', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupSettingsDialog(
+              chatService: chat,
+              groupRepo: repo,
+              initialTab: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 8; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pump();
+      }
+    }
+
+    await settle();
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    final asOpened = find.descendant(
+      of: ada,
+      matching: find.text(' · Close / Trusting'),
+    );
+    expect(asOpened, findsOneWidget);
+
+    // An edit in this chat's copy, as the dialog's own controls make one.
+    chat.activeGroup!.defaultMemberRealismState = adaAt(300, 100);
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await settle();
+
+    final row = await tester.runAsync(() => db.getGroupById('grp-mood'));
+    expect(
+      parseGroupRealismSeeds(
+        row!.defaultMemberRealismState,
+      )['mem-ada']!['trust'],
+      100,
+      reason: 'Save wrote the row',
+    );
+    expect(ada, findsOneWidget, reason: 'the dialog stays open');
+    expect(asOpened, findsNothing, reason: 'the summary reads the saved row');
+  });
+
+  // Save said "saved" before its write landed, and a write that failed was
+  // an uncaught error with nothing said.
+  testWidgets("Group Settings' Save says when its write fails, and never that "
+      'it saved', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final failing = _FailingGroupRepo(storage, db);
+    addTearDown(failing.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: failing),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupSettingsDialog(
+              chatService: chat,
+              groupRepo: failing,
+              initialTab: 2,
+            ),
+          ),
+        ),
+      ),
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 6; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 30)),
+        );
+        await tester.pump();
+      }
+    }
+
+    await settle();
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Save'));
+    await settle();
+
+    expect(
+      find.text("Couldn't save the group settings. Try Save again."),
+      findsOneWidget,
+    );
+    expect(find.text('Group settings saved.'), findsNothing);
+  });
+
+  // The editor's start is read again when its Group Settings link closes.
+  // Closed while that read was still out, the late answer landed on the
+  // editor's released notifier, which asserts.
+  testWidgets("a start read still out when the member's editor closes is "
+      'dropped', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final library = CharacterRepository(db, storage);
+    final worlds = WorldRepository(storage, db);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          Provider<AppDatabase>.value(value: db),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: repo),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupRealismNeedsTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final ada = find.widgetWithText(GroupMemberRealismCard, 'Ada');
+    await tester.tap(find.descendant(of: ada, matching: find.text('Edit')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    final link = find.text('Group Settings ›').first;
+    await tester.ensureVisible(link);
+    await tester.pump();
+    await tester.tap(link);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // The re-read logs what it could not do.
+    final logged = <String>[];
+    final print = debugPrint;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      logged.add(message ?? '');
+      print(message, wrapWidth: wrapWidth);
+    };
+
+    // The row moves (as Done writes it), so the late read has news; then a
+    // slow disk: the read Group Settings' closing starts waits behind a
+    // transaction until the editor has closed too.
+    await tester.runAsync(
+      () => db.customStatement(
+        'UPDATE groups SET default_member_realism_state = ? WHERE id = ?',
+        [adaAt(90, 10), 'grp-mood'],
+      ),
+    );
+    final release = Completer<void>();
+    late Future<void> held;
+    await tester.runAsync(() async {
+      held = db.transaction(() => release.future);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    });
+    Navigator.of(tester.element(find.byType(GroupSettingsDialog))).pop();
+    await tester.pump();
+    Navigator.of(tester.element(find.byType(EditCharacterPage))).pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    release.complete();
+    await tester.runAsync(() async {
+      await held;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pump();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    debugPrint = print; // the binding checks it is back before the test ends
+
+    expect(find.byType(EditCharacterPage), findsNothing);
+    expect(
+      logged.where((l) => l.contains('could not read the group again')),
+      isEmpty,
+      reason: 'the late read wrote to the released notifier (which asserts)',
+    );
+  });
+}
+
+/// A group repository whose writes fail, as a full disk's would.
+class _FailingGroupRepo extends GroupChatRepository {
+  _FailingGroupRepo(super.storage, super.db);
+
+  @override
+  Future<void> save(GroupChat group) async => throw StateError('disk full');
 }

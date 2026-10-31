@@ -27,8 +27,11 @@ import 'package:front_porch_ai/services/chat/chat.dart' show BirthdayMath;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_realism_section.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
+    show MemberEditorNote;
 
 /// Card face for the editor: the ★ starred gallery look when set, else the
 /// library portrait — same resolution as the home grid / export cover
@@ -68,12 +71,24 @@ class EditCharacterDetailsTab extends StatelessWidget {
   /// The group this card is a member of, when it is a member's own copy.
   final String? memberOfGroup;
 
+  /// The member's group, and where they start in its new chats.
+  final MemberGroupView? memberGroup;
+
+  /// What the group does with this member's Scenario.
+  final String? scenarioNote;
+  final GroupMemberStart? start;
+  final ValueChanged<GroupMemberStart>? onStartChanged;
+
   const EditCharacterDetailsTab({
     super.key,
     required this.character,
     required this.draft,
     required this.onChanged,
     this.memberOfGroup,
+    this.memberGroup,
+    this.scenarioNote,
+    this.start,
+    this.onStartChanged,
   });
 
   void _edit(VoidCallback fn) {
@@ -334,6 +349,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
                     expandable: true,
                     hint: 'The setting, situation, or context...',
                   ),
+                  if (scenarioNote != null) ...[
+                    const SizedBox(height: 8),
+                    MemberEditorNote(scenarioNote!),
+                  ],
                 ],
               ),
               const SizedBox(height: 20),
@@ -419,6 +438,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 draft: d,
                 onChanged: onChanged,
                 memberName: memberOfGroup == null ? null : _memberName,
+                group: memberGroup,
+                start: start,
+                onStartChanged: onStartChanged,
+                lite: memberOfGroup != null && character.isLite,
               ),
 
               const SizedBox(height: 80), // Space for token badge
