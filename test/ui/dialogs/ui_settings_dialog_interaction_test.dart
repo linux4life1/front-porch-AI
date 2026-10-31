@@ -26,6 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/ui_settings_dialog.dart';
 
@@ -86,4 +87,62 @@ void main() {
     expect(find.text('Cancel'), findsNothing,
         reason: 'Cancel must close the picker');
   });
+
+  // A group has no host for your bubbles (bubbleHost), so a member's own
+  // User Bubble and User Text colours are saved but never shown there. The
+  // dialog says so on a member, and only on a member. Red proof: drop the
+  // note in ui_settings_dialog.dart.
+  for (final inGroup in [true, false]) {
+    testWidgets('a group member\'s User colours say a group uses yours: '
+        '${inGroup ? 'shown on a member' : 'not in a 1:1'}', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(700, 1250));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final member = CharacterCard(name: 'Iris')..dbId = 'mem-iris';
+      final storage = FakeStorageService();
+      final chat = inGroup
+          ? _GroupChat([member])
+          : FakeChatService(activeCharacter: member);
+      addTearDown(storage.dispose);
+      addTearDown(chat.dispose);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ChatService>.value(value: chat),
+          ],
+          child: MaterialApp(
+            home: Material(child: UiSettingsDialog(character: member)),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final note = find.byKey(const Key('group-user-colours-note'));
+      await tester.scrollUntilVisible(find.text('AI Bubble').first, 250,
+          scrollable: find.byType(Scrollable).first);
+      expect(note, inGroup ? findsOneWidget : findsNothing);
+      if (inGroup) {
+        expect(
+          find.text('In a group, your bubbles use your own colours from '
+              'Settings.'),
+          findsOneWidget,
+        );
+      }
+    });
+  }
+}
+
+/// The fake chat with a group open, [members] on its roster.
+class _GroupChat extends FakeChatService {
+  _GroupChat(this.members);
+
+  final List<CharacterCard> members;
+
+  @override
+  bool get isGroupMode => true;
+
+  @override
+  List<CharacterCard> get groupCharacters => members;
 }
