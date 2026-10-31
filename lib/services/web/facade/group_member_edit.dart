@@ -24,6 +24,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/facade/character/character.dart';
+import 'package:front_porch_ai/utils/group_realism_blobs.dart'
+    show groupTemplateRealismOf;
 
 /// The web editor for a group member: the desktop member editor's twin. A
 /// member is the group's own copy of a character, so the edit saves to its
@@ -92,9 +94,18 @@ class GroupMemberEdit {
   }
 
   /// The group's own switches as a member's editor shows them.
-  GroupWideValues? _values(String groupId, GroupChat? g) {
+  /// The group's own switches as a member's editor shows them. Realism is
+  /// the group's for new chats, read from its [row] by the same rule as the
+  /// start beside it, even while the group is open.
+  GroupWideValues? _values(String groupId, GroupChat? g, Group? row) {
     if (g == null) return null;
-    if (_open(groupId)) return groupWideValuesOfChat(_chat!, worlds: _worlds);
+    if (_open(groupId)) {
+      return groupWideValuesOfChat(_chat!, worlds: _worlds).withRealism(
+        groupTemplateRealismOf(
+          row?.defaultMemberRealismState ?? '{}',
+        ).realismOn,
+      );
+    }
     return groupWideValuesOfTemplate(
       defaultMemberJson: g.defaultMemberRealismState,
       baselineJson: g.baselineRealismState,
@@ -111,7 +122,7 @@ class GroupMemberEdit {
     final row = await _db.getGroupById(groupId);
     final g = _definition(groupId, row);
     if (g == null) return null;
-    final values = _values(groupId, g);
+    final values = _values(groupId, g, row);
     final afterglowShown =
         _storage.realismSettings.afterglowEnabled &&
         (values?.afterglow ?? false);
@@ -125,8 +136,10 @@ class GroupMemberEdit {
           return {
             'id': m.id,
             'name': c.name,
+            // From the row, never an open chat's copy (which can hold
+            // Group Settings edits not saved yet).
             'start': groupMemberStartIn(
-              g.defaultMemberRealismState,
+              row?.defaultMemberRealismState ?? '{}',
               m.id,
               card: ext,
               legacyIds: [?GroupMember.fromRow(m).originStableId],
@@ -179,11 +192,11 @@ class GroupMemberEdit {
       'narrativePerspective': voice.perspective,
       'narrativeTense': voice.tense,
       'sex': voice.sex,
-      'group': _values(groupId, definition)?.toJson(),
-      'start': definition == null
+      'group': _values(groupId, definition, group)?.toJson(),
+      'start': group == null
           ? null
           : groupMemberStartIn(
-              definition.defaultMemberRealismState,
+              group.defaultMemberRealismState,
               memberId,
               card: ext,
               legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
@@ -233,12 +246,12 @@ class GroupMemberEdit {
     Object? json,
   ) async {
     if (json is! Map) return;
-    final definition = _definition(groupId, await _db.getGroupById(groupId));
+    final row = await _db.getGroupById(groupId);
     final ext = c.frontPorchExtensions;
-    final now = definition == null
+    final now = row == null
         ? null
         : groupMemberStartIn(
-            definition.defaultMemberRealismState,
+            row.defaultMemberRealismState,
             memberId,
             card: ext,
             legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),

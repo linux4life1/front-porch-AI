@@ -117,29 +117,20 @@ Map<String, dynamic>? _ownEntry(
   return null;
 }
 
-/// Whether [seed] is one a new chat starts a member's Realism from: the
-/// wizard, Edit group and this editor always write the bonds. A Group
-/// Settings preference on its own (`enjoysLowHygiene`, a verifier switch),
-/// which those tabs file under the member in the open chat's copy even when
-/// the group runs without Realism, is not.
-bool _isStartSeed(Map<String, dynamic> seed) =>
+/// Whether [seed] holds the bonds a new chat starts a member from (the
+/// wizard, Edit group and this editor always write them). An entry without
+/// them (a Group Settings preference, an older editor's card-named keys,
+/// an imported card's mood and bars) still makes the group's new chats run
+/// Realism, as every other reader of the blob has it; its member starts
+/// from their card, with what the entry does hold kept over it.
+bool _hasBonds(Map<String, dynamic> seed) =>
     seed.containsKey(GroupRealismKeys.affection) ||
     seed.containsKey(GroupRealismKeys.longTermScore) ||
     seed.containsKey(GroupRealismKeys.trust);
 
-/// Whether new chats of a group whose definition holds [defaultMemberJson]
-/// start with Realism: some member has a start seed (see [_isStartSeed]).
-bool groupNewChatsRunRealism(String defaultMemberJson) {
-  try {
-    return parseGroupRealismSeeds(defaultMemberJson).values.any(_isStartSeed);
-  } catch (_) {
-    return false;
-  }
-}
-
-/// Member [mid]'s entry as a start seed: their own when it is one, else one
-/// from their card's extensions [card] (with anything they do have kept
-/// over it), and whether it was built fresh.
+/// Member [mid]'s entry as a start seed: their own when it has bonds, else
+/// one from their card's extensions [card] with anything their entry does
+/// hold kept over it, and whether it was built fresh.
 ({Map<String, dynamic> seed, bool fresh}) _startSeedOf(
   Map<String, dynamic> perChar,
   String mid,
@@ -147,15 +138,19 @@ bool groupNewChatsRunRealism(String defaultMemberJson) {
   FrontPorchExtensions? card,
 ) {
   final own = _ownEntry(perChar, mid, legacyIds);
-  if (own != null && _isStartSeed(own)) return (seed: own, fresh: false);
+  if (own != null && _hasBonds(own)) return (seed: own, fresh: false);
   return (seed: {...groupMemberStartingSeed(card), ...?own}, fresh: true);
 }
 
 /// Member [mid]'s start in a group whose definition holds
 /// [defaultMemberJson]. A member with no seed of their own (under [mid] or
 /// a [legacyIds] key) reads from their card's extensions [card], as Edit
-/// group's Realism tab shows them. Null when the group's new chats start
-/// without Realism ([groupNewChatsRunRealism]): there is no start to set.
+/// group's Realism tab shows them. Null when the definition has no member
+/// entries at all: the group's new chats start without Realism (the rule
+/// New Chat, Edit group and Group Settings read), so there is no start.
+/// Callers pass the PERSISTED definition (the group's row, or the template
+/// Edit group holds), never an open chat's copy, which can carry Group
+/// Settings edits not saved yet.
 GroupMemberStart? groupMemberStartIn(
   String defaultMemberJson,
   String mid, {
@@ -168,7 +163,7 @@ GroupMemberStart? groupMemberStartIn(
   } catch (_) {
     return null;
   }
-  if (!seeds.values.any(_isStartSeed)) return null;
+  if (seeds.isEmpty) return null;
   return groupMemberStartOfSeed(_startSeedOf(seeds, mid, legacyIds, card).seed);
 }
 
@@ -197,9 +192,8 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
 /// feelings toward it follow), so nothing it holds is dropped later. A
 /// member with no seed gets one from their [card], without its Needs bars
 /// while the group's new chats run without Needs: a seed with bars reads as
-/// Needs on. A definition whose new chats run without Realism
-/// ([groupNewChatsRunRealism]) comes back as it is: a seed there would
-/// switch Realism on for them.
+/// Needs on. A definition with no member entries comes back as it is: an
+/// entry there would switch Realism on for the group's new chats.
 ({String defaultMemberJson, String baselineJson}) withGroupMemberStart({
   required String defaultMemberJson,
   required String baselineJson,
@@ -214,7 +208,7 @@ GroupMemberStart groupMemberStartOfSeed(Map<String, dynamic> seed) {
   );
   final Map<String, dynamic> definition;
   try {
-    if (!groupNewChatsRunRealism(defaultMemberJson)) return unchanged;
+    if (parseGroupRealismSeeds(defaultMemberJson).isEmpty) return unchanged;
     definition = Map<String, dynamic>.from(
       jsonDecode(defaultMemberJson) as Map,
     );
@@ -308,14 +302,15 @@ Future<List<String>> groupMemberLegacyKeys(
 /// Saves member [mid]'s [start] into group [groupId]'s definition, onto the
 /// blobs stored now: only the member's own entries change (an editor
 /// holding an older copy, or an open chat holding Group Settings edits not
-/// saved yet, writes nothing else). The open chat's copy of the group, when
-/// it is that group, gets the same start, so its next New Chat starts there
-/// and its own later save keeps it. A seed under the member's origin key
-/// (from their row) or one of [legacyIds] moves onto [mid].
+/// saved yet, writes nothing else). When the row is written, the open
+/// chat's copy of the group, when it is that group, gets the same start, so
+/// its next New Chat starts there and its own later save keeps it. A seed
+/// under the member's origin key (from their row) or one of [legacyIds]
+/// moves onto [mid].
 ///
-/// A row whose new chats run without Realism is never written: the start is
-/// only offered where they run it ([groupNewChatsRunRealism]). Returns the
-/// blobs written to the row, or null when nothing was written.
+/// A row with no member entries (its new chats run without Realism) is
+/// never written, and neither is the open copy then. Returns the blobs
+/// written to the row, or null when nothing was written.
 Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
   AppDatabase db, {
   required String groupId,
@@ -337,17 +332,6 @@ Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
         card: card,
         legacyIds: keys,
       );
-  final candidate = chat?.activeGroup;
-  final open = candidate != null && candidate.id == groupId ? candidate : null;
-  if (open != null) {
-    final live = onto(
-      open.defaultMemberRealismState,
-      open.baselineRealismState,
-    );
-    open
-      ..defaultMemberRealismState = live.defaultMemberJson
-      ..baselineRealismState = live.baselineJson;
-  }
   final next = onto(row.defaultMemberRealismState, row.baselineRealismState);
   if (next.defaultMemberJson == row.defaultMemberRealismState) return null;
   await db.updateGroup(
@@ -358,5 +342,15 @@ Future<({String defaultMemberJson, String baselineJson})?> saveGroupMemberStart(
       updatedAt: Value(DateTime.now()),
     ),
   );
+  final candidate = chat?.activeGroup;
+  if (candidate != null && candidate.id == groupId) {
+    final live = onto(
+      candidate.defaultMemberRealismState,
+      candidate.baselineRealismState,
+    );
+    candidate
+      ..defaultMemberRealismState = live.defaultMemberJson
+      ..baselineRealismState = live.baselineJson;
+  }
   return next;
 }

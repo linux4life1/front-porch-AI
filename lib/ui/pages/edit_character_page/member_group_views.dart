@@ -55,13 +55,17 @@ WorldRepository? _worlds(BuildContext context) {
 
 /// The member editor's view of the group open in [chat]: the chat's own
 /// switches, links to Group Settings, and [member]'s start in the group's
-/// new chats. Opened from inside Group Settings ([showTab] is its tab
-/// switch), a link closes the editor back to that dialog's tab instead of
-/// opening a second one.
+/// new chats. The start, and the Realism line beside it, come from
+/// [persisted]: the group's row as the editor opened (`defaultMemberRealismState`),
+/// never the chat's copy, which can hold Group Settings edits not saved
+/// yet. Opened from inside Group Settings ([showTab] is its tab switch), a
+/// link closes the editor back to that dialog's tab instead of opening a
+/// second one.
 MemberGroupView memberGroupViewOfChat(
   BuildContext context,
   ChatService chat,
   CharacterCard member, {
+  required String persisted,
   void Function(int tab)? showTab,
 }) {
   final group = chat.activeGroup;
@@ -84,7 +88,10 @@ MemberGroupView memberGroupViewOfChat(
       : (ctx) => showGroupSettings(ctx, chat, initialTab: tab);
   final legacy = [member.stableGroupId];
   return MemberGroupView(
-    read: () => groupWideValuesOfChat(chat, worlds: worlds),
+    read: () => groupWideValuesOfChat(
+      chat,
+      worlds: worlds,
+    ).withRealism(groupTemplateRealismOf(persisted).realismOn),
     changes: chat,
     realismAllowed: _realismAllowed(context),
     onOpenRealism: open(kGroupSettingsRealismTab),
@@ -92,12 +99,7 @@ MemberGroupView memberGroupViewOfChat(
     onOpenNeeds: open(kGroupSettingsNeedsTab),
     start: group == null
         ? null
-        : groupMemberStartIn(
-            group.defaultMemberRealismState,
-            mid,
-            card: ext,
-            legacyIds: legacy,
-          ),
+        : groupMemberStartIn(persisted, mid, card: ext, legacyIds: legacy),
     saveStart: group == null
         ? null
         : (start) => saveGroupMemberStart(

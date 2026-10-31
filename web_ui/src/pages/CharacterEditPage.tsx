@@ -15,7 +15,7 @@
 // `groupStart` (the group's seed for them). The library card and its other
 // chats stay as they are.
 
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AvatarManager } from '../components/AvatarManager';
@@ -278,13 +278,19 @@ export function CharacterEditPage() {
         <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
       </label>
       {FIELDS.map((f) => (
-        <MacroField
-          key={f.key}
-          label={f.label}
-          rows={f.rows}
-          value={(c[f.key] as string) ?? ''}
-          onChange={(val) => setField(f.key, val)}
-        />
+        <Fragment key={f.key}>
+          <MacroField
+            label={f.label}
+            rows={f.rows}
+            value={(c[f.key] as string) ?? ''}
+            onChange={(val) => setField(f.key, val)}
+          />
+          {f.key === 'scenario' && notes && (
+            <p className="muted small" data-testid="member-scenario-note">
+              {notes.scenario}
+            </p>
+          )}
+        </Fragment>
       ))}
       <label>
         Tags (comma-separated)

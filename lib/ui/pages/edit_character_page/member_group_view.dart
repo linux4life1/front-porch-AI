@@ -139,9 +139,14 @@ Widget memberGroupNeedsLine(
   onOpen: view.onOpenNeeds == null ? null : () => view.onOpenNeeds!(context),
 );
 
-/// What the Dialogue, Lorebook and Worlds tabs say a group does with a
-/// member's own [greeting] seeds, [lorebook] and [worlds].
-typedef MemberTabNotes = ({String greeting, String lorebook, String worlds});
+/// What the editor says a group does with a member's own [greeting] seeds,
+/// [lorebook], [worlds] and [scenario].
+typedef MemberTabNotes = ({
+  String greeting,
+  String lorebook,
+  String worlds,
+  String scenario,
+});
 
 MemberTabNotes memberTabNotes(
   String typedName,
@@ -155,9 +160,19 @@ MemberTabNotes memberTabNotes(
     lorebook:
         "$name's lorebook. The group reads it when ${view.loreWhere} on; "
         'it is ${values.readsMemberLorebooks ? 'on' : 'off'} for this group.',
+    // A group turn reads the speaking member's own worlds' lore while the
+    // group inherits character lorebooks (collectLoreEntryRefs); only the
+    // Setting (place and weather) is the group's alone.
     worlds:
-        '${setting == null ? 'This group has no Setting world yet.' : 'This group meets in $setting.'} '
-        "A member's own worlds aren't used in a group; the group's world is "
-        'set in ${view.worldsWhere}.',
+        '${setting == null ? 'This group has no Setting world yet' : 'This group meets in $setting'}: '
+        "the group's world sets the place and weather, and is set in "
+        '${view.worldsWhere}. While ${view.loreWhere} on, $name\'s own '
+        'worlds add their lore when $name speaks; it is '
+        '${values.readsMemberLorebooks ? 'on' : 'off'} for this group.',
+    // The group scene is shared (the prompt's scenario block): the group's
+    // own Scenario, or while it has none the first member's.
+    scenario:
+        'The group shares one scene: it uses its own Scenario, or, while it '
+        "has none, its first member's.",
   );
 }

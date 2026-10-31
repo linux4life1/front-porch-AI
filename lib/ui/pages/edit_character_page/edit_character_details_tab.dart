@@ -30,6 +30,8 @@ import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_reali
 import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
+    show MemberEditorNote;
 
 /// Card face for the editor: the ★ starred gallery look when set, else the
 /// library portrait — same resolution as the home grid / export cover
@@ -71,6 +73,9 @@ class EditCharacterDetailsTab extends StatelessWidget {
 
   /// The member's group, and where they start in its new chats.
   final MemberGroupView? memberGroup;
+
+  /// What the group does with this member's Scenario.
+  final String? scenarioNote;
   final GroupMemberStart? start;
   final ValueChanged<GroupMemberStart>? onStartChanged;
 
@@ -81,6 +86,7 @@ class EditCharacterDetailsTab extends StatelessWidget {
     required this.onChanged,
     this.memberOfGroup,
     this.memberGroup,
+    this.scenarioNote,
     this.start,
     this.onStartChanged,
   });
@@ -343,6 +349,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
                     expandable: true,
                     hint: 'The setting, situation, or context...',
                   ),
+                  if (scenarioNote != null) ...[
+                    const SizedBox(height: 8),
+                    MemberEditorNote(scenarioNote!),
+                  ],
                 ],
               ),
               const SizedBox(height: 20),

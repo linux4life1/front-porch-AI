@@ -188,8 +188,14 @@ export function memberSectionNotes(name: string, g: GroupLines) {
     lorebook:
       `${name}'s lorebook. The group reads it when Group settings has ` +
       `"Inherit character & world lorebooks" on; it is ${g.readsMemberLorebooks ? 'on' : 'off'} for this group.`,
+    // A group turn reads the speaking member's own worlds' lore while the
+    // group inherits lorebooks; only the Setting is the group's alone.
     worlds:
-      `${g.settingName ? `This group meets in ${g.settingName}.` : 'This group has no Setting world yet.'} ` +
-      "A member's own worlds aren't used in a group; the group's world is set in Group settings.",
+      `${g.settingName ? `This group meets in ${g.settingName}` : 'This group has no Setting world yet'}: ` +
+      "the group's world sets the place and weather, and is set in Group settings. " +
+      `While Group settings has "Inherit character & world lorebooks" on, ${name}'s own worlds add their lore ` +
+      `when ${name} speaks; it is ${g.readsMemberLorebooks ? 'on' : 'off'} for this group.`,
+    scenario:
+      "The group shares one scene: it uses its own Scenario, or, while it has none, its first member's.",
   };
 }
