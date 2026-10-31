@@ -281,15 +281,10 @@ extension ChatServiceCastShrink on ChatService {
     // Realism VALUES (gated on realism being on at fork time): relationship +
     // emotion + nsfw + time via the regenerate restore path, then the canonical
     // _groupRealism write for the host member.
-    // The group chat takes the 1:1 chat's Afterglow switch first, and the
-    // host's body is the one loaded, so the Lust restore below asks theirs.
-    final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
-    _groupStore.afterglowOn = hostNsfw;
     if (realismOn) {
       _realismEnabled = true;
       _relationshipService.restoreFromMessageState(state);
       _mood.restoreFromStamp(state);
-      _nsfwService.loadNsfwScalarsForSpeaker(hostId);
       _nsfwService.restoreNsfwFromMessageState(state);
       _clockWriter.syncLoadedSlotClocks();
       if (needsEnabled) {
@@ -312,8 +307,11 @@ extension ChatServiceCastShrink on ChatService {
     // The host's own Afterglow flag also goes on the host MEMBER, realism or
     // not: in a group the chat-level register is per-speaker state, so a value
     // left only there is gone after the first group reply.
+    final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: hostNsfw);
     _groupStore.memberForWrite(hostId).nsfwCooldownEnabled = hostNsfw;
+    // The group chat takes the 1:1 chat's Afterglow switch.
+    _groupStore.afterglowOn = hostNsfw;
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,
