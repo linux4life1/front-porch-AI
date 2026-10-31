@@ -52,6 +52,8 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
@@ -599,6 +601,41 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     mouthStream: (_) => const Stream<String>.empty(),
   );
 
+  /// The cast door behind the cast bridge (guests, greetings, Away, idle).
+  /// Empty chat, no database or model, an unwired shell: a state read
+  /// answers empty (no guests, no banner, no undo, no detection), and
+  /// anything that needs a service or a turn throws.
+  @override
+  late final CastDoor castDoor = CastDoor(
+    CastDeps(
+      session: ChatSessionState(),
+      storage: FakeStorageService(),
+      personas: FakeUserPersonaService(),
+      macros: MacroResolver(),
+      database: _noDoorDep,
+      characters: () => null,
+      groupRepository: () => null,
+      imageGen: () => null,
+      realism: _noDoorDep,
+      evals: _noDoorDep,
+      snapshot: _noDoorDep,
+      dance: _noDoorDep,
+      judges: _noDoorDep,
+      mood: _noDoorDep,
+      clockWriter: _noDoorDep,
+      chaos: _noDoorDep,
+      evalEngine: _noDoorDep,
+      journal: _noDoorDep,
+      growthStore: _noDoorDep,
+      growthDesk: _noDoorDep,
+      objectives: () => objectivesDoor,
+      characterIdFor: characterIdFor,
+      saveChat: () async {},
+      notify: () {},
+      hooks: _UnwiredCastHooks(),
+    ),
+  );
+
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
   // buried-host regen button (matching the pre-scene-guest render). Without this
@@ -716,6 +753,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     importer: chatImporter,
   );
 
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [CastShellHooks] with nothing wired: any call is a NoSuchMethodError.
+class _UnwiredCastHooks implements CastShellHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

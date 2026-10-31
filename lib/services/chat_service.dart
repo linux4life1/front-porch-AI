@@ -46,6 +46,8 @@ import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_api.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
@@ -69,6 +71,7 @@ import 'package:drift/drift.dart' as drift;
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
 export 'chat/doors/actions/actions_api.dart';
+export 'chat/doors/cast/cast_api.dart';
 export 'chat/doors/media/media_api.dart';
 export 'chat/doors/transfer/transfer_api.dart';
 export 'chat/doors/objectives/objectives_api.dart';
@@ -107,13 +110,10 @@ part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
-part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_cast_shrink.dart';
 part 'chat/chat_service_idle_autonomous.dart';
-part 'chat/chat_service_greeting.dart';
 part 'chat/chat_service_greeting_seed.dart';
 part 'chat/chat_service_prompt_blocks.dart';
-part 'chat/chat_service_scene_guest.dart';
 part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_wiring_realism.dart';
@@ -127,9 +127,7 @@ part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
-part 'chat/chat_service_away_pulse.dart';
 part 'chat/chat_service_message_ops.dart';
-part 'chat/chat_service_guest_flow.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_accessors_living.dart';
 part 'chat/chat_service_today_sentence.dart';
@@ -137,7 +135,6 @@ part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
 
-// Realism-eval cancel flag + GBNF note live in chat_service_defaults.dart.
 class ChatService extends ChangeNotifier
     with ChatServiceTodaySentence, ChatServiceFieldBag {
   final KoboldService _koboldService;
@@ -152,6 +149,9 @@ class ChatService extends ChangeNotifier
   MemoryService? _memoryService;
 
   late final MediaDoor mediaDoor = _buildMediaDoor();
+
+  /// Roster, Scene Guests, greetings, Away, idle turns (cast_api.dart).
+  late final CastDoor castDoor = _buildCastDoor();
   late final ActionsDoor actionsDoor = _buildActionsDoor();
   List<String> get suggestedActions => actionsDoor.suggestedActions;
   bool get isGeneratingActions => actionsDoor.isGeneratingActions;
@@ -363,7 +363,7 @@ class ChatService extends ChangeNotifier
   List<ChatParticipant> get cast => _castImpl;
   double get tokensPerSecond => _tokensPerSecondImpl;
 
-  int get greetingIndex => _greetingIndex;
+  int get greetingIndex => castDoor.greetings.greetingIndex;
 
   /// Listener wiring lives in [_initImpl] (chat_service_accessors.dart).
   ChatService(
@@ -429,7 +429,7 @@ class ChatService extends ChangeNotifier
   String get standingMoodSummary => _standingMood.summary;
 
   bool get isEvaluatingRealism => _isEvaluatingRealism;
-  bool get isProcessingGreeting => _isProcessingGreeting;
+  bool get isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
 
   // Verifier phase: the overlay header, pass progress, and the bubble chip.
   bool get isVerifyingRealism => _isVerifyingRealism;

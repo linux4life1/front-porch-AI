@@ -424,7 +424,7 @@ extension ChatServiceImportSeed on ChatService {
     characters: () => _characterRepository,
     journalStore: () => _journalStore,
     growthDesk: () => _growthDesk,
-    sceneGuests: _sceneGuest,
+    sceneGuests: castDoor.guests.state,
     seedScalars: _seedLiveRealismForImportedSession,
     captureSessionHead: _captureSessionHeadForPackage,
     applySessionHead: _applySessionHeadFromPackage,
@@ -439,12 +439,13 @@ extension ChatServiceImportSeed on ChatService {
       _summary = '';
       _summaryLastIndex = lastIndex;
     },
-    invalidateGreetingEval: _invalidateGreetingEval,
+    invalidateGreetingEval: castDoor.greetings.invalidateGreetingEval,
     seedChatWorlds: () => _seedChatWorldsForNewSession(),
     characterIdFor: _getCharacterIdFromCard,
     ragCharacterId: _getCharacterId,
     reloadGroupRoster: _reloadGroupRoster,
-    enterSceneGuestSilently: (guest) => _enterSceneGuest(guest, speak: false),
+    enterSceneGuestSilently: (guest) =>
+        castDoor.guests.enterSceneGuest(guest, speak: false),
     loadActiveObjectives: objectivesDoor.loadActiveObjectives,
     loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
     awaitHistoryHydrated: _awaitHistoryHydrated,

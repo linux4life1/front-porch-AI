@@ -145,8 +145,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting.dart",
-          "in": "_memberOpeningGreetingText",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "memberOpeningGreetingText",
           "marker": "member.allGreetings",
           "shared": "a member's greeting is their first message and alternates, as one list"
         },
@@ -263,8 +263,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting.dart",
-          "in": "_memberOpeningGreetingText",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "memberOpeningGreetingText",
           "marker": "member.allGreetings",
           "shared": "a member's greeting is their first message and alternates, as one list"
         },
@@ -940,7 +940,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "_openingBaseFor",
           "marker": "(raw?['emotion'] as String?) ?? cardBase.characterEmotion"
         },
@@ -1074,7 +1074,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "_openingBaseFor",
           "marker": "(raw?['emotionIntensity'] as String?) ?? cardBase.emotionIntensity"
         }
@@ -1174,13 +1174,13 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "ext?.greetingSeeds"
         },
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_greetingOwnerCard",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "greetingOwnerCard",
           "marker": "_activeGroup == null"
         }
       ]
@@ -1219,8 +1219,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "_mood.seed(resolved.characterEmotion"
         },
         {
@@ -1265,8 +1265,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "FrontPorchExtensions(currentTask: resolved.currentTask)"
         },
         {
@@ -1311,8 +1311,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "dayCount: resolved.dayCount"
         },
         {
@@ -1357,8 +1357,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "resolved.emotionIntensity)"
         },
         {
@@ -1403,8 +1403,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "Pockets.fromJson(resolved.inventory)"
         },
         {
@@ -1449,8 +1449,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "longTermBond: resolved.longTermBond"
         },
         {
@@ -1494,9 +1494,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1540,9 +1540,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1586,9 +1586,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1632,9 +1632,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1678,9 +1678,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1724,9 +1724,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1770,9 +1770,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
-          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
+          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1817,8 +1817,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "shortTermBond: resolved.shortTermBond"
         },
         {
@@ -1863,8 +1863,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "storyStartDate: resolved.storyStartDate"
         },
         {
@@ -1909,8 +1909,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "storyStartTime: resolved.storyStartTime"
         },
         {
@@ -1955,8 +1955,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "timeOfDay: resolved.timeOfDay"
         },
         {
@@ -2001,8 +2001,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
-          "in": "_applyGreetingOpeningSeed",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
+          "in": "applyGreetingOpeningSeed",
           "marker": "trustLevel: resolved.trustLevel"
         },
         {
@@ -2240,7 +2240,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "_openingBaseFor",
           "marker": "(raw?['longTermScore'] as num?)?.toInt() ?? cardBase.longTermBond"
         }
@@ -3269,7 +3269,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "_openingBaseFor",
           "marker": "(raw?['affection'] as num?)?.toInt() ?? cardBase.shortTermBond"
         }
@@ -3341,7 +3341,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "_openingBaseFor",
           "marker": "(raw?['trust'] as num?)?.toInt() ?? cardBase.trustLevel"
         }

@@ -32,11 +32,6 @@ mixin ChatServiceFieldBag {
   /// model and per engine load.
   final _modelKeys = LocalModelKeys();
 
-  /// The last message when the user stopped a reply from the Realism
-  /// overlay. The "you stopped this reply" notice shows while it is still
-  /// the chat's last message (same anchor rule as ActionsDoor's suggestions).
-  ChatMessage? _stoppedReplyAnchor;
-
   /// True while Try again (regenerate on a trailing user line) runs. That
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
@@ -44,27 +39,13 @@ mixin ChatServiceFieldBag {
   bool _isNewChat = false;
 
   bool _disposed = false;
-  // ── Dynamic Responses (idle timer / fourth-wall auto-ping) ─────────────
-  Timer? _idleTimer;
-  String? _pendingIdleCue;
-  bool _autoResponseInProgress = false;
-  bool _hasCompletedExchange = false;
-  int _consecutiveAutoResponses = 0;
-  // The consecutive-response cap lives in the persisted
-  // generationSettings.dynamicResponseMaxMessages (default 3) so the sidebar
-  // flyout, /afk --messages, and the settings all share one source of truth.
+  // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
+  // live on the cast door (ChatService.castDoor, doors/cast/).
 
-  // ── Scene Guests (Lite NPCs) ────────────────────────────────────────────
-  // Every field lives in SceneGuestState (documented there); behaviour stays
-  // in the scene_guest / _cast / _guest_flow parts. Guest Growth Rings key by
-  // the guest's stable charId in growth_rings, so no evolution state here.
-  final SceneGuestState _sceneGuest = SceneGuestState();
   // Slice 6: suggested scene move + per-setting decline memory.
   final SceneMoveState _sceneMoves = SceneMoveState();
-  final AwayPulseState _awayPulse = AwayPulseState();
 
   ChatCommandHandler? _commandHandler;
-  bool autoChimeEnabled = true;
 
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
   // (read in _maybeRunCastDetection). _castScanInterval → chat_service_defaults.
@@ -208,17 +189,6 @@ mixin ChatServiceFieldBag {
   // doesn't explicitly pass groupRepo every time). Set from main.dart provider setup.
   GroupChatRepository? _groupChatRepository;
 
-  // One-shot hidden directive for a forked-in character's custom entrance
-  // (Direction mode). Injected into the prompt, consumed on the next generation;
-  // the forced-speaker side is handled by GroupTurnManager.setNextSpeaker.
-  String? _entranceDirective;
-
-  /// The director's pinned scene goal and private whispers, saved per chat.
-  final DirectorScene _directorScene = DirectorScene();
-
-  /// A `/narrate` call is in flight (it runs before the turn it starts).
-  bool _narrating = false;
-
   /// The running auto-chat's turn budget.
   final AutoChatBudget _autoChatBudget = AutoChatBudget();
 
@@ -276,18 +246,6 @@ mixin ChatServiceFieldBag {
   bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
   bool _isEvaluatingRealism = false;
   bool _isCancellingRealismEval = false;
-  bool _isProcessingGreeting =
-      false; // true while post-greeting baseline eval runs
-  bool _greetingEvalPending =
-      false; // greeting placed but baseline eval not yet run
-  // In-flight opening-position seed. Two entry points call _seedOpeningPosture
-  // and the guard they share ("no stance on record") is written only by the
-  // completed call, so without this they both fire. See _seedOpeningPosture.
-  Future<void>? _openingPostureSeed;
-  // The session the opening position has already been ATTEMPTED for. Keyed on
-  // the session id rather than a bool precisely so it needs no reset site: the
-  // four places that reset per-chat state would each have had to remember it.
-  String? _openingPostureSeededFor;
   String _realismEvalStreamText = '';
 
   // Verifier phase coordination (god-owned for overlay + chips; leaf is stateless/prompt+rule).
@@ -388,7 +346,6 @@ mixin ChatServiceFieldBag {
   // ── Chat Branching ──
   String? _parentSessionId;
   int? _forkIndex;
-  int _greetingIndex = 0;
   String? _evalCleanSrc, _evalCleanOut;
   bool _isGrowthPassRunning = false;
 

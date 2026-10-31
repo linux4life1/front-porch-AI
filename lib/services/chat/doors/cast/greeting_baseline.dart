@@ -16,15 +16,48 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
 
-/// Greeting + baseline-eval subsystem: the once-per-session post-greeting
-/// baseline eval, the retroactive baseline scan (Realism toggled on mid-chat),
-/// alternate-greeting cycling, and first-message macro resolution. Extracted
-/// verbatim from the god file (zero behaviour change) — these run on the active
-/// character's scalars via the normal eval path (no `_groupRealism` load/save),
-/// so 1:1 and group baseline behaviour is unchanged.
-extension ChatServiceGreeting on ChatService {
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+
+/// The Realism baseline a chat's opening gets: the post-greeting Read the
+/// Room, the retroactive scan when Realism comes on mid-chat, and the
+/// single-flight opening position. They run on the active character's
+/// scalars through the normal eval path, so 1:1 and group baselines behave
+/// the same.
+class GreetingBaseline {
+  GreetingBaseline(this._door, this._d);
+
+  final CastDoor _door;
+  final CastDeps _d;
+
+  /// The post-greeting baseline (or the retroactive scan) is running.
+  bool isProcessingGreeting = false;
+
+  /// A greeting was placed and its baseline eval has not run yet.
+  bool greetingEvalPending = false;
+
+  /// In-flight opening-position seed. Two entry points call
+  /// [seedOpeningPosture] and the guard they share ("no stance on record")
+  /// is written only by the completed call, so without this both fire.
+  Future<void>? _openingPostureSeed;
+
+  /// The session (and speaker) the opening position was ATTEMPTED for.
+  /// Keyed on the session id rather than a bool so it needs no reset site.
+  String? openingPostureSeededFor;
+
+  ChatSessionState get _session => _d.session;
+  CastShellHooks get _h => _d.hooks;
+  RealismScope get _scope => _d.realism();
+  RelationshipService get _relationshipService => _scope.relationship();
+  RealismEvals get _realismEvals => _d.evals();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+
   /// WHERE SHE IS WHEN IT IS HER TURN TO SPEAK FOR THE FIRST TIME.
   ///
   /// Posture became a POST-generation question on 2026-08-08, because a
@@ -91,14 +124,14 @@ extension ChatServiceGreeting on ChatService {
   /// (a pass that answered "none" leaves the stance empty and the waiter is
   /// free to try again) and what makes a chat switch mid-flight safe (the
   /// waiter re-checks against the chat it is actually in).
-  Future<void> _seedOpeningPosture() async {
+  Future<void> seedOpeningPosture() async {
     // Loop rather than a single await: two waiters released together would
     // both re-check an empty stance and both fire. Terminates because only
     // these two entry points ever create a seed.
     while (_openingPostureSeed != null) {
       await _openingPostureSeed;
     }
-    if (!_realismActiveThisMode) return;
+    if (!_h.realismActiveThisMode()) return;
     if (_relationshipService.spatialStance.isNotEmpty) return;
     // ONCE PER CHAT, not once per empty stance.
     //
@@ -129,9 +162,9 @@ extension ChatServiceGreeting on ChatService {
     // anyway — the exact bug, still there, just narrower.
     final key =
         '${_session.currentSessionId ?? ''}|'
-        '${_session.activeCharacter == null ? '' : _getCharacterIdFromCard(_session.activeCharacter!)}';
-    if (_openingPostureSeededFor == key) return;
-    _openingPostureSeededFor = key;
+        '${_session.activeCharacter == null ? '' : _d.characterIdFor(_session.activeCharacter!)}';
+    if (openingPostureSeededFor == key) return;
+    openingPostureSeededFor = key;
     debugPrint('[Realism:Posture] Seeding opening position (none on record)');
     final seed = _realismEvals.evaluatePhysicalStateCall(postureOnly: true);
     // The waiter's copy swallows failures: a seed that blew up is the OWNER's
@@ -146,33 +179,33 @@ extension ChatServiceGreeting on ChatService {
 
   /// Evaluates emotion + relationship baseline from the greeting message only.
   /// Runs once per new session, silently in the background.
-  Future<void> _runPostGreetingEval() async {
-    if (!_realismEnabled) return;
+  Future<void> runPostGreetingEval() async {
+    if (!_scope.realismEnabled()) return;
     final evalChar =
         _session.activeCharacter ??
-        _greetingOwnerCard() ??
+        _door.greetings.greetingOwnerCard() ??
         (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
     // Groups have a null _session.activeCharacter; still Read the Room when an
     // unauthored opener reached this path.
     if (evalChar == null && _activeGroup == null) return;
-    testPostGreetingEvalEntered = true;
-    final token = _greetingEvalGen;
-    final indexStamp = _greetingIndex;
+    _h.markPostGreetingEvalEntered();
+    final token = _h.greetingEvalGen();
+    final indexStamp = _door.greetings.greetingIndex;
     final previousActive = _session.activeCharacter;
     if (_session.activeCharacter == null && evalChar != null) {
       _session.activeCharacter = evalChar;
     }
-    _greetingEvalPending = false; // consume the pending flag
+    greetingEvalPending = false; // consume the pending flag
     debugPrint('[Realism] Running post-greeting baseline eval...');
     await runZoned(() async {
-      _isProcessingGreeting = true;
-      notifyListeners();
+      isProcessingGreeting = true;
+      _d.notify();
       try {
         await Future.wait([
           // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
           _realismEvals.evaluateEmotionalStateCall(),
           Future.delayed(
-            _kEvalDispatchStagger,
+            _h.evalStagger,
             () => _realismEvals.evaluateRelationshipCall(),
           ),
           // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
@@ -180,52 +213,49 @@ extension ChatServiceGreeting on ChatService {
           // is the earliest moment the opening position can be read, and reading
           // it here means the sidebar shows a position before the user has typed
           // anything. It is the SAME seed the pre-turn path uses, and the seed
-          // is single-flight (see _seedOpeningPosture): this one is a head
+          // is single-flight (see seedOpeningPosture): this one is a head
           // start, and a pre-turn dance that arrives while it is still in flight
           // waits for this answer instead of asking again.
-          Future.delayed(
-            _kEvalDispatchStagger * 2,
-            () => _seedOpeningPosture(),
-          ),
+          Future.delayed(_h.evalStagger * 2, () => seedOpeningPosture()),
         ]);
 
-        if (_realismEvalCancelled ||
-            token != _greetingEvalGen ||
-            indexStamp != _greetingIndex) {
+        if (_h.evalCancelled() ||
+            token != _h.greetingEvalGen() ||
+            indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
-          _realismEvalCancelled = false;
+          _h.clearEvalCancelled();
           return;
         }
 
         // Check for cancellation after each eval
-        if (_realismEvalCancelled ||
-            token != _greetingEvalGen ||
-            indexStamp != _greetingIndex) {
+        if (_h.evalCancelled() ||
+            token != _h.greetingEvalGen() ||
+            indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
-          _realismEvalCancelled =
-              false; // Reset the flag so future messages can proceed
+          _h.clearEvalCancelled(); // Reset the flag so future messages can proceed
           return;
         }
 
         // Store initial emotion in metadata on the greeting message itself
         if (_session.messages.isNotEmpty) {
           _session.messages.first.activeMetadata ??= {};
-          if (_characterEmotion.isNotEmpty) {
-            _session.messages.first.activeMetadata!['emotion_label'] =
-                _characterEmotion;
-            _session.messages.first.activeMetadata!['realism_state'] =
-                _realismSnapshot.capture();
+          if (_scope.emotion().isNotEmpty) {
+            _session.messages.first.activeMetadata!['emotion_label'] = _scope
+                .emotion();
+            _session.messages.first.activeMetadata!['realism_state'] = _d
+                .snapshot()
+                .capture();
           }
         }
         // Unauthored group RtR writes live scalars only unless we put them
         // back in the member slot before persist / first-speaker load.
         if (_activeGroup != null) {
-          _writeBackGreetingEvalToGroupSlots(evalChar);
+          _door.greetings.writeBackGreetingEvalToGroupSlots(evalChar);
         }
-        await _saveChat();
-        notifyListeners();
+        await _d.saveChat();
+        _d.notify();
         debugPrint(
-          '[Realism] Post-greeting baseline: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
+          '[Realism] Post-greeting baseline: emotion=${_scope.emotion()}, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
         );
       } catch (e) {
         debugPrint('[Realism] Post-greeting eval failed: $e');
@@ -238,54 +268,53 @@ extension ChatServiceGreeting on ChatService {
             stillLentTo(_session.activeCharacter, evalChar)) {
           _session.activeCharacter = previousActive;
         }
-        _isProcessingGreeting = false;
-        notifyListeners();
+        isProcessingGreeting = false;
+        _d.notify();
       }
-    }, zoneValues: {_kGreetingEvalToken: token, _kGreetingEvalIndex: indexStamp});
+    }, zoneValues: _h.greetingZone(token, indexStamp));
   }
 
   /// Retroactive baseline eval — fires when Realism is enabled mid-conversation
   /// with no prior state captured. Evaluates the full visible message history
   /// so the engine catches up on emotion, bond, and scene state.
-  Future<void> _runRetroactiveBaselineEval() async {
-    if (!_realismEnabled || _session.activeCharacter == null) return;
+  Future<void> runRetroactiveBaselineEval() async {
+    if (!_scope.realismEnabled() || _session.activeCharacter == null) return;
     debugPrint(
       '[Realism] Running retroactive baseline scan (${_session.messages.length} messages)...',
     );
-    _isProcessingGreeting = true; // reuse the greeting overlay
-    notifyListeners();
+    isProcessingGreeting = true; // reuse the greeting overlay
+    _d.notify();
     try {
-      if (_oneShotActive) {
+      if (_h.oneShotActive()) {
         await _realismEvals
             .evaluateOneShotCall(); // step 10 thin (full in realism_evals)
 
         // Check for cancellation after one-shot eval
-        if (_realismEvalCancelled) {
+        if (_h.evalCancelled()) {
           debugPrint('[Realism] Retroactive scan cancelled');
-          _realismEvalCancelled =
-              false; // Reset the flag so future messages can proceed
+          _h.clearEvalCancelled(); // Reset the flag so future messages can proceed
           return;
         }
       } else {
         await Future.wait([
           _realismEvals.evaluateRelationshipCall(),
           Future.delayed(
-            _kEvalDispatchStagger,
+            _h.evalStagger,
             () => _realismEvals.evaluateEmotionalStateCall(),
           ),
           Future.delayed(
-            _kEvalDispatchStagger * 2,
+            _h.evalStagger * 2,
             () => _realismEvals.evaluatePhysicalStateCall(),
           ),
           Future.delayed(
-            _kEvalDispatchStagger * 3,
+            _h.evalStagger * 3,
             () => _realismEvals.evaluateNarrativeCall(),
           ),
         ]);
 
-        if (_realismEvalCancelled) {
+        if (_h.evalCancelled()) {
           debugPrint('[Realism] Retroactive scan cancelled');
-          _realismEvalCancelled = false;
+          _h.clearEvalCancelled();
           return;
         }
       }
@@ -298,70 +327,27 @@ extension ChatServiceGreeting on ChatService {
       // engine up on mood and bond and then wrote the next reply with no
       // staging at all — the same hole turn one had. Guarded like every other
       // seed: a chat that already knows where they are keeps that answer.
-      await _seedOpeningPosture();
+      await seedOpeningPosture();
 
       // Stamp the baseline on the most recent message so it persists
       if (_session.messages.isNotEmpty) {
         _session.messages.last.activeMetadata ??= {};
-        _session.messages.last.activeMetadata!['emotion_label'] =
-            _characterEmotion;
-        _session.messages.last.activeMetadata!['realism_state'] =
-            _realismSnapshot.capture();
+        _session.messages.last.activeMetadata!['emotion_label'] = _scope
+            .emotion();
+        _session.messages.last.activeMetadata!['realism_state'] = _d
+            .snapshot()
+            .capture();
       }
-      await _saveChat();
-      notifyListeners();
+      await _d.saveChat();
+      _d.notify();
       debugPrint(
-        '[Realism] Retroactive scan complete: emotion=$_characterEmotion, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
+        '[Realism] Retroactive scan complete: emotion=${_scope.emotion()}, bond=${_relationshipService.affectionScore}, trust=${_relationshipService.trustLevel}',
       );
     } catch (e) {
       debugPrint('[Realism] Retroactive baseline scan failed: $e');
     } finally {
-      _isProcessingGreeting = false;
-      notifyListeners();
+      isProcessingGreeting = false;
+      _d.notify();
     }
-  }
-
-  /// Bump [_greetingEvalGen] and cancel any in-flight unauthored RtR so a
-  /// late apply cannot paint the previous opening onto a newly loaded
-  /// first_mes (New Chat, switch character/group, swipe, load, import, fork).
-  Future<void> _invalidateGreetingEval() async {
-    _greetingEvalGen++;
-    await cancelRealismEval();
-    _realismEvalCancelled = false;
-    // A switch or new opening is not the user stopping a reply.
-    _stoppedReplyAnchor = null;
-  }
-
-  /// Cycle the first message through alternate greetings.
-  /// Commit-once: the same [selectGreeting] path the picker uses.
-  Future<void> cycleGreeting(int direction) async {
-    if (_session.messages.isEmpty) return;
-    final allGreetings = openingAllGreetings;
-    if (allGreetings.length <= 1) return;
-
-    var next = (_greetingIndex + direction) % allGreetings.length;
-    if (next < 0) next += allGreetings.length;
-    await selectGreeting(next);
-  }
-
-  String _buildFirstMessage(CharacterCard character, {String? greetingText}) {
-    String msg = greetingText ?? character.firstMessage;
-    return _macroResolver.resolve(
-      msg,
-      MacroContext(
-        userName: _userPersonaService.persona.name,
-        characterName: character.name,
-      ),
-      section: 'firstMessage',
-    );
-  }
-
-  /// First displayed member greet — same as 1:1 [CharacterCard.allGreetings].
-  /// Empty when the member has no usable opening (whitespace first_mes and
-  /// no alts). Group open must not gate on [CharacterCard.firstMessage] alone.
-  String _memberOpeningGreetingText(CharacterCard member) {
-    final opening = member.allGreetings;
-    if (opening.isEmpty) return '';
-    return _buildFirstMessage(member, greetingText: opening.first);
   }
 }

@@ -39,6 +39,7 @@
   "canRetryStoppedReply",
   "cancelRealismEval",
   "cast",
+  "castDoor",
   "chanceTimePendingTrigger",
   "chanceTimeSpeakerName",
   "chaosModeService",

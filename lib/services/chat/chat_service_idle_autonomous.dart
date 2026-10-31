@@ -18,74 +18,15 @@
 
 part of '../chat_service.dart';
 
-/// Dynamic ("AFK") autonomous responses: the idle-timer lifecycle and the
-/// autonomous-cue prompt builder. When Dynamic Responses is enabled and the
-/// user goes quiet after a completed exchange, the idle timer fires a
-/// solitary, user-unaware narrative turn. Extracted verbatim from the god file
-/// (zero behaviour change) — the timer is a per-chat global, so it behaves
-/// identically in 1:1 and group modes.
+/// The shell's half of a Dynamic Responses ("AFK") idle turn: the clock's
+/// away pace, the speaker pick and their bars as the chip's baseline, and
+/// the cue built for that speaker. The timer, its guards and the turn
+/// dispatch are [IdleAutonomy] (doors/cast/idle_autonomy.dart). This part
+/// stays because test/services/chat/afk_cue_speaker_test.dart reads it to
+/// prove the cue is built from the picked speaker.
 extension ChatServiceIdleAutonomous on ChatService {
-  // ── Dynamic Responses timer management ────────────────────────────────
-  /// Called when the user leaves the chat page.
-  void pauseDynamicResponses() {
-    _cancelIdleTimer();
-  }
-
-  /// Called when the user re-enters the chat page.
-  void resumeDynamicResponses() {
-    if (!_storageService.generationSettings.dynamicResponses) return;
-    if (!_hasCompletedExchange) return;
-    if (_disposed) return;
-    _resetIdleTimer();
-  }
-
-  /// Drives the production idle callback without waiting on a wall-clock
-  /// timer. Tests still traverse every readiness guard and generation phase.
-  @visibleForTesting
-  void debugFireIdleTimerForTest() => _onIdleTimerFired();
-
-  void _resetIdleTimer() {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    if (!_storageService.generationSettings.dynamicResponses) return;
-    if (!_hasCompletedExchange) return;
-    if (_autoResponseInProgress) {
-      final cooldown =
-          _storageService.generationSettings.dynamicResponseInterval * 2;
-      _idleTimer = Timer(Duration(seconds: cooldown), _onIdleTimerFired);
-      return;
-    }
-    final interval = _storageService.generationSettings.dynamicResponseInterval;
-    _idleTimer = Timer(Duration(seconds: interval), _onIdleTimerFired);
-  }
-
-  void _cancelIdleTimer() {
-    _idleTimer?.cancel();
-    _idleTimer = null;
-    _pendingIdleCue = null;
-    _autoResponseInProgress = false;
-    _consecutiveAutoResponses = 0;
-  }
-
-  void _onIdleTimerFired() {
-    if (_disposed) return;
-    if (_isTurnBusy) {
-      _resetIdleTimer();
-      return;
-    }
-    if (_ttsService != null && _ttsService!.isSpeaking) {
-      _resetIdleTimer();
-      return;
-    }
-    if (!_mouthLlm.isReady) {
-      _resetIdleTimer();
-      return;
-    }
-    if (_consecutiveAutoResponses >=
-        _storageService.generationSettings.dynamicResponseMaxMessages) {
-      return;
-    }
-
+  /// Called by [IdleAutonomy] once its readiness guards pass.
+  ({CharacterCard? speaker, String cue}) _stageIdleTurn() {
     // Advance narrative time by the user-set away pace (Living Time: 1 =
     // a few hours, 3 = half the day, 6 = a full day). Deterministic — the
     // model never chooses the span. Day crossings fire dreams and fresh
@@ -123,25 +64,7 @@ extension ChatServiceIdleAutonomous on ChatService {
       );
     }
 
-    _pendingIdleCue = _buildAutonomousCue(afkSpeaker);
-    _autoResponseInProgress = true;
-    _consecutiveAutoResponses++;
-
-    _generateResponse(
-          GenerationMode.normal,
-          forceSpeaker: afkSpeaker,
-          autonomous: true,
-        )
-        .then((_) {
-          _pendingIdleCue = null;
-          _resetIdleTimer();
-          _autoResponseInProgress = false;
-        })
-        .catchError((_) {
-          _pendingIdleCue = null;
-          _autoResponseInProgress = false;
-          _resetIdleTimer();
-        });
+    return (speaker: afkSpeaker, cue: _buildAutonomousCue(afkSpeaker));
   }
 
   String _buildAutonomousCue(CharacterCard? speaker) {
