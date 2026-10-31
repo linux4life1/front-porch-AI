@@ -376,6 +376,18 @@ hydrate or new chat pass unedited, and `integration_test/swipe_fork_cancel_test.
 `chat_find_test.dart`, `story_time_test.dart` and
 `regen_feelings_cadence_test.dart` pass.
 
+Landed at 46 parts and 161 fields, all eleven parts retired (the nine
+session parts plus WP3's `import_seed` and `import_walk`). The store also
+took the seven per-member group config fields as `GroupSessionConfig`,
+since they live in the session blob. Test path re-points: three entries
+in `needs_gate_ratchet_test`, five in `realism_gate_ratchet_test` (counts
+rise by the accessor declarations each door needs over the `chatRealism`
+hooks, plus one new entry for the wiring file that reads and writes the
+raw switch), and one in `transcript_stream_scroll_test`. `TransferHost`
+shrank by twelve callbacks to one `sessions` lookup and
+`EditSessionHooks` is gone; `SessionShellHooks` lists the 35 hooks the
+store still takes, each named for the package that retires it.
+
 ### WP8. Entry and group roster door
 
 Parts retired (7, ~2,350 lines): `chat_service_chat_entry`,
