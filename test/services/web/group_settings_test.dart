@@ -1729,7 +1729,30 @@ void main() {
         null,
       ).detail('g1', 'mem-mara'))!;
       expect((d['start'] as Map)['trustLevel'], 40);
-      expect((d['group'] as Map)['realism'], isTrue);
+    });
+
+    // The lines beside the start say what each describes: for a group open
+    // in the chat, that chat's own switches, worded "in this chat" by the
+    // page; the start is still the group's new chats', from its row.
+    test("an open group's lines on the phone are the chat's own switches, "
+        "and its start the row's", () async {
+      final chat = _OpenPairWithoutRealism([
+        CharacterCard(name: 'Mara')..dbId = 'mem-mara',
+      ]);
+      addTearDown(chat.dispose);
+      final d = (await GroupMemberEdit(
+        db,
+        storage,
+        chat,
+        null,
+      ).detail('g1', 'mem-mara'))!;
+      final group = d['group'] as Map;
+      expect(
+        (group['open'], group['realism']),
+        (true, false),
+        reason: 'this chat runs without Realism; its new chats start with it',
+      );
+      expect((d['start'] as Map)['trustLevel'], 40);
     });
 
     test("the detail carries Porch Life's Realism permission", () async {
@@ -1775,4 +1798,12 @@ class _OpenPair extends FakeChatService {
           afterglowEnabled: on,
         );
   }
+}
+
+/// [_OpenPair] whose chat runs without Realism.
+class _OpenPairWithoutRealism extends _OpenPair {
+  _OpenPairWithoutRealism(super.members);
+
+  @override
+  bool get realismEnabled => false;
 }

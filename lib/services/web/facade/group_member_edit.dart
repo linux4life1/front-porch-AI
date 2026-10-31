@@ -24,8 +24,6 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/facade/character/character.dart';
-import 'package:front_porch_ai/utils/group_realism_blobs.dart'
-    show groupTemplateRealismOf;
 
 /// The web editor for a group member: the desktop member editor's twin. A
 /// member is the group's own copy of a character, so the edit saves to its
@@ -93,19 +91,12 @@ class GroupMemberEdit {
     );
   }
 
-  /// The group's own switches as a member's editor shows them.
-  /// The group's own switches as a member's editor shows them. Realism is
-  /// the group's for new chats, read from its [row] by the same rule as the
-  /// start beside it, even while the group is open.
-  GroupWideValues? _values(String groupId, GroupChat? g, Group? row) {
+  /// The group's own switches as a member's editor shows them: the open
+  /// chat's own (`open: true`, worded "in this chat"), or the group's for
+  /// new chats. The start is separate, always from the group's row.
+  GroupWideValues? _values(String groupId, GroupChat? g) {
     if (g == null) return null;
-    if (_open(groupId)) {
-      return groupWideValuesOfChat(_chat!, worlds: _worlds).withRealism(
-        groupTemplateRealismOf(
-          row?.defaultMemberRealismState ?? '{}',
-        ).realismOn,
-      );
-    }
+    if (_open(groupId)) return groupWideValuesOfChat(_chat!, worlds: _worlds);
     return groupWideValuesOfTemplate(
       defaultMemberJson: g.defaultMemberRealismState,
       baselineJson: g.baselineRealismState,
@@ -122,7 +113,7 @@ class GroupMemberEdit {
     final row = await _db.getGroupById(groupId);
     final g = _definition(groupId, row);
     if (g == null) return null;
-    final values = _values(groupId, g, row);
+    final values = _values(groupId, g);
     final afterglowShown =
         _storage.realismSettings.afterglowEnabled &&
         (values?.afterglow ?? false);
@@ -192,7 +183,7 @@ class GroupMemberEdit {
       'narrativePerspective': voice.perspective,
       'narrativeTense': voice.tense,
       'sex': voice.sex,
-      'group': _values(groupId, definition, group)?.toJson(),
+      'group': _values(groupId, definition)?.toJson(),
       'start': group == null
           ? null
           : groupMemberStartIn(

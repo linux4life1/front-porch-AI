@@ -35,13 +35,14 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Group Settings, from the sidebar button, or on [initialTab] from a group
 /// member's editor (its lines link to Realism and Needs).
-void showGroupSettings(
+/// Completes when the dialog closes.
+Future<void> showGroupSettings(
   BuildContext context,
   ChatService chatService, {
   int initialTab = 0,
 }) {
   final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
-  showDialog(
+  return showDialog<void>(
     context: context,
     // Outside tap used to discard General the same way X/Close did.
     barrierDismissible: false,

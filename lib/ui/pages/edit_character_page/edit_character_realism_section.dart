@@ -130,8 +130,8 @@ class EditCharacterRealismSection extends StatelessWidget {
                 child: Text(
                   member != null
                       ? "These are $member's own settings in this group. A "
-                            'line that ends "for this group" is the group\'s '
-                            'own, set for everyone in it.'
+                            "read-only line is the group's own, set for "
+                            'everyone in it.'
                       : 'These settings only affect new conversations with this character — '
                             'your existing chats won\'t be changed. No cheating with the relationship values!',
                   style: TextStyle(

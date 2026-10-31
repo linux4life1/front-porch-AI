@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabaseGroupQueries;
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart'
@@ -31,12 +33,29 @@ class GroupRealismNeedsTab extends StatefulWidget {
 class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
   late final GroupRealismNeedsController _controller;
 
+  /// The group's saved realism definition, for the members' summaries of
+  /// where each starts in its new chats.
+  String _persisted = '{}';
+
   @override
   void initState() {
     super.initState();
     widget.chatService.addListener(_onServiceChanged);
     _controller = GroupRealismNeedsController(widget.chatService)
       ..addListener(_onControllerChanged);
+    _readPersisted();
+  }
+
+  Future<void> _readPersisted() async {
+    final id = widget.chatService.activeGroup?.id;
+    if (id == null) return;
+    try {
+      final row = await liveDatabase(context).getGroupById(id);
+      if (!mounted) return;
+      setState(() => _persisted = row?.defaultMemberRealismState ?? '{}');
+    } catch (e) {
+      debugPrint('[GroupSettings] could not read the group: $e');
+    }
   }
 
   void _onServiceChanged() {
@@ -239,7 +258,9 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
                   cs: cs,
                   isRealismActive: isRealismActive,
                   controller: _controller,
+                  persisted: _persisted,
                   onShowTab: widget.onShowTab,
+                  onEdited: _readPersisted,
                 ),
               ),
 

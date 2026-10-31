@@ -50,6 +50,7 @@ export function RealismFormSection({
   start,
   setStart,
   hiddenNote,
+  noStartNote,
 }: {
   v: RealismValues;
   set: Patch;
@@ -75,6 +76,9 @@ export function RealismFormSection({
   /// Why the member's Realism, Needs and Afterglow are hidden (a lite member,
   /// or Realism not allowed in Porch Life); their settings are kept.
   hiddenNote?: string;
+  /** Said in the start's place when the group's new chats start without
+   *  Realism, and where that is set. */
+  noStartNote?: string;
 }) {
   const engineOn = member !== undefined ? !hiddenNote : v.realismEnabled;
   const lines = group ? groupLineTexts(group) : null;
@@ -82,8 +86,8 @@ export function RealismFormSection({
     <div className="realism-section">
       {member !== undefined && (
         <p className="muted small" data-testid="member-own-settings-note">
-          These are {member}&apos;s own settings in this group. A line that ends &ldquo;for this
-          group&rdquo; is the group&apos;s own, set for everyone in it.
+          These are {member}&apos;s own settings in this group. A read-only line is the
+          group&apos;s own, set for everyone in it.
         </p>
       )}
       {member !== undefined && lines && (
@@ -158,8 +162,13 @@ export function RealismFormSection({
             <RelationshipFields
               v={start}
               set={(p) => setStart({ ...start, ...p })}
-              note={`Where ${member} starts in new chats of this group.`}
+              note={`Where ${member} starts in this group's new chats.`}
             />
+          )}
+          {member !== undefined && !start && noStartNote && (
+            <p className="muted small" data-testid="member-no-start-note">
+              {noStartNote}
+            </p>
           )}
 
           {/* ── Optional features ── */}

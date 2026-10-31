@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// One of the group's own switches in a member's editor, read-only:
-/// "Realism Engine · On for this group", and a link to where the group sets
+/// "Realism Engine · On in this chat", and a link to where the group sets
 /// it. A group has one of each; the member never gets a second switch.
 class GroupWideLine extends StatelessWidget {
   const GroupWideLine({
@@ -135,6 +135,7 @@ class MemberGroupRows {
     required this.chaos,
     this.afterglow,
     required this.startNote,
+    this.noStartNote,
   });
 
   final Widget header;
@@ -143,4 +144,7 @@ class MemberGroupRows {
   /// Null while Porch Life does not allow Afterglow.
   final Widget? afterglow;
   final String startNote;
+
+  /// Shown in the start's place when there is none to set.
+  final String? noStartNote;
 }

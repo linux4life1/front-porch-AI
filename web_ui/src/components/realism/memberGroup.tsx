@@ -97,21 +97,36 @@ export function GroupLine({ line, testId }: { line: LineText; testId?: string })
   );
 }
 
-/** The lines and where each is set on the phone: the open chat's own
- *  switches are in its tools; a closed group's settings for new chats are
- *  in Group settings, and its Chaos and clock only in a chat of the group. */
+/** Where the phone sets the group's Realism for its new chats. */
+export const NEW_CHATS_REALISM_WHERE = 'Group settings → Realism for new chats, in a chat of this group';
+
+/** The lines and where each is set on the phone. Each says what it
+ *  describes: while the group is open in the chat, that chat's own switches
+ *  (in its tools); otherwise how the group's new chats start (Realism, Needs
+ *  and Afterglow in Group settings, Chaos and the clock in a chat of it). */
 export function groupLineTexts(g: GroupLines): Record<'realism' | 'time' | 'chaos' | 'afterglow' | 'needs', LineText> {
   const chat = "set in this chat's tools";
-  const settings = g.open ? chat : 'set in Group settings, in a chat of this group';
+  const settings = g.open ? chat : `set in ${NEW_CHATS_REALISM_WHERE}`;
   const inChat = g.open ? chat : 'set in a chat of this group';
+  const on = (v: boolean) => `${onOff(v)} ${g.open ? 'in this chat' : "for this group's new chats"}`;
   return {
-    realism: { text: `Realism Engine · ${onOff(g.realism)} for this group`, where: settings },
-    time: { text: `Time & Day · shared by the group: ${g.timeLabel}`, where: inChat },
-    chaos: { text: `Chaos Mode · ${onOff(g.chaos)} for this group`, where: inChat },
-    afterglow: { text: `Afterglow · ${onOff(g.afterglow)} for this group`, where: settings },
-    needs: { text: `Needs · ${onOff(g.needs)} for this group`, where: settings },
+    realism: { text: `Realism Engine · ${on(g.realism)}`, where: settings },
+    time: {
+      text: g.open
+        ? `Time & Day · in this chat: ${g.timeLabel}`
+        : `Time & Day · this group's new chats start at: ${g.timeLabel}`,
+      where: inChat,
+    },
+    chaos: { text: `Chaos Mode · ${on(g.chaos)}`, where: inChat },
+    afterglow: { text: `Afterglow · ${on(g.afterglow)}`, where: settings },
+    needs: { text: `Needs · ${on(g.needs)}`, where: settings },
   };
 }
+
+/** Said in the start's place when the group's new chats start without
+ *  Realism (the desktop's line, naming the phone's setting). */
+export const noStartNote = () =>
+  `This group's new chats start without Realism, so there's no start to set. Set in ${NEW_CHATS_REALISM_WHERE}.`;
 
 /** Relationship and Starting emotion, over any holder of the five values
  *  (the card's own in a 1:1 editor, the group's seed in a member's). */

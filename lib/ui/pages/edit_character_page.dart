@@ -107,9 +107,21 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   late final EditCharacterDraft _draft;
   late final TabController _tabController;
 
-  /// The member's start as edited; saved to the group's seed when it moved.
-  late GroupMemberStart? _start = widget.memberGroup?.start;
-  bool get _startMoved => _start != widget.memberGroup?.start;
+  /// The member's start as the group holds it, and as edited; saved to the
+  /// group's seed when it moved.
+  late GroupMemberStart? _startBase = widget.memberGroup?.start;
+  late GroupMemberStart? _start = _startBase;
+  bool get _startMoved => _start != _startBase;
+
+  /// The group's start was read again (its Group Settings link closed): an
+  /// unmoved start follows it, a moved one is kept.
+  void _onStartReloaded() {
+    final fresh = widget.memberGroup?.startUpdates?.value;
+    setState(() {
+      if (!_startMoved) _start = fresh;
+      _startBase = fresh;
+    });
+  }
 
   @override
   void initState() {
@@ -120,6 +132,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       worlds: _worldsOrNull(),
     );
     _tabController = TabController(length: 4, vsync: this);
+    widget.memberGroup?.startUpdates?.addListener(_onStartReloaded);
   }
 
   WorldRepository? _worldsOrNull() {
@@ -148,6 +161,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   @override
   void dispose() {
+    widget.memberGroup?.startUpdates?.removeListener(_onStartReloaded);
     _draft.dispose();
     _tabController.dispose();
     super.dispose();

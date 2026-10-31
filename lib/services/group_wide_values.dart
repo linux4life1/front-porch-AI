@@ -57,20 +57,6 @@ class GroupWideValues {
   /// for new chats.
   final bool open;
 
-  /// These values with [realism] set (a member's editor shows the group's
-  /// Realism for new chats from the same persisted definition as the start).
-  GroupWideValues withRealism(bool realism) => GroupWideValues(
-    realism: realism,
-    needs: needs,
-    chaos: chaos,
-    afterglow: afterglow,
-    timeOfDay: timeOfDay,
-    dayCount: dayCount,
-    settingName: settingName,
-    readsMemberLorebooks: readsMemberLorebooks,
-    open: open,
-  );
-
   /// "Late morning, Day 3".
   String get timeLabel {
     final words = timeOfDay.replaceAll('_', ' ').trim();
