@@ -2180,3 +2180,50 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
+
+// Porch Life's Realism Engine is the permission: off, the chat's own Realism
+// switch greys out at the chat's choice and says where to look; back on, the
+// existing-chats question offers to switch it on where it is off.
+test('Porch Life Realism off greys the chat\'s Realism switch; on again asks about chats that have it off', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  type S = { realism?: { realismAllowed?: boolean } };
+  type T = { realismEnabled: boolean; realismSwitch?: boolean };
+  const allowedBefore = ((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed ?? true;
+  const setAllowed = (on: boolean) => request.post('/api/settings', { data: { realism: { realismAllowed: on } } });
+  const setOwn = (on: boolean) => request.post('/api/chat/tools/toggle', { data: { name: 'realism', value: on } });
+  await openPorchChat(page);
+  const tools = (await (await request.get('/api/chat/tools')).json()) as T;
+  const ownBefore = tools.realismSwitch ?? tools.realismEnabled;
+  try {
+    // This chat's own switch off, so turning the engine back on has a chat to ask about.
+    expect((await setOwn(false)).ok()).toBe(true);
+    expect((await setAllowed(false)).ok()).toBe(true);
+    await openPorchChat(page);
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    const own = panel.getByRole('checkbox', { name: 'Realism engine', exact: true });
+    await expect(own).toBeDisabled();
+    await expect(own).not.toBeChecked();
+    await expect(panel).toContainText('The Realism Engine is off in Porch Life');
+
+    await openRoute(page, '/settings');
+    const card = page.getByTestId('porch-life-card');
+    const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
+    await expect(engine).not.toBeChecked();
+    await engine.check();
+    const dialog = page.getByRole('dialog', { name: 'Realism is on' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(/Turn it on in (that chat|those \d+ chats) too/);
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed).toBe(true);
+    const after = (await (await request.get('/api/chat/tools')).json()) as T;
+    expect(after.realismSwitch, 'Done with the switch off changes no chat').toBe(false);
+  } finally {
+    await setAllowed(allowedBefore);
+    await setOwn(ownBefore);
+  }
+});
