@@ -1,0 +1,3409 @@
+{
+  "about": [
+    "Group card field parity: test/hygiene/group_card_field_parity_test.dart.",
+    "Each card field (card.*, ext.*, and the objects nested in ext) says where a",
+    "group member's value is edited (editor) and where a group turn reads it per",
+    "member (reader), or gives one reasoned exemption: groupWide, notRead,",
+    "soloOnly, origin or runtimeOnly. noEditor / noPhone say why a control is",
+    "missing. A place is a pointer ({path, in: function, marker}), not proof of",
+    "behaviour. note is for people; the test does not read it."
+  ],
+  "opaqueTypes": {
+    "Lorebook": "a lorebook is edited as one book in the Lorebook tab and read as one book for the speaker; its entries are not card fields",
+    "AvatarImage": "gallery rows of the library card (looks and expressions); a member inherits the origin card's"
+  },
+  "memberHidden": {
+    "lib/ui/pages/edit_character_page/edit_character_realism_section.dart": {
+      "showMasterEnabledToggle": [
+        "ext.realismEnabled"
+      ],
+      "showTimeAndDay": [
+        "ext.timeOfDay",
+        "ext.dayCount",
+        "ext.storyStartDate",
+        "ext.storyStartTime"
+      ],
+      "showChaosToggle": [
+        "ext.chaosModeEnabled"
+      ],
+      "showSwitch": [
+        "ext.needsSimChoice"
+      ]
+    },
+    "web_ui/src/pages/CharacterEditPage.tsx": {
+      "showSwitch": [
+        "ext.needsSimChoice"
+      ]
+    }
+  },
+  "spine": [
+    {
+      "why": "Edit group opens Edit Character on a member",
+      "path": "lib/ui/pages/edit_group/edit_group_details_tab.dart",
+      "in": "editGroupMemberCard",
+      "marker": "EditCharacterPage("
+    },
+    {
+      "why": "and saves it to the member's row",
+      "path": "lib/ui/pages/edit_group/edit_group_details_tab.dart",
+      "in": "editGroupMemberCard",
+      "marker": "await saveGroupMemberCard(database, card)"
+    },
+    {
+      "why": "the open group chat's sidebar saves a member's edit to its row",
+      "path": "lib/ui/pages/chat_page.sidebar_widgets.dart",
+      "in": "showEditCharacterDialog",
+      "marker": "(card) => saveGroupMemberCard(db, card)"
+    },
+    {
+      "why": "UI Settings saves a member's colours and lock to its row",
+      "path": "lib/ui/dialogs/ui_settings_dialog.dart",
+      "in": "_updateCharacterExtension",
+      "marker": "await saveGroupMemberExtensions(db, card)"
+    },
+    {
+      "why": "the row stores the whole extensions, every field the codec writes",
+      "path": "lib/services/group_member_card_save.dart",
+      "in": "groupMemberCardColumns",
+      "marker": "Value(jsonEncode(ext.toJson()))"
+    },
+    {
+      "why": "and the group loads them back",
+      "path": "lib/models/group_member.dart",
+      "in": "GroupMember.toCharacterCard",
+      "marker": "FrontPorchExtensions.fromJson("
+    },
+    {
+      "why": "the phone's editor posts a member to the group's route",
+      "path": "web_ui/src/pages/CharacterEditPage.tsx",
+      "marker": "`/api/groups/${params.groupId}/members/${params.memberId}`"
+    },
+    {
+      "why": "the relay takes the member edit",
+      "path": "lib/services/web/routes/group_routes.dart",
+      "in": "_memberUpdate",
+      "marker": "edit.update(id, memberId, body)"
+    },
+    {
+      "why": "applies the page's fields to the member",
+      "path": "lib/services/web/facade/group_member_edit.dart",
+      "in": "GroupMemberEdit.update",
+      "marker": "applyCharacterFields("
+    },
+    {
+      "why": "and saves them to the member's row",
+      "path": "lib/services/web/facade/group_member_edit.dart",
+      "in": "GroupMemberEdit.update",
+      "marker": "await saveGroupMemberCard(_db, c)"
+    },
+    {
+      "why": "a member's start goes to the group's seed for them",
+      "path": "lib/services/web/facade/group_member_edit.dart",
+      "in": "GroupMemberEdit.update",
+      "marker": "_saveStart(groupId, memberId, c, fields['groupStart'])"
+    },
+    {
+      "why": "the page's Realism fields go through the relay",
+      "path": "lib/services/web/facade/character/character_card_edits.dart",
+      "in": "applyCharacterFields",
+      "marker": "card.frontPorchExtensions = frontPorchFromFields("
+    }
+  ],
+  "fields": {
+    "card.alternateGreetings": {
+      "note": "Read when a member greets: the group has no opener of its own.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_dialogue_tab.dart",
+          "in": "EditCharacterDialogueTab.build",
+          "marker": "d.addAltGreeting()"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.alternateGreetings = greetingPairs.greetings"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "alternateGreetings: paired.greetings"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "fields['alternateGreetings']"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'alternateGreetings': c.alternateGreetings"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "alternateGreetings: Value(jsonEncode(card.alternateGreetings))"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting.dart",
+          "in": "_memberOpeningGreetingText",
+          "marker": "member.allGreetings",
+          "shared": "a member's greeting is their first message and alternates, as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allGreetings",
+          "marker": "greetings.addAll(alternateGreetings)",
+          "hop": "the greeting list adds the alternates"
+        }
+      ]
+    },
+    "card.avatarImages": {
+      "origin": "expression images live on the library card; the group copies them from the card the member's origin id resolves to when it loads the roster",
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_group_entry.dart",
+          "in": "_inheritGroupExpressionAvatars",
+          "marker": "..avatarImages = List<AvatarImage>.from(origin.avatarImages!)"
+        }
+      ]
+    },
+    "card.characterVersion": {
+      "notRead": "V2 credits round-trip for The Stoop and Chub; no chat reads them, and a member row keeps no copy"
+    },
+    "card.createdAt": {
+      "runtimeOnly": "the library row's date added, for sorting; never serialized"
+    },
+    "card.creator": {
+      "notRead": "V2 credits round-trip for The Stoop and Chub; no chat reads them, and a member row keeps no copy"
+    },
+    "card.creatorNotes": {
+      "notRead": "V2 credits round-trip for The Stoop and Chub; no chat reads them, and a member row keeps no copy"
+    },
+    "card.dbId": {
+      "runtimeOnly": "the row id the app loaded the card under; never serialized"
+    },
+    "card.description": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "controller: d.descriptionController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.description = d.descriptionController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "description: c.description"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('description', card.description"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'description': c.description"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "description: Value(card.description)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/growth_service.dart",
+          "in": "GrowthService.cardPersonality",
+          "marker": "if (card.description.isNotEmpty) card.description"
+        },
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "_growthDesk.resolvedCardPersonality(speaker",
+          "shared": "a group turn reads description and personality as one block"
+        }
+      ]
+    },
+    "card.firstMessage": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_dialogue_tab.dart",
+          "in": "EditCharacterDialogueTab.build",
+          "marker": "controller: d.firstMessageController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.firstMessage = d.firstMessageController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "firstMessage: c.firstMessage"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('firstMessage', card.firstMessage"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'firstMessage': c.firstMessage"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "firstMessage: Value(card.firstMessage)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting.dart",
+          "in": "_memberOpeningGreetingText",
+          "marker": "member.allGreetings",
+          "shared": "a member's greeting is their first message and alternates, as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allGreetings",
+          "marker": "<String>[firstMessage]",
+          "hop": "the greeting list leads with the first message"
+        }
+      ],
+      "note": "Read when a member greets: the group has no opener of its own."
+    },
+    "card.folderId": {
+      "notRead": "the library folder the card sits in; a group has its own folder, and no chat reads a card's"
+    },
+    "card.imagePath": {
+      "reader": [
+        {
+          "path": "lib/ui/pages/chat_page.sidebar_widgets.dart",
+          "in": "ChatSidebarPortrait.build",
+          "marker": "displayFile = resolveCharImage(character.imagePath!)"
+        }
+      ],
+      "noEditor": "a member's portrait is the file copied into the group when they joined; the gallery edits the library card, and nothing edits the member's copy"
+    },
+    "card.loreWorldNames": {
+      "note": "The group's Setting is its own; a member's worlds add their lorebooks when the group inherits them. A member row stores Setting and lore worlds as one list.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_scaffold",
+          "marker": "value: _draft.worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.loreWorldNames = worlds.loreWorldIds"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "worlds: worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.update",
+          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'worlds': ?characterWorldsJson(c, _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/lorebook_collection.dart",
+          "in": "collectLoreEntryRefs",
+          "marker": "for (final worldName in ch.allWorldNames)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allWorldNames",
+          "marker": "[...worldNames, ...?loreWorldNames]",
+          "hop": "every world the card links, Setting and lore alike",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        }
+      ]
+    },
+    "card.lorebook": {
+      "note": "Read for the speaker when the group inherits its members' lorebooks.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_scaffold",
+          "marker": "entries: _loreEntries"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeLorebook",
+          "marker": "character.lorebook!.entries = draft.loreEntries"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "lorebook: lore.filter("
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "card.lorebook = buildLorebookFromJson(fields['lorebook'])"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'lorebook': normalizeLorebookJson("
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "card.lorebook != null ? jsonEncode(card.lorebook!.toJson())"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/lorebook_collection.dart",
+          "in": "collectLoreEntryRefs",
+          "marker": "final book = ch.lorebook"
+        }
+      ]
+    },
+    "card.mesExample": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_dialogue_tab.dart",
+          "in": "EditCharacterDialogueTab.build",
+          "marker": "controller: d.mesExampleController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.mesExample = d.mesExampleController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "mesExample: c.mesExample"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('mesExample', card.mesExample"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'mesExample': c.mesExample"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "mesExample: Value(card.mesExample)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "resolve(speaker.mesExample"
+        }
+      ]
+    },
+    "card.name": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "controller: d.nameController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.name = d.nameController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "name: c.name"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('name', card.name"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'name': c.name"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "name: Value(card.name)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "speakerName: speaker.name"
+        }
+      ]
+    },
+    "card.originLibraryDbId": {
+      "runtimeOnly": "a member's provenance, copied from its row so the chat can find its library card; never serialized"
+    },
+    "card.originStableId": {
+      "runtimeOnly": "a member's provenance, copied from its row so the chat can find its library card; never serialized"
+    },
+    "card.personality": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "controller: d.personalityController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.personality = d.personalityController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "personality: c.personality"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('personality', card.personality"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'personality': c.personality"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "personality: Value(card.personality)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/growth_service.dart",
+          "in": "GrowthService.cardPersonality",
+          "marker": "if (card.personality.isNotEmpty) card.personality"
+        },
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "_growthDesk.resolvedCardPersonality(speaker",
+          "shared": "a group turn reads description and personality as one block"
+        }
+      ]
+    },
+    "card.postHistoryInstructions": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "controller: d.postHistoryController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.postHistoryInstructions = d.postHistoryController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "postHistoryInstructions: c.postHistoryInstructions"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('postHistoryInstructions', card.postHistoryInstructions"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'postHistoryInstructions': c.postHistoryInstructions"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "postHistoryInstructions: Value(card.postHistoryInstructions)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "resolve(speaker.postHistoryInstructions"
+        }
+      ]
+    },
+    "card.primeAvatarIndex": {
+      "origin": "the starred expression is set in the library gallery; the group copies it with the expression images, and a label with no picture falls back on it",
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_group_entry.dart",
+          "in": "_inheritGroupExpressionAvatars",
+          "marker": "..primeAvatarIndex = origin.primeAvatarIndex"
+        },
+        {
+          "path": "lib/services/chat/expression_classifier.dart",
+          "in": "resolveExpressionAvatarFor",
+          "marker": "a.displayOrder + 1 == character.primeAvatarIndex"
+        }
+      ]
+    },
+    "card.rawExtensions": {
+      "notRead": "third-party extension keys and the creator's stamps (narrative voice, greeting recipe) ride through for export and Enhance; no chat reads them. A member row keeps its own copy (groupMemberCardColumns)"
+    },
+    "card.scenario": {
+      "groupWide": "a group scene shares one scenario: the group's own, else its first member's card's (_assembleGenerationBlocks); another member's scenario is not read"
+    },
+    "card.systemPrompt": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "controller: d.systemPromptController"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.systemPrompt = d.systemPromptController.text"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "systemPrompt: c.systemPrompt"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "pick('systemPrompt', card.systemPrompt"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'systemPrompt': c.systemPrompt"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "systemPrompt: Value(card.systemPrompt)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": ": speaker.systemPrompt"
+        }
+      ]
+    },
+    "card.tags": {
+      "notRead": "library labels; no chat reads a card's tags"
+    },
+    "card.ttsVoice": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.ttsVoice = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.ttsVoice = d.ttsVoice.isEmpty ? null : d.ttsVoice"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "setTtsVoice(e.target.value)"
+        },
+        {
+          "path": "lib/services/web/facade/character/character_card_edits.dart",
+          "in": "applyCharacterFields",
+          "marker": "fields.containsKey('ttsVoice')"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'ttsVoice': c.ttsVoice"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "ttsVoice: Value(card.ttsVoice)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/group_speaker_resolution.dart",
+          "in": "ttsVoiceForMessage",
+          "marker": "resolveGroupSpeakerForMessage(groupCast, msg, logOnMiss: false, )?.ttsVoice"
+        }
+      ]
+    },
+    "card.worldNames": {
+      "note": "The group's Setting is its own; a member's worlds add their lorebooks when the group inherits them. A member row stores Setting and lore worlds as one list.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_scaffold",
+          "marker": "value: _draft.worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter.writeFields",
+          "marker": "character.worldNames = worlds.worldIds"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "worlds: worldChoice",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.update",
+          "marker": "applyCharacterWorlds(c, fields['worlds'], _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/web/facade/group_member_edit.dart",
+          "in": "GroupMemberEdit.detail",
+          "marker": "'worlds': ?characterWorldsJson(c, _worlds)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/services/group_member_card_save.dart",
+          "in": "groupMemberCardColumns",
+          "marker": "worldNames: Value(jsonEncode(card.allWorldNames))",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/lorebook_collection.dart",
+          "in": "collectLoreEntryRefs",
+          "marker": "for (final worldName in ch.allWorldNames)",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.allWorldNames",
+          "marker": "[...worldNames, ...?loreWorldNames]",
+          "hop": "every world the card links, Setting and lore alike",
+          "shared": "Setting and lore worlds are edited as one choice, and stored and read as one list"
+        }
+      ]
+    },
+    "ext.actionColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(actionColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "reader": [
+        {
+          "path": "lib/services/storage/settings/ui_settings.dart",
+          "in": "getActionColor",
+          "marker": "character?.frontPorchExtensions?.actionColor"
+        },
+        {
+          "path": "lib/ui/pages/chat_page_overlays.dart",
+          "in": "ChatSurface.build",
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
+        }
+      ]
+    },
+    "ext.afterglowEnabled": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismAfterglow = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "afterglowEnabled: d.realismAfterglow"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ afterglowEnabled:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asBool('afterglowEnabled', b.afterglowEnabled"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'afterglowEnabled': e.afterglowEnabled"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/group_realism_store.dart",
+          "in": "GroupRealismStore.afterglowOnFor",
+          "marker": "c.frontPorchExtensions?.afterglowEnabled"
+        }
+      ]
+    },
+    "ext.aiBubbleColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(aiBubbleColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "reader": [
+        {
+          "path": "lib/services/storage/settings/ui_settings.dart",
+          "in": "getAiBubbleColor",
+          "marker": "character?.frontPorchExtensions?.aiBubbleColor"
+        },
+        {
+          "path": "lib/ui/pages/chat_page_overlays.dart",
+          "in": "ChatSurface.build",
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
+        }
+      ]
+    },
+    "ext.aiTextColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(aiTextColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "reader": [
+        {
+          "path": "lib/services/storage/settings/ui_settings.dart",
+          "in": "getAiTextColor",
+          "marker": "character?.frontPorchExtensions?.aiTextColor"
+        },
+        {
+          "path": "lib/ui/pages/chat_page_overlays.dart",
+          "in": "ChatSurface.build",
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
+        }
+      ]
+    },
+    "ext.ambitions": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.ambitions = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "ambitions: _trimmed(d.ambitions)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ ambitions:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('ambitions', b.ambitions"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'ambitions': e.ambitions"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/prompt_injection/ambition_injection.dart",
+          "in": "AmbitionInjection.buildAmbitionInjection",
+          "marker": "card.frontPorchExtensions?.ambitions"
+        }
+      ]
+    },
+    "ext.avatarLocked": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings_dialog.dart",
+          "in": "_updateAvatarLocked",
+          "marker": "e.copyWith(avatarLocked: locked)"
+        }
+      ],
+      "noPhone": "the phone has no avatar lock, in 1:1 either",
+      "reader": [
+        {
+          "path": "lib/ui/pages/chat_page.sidebar_widgets.dart",
+          "in": "ChatSidebarPortrait.build",
+          "marker": "character.frontPorchExtensions?.avatarLocked"
+        }
+      ]
+    },
+    "ext.birthday": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.birthday = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "birthday: d.birthday.trim()"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ birthday:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('birthday', b.birthday"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'birthday': e.birthday"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/birthday_sync.dart",
+          "in": "_birthdayIsoFor",
+          "marker": "card.frontPorchExtensions?.birthday"
+        }
+      ]
+    },
+    "ext.chaosModeEnabled": {
+      "groupWide": "the group's own Chaos switch (GroupChat.chaosModeEnabled), OR'd with Porch Life's default"
+    },
+    "ext.characterEmotion": {
+      "note": "A member's start lives in the group's seed for them (perChar), never on their card; the card fills in what the seed leaves out.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "setStart(s.copyWith(emotion: v))"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_saveCharacter",
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
+        },
+        {
+          "path": "web_ui/src/components/realism/memberGroup.tsx",
+          "marker": "set({ characterEmotion:"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.fromJson",
+          "marker": "s('characterEmotion')"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.toJson",
+          "marker": "'characterEmotion': emotion"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_openingBaseFor",
+          "marker": "(raw?['emotion'] as String?) ?? cardBase.characterEmotion"
+        },
+        {
+          "path": "lib/services/chat/long_skip_settle.dart",
+          "in": "LongSkipSettle.settle",
+          "marker": "member.emotion = cardExt?.characterEmotion"
+        }
+      ]
+    },
+    "ext.chatFontFamily": {
+      "reader": [
+        {
+          "path": "lib/services/storage/settings/ui_settings.dart",
+          "in": "getChatFontFamily",
+          "marker": "character?.frontPorchExtensions?.chatFontFamily"
+        },
+        {
+          "path": "lib/ui/pages/chat_page_overlays.dart",
+          "in": "ChatSurface.build",
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
+        }
+      ],
+      "noEditor": "no editor writes a character's chat font, in 1:1 either"
+    },
+    "ext.currentTask": {
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_speaker_objectives.dart",
+          "in": "_importAuthoredTask",
+          "marker": "ext?.currentTask"
+        }
+      ],
+      "noEditor": "the Current Task box was retired from every editor; a group still imports a member's authored task as their objective"
+    },
+    "ext.dayCount": {
+      "groupWide": "the group's one clock for the scene, set in Group Settings and Edit group"
+    },
+    "ext.dialogueColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(dialogueColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "reader": [
+        {
+          "path": "lib/services/storage/settings/ui_settings.dart",
+          "in": "getDialogueColor",
+          "marker": "character?.frontPorchExtensions?.dialogueColor"
+        },
+        {
+          "path": "lib/ui/pages/chat_page_overlays.dart",
+          "in": "ChatSurface.build",
+          "marker": "resolveGroupSpeakerForMessage(",
+          "shared": "a member's bubbles take their colours and font from the card of the member who wrote the message"
+        }
+      ]
+    },
+    "ext.dislikes": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.dislikes = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "dislikes: _trimmed(d.dislikes)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ dislikes:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('dislikes', b.dislikes"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'dislikes': e.dislikes"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/prompt_injection/preferences_injection.dart",
+          "in": "PreferencesInjection.buildPreferencesInjection",
+          "marker": "ext.dislikes"
+        },
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismEvals",
+          "marker": "dislikes: ext.dislikes"
+        }
+      ]
+    },
+    "ext.emotionIntensity": {
+      "note": "A member's start lives in the group's seed for them (perChar), never on their card; the card fills in what the seed leaves out.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "setStart(s.copyWith(emotionIntensity: v))"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_saveCharacter",
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
+        },
+        {
+          "path": "web_ui/src/components/realism/memberGroup.tsx",
+          "marker": "set({ emotionIntensity:"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.fromJson",
+          "marker": "s('emotionIntensity')"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.toJson",
+          "marker": "'emotionIntensity': emotionIntensity"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_openingBaseFor",
+          "marker": "(raw?['emotionIntensity'] as String?) ?? cardBase.emotionIntensity"
+        }
+      ]
+    },
+    "ext.enjoysLowHygiene": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismEnjoysLowHygiene = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "enjoysLowHygiene: d.realismEnjoysLowHygiene"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "set({ enjoysLowHygiene:"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asBool('enjoysLowHygiene', b.enjoysLowHygiene"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'enjoysLowHygiene': e.enjoysLowHygiene"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "enjoysLowHygiene: ext?.enjoysLowHygiene"
+        },
+        {
+          "path": "lib/services/chat/prompt_injection/needs_injection.dart",
+          "in": "buildNeedsInjection",
+          "marker": "speakerCard?.frontPorchExtensions?.enjoysLowHygiene"
+        }
+      ]
+    },
+    "ext.favoriteAvatarId": {
+      "origin": "the face ring is the library character's: the gallery stars it on the library card (AvatarGalleryController._persistFavorite, the phone's setFavorite), and a group member's portrait reads the star of the card their origin id resolves to",
+      "reader": [
+        {
+          "path": "lib/ui/pages/chat_page.sidebar_widgets.dart",
+          "in": "ChatSidebarPortrait.build",
+          "marker": "libraryCard.frontPorchExtensions?.favoriteAvatarId"
+        },
+        {
+          "path": "lib/ui/pages/chat_page.sidebar_widgets.dart",
+          "in": "ChatSidebarPortrait.build",
+          "marker": "chat.originLibraryCardFor(character)"
+        }
+      ]
+    },
+    "ext.greetingSeeds": {
+      "note": "Read when a member greets: the group has no opener of its own.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_dialogue_tab.dart",
+          "in": "EditCharacterDialogueTab.build",
+          "marker": "d.setAltGreetingSeed(idx, next)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "greetingSeeds: greetingSeeds"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "onSeedsChange={(seeds) => patch({ greetingSeeds: seeds })}"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "greetingSeeds: paired.seeds"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "parseGreetingSeeds(fields['greetingSeeds'])"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'greetingSeeds': [for (final s in e.greetingSeeds)"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "ext?.greetingSeeds"
+        },
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_greetingOwnerCard",
+          "marker": "_activeGroup == null"
+        }
+      ]
+    },
+    "ext.greetingSeeds.characterEmotion": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedEmotionSection.build",
+          "marker": "s.copyWith(characterEmotion:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ characterEmotion:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'character_emotion', 'characterEmotion'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'characterEmotion': characterEmotion"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "_mood.seed(resolved.characterEmotion"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.characterEmotion",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.currentTask": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedEmotionSection.build",
+          "marker": "s.copyWith(currentTask:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ currentTask:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'current_task', 'currentTask'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'currentTask': currentTask"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "FrontPorchExtensions(currentTask: resolved.currentTask)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.currentTask",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.dayCount": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedTimeSection.build",
+          "marker": "s.copyWith(dayCount:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ dayCount:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'day_count', 'dayCount'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'dayCount': dayCount"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "dayCount: resolved.dayCount"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.dayCount",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.emotionIntensity": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedEmotionSection.build",
+          "marker": "s.copyWith(emotionIntensity:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ emotionIntensity:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'emotion_intensity', 'emotionIntensity'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'emotionIntensity': emotionIntensity"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "resolved.emotionIntensity)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.emotionIntensity",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.inventory": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form.dart",
+          "in": "_GreetingSeedFormState._setWardrobe",
+          "marker": "s.copyWith(inventory:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ inventory: chipsToInventory(worn"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_map(json, 'inventory')"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'inventory': inventory"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "Pockets.fromJson(resolved.inventory)"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.inventory",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.longTermBond": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedRelationshipSection.build",
+          "marker": "s.copyWith(longTermBond:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ longTermBond:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'long_term_bond', 'longTermBond'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'longTermBond': longTermBond"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "longTermBond: resolved.longTermBond"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.longTermBond",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineBladder": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineBladder: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineBladder',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_bladder', 'needsBaselineBladder'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineBladder': needsBaselineBladder"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineBladder",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineComfort": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineComfort: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineComfort',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_comfort', 'needsBaselineComfort'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineComfort': needsBaselineComfort"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineComfort",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineEnergy": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineEnergy: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineEnergy',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_energy', 'needsBaselineEnergy'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineEnergy': needsBaselineEnergy"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineEnergy",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineFun": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineFun: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineFun',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_fun', 'needsBaselineFun'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineFun': needsBaselineFun"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineFun",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineHunger": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineHunger: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineHunger',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_hunger', 'needsBaselineHunger'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineHunger': needsBaselineHunger"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineHunger",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineHygiene": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineHygiene: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineHygiene',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_hygiene', 'needsBaselineHygiene'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineHygiene': needsBaselineHygiene"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineHygiene",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.needsBaselineSocial": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "marker": "(s, v) => s.copyWith(needsBaselineSocial: v)"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "['needsBaselineSocial',"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'needs_baseline_social', 'needsBaselineSocial'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'needsBaselineSocial': needsBaselineSocial"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "initializeFreshWithDefaults(resolved.needsBaselines)",
+          "shared": "a member's greeting seeds all seven bars in one call"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.needsBaselineSocial",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.shortTermBond": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedRelationshipSection.build",
+          "marker": "s.copyWith(shortTermBond:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ shortTermBond:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'short_term_bond', 'shortTermBond'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'shortTermBond': shortTermBond"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "shortTermBond: resolved.shortTermBond"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.shortTermBond",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.storyStartDate": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedTimeSection.build",
+          "marker": "s.copyWith(storyStartDate:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ storyStartDate:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'story_start_date', 'storyStartDate'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'storyStartDate': storyStartDate"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "storyStartDate: resolved.storyStartDate"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.storyStartDate",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.storyStartTime": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedTimeSection.build",
+          "marker": "s.copyWith(storyStartTime:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ storyStartTime:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'story_start_time', 'storyStartTime'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'storyStartTime': storyStartTime"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "storyStartTime: resolved.storyStartTime"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.storyStartTime",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.timeOfDay": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedTimeSection.build",
+          "marker": "s.copyWith(timeOfDay:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ timeOfDay:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_str(json, 'time_of_day', 'timeOfDay'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'timeOfDay': timeOfDay"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "timeOfDay: resolved.timeOfDay"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.timeOfDay",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.greetingSeeds.trustLevel": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/greeting_seed_form/greeting_seed_sections.dart",
+          "in": "GreetingSeedRelationshipSection.build",
+          "marker": "s.copyWith(trustLevel:"
+        },
+        {
+          "path": "web_ui/src/components/GreetingSeedForm.tsx",
+          "marker": "patch({ trustLevel:"
+        },
+        {
+          "path": "web_ui/src/components/AltGreetingsEditor.tsx",
+          "marker": "<GreetingSeedForm",
+          "shared": "the greeting seed form holds every seed control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<AltGreetingsEditor",
+          "shared": "the alternate greetings editor holds the seed form; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.fromJson",
+          "marker": "_int(json, 'trust_level', 'trustLevel'"
+        },
+        {
+          "path": "lib/models/greeting_realism_seed.dart",
+          "in": "GreetingRealismSeed.toFields",
+          "marker": "'trustLevel': trustLevel"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_applyGreetingOpeningSeed",
+          "marker": "trustLevel: resolved.trustLevel"
+        },
+        {
+          "path": "lib/models/greeting/greeting_opening.dart",
+          "in": "resolveGreetingOpening",
+          "marker": "o?.trustLevel",
+          "hop": "the overlay merge the greeting seed calls"
+        }
+      ]
+    },
+    "ext.hours": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.hours = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "hours: d.hours.trim()"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "hours: formatWorkHoursRange("
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('hours', b.hours"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'hours': e.hours"
+        }
+      ],
+      "note": "A member's own copy first; a blank field falls back to the library card the member's origin id resolves to (workFieldsForMember).",
+      "reader": [
+        {
+          "path": "lib/services/chat/presence_derive.dart",
+          "in": "workFieldsForMember",
+          "marker": "copyHours: ext?.hours"
+        }
+      ]
+    },
+    "ext.intimateInto": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.intimateInto = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "intimateInto: _trimmed(d.intimateInto)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ intimateInto:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('intimateInto', b.intimateInto"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'intimateInto': e.intimateInto"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/prompt_injection/preferences_injection.dart",
+          "in": "PreferencesInjection.buildPreferencesInjection",
+          "marker": "ext.intimateInto"
+        },
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismEvals",
+          "marker": "intimateInto: adult ? ext.intimateInto"
+        }
+      ]
+    },
+    "ext.intimateNotInto": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.intimateNotInto = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "intimateNotInto: _trimmed(d.intimateNotInto)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ intimateNotInto:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('intimateNotInto', b.intimateNotInto"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'intimateNotInto': e.intimateNotInto"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/prompt_injection/preferences_injection.dart",
+          "in": "PreferencesInjection.buildPreferencesInjection",
+          "marker": "ext.intimateNotInto"
+        },
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismEvals",
+          "marker": "intimateNotInto: adult ? ext.intimateNotInto"
+        }
+      ]
+    },
+    "ext.inventory": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.worn = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.carrying = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "inventory: Pockets.cardJsonFrom(worn: d.worn, carrying: d.carrying)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ inventory:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "Map<String, dynamic>.from(fields['inventory'] as Map)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'inventory': e.inventory"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/pockets_ledger.dart",
+          "in": "PocketsLedger.startingPocketsFor",
+          "marker": "c.frontPorchExtensions?.inventory"
+        }
+      ]
+    },
+    "ext.likes": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.likes = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "likes: _trimmed(d.likes)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ likes:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('likes', b.likes"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'likes': e.likes"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/prompt_injection/preferences_injection.dart",
+          "in": "PreferencesInjection.buildPreferencesInjection",
+          "marker": "ext.likes"
+        },
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismEvals",
+          "marker": "likes: ext.likes"
+        }
+      ]
+    },
+    "ext.longTermBond": {
+      "note": "A member's start lives in the group's seed for them (perChar), never on their card; the card fills in what the seed leaves out.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "setStart(s.copyWith(longTerm: v))"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_saveCharacter",
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
+        },
+        {
+          "path": "web_ui/src/components/realism/memberGroup.tsx",
+          "marker": "set({ longTermBond:"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.fromJson",
+          "marker": "n('longTermBond')"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.toJson",
+          "marker": "'longTermBond': longTerm"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_openingBaseFor",
+          "marker": "(raw?['longTermScore'] as num?)?.toInt() ?? cardBase.longTermBond"
+        }
+      ]
+    },
+    "ext.needsBaselineBladder": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineBladder = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineBladder: d.needsBaselineBladder"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Bladder', 'needsBaselineBladder']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineBladder', b.needsBaselineBladder"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineBladder': e.needsBaselineBladder"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineBladder",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineComfort": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineComfort = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineComfort: d.needsBaselineComfort"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Comfort', 'needsBaselineComfort']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineComfort', b.needsBaselineComfort"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineComfort': e.needsBaselineComfort"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineComfort",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineEnergy": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineEnergy = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineEnergy: d.needsBaselineEnergy"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Energy', 'needsBaselineEnergy']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineEnergy', b.needsBaselineEnergy"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineEnergy': e.needsBaselineEnergy"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineEnergy",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineFun": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineFun = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineFun: d.needsBaselineFun"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Fun', 'needsBaselineFun']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineFun', b.needsBaselineFun"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineFun': e.needsBaselineFun"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineFun",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineHunger": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineHunger = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineHunger: d.needsBaselineHunger"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Hunger', 'needsBaselineHunger']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineHunger', b.needsBaselineHunger"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineHunger': e.needsBaselineHunger"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineHunger",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineHygiene": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineHygiene = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineHygiene: d.needsBaselineHygiene"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Hygiene', 'needsBaselineHygiene']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineHygiene', b.needsBaselineHygiene"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineHygiene': e.needsBaselineHygiene"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineHygiene",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsBaselineSocial": {
+      "note": "A group member's bars start from the group's seed for them. The card's baselines are read in a group for a lived skip and a rested night (NeedsBeatWear._lived / _rested in the group wear) and for a member who joins; ordinary wear does not read them.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsBaselineSocial = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsBaselineSocial: d.needsBaselineSocial"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "['Social', 'needsBaselineSocial']"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('needsBaselineSocial', b.needsBaselineSocial"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsBaselineSocial': e.needsBaselineSocial"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._lived",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear._rested",
+          "marker": "everyday: NeedsSimulation.baselinesFromExtensions(ext)",
+          "shared": "the group wear reads all seven baselines in one call"
+        },
+        {
+          "path": "lib/services/chat/chat_service_group_members.dart",
+          "in": "addCharacterToGroup",
+          "marker": "NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions)",
+          "shared": "a member who joins starts all seven bars in one call"
+        },
+        {
+          "path": "lib/services/chat/needs_simulation.dart",
+          "in": "NeedsSimulation.baselinesFromExtensions",
+          "marker": "ext.needsBaselineSocial",
+          "hop": "the helper those reads call; it maps each baseline to its bar"
+        }
+      ]
+    },
+    "ext.needsOff": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsOff = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsOff: d.needsOff"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "set({ needsOff:"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('needsOff', b.needsOff"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsOff': e.needsOff"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_group_read.dart",
+          "in": "getTopUrgentNeedsForGroupCharacter",
+          "marker": "character.frontPorchExtensions?.needsOff"
+        },
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear.group",
+          "marker": "needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff"
+        }
+      ]
+    },
+    "ext.needsPace": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.needsPace = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "needsPace: d.needsPace"
+        },
+        {
+          "path": "web_ui/src/components/realism/NeedsFormSection.tsx",
+          "marker": "set({ needsPace:"
+        },
+        {
+          "path": "web_ui/src/pages/CharacterEditPage.tsx",
+          "marker": "<NeedsFormSection",
+          "shared": "the Needs form holds every Needs control; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "(fields['needsPace'] as String?) ?? b.needsPace"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'needsPace': e.needsPace"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/needs_beat_wear.dart",
+          "in": "NeedsBeatWear.group",
+          "marker": "pace: BodyPace.parse(ext?.needsPace)"
+        }
+      ]
+    },
+    "ext.needsSimChoice": {
+      "groupWide": "the group chat's Needs switch, behind NeedsPass.active; the member editor shows it read-only"
+    },
+    "ext.nsfwCooldownEnabled": {
+      "soloOnly": "the card's old Afterglow flag: chats start Afterglow from afterglowEnabled. Only a 1:1 Scene Guest mint reads the host's flag (scene_guest_factory.dart), and groups add members, not Scene Guests. Nothing edits it, in 1:1 either"
+    },
+    "ext.occupation": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.occupation = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "occupation: d.occupation.trim()"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ occupation:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('occupation', b.occupation"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'occupation': e.occupation"
+        }
+      ],
+      "note": "A member's own copy first; a blank field falls back to the library card the member's origin id resolves to (workFieldsForMember).",
+      "reader": [
+        {
+          "path": "lib/services/chat/presence_derive.dart",
+          "in": "workFieldsForMember",
+          "marker": "copyOccupation: ext?.occupation"
+        }
+      ]
+    },
+    "ext.occupationBrief": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.occupationBrief = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "occupationBrief: d.occupationBrief.trim()"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ occupationBrief:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('occupationBrief', b.occupationBrief"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'occupationBrief': e.occupationBrief"
+        }
+      ],
+      "note": "A member's own copy first; a blank field falls back to the library card the member's origin id resolves to (workFieldsForMember).",
+      "reader": [
+        {
+          "path": "lib/services/chat/presence_derive.dart",
+          "in": "workFieldsForMember",
+          "marker": "copyOccupationBrief: ext?.occupationBrief"
+        }
+      ]
+    },
+    "ext.passageOfTimeEnabled": {
+      "notRead": "the card's old Passage of Time flag: the clock follows Porch Life's switch, read live (the Clock contract), in 1:1 too"
+    },
+    "ext.planLines": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.planLines = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "planLines: _trimmed(d.planLines)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ planLines:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStrList('planLines', b.planLines"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'planLines': e.planLines"
+        }
+      ],
+      "notRead": "identity that travels with the card; no chat pass reads it yet, in 1:1 either (the plan line reads the job and work days)"
+    },
+    "ext.pocketsEnabled": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "d.realismPocketsEnabled = v"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "pocketsEnabled: d.realismPocketsEnabled"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ pocketsEnabled:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asBool('pocketsEnabled', b.pocketsEnabled"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'pocketsEnabled': e.pocketsEnabled"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/pockets_ledger.dart",
+          "in": "PocketsLedger.pocketsEnabledFor",
+          "marker": "ext.pocketsEnabled"
+        }
+      ]
+    },
+    "ext.realismEnabled": {
+      "groupWide": "the group chat's own Realism switch, behind Porch Life's; the member editor shows it read-only"
+    },
+    "ext.realismNeedsDirectorAuthority": {
+      "note": "A group turn's Needs judge runs with the speaker lent as the active character.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismNeedsDirectorAuthority = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "realismNeedsDirectorAuthority: d.realismNeedsDirectorAuthority"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ realismNeedsDirectorAuthority:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asBool('realismNeedsDirectorAuthority', b.realismNeedsDirectorAuthority"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'realismNeedsDirectorAuthority': e.realismNeedsDirectorAuthority"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildNeedsImpactEvaluator",
+          "marker": "_activeCharacter?.frontPorchExtensions?.realismNeedsDirectorAuthority"
+        }
+      ]
+    },
+    "ext.realismVerificationEnabled": {
+      "note": "A group turn's judges run with the speaker lent as the active character (RealismDance, the post-generation pass).",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismVerificationEnabled = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "realismVerificationEnabled: d.realismVerificationEnabled"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ realismVerificationEnabled:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asBool('realismVerificationEnabled', b.realismVerificationEnabled"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'realismVerificationEnabled': e.realismVerificationEnabled"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismVerifier",
+          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationEnabled"
+        }
+      ]
+    },
+    "ext.realismVerificationMaxReprocesses": {
+      "note": "A group turn's judges run with the speaker lent as the active character.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismVerificationMaxReprocesses = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "realismVerificationMaxReprocesses: d.realismVerificationMaxReprocesses"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ realismVerificationMaxReprocesses:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('realismVerificationMaxReprocesses', b.realismVerificationMaxReprocesses"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'realismVerificationMaxReprocesses': e.realismVerificationMaxReprocesses"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismVerifier",
+          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationMaxReprocesses"
+        }
+      ]
+    },
+    "ext.realismVerificationStrictness": {
+      "note": "A group turn's judges run with the speaker lent as the active character.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.realismVerificationStrictness = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "realismVerificationStrictness: d.realismVerificationStrictness"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ realismVerificationStrictness:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('realismVerificationStrictness', b.realismVerificationStrictness"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'realismVerificationStrictness': e.realismVerificationStrictness"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
+          "in": "_buildRealismVerifier",
+          "marker": "_activeCharacter?.frontPorchExtensions?.realismVerificationStrictness"
+        }
+      ]
+    },
+    "ext.recovery": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "_edit(() => d.recovery = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "recovery: d.recovery"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ recovery })"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "RecoveryProfile.fromFields(fields['recovery'])"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'recovery': e.recovery.toFields()"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/afterglow_pass.dart",
+          "in": "AfterglowPass.runClimaxPass",
+          "marker": "speaker.frontPorchExtensions?.recovery"
+        }
+      ]
+    },
+    "ext.recovery.pcdMood": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "recovery.withPcdMood(mood)"
+        },
+        {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "value: recovery.pcdMood"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "recoveryWithPcdMood(r, mood)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "value={r.pcdMood ?? 'off'}"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.fromFields",
+          "marker": "pcdKey: 'pcdMood'"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.toFields",
+          "marker": "'pcdMood': pcdMood"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/afterglow_pass.dart",
+          "in": "AfterglowPass.runClimaxPass",
+          "marker": "pcdProfile.pcdRollHit("
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.pcdRollHit",
+          "marker": "pcdRate > 0",
+          "hop": "the roll the climax pass makes"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.pcdRate",
+          "marker": "switch (pcdMood)",
+          "hop": "the roll's rate, read from the dial"
+        }
+      ]
+    },
+    "ext.recovery.recoveryMinutes": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "recovery.withMinutes(v.round())"
+        },
+        {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "(recovery.recoveryMinutes ?? neutralSliderMinutes)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "recoveryWithMinutes(r, n)"
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "r.recoveryMinutes ?? NEUTRAL_RECOVERY_MINUTES"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.fromFields",
+          "marker": "minutesKey: 'recoveryMinutes'"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.toFields",
+          "marker": "'recoveryMinutes': recoveryMinutes"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/afterglow_pass.dart",
+          "in": "AfterglowPass.runClimaxPass",
+          "marker": "recovery.recoveryMinutes"
+        }
+      ]
+    },
+    "ext.recovery.recoveryMode": {
+      "editor": [
+        {
+          "path": "lib/ui/widgets/realism_form_section/recovery_block.dart",
+          "in": "RecoveryBlock.build",
+          "marker": "RecoveryProfile.fromPreset("
+        },
+        {
+          "path": "web_ui/src/components/realism/RecoveryBlock.tsx",
+          "marker": "recoveryFromPreset(key,"
+        },
+        {
+          "path": "web_ui/src/components/realism/realismTypes.ts",
+          "marker": "return { recoveryMode: p.recoveryMode,"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "<RecoveryBlock",
+          "shared": "the Recovery block holds all of its controls; this pins that a member's editor renders it"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.fromFields",
+          "marker": "modeKey: 'recoveryMode'"
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.toFields",
+          "marker": "'recoveryMode': recoveryMode"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/afterglow_pass.dart",
+          "in": "AfterglowPass.runClimaxPass",
+          "marker": "recovery.resolvedMode("
+        },
+        {
+          "path": "lib/models/character/recovery_profile.dart",
+          "in": "RecoveryProfile.resolvedMode",
+          "marker": "switch (recoveryMode)",
+          "hop": "the kind the climax pass asks for; it reads the mode"
+        }
+      ]
+    },
+    "ext.sex": {
+      "reader": [
+        {
+          "path": "lib/services/chat/afterglow_pass.dart",
+          "in": "AfterglowPass.runClimaxPass",
+          "marker": "recovery.resolvedMode(ext?.sex"
+        }
+      ],
+      "noEditor": "the AI creators and Enhance write it; the Edit Character page keeps it and has no control for it, in 1:1 either"
+    },
+    "ext.shortTermBond": {
+      "note": "A member's start lives in the group's seed for them (perChar), never on their card; the card fills in what the seed leaves out.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "setStart(s.copyWith(shortTerm: v))"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_saveCharacter",
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
+        },
+        {
+          "path": "web_ui/src/components/realism/memberGroup.tsx",
+          "marker": "set({ shortTermBond:"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.fromJson",
+          "marker": "n('shortTermBond')"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.toJson",
+          "marker": "'shortTermBond': shortTerm"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_openingBaseFor",
+          "marker": "(raw?['affection'] as num?)?.toInt() ?? cardBase.shortTermBond"
+        }
+      ]
+    },
+    "ext.stableId": {
+      "notRead": "the library card's identity across PNG rewrites and re-imports; a chat keys a member by its row id"
+    },
+    "ext.storyStartDate": {
+      "groupWide": "the group's own story calendar seeds its one clock"
+    },
+    "ext.storyStartTime": {
+      "groupWide": "the group's own story calendar seeds its one clock"
+    },
+    "ext.tier": {
+      "editor": [
+        {
+          "path": "lib/services/chat/group_lite.dart",
+          "in": "cloneFrontPorchTier",
+          "marker": "ext.tier = lite ? 'lite' : null"
+        }
+      ],
+      "noPhone": "promote and demote run in the chat service (the /promote and /join commands), which the phone reaches by sending the command as chat text",
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "in": "_buildGroupSpeakerCard",
+          "marker": "speaker.isLite"
+        },
+        {
+          "path": "lib/models/character_card.dart",
+          "in": "CharacterCard.isLite",
+          "marker": "frontPorchExtensions?.tier == 'lite'",
+          "hop": "the getter a group turn asks"
+        }
+      ]
+    },
+    "ext.timeOfDay": {
+      "groupWide": "the group's one clock for the scene, set in Group Settings and Edit group"
+    },
+    "ext.trustLevel": {
+      "note": "A member's start lives in the group's seed for them (perChar), never on their card; the card fills in what the seed leaves out.",
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_realism_section.dart",
+          "in": "EditCharacterRealismSection._build",
+          "marker": "setStart(s.copyWith(trust: v))"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page.dart",
+          "in": "_saveCharacter",
+          "marker": "await saveStart(start)",
+          "shared": "the page saves the member's whole start at once"
+        },
+        {
+          "path": "web_ui/src/components/realism/memberGroup.tsx",
+          "marker": "set({ trustLevel:"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.fromJson",
+          "marker": "n('trustLevel')"
+        },
+        {
+          "path": "lib/services/group_member_start.dart",
+          "in": "GroupMemberStart.toJson",
+          "marker": "'trustLevel': trust"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/chat_service_greeting_seed.dart",
+          "in": "_openingBaseFor",
+          "marker": "(raw?['trust'] as num?)?.toInt() ?? cardBase.trustLevel"
+        }
+      ]
+    },
+    "ext.userBubbleColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(userBubbleColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "soloOnly": "your own bubbles take their colours from the 1:1 host, and a group has none (bubbleHost): they use your Settings colours, so a member's copy is never read in a group (a theme preset's border accent reads the preset, not the card). The member's UI Settings says so"
+    },
+    "ext.userTextColor": {
+      "editor": [
+        {
+          "path": "lib/ui/dialogs/ui_settings/chat_color_slot.dart",
+          "in": "writeCharacter",
+          "marker": "e.copyWith(userTextColor: c)"
+        }
+      ],
+      "noPhone": "the phone has the chat theme's own overrides, but no per-character colours, in 1:1 either",
+      "soloOnly": "your own bubbles take their colours from the 1:1 host, and a group has none (bubbleHost): they use your Settings colours, so a member's copy is never read in a group (a theme preset's border accent reads the preset, not the card). The member's UI Settings says so"
+    },
+    "ext.workDays": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "_edit(() => d.workDays = v)"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "workDays: d.workDays"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ workDays:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asWorkDays('workDays', b.workDays"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'workDays': e.workDays"
+        }
+      ],
+      "note": "A member's own copy first; a blank field falls back to the library card the member's origin id resolves to (workFieldsForMember).",
+      "reader": [
+        {
+          "path": "lib/services/chat/presence_derive.dart",
+          "in": "workFieldsForMember",
+          "marker": "copyWorkDays: ext?.workDays"
+        }
+      ]
+    }
+  }
+}
