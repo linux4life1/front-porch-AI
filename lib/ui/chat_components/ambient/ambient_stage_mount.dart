@@ -65,7 +65,7 @@ class AmbientStageMount extends StatelessWidget {
               builder: (context, onFlash) => AmbientStage(
                 tokens: tokens,
                 animated:
-                    tokens.hasEffects &&
+                    tokens.hasMotion &&
                     !MediaQuery.disableAnimationsOf(context),
                 generating: generating,
                 onFlash: onFlash,

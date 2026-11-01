@@ -21,6 +21,7 @@ import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
 import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
 import { SceneBackdrop, parseSceneBackdrop } from './chat/SceneBackdrop';
+import { SceneSkyCanvas, useSceneSky } from './chat/SceneSkyCanvas';
 import { moodLookOf, moodPaintsOf } from '../theme/moodAtmosphere';
 import { usePaintedThemeMode } from '../theme/usePaintedThemeMode';
 import { useChatFind } from './chat/useChatFind';
@@ -59,6 +60,11 @@ export function ChatPage() {
   } = send;
   // The Ambient Stage's sound: the scene's loop, thunder on the canvas's flashes.
   const sceneSound = useSceneSound(state?.scene);
+  // Generating covers the settling post-gen passes and the stream, so the
+  // stage's pause rule sees the whole reply.
+  const sceneGenerating = !!state?.isGenerating || !!state?.isSettlingTurn || streaming !== '';
+  // The story-clock sky: one player for the two canvases in the view below.
+  const sky = useSceneSky(state?.scene, sceneGenerating);
 
   // Living Time §2: sessions whose welcome-back banner was dismissed (ephemeral).
   const [absenceDismissed, setAbsenceDismissed] = useState<Set<string>>(new Set());
@@ -294,8 +300,11 @@ export function ChatPage() {
       <div className="chat-view">
         {/* The Setting place's picture, under everything else. */}
         <SceneBackdrop backdrop={parseSceneBackdrop(state.sceneBackdrop)} />
+        {/* The story-clock sky under the weather, its sun and moon over it. */}
+        <SceneSkyCanvas player={sky} layer="under" />
         {/* The Ambient Stage's moving weather, behind every other child. */}
-        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} onFlash={sceneSound.onFlash} />
+        <SceneEffectsCanvas scene={state.scene} generating={sceneGenerating} onFlash={sceneSound.onFlash} />
+        <SceneSkyCanvas player={sky} layer="over" />
         <ChatHeader
           title={title}
           focused={focused}

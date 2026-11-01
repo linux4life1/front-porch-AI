@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'scene_gate.dart';
+import 'scene_sky.dart';
 import 'scene_sound.dart';
 import 'scene_tokens.dart';
 
@@ -58,6 +59,11 @@ SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
   final daypart = chat.timeService.timeOfDay;
   final sessionSeed = chat.currentSessionId ?? '';
   final dayCount = chat.timeService.dayCount;
+  // The sky reads the clock itself: the minute places the sun and the
+  // stars, the date sets the moon's phase.
+  final clock = chat.timeService.clock;
+  final minute = sceneMinuteOf(clock);
+  final moonPhase = moonPhaseFor(clock);
   return (dark) => SceneGate.resolve(
     level: appearance.ambientScene,
     theme: appearance.theme,
@@ -65,6 +71,8 @@ SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
     segment: segment,
     daypart: daypart,
     dark: dark,
+    minute: minute,
+    moonPhase: moonPhase,
     // currentWeather is null without a session, so '' never paints.
     sessionSeed: sessionSeed,
     dayCount: dayCount,

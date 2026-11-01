@@ -24,10 +24,13 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart' show Colors;
 
+import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_sky.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
 import 'scene_precipitation.dart';
+import 'scene_sky_layer.dart';
 import 'scene_sky_layers.dart';
 
 /// The Ambient Stage: a Flame game behind the chat column that paints the
@@ -37,7 +40,9 @@ import 'scene_sky_layers.dart';
 /// (`docs/design/ambient-stage.md`). Every colour comes in through
 /// [SceneTokens]; nothing here picks one.
 class AmbientStageGame extends FlameGame {
-  AmbientStageGame(SceneTokens tokens) : _tokens = tokens {
+  AmbientStageGame(SceneTokens tokens)
+    : _tokens = tokens,
+      sky = SceneSkyMotion(tokens.sky?.minute ?? 0) {
     // Pause belongs to AmbientStage, which knows whether the stage animates
     // (lifecycle, focus, reduce motion, generating); Flame's own
     // backgrounding rule would resume a static stage behind its back.
@@ -46,6 +51,10 @@ class AmbientStageGame extends FlameGame {
 
   SceneTokens _tokens;
   SceneTintComponent? _tint;
+
+  /// The minute the sky shows, trailing the clock through a sweep
+  /// (`scene_sky.dart`); stepped with the weather.
+  final SceneSkyMotion sky;
   SceneEffectsSim? _effects;
   List<Component> _effectLayers = const [];
   final StreamController<SceneFlash> _flashes =
@@ -65,12 +74,21 @@ class AmbientStageGame extends FlameGame {
   Stream<SceneFlash> get flashes => _flashes.stream;
 
   /// Swaps the scene; a value-equal set of tokens is a no-op. The weather
-  /// is scattered again only when its seed or kind changes. A paused stage
-  /// repaints once so the new scene shows without running the loop.
+  /// is scattered again only when its seed or kind changes. A new minute
+  /// sweeps the sky forward on an animated stage and snaps it on a still
+  /// one. A paused stage repaints once so the new scene shows without
+  /// running the loop.
   set tokens(SceneTokens value) {
     if (value == _tokens) return;
     _tokens = value;
     _tint?.tokens = value;
+    final minute = value.sky?.minute;
+    if (minute != null) {
+      sky.retarget(
+        minute,
+        sweep: !effectsFrozen && value.level == SceneLevel.effects,
+      );
+    }
     _syncEffects();
     repaintOnce();
   }
@@ -105,6 +123,9 @@ class AmbientStageGame extends FlameGame {
     final tint = SceneTintComponent(_tokens);
     _tint = tint;
     add(tint);
+    // The sky layers paint nothing for a scene without a sky.
+    add(SceneSkyLayer());
+    add(SceneDiscLayer());
     _syncEffects();
   }
 
@@ -117,7 +138,9 @@ class AmbientStageGame extends FlameGame {
   @override
   void update(double dt) {
     super.update(dt);
-    if (!effectsFrozen) _effects?.advance(dt);
+    if (effectsFrozen) return;
+    _effects?.advance(dt);
+    sky.advance(dt);
   }
 
   /// The GameWidget calls this on the game alone when it goes away
@@ -182,7 +205,10 @@ class AmbientStageGame extends FlameGame {
 /// picture and replayed: a frame makes no paint and no shader.
 class SceneTintComponent extends PositionComponent
     with HasGameReference<AmbientStageGame> {
-  SceneTintComponent(SceneTokens tokens) : _tokens = tokens;
+  // Under the sky (0) and every weather layer.
+  SceneTintComponent(SceneTokens tokens)
+    : _tokens = tokens,
+      super(priority: -1);
 
   SceneTokens _tokens;
   Picture? _picture;
