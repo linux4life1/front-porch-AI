@@ -68,7 +68,7 @@ const _ownSwitch = <String, (int, String)>{
     4,
     'keeps it across a fork walk-back',
   ),
-  'lib/services/chat/chat_service_wiring_mint.dart': (
+  'lib/services/chat/chat_service_planner_resolve.dart': (
     2,
     'hands the session store the chat\'s own switch, to read and write',
   ),
@@ -80,12 +80,12 @@ const _ownSwitch = <String, (int, String)>{
     3,
     'carries a 1:1 chat\'s choice, and its state, into the group it becomes',
   ),
-  'lib/services/chat/chat_service_cast_shrink.dart': (
-    3,
+  'lib/services/chat/doors/realism/scalar_carries.dart': (
+    5,
     'carries the choice back through a cast collapse',
   ),
-  'lib/services/chat/chat_service_wiring_realism.dart': (
-    1,
+  'lib/services/chat/doors/realism/core_wiring.dart': (
+    2,
     'a silent card seeds Needs from the chat\'s own choice',
   ),
 };

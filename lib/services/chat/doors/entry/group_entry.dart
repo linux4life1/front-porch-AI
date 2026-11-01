@@ -78,7 +78,7 @@ class GroupEntry {
   bool get _needsSimEnabled => _scope.needsSimEnabled();
   set _needsSimEnabled(bool on) => _sh.setNeedsSimEnabled(on);
   set _enjoysLowHygiene(bool on) => _sh.setEnjoysLowHygiene(on);
-  set _isGrowthPassRunning(bool on) => _sh.setGrowthPassRunning(on);
+  set _isGrowthPassRunning(bool on) => _s.graph().growthPassRunning = on;
 
   /// Enter group chat mode with the given GroupChat definition.
   Future<void> setActiveGroup(
@@ -348,7 +348,7 @@ class GroupEntry {
       // member's authored wardrobe in place, and after the load so a restored
       // session wins. Parity is not optional here — a group member dressed by their
       // author must arrive dressed exactly as they would in a 1:1.
-      _sh.seedPocketsFromCards();
+      _s.graph().seedPocketsFromCards();
 
       // Load the objectives for whoever is the initial next speaker (or first char)
       if (_activeGroup != null) {

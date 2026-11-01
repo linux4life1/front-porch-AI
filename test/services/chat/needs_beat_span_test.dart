@@ -261,7 +261,7 @@ void main() {
 
   test('post-gen asks for that span instead of pre-applied wear', () {
     final src = File(
-      'lib/services/chat/chat_service_speaker_objectives.dart',
+      'lib/services/chat/doors/realism/realism_restores.dart',
     ).readAsStringSync();
     expect(src, contains('needsBeatNote('));
     expect(src, contains('_timeService.needsSpanLabel'));

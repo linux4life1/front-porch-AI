@@ -217,7 +217,7 @@ class NewChatPrep {
 
     // Clear objectives for fresh session start
     _s.objectives().resetForChatSwitch();
-    _h.setGrowthPassRunning(false); // keep reset blocks in sync
+    _s.graph().growthPassRunning = false; // keep reset blocks in sync
 
     // Create new session ID for the new chat
     _session.currentSessionId = DateTime.now().millisecondsSinceEpoch

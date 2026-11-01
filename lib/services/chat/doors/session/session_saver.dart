@@ -170,7 +170,7 @@ class SessionSaver {
     final settled =
         _activeGroup == null && !_nsfwService.storedNsfwCooldownEnabled;
     final body = settled ? Refractory.none : _nsfwService.refractory;
-    final pockets = _d.hooks.hostPockets();
+    final pockets = _s.graph().hostPockets;
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;

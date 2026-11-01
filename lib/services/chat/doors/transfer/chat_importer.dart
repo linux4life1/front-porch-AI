@@ -337,7 +337,7 @@ class ChatImporter {
 
   /// Test hook: live `realism_state` capture key set for stamp-contract guards.
   Map<String, dynamic> debugCaptureRealismState() =>
-      _host.captureRealismState();
+      _host.graph().snapshot.capture();
 }
 
 /// Re-stamp `character_id` on package rows owned by [from] so they land under

@@ -103,7 +103,7 @@ class SessionLoader {
             storyStartDate: timeSeed.storyStartDate,
             storyStartTime: timeSeed.storyStartTime,
           );
-          _h.applySeededPassageOfTime();
+          _s.graph().applySeededPassageOfTime();
         }
       }
       _s.realism().nsfw().resetForFreshChat();
@@ -113,7 +113,7 @@ class SessionLoader {
       // in sync).
       _store.summaryPaused = false;
       _store.isSummaryGenerating = false;
-      _h.setGrowthPassRunning(false);
+      _s.graph().growthPassRunning = false;
       _s.growthStore().invalidate(); // no session — nothing to inject
       _store.selectedLooks.clear(); // 0-session: no per-chat look selection
       // 0-session: no per-chat gen overrides — without this, character B's
@@ -155,7 +155,7 @@ class SessionLoader {
       } catch (e) {
         print('Error loading chat session: $e');
       }
-      await _h.reloadChatWorldIds();
+      await _s.graph().places.reload();
       await _store.scalars.hydrate(lastSession);
 
       // v30: Load live per-character group realism/needs (bond/trust/emotion/fixation/arousal/relationships/needs)
@@ -365,7 +365,7 @@ class SessionLoader {
         }
       }
 
-      await _h.reloadChatWorldIds();
+      await _s.graph().places.reload();
       // Touch updatedAt so this session becomes the "last active" for the
       // character/group — loadLastSession sorts by updatedAt DESC.
       _db.patchSession(

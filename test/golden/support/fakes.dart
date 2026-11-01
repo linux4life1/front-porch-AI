@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
@@ -618,6 +619,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       characters: () => null,
       groupRepository: () => null,
       imageGen: () => null,
+      graph: _noDoorDep,
       realism: _noDoorDep,
       evals: _noDoorDep,
       snapshot: _noDoorDep,
@@ -637,6 +639,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       hooks: _UnwiredCastHooks(),
     ),
   );
+
+  /// The Realism graph behind the realism bridge (lore, places, the tool
+  /// pill, the restores). Goldens run no Realism Engine: every member that
+  /// reaches it read a private of the real service before, which threw on
+  /// this fake too, so it throws. The class getters (weather, mood, needs,
+  /// the scalar services) are overridden above and below instead.
+  @override
+  RealismGraph get realism => _noDoorDep();
 
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no

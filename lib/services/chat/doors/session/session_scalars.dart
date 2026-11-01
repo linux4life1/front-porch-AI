@@ -255,14 +255,14 @@ class SessionScalars {
     // record only exists because it was on at the time, and rolling a chat
     // open must not be the thing that empties their hands.
     final pj = s.pockets;
-    _h.setHostPockets(
-      (pj is String && pj.isNotEmpty) ? Pockets.fromJson(jsonDecode(pj)) : null,
-    );
+    _s.graph().hostPockets = (pj is String && pj.isNotEmpty)
+        ? Pockets.fromJson(jsonDecode(pj))
+        : null;
     // No saved record means this chat has never run the pass, so fall back
     // to what the card starts them with — otherwise the sidebar reads empty
     // until after the first reply and an author who just set a wardrobe
     // concludes it did not save. Skipped when a record exists.
-    _h.seedPocketsFromCards();
+    _s.graph().seedPocketsFromCards();
 
     _store.today.todayObjectiveId = s.todayObjectiveId;
     _store.today.todayObjectiveText = null;
@@ -306,7 +306,7 @@ class SessionScalars {
     // Transient-flag zeroing shared by both loaded paths (keep reset blocks in sync).
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;
-    _h.setGrowthPassRunning(false);
+    _s.graph().growthPassRunning = false;
 
     // Cache growth rings (and any not-yet-distilled legacy evolved blobs) for
     // this session so the injection layer can read them synchronously —

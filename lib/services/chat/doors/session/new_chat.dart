@@ -140,7 +140,7 @@ class NewChatOpener {
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
       );
-      _h.applySeededPassageOfTime();
+      _s.graph().applySeededPassageOfTime();
       _s.mood().seed(extSeed.characterEmotion, extSeed.emotionIntensity);
       // The card says how a new chat starts its Afterglow.
       _nsfwService.seedFromV2OrExt(
@@ -172,7 +172,7 @@ class NewChatOpener {
       // v47: the 1:1 Pockets record is per-chat and re-seeds from the card on
       // the first pass, so a fresh chat must start empty. See the chat_entry
       // twin — now that the record persists, a bleed here would be saved.
-      _h.setHostPockets(null);
+      _s.graph().hostPockets = null;
 
       // Always reset per-chat runtime realism fields (arousal/fixation/
       // cooldowns) for a fresh session started via explicit New Chat. The
@@ -222,7 +222,7 @@ class NewChatOpener {
               storyStartDate: timeSeed.storyStartDate,
               storyStartTime: timeSeed.storyStartTime,
             );
-            _h.applySeededPassageOfTime();
+            _s.graph().applySeededPassageOfTime();
           }
         }
         _nsfwService.resetForFreshChat();
@@ -239,7 +239,7 @@ class NewChatOpener {
         _needsSimulation.resetBuffers();
         // v47: same as the ext-seed branch above — a fresh chat starts with
         // empty hands and re-seeds from the card on the first pass.
-        _h.setHostPockets(null);
+        _s.graph().hostPockets = null;
         // Fresh group chat: reset each member's per-character realism (bond/
         // trust/emotion/needs/FIXATION) back to the group's default member
         // baselines so the previous session's evolved state — most visibly an
@@ -307,7 +307,7 @@ class NewChatOpener {
         // Secondary zeros in the non-ext/group/0-session new-chat path.
         _store.summaryPaused = false;
         _store.isSummaryGenerating = false;
-        _h.setGrowthPassRunning(false);
+        _s.graph().growthPassRunning = false;
       }
     }
 
@@ -321,13 +321,13 @@ class NewChatOpener {
     // seeding beside the null would have been wiped for every group and
     // silently worked for every 1:1 — the shape of bug that looks fixed until
     // somebody opens a group. One call after both branches cannot go half-right.
-    _h.seedPocketsFromCards();
+    _s.graph().seedPocketsFromCards();
 
     // Drop the previous session's growth cache so the new chat starts with
     // the original (ungrown) personality. A fresh session has no rings and
     // no legacy blob, so an empty cache IS the correct state — the next
     // growth-desk refresh (session load / first growth pass) re-scopes it.
-    _h.setGrowthPassRunning(false);
+    _s.graph().growthPassRunning = false;
     _s.growthStore().invalidate();
 
     await _placeOpeningGreeting();

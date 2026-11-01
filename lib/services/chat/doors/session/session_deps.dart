@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -61,6 +62,7 @@ class SessionServices {
     required this.macros,
     required this.characters,
     required this.groupRepository,
+    required this.graph,
     required this.realism,
     required this.cast,
     required this.objectives,
@@ -91,6 +93,10 @@ class SessionServices {
   final MacroResolver macros;
   final CharacterRepository? Function() characters;
   final GroupChatRepository? Function() groupRepository;
+
+  /// The Realism graph: the restores, the host's Pockets record, the
+  /// places and the Growth pass flag a session boundary resets.
+  final RealismGraph Function() graph;
 
   /// The open chat as the Realism Engine sees it: the scalar services, the
   /// group map, the emotion registers and the chat's stored Needs switch.
@@ -141,20 +147,9 @@ class SessionShellHooks {
     required this.enjoysLowHygiene,
     required this.setEnjoysLowHygiene,
     required this.afterglowChatSwitch,
-    required this.applySeededPassageOfTime,
     required this.onRealismStarted,
-    required this.setGrowthPassRunning,
-    required this.restoreForSpeaker,
-    required this.restoreFromMessage,
-    required this.hostPockets,
-    required this.setHostPockets,
-    required this.seedPocketsFromCards,
-    required this.setPocketsFor,
-    required this.pocketsEnabledFor,
     required this.resetDirectorModeToDefault,
     required this.rekeyGroupStores,
-    required this.reloadChatWorldIds,
-    required this.chatPlaceIds,
     required this.clearContextBudget,
     required this.loadContextBudget,
     required this.persistContextBudget,
@@ -202,31 +197,8 @@ class SessionShellHooks {
   /// The chat's own Afterglow switch (1:1 card or group chat).
   final bool Function() afterglowChatSwitch;
 
-  /// Re-applies Porch Life's passage of time after a clock seed.
-  final void Function() applySeededPassageOfTime;
-
   /// A 1:1 chat's Realism has started running; it may score its start.
   final void Function() onRealismStarted;
-
-  /// The Growth Rings pass flag, zeroed on every session boundary.
-  final void Function(bool on) setGrowthPassRunning;
-
-  // ── Realism restores (WP9a) ───────────────────────────────────────────
-
-  /// The group-aware restore from a message's snapshot (by speaker id).
-  final void Function(ChatMessage msg, {bool restoreClock}) restoreForSpeaker;
-
-  /// The scalar restore from a message's snapshot.
-  final void Function(ChatMessage msg, {bool restoreClock}) restoreFromMessage;
-
-  // ── Pockets (WP9a) ────────────────────────────────────────────────────
-
-  /// The 1:1 host's Pockets record (a group keeps each member's in its map).
-  final Pockets? Function() hostPockets;
-  final void Function(Pockets? record) setHostPockets;
-  final void Function() seedPocketsFromCards;
-  final void Function(String characterId, Pockets record) setPocketsFor;
-  final bool Function(String characterId) pocketsEnabledFor;
 
   // ── Group roster (WP8) ────────────────────────────────────────────────
 
@@ -235,14 +207,6 @@ class SessionShellHooks {
   /// Moves group stores keyed by an old member id to the current one; true
   /// when a session-scoped map moved.
   final Future<bool> Function() rekeyGroupStores;
-
-  // ── Places (WP9a) ─────────────────────────────────────────────────────
-
-  /// Re-reads the open chat's attached worlds and climate.
-  final Future<void> Function() reloadChatWorldIds;
-
-  /// Every world the open chat has attached (Setting first, then Lore).
-  final List<String> Function() chatPlaceIds;
 
   // ── Prompt budget and the prompt picker (WP10a) ───────────────────────
 

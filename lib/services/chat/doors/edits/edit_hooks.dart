@@ -101,71 +101,27 @@ class EditTurnHooks {
   final Future<void>? Function() mouthIdle;
 }
 
-/// Realism-eval UI state and the realism restores other parts hold (WP7,
-/// WP9a). The last four are bodies a hygiene test pins to their part file.
+/// The Realism hooks other parts still hold: the cancel flag (a file-scope
+/// flag, WP9b), the send spine's stamp-less rewind (WP10c), and three
+/// bodies a hygiene test pins to their part file (WP10b).
 class EditRealismHooks {
   const EditRealismHooks({
-    required this.realismActiveThisMode,
     required this.evalCancelled,
     required this.setEvalCancelled,
-    required this.setEvaluatingRealism,
-    required this.clearEvalStream,
-    required this.onEvalChunk,
-    required this.stopEvalChunkTimer,
-    required this.restoreForSpeaker,
-    required this.keepingLiveSpeaker,
     required this.rewindToLastAcceptedReply,
     required this.restoreScoredRegisters,
-    required this.applyMoodDecay,
-    required this.plantTierCrossing,
-    required this.revertRegenBaseline,
     required this.replayRegenJudges,
     required this.needsBeforeDelete,
     required this.rewindPocketsForDelete,
   });
 
-  /// The Realism Engine scores the user in this chat mode.
-  final bool Function() realismActiveThisMode;
-
   /// The user cancelled the Realism eval (`_realismEvalCancelled`).
   final bool Function() evalCancelled;
   final void Function(bool on) setEvalCancelled;
-  final void Function(bool on) setEvaluatingRealism;
-
-  /// Empties the overlay's streamed eval text.
-  final void Function() clearEvalStream;
-
-  /// Appends a judge chunk to the overlay text, one rebuild per 150 ms.
-  final void Function(String chunk) onEvalChunk;
-
-  /// Cancels the pending overlay rebuild.
-  final void Function() stopEvalChunkTimer;
-
-  /// The group-aware realism restore from a message's snapshot.
-  final void Function(ChatMessage msg, {bool restoreClock}) restoreForSpeaker;
-
-  /// Runs [body] and puts the mid-turn speaker's scalars back after it.
-  final void Function(void Function() body) keepingLiveSpeaker;
 
   /// 1:1 stamp-less rewind of the scored registers to the last reply.
   final bool Function() rewindToLastAcceptedReply;
   final void Function(Map<String, dynamic> stamp) restoreScoredRegisters;
-  final void Function() applyMoodDecay;
-
-  /// Plants an Our Story card for a tier the score crossed.
-  final void Function(TierCrossing crossing, {required int citeLength})
-  plantTierCrossing;
-
-  /// Regen's rewind to the pre-turn baseline (chat_service_regen_revert:
-  /// it reads the chat's stored Needs switch, needs_gate_ratchet_test).
-  /// False when the baseline is unreadable and nothing may be generated.
-  final bool Function({
-    required ChatMessage lastMsg,
-    required CharacterCard? regenGuest,
-    required CharacterCard? regenSpeakerCard,
-    required String regenSpeakerSid,
-  })
-  revertRegenBaseline;
 
   /// 1:1 regen's decay and judge replay (chat_service_reprocess,
   /// trust_repair_regen_latch_test). False when the user cancelled it; the

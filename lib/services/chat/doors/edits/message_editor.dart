@@ -58,7 +58,7 @@ class MessageEditor {
       // text setter keeps swipe + realism metadata (chips survive edit).
       msg.text = newText;
       // Persist index — on-screen 0..23 is a tail window, not the diary cite.
-      _s.timeline().invalidateFrom(
+      _s.graph().timeline.invalidateFrom(
         persistMessagePosition(base: _history.basePosition, index: index),
       );
       await _saveChat();
@@ -176,14 +176,15 @@ class MessageEditor {
       final needsBeforeDelete = _d.realism.needsBeforeDelete(deletedSid);
       // Co-present bars, before the snapshot restore below. Ana's wear is
       // undone from these, not from the restored snapshot.
-      final presentBeforeDelete = _s.needsRewinds().capturePresentBeforeDelete(
-        deleted,
-      );
+      final presentBeforeDelete = _s
+          .graph()
+          .needsRewinds
+          .capturePresentBeforeDelete(deleted);
 
       _session.messages.removeAt(index);
 
       // Persist index, not the on-screen 0..23 of a tail window.
-      _s.timeline().invalidateFrom(dbPos);
+      _s.graph().timeline.invalidateFrom(dbPos);
 
       // Time-travel rollback for realism when deleting a character message.
       // Restore from the new last message if it has a snapshot, regardless
@@ -221,8 +222,8 @@ class MessageEditor {
           if (speaker != null &&
               _getCharacterIdFromCard(speaker) == deletedSid &&
               m.activeMetadata?['realism_state'] is Map) {
-            _d.realism.keepingLiveSpeaker(() {
-              _d.realism.restoreForSpeaker(m, restoreClock: false);
+            _s.graph().restores.keepingLiveSpeaker(() {
+              _s.graph().restores.forSpeaker(m, restoreClock: false);
             });
             break;
           }
@@ -231,7 +232,7 @@ class MessageEditor {
 
       // Settle needs LAST so it wins over whatever the snapshot restores did
       // to the vector (see NeedsRewinds.revertForDeletedMessage).
-      _s.needsRewinds().revertForDeletedMessage(
+      _s.graph().needsRewinds.revertForDeletedMessage(
         deleted,
         needsBeforeDelete,
         groupSid: deletedSid,
@@ -247,8 +248,11 @@ class MessageEditor {
         // The live tip is the reply still being written. Applying the
         // clock from it mid-turn would move story time under that speaker.
         if (!duringTurn) {
-          _s.clockWriter().applyClockAfterDelete(deleted, wasTail: wasTail);
-          if (wasTail) _s.afterglow().restoreBeforeBeat(deleted);
+          _s.graph().clockWriter.applyClockAfterDelete(
+            deleted,
+            wasTail: wasTail,
+          );
+          if (wasTail) _s.graph().afterglow.restoreBeforeBeat(deleted);
         }
       }
 
@@ -285,7 +289,7 @@ class MessageEditor {
         deleted.activeMetadata?['realism_state'] is Map &&
         !_d.cast.isGuestAuthored(deleted);
     if (!scoredReplyGone) {
-      _d.realism.restoreForSpeaker(last, restoreClock: false);
+      _s.graph().restores.forSpeaker(last, restoreClock: false);
       return;
     }
     if (_d.realism.rewindToLastAcceptedReply()) return;

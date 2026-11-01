@@ -164,7 +164,8 @@ class GuestFlow {
   void noteStoppedReply({required bool replyKept}) {
     if (replyKept) {
       setStatus('Reply kept. Scene time and needs weren\'t updated.');
-    } else if (_h.isEvaluatingRealism() && _session.messages.isNotEmpty) {
+    } else if (_d.graph().evalStatus.evaluating &&
+        _session.messages.isNotEmpty) {
       stoppedReplyAnchor = _session.messages.last;
     }
   }

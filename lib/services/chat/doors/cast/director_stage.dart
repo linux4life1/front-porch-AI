@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 
 /// {{user}} on and off a group's stage (Director Mode), the director's
 /// goal and whispers, narrator beats, and the narrator's bridge over a
@@ -231,11 +232,11 @@ class DirectorStage {
     final scope = _d.realism();
     if (!scope.clockRunning()) return;
     final before = scope.time().clock;
-    final skipped = await _h.playerSkip(
+    final skipped = await _d.graph().playerSkip().apply(
       beat,
       stale: () => _door.sceneChanged(token),
     );
-    await _h.mintEpisodeCrumbs(before, scope.time().clock);
+    await _d.graph().episodeCrumbs.maybeMint(before, scope.time().clock);
     if (skipped >= kLongSkipMinutes) LongSkipSettle(scope).settle();
   }
 

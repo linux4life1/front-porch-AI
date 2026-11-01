@@ -1037,8 +1037,8 @@
           "marker": "ext.dislikes"
         },
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismEvals",
+          "path": "lib/services/chat/doors/realism/judge_wiring.dart",
+          "in": "buildEvals",
           "marker": "dislikes: ext.dislikes"
         }
       ]
@@ -1496,7 +1496,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1542,7 +1542,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1588,7 +1588,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1634,7 +1634,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1680,7 +1680,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1726,7 +1726,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -1772,7 +1772,7 @@
         {
           "path": "lib/services/chat/doors/cast/greeting_picker.dart",
           "in": "applyGreetingOpeningSeed",
-          "marker": "seedGreetingNeeds(resolved.needsBaselines)",
+          "marker": "seeds.greetingNeeds(resolved.needsBaselines)",
           "shared": "a member's greeting seeds all seven bars in one call"
         },
         {
@@ -2083,8 +2083,8 @@
           "marker": "ext.intimateInto"
         },
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismEvals",
+          "path": "lib/services/chat/doors/realism/judge_wiring.dart",
+          "in": "buildEvals",
           "marker": "intimateInto: adult ? ext.intimateInto"
         }
       ]
@@ -2123,8 +2123,8 @@
           "marker": "ext.intimateNotInto"
         },
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismEvals",
+          "path": "lib/services/chat/doors/realism/judge_wiring.dart",
+          "in": "buildEvals",
           "marker": "intimateNotInto: adult ? ext.intimateNotInto"
         }
       ]
@@ -2203,8 +2203,8 @@
           "marker": "ext.likes"
         },
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismEvals",
+          "path": "lib/services/chat/doors/realism/judge_wiring.dart",
+          "in": "buildEvals",
           "marker": "likes: ext.likes"
         }
       ]
@@ -2929,9 +2929,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildNeedsImpactEvaluator",
-          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismNeedsDirectorAuthority"
+          "path": "lib/services/chat/doors/realism/eval_wiring.dart",
+          "in": "buildNeedsImpact",
+          "marker": "session.activeCharacter?.frontPorchExtensions?.realismNeedsDirectorAuthority"
         }
       ]
     },
@@ -2965,9 +2965,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismVerifier",
-          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationEnabled"
+          "path": "lib/services/chat/doors/realism/eval_wiring.dart",
+          "in": "buildVerifier",
+          "marker": "session.activeCharacter?.frontPorchExtensions?.realismVerificationEnabled"
         }
       ]
     },
@@ -3001,9 +3001,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismVerifier",
-          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationMaxReprocesses"
+          "path": "lib/services/chat/doors/realism/eval_wiring.dart",
+          "in": "buildVerifier",
+          "marker": "session.activeCharacter?.frontPorchExtensions?.realismVerificationMaxReprocesses"
         }
       ]
     },
@@ -3037,9 +3037,9 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_wiring_evals_judges.dart",
-          "in": "_buildRealismVerifier",
-          "marker": "_session.activeCharacter?.frontPorchExtensions?.realismVerificationStrictness"
+          "path": "lib/services/chat/doors/realism/eval_wiring.dart",
+          "in": "buildVerifier",
+          "marker": "session.activeCharacter?.frontPorchExtensions?.realismVerificationStrictness"
         }
       ]
     },

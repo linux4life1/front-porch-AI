@@ -164,3 +164,224 @@ extension ChatServicePromiseLedger on ChatService {
     );
   }
 }
+
+/// Approach A′ soft members on the turn path (the two checks take the
+/// library-private turn record `_GenTurn`, the turn engine's, WP10b), and
+/// the lazily built slash-command handler, guest director and cast
+/// detector. All cross-state routes back here through callbacks so the
+/// leaves never import this library.
+extension ChatServiceTurnHelpers on ChatService {
+  /// 1:1 guest turn **or** a soft group member speaking. Do not set
+  /// `guestSpeaker` for the latter — that skip would drop Away / pick.
+  bool _isLiteTurn(_GenTurn t) =>
+      t.guestSpeaker != null || _speakerIsSoft(t.speakingCharacter);
+
+  /// After the clock commits; body in [AfterglowPass.tickAfterClock]. A lite
+  /// beat (guest or soft member) has no speaker refractory to open.
+  void _tickRefractoryAfterClock(_GenTurn t) => _afterglow.tickAfterClock(
+    t.mode,
+    speakerIdOf: () =>
+        _isLiteTurn(t) ? null : _getCharacterIdFromCard(t.speakingCharacter),
+    reply: () => t.streamTarget,
+  );
+
+  /// Slash-command dispatcher (lazily built). All cross-state mutations route
+  /// back here via small callbacks so the handler stays pure and never imports
+  /// this god file or any heavy service.
+  ChatCommandHandler _ensureCommandHandler() {
+    return _commandHandler ??= ChatCommandHandler(
+      setExpression: (label) => _expressionService.setManualExpression(label),
+      activeCharacterIsSet: () =>
+          _session.activeCharacter != null && _activeGroup == null,
+      getSceneGuestCards: () => _sceneGuest.cards,
+      setPendingGuestDeparture: (name) => _sceneGuest.pendingDeparture = name,
+      onSystemMessage: (message) =>
+          // Surface usage hints / errors as the transient inline banner instead
+          // of a saved 'System' chat message (no litter). '⚠' prefix = error.
+          _setGuestStatus(message, isError: message.startsWith('⚠')),
+      generatePrimaryTurn: () => _generateResponse(GenerationMode.normal),
+      createGuest: (name, concept) => _addGuestWithStatus(
+        displayName: name,
+        mint: (onStatus) => _mintSceneGuest(name, concept, onStatus: onStatus),
+      ),
+      exitGuest: (guest) async {
+        _sceneGuest.ids.remove(guest.dbId);
+        await _resolveSceneGuestCards();
+        await _saveChat();
+      },
+      getJoinableCharacters: () => joinableGuestCharacters,
+      joinGuest: joinSceneGuest,
+      joinFull: joinFull,
+      promoteScene: promoteSceneToFull,
+      requestGuestPicker: (filter, full) {
+        _sceneGuest.pendingPickerFilter = filter;
+        _sceneGuest.pendingPickerFull = full;
+        notifyListeners();
+      },
+      runCastScan: runCastDetectionNow,
+      speakGuest: speakGuestNow,
+      getHostCharacter: () => _session.activeCharacter,
+      isTurnBusy: () => _isTurnBusy || _sceneGuest.busy,
+      armExitUndo: armSceneGuestExitUndo,
+      getGroupMembers: () =>
+          _activeGroup != null ? _groupCharacters : const <CharacterCard>[],
+      getGroupJoinableCharacters: () => joinableGroupCharacters,
+      removeGroupMember: (member) async {
+        final repo = _groupChatRepository;
+        if (repo == null) return false;
+        if (!canRemoveCastMember) {
+          _setGuestStatus(kDirectorCastFloorNote, isError: true);
+          return true; // answered: the floor note says why
+        }
+        // Narrate the member's goodbye + arm a deferred-deletion UNDO; the real
+        // removal commits when the user continues (mirrors the Lite-NPC exit).
+        return exitGroupMember(member, repo);
+      },
+      speakGroupMember: (member) async {
+        // /speak <name> in a full group: force that member to take their turn
+        // now (jump the rotation), including Away/at-work (forceSpeaker).
+        if (_activeGroup == null) return;
+        if (_isTurnBusy) {
+          _setGuestStatus('Busy — try again in a moment.', isError: true);
+          return;
+        }
+        _releaseHeldAway(member);
+        _session.groupManager?.setNextSpeaker(member);
+        final tipBefore = _session.messages.lastOrNull;
+        await _generateResponse(GenerationMode.normal, forceSpeaker: member);
+        // forceSpeaker skips the pick, so close the turn here once the
+        // member's reply landed: the rotation carries on after them. A
+        // refused or failed turn keeps them up next for the retry.
+        final tip = _session.messages.lastOrNull;
+        final said = tip == null || identical(tip, tipBefore) || tip.isUser
+            ? null
+            : _resolveGroupSpeakerForMessage(tip);
+        final spoke =
+            said != null &&
+            _getCharacterIdFromCard(said) == _getCharacterIdFromCard(member);
+        if (spoke) {
+          _session.groupManager?.clearForcedSpeaker();
+          _session.groupManager?.advanceAfterRegeneration(member);
+        }
+      },
+      isGroupTurnOrderRandom: () => isGroupTurnOrderRandom,
+      setGroupTurnOrder: (random, customOrder) =>
+          setGroupTurnOrder(random, customOrder),
+      configureAfk: (enabled, maxMessages, intervalSeconds) {
+        // Drive the same persisted Dynamic Responses settings the sidebar panel
+        // uses (single source of truth — no parallel AFK state). Returns the
+        // effective values so the handler can word its confirmation.
+        final gen = _storageService.generationSettings;
+        if (!enabled) {
+          gen.setDynamicResponses(false);
+          pauseDynamicResponses();
+          return (
+            enabled: false,
+            maxMessages: gen.dynamicResponseMaxMessages,
+            intervalSeconds: gen.dynamicResponseInterval,
+          );
+        }
+        if (intervalSeconds != null) {
+          gen.setDynamicResponseInterval(intervalSeconds);
+        }
+        if (maxMessages != null) gen.setDynamicResponseMaxMessages(maxMessages);
+        gen.setDynamicResponses(true);
+        // Fresh AFK run. resumeDynamicResponses arms now if an exchange already
+        // happened this session; otherwise the timer arms after the next reply.
+        _consecutiveAutoResponses = 0;
+        resumeDynamicResponses();
+        return (
+          enabled: true,
+          maxMessages: gen.dynamicResponseMaxMessages,
+          intervalSeconds: gen.dynamicResponseInterval,
+        );
+      },
+      generateImage: (args) => mediaDoor.ensureImageCommand().handle(args),
+      director: DirectorCommands(
+        isGroup: () => _activeGroup != null,
+        hasSceneGuests: () => _sceneGuest.cards.isNotEmpty,
+        isDirecting: () => _directing,
+        promoteSceneToGroup: promoteSceneToFull,
+        stepUserOffStage: stepUserOffStage,
+        stepUserOnStage: stepUserOnStage,
+        getCast: () => _groupCharacters,
+        setWhisper: (member, text) =>
+            setDirectorWhisper(_getCharacterIdFromCard(member), text),
+        setGoal: setDirectorGoal,
+        narrate: narrateScene,
+        onSystemMessage: (m) => _setGuestStatus(m, isError: m.startsWith('⚠')),
+      ),
+    );
+  }
+
+  /// Auto chime-in director (lazily built). Pure leaf — all cross-state routes
+  /// back via callbacks so it never imports this god file. Reuses the existing
+  /// `LlmEvalEngine` fire/strip/extract surface for its relevance gate (no new
+  /// LLM-firing path) and only triggers parity-safe guest turns.
+  SceneGuestDirector _ensureSceneGuestDirector() {
+    return _sceneGuest.director ??= SceneGuestDirector(
+      getSceneGuestCards: () => _sceneGuest.cards,
+      generateGuestTurn: generateGuestTurn,
+      getLatestAssistantText: () {
+        for (final m in _session.messages.reversed) {
+          if (!m.isUser && m.sender != 'System') return m.displayText;
+        }
+        return '';
+      },
+      fireGateEval: (prompt) => _fireLLMEval(
+        prompt,
+        repeatPenalty: kScalarEvalRepeatPenalty,
+        label: 'guest_gate',
+      ),
+      stripThinkBlocks: stripEvalThinkBlocks,
+      extractJsonBool: evalJsonBool,
+      getHostName: () => _session.activeCharacter?.name ?? 'the character',
+      isEnabled: () => autoChimeEnabled,
+    );
+  }
+
+  /// Cast detector (lazily built). Pure leaf — all cross-state routes back via
+  /// callbacks so it never imports this god file. Reuses the existing
+  /// `LlmEvalEngine` fire/strip surface (no new LLM-firing path).
+  CastDetector _ensureCastDetector() {
+    return _sceneGuest.castDetector ??= CastDetector(
+      // Shared tools transport (one probe per backend identity, app-wide).
+      fireToolEval: _fireToolEval,
+      probe: _toolProbe,
+      getBackendIdentity: () => _evalBackendIdentity,
+      getRecentPrimaryTexts: () {
+        // HOST narration only — exclude user, System, AND Scene Guest messages.
+        // The detector prompt says "read <host>'s narration", so feeding it a
+        // guest's lines would let a guest "introduce" a character or get a guest
+        // misattributed to the host.
+        final out = <String>[];
+        for (final m in _session.messages.reversed) {
+          if (!m.isUser &&
+              m.sender != 'System' &&
+              !_isGuestAuthoredMessage(m)) {
+            out.add(m.displayText);
+          }
+          if (out.length >= 6) break;
+        }
+        return out.reversed.toList();
+      },
+      fireLLMEval: (prompt) => _fireLLMEval(
+        prompt,
+        repeatPenalty: kScalarEvalRepeatPenalty,
+        label: 'cast',
+      ),
+      stripThinkBlocks: stripEvalThinkBlocks,
+      getHostName: () =>
+          _session.activeCharacter?.name ??
+          nextCharacter?.name ??
+          _groupCharacters.firstOrNull?.name ??
+          '',
+      getUserName: () => _userPersonaService.persona.name,
+      getSceneGuestNames: () => [
+        ..._sceneGuest.cards.map((g) => g.name),
+        ..._groupCharacters.map((c) => c.name),
+      ],
+      getOfferedOrIgnoredNames: () => _sceneGuest.offeredOrIgnoredNames,
+    );
+  }
+}

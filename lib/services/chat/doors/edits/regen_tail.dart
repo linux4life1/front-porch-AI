@@ -31,14 +31,14 @@ class RegenTail {
 
   ChatSessionState get _session => _d.session;
   EditServices get _s => _d.services;
-  late final RealismScope _scope = _s.realismScope();
+  late final RealismScope _scope = _s.graph().scope;
   GroupChat? get _activeGroup => _session.activeGroup;
 
   CharacterCard? _resolveGroupSpeakerForMessage(ChatMessage msg) =>
       resolveGroupSpeakerForMessage(_session.groupCharacters, msg);
   bool _isGuestAuthoredMessage(ChatMessage m) => _d.cast.isGuestAuthored(m);
   void _restoreRealismStateForSpeaker(ChatMessage msg) =>
-      _d.realism.restoreForSpeaker(msg);
+      _s.graph().restores.forSpeaker(msg);
   Future<void> _saveChat({bool replaceAll = false}) =>
       _d.saveChat(replaceAll: replaceAll);
   void notifyListeners() => _d.notify();
@@ -105,7 +105,7 @@ class RegenTail {
       );
       if (ghostIdx >= 0) _session.messages.removeAt(ghostIdx);
       _session.messages.insert(preGenLen, lastMsg);
-      _s.clockReader().applyTipClock();
+      _s.graph().clockReader.applyTipClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
         // The pre-generation rewind above rolled pockets to the PRE-turn
@@ -113,7 +113,7 @@ class RegenTail {
         // accepted text, so the pockets must return to the accepted
         // (post-turn) record too — same put-back contract as the two
         // realism-cancel points in the regen before it.
-        _s.pocketsRewinds().restoreFromStamp(lastMsg, after: true);
+        _s.graph().pocketsRewinds.restoreFromStamp(lastMsg, after: true);
       }
       notifyListeners();
       // Full rewrite: the abort inside the generation already persisted
@@ -159,7 +159,7 @@ class RegenTail {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
       if (_scope.clockRunning()) {
-        _s.clockWriter().discoverAndPersistMessageBefore(lastMsg);
+        _s.graph().clockWriter.discoverAndPersistMessageBefore(lastMsg);
       }
       _session.messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
@@ -167,7 +167,7 @@ class RegenTail {
       // Guest swipes wear present bodies (1:1 host); the replay just wore
       // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
-      _s.clockReader().applyTipClock();
+      _s.graph().clockReader.applyTipClock();
       _scope.time().clearCapturedClock();
       await _saveChat();
       notifyListeners();

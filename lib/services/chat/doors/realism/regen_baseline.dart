@@ -16,20 +16,43 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 
 /// Regen revert — rewind the rejected speaker to the pre-turn baseline.
 ///
 /// 1:1 and group share this helper. Group impersonates the rejected speaker,
-/// reverts, then saves back into `_groupRealism`. Continue is not this file.
-/// The regen itself is the edits door's RegenController, which calls this
-/// through its `revertRegenBaseline` hook; the body stays here because it
-/// reads the chat's stored Needs switch (needs_gate_ratchet_test).
-extension ChatServiceRegenRevert on ChatService {
+/// reverts, then saves back into its group slot. Continue is not this file.
+/// The regen itself is the edits door's RegenController, which calls
+/// [revert]; test/hygiene/needs_gate_ratchet_test.dart allows this file to
+/// read the chat's stored Needs switch, because it rewinds state.
+class RegenBaseline {
+  RegenBaseline(this._g);
+
+  final RealismGraph _g;
+
+  ChatSessionState get _session => _g.session;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  bool get _realismEnabled => _g.deps.hooks.realismEnabled();
+  NeedsRewinds get _needsRewinds => _g.needsRewinds;
+  AfterglowPass get _afterglow => _g.afterglow;
+  RealismDance get _realismDance => _g.dance;
+  RelationshipService get _relationshipService => _g.relationship;
+  NsfwService get _nsfwService => _g.nsfw;
+  NeedsSimulation get _needsSimulation => _g.needs;
+  MoodRegisters get _mood => _g.mood;
+  String get _characterEmotion => _g.registers.emotion;
+
+  /// The chat's STORED Needs switch: this file rewinds state with it.
+  bool get _needsSimEnabled => _g.deps.hooks.needsSimEnabled();
+
   /// Returns false when the greeting baseline is unreadable. The
   /// caller must put [lastMsg] back and return without generating —
   /// a void return here used to fall through and duplicate the tip.
-  bool _revertRegenRealismBaseline({
+  bool revert({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,
     required CharacterCard? regenSpeakerCard,
@@ -63,7 +86,7 @@ extension ChatServiceRegenRevert on ChatService {
     // the scalar fields. Impersonate + load their map state (the same
     // load/save dance RealismDance.evaluateForUpcomingSpeaker uses), run the SAME
     // revert as 1:1, then persist the reverted scalars back to the map. The
-    // per-speaker eval inside _generateResponse then replays decay + eval
+    // per-speaker eval inside the generation then replays decay + eval
     // from this clean baseline — previously nothing was reverted, so every
     // group regen stacked the new turn's deltas on top of the rejected
     // turn's, plus a second decay tick.

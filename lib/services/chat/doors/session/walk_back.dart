@@ -84,7 +84,7 @@ class WalkBack {
         storyStartDate: _timeService.storyStartDateIso,
         storyStartTime: ext.storyStartTime,
       );
-      _h.applySeededPassageOfTime();
+      _s.graph().applySeededPassageOfTime();
     }
     _s.mood().seed(ext.characterEmotion, ext.emotionIntensity);
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: keepNsfwCooldown);
@@ -103,9 +103,9 @@ class WalkBack {
     // Global on + this card off must leave the hidden kit alone; seed
     // already skips off characters, so a wipe here would be permanent.
     final charId = _getCharacterIdFromCard(_session.activeCharacter!);
-    if (_h.pocketsEnabledFor(charId)) {
-      _h.setHostPockets(null);
-      _h.seedPocketsFromCards();
+    if (_s.graph().pocketsEnabledFor(charId)) {
+      _s.graph().hostPockets = null;
+      _s.graph().seedPocketsFromCards();
     }
 
     _realismChatSwitch = keepRealism;
@@ -148,11 +148,11 @@ class WalkBack {
         }
       }
       if (stamp != null) {
-        _h.restoreForSpeaker(stamp);
+        _s.graph().restores.forSpeaker(stamp);
       } else {
         // Keep a per-char-off (or global-off) kit — HIDES≠erase. Wiping
         // then seed-skipping is how import erased authored-off members.
-        final keptPockets = _h.pocketsEnabledFor(sid)
+        final keptPockets = _s.graph().pocketsEnabledFor(sid)
             ? null
             : _groupRealism[sid]?.pockets;
         // The member's Afterglow flag is a toggle, not a scalar: kept like
@@ -177,7 +177,7 @@ class WalkBack {
 
     _s.clockWriter().syncLoadedSlotClocks();
 
-    _h.seedPocketsFromCards();
+    _s.graph().seedPocketsFromCards();
 
     CharacterCard? scratch;
     if (_session.messages.isNotEmpty) {
@@ -233,7 +233,7 @@ class WalkBack {
       final m = _session.messages[i];
       final meta = m.activeMetadata;
       if (meta?['realism_state'] is Map) {
-        _h.restoreForSpeaker(m, restoreClock: false);
+        _s.graph().restores.forSpeaker(m, restoreClock: false);
         if (m.metadata?['pockets_before'] is Map) {
           _s.pocketsRewinds().restoreFromStamp(m, after: true);
         }

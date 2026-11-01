@@ -16,20 +16,45 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:convert';
 
-/// Group baseline seeds, realism-state injection and restore, post-gen
-/// needs checks and mood decay. The speaker objectives this part was named
-/// for live in the objectives door; the file keeps its name because
-/// needs_gate_ratchet_test and needs_beat_span_test read it by path.
-extension ChatServiceSpeakerObjectives on ChatService {
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+
+/// The realism restore from a message's snapshot (1:1 scalars, or a group
+/// speaker's slot by message speaker id), the post-gen Needs checks, mood
+/// decay and a group member's creation baseline.
+///
+/// test/hygiene/needs_gate_ratchet_test.dart allows this file to read the
+/// chat's stored Needs switch: a restore rewinds Needs state, it does not
+/// run Needs. test/services/chat/needs_beat_span_test.dart reads the
+/// post-gen check here.
+class RealismRestores {
+  RealismRestores(this._g);
+
+  final RealismGraph _g;
+
+  ChatSessionState get _session => _g.session;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  GroupRealismStore get _groupStore => _g.groups;
+  NeedsSimulation get _needsSimulation => _g.needs;
+  TimeService get _timeService => _g.time;
+  RealismDance get _realismDance => _g.dance;
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _g.deps.hooks.characterIdFor(card);
+
+  /// The chat's STORED Needs switch: this file rewinds state with it.
+  bool get _needsSimEnabled => _g.deps.hooks.needsSimEnabled();
+
   // ── Group Creation Baseline Seeding (bond/trust/emotion/time/day only) ──
 
-  /// Returns the immutable creation-time baseline realism values for a group member.
-  /// Only the allowed seeding fields are exposed: affection (bond), trust, emotion, timeOfDay, dayCount.
-  Map<String, dynamic> getBaselineSeedForGroupCharacter(
-    CharacterCard character,
-  ) {
+  /// The immutable creation-time baseline realism values for a group member.
+  /// Only the allowed seeding fields are exposed: affection (bond), trust,
+  /// emotion, timeOfDay, dayCount.
+  Map<String, dynamic> baselineSeedFor(CharacterCard character) {
     if (_activeGroup == null) return {};
     final charId = _getCharacterIdFromCard(character);
     try {
@@ -57,25 +82,12 @@ extension ChatServiceSpeakerObjectives on ChatService {
     };
   }
 
-  /// The pre-reply goal check. Send runs it; Continue and Regen do not
-  /// (objective_check_gate_test reads this name in the send part).
-  Future<void> _maybeCheckTaskCompletionSync() =>
-      objectivesDoor.completion.maybeCheckSync();
-
-  String _getRealismStateInjection() {
-    // Thin delegation to the words-only state composer — the single source of
-    // the "[How <Name> is right now: …]" block the model receives (salience-
-    // gated natural language, no simulation scalars; see
-    // docs/design/prompt-state-injection.md §3).
-    return _realismStateInjection.buildRealismStateInjection();
-  }
-
   /// A group delete loads the deleted member into the live scalar
   /// registers. While another member is mid-turn, put those registers
   /// back or the next save writes the deleted member onto the speaker.
-  void _keepingLiveSpeaker(void Function() body) {
+  void keepingLiveSpeaker(void Function() body) {
     final live = _session.activeCharacter;
-    if (_activeGroup == null || !_isTurnBusy || live == null) {
+    if (_activeGroup == null || !_g.deps.hooks.isTurnBusy() || live == null) {
       body();
       return;
     }
@@ -92,23 +104,20 @@ extension ChatServiceSpeakerObjectives on ChatService {
     }
   }
 
-  /// Group-aware wrapper for [_restoreRealismStateFromMessage]. In a group the
-  /// snapshot belongs to the message's SPEAKER, so the restore must go through
-  /// their _groupRealism entry (load → restore scalars → save) — a bare scalar
-  /// restore is overwritten by the next per-speaker load while the map keeps
-  /// the un-reverted values (the swipe/delete "time travel does nothing in
+  /// Group-aware wrapper for [fromMessage]. In a group the snapshot belongs
+  /// to the message's SPEAKER, so the restore must go through their group
+  /// slot (load → restore scalars → save) — a bare scalar restore is
+  /// overwritten by the next per-speaker load while the map keeps the
+  /// un-reverted values (the swipe/delete "time travel does nothing in
   /// groups" bug). 1:1 restores the scalars directly, unchanged. No-ops when
   /// the group speaker can't be resolved (renamed/removed member): restoring
   /// into the wrong member's entry would corrupt that member's state.
-  void _restoreRealismStateForSpeaker(
-    ChatMessage msg, {
-    bool restoreClock = false,
-  }) {
+  void forSpeaker(ChatMessage msg, {bool restoreClock = false}) {
     if (_activeGroup == null) {
-      _restoreRealismStateFromMessage(msg, restoreClock: restoreClock);
+      fromMessage(msg, restoreClock: restoreClock);
       return;
     }
-    final speaker = _resolveGroupSpeakerForMessage(msg);
+    final speaker = _g.speakerFor(msg);
     if (speaker == null) return;
     final sid = _getCharacterIdFromCard(speaker);
     if (sid.isEmpty) return;
@@ -116,11 +125,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final state = msg.activeMetadata?['realism_state'];
     final stampHasNeeds = state is Map && state['needs'] is Map;
     _realismDance.loadIntoScalars(sid);
-    _restoreRealismStateFromMessage(
-      msg,
-      groupSpeakerId: sid,
-      restoreClock: restoreClock,
-    );
+    fromMessage(msg, groupSpeakerId: sid, restoreClock: restoreClock);
     if (!hadStoredNeeds && !stampHasNeeds) {
       // The load's initializeFresh() filled the scalar vector for a member
       // with no needs history, and the stamp carries none either — clear it
@@ -132,16 +137,16 @@ extension ChatServiceSpeakerObjectives on ChatService {
 
   /// [groupSpeakerId] names the member being rewound so the two registers
   /// that ride the group map — the hidden inter-character feelings and the
-  /// decay cadence — are rewound with everything else. Only
-  /// [_restoreRealismStateForSpeaker] knows it, and it passes it; the 1:1
-  /// callers leave it null and the cadence rides the scalar instead.
+  /// decay cadence — are rewound with everything else. Only [forSpeaker]
+  /// knows it, and it passes it; the 1:1 callers leave it null and the
+  /// cadence rides the scalar instead.
   ///
   /// Before this, ONLY the regen REVERT rewound those two. Every other
   /// time-travel door — the regen merge, swipe navigation, delete rollback —
   /// restored bond/trust/emotion faithfully and silently left the feelings
   /// and cadence where the discarded turn had pushed them (independent review
   /// of 848309c4 found the gap; the original fix closed one doorway of four).
-  void _restoreRealismStateFromMessage(
+  void fromMessage(
     ChatMessage? msg, {
     String? groupSpeakerId,
     bool restoreClock = false,
@@ -156,7 +161,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // Default false. Regen/swipe/delete never pass true — the tip
     // after is the clock. Fork/import pass true only as applyTipClock.
     if (restoreClock) {
-      _clockReader.applyTipClock();
+      _g.clockReader.applyTipClock();
     }
 
     if (state == null) {
@@ -166,20 +171,17 @@ extension ChatServiceSpeakerObjectives on ChatService {
       return;
     }
 
-    _relationshipService.restoreFromMessageState(
+    _g.relationship.restoreFromMessageState(
       state,
       groupSpeakerId: groupSpeakerId,
     );
-    _mood.restoreFromStamp(state);
+    _g.mood.restoreFromStamp(state);
 
-    _nsfwService.restoreNsfwFromRealismState(state);
-
-    // v3.0 Restorations (relationship via service; already covered by restoreFromMessageState above for most).
-    // (Direct sets removed; service owns the scalars.)
+    _g.nsfw.restoreNsfwFromRealismState(state);
 
     // Needs simulation snapshot (clean port)
     // Only restore the vector if the sim is currently enabled for this session.
-    // Never let a historical snapshot flip _needsSimEnabled back on (supports
+    // Never let a historical snapshot flip the stored switch back on (supports
     // clean mid-chat toggle-off via setNeedsSimEnabled without stale state).
     if (state.containsKey('needs') &&
         state['needs'] is Map &&
@@ -195,11 +197,12 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // turn ran.
     //
     // Owner key MUST be the message speaker (groupSpeakerId when rewinding a
-    // group member), never bare `_session.activeCharacter` — after post-gen the
+    // group member), never bare `session.activeCharacter` — after post-gen the
     // active pointer is often someone else, so restore used to write
     // speaker A's kit onto B (audit P1.7).
-    // `_pocketsRewinds.restoreFromStamp` already keys by stamp `char`; this realism_state path is the dual for no-op /
-    // stamp-less turns that only carry pockets inside realism_state.
+    // PocketsRewinds.restoreFromStamp already keys by stamp `char`; this
+    // realism_state path is the dual for no-op / stamp-less turns that only
+    // carry pockets inside realism_state.
     final pocketsSnap = state['pockets'];
     if (pocketsSnap is Map) {
       final ownerId = (groupSpeakerId != null && groupSpeakerId.isNotEmpty)
@@ -207,8 +210,8 @@ extension ChatServiceSpeakerObjectives on ChatService {
           : (_session.activeCharacter != null
                 ? _getCharacterIdFromCard(_session.activeCharacter!)
                 : '');
-      if (ownerId.isNotEmpty && _pocketsLedger.pocketsWriteAllowed(ownerId)) {
-        setPocketsFor(ownerId, Pockets.fromJson(pocketsSnap));
+      if (ownerId.isNotEmpty && _g.pocketsLedger.pocketsWriteAllowed(ownerId)) {
+        _g.setPocketsFor(ownerId, Pockets.fromJson(pocketsSnap));
       }
     }
 
@@ -219,43 +222,38 @@ extension ChatServiceSpeakerObjectives on ChatService {
 
   /// Runs all post-generation needs-related checks (climax, sexual activity,
   /// daily activities, fulfillment) via thin delegate to the consolidated
-  /// NeedsImpactEvaluator (simple model + optional Director authority review loop).
-  /// Orchestration (guards, group impersonation dance + loadGroupRealismIntoScalars
-  /// before call so prompts see correct $charName/personality/stance, preTurn
-  /// snapshot for chips, post RealismDance.saveScalarsIntoGroup + attach needs_deltas,
-  /// (orchestration + impersonation dance in god; full in evaluator).
-  Future<void> _runPostGenNeedsChecks(String responseText) async {
+  /// NeedsImpactEvaluator (simple model + optional Director authority review
+  /// loop). The caller holds the group impersonation dance around it, so the
+  /// prompts see the speaker's name, personality and stance.
+  Future<void> runPostGenNeedsChecks(String responseText) async {
     // During AFK, store current needs vector so the evaluator can include it
     // in its prompt for better-contextualized delta estimates.
-    final wasAfk = _pendingIdleCue != null;
+    final wasAfk = _g.deps.doors.cast().idle.pendingIdleCue != null;
+    final registers = _g.registers;
     if (wasAfk) {
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['_afk_needs_vector'] = Map<String, int>.from(
-        needsSimulation.vector,
+      registers.pending ??= {};
+      registers.pending!['_afk_needs_vector'] = Map<String, int>.from(
+        _needsSimulation.vector,
       );
     }
-    _needsImpactEvaluator.beatNote = needsBeatNote(
+    _g.needsImpact.beatNote = needsBeatNote(
       _timeService.needsSpanLabel,
       longSkip: _timeService.bodyBeatLongSkip,
       rested: _timeService.bodyBeatSlept,
     );
-    await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
+    await _g.needsImpact.evaluateAndApply(responseText, isAfk: wasAfk);
     // During time away, clear the scene-level reason so each need's own
     // reason shows on the chip.
     if (wasAfk) {
-      needsSimulation.clearLastSceneReason();
+      _needsSimulation.clearLastSceneReason();
     }
   }
 
-  // (unified thin + evaluator; prior _check* excised as dead. See CLAUDE.md).
-
-  // ── Score / State Helpers (thinned; core logic + counters in RelationshipService) ──
-
   /// Apply short-term relationship decay (2 points per 10 turns toward 0)
   /// This prevents relationships from being permanently stuck at extremes.
-  void _applyMoodDecay() {
-    // Decay mechanism moved to RelationshipService (applyShortTermDecay).
-    // Counter, 1:1/group branches, inter-char decay all delegated for mechanical fidelity.
-    _relationshipService.applyShortTermDecay();
+  /// The counter, 1:1/group branches and inter-char decay live in
+  /// RelationshipService.applyShortTermDecay.
+  void applyMoodDecay() {
+    _g.relationship.applyShortTermDecay();
   }
 }

@@ -78,7 +78,7 @@ class SessionSeed {
     _h.clearContextBudget();
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;
-    _h.setGrowthPassRunning(false);
+    _s.graph().growthPassRunning = false;
     _s.objectives().resetForChatSwitch();
     final guests = _cast.guests;
     guests.state.ids.clear();
@@ -111,7 +111,7 @@ class SessionSeed {
         storyStartDate: extSeed.storyStartDate,
         storyStartTime: extSeed.storyStartTime,
       );
-      _h.applySeededPassageOfTime();
+      _s.graph().applySeededPassageOfTime();
       _scope.setEmotion(extSeed.characterEmotion);
       _scope.setIntensity(extSeed.emotionIntensity);
       // seedFromV2OrExt only sets the *enabled* flag — runtime arousal and
@@ -146,7 +146,7 @@ class SessionSeed {
       // [applyHead] — it must write even when this card authored Pockets
       // off (HIDES≠erase). Do not skip the null when restore is gated:
       // transcript-only import would keep the previous hidden kit.
-      _h.setHostPockets(null);
+      _s.graph().hostPockets = null;
     } else {
       _relationshipService.resetForFreshChat();
       _s.expression().resetForFreshChat();
@@ -166,7 +166,7 @@ class SessionSeed {
             storyStartDate: timeSeed.storyStartDate,
             storyStartTime: timeSeed.storyStartTime,
           );
-          _h.applySeededPassageOfTime();
+          _s.graph().applySeededPassageOfTime();
         }
         _groupStore.members = parseGroupRealismSeeds(
           _activeGroup!.defaultMemberRealismState,
@@ -183,7 +183,7 @@ class SessionSeed {
       _h.setEnjoysLowHygiene(false);
       _needsSimulation.clearVector();
       _needsSimulation.resetBuffers();
-      _h.setHostPockets(null);
+      _s.graph().hostPockets = null;
       if (_activeGroup != null) {
         // The zeroing above is the right starting point for the no-group path
         // but was the FINAL word for a group: an imported group transcript
@@ -215,7 +215,7 @@ class SessionSeed {
         }
       }
     }
-    _h.seedPocketsFromCards();
+    _s.graph().seedPocketsFromCards();
     _s.growthStore().invalidate();
   }
 
@@ -223,7 +223,7 @@ class SessionSeed {
 
   /// The scalars an `.fpchat` export writes as its `session` head.
   Map<String, dynamic> captureHead() {
-    final pockets = _h.hostPockets();
+    final pockets = _s.graph().hostPockets;
     final head = <String, dynamic>{
       'realism_enabled': _realismChatSwitch,
       'needs_sim_enabled': _scope.needsSimEnabled(),
@@ -330,7 +330,7 @@ class SessionSeed {
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _h.restoreFromMessage(synth, restoreClock: false);
+      _s.graph().restores.fromMessage(synth, restoreClock: false);
     }
     _s.clockWriter().syncLoadedSlotClocks();
 
@@ -343,7 +343,7 @@ class SessionSeed {
           ? _h.characterIdFor(_session.activeCharacter!)
           : '';
       if (id.isNotEmpty) {
-        _h.setPocketsFor(id, Pockets.fromJson(head['pockets']));
+        _s.graph().setPocketsFor(id, Pockets.fromJson(head['pockets']));
       }
     }
 

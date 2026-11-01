@@ -26,9 +26,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
-import 'package:front_porch_ai/services/capability/vision_support_resolver.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -54,11 +52,10 @@ import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_api.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
-import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
-import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
@@ -78,12 +75,11 @@ export 'chat/doors/objectives/objectives_api.dart';
 export 'chat/doors/edits/edits_api.dart';
 export 'chat/doors/session/session_api.dart';
 export 'chat/doors/entry/entry_api.dart';
+export 'chat/doors/realism/realism_api.dart';
+export 'chat/planner_today_fate.dart';
 
 part 'chat/chat_service_history.dart';
-part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
-part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_entry.dart';
 part 'chat/chat_service_generation_blocks.dart';
@@ -95,20 +91,11 @@ part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
-part 'chat/chat_service_cast_shrink.dart';
 part 'chat/chat_service_idle_autonomous.dart';
-part 'chat/chat_service_greeting_seed.dart';
 part 'chat/chat_service_prompt_blocks.dart';
 part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
-part 'chat/chat_service_wiring_realism.dart';
-part 'chat/chat_service_wiring_evals.dart';
-part 'chat/chat_service_wiring_evals_judges.dart';
 part 'chat/chat_service_llm_lanes.dart';
-part 'chat/chat_service_wiring_memory.dart';
-part 'chat/chat_service_wiring_injection.dart';
-part 'chat/chat_service_wiring_mint.dart';
-part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
@@ -172,78 +159,32 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
       objectivesDoor.getObjectivesForGroupCharacter(character);
 
-  late final _lorebookScanner = _buildLorebookScanner();
-  late final _lorebookInjector = _buildLorebookInjector();
-  late final _timeService = _buildTimeService();
-  late final _clockReader = StoryClockReader(_storyClockScope());
-  late final _clockWriter = _buildClockWriter();
-  late final _episodeCrumbs = _buildEpisodeCrumbs();
-  late final _birthdaySync = _buildBirthdaySync();
+  /// The Realism Engine and everything hanging off it: the clock, Needs,
+  /// feelings, mood, Afterglow, Pockets, the judges and their transport, the
+  /// prompt injections, the Journal, Growth Rings, lore and places. The
+  /// getters below forward into it; fakes override them.
+  late final RealismGraph realism = _buildRealismGraph();
 
-  Biome get activeChatBiome => _biomeSchedule.biomeAt(_timeService.dayCount);
-  late final _chaosModeService = _buildChaosModeService();
-  late final _nsfwService = _buildNsfwService();
-  late final _needsSimulation = _buildNeedsSimulation();
-  late final _groupStore = _buildGroupStore();
-  late final _needsPass = _buildNeedsPass();
-  late final _needsRewinds = _buildNeedsRewinds();
-  late final _needsReprocess = _buildNeedsReprocess();
-  late final _standingMood = _buildStandingMood();
-  // The pre-reply quest check runs before the generating flag rises, so the
-  // objective-turn window counts as busy too: a mood the planner moves there
-  // rides the reply's capture, never a patch of the previous reply.
-  late final _mood = MoodRegisters(
-    _realismScope(),
-    isTurnBusy: () => _isTurnBusy || objectivesDoor.inObjectiveTurn,
-  );
-  late final _realismSnapshot = _buildRealismSnapshot();
-  late final _realismJudges = _buildRealismJudges();
-  late final _realismDance = _buildRealismDance();
-  late final _relationshipService = _buildRelationshipService();
-  late final _expressionService = _buildExpressionService();
-  late final _authorNoteBuilder = _buildAuthorNoteBuilder();
-  late final _relationshipInjection = _buildRelationshipInjection();
-  late final _emotionInjection = _buildEmotionInjection();
-  late final _behavioralInjection = _buildBehavioralInjection();
-  late final _timeInjection = _buildTimeInjection();
+  Biome get activeChatBiome => realism.weather.activeChatBiome;
 
-  /// Today's story weather, or null when off. Body in chat_service_accessors.dart.
-  DailyWeather? get currentWeather => _currentWeatherImpl;
+  /// Today's story weather, or null when off (body in [ChatWeather]).
+  DailyWeather? get currentWeather => realism.weather.currentWeather;
 
-  /// Tomorrow's forecast under the same gate. Body in chat_service_accessors.dart.
-  DailyWeather? get upcomingWeather => _upcomingWeatherImpl;
+  /// Tomorrow's forecast under the same gate (body in [ChatWeather]).
+  DailyWeather? get upcomingWeather => realism.weather.upcomingWeather;
 
-  /// The current DAY-PART's weather. Body in chat_service_accessors.dart.
-  SegmentWeather? get currentSegmentWeather => _currentSegmentWeatherImpl;
+  /// The current DAY-PART's weather (body in [ChatWeather]).
+  SegmentWeather? get currentSegmentWeather =>
+      realism.weather.currentSegmentWeather;
 
-  late final _weatherInjection = _buildWeatherInjection();
-  late final _ambitionService = _buildAmbitionService();
-
-  /// Sidebar/web read surface (Living Time §6). Body in chat_service_accessors.dart.
+  /// Sidebar/web read surface (Living Time §6); body on the graph.
   List<({String text, int progress})> ambitionsFor(CharacterCard card) =>
-      _ambitionsForImpl(card);
-
-  late final _ambitionInjection = _buildAmbitionInjection();
-  late final _planInjection = _buildPlanInjection();
-
-  /// Likes & Dislikes fragment — NOT realism-gated (see PreferencesInjection).
-  late final _preferencesInjection = _buildPreferencesInjection();
-
-  /// Pockets & Wardrobe — the per-turn record fragment. Answers to its own
-  /// switch only (see PocketsEval for why it depends on nothing else).
-  late final _inventoryInjection = _buildInventoryInjection();
-
-  late final _pocketsLedger = _buildPocketsLedger();
-  late final _pocketsRewinds = _buildPocketsRewinds();
-  late final _pocketsPass = _buildPocketsPass();
-  late final _itemCards = _buildItemCardJournal();
-  late final _replyFacts = _buildReplyFacts();
-  late final _afterglow = _buildAfterglowPass();
+      realism.ambitionsFor(card);
 
   /// Pockets' one read (off hides, never erases); body in
   /// [PocketsLedger.pocketsFor]. Class member: FakeChatService overrides it.
   Pockets? pocketsFor(String characterId) =>
-      _pocketsLedger.pocketsFor(characterId);
+      realism.pocketsLedger.pocketsFor(characterId);
 
   /// The one Pockets switch, for UI gating: unlike a null [pocketsFor] it
   /// tells "off" (no panel) from "no record yet". A class member: fakes
@@ -255,37 +196,11 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// reaching for a private. Same resolver every Pockets surface uses.
   String characterIdFor(CharacterCard c) => _getCharacterIdFromCard(c);
 
-  late final _promiseDebtService = _buildPromiseDebtService();
-  late final _promiseDebtInjection = _buildPromiseDebtInjection();
-  late final _dreamService = _buildDreamService();
-  late final _nsfwInjection = _buildNsfwInjection();
-  late final _chaosInjection = _buildChaosInjection();
-  late final _needsInjection = _buildNeedsInjection();
-  late final _realismStateInjection = _buildRealismStateInjection();
-  late final _llmEvalEngine = _buildLlmEvalEngine();
-  late final _realismVerifier = _buildRealismVerifier();
-  late final _needsImpactEvaluator = _buildNeedsImpactEvaluator();
-  late final _realismEvals = _buildRealismEvals();
-  late final _objectiveProposal = _buildObjectiveProposal();
-  late final _journalStore = _buildJournalStore();
-  late final _porchMemoryImport = _buildPorchMemoryImport();
-  late final _journalReview = _buildJournalReview();
-
-  JournalReview get journalReview => _journalReview;
-
-  late final _toolSupportTester = _buildToolSupportTester();
-  late final _journalMaintenance = _buildJournalMaintenance();
+  JournalReview get journalReview => realism.journalReview;
 
   /// Journal UI door — class member so FakeChatService can override it.
-  JournalStore get journalStore => _journalStore;
-
-  late final MilestoneFeed milestoneFeed = _buildMilestoneFeed();
-  late final _journalInjection = _buildJournalInjection();
-  late final _growthStore = _buildGrowthStore();
-  late final _growthReview = _buildGrowthReview();
-  late final _growthService = _buildGrowthService();
-  late final _growthDesk = _buildGrowthDesk();
-  late final _timeline = _buildTimelineInvalidator();
+  JournalStore get journalStore => realism.journalStore;
+  MilestoneFeed get milestoneFeed => realism.milestoneFeed;
 
   CharacterCard? get activeCharacter => _session.activeCharacter;
   List<ChatMessage> get messages => List.unmodifiable(_session.messages);
@@ -398,16 +313,16 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   bool get summaryPaused => sessionStore.summaryPaused;
   int get summaryLastIndex => sessionStore.summaryLastIndex;
   bool get isSummaryGenerating => sessionStore.isSummaryGenerating;
-  RelationshipService get relationshipService => _relationshipService;
-  TimeService get timeService => _timeService;
-  NsfwService get nsfwService => _nsfwService;
-  ChaosModeService get chaosModeService => _chaosModeService;
+  RelationshipService get relationshipService => realism.relationship;
+  TimeService get timeService => realism.time;
+  NsfwService get nsfwService => realism.nsfw;
+  ChaosModeService get chaosModeService => realism.chaos;
   WebSearchService get webSearchService => mediaDoor.webSearchService;
   bool get webSearchEnabled => mediaDoor.webSearchService.isActive;
   WikiSearchService get wikiSearchService => mediaDoor.wikiSearchService;
   String get wikiBaseUrl => mediaDoor.wikiBaseUrl;
   Future<void> setWikiBaseUrl(String url) => mediaDoor.setWikiBaseUrl(url);
-  NeedsSimulation get needsSimulation => _needsSimulation;
+  NeedsSimulation get needsSimulation => realism.needs;
   Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
   bool get realismEnabled => _realismEnabled;
   bool get realismChatSwitch => _realismChatSwitch;
@@ -421,15 +336,15 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   Future<void> setAfterglowEnabled(bool on) => _setAfterglowEnabledImpl(on);
   MemoryService? get memoryService => _memoryService;
   Map<String, dynamic>? get lastRagReceipt => _lastRagReceiptImpl;
-  String get standingMoodSummary => _standingMood.summary;
+  String get standingMoodSummary => realism.standingMood.summary;
 
-  bool get isEvaluatingRealism => _isEvaluatingRealism;
+  bool get isEvaluatingRealism => realism.evalStatus.evaluating;
   bool get isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
 
   // Verifier phase: the overlay header, pass progress, and the bubble chip.
-  bool get isVerifyingRealism => _isVerifyingRealism;
-  int get verificationPass => _verificationPass;
-  int get verificationMaxPasses => _verificationMaxPasses;
+  bool get isVerifyingRealism => realism.evalStatus.verifying;
+  int get verificationPass => realism.evalStatus.verificationPass;
+  int get verificationMaxPasses => realism.evalStatus.verificationMaxPasses;
 
   /// Stream text with think blocks stripped (for display) — memoized on
   /// string identity (the overlay + web broadcast read it every notify).
@@ -437,15 +352,15 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// The memo fields stay here; the getter body is in
   /// chat_service_accessors.dart.
   String get realismEvalStreamTextClean => _realismEvalStreamTextCleanImpl;
-  String get characterEmotion => _characterEmotion;
-  String get emotionIntensity => _emotionIntensity;
-  String get emotionCause => _emotionCause;
-  int get emotionHeldTurns => _emotionHeldTurns;
-  String get moodLine => _mood.displayLine;
+  String get characterEmotion => realism.registers.emotion;
+  String get emotionIntensity => realism.registers.intensity;
+  String get emotionCause => realism.registers.cause;
+  int get emotionHeldTurns => realism.registers.heldTurns;
+  String get moodLine => realism.mood.displayLine;
 
   /// The chat's Needs switch; [needsActive] is the gate Needs run behind.
   bool get needsSimEnabled => _needsSimEnabled;
-  bool get needsActive => _needsPass.active;
+  bool get needsActive => realism.needsPass.active;
 
   /// Writes Porch Life Passage of Time — the live clock gate. Class-pinned
   /// so goldens/fakes can override.
@@ -456,7 +371,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>
       entryDoor.members.setMemberAfterglowEnabled(member, on);
 
-  bool get chaosNsfwEnabled => _chaosModeService.chaosNsfwEnabled;
+  bool get chaosNsfwEnabled => realism.chaos.chaosNsfwEnabled;
 
   /// Edit, delete, regen, swipes, Reprocess, impersonate; old names in
   /// edits_api.dart. The two members below forward so fakes pin them.
@@ -467,7 +382,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
       editsDoor.editor.edit(index, newText);
 
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
-  bool get isGrowthPassRunning => _isGrowthPassRunning;
+  bool get isGrowthPassRunning => realism.growthPassRunning;
 
   /// Active objectives for [character] in the current session.
   Future<List<Objective>> getActiveObjectivesFor(CharacterCard character) =>
