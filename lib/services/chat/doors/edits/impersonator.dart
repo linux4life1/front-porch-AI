@@ -51,15 +51,15 @@ class Impersonator {
     required Function(String accumulated) onToken,
   }) async {
     if ((_session.activeCharacter == null && _activeGroup == null) ||
-        _d.turn.isTurnBusy() ||
+        _d.engine().isTurnBusy ||
         _d.cast.guestBusy()) {
       return;
     }
-    if (await _d.turn.abortIfBackendDown()) return;
+    if (await _d.engine().entry.abortIfBackendDown()) return;
 
-    _d.turn.setGenerating(true);
-    _d.turn.setPhase(GenerationPhase.impersonating);
-    _d.turn.setCancelRequested(false);
+    _d.engine().progress.isGenerating = true;
+    _d.engine().progress.generationPhase = GenerationPhase.impersonating;
+    _d.engine().progress.cancelRequested = false;
     _d.notify();
 
     try {
@@ -349,7 +349,7 @@ class Impersonator {
             ? g.resolveBannedPhrases(_storage)
             : null,
         kvChat: _session.currentSessionId,
-        stillWant: () => !_d.turn.cancelRequested(),
+        stillWant: () => !_d.engine().progress.cancelRequested,
       );
 
       final stream = _d.services.lanes.mouthGenerateStream(genParams);
@@ -357,7 +357,7 @@ class Impersonator {
       bool inThinkBlock = false;
 
       await for (final token in stream) {
-        if (_d.turn.cancelRequested()) break;
+        if (_d.engine().progress.cancelRequested) break;
         // Filter out <think>...</think> reasoning blocks entirely
         if (token.contains('<think>')) {
           inThinkBlock = true;
@@ -398,8 +398,8 @@ class Impersonator {
     } catch (e) {
       debugPrint('[Chat] Impersonate error: $e');
     } finally {
-      _d.turn.setGenerating(false);
-      _d.turn.setPhase(GenerationPhase.idle);
+      _d.engine().progress.isGenerating = false;
+      _d.engine().progress.generationPhase = GenerationPhase.idle;
       _d.notify();
     }
   }

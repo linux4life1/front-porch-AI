@@ -23,6 +23,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -40,6 +41,7 @@ class ControlsDeps {
     required this.cast,
     required this.lanes,
     required this.turn,
+    required this.engine,
     required this.saveChat,
     required this.notify,
     required this.hooks,
@@ -69,6 +71,10 @@ class ControlsDeps {
   /// Notifies as a turn's state changes (the chat service itself): a
   /// Porch Life change or a start scan waits on it for a turn to settle.
   final Listenable turn;
+
+  /// The turn engine: a reply, its post-gen settle, an import or narration
+  /// holds a Realism start ([TurnEngine.isTurnBusy]).
+  final TurnEngine Function() engine;
   final Future<void> Function() saveChat;
 
   /// The service's own notify, synchronous: a switch paints before its
@@ -86,7 +92,6 @@ class ControlsShellHooks {
   const ControlsShellHooks({
     required this.disposed,
     required this.characterIdFor,
-    required this.isTurnBusy,
     required this.exitCallModelSwap,
     required this.upcomingSpeaker,
     required this.speakerName,
@@ -99,10 +104,7 @@ class ControlsShellHooks {
   /// The stable id a card's rows and group entries are keyed by.
   final String Function(CharacterCard card) characterIdFor;
 
-  // ── Turn (WP10b) ──────────────────────────────────────────────────────
-
-  /// A reply, its post-gen settle, an import or narration is running.
-  final bool Function() isTurnBusy;
+  // ── Send (WP10c) ──────────────────────────────────────────────────────
 
   /// Ending a call releases the parked call-model swap.
   final void Function() exitCallModelSwap;

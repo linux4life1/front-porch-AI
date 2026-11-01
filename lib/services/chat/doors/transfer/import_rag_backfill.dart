@@ -44,7 +44,7 @@ Future<void> backfillRagAfterImport(
 
   await host.sessions().window.awaitHistoryHydrated();
   if (session.currentSessionId != sid) return;
-  final formatted = host.formatForRagEmbedding(session.messages);
+  final formatted = host.turn().side.formatForRagEmbedding(session.messages);
   final offset = host.sessions().history.basePosition;
   // Bound wall-clock work: each successful window resets stall; null-embed
   // / abort only retry a limited number of times so we never busy-spin the
@@ -59,7 +59,7 @@ Future<void> backfillRagAfterImport(
       );
       return;
     }
-    if (host.isGenerating()) {
+    if (host.turn().progress.isGenerating) {
       stallStreak++;
       if (stallStreak > maxStall) {
         debugPrint(
@@ -80,7 +80,8 @@ Future<void> backfillRagAfterImport(
         positionOffset: offset,
         maxWindows: 1,
         shouldContinue: () =>
-            !host.isGenerating() && session.currentSessionId == sid,
+            !host.turn().progress.isGenerating &&
+            session.currentSessionId == sid,
       );
       if (pass.aborted) {
         stallStreak++;

@@ -187,8 +187,8 @@ void main() {
         contains('_maybeCheckTaskCompletionSync'),
       );
       for (final path in [
-        'lib/services/chat/chat_service_generation.dart',
-        'lib/services/chat/chat_service_generation_postgen.dart',
+        'lib/services/chat/doors/turn/turn_engine.dart',
+        'lib/services/chat/doors/turn/post_gen.dart',
       ]) {
         final f = File(path);
         if (!f.existsSync()) continue;

@@ -58,7 +58,7 @@ class GroupFork {
   ChaosModeService get _chaosModeService => _s.chaos();
   ChatPlaceSlots get _places => _s.graph().places.slots;
   Pockets? get _pockets => _s.graph().hostPockets;
-  bool get _isTurnBusy => _d.hooks.isTurnBusy();
+  bool get _isTurnBusy => _s.turn().isTurnBusy;
   String _getCharacterIdFromCard(CharacterCard c) =>
       _d.shared.characterIdFor(c);
 

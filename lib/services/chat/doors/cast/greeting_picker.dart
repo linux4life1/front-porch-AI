@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// The opening greeting: which one is showing, its macros, and the opening
 /// Realism and Needs seed a greeting commit applies.
@@ -43,6 +44,7 @@ class GreetingPicker {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   RealismGraph get _graph => _d.graph();
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
@@ -61,8 +63,8 @@ class GreetingPicker {
   /// Read the Room, so a late apply cannot paint the previous opening onto a
   /// newly loaded first_mes (New Chat, switch, swipe, load, import, fork).
   Future<void> invalidateGreetingEval() async {
-    _h.bumpGreetingEvalGen();
-    await _h.cancelRealismEval();
+    _turn.greetingEval.bump();
+    await _turn.stops.cancelRealismEval();
     _d.graph().evalStatus.cancelled = false;
     // A switch or new opening is not the user stopping a reply.
     _door.guests.stoppedReplyAnchor = null;

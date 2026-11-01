@@ -16,29 +16,59 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
 
-/// Phase 5 of `_generateResponse` (see chat_service_generation.dart): stream
-/// target identity, the display-buffer/drain-timer machinery, the per-token
-/// consume loop (stop-sequence + think-tag tracking, TPS pacing), and the
-/// user-cancel finalize path. Extracted verbatim (mechanical `x` → `t.x`
-/// carrier rename only — see `GenTurn`) from the single ~1.9k-line
-/// `_generateResponse` method during the god-file split
-/// (docs/design/god-file-elimination.md). Zero behaviour change.
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/kobold_service.dart';
+import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+/// Phase 5 of a turn: stream target identity, the display-buffer and
+/// drain-timer machinery, the per-token consume loop (stop-sequence and
+/// think-tag tracking, TPS pacing). The body is the one the stream part
+/// held (`x` → `t.x` carrier names, see [GenTurn]); zero behaviour change.
 ///
-/// Returns `true` when the user cancelled the turn (the caller must stop —
-/// no finalize, no lorebook scan, no post-turn evals run on an aborted
-/// reply) and `false` when the stream finished normally and finalization
-/// should proceed. This is the H2 workaround: the original method's
-/// `return;` inside this span meant "exit `_generateResponse` entirely",
-/// which a phase method can no longer do directly.
-extension ChatServiceGenerationStream on ChatService {
-  Future<bool> _consumeGenerationStream(GenTurn t) async {
+/// [consume] returns `true` when the user cancelled the turn (the caller
+/// must stop — no finalize, no lorebook scan, no post-turn evals run on an
+/// aborted reply) and `false` when the stream finished normally and
+/// finalization should proceed (hazard H2).
+class TurnStream {
+  TurnStream(this._e);
+
+  final TurnEngine _e;
+
+  TurnDeps get _d => _e.deps;
+  ChatSessionState get _session => _d.session;
+  TurnProgress get _p => _e.progress;
+  RealismGraph get _g => _d.doors.graph();
+  PromptAssembler get _prompts => _d.doors.prompts();
+  StorageService get _storageService => _d.services.storage;
+  UserPersonaService get _userPersonaService => _d.services.personas;
+  KoboldService get _koboldService => _d.services.kobold;
+  LLMProvider? get _llmProvider => _d.services.llmProvider();
+  String? _getCharacterIdForCard(CharacterCard card) => _d.characterIdFor(card);
+
+  MoodRegisters get _mood => _g.mood;
+  Map<String, dynamic>? get _pendingRealismMetadata => _g.registers.pending;
+  set _pendingRealismMetadata(Map<String, dynamic>? v) =>
+      _g.registers.pending = v;
+  void _stampReplyContext(ChatMessage target, {required bool continuing}) =>
+      _prompts.budget.stampReplyContext(target, continuing: continuing);
+  StandingMood get _standingMood => _g.standingMood;
+
+  Future<bool> consume(GenTurn t) async {
     t.accumulatedResponse = "";
     bool stopFound = false;
-    _tokenBuffer.clear();
-    _displayedTokenCount = 0;
-    _tokenTimestamps.clear();
+    _p.tokenBuffer.clear();
+    _p.displayedTokenCount = 0;
+    _p.tokenTimestamps.clear();
     bool streamDone = false;
     bool _thinkStarted = false;
     bool _thinkEnded = false;
@@ -92,7 +122,7 @@ extension ChatServiceGenerationStream on ChatService {
       // reply. Pending is consumed by the host attach, so also read the
       // last bot slot when the key is no longer pending.
       final Map<String, dynamic>? initialMetadata;
-      if (_isLiteTurn(t)) {
+      if (_e.entry.isLiteTurn(t)) {
         var skip = _pendingRealismMetadata?['time_skip_to'] as String? ?? '';
         if (skip.isEmpty) {
           for (var i = _session.messages.length - 1; i >= 0; i--) {
@@ -170,11 +200,11 @@ extension ChatServiceGenerationStream on ChatService {
     final displayedBuf = StringBuffer();
     var displayedInBuf = 0;
     void _flushBufferToDisplay() {
-      if (t.epoch != _generationEpoch) return; // stale generation
-      if (_tokenBuffer.isEmpty && _displayedTokenCount == 0) return;
-      while (displayedInBuf < _displayedTokenCount &&
-          displayedInBuf < _tokenBuffer.length) {
-        displayedBuf.write(_tokenBuffer[displayedInBuf++]);
+      if (t.epoch != _p.generationEpoch) return; // stale generation
+      if (_p.tokenBuffer.isEmpty && _p.displayedTokenCount == 0) return;
+      while (displayedInBuf < _p.displayedTokenCount &&
+          displayedInBuf < _p.tokenBuffer.length) {
+        displayedBuf.write(_p.tokenBuffer[displayedInBuf++]);
       }
       final displayTokens = displayedBuf.toString();
       String displayText;
@@ -187,7 +217,7 @@ extension ChatServiceGenerationStream on ChatService {
       // _session.messages.last — the list can shift mid-turn) to preserve
       // thinkingStartTime and other metadata.
       streamTarget.text = displayText;
-      _notifyStreamListeners();
+      _p.notifyStreamListeners();
     }
 
     // Read display buffer settings — disable for remote APIs (they're fast enough)
@@ -199,21 +229,21 @@ extension ChatServiceGenerationStream on ChatService {
 
     // Drain timer: displays tokens at the user-configured constant rate
     void _startDrainTimer() {
-      if (_drainTimer != null) return;
+      if (_p.drainTimer != null) return;
       final interval = Duration(milliseconds: (1000.0 / targetTps).round());
-      _drainTimer = Timer.periodic(interval, (_) {
-        if (t.epoch != _generationEpoch) {
-          _drainTimer?.cancel();
-          _drainTimer = null;
+      _p.drainTimer = Timer.periodic(interval, (_) {
+        if (t.epoch != _p.generationEpoch) {
+          _p.drainTimer?.cancel();
+          _p.drainTimer = null;
           return;
         } // stale
-        if (_displayedTokenCount < _tokenBuffer.length) {
-          _displayedTokenCount++;
+        if (_p.displayedTokenCount < _p.tokenBuffer.length) {
+          _p.displayedTokenCount++;
           _flushBufferToDisplay();
         } else if (streamDone) {
           // Stream finished and buffer fully drained
-          _drainTimer?.cancel();
-          _drainTimer = null;
+          _p.drainTimer?.cancel();
+          _p.drainTimer = null;
         }
         // If buffer is caught up but stream still running, timer ticks idly until more tokens arrive
       });
@@ -234,10 +264,10 @@ extension ChatServiceGenerationStream on ChatService {
 
     // Consume the stream — tokens go into buffer (or display immediately)
     await for (final token in t.stream) {
-      if (_cancelRequested) break;
+      if (_p.cancelRequested) break;
       t.accumulatedResponse += token;
-      _tokensGenerated++;
-      _tokenTimestamps.add(DateTime.now());
+      _p.tokensGenerated++;
+      _p.tokenTimestamps.add(DateTime.now());
       final tailStart =
           (t.accumulatedResponse.length -
                   token.length -
@@ -246,31 +276,31 @@ extension ChatServiceGenerationStream on ChatService {
               .clamp(0, t.accumulatedResponse.length);
 
       // ── Phase transition: first token marks end of prefill ──
-      if (_tokensGenerated == 1) {
+      if (_p.tokensGenerated == 1) {
         t.perfPoller?.cancel();
         t.perfPoller = null;
         // Fetch final perf data so we know how long prefill really took
         if (t.isLocalBackend) {
           _koboldService.fetchPerf().then((perf) {
             if (perf != null) {
-              _lastPerfData = perf;
+              _p.lastPerfData = perf;
             }
           });
         }
-        _prefillStartTime = null;
+        _p.prefillStartTime = null;
       }
 
       // Broadcast token to external listeners (SSE bridge)
-      _tokenBroadcast.add(token);
-      _generationProgress = _maxTokens > 0
-          ? (_tokensGenerated / _maxTokens).clamp(0.0, 1.0)
+      _p.tokenBroadcast.add(token);
+      _p.generationProgress = _p.maxTokens > 0
+          ? (_p.tokensGenerated / _p.maxTokens).clamp(0.0, 1.0)
           : 0.0;
 
       // Sentence streaming: emit complete sentences for live TTS (split
       // logic extracted verbatim to sentence_stream.dart).
-      _sentenceBuffer = drainCompleteSentences(
-        _sentenceBuffer + token,
-        _sentenceBroadcast.add,
+      _p.sentenceBuffer = drainCompleteSentences(
+        _p.sentenceBuffer + token,
+        _p.sentenceBroadcast.add,
       );
 
       // Track think timing (tail-window scans, same reasoning as above).
@@ -285,7 +315,7 @@ extension ChatServiceGenerationStream on ChatService {
       if (!_thinkStarted && tailLower.contains('<think>')) {
         _thinkStarted = true;
         final startedAt = t.thinkStartedAt = DateTime.now();
-        _generationPhase = GenerationPhase.thinking;
+        _p.generationPhase = GenerationPhase.thinking;
         streamTarget.thinkingStartTime = startedAt.millisecondsSinceEpoch;
       }
       final closeIdxInTail = (_thinkStarted && !_thinkEnded)
@@ -307,12 +337,12 @@ extension ChatServiceGenerationStream on ChatService {
           final index = t.accumulatedResponse.indexOf(stop, scanFrom);
           if (index != -1) {
             final trimmedTotal = t.accumulatedResponse.substring(0, index);
-            final previousTotal = _tokenBuffer.join();
+            final previousTotal = _p.tokenBuffer.join();
             final lastTokenContribution = trimmedTotal.substring(
               previousTotal.length.clamp(0, trimmedTotal.length),
             );
             if (lastTokenContribution.isNotEmpty) {
-              _tokenBuffer.add(lastTokenContribution);
+              _p.tokenBuffer.add(lastTokenContribution);
             }
             t.accumulatedResponse = trimmedTotal;
             stopFound = true;
@@ -322,7 +352,7 @@ extension ChatServiceGenerationStream on ChatService {
       }
 
       if (!stopFound) {
-        _tokenBuffer.add(token);
+        _p.tokenBuffer.add(token);
       }
 
       // The trim can only cut AFTER the closing tag, so a close seen this
@@ -330,7 +360,7 @@ extension ChatServiceGenerationStream on ChatService {
       if (thinkClosedThisChunk) {
         _thinkEnded = true;
         // Transition out of thinking to buffering/generating
-        _generationPhase = bufferEnabled
+        _p.generationPhase = bufferEnabled
             ? GenerationPhase.buffering
             : GenerationPhase.generating;
         final startedAt = t.thinkStartedAt;
@@ -342,8 +372,8 @@ extension ChatServiceGenerationStream on ChatService {
         }
       }
       // If no thinking involved, first token transitions directly
-      if (!_thinkStarted && _tokensGenerated == 1) {
-        _generationPhase = bufferEnabled
+      if (!_thinkStarted && _p.tokensGenerated == 1) {
+        _p.generationPhase = bufferEnabled
             ? GenerationPhase.buffering
             : GenerationPhase.generating;
       }
@@ -354,25 +384,27 @@ extension ChatServiceGenerationStream on ChatService {
         // instead of re-filtering the whole list twice per token.
         final now = DateTime.now();
         final cutoff = now.subtract(const Duration(seconds: 3));
-        while (tpsWindowStart < _tokenTimestamps.length &&
-            !_tokenTimestamps[tpsWindowStart].isAfter(cutoff)) {
+        while (tpsWindowStart < _p.tokenTimestamps.length &&
+            !_p.tokenTimestamps[tpsWindowStart].isAfter(cutoff)) {
           tpsWindowStart++;
         }
-        final recentCount = _tokenTimestamps.length - tpsWindowStart;
-        final windowStart = tpsWindowStart < _tokenTimestamps.length
-            ? _tokenTimestamps[tpsWindowStart]
-            : _generationStartTime!;
+        final recentCount = _p.tokenTimestamps.length - tpsWindowStart;
+        final windowStart = tpsWindowStart < _p.tokenTimestamps.length
+            ? _p.tokenTimestamps[tpsWindowStart]
+            : _p.generationStartTime!;
         final windowElapsed =
             now.difference(windowStart).inMilliseconds / 1000.0;
         final currentTps = (recentCount >= 2 && windowElapsed > 0)
             ? recentCount / windowElapsed
-            : (_tokensGenerated > 0
-                  ? _tokensGenerated /
-                        (now.difference(_generationStartTime!).inMilliseconds /
+            : (_p.tokensGenerated > 0
+                  ? _p.tokensGenerated /
+                        (now
+                                .difference(_p.generationStartTime!)
+                                .inMilliseconds /
                             1000.0)
                   : 0.0);
 
-        if (_drainTimer == null && _tokensGenerated >= 10) {
+        if (_p.drainTimer == null && _p.tokensGenerated >= 10) {
           // Not yet draining — calculate when to start
           // Buffer target = how many tokens fill the configured duration
           final bufferDuration =
@@ -381,37 +413,37 @@ extension ChatServiceGenerationStream on ChatService {
           if (currentTps > 0) {
             bufferTarget = (currentTps * bufferDuration).round().clamp(
               5,
-              _maxTokens,
+              _p.maxTokens,
             );
           } else {
             bufferTarget = 30; // Fallback if TPS unknown
           }
 
-          if (_tokenBuffer.length >= bufferTarget) {
-            _generationPhase = GenerationPhase.generating;
+          if (_p.tokenBuffer.length >= bufferTarget) {
+            _p.generationPhase = GenerationPhase.generating;
             _startDrainTimer();
           }
-        } else if (_drainTimer != null) {
+        } else if (_p.drainTimer != null) {
           // Already draining — check if buffer is running low
-          final remaining = _tokenBuffer.length - _displayedTokenCount;
+          final remaining = _p.tokenBuffer.length - _p.displayedTokenCount;
           if (remaining <= 3 && !streamDone) {
             // Buffer critically low — pause drain to rebuild
-            _drainTimer?.cancel();
-            _drainTimer = null;
-            _generationPhase = GenerationPhase.buffering;
+            _p.drainTimer?.cancel();
+            _p.drainTimer = null;
+            _p.generationPhase = GenerationPhase.buffering;
           }
         }
       } else {
         // No buffer: display tokens immediately
-        _generationPhase = GenerationPhase.generating;
-        _displayedTokenCount = _tokenBuffer.length;
+        _p.generationPhase = GenerationPhase.generating;
+        _p.displayedTokenCount = _p.tokenBuffer.length;
         _flushBufferToDisplay();
       }
 
       // Update TPS/progress in the bar even during buffering — coalesced;
       // the non-buffered flush above already went through the throttle, so
       // this is a no-op there unless the interval elapsed.
-      _notifyStreamListeners();
+      _p.notifyStreamListeners();
 
       if (stopFound) break;
     }
@@ -420,9 +452,9 @@ extension ChatServiceGenerationStream on ChatService {
     // drop any pending throttled notify — the finalize paths below (cancel
     // AND normal) both end in an unthrottled notifyListeners().
     streamDone = true;
-    _cancelStreamNotifyThrottle();
+    _p.cancelStreamNotifyThrottle();
 
-    if (_cancelRequested) {
+    if (_p.cancelRequested) {
       // Cancelled mid-stream: do NOT drain the undisplayed backlog. A
       // think-heavy turn can hold minutes of buffered tokens, and draining
       // them after Stop is how an aborted reply kept "dumping" (and, via
@@ -430,70 +462,37 @@ extension ChatServiceGenerationStream on ChatService {
       // banner — 2026-07-28). Keep exactly what's on screen.
     } else if (!bufferEnabled) {
       // No buffer: everything already displayed
-      _displayedTokenCount = _tokenBuffer.length;
+      _p.displayedTokenCount = _p.tokenBuffer.length;
       _flushBufferToDisplay();
-    } else if (_drainTimer == null) {
+    } else if (_p.drainTimer == null) {
       // Buffer never started draining (genTps < targetTps) — start now with all tokens ready
       _startDrainTimer();
       // Wait for drain to complete (Stop pressed mid-drain halts it)
-      while (_displayedTokenCount < _tokenBuffer.length && !_cancelRequested) {
+      while (_p.displayedTokenCount < _p.tokenBuffer.length &&
+          !_p.cancelRequested) {
         await Future.delayed(const Duration(milliseconds: 16));
       }
-      _drainTimer?.cancel();
-      _drainTimer = null;
+      _p.drainTimer?.cancel();
+      _p.drainTimer = null;
     } else {
       // Drain already running — wait for it to finish (or Stop to halt it)
-      while (_displayedTokenCount < _tokenBuffer.length && !_cancelRequested) {
+      while (_p.displayedTokenCount < _p.tokenBuffer.length &&
+          !_p.cancelRequested) {
         await Future.delayed(const Duration(milliseconds: 16));
       }
-      _drainTimer?.cancel();
-      _drainTimer = null;
+      _p.drainTimer?.cancel();
+      _p.drainTimer = null;
     }
 
     // User cancel (stream-loop break above, or Stop during the drain):
     // halt the turn HERE — no finalize, no lorebook scan, no post-turn
     // evals on an aborted reply. Mirrors the catch path's treatAsCancel:
     // keep the displayed partial so regen/continue work, save, signal done.
-    if (_cancelRequested) {
-      await _haltStoppedTurn(t, streamTarget);
+    if (_p.cancelRequested) {
+      await _e.stops.haltStoppedTurn(t, streamTarget);
       return true;
     }
     t.sealThinkClock();
     return false;
-  }
-
-  /// Ends a stopped turn: keeps the partial with its thought closed so regen
-  /// and Continue work, saves, and signals done. The stream-loop break and
-  /// the catch path's treatAsCancel both end here; [target] is null when the
-  /// throw came before any reply was painted.
-  Future<void> _haltStoppedTurn(GenTurn t, ChatMessage? target) async {
-    _drainTimer?.cancel();
-    _drainTimer = null;
-    _tokenBuffer.clear();
-    _isGenerating = false;
-    _cancelRequested = false;
-    _generationProgress = 0.0;
-    _generationPhase = GenerationPhase.idle;
-    _prefillStartTime = null;
-    _prefillPromptTokens = 0;
-    _generationStartTime = null;
-    t.perfPoller?.cancel();
-    t.perfPoller = null;
-    _tokenBroadcast.add('__DONE__');
-    if (_sentenceBuffer.trim().isNotEmpty) {
-      _sentenceBroadcast.add(_sentenceBuffer.trim());
-      _sentenceBuffer = '';
-    }
-    _sentenceBroadcast.add('__DONE__');
-    if (t.originalModelName != null && _llmProvider != null) {
-      _llmProvider!.openRouterService.configure(modelName: t.originalModelName);
-    }
-    if (target != null) {
-      t.sealThinkClock();
-      final closed = closeOpenThink(target.text);
-      if (closed != target.text) target.text = closed;
-    }
-    await _saveChat();
-    notifyListeners();
   }
 }

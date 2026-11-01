@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
@@ -110,6 +111,7 @@ class RealismDoors {
     required this.sessions,
     required this.controls,
     required this.prompts,
+    required this.turn,
   });
 
   final CastDoor Function() cast;
@@ -127,6 +129,11 @@ class RealismDoors {
 
   /// The prompt assembler: the chat's macro context lore keys resolve with.
   final PromptAssembler Function() prompts;
+
+  /// The turn engine: the narrow generating flag, the turn-busy predicate,
+  /// the memory-pass epoch a regen bumps and the greeting eval's stale
+  /// guard.
+  final TurnEngine Function() turn;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -139,10 +146,6 @@ class RealismShellHooks {
     required this.characterIdFor,
     required this.ragCharacterId,
     required this.disposed,
-    required this.staleGreetingEval,
-    required this.memoryPassEpoch,
-    required this.isGenerating,
-    required this.isTurnBusy,
     required this.stampGroupUserTurnBaseline,
   });
 
@@ -155,21 +158,7 @@ class RealismShellHooks {
   final String Function() ragCharacterId;
   final bool Function() disposed;
 
-  // ── Turn (WP10b, WP10c) ───────────────────────────────────────────────
-
-  /// A greeting eval whose opening has since changed (a file-scope
-  /// generation counter in chat_service_idle_autonomous).
-  final bool Function() staleGreetingEval;
-
-  /// Bumped when a regen invalidates a running Journal or Growth pass (a
-  /// file-scope counter in chat_service_reprocess).
-  final int Function() memoryPassEpoch;
-
-  /// Tokens are streaming (the narrow generating flag).
-  final bool Function() isGenerating;
-
-  /// A reply, its post-gen settle, an import or narration is running.
-  final bool Function() isTurnBusy;
+  // ── Send (WP10c) ──────────────────────────────────────────────────────
 
   /// Stamps the group speaker's pre-turn baseline on the latest user line.
   final void Function(String charId) stampGroupUserTurnBaseline;

@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -88,6 +89,7 @@ class SessionServices {
     required this.sceneMoves,
     required this.autoChat,
     required this.prompts,
+    required this.turn,
   });
 
   final AppDatabase Function() db;
@@ -138,6 +140,10 @@ class SessionServices {
   /// The prompt assembler: the Context Viewer budget a session loads,
   /// saves and clears, and the prompt picker a new 1:1 arms.
   final PromptAssembler Function() prompts;
+
+  /// The turn engine: a load cuts a streaming reply and waits for the turn,
+  /// its post-gen settle included, before it swaps the chat.
+  final TurnEngine Function() turn;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -149,8 +155,6 @@ class SessionShellHooks {
   const SessionShellHooks({
     required this.characterIdFor,
     required this.ragCharacterId,
-    required this.waitForTurnToSettle,
-    required this.cancelAndWaitForGeneration,
     required this.resetDirectorModeToDefault,
     required this.rekeyGroupStores,
     required this.setActiveCharacter,
@@ -166,14 +170,6 @@ class SessionShellHooks {
 
   /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
   final String Function() ragCharacterId;
-
-  // ── Turn (WP10b) ──────────────────────────────────────────────────────
-
-  /// Waits until the turn in motion, its post-gen settle included, is done.
-  final Future<void> Function() waitForTurnToSettle;
-
-  /// Cuts a streaming reply and waits for the stream to stop.
-  final Future<void> Function() cancelAndWaitForGeneration;
 
   // ── Group roster (WP8) ────────────────────────────────────────────────
 

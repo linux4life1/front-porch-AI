@@ -22,6 +22,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// The Scene Guest join and exit layer on top of [GuestFlow]: `/exit` undo,
 /// the joinable rosters, `/join` (lite guest or full member, including the
@@ -34,6 +35,7 @@ class GuestJoin {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   SceneGuestState get _state => _door.guests.state;
   GuestFlow get _guests => _door.guests;
 
@@ -133,7 +135,7 @@ class GuestJoin {
       );
       return;
     }
-    if (_h.isTurnBusy()) {
+    if (_turn.isTurnBusy) {
       _guests.setStatus(
         '⚠ Wait for the current reply to finish first.',
         isError: true,
@@ -218,7 +220,7 @@ class GuestJoin {
       );
       return;
     }
-    if (_h.isTurnBusy()) {
+    if (_turn.isTurnBusy) {
       _guests.setStatus(
         '⚠ Wait for the current reply to finish first.',
         isError: true,
@@ -300,7 +302,7 @@ class GuestJoin {
         'following this intent — "$safeText". Write ${resolved.name}\'s '
         'entrance fresh, in their own voice and words.';
     try {
-      await _h.generate();
+      await _turn.generate(GenerationMode.normal);
       return true;
     } catch (e) {
       debugPrint('[Join:Entrance] ${resolved.name} failed: $e');

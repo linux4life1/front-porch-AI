@@ -50,7 +50,7 @@ class GroupRoster {
   AppDatabase get _db => _s.db();
   GroupChat? get _activeGroup => _session.activeGroup;
   GroupRealismStore get _groupStore => _s.realism().groups;
-  bool get _isTurnBusy => _d.hooks.isTurnBusy();
+  bool get _isTurnBusy => _s.turn().isTurnBusy;
   String _getCharacterIdFromCard(CharacterCard c) =>
       _d.shared.characterIdFor(c);
 

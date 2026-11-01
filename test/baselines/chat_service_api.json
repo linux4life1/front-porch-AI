@@ -437,6 +437,7 @@
   "toolSupportJson",
   "triggerNextCharacter",
   "tryBeginMovingChats",
+  "turnEngine",
   "undoLastExit",
   "unretireGrowthRing",
   "upcomingWeather",

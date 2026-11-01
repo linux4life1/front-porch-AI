@@ -63,7 +63,7 @@ extension RealismEvalWiring on RealismGraph {
       },
       getIsCancellingRealismEval: () => evalStatus.cancelling,
       getRealismEvalCancelled: () =>
-          evalStatus.cancelled || _h.staleGreetingEval(),
+          evalStatus.cancelled || _doors.turn().greetingEval.isStale(),
       getPendingRealismMetadata: () => registers.pending ?? {},
       setPendingRealismMetadata: growthDesk.writePendingRealismMetadata,
       captureRealismState: snapshot.capture,
@@ -288,7 +288,7 @@ extension RealismEvalWiring on RealismGraph {
   NeedsReprocess buildNeedsReprocess() => NeedsReprocess(
     scope,
     needsActive: () => needsPass.active,
-    isTurnBusy: _h.isTurnBusy,
+    isTurnBusy: () => _doors.turn().isTurnBusy,
     speakerForMessage: speakerFor,
     targetFor: (index) =>
         _doors.edits().reprocess.targets.reprocessNeedsTargetFor(index),

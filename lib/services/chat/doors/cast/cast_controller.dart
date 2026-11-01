@@ -27,6 +27,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// Why [CastController.canRemoveCastMember] refused a member's exit.
 const kDirectorCastFloorNote =
@@ -45,6 +46,7 @@ class CastController {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   SceneGuestState get _state => _door.guests.state;
   List<CharacterCard> get _cast => _session.groupCharacters;
 
@@ -108,7 +110,7 @@ class CastController {
     CharacterCard member,
     GroupChatRepository groupRepo,
   ) async {
-    if (_session.activeGroup == null || _h.isTurnBusy()) return false;
+    if (_session.activeGroup == null || _turn.isTurnBusy) return false;
     // The UNDO only applies to the most recent `/exit`, so a second exit
     // commits the first. That may have collapsed the group or removed this
     // member, so re-check before going on.
@@ -132,7 +134,7 @@ class CastController {
         'voice and words.';
     final before = _session.messages.length;
     try {
-      await _h.generate();
+      await _turn.generate(GenerationMode.normal);
     } catch (e) {
       debugPrint('[Cast] exit narration for ${member.name} failed: $e');
       _door.entranceDirective = null; // don't leak into a later turn
@@ -146,7 +148,7 @@ class CastController {
         .toList();
     if (remaining.length < 2) {
       _door.guests.clearExitUndo();
-      await _h.waitForTurnToSettle();
+      await _turn.waitForTurnToSettle();
       if (await _h.removeFromGroup(member, groupRepo)) return true;
       // Still busy: the next send commits it, as for any exit.
     }
@@ -256,7 +258,7 @@ class CastController {
       _door.guests.setStatus('${live.name} is already a full member.');
       return;
     }
-    if (_h.isTurnBusy()) {
+    if (_turn.isTurnBusy) {
       _door.guests.setStatus(
         '⚠ Wait for the current reply to finish first.',
         isError: true,

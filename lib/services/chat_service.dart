@@ -55,6 +55,8 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_api.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_api.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
@@ -76,19 +78,12 @@ export 'chat/planner_today_fate.dart';
 export 'chat/chat_defaults.dart';
 export 'chat/doors/controls/controls_api.dart';
 export 'chat/doors/turn/prompt_api.dart';
+export 'chat/doors/turn/turn_api.dart';
 
-part 'chat/chat_service_reprocess.dart';
-part 'chat/chat_service_generation.dart';
-part 'chat/chat_service_generation_entry.dart';
-part 'chat/chat_service_generation_stream.dart';
-part 'chat/chat_service_generation_stream_accessors.dart';
-part 'chat/chat_service_generation_postgen.dart';
-part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_idle_autonomous.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
-part 'chat/chat_service_message_ops.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_fields.dart';
 
@@ -202,7 +197,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// lives at the composer instead: its guard must use the SAME predicate as
   /// [sendMessage], or it clears the field for a send the service refuses.
   /// See [isSettlingTurn] and the mirror in `_sendCurrentMessage`.
-  bool get isGenerating => _isGenerating;
+  bool get isGenerating => turnEngine.progress.isGenerating;
   bool get isImporting => chatImporter.isImporting;
 
   /// The import and export doors; their old names live in transfer_api.dart.
@@ -211,21 +206,23 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
 
   /// A reply, its post-gen settle, an import or narration is running: the
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
-  bool get isTurnBusy => _isTurnBusy;
+  bool get isTurnBusy => turnEngine.isTurnBusy;
   String? get currentSessionId => _session.currentSessionId;
 
-  double get generationProgress => _generationProgress;
-  int get tokensGenerated => _tokensGenerated;
-  int get maxTokens => _maxTokens;
-  GenerationPhase get generationPhase => _generationPhase;
+  /// One generation: stream, progress, post-generation passes, the stops;
+  /// old names in turn_api.dart. The status members around it forward so
+  /// fakes pin them.
+  late final TurnEngine turnEngine = _buildTurnEngine();
+  double get generationProgress => turnEngine.progress.generationProgress;
+  int get tokensGenerated => turnEngine.progress.tokensGenerated;
+  int get maxTokens => turnEngine.progress.maxTokens;
+  GenerationPhase get generationPhase => turnEngine.progress.generationPhase;
 
   /// Seconds elapsed since entering the prefill phase. Returns 0 if not prefilling.
-  double get prefillElapsedSeconds => _prefillStartTime != null
-      ? DateTime.now().difference(_prefillStartTime!).inMilliseconds / 1000.0
-      : 0.0;
+  double get prefillElapsedSeconds => turnEngine.progress.prefillElapsedSeconds;
 
   /// Cached KoboldCPP performance data from last /api/extra/perf poll.
-  Map<String, dynamic>? get lastPerfData => _lastPerfData;
+  Map<String, dynamic>? get lastPerfData => turnEngine.progress.lastPerfData;
 
   /// The active backend's live generation progress (truthful status bar):
   /// Kobold console counts, oMLX admin-stats poll, or LM Studio's runtime
@@ -235,7 +232,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
       _llmProvider?.activeLiveProgress ?? _koboldService.liveProgress;
 
   /// Estimated prompt token count for the current generation (for progress display).
-  int get prefillPromptTokens => _prefillPromptTokens;
+  int get prefillPromptTokens => turnEngine.progress.prefillPromptTokens;
 
   /// Kobold's tokenizer and perf poll are measured. oMLX and remote hosts
   /// are not — the status bar must not print a chars/4 guess as tokens.
@@ -253,7 +250,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
 
   /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_idle_autonomous.dart.
   List<ChatParticipant> get cast => _castImpl;
-  double get tokensPerSecond => _tokensPerSecondImpl;
+  double get tokensPerSecond => turnEngine.progress.tokensPerSecond;
 
   int get greetingIndex => castDoor.greetings.greetingIndex;
 
@@ -319,7 +316,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   NeedsSimulation get needsSimulation => realism.needs;
   Future<void> setNeedsSimEnabled(bool on) =>
       controlsDoor.setNeedsSimEnabled(on);
-  bool get realismEnabled => controlsDoor.realismEnabled;
+  bool get realismEnabled => _realismEnabled;
   bool get realismChatSwitch => controlsDoor.realismChatSwitch;
   bool get realismAllowed => _storageService.realismSettings.realismAllowed;
   String spatialStanceForGroupCharacter(CharacterCard c) =>

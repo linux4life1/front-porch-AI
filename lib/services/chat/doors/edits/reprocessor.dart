@@ -132,7 +132,7 @@ class Reprocessor {
 
   Future<FeelingsRescore> reprocessFeelings(int index) async {
     const refused = FeelingsRescore.refused;
-    if (_d.turn.isTurnBusy() || !_s.graph().realismActiveThisMode) {
+    if (_d.engine().isTurnBusy || !_s.graph().realismActiveThisMode) {
       return refused;
     }
     if (targets.reprocessFeelingsTargetFor(index) == null) return refused;
@@ -158,9 +158,9 @@ class Reprocessor {
     final preObjectives = objectives.activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
-    _d.turn.setPostGenerating(true);
+    _d.engine().progress.isPostGenerating = true;
     _s.graph().evalStatus.evaluating = true;
-    _d.turn.clearPostGenAbortFlags();
+    _d.engine().stops.clearPostGenAbortFlags();
     notifyListeners();
     var result = FeelingsRescore.unreadable;
     try {
@@ -186,8 +186,8 @@ class Reprocessor {
       objectives.activeObjectives = preObjectives;
       _s.graph().evalStatus.stopChunkTimer();
       _s.graph().evalStatus.evaluating = false;
-      _d.turn.setPostGenerating(false);
-      _d.turn.clearPostGenAbortFlags();
+      _d.engine().progress.isPostGenerating = false;
+      _d.engine().stops.clearPostGenAbortFlags();
     }
     await _d.saveChat();
     notifyListeners();

@@ -23,21 +23,13 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
-
-/// One turn of the generation engine, always in normal mode.
-typedef CastTurnRunner =
-    Future<void> Function({
-      CharacterCard? guestSpeaker,
-      CharacterCard? forceSpeaker,
-      bool autonomous,
-      bool skipSpeakerEval,
-    });
 
 /// A cast member's arrival line: what they enter doing, and whether the
 /// model writes it fresh.
@@ -72,6 +64,7 @@ class CastDeps {
     required this.growthDesk,
     required this.objectives,
     required this.prompts,
+    required this.turn,
     required this.characterIdFor,
     required this.saveChat,
     required this.notify,
@@ -111,6 +104,12 @@ class CastDeps {
   /// the last lines.
   final PromptAssembler Function() prompts;
 
+  /// The turn engine: the predicate `sendMessage` and the window cast edits
+  /// share ([TurnEngine.isTurnBusy]), a turn in normal mode, the settle
+  /// wait, a guest's own RAG embedding, the Realism cancel and the greeting
+  /// eval's stale guard ([TurnEngine.greetingEval]).
+  final TurnEngine Function() turn;
+
   /// The stable id a card's rows key by (`stableGroupId`, or a member id).
   final String Function(CharacterCard card) characterIdFor;
   final Future<void> Function() saveChat;
@@ -128,12 +127,8 @@ class CastDeps {
 /// still owns. A hook goes when its owner becomes a door (WP7 to WP10).
 class CastShellHooks {
   const CastShellHooks({
-    required this.isTurnBusy,
     required this.disposed,
-    required this.generate,
-    required this.waitForTurnToSettle,
     required this.deleteMessage,
-    required this.embedFor,
     required this.ttsSpeaking,
     required this.mouthReady,
     required this.directing,
@@ -153,11 +148,6 @@ class CastShellHooks {
     required this.loadSession,
     required this.ragCharacterId,
     required this.parseJsonMap,
-    required this.greetingEvalGen,
-    required this.bumpGreetingEvalGen,
-    required this.greetingZone,
-    required this.markPostGreetingEvalEntered,
-    required this.cancelRealismEval,
     required this.selectGreeting,
     required this.openingAllGreetings,
     required this.resolvedOpeningGreetings,
@@ -166,19 +156,12 @@ class CastShellHooks {
     required this.stageIdleTurn,
   });
 
-  // ── Turn (WP10) ───────────────────────────────────────────────────────
+  // ── Lifetime, delete, the voice and the mouth (WP10c, WP11) ──────────
 
-  /// The predicate `sendMessage` and the window cast edits share.
-  final bool Function() isTurnBusy;
   final bool Function() disposed;
-  final CastTurnRunner generate;
-  final Future<void> Function() waitForTurnToSettle;
 
   /// Removes a message, rewinds what it applied, and saves.
   final Future<void> Function(int index) deleteMessage;
-
-  /// Embeds the last exchange under [characterId] (a guest's own memory).
-  final void Function(String characterId) embedFor;
   final bool Function() ttsSpeaking;
 
   /// The chat model can take a request now.
@@ -228,20 +211,6 @@ class CastShellHooks {
   /// The memory bucket of the open chat (`group_<id>` for a group).
   final String Function() ragCharacterId;
   final Map<String, String> Function(String? json) parseJsonMap;
-
-  // ── The greeting eval (WP10b) ────────────────────────────────────────
-
-  /// The greeting-eval generation a stale opening is checked against (a
-  /// file-scope counter in chat_service_idle_autonomous).
-  final int Function() greetingEvalGen;
-  final void Function() bumpGreetingEvalGen;
-
-  /// The zone values a greeting eval runs under (stale-apply guard).
-  final Map<Object?, Object?> Function(int token, int index) greetingZone;
-  final void Function() markPostGreetingEvalEntered;
-
-  /// The turn stops' Realism cancel.
-  final Future<void> Function() cancelRealismEval;
 
   // ── Greeting swipes (WP5) ─────────────────────────────────────────────
 

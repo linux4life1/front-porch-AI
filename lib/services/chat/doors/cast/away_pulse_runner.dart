@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_deps.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// Group Away recovery: a quiet pulse for members who are Away, and at most
 /// one spoken return per user send. At work never enters. 1:1 is a no-op.
@@ -36,6 +37,7 @@ class AwayPulseRunner {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   RealismScope get _scope => _d.realism();
   TimeService get _timeService => _scope.time();
   GroupRealismStore get _groupStore => _scope.groups;
@@ -156,7 +158,7 @@ class AwayPulseRunner {
   /// False (nothing changed) outside a group, mid-turn, or for an id not
   /// in the roster.
   Future<bool> setGroupMemberAway(String memberId, {required bool away}) async {
-    if (_activeGroup == null || _h.isTurnBusy()) return false;
+    if (_activeGroup == null || _turn.isTurnBusy) return false;
     if (!_groupCharacters.any((c) => _d.characterIdFor(c) == memberId)) {
       return false;
     }

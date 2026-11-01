@@ -143,13 +143,13 @@ class GroupDirector {
     // arm their delay AFTER the awaited post-gen section has already finished,
     // so this is clear by the time they fire; no re-arm machinery is needed.
     // Wait for the current turn to finish settling.
-    if (_d.hooks.isTurnBusy()) return;
+    if (_s.turn().isTurnBusy) return;
 
     // Each spoken reply post-decides the clock; the next speaker is
     // announced at that time (bucket brigade). No pre-tick.
     _door.autoChat.turnRunning = true;
     try {
-      await _d.hooks.generate();
+      await _s.turn().generate(GenerationMode.normal);
     } finally {
       _door.autoChat.turnRunning = false;
     }

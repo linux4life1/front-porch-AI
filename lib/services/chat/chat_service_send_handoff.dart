@@ -57,14 +57,14 @@ extension ChatServiceSendHandoff on ChatService {
         webQuery: forcedWebQuery,
         wikiQuery: forcedWikiQuery,
       );
-      await _generateResponse(GenerationMode.normal, directUserSend: true);
+      await turnEngine.generate(GenerationMode.normal, directUserSend: true);
     }
     // Backend-down abort: no response was generated, so none of the
     // post-turn work below may run — no idle-timer arming, no chip attach,
     // no guest chime-ins against the notice text (pre-move parity: the old
     // in-sendMessage guard returned before all of this).
     if (_session.messages.isNotEmpty &&
-        _session.messages.last.text == _kBackendDownNotice) {
+        _session.messages.last.text == kBackendDownNotice) {
       return;
     }
     // First exchange complete — arm idle timer
@@ -149,7 +149,7 @@ extension ChatServiceSendHandoff on ChatService {
       // RealismDance.evaluateForUpcomingSpeaker once their scalars load. Clock on,
       // the beat's own minutes tick after the clock instead.
       if (_activeGroup == null) {
-        _afterglow.tickPerReply();
+        realism.afterglow.tickPerReply();
       }
 
       // Single-path bridge: realism evaluation now runs inside _generateResponse
@@ -214,101 +214,11 @@ extension ChatServiceSendHandoff on ChatService {
         ? _session.messages.last.displayText
         : '';
     final token = _session.currentSessionId;
-    await _ensureSceneGuestDirector().runChimeIns(
+    await turnEngine.entry.sceneGuestDirector().runChimeIns(
       userText: userText,
       primaryResponse: primaryResponse,
       isContextValid: () => !_sceneChanged(token) && _activeGroup == null,
       exclude: exclude,
-    );
-  }
-
-  /// The dream PRODUCER — fired from the post-generation phase, after the
-  /// post-reply clock decide, so a night crossed in this beat is visible
-  /// before the next send shows the dream.
-  /// Same detection (checkRollover/pending/clear untouched — the dedicated
-  /// unit suite drives those APIs directly), same owner rule (the last
-  /// assistant speaker ended the day; ONE rule for 1:1 and group), same
-  /// fragment sources — only the WHEN moved: the model call runs in the
-  /// background here and parks its future; the next sendMessage inserts the
-  /// finished text (see the consumer above). A failure skips silently,
-  /// exactly as the blocking version did.
-  ///
-  /// Deliberately synchronous: everything through parkPrefetch runs before
-  /// this method returns, so by the time the post-generation phase moves on
-  /// the park EXISTS — a user firing the next message instantly can never
-  /// beat it and lose the dream. Only the slow work (journal read + model
-  /// call) lives inside the parked future.
-  void _maybeKickDreamPrefetch() {
-    _dreamService.checkRollover(
-      sessionId: _session.currentSessionId,
-      dayCount: _timeService.dayCount,
-    );
-    if (!_dreamService.pending || _session.currentSessionId == null) return;
-    _dreamService.clear();
-    String? lastCharId;
-    var lastSpeakerFound = false;
-    for (final m in _session.messages.reversed) {
-      if (!m.isUser &&
-          m.sender != 'System' &&
-          m.activeMetadata?['is_dream'] != true) {
-        lastCharId = m.characterId;
-        lastSpeakerFound = true;
-        break;
-      }
-    }
-    final ownerCard = !lastSpeakerFound
-        ? null
-        : lastCharId == null
-        ? _session.activeCharacter
-        : (_groupCharacters
-                  .where((c) => _getCharacterIdFromCard(c) == lastCharId)
-                  .firstOrNull ??
-              _session.activeCharacter);
-    if (ownerCard == null) return;
-    final ownerId = _getCharacterIdFromCard(ownerCard);
-    final sessionId = _session.currentSessionId!;
-    // Inputs sampled NOW, at the end of the day being dreamed about — if
-    // anything more faithful than the old next-morning sample.
-    final fixation = _relationshipService.activeFixation;
-    final emotion = _characterEmotion;
-    final recap = _summary.length > 300 ? _summary.substring(0, 300) : _summary;
-    final weatherLine = switch (currentWeather) {
-      null => null,
-      final w => WeatherEngine.prose(
-        w,
-        seasonLabels: activeChatBiome.seasonLabels,
-      ),
-    };
-    Future<String?> generate() async {
-      try {
-        final cards = await _journalStore.cardsFor(sessionId, ownerId);
-        final sorted = [...cards]
-          ..sort(
-            (a, b) => JournalPhysics.cooledHeat(
-              b,
-            ).compareTo(JournalPhysics.cooledHeat(a)),
-          );
-        return await _dreamService.generateDream(
-          characterName: ownerCard.name,
-          memoryFragments: [for (final c in sorted.take(5)) c.content],
-          fixation: fixation,
-          emotion: emotion,
-          recap: recap,
-          weatherLine: weatherLine,
-          ambitions: ownerCard.frontPorchExtensions?.ambitions ?? const [],
-        );
-      } catch (e) {
-        debugPrint('[Dreams] prefetch skipped: $e');
-        return null;
-      }
-    }
-
-    _dreamService.parkPrefetch(
-      sessionId: sessionId,
-      ownerName: ownerCard.name,
-      ownerId: ownerId,
-      ownerCharacterId: lastCharId,
-      dream: generate(),
     );
   }
 
@@ -355,12 +265,12 @@ extension ChatServiceSendHandoff on ChatService {
     CharacterCard? forceSpeaker,
   }) async {
     _stoppedReplyAnchor = null;
-    _answeringUnansweredLine = true;
+    turnEngine.progress.answeringUnansweredLine = true;
     _userTurn.open();
     try {
       await _answerTrailingUserTurn(webQuery, wikiQuery, forceSpeaker);
     } finally {
-      _answeringUnansweredLine = false;
+      turnEngine.progress.answeringUnansweredLine = false;
       _userTurn.close();
     }
   }
@@ -404,7 +314,7 @@ extension ChatServiceSendHandoff on ChatService {
     }
     if (!cancelled) {
       mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
-      await _generateResponse(
+      await turnEngine.generate(
         GenerationMode.normal,
         directUserSend: true,
         forceSpeaker: forceSpeaker,
@@ -473,7 +383,7 @@ extension ChatServiceSendHandoff on ChatService {
   void _restoreScoredRegisters(Map<String, dynamic> s) {
     _relationshipService.restoreFromMessageState(s);
     _mood.restoreFromStamp(s);
-    _nsfwService.restoreNsfwFromRealismState(s);
+    realism.nsfw.restoreNsfwFromRealismState(s);
   }
 
   ChatMessage _realismStampCarrier(Map stamp) => ChatMessage(
@@ -482,4 +392,59 @@ extension ChatServiceSendHandoff on ChatService {
     isUser: false,
     metadata: {'realism_state': Map<String, dynamic>.from(stamp)},
   );
+}
+
+/// True while [sendMessage] is holding a typed line behind post-gen evals.
+/// The composer already cleared; the bubble is not in the list yet.
+bool _sendWaitingOnSettle = false;
+
+/// The "Did time pass?" gate a send parks on, and the pre-reply goal check
+/// sendMessage awaits (WP10c).
+extension ChatServiceSendGates on ChatService {
+  /// Typed send is queued behind post-gen evals. Composer is empty; no bubble
+  /// yet. UI shows a holding banner so the wait does not look like a lost send.
+  bool get isSendWaitingOnSettle => _sendWaitingOnSettle;
+
+  /// The "Did time pass?" question the send is waiting on, or null. The
+  /// desktop dialog and the web sheet show it while it is non-null.
+  PendingSkip? get pendingSkip => _skipGate.pending;
+
+  /// A send is parked on [pendingSkip]: it owns the turn, so no other send,
+  /// regen, swipe, Continue or delete starts until it is answered.
+  bool get _skipAsked => _skipGate.pending != null;
+
+  /// The player's answer to [pendingSkip]: a skip, [SkipVerdict.none] for
+  /// "no skip", or null to keep the reader's guess.
+  void answerSkip(SkipVerdict? verdict) {
+    if (_skipGate.answer(verdict)) notifyListeners();
+  }
+
+  /// Whether a web client is connected to answer [pendingSkip].
+  set skipConfirmWebAsker(bool Function() connected) =>
+      _skipWebAsker = connected;
+
+  /// Puts a shaky skip reading to whoever is at a chat screen. Null at once
+  /// in a voice call or with nobody there (pick E: Director auto-chat and
+  /// AFK never send through here anyway), so the guess applies. A chat
+  /// change under the question cancels it.
+  Future<SkipVerdict?> _askSkip(PendingSkip question, String? token) async {
+    if (_callMode || (_chatScreens == 0 && !_skipWebAsker())) return null;
+    final answer = _skipGate.ask(question);
+    notifyListeners();
+    void onChange() {
+      if (_sceneChanged(token) && _skipGate.cancel()) notifyListeners();
+    }
+
+    addListener(onChange);
+    try {
+      return await answer;
+    } finally {
+      removeListener(onChange);
+    }
+  }
+
+  /// The pre-reply goal check. Send runs it; Continue and Regen do not
+  /// (objective_check_gate_test reads this name in the send part).
+  Future<void> _maybeCheckTaskCompletionSync() =>
+      objectivesDoor.completion.maybeCheckSync();
 }

@@ -16,19 +16,66 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
 
-/// Realism/Needs post-gen family plus Journal/Growth/periodic.
-/// Finalize chrome (sanitize, lorebook, first save, TTS) stays on
-/// [ChatServiceGenerationPostGen]. Continue scores new text only;
-/// asContinuation keeps pockets_before; Continue does not tick here —
-/// the clock helper already owns that.
-extension ChatServiceGenerationPostGenEngine on ChatService {
-  Future<void> _runPostGenEngineAndPeriodic(
-    GenTurn t,
-    String newPart,
-    String finalResponse,
-  ) async {
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_defaults.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+
+/// The Realism/Needs post-gen family: the clock, the needs-impact eval and
+/// the fused reply-facts fetch (transport only), climax, pockets, posture
+/// and the withUser glance, each behind its own gate, the restamp and the
+/// phase's one persist, then the fire-and-forget passes. Continue scores
+/// new text only; `asContinuation` keeps `pockets_before`; Continue does not
+/// tick here — the clock helper already owns that.
+class PostGenPasses {
+  PostGenPasses(this._e);
+
+  final TurnEngine _e;
+
+  TurnDeps get _d => _e.deps;
+  ChatSessionState get _session => _d.session;
+  TurnProgress get _p => _e.progress;
+  RealismGraph get _g => _d.doors.graph();
+  SessionStore get _sessions => _d.doors.sessions();
+  ControlsDoor get _controls => _d.doors.controls();
+  CastDoor get _cast => _d.doors.cast();
+  StorageService get _storageService => _d.services.storage;
+  LlmLanes get _lanes => _d.services.lanes;
+  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
+
+  GroupChat? get _activeGroup => _session.activeGroup;
+  AfterglowPass get _afterglow => _g.afterglow;
+  AwayPulseState get _awayPulse => _cast.away.state;
+  bool get _clockRunning => _controls.clockRunning;
+  StoryClockWriter get _clockWriter => _g.clockWriter;
+  GrowthDesk get _growthDesk => _g.growthDesk;
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      _cast.guests.isGuestAuthoredMessage(m);
+  NeedsPass get _needsPass => _g.needsPass;
+  PocketsPass get _pocketsPass => _g.pocketsPass;
+  RealismDance get _realismDance => _g.dance;
+  RealismEvals get _realismEvals => _g.evals;
+  RealismJudges get _realismJudges => _g.judges;
+  RealismSnapshot get _realismSnapshot => _g.snapshot;
+  RelationshipService get _relationshipService => _g.relationship;
+  ReplyFacts get _replyFacts => _g.replyFacts;
+  Future<void> _runPostGenNeedsChecks(String responseText) =>
+      _g.restores.runPostGenNeedsChecks(responseText);
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      _sessions.save(replaceAll: replaceAll);
+  TimeService get _timeService => _g.time;
+
+  Future<void> run(GenTurn t, String newPart, String finalResponse) async {
     // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
     // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
     // _needsImpactEvaluator) use the correct _session.activeCharacter (for name, personality/stance
@@ -41,7 +88,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     CharacterCard? lentTo;
     // The awaited post-gen critical section: mutates _session.activeCharacter,
     // the needs scalars and _groupRealism across two awaits
-    // (_isPostGenerating has been up since the last token landed).
+    // (isPostGenerating has been up since the last token landed).
     // The try/finally is not decoration: if _runPostGenNeedsChecks
     // throws, the inline restore below is skipped and the next turn's
     // save would write to the wrong member.
@@ -54,7 +101,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (_activeGroup != null &&
           finalResponse.isNotEmpty &&
           t.mode != GenerationMode.continue_) {
-        await _scoreCastFeelings(t.speakingCharacter, finalResponse);
+        await _e.group.scoreCastFeelings(t.speakingCharacter, finalResponse);
       }
       if (_activeGroup != null) {
         _session.activeCharacter = t.speakingCharacter;
@@ -94,7 +141,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (t.mode == GenerationMode.continue_ || !_clockRunning) {
         _timeService.clearBodyBeat();
       }
-      if (_postGenAbortRequested) {
+      if (_p.postGenAbortRequested) {
         debugPrint(
           '[Clock] running=$_clockRunning '
           'source=${_timeService.clockGateSource} '
@@ -103,18 +150,18 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           'reason=abort',
         );
       } else {
-        await _maybeAdvanceStoryClockAfterReply(t);
-        if (_postGenAbortRequested) {
+        await _e.postGen.maybeAdvanceStoryClockAfterReply(t);
+        if (_p.postGenAbortRequested) {
           _clockWriter.abortSlotClockIfThisTurnTicked(
             () => t.streamTarget,
             isContinue: t.mode == GenerationMode.continue_,
           );
         } else {
           _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
-          _tickRefractoryAfterClock(t);
+          _e.entry.tickRefractoryAfterClock(t);
         }
       }
-      if (scoredReply.isNotEmpty && !_postGenAbortRequested) {
+      if (scoredReply.isNotEmpty && !_p.postGenAbortRequested) {
         // The needs-impact eval and the fused reply-facts fetch run
         // CONCURRENTLY (same pattern as the pre-generation 4-eval block,
         // same stagger so KoboldCpp's FIFO queue sees them in intended
@@ -138,9 +185,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
             ).then((_) => _replyFacts.prefetch(scoredReply)),
           ]);
         } catch (e) {
-          if (!_postGenAbortRequested) rethrow;
+          if (!_p.postGenAbortRequested) rethrow;
         }
-        if (_postGenAbortRequested) {
+        if (_p.postGenAbortRequested) {
           _replyFacts.raw = null;
         } else {
           // Afterglow. Reads the reply that was just written, which is why
@@ -217,7 +264,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
 
       // Restamp after the clock, the wear, and the needs pass.
-      if (!_postGenAbortRequested) {
+      if (!_p.postGenAbortRequested) {
         // Keep this message's realism_state snapshot TRUTHFUL now that the
         // post-gen checks have run — needs vector AND the NSFW scalars a
         // climax just changed. See the helper for the two bugs this
@@ -231,7 +278,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         }
 
         if (lentTo != null) {
-          _endSpeakerLoan(lentTo);
+          _e.group.endSpeakerLoan(lentTo);
           lentTo = null;
         }
 
@@ -294,7 +341,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // ride memory only until some later turn happened to save.
         if (t.mode != GenerationMode.continue_ || scoredReply.isNotEmpty) {
           await _saveChat();
-          notifyListeners();
+          _d.notify();
         }
       } else {
         _clockWriter.abortSlotClockIfThisTurnTicked(
@@ -307,7 +354,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // The pointer goes back on a throw or an abort too. The settling flag
       // is cleared in the OUTER finally so guest turns, stale epochs and
       // earlier errors are covered too.
-      if (lentTo != null) _endSpeakerLoan(lentTo);
+      if (lentTo != null) _e.group.endSpeakerLoan(lentTo);
     }
 
     // [EvalTraffic]: the turn's secondary-call tally — everything since
@@ -323,8 +370,8 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // dance above); only the recap voice is best-effort at trigger time
     // in group non-obs (same caveat the old summary had).
     // Skip when regen aborted this scoring — do not diary a rejected reply.
-    if (!_postGenAbortRequested) {
-      _maybeRunJournalPass();
+    if (!_p.postGenAbortRequested) {
+      _e.side.maybeRunJournalPass();
 
       // Growth pass if due (fire-and-forget): ring ops per owner —
       // members AND 1:1 scene guests who spoke in the window (guest
@@ -336,115 +383,27 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // Keyword gate + open-list gate live inside the service so most
       // turns cost nothing. Regen/continue never invent commitments.
       if (t.mode == GenerationMode.normal) {
-        _maybeRunPromiseDebtPass();
+        _e.promises.maybeRunPromiseDebtPass();
       }
 
       // Dream prefetch: the clock crossed a night during this turn's
       // post-reply decide, so the dream can be generated NOW and
       // merely inserted at the next send — see the producer in
-      // chat_service_send.dart. The kick itself is synchronous (the park
+      // the send spine. The kick itself is synchronous (the park
       // exists before this line returns); only the model call runs in the
       // background, recording into the next turn's [EvalTraffic]
       // background line, where background spend belongs.
-      _maybeKickDreamPrefetch();
+      _e.side.maybeKickDreamPrefetch();
 
       // Embed messages for RAG memory (fire-and-forget)
-      _maybeEmbedMessages();
+      _e.side.maybeEmbedMessages();
 
       // Periodic evaluations coordinator (Scene Guest cast detection).
       // NEW-TURN work — only on a normal generation, never on
       // regen/continue (which replay or extend an existing turn).
       if (t.mode == GenerationMode.normal) {
-        _maybeRunPeriodicEvals();
+        _e.entry.maybeRunPeriodicEvals();
       }
     }
-  }
-
-  /// Glance only for a group soft member. Skips Needs / bond / posture /
-  /// reply-facts / periodic Realism. Writes `_groupRealism[id].withUser`
-  /// so [derivePresence] can show Away. 1:1 Scene Guests do not enter.
-  Future<void> _runLiteGroupGlancePass(GenTurn t, String scoredReply) async {
-    if (_activeGroup == null) return;
-    if (t.guestSpeaker != null) return;
-    if (!_speakerIsSoft(t.speakingCharacter)) return;
-    if (scoredReply.trim().isEmpty) return;
-    if (!_realismEnabled) return;
-    if (_postGenAbortRequested) return;
-
-    CharacterCard? lentTo;
-    final sid = _getCharacterIdFromCard(t.speakingCharacter);
-    try {
-      await _lanes.openWorkerLane();
-      // A chat opened while the lane opened owns the pointer now.
-      if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
-        return;
-      }
-      _session.activeCharacter = t.speakingCharacter;
-      lentTo = t.speakingCharacter;
-      if (sid.isNotEmpty) {
-        _relationshipService.setWithUser(_groupRealism[sid]?.withUser);
-        final meta = t.streamTarget.activeMetadata ?? <String, dynamic>{};
-        meta.putIfAbsent(kWithUserPreTurn, () => _relationshipService.withUser);
-        t.streamTarget.activeMetadata = meta;
-      }
-      await _realismJudges.runWithUserPass(scoredReply);
-      debugPrint(
-        '[Presence] lite-glance ${t.speakingCharacter.name}='
-        '${_relationshipService.withUser}',
-      );
-      if (sid.isNotEmpty) {
-        _groupStore.memberForWrite(sid).withUser =
-            _relationshipService.withUser;
-      }
-      if (t.mode == GenerationMode.normal && !_awayPulse.consumingReturnSpeak) {
-        _awayPulse.presentSpeakerTurns++;
-      }
-    } finally {
-      if (lentTo != null) _endSpeakerLoan(lentTo);
-      await _lanes.closeWorkerLane();
-    }
-  }
-
-  /// Ends a group pass's loan of the active character to [speaker]. A group
-  /// has none between turns, so the loan ends at null, and only while the
-  /// pointer still names [speaker]: a chat opened during the pass, or the
-  /// next turn's own pass, owns it otherwise. Ending the loan only when the
-  /// pointer had held someone left whoever answered first active for the
-  /// rest of the visit: Chance Time named them on every turn and your
-  /// bubbles took their colours.
-  void _endSpeakerLoan(CharacterCard speaker) {
-    if (stillLentTo(_session.activeCharacter, speaker)) {
-      _session.activeCharacter = null;
-    }
-  }
-
-  /// How [reply] moved the speaker's hidden feelings toward the others. The
-  /// char→char judge scores it while the Realism Engine is on (that is when
-  /// the feelings reach a prompt); the old keyword scan is the floor when
-  /// the engine is off, the turn was aborted, or the judge failed.
-  Future<void> _scoreCastFeelings(CharacterCard speaker, String reply) async {
-    final speakerId = _getCharacterIdFromCard(speaker);
-    if (speakerId.isEmpty || !_shouldTrackInterCharacterRelationships) return;
-    final others = [
-      for (final c in _groupCharacters)
-        if (_getCharacterIdFromCard(c) != speakerId) c,
-    ];
-    final judged = _realismEnabled && !_postGenAbortRequested
-        ? await _castFeelingsJudge.judge(
-            speakerName: speaker.name,
-            otherNames: [for (final c in others) c.name],
-            reply: clampEvalMessage(reply),
-            recentExchange: recentExchange(_session.messages),
-          )
-        : null;
-    if (judged == null) {
-      _relationshipService.updateInterCharacterFeelingsFromRecentExchange(
-        speakerId,
-      );
-      return;
-    }
-    _relationshipService.applyInterCharacterDeltas(speakerId, {
-      for (final c in others) _getCharacterIdFromCard(c): ?judged[c.name],
-    });
   }
 }

@@ -549,6 +549,18 @@ Done when: part baseline → 5, `test/services/chat/one_shot_parity_test.dart`,
 `integration_test/continue_path_test.dart`, `regen_feelings_cadence_test.dart`,
 `climax_refractory_test.dart` and `group_smoke_test.dart` pass.
 
+Landed at 6 parts and 35 fields (10 in the bag, 25 on the class), eight
+parts retired: the six turn parts plus WP5's pinned `message_ops` and
+`reprocess`. `TurnProgress` owns the status flags with the same
+predicates; `TurnStops` holds stop, cancel, Continue's entry and delete's
+Needs and Pockets rewinds; post-generation is split into finalize, the
+passes (each with its own gate), the group loan and the side work. Test
+re-points: one path in `needs_gate_ratchet_test`, and path or dropped
+underscore edits in `catastrophe_clear_on_cancel_test`,
+`trust_repair_regen_latch_test`, `objective_check_gate_test` and
+`group_lite_soft_engine_test`. The remaining parts are `send`,
+`send_handoff`, `turn_flow`, `idle_autonomous`, `accessors` and `fields`.
+
 ### WP10c. Send spine
 
 Parts retired (3, ~1,460 lines): `chat_service_send`,

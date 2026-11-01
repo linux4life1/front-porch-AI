@@ -60,7 +60,7 @@ const _stateAndRewinds = <String, String>{
       'restores the bars from a message\'s snapshot on rewind',
   'lib/services/chat/doors/realism/regen_baseline.dart':
       'rewinds a regen to its stamp',
-  'lib/services/chat/chat_service_message_ops.dart':
+  'lib/services/chat/doors/turn/turn_stops.dart':
       'rewinds a delete to its stamp',
 };
 

@@ -19,10 +19,10 @@
 part of '../chat_service.dart';
 
 /// Turn-progression surfaces that sit outside the [ChatServiceSend] spine:
-/// group speaker picking, TTS-paced
-/// auto-play, the web/mobile Chance Time reveal surface, the Journal recap
-/// controls, background RAG embedding, and the periodic (cast-detection)
-/// eval coordinator. Extracted verbatim from `chat_service.dart` — zero
+/// group speaker picking, the web/mobile Chance Time reveal surface and the
+/// Journal recap controls. TTS-paced auto-play, background RAG embedding and
+/// the periodic cast scan run after a reply, on the turn engine
+/// (doors/turn/). Extracted verbatim from `chat_service.dart` — zero
 /// behaviour change.
 extension ChatServiceTurnFlow on ChatService {
   /// Trigger the next character to speak in group mode.
@@ -32,7 +32,7 @@ extension ChatServiceTurnFlow on ChatService {
     }
     // Bucket brigade: this speaker announces the time the last reply
     // decided, then post-decides for whoever speaks next.
-    await _generateResponse(GenerationMode.normal);
+    await turnEngine.generate(GenerationMode.normal);
   }
 
   /// Manually select which character speaks next in group mode.
@@ -182,35 +182,6 @@ extension ChatServiceTurnFlow on ChatService {
     return !stanceSaysAway(stance);
   }
 
-  /// Wait for TTS to finish speaking, then apply the configured delay before
-  /// auto-play. [run] is the auto-chat run that armed the wait.
-  void _waitForTtsThenContinue(int run) {
-    if (!(_session.groupManager?.autoPlayActive ?? false) ||
-        !(_session.groupManager?.observerMode ?? false)) {
-      return;
-    }
-
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
-      if (!(_session.groupManager?.autoPlayActive ?? false) ||
-          !(_session.groupManager?.observerMode ?? false)) {
-        timer.cancel();
-        return;
-      }
-      if (_ttsService == null || !_ttsService!.isSpeaking) {
-        timer.cancel();
-        final delayMs =
-            ((_session.groupManager?.directorDelaySec ?? 15.0) * 1000).round();
-        Future.delayed(Duration(milliseconds: delayMs), () {
-          if ((_session.groupManager?.autoPlayActive ?? false) &&
-              !_isGenerating &&
-              _autoChatBudget.run == run) {
-            _autoPlayNext();
-          }
-        });
-      }
-    });
-  }
-
   /// True when auto-trigger fires. UI reads then calls consumeChanceTimeTrigger().
   bool get chanceTimePendingTrigger => _chance.pendingTrigger;
 
@@ -305,185 +276,153 @@ extension ChatServiceTurnFlow on ChatService {
   Future<void> forceSummaryUpdate() async {
     if (_isSummaryGenerating) return;
     await _awaitHistoryHydrated();
-    await _journalMaintenance.runMaintenancePass(force: true);
+    await realism.journalMaintenance.runMaintenancePass(force: true);
   }
+}
 
-  // _maybeRunPromiseDebtPass lives in chat_service_objectives.dart (the
-  // commitment-tracking part).
+/// Builds the Realism graph, the controls door, the model lanes, the prompt
+/// assembler and the turn engine. Each hook stands in for a member of
+/// another part until that part becomes a door (see [RealismShellHooks],
+/// [ControlsShellHooks], [PromptShellHooks] and [TurnShellHooks]).
+extension ChatServiceRealismWiring on ChatService {
+  RealismGraph _buildRealismGraph() => RealismGraph(
+    RealismDeps(
+      session: _session,
+      services: RealismServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: promptAssembler.macros,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        memory: () => _memoryService,
+        llmProvider: () => _llmProvider,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        evalStagger: kEvalDispatchStagger,
+        lanes: _lanes,
+      ),
+      doors: RealismDoors(
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+        objectives: () => objectivesDoor,
+        sessions: () => sessionStore,
+        controls: () => controlsDoor,
+        prompts: () => promptAssembler,
+        turn: () => turnEngine,
+      ),
+      hooks: RealismShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+        disposed: () => _disposed,
+        stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
+      ),
+      notify: notifyListeners,
+    ),
+  );
 
-  /// Check if a Journal maintenance pass is due and trigger it non-blockingly.
-  /// Cadence (design §4.2): user messages since the _summaryLastIndex cursor
-  /// vs the journalInterval setting, PLUS an immediate pass when the window
-  /// holds a significant engine-stamped event (big bond/trust swing, trust
-  /// repair, Chance Time) or an objective completed (the eventKickPending
-  /// flag, set pre-generation, consumed here post-generation so the pass
-  /// never competes with the main LLM call). Guards mirror the old summary
-  /// coordinator.
-  void _maybeRunJournalPass() {
-    if (!_storageService.memorySettings.journalEnabled) return;
-    if (_summaryPaused) return;
-    if (_isSummaryGenerating) return;
-    if (_llmProvider == null) return;
+  ControlsDoor _buildControlsDoor() => ControlsDoor(
+    ControlsDeps(
+      session: _session,
+      storage: _storageService,
+      personas: _userPersonaService,
+      db: () => _db,
+      characters: () => _characterRepository,
+      graph: () => realism,
+      cast: () => castDoor,
+      lanes: _lanes,
+      turn: this,
+      engine: () => turnEngine,
+      saveChat: _saveChat,
+      notify: notifyListeners,
+      hooks: ControlsShellHooks(
+        disposed: () => _disposed,
+        characterIdFor: _getCharacterIdFromCard,
+        exitCallModelSwap: () => promptAssembler.callSwap.exit(),
+        upcomingSpeaker: () => _upcomingGroupSpeaker,
+        speakerName: () => chanceTimeSpeakerName,
+      ),
+    ),
+  );
 
-    // Cursor is an index into the FULL transcript. Wait for the
-    // background backfill so we don't clamp 11200 down to 24.
-    unawaited(() async {
-      await _awaitHistoryHydrated();
-      if (!_storageService.memorySettings.journalEnabled) return;
-      if (_summaryPaused || _isSummaryGenerating) return;
-      final windowStart = _summaryLastIndex.clamp(0, _session.messages.length);
-      var userMessagesSincePass = 0;
-      for (var i = windowStart; i < _session.messages.length; i++) {
-        if (_session.messages[i].isUser) userMessagesSincePass++;
-      }
-      if (userMessagesSincePass == 0) return;
-      final due =
-          userMessagesSincePass >=
-          _storageService.memorySettings.journalInterval;
-      // Salient immediacy is ONLY eventKickPending, which already passed
-      // GrowthDesk.requestSalienceKick. Reading the window again would bypass
-      // the shared cooldown Growth already honors.
-      if (due || _journalMaintenance.eventKickPending) {
-        _journalMaintenance.runMaintenancePass();
-      }
-    }());
-  }
+  LlmLanes _buildLanes() => LlmLanes(
+    kobold: () => _koboldService,
+    provider: () => _llmProvider,
+    testMouth: () => testLlmServiceOverride,
+    testWorker: () => testWorkerLlmServiceOverride,
+    testIsLocal: () => testIsLocalOverride,
+    isGenerating: () => turnEngine.progress.isGenerating,
+    transport: () => realism.transport,
+    notify: notifyListeners,
+  );
 
-  /// Embed message windows for RAG memory retrieval (fire-and-forget).
-  /// Called after each generation completes. Only embeds new windows that
-  /// haven't been embedded yet.
-  /// Embed the recent message window for RAG memory (fire-and-forget).
-  ///
-  /// Normally keyed on the active character (or group bucket). Scene Guests
-  /// Phase 4 passes [characterIdOverride] = the guest's id so the just-finished
-  /// guest exchange is stored under the GUEST's own id — the same id the guest
-  /// retrieves under in [RagSources.sourceIds] — giving guests episodic memory
-  /// without touching the host's embeddings.
-  void _maybeEmbedMessages({String? characterIdOverride}) {
-    if (_memoryService == null || !_storageService.memorySettings.ragEnabled) {
-      return;
-    }
-    if (_session.currentSessionId == null) return;
+  /// The prompt assembler. Each hook is debt (see [PromptShellHooks]).
+  PromptAssembler _buildPromptAssembler() => PromptAssembler(
+    PromptDeps(
+      session: _session,
+      services: PromptServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        memory: () => _memoryService,
+        lanes: _lanes,
+      ),
+      doors: PromptDoors(
+        graph: () => realism,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        media: () => mediaDoor,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+        turn: () => turnEngine,
+      ),
+      hooks: PromptShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+      ),
+      notify: notifyListeners,
+    ),
+  );
 
-    final sessionId = _session.currentSessionId!;
-    final characterId = characterIdOverride ?? _getCharacterId();
-    // Fire and forget — wait for the tail backfill first so we never store
-    // a 24-row snapshot as positions 0..N (that permanently skips the real
-    // start of a long chat, and stamps today's story-day on old lines).
-    unawaited(() async {
-      await _awaitHistoryHydrated();
-      if (_session.currentSessionId != sessionId || _memoryService == null) {
-        return;
-      }
-      if (_session.messages.length <
-          _storageService.memorySettings.ragWindowSize) {
-        return;
-      }
-      final formatted = _formatMessagesForRagEmbedding(_session.messages);
-      debugPrint(
-        '[RAG:Chat] ▶ Triggering background embedding (session: $sessionId, '
-        'char: $characterId, ${formatted.length} msgs, '
-        'base=${_history.basePosition})',
-      );
-      await _memoryService!.embedMessageWindow(
-        sessionId: sessionId,
-        characterId: characterId,
-        formattedMessages: formatted,
-        totalMessageCount: formatted.length,
-        positionOffset: _history.basePosition,
-      );
-    }());
-  }
-
-  /// Canonical RAG message lines for [MemoryService.embedMessageWindow].
-  /// Live post-gen and post-import backfill MUST use this exact shape —
-  /// dedup is positional only, so a second formatter permanently splits the
-  /// corpus wording for the same session.
-  List<String> _formatMessagesForRagEmbedding(List<ChatMessage> messages) {
-    return messages.map((m) {
-      if (m.characterId == '__director__') {
-        return m.toPromptHistoryLine(); // note or narration
-      }
-      return '${m.sender}: ${m.text}';
-    }).toList();
-  }
-
-  /// Coordinator for the periodic background evals (now just Scene Guest cast
-  /// detection). User-fact extraction and chat summaries were replaced by the
-  /// Journal maintenance pass (_maybeRunJournalPass); character evolution was
-  /// replaced by the growth pass (GrowthDesk.maybeRunGrowthPass), which has
-  /// its own cursor-based cadence.
-  void _maybeRunPeriodicEvals() {
-    // Scene Guest cast detection (1:1 only). Runs on its own cadence and
-    // fires-and-forget so it never blocks the turn. See _maybeRunCastDetection.
-    _maybeRunCastDetection();
-  }
-
-  /// Cadence + trigger for Scene Guest cast detection (1:1 only). Advances the
-  /// dedicated counter on each primary turn and, on the interval, runs the
-  /// detector fire-and-forget. A non-null result is surfaced as a pending popup
-  /// (Chance-Time-style flag + notifyListeners). Never offers while one is
-  /// already pending. The detector itself filters out the host/user/existing
-  /// guests/already-offered names. Does ZERO Realism/Needs work.
-  void _maybeRunCastDetection() {
-    // The one gate, and it is the AUTOMATIC path only. `/scan` deliberately
-    // still works with this off: the complaint this switch answers is being
-    // interrupted by offers nobody asked for, and typing `/scan` is asking.
-    if (!_storageService.realismSettings.sceneGuestDetectionEnabled) return;
-    if (_session.activeCharacter == null && _activeGroup == null) return;
-    if (_sceneGuest.pendingDetection != null) return; // one offer at a time
-
-    _sceneGuest.turnsSinceCastScan++;
-    if (_sceneGuest.turnsSinceCastScan < kCastScanInterval) return;
-    _sceneGuest.turnsSinceCastScan = 0;
-
-    // Fire-and-forget: never block the turn on the eval.
-    _performCastScan();
-  }
-
-  /// Force an immediate cast-detection scan, bypassing the per-turn cadence.
-  /// Backs the manual `/scan` command, so a recurring side character can be
-  /// surfaced on demand — including in an already-loaded chat whose cadence
-  /// counter reset on load. Returns true when a candidate was found and the
-  /// offer popup was raised. Resets the cadence counter so the automatic scan
-  /// won't immediately re-fire on the next turn.
-  Future<bool> runCastDetectionNow() async {
-    if (_session.activeCharacter == null && _activeGroup == null) return false;
-    if (_sceneGuest.pendingDetection != null) return false;
-    _sceneGuest.turnsSinceCastScan = 0;
-    // Re-resolve first so any guest whose library card was deleted is pruned
-    // from the scene list — otherwise the detector still treats them as "already
-    // a scene guest" and silently rejects re-detecting them (the exact symptom
-    // of deleting a guest's card then /scan-ning for them again).
-    await _resolveSceneGuestCards();
-    // A manual scan is an explicit "look again", so forget prior in-session
-    // dismissals/offers — otherwise a character you ignored (or added then
-    // deleted) can never be re-surfaced without starting a fresh chat. Names
-    // still genuinely in the scene are excluded by the live scene-guest filter.
-    _sceneGuest.offeredOrIgnoredNames.clear();
-    final detected = await _performCastScan();
-    return detected != null;
-  }
-
-  /// Run one detection pass and, on a fresh hit, raise the offer popup (set the
-  /// pending flag + notify). Shared by the automatic per-turn path and the
-  /// manual `/scan` command so there is exactly ONE detect→surface path.
-  /// Returns the surfaced candidate, or null when nothing was found.
-  Future<DetectedCharacter?> _performCastScan() async {
-    final token =
-        _session.currentSessionId; // the scan is slow; the chat may switch
-    final detected = await _ensureCastDetector().detect();
-    if (detected == null) return null;
-    // Bail if the chat/character/session changed (or we were disposed) during
-    // the eval — otherwise a character detected from chat A's narration would
-    // pop as an offer inside chat B and get minted into B's scene.
-    if (_sceneChanged(token)) return null;
-    if (_sceneGuest.pendingDetection != null) return null;
-    // Mark as offered immediately so a later scan won't re-propose it even if
-    // the user leaves the popup open.
-    _sceneGuest.offeredOrIgnoredNames.add(detected.name.trim().toLowerCase());
-    _sceneGuest.pendingDetection = detected;
-    notifyListeners();
-    return detected;
-  }
+  /// The turn engine. Each hook is debt (see [TurnShellHooks]).
+  TurnEngine _buildTurnEngine() => TurnEngine(
+    TurnDeps(
+      session: _session,
+      services: TurnServices(
+        storage: _storageService,
+        personas: _userPersonaService,
+        kobold: _koboldService,
+        llmProvider: () => _llmProvider,
+        tts: () => _ttsService,
+        memory: () => _memoryService,
+        lanes: _lanes,
+      ),
+      doors: TurnDoors(
+        graph: () => realism,
+        prompts: () => promptAssembler,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        importer: () => chatImporter,
+      ),
+      characterIdFor: _getCharacterIdFromCard,
+      ragCharacterId: _getCharacterId,
+      hooks: TurnShellHooks(
+        skipAsked: () => _skipAsked,
+        pickPresentSpeaker: _pickPresentGroupSpeaker,
+        groupSpeakerSkips: _groupSpeakerSkips,
+        presenceSkipBanner: _presenceSkipBanner,
+      ),
+      notify: notifyListeners,
+    ),
+  );
 }
