@@ -448,6 +448,19 @@ pass unedited, and `integration_test/realism_off_test.dart`,
 `journal_review_test.dart`, `growth_rings_test.dart` and
 `climax_refractory_test.dart` pass.
 
+Landed at 27 parts and 74 fields (53 in the bag, 21 on the class), all
+twelve parts retired: the seven wiring parts plus the realism-owned
+leftovers `cast_shrink`, `regen_revert`, `speaker_objectives`,
+`greeting_seed` and `group_lite`. The shell's sixty builder fields are one
+`realism` graph; the closure-taking `RealismScope` factory is gone and
+`afterglow_independence_test` builds the scope with a session state, its
+assertions unchanged. Test re-points: four in `needs_gate_ratchet_test`,
+three in `realism_gate_ratchet_test` (`wiring_mint` 2 → `planner_resolve`
+2, `cast_shrink` 3 → `scalar_carries` 5, `wiring_realism` 1 →
+`core_wiring` 2), `needs_beat_span_test` and `objective_check_gate_test`
+paths, and fifteen markers in the group-card manifest. `RealismShellHooks`
+lists the 40 hooks the graph still takes, each named for its owner.
+
 ### WP9b. Controls and lanes
 
 Parts retired (5, ~1,500 lines): `chat_service_controls`,
