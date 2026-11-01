@@ -18,7 +18,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/mood_atmosphere.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/needs_pulse.dart';
 
 /// Single-need progress bar with icon, label, band coloring, and optional reason tooltip.
 ///
@@ -206,13 +208,39 @@ class NeedsGrid extends StatelessWidget {
   final bool mini;
   final int crossAxisCount;
 
+  /// Mood on the character: a need in trouble throbs in its own hue
+  /// (`mood_atmosphere.dart`). [enjoysLowHygiene] inverts the hygiene bar.
+  /// Off by default, so every caller without the setting reads as before.
+  final bool pulseInTrouble;
+  final bool enjoysLowHygiene;
+
   const NeedsGrid({
     super.key,
     required this.needs,
     this.reasons,
     this.mini = false,
     this.crossAxisCount = 2,
+    this.pulseInTrouble = false,
+    this.enjoysLowHygiene = false,
   });
+
+  /// The bar, throbbing when [pulseInTrouble] and the need is in trouble.
+  Widget _bar(BuildContext context, String need, int value, Widget bar) {
+    if (!pulseInTrouble) return bar;
+    final trouble = needTrouble(
+      need: need,
+      level: value,
+      enjoysLowHygiene: enjoysLowHygiene,
+    );
+    if (!trouble.low) return bar;
+    return NeedsPulse(
+      hue: RealismColors.needHueOf(context, need),
+      critical: trouble.critical,
+      inverted: trouble.inverted,
+      animate: !MediaQuery.disableAnimationsOf(context),
+      child: bar,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -226,11 +254,11 @@ class NeedsGrid extends StatelessWidget {
         spacing: 6,
         runSpacing: 2,
         children: entries.map((e) {
-          return NeedsBar(
-            need: e.key,
-            value: e.value,
-            mini: true,
-            showLabel: false,
+          return _bar(
+            context,
+            e.key,
+            e.value,
+            NeedsBar(need: e.key, value: e.value, mini: true, showLabel: false),
           );
         }).toList(),
       );
@@ -239,12 +267,17 @@ class NeedsGrid extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: entries.map((e) {
-        return NeedsBar(
-          need: e.key,
-          value: e.value,
-          reason: reasons?[e.key],
-          mini: false,
-          showLabel: true,
+        return _bar(
+          context,
+          e.key,
+          e.value,
+          NeedsBar(
+            need: e.key,
+            value: e.value,
+            reason: reasons?[e.key],
+            mini: false,
+            showLabel: true,
+          ),
         );
       }).toList(),
     );

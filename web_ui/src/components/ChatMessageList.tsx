@@ -6,7 +6,8 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';
 import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
@@ -157,6 +158,12 @@ type TranscriptProps = {
   onActionFailed?: (what: string, e: unknown) => void;
   /** Fired when a generated chat image finishes loading (late height). */
   onChatImageLoad?: () => void;
+  /** Appearance → Mood on the character at its full level: the latest reply
+   *  wears its mood. The colours are the desktop's (chat state `moodPaints`). */
+  moodLook?: MoodLook;
+  moodPaints?: MoodPaints | null;
+  /** The 1:1 host's live mood, so a bubble whose stamp still matches it paints at full loudness. */
+  liveMood?: { emotion: string; intensity: string; held: number } | null;
 };
 
 // Memoized separately from the live streaming tail: token/processing WS
@@ -187,7 +194,32 @@ const TranscriptRows = memo(function TranscriptRows({
   onVariantPicked,
   onActionFailed,
   onChatImageLoad,
+  moodLook,
+  moodPaints,
+  liveMood,
 }: TranscriptProps) {
+  // The latest reply, which wears its mood at the full level.
+  const moodTarget = moodLook?.level === 'all' && moodPaints
+    ? [...messages].reverse().find((m) => !m.isUser && m.characterId !== DIRECTOR_CHARACTER_ID)
+    : undefined;
+  const moodOf = (m: Message): { className: string; style?: CSSProperties } => {
+    if (m !== moodTarget || !moodPaints) return { className: '' };
+    const label = m.chips?.emotionLabel ?? '';
+    const speaker = m.characterId ? castById.get(m.characterId) : undefined;
+    const liveMatches = liveMood && liveMood.emotion.trim().toLowerCase() === label.trim().toLowerCase();
+    const castMatches = speaker?.emotion && speaker.emotion.trim().toLowerCase() === label.trim().toLowerCase();
+    const mood = moodAtmosphereOf(
+      label,
+      liveMatches ? liveMood.intensity : castMatches ? 'moderate' : 'mild',
+      liveMatches ? liveMood.held : 0,
+      moodLook?.drama ?? 1,
+    );
+    if (!mood.tone || mood.strength <= 0) return { className: '' };
+    return {
+      className: ` mood-bubble tone-${mood.tone}`,
+      style: { '--mood-hue': moodPaints.tones[mood.tone], '--mood-a': mood.strength.toFixed(3) } as CSSProperties,
+    };
+  };
   const userHasReplied = messages.some((m) => m.isUser);
   const find = useFindSurface();
   // The engine's sender hits index m.sender; only a header showing exactly
@@ -228,7 +260,10 @@ const TranscriptRows = memo(function TranscriptRows({
                 <div className="thinking-body">{m.thinkingContent}</div>
               </details>
             )}
-            <div className={isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai'}>
+            <div
+              className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
+              style={moodOf(m).style}
+            >
               {isDirectorNote && (
                 <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
               )}

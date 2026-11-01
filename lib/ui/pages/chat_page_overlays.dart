@@ -267,6 +267,7 @@ class ChatSurface extends StatelessWidget {
                 onSend: (text) => chatService.sendMessage(text),
                 child: ChatMessageList(
                   key: _transcriptListKey,
+                  moodLook: MoodLook.of(Provider.of<StorageService>(context)),
                   sessionId: chatService.currentSessionId,
                   messages: chatService.messages,
                   controller: scrollController,

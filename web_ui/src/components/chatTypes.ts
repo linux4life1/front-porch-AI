@@ -124,6 +124,8 @@ export interface Realism {
   /** The engine's band cutoffs for the bar colours; absent on older servers. */
   needsUrgentAt?: number;
   needsCriticalAt?: number;
+  /** The card's "Enjoys low hygiene": Mood on the character inverts the hygiene bar. */
+  enjoysLowHygiene?: boolean;
 }
 
 export interface LoreEntry {

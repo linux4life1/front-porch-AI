@@ -25,6 +25,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_bubble.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_look.dart';
 
 import 'message_bubble.actions.dart';
 import 'message_bubble.content.dart';
@@ -59,6 +61,11 @@ class MessageBubble extends StatefulWidget {
   /// [ChatService.sessionThemeOverrides] instead.
   final ChatThemeOverrides? themeOverrides;
 
+  /// Appearance → Mood on the character, and whether this bubble is the
+  /// speaker's latest reply, which wears the mood at the full level.
+  final MoodLook moodLook;
+  final bool moodFramed;
+
   const MessageBubble({
     super.key,
     required this.message,
@@ -72,6 +79,8 @@ class MessageBubble extends StatefulWidget {
     this.isGenerating,
     this.followStreamingReplies = false,
     this.themeOverrides,
+    this.moodLook = MoodLook.off,
+    this.moodFramed = false,
   });
 
   @override
@@ -134,6 +143,14 @@ class _MessageBubbleState extends State<MessageBubble> {
   @override
   Widget build(BuildContext context) {
     final isDirectorNote = message.characterId == '__director__';
+    final moodFrame = widget.moodFramed && !isDirectorNote
+        ? moodBubbleFrame(
+            message: message,
+            character: character,
+            chat: widget.chatService,
+            look: widget.moodLook,
+          )
+        : null;
     final isChanceTimeNarration =
         message.activeMetadata?['is_chance_time_narration'] == true;
     StorageService? storage;
@@ -253,7 +270,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                               alpha: AppColors.isLight(context) ? 0.35 : 0.3,
                             ),
                           )
-                        : null,
+                        : moodFrame?.border,
+                    boxShadow: moodFrame?.shadow,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

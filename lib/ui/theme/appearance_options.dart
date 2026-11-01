@@ -88,3 +88,34 @@ enum AmbientScene {
   static AmbientScene fromKey(String? key) =>
       values.firstWhere((s) => s.key == key, orElse: () => off);
 }
+
+/// Appearance → Mood on the character: how much of a character's Realism
+/// state shows on what they own. Off paints nothing; Portrait and needs
+/// lights the portrait ring and halo and throbs a need in trouble; the
+/// full level dresses the speaker's bubbles too. Never the stage: the
+/// weather owns that.
+enum MoodOnCharacter {
+  off('off', 'Off'),
+  portrait('portrait', 'Portrait and needs'),
+  all('all', 'Portrait, needs and bubbles');
+
+  const MoodOnCharacter(this.key, this.label);
+
+  /// The stored preference value.
+  final String key;
+  final String label;
+
+  /// Whether the portrait, its halo and the needs bars show the mood.
+  bool get portraitOn => this != off;
+
+  /// Whether the speaker's bubbles wear it too.
+  bool get bubblesOn => this == all;
+
+  static MoodOnCharacter fromKey(String? key) =>
+      values.firstWhere((s) => s.key == key, orElse: () => off);
+}
+
+/// The Drama slider's range: how loud the mood paints, 1 being the design.
+const double kMoodDramaMin = 0.4;
+const double kMoodDramaMax = 1.6;
+const double kMoodDramaDefault = 1.0;

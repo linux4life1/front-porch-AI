@@ -28,6 +28,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import '../mood/mood_look.dart';
 import 'character_state/character_state.dart';
 import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
@@ -204,8 +205,13 @@ class _SidebarBodyState extends State<SidebarBody> {
                 key: _characterStateKey,
                 chat: chat,
                 isGroup: isGroup,
+                moodLook: MoodLook.of(storage),
                 groupMemberCard: isGroup
-                    ? _buildFocusedMemberCard(context, chat)
+                    ? _buildFocusedMemberCard(
+                        context,
+                        chat,
+                        MoodLook.of(storage),
+                      )
                     : null,
                 initiallyExpanded: ui.sidebarGroupExpanded(
                   'character_state',
@@ -283,7 +289,11 @@ class _SidebarBodyState extends State<SidebarBody> {
 
   /// The focused member's rich card (moved verbatim from chat_page's group
   /// branch — remove/objectives/avatar behavior unchanged).
-  Widget _buildFocusedMemberCard(BuildContext context, ChatService chat) {
+  Widget _buildFocusedMemberCard(
+    BuildContext context,
+    ChatService chat,
+    MoodLook moodLook,
+  ) {
     final focused = widget.focused;
     final character = focused.card;
     final cast = chat.cast;
@@ -295,6 +305,7 @@ class _SidebarBodyState extends State<SidebarBody> {
     return GroupMemberCard(
       character: character,
       chatService: chat,
+      moodLook: moodLook,
       avatarColor: groupCharacterColor(idx < 0 ? 0 : idx),
       isNextSpeaker: chat.nextCharacter?.name == character.name,
       isExpanded: true,

@@ -9,8 +9,11 @@
 // (at your option) any later version.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation/needs_tables.dart';
 
 import 'app_colors.dart';
+import 'web_theme_tokens.dart';
 
 /// One hue per Realism and Needs stat on the chips under a reply. Users learn
 /// "orange is hunger", so the hue never changes by theme; only brightness
@@ -123,6 +126,69 @@ class RealismColors {
         return Colors.grey;
     }
   }
+
+  /// A mood tone's hue for Mood on the character: the ring, halo and
+  /// bubble. The same legend as [emotionRing], so grief and anger never
+  /// look alike; fixed across themes because the hue is the meaning.
+  static Color moodToneColor(MoodTone tone) => switch (tone) {
+    MoodTone.sour => Colors.redAccent,
+    MoodTone.low => Colors.blueGrey,
+    MoodTone.anxious => Colors.deepPurpleAccent,
+    MoodTone.lifted => Colors.amber,
+    MoodTone.warm => Colors.pinkAccent,
+    MoodTone.charged => Colors.orangeAccent,
+  };
+
+  /// A need's own hue, for the bar and the rim that throbs with it.
+  static Color needHueOf(BuildContext context, String need) =>
+      AppColors.resolve(
+        context,
+        needHueFor(need, dark: true),
+        needHueFor(need, dark: false),
+      );
+
+  /// [needHueOf] without a context, for the web wire: the same pairs the
+  /// bar paints with (`realism_colors_test` holds them to the `*Of` reads).
+  static Color needHueFor(String need, {required bool dark}) =>
+      switch (need.toLowerCase()) {
+        'hunger' => dark ? Colors.orangeAccent : const Color(0xFFA03C08),
+        'bladder' => dark ? Colors.lightBlueAccent : const Color(0xFF075985),
+        'energy' => dark ? Colors.amberAccent : const Color(0xFF92400E),
+        'social' => dark ? Colors.pinkAccent : const Color(0xFF9D174D),
+        'fun' => dark ? Colors.deepPurpleAccent : const Color(0xFF6D28D9),
+        'hygiene' => dark ? Colors.cyanAccent : const Color(0xFF155E75),
+        'comfort' => dark ? Colors.greenAccent : const Color(0xFF1B5E20),
+        _ => dark ? Colors.grey : const Color(0xFF575757),
+      };
+
+  /// The bond halo behind a portrait: warm for a bond at or above zero,
+  /// chilled below it.
+  static Color bondHaloOf(BuildContext context, {required bool warm}) =>
+      warm ? socialOf(context) : trustUpOf(context);
+
+  /// [bondHaloOf] without a context, for the web wire.
+  static Color bondHaloFor({required bool warm, required bool dark}) => warm
+      ? needHueFor('social', dark: dark)
+      : (dark ? AppColors.bondMid : const Color(0xFF1D4ED8));
+
+  /// Mood on the character's colours for the PWA, which paints only what
+  /// the desktop sends: the tone hues (fixed), and the need hues and bond
+  /// halos for each brightness. Additive on the chat state.
+  static Map<String, Object> moodPaintsWire() => {
+    'tones': {
+      for (final t in MoodTone.values)
+        t.name: WebThemeTokens.css(moodToneColor(t)),
+    },
+    for (final dark in [true, false])
+      dark ? 'dark' : 'light': {
+        'needs': {
+          for (final n in NeedsTables.needKeys)
+            n: WebThemeTokens.css(needHueFor(n, dark: dark)),
+        },
+        'haloWarm': WebThemeTokens.css(bondHaloFor(warm: true, dark: dark)),
+        'haloChill': WebThemeTokens.css(bondHaloFor(warm: false, dark: dark)),
+      },
+  };
 
   /// The tooltip on a chip: the theme's card, not a fixed slate.
   static BoxDecoration tooltipDecoration(BuildContext context) => BoxDecoration(

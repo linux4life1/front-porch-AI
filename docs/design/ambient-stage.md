@@ -169,7 +169,7 @@ measured with `contrastRatio` from `lib/ui/theme/accent_fit.dart`.
 | Ambient scene | Off · Tint only · Tint and effects | Off | Appearance (desktop and web) |
 | Pause effects while generating | on/off | on | Appearance (desktop and web, PR 2) |
 | Scene sound | on/off + volume | off | Appearance (desktop and web, PR 3) |
-| Mood glow | on/off | off | Appearance (Next) |
+| Mood on the character | Off · Portrait and needs · Portrait, needs and bubbles, with a Drama slider | Off | Appearance → Chat Appearance (desktop and web), shown only while Porch Life's Realism Engine is on |
 
 Reduce motion is not a setting here: the stage follows the OS (PR 2), and
 an in-app override is Next.
@@ -429,28 +429,58 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   again. The volume slider writes the setting once per drag, when it
   ends.
 
-## 6. Tenant 3: Mood glow (Next)
+## 6. Tenant 3: Mood on the character (shipped)
 
-Inputs, all existing: the judge's emotion label, intensity, cause and
-held count on each message (`lib/services/chat/mood_physics.dart`, the
-`kMoodStamp*` keys), collapsed to the six `MoodTone`s (sour, low,
-anxious, lifted, warm, charged); the web already receives `emotion`,
-`emotionIntensity` and `mood`.
+The Realism Engine felt, not read, on what the character owns. Inputs,
+all existing: the live mood registers (label, intensity, held;
+`mood_physics.dart`, collapsed to the six `MoodTone`s), the bond and
+trust scalars, the needs vector and the card's `enjoysLowHygiene`. The
+maths is plain Dart in `lib/services/chat/mood_atmosphere.dart`, ported
+to `web_ui/src/theme/moodAtmosphere.ts` and pinned on both sides.
 
-- A soft edge glow or left rule on the **speaker's** bubble and a ring on
-  their sidebar portrait, coloured by tone through a `RealismColors`-style
-  resolver (hue fixed, lightness per brightness) so it holds on every
-  theme. Alpha scales with intensity and eases as `held` grows.
-- A short pulse when `MoodChange.moved`, reusing the sidebar emoji-burst
-  pattern.
-- The standing mood may tint the greeting bubble only.
-- **Layering rule:** weather owns the canvas, emotion owns the speaker.
-  Never a whole-canvas mood tint; it is wrong in groups and fights the sky.
-- Groups: each speaker carries their own, keyed by the message's speaker
-  id, never whoever is active after post-gen (Group restore contract).
-- Path-complete: regen, swipe, Continue and edit re-derive from the
-  message's stored stamp; 1:1 and group match; desktop and web ship
-  together. See `docs/design/path-complete-chat-work.md`.
+- **Layering rule, kept:** weather owns the canvas, the mood owns the
+  character. Nothing here paints on the stage; the two share only the
+  Flame dependency, and the mood reads no scene token, climate or clock,
+  so a chat with no world paints the same.
+- **Portrait ring** (`lib/ui/chat_components/mood/mood_ring.dart`, the
+  web's `.mood-portrait`): a rotating sweep in the tone's hue
+  (`RealismColors.moodToneColor`, the sidebar's emotion-ring legend), a
+  glow that grows with strength, a particle halo and a motion per tone
+  (sour burns, low breathes slow, anxious jitters, lifted bounces, warm
+  beats, charged crackles), a burst on a new tone. Strength is intensity
+  times Drama, eased a little as the mood is held, never below 0.6 of
+  full. Trust sets the ring's weight (heavy from 40, broken below -10);
+  the bond is a halo behind it, warm or chilled. A need in trouble puts a
+  breathing rim in that need's hue around it.
+- **Needs bars** (`NeedsGrid.pulseInTrouble`, the web's `.stat.need-low`):
+  a need at or under 25 throbs in its own hue with a tinted row and a
+  badge, under 10 twice as fast. Hygiene on a character who enjoys it low
+  inverts: throbs from 75, hammers over 90, quiet when low, badge ↕.
+- **Bubbles**, at the full level only: the latest reply wears a border and
+  glow in the tone of its own `emotion_label` stamp, so regen, swipe,
+  Continue and edit re-derive it; the loudness is the live intensity while
+  the stamp still matches the live mood, mild once it is stale.
+- **Groups:** each member's ring, bars and bubble read that member's own
+  registers by their card (`getMoodForGroupCharacter` and friends), never
+  whoever is active after post-gen. In a group the latest reply overall
+  is the one that wears its mood.
+- **Gates:** Appearance → Chat Appearance → Mood on the character (Off,
+  Portrait and needs, Portrait, needs and bubbles) with a Drama slider
+  (0.4 to 1.6) that moves only while the row is on. The row is not shown
+  while Porch Life's Realism Engine is off; a chat with Realism off paints
+  nothing. Reduce motion holds every frame still: the ring, glow, rim,
+  tint and badge stay, nothing turns, throbs or bursts. Call sites with
+  the real storage build one `MoodLook` and hand it down, so widgets
+  under test with a fake storage never reach for the setting.
+- **Wire:** the chat state carries `moodOnCharacter`, `moodDrama` and
+  `moodPaints` (the tone hues, and the need hues and bond halos per
+  brightness, from `RealismColors.moodPaintsWire`); the realism map
+  carries `enjoysLowHygiene`. The PWA paints from those and names no
+  colour. All additive.
+- The Appearance tab's weather controls moved under their own
+  "Background weather" header with a caption and a tooltip, shown only
+  while Porch Life's Story Weather is on; the Theme row keeps Mode,
+  Accent, UI font and Corners.
 
 ## 7. Horizon
 

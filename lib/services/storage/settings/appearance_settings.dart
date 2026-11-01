@@ -41,6 +41,8 @@ class AppearanceSettings with SettingsBase {
   bool _pauseEffectsWhileGenerating = true;
   bool _sceneSound = false;
   double _sceneSoundVolume = 0.5;
+  MoodOnCharacter _moodOnCharacter = MoodOnCharacter.off;
+  double _moodDrama = kMoodDramaDefault;
   Brightness _platformBrightness =
       PlatformDispatcher.instance.platformBrightness;
 
@@ -69,6 +71,14 @@ class AppearanceSettings with SettingsBase {
 
   /// The scene sound's volume, 0 to 1; half by default.
   double get sceneSoundVolume => _sceneSoundVolume;
+
+  /// Appearance → Mood on the character: a character's mood, bond, trust
+  /// and needs painted on their portrait, needs bars and bubbles. Off by
+  /// default. Independent of the weather; it reads Realism state alone.
+  MoodOnCharacter get moodOnCharacter => _moodOnCharacter;
+
+  /// How loud the mood paints, [kMoodDramaMin] to [kMoodDramaMax].
+  double get moodDrama => _moodDrama;
 
   /// The brightness in force now; [AppThemeMode.system] follows the OS.
   bool get isDark => switch (_mode) {
@@ -141,10 +151,19 @@ class AppearanceSettings with SettingsBase {
         prefs?.getBool(k('ambient_pause_generating')) ?? true;
     _sceneSound = prefs?.getBool(k('scene_sound')) ?? false;
     _sceneSoundVolume = _unit(prefs?.getDouble(k('scene_sound_volume')), 0.5);
+    _moodOnCharacter = MoodOnCharacter.fromKey(
+      prefs?.getString(k('mood_on_character')),
+    );
+    _moodDrama = _drama(prefs?.getDouble(k('mood_drama')), kMoodDramaDefault);
   }
 
   static double _unit(double? value, double fallback) =>
       value == null || value.isNaN ? fallback : value.clamp(0.0, 1.0);
+
+  static double _drama(double? value, double fallback) =>
+      value == null || value.isNaN
+      ? fallback
+      : value.clamp(kMoodDramaMin, kMoodDramaMax);
 
   Future<void> setTheme(AppThemeId value) async {
     if (_theme == value) return;
@@ -215,6 +234,22 @@ class AppearanceSettings with SettingsBase {
     if (_sceneSoundVolume == v) return;
     _sceneSoundVolume = v;
     await prefs?.setDouble(k('scene_sound_volume'), v);
+    notify();
+  }
+
+  Future<void> setMoodOnCharacter(MoodOnCharacter value) async {
+    if (_moodOnCharacter == value) return;
+    _moodOnCharacter = value;
+    await prefs?.setString(k('mood_on_character'), value.key);
+    notify();
+  }
+
+  /// Held to the slider's range; a value off the end is stored at the end.
+  Future<void> setMoodDrama(double value) async {
+    final v = _drama(value, _moodDrama);
+    if (_moodDrama == v) return;
+    _moodDrama = v;
+    await prefs?.setDouble(k('mood_drama'), v);
     notify();
   }
 

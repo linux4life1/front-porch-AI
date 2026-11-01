@@ -71,6 +71,7 @@ export 'eval_json_merge.dart';
 export 'eval_traffic.dart';
 export 'mood_baseline.dart';
 export 'mood_effects.dart';
+export 'mood_atmosphere.dart';
 export 'mood_physics.dart';
 export 'mood_registers.dart';
 export 'needs_impact_evaluator.dart';
