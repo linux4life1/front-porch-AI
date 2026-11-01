@@ -38,23 +38,20 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/chat_defaults.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
-import 'package:front_porch_ai/services/chat/doors/cast/cast_api.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
-import 'package:front_porch_ai/services/chat/doors/media/media_api.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
-import 'package:front_porch_ai/services/chat/doors/controls/controls_api.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
-import 'package:front_porch_ai/services/chat/doors/entry/entry_api.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_api.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_api.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -79,11 +76,8 @@ export 'chat/chat_defaults.dart';
 export 'chat/doors/controls/controls_api.dart';
 export 'chat/doors/turn/prompt_api.dart';
 export 'chat/doors/turn/turn_api.dart';
+export 'chat/doors/turn/send_api.dart';
 
-part 'chat/chat_service_idle_autonomous.dart';
-part 'chat/chat_service_send.dart';
-part 'chat/chat_service_send_handoff.dart';
-part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_fields.dart';
 
@@ -196,7 +190,9 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// slow machines (caught by E2E on the CI runners). The real constraint
   /// lives at the composer instead: its guard must use the SAME predicate as
   /// [sendMessage], or it clears the field for a send the service refuses.
-  /// See [isSettlingTurn] and the mirror in `_sendCurrentMessage`.
+  /// That predicate is `sendBusyReason` (one body, on [sendSpine]), which
+  /// reads this same flag; the composer (`sendComposerMessage`) and the web
+  /// relay ask it before they let go of the text. See [isSettlingTurn].
   bool get isGenerating => turnEngine.progress.isGenerating;
   bool get isImporting => chatImporter.isImporting;
 
@@ -208,6 +204,13 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
   bool get isTurnBusy => turnEngine.isTurnBusy;
   String? get currentSessionId => _session.currentSessionId;
+
+  /// The user's turn: `sendMessage` and its guard (the one predicate the
+  /// composer reads, `sendBusyReason`), the hand-off to [turnEngine], Try
+  /// again, the "Did time pass?" gate, the group speaker pick, the Chance
+  /// Time reveal, the recap controls and the idle turn's staging; old names
+  /// in send_api.dart.
+  late final SendSpine sendSpine = _buildSendSpine();
 
   /// One generation: stream, progress, post-generation passes, the stops;
   /// old names in turn_api.dart. The status members around it forward so
@@ -248,8 +251,9 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   List<CharacterCard> get groupCharacters =>
       _session.groupManager?.characters ?? const <CharacterCard>[];
 
-  /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_idle_autonomous.dart.
-  List<ChatParticipant> get cast => _castImpl;
+  /// Ordered cast of speakers, group or 1:1+guests (body in
+  /// [CastDoor.participants]).
+  List<ChatParticipant> get cast => castDoor.participants;
   double get tokensPerSecond => turnEngine.progress.tokensPerSecond;
 
   int get greetingIndex => castDoor.greetings.greetingIndex;

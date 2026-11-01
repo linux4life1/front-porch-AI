@@ -295,10 +295,12 @@ class MessageEditor {
       _s.graph().restores.forSpeaker(last, restoreClock: false);
       return;
     }
-    if (_d.realism.rewindToLastAcceptedReply()) return;
+    if (_d.send().tryAgain.rewindToLastAcceptedReply()) return;
     final stamp = last.metadata?[kRealismPreTurn];
     if (stamp is Map) {
-      _d.realism.restoreScoredRegisters(Map<String, dynamic>.from(stamp));
+      _d.send().tryAgain.restoreScoredRegisters(
+        Map<String, dynamic>.from(stamp),
+      );
     }
   }
 }

@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
@@ -112,6 +113,7 @@ class RealismDoors {
     required this.controls,
     required this.prompts,
     required this.turn,
+    required this.send,
   });
 
   final CastDoor Function() cast;
@@ -134,6 +136,10 @@ class RealismDoors {
   /// the memory-pass epoch a regen bumps and the greeting eval's stale
   /// guard.
   final TurnEngine Function() turn;
+
+  /// The send spine: the group speaker's pre-turn baseline on the latest
+  /// user line ([SendHandoff.stampGroupUserTurnBaseline]).
+  final SendSpine Function() send;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -146,7 +152,6 @@ class RealismShellHooks {
     required this.characterIdFor,
     required this.ragCharacterId,
     required this.disposed,
-    required this.stampGroupUserTurnBaseline,
   });
 
   // ── Identity and lifetime (WP11) ──────────────────────────────────────
@@ -157,9 +162,4 @@ class RealismShellHooks {
   /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
   final String Function() ragCharacterId;
   final bool Function() disposed;
-
-  // ── Send (WP10c) ──────────────────────────────────────────────────────
-
-  /// Stamps the group speaker's pre-turn baseline on the latest user line.
-  final void Function(String charId) stampGroupUserTurnBaseline;
 }

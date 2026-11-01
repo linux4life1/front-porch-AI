@@ -109,7 +109,7 @@ void main() {
 
   test('1:1 send cancel before generate discards catastrophe', () {
     final src = File(
-      'lib/services/chat/chat_service_send_handoff.dart',
+      'lib/services/chat/doors/turn/send_handoff.dart',
     ).readAsStringSync();
     final start = src.indexOf('if (_realismEvalCancelled)');
     expect(start, greaterThanOrEqualTo(0));

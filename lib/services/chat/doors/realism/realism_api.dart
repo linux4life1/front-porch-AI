@@ -41,11 +41,45 @@ extension ChatServiceRealismLore on ChatService {
   /// the phone's lore list.
   List<LorebookEntry> get groupLorebookEntries =>
       realism.lore.groupLorebookEntries;
+
+  /// The chat-scoped lorebook: lore that lives and dies with this one
+  /// conversation. The sidebar edits it directly (live instance) and calls
+  /// [commitChatLorebookEdit] to notify + persist.
+  Lorebook get chatLorebook => realism.lore.timedEffects.chatLorebook;
+
+  // The last turn's lore meter (lastLoreOverflow, lastLoreTokens,
+  // lastLoreBudget) is in prompt_api.dart.
+
+  /// Read surface for the sidebar's sticky/cooldown countdown pills.
+  LorebookTimedEffects get loreTimedEffects => realism.lore.timedEffects;
+
+  /// Mutation-free "would trigger next" preview for the composer draft.
+  Set<LorebookEntry> previewLoreTriggers(String draft) =>
+      realism.lore.scanner.previewTriggers(draft);
+
+  /// The post-group-filter active lore set — what is ACTUALLY injected this
+  /// turn. Sidebar dots and the web facade read this so they never show an
+  /// inclusion-group loser as active.
+  Set<LorebookEntry> currentlyActiveLoreEntries() => realism.lore.injector
+      .activeEntries(sessionSeed: currentSessionId ?? '')
+      .toSet();
 }
 
 /// Living Worlds: the Setting and Lore slots, climate, the suggested move
 /// and the minted place (bodies in [ChatPlaces]).
 extension ChatServiceRealismPlaces on ChatService {
+  /// Public attach surface for chat tools / UI (Living Worlds).
+  /// Primary-first then lore (compatible with lore collectors).
+  List<String> get chatWorldIds =>
+      List.unmodifiable(realism.places.slots.allIds);
+
+  /// Setting slot (0..1) — owns weather / room description for this chat.
+  String? get chatPrimaryWorldId => realism.places.slots.primaryId;
+
+  /// Lore slots (0..N) — lorebook entries only; never drive weather.
+  List<String> get chatLoreWorldIds =>
+      List.unmodifiable(realism.places.slots.loreIds);
+
   Future<void> setChatWorldIds(List<String> worldIds) =>
       realism.places.setChatWorldIds(worldIds);
 
@@ -345,4 +379,67 @@ extension ChatServiceMemoryDoors on ChatService {
 
   /// Manual "Check now". Force-runs even on an empty window.
   Future<void> forceGrowthPass() => realism.growthDesk.forceGrowthPass();
+}
+
+/// Thin public surface for flat members still read/written by
+/// UI/pages/dialogs. Full impl in the respective *Service (chaos_mode_service,
+/// relationship_service, expression_classifier in chat/). 1:1 vs group parity
+/// via the services' cbs + god impersonation dance (unchanged).
+extension ChatServiceRealismReads on ChatService {
+  ExpressionService get expressionService => realism.expression;
+  int get chaosPressure => realism.chaos.chaosPressure;
+  String get activeFixation => realism.relationship.activeFixation;
+  bool get pendingTrustRepair => realism.relationship.pendingTrustRepair;
+
+  /// Returns the standard expression label for the current emotion.
+  ///
+  /// If a manual expression is set via [setManualExpression], returns that.
+  /// When classification mode is 'onnx', uses the ONNX classifier result.
+  /// Otherwise maps the nuanced emotion to a standard label using
+  /// [EmotionLabels.nuancedToStandard]. Delegates to the graph's
+  /// [ExpressionService]; prefer calling that directly in new code.
+  /// (Historical note: an earlier comment here claimed this getter,
+  /// resolveExpressionAvatar, setManualExpression, and
+  /// setExpressionClassifierService had all been "excised". They had not —
+  /// chat_page.dart and main.dart still call them live. A cleanup that
+  /// trusted the old comment would have deleted working code; don't repeat
+  /// that mistake.)
+  String? get currentExpressionLabel =>
+      realism.expression.currentExpressionLabel;
+  AvatarImage? resolveExpressionAvatar(
+    CharacterCard character, {
+    bool rerollIfSame = false,
+  }) => realism.expression.resolveExpressionAvatarFor(
+    character,
+    labelOf: () => expressionLabelFor(character),
+    rerollIfSame: rerollIfSame,
+  );
+
+  bool get isCancellingRealismEval => realism.evalStatus.cancelling;
+
+  /// Human-readable mood label containing exact emotion string and valence direction.
+  String get moodLabel {
+    final emotion = realism.registers.emotion;
+    if (emotion.isEmpty) return 'Neutral';
+    final capEmotion =
+        emotion.substring(0, 1).toUpperCase() + emotion.substring(1);
+    final intensity = realism.registers.intensity.isNotEmpty
+        ? ' (${realism.registers.intensity})'
+        : '';
+    return '$capEmotion$intensity';
+  }
+
+  /// Test-only: arm Porch Night force-ack for [diaryCharacterId] so Continue
+  /// strip coverage can prove `porch_night` is cleared (audit P0.3).
+  @visibleForTesting
+  void debugArmPorchNightForTest({
+    required String diaryCharacterId,
+    required String injectionText,
+  }) {
+    realism.porchImport.ackState.arm(
+      diaryCharacterId: diaryCharacterId,
+      injectionText: injectionText,
+      journalCardIds: const [],
+    );
+  }
 }

@@ -22,43 +22,13 @@ import 'package:front_porch_ai/models/models.dart';
 // service still owns. A hook goes when its owner becomes a door; the work
 // package that retires it is named on each class.
 
-/// The send spine's Try again on a trailing user line (WP10c). The turn
-/// engine's own flags and calls are [EditDeps.engine].
-class EditTurnHooks {
-  const EditTurnHooks({required this.answerTrailingUserLine});
-
-  /// Try again on a trailing user line (`_generateFromTrailingUserTurn`).
-  final Future<void> Function({
-    String? webQuery,
-    String? wikiQuery,
-    CharacterCard? forceSpeaker,
-  })
-  answerTrailingUserLine;
-}
-
-/// The Realism hooks the send spine still holds: its stamp-less rewind
-/// (WP10c). The regen judge replay and delete's Needs baseline and Pockets
-/// rewind are the turn engine's ([EditDeps.engine]).
-class EditRealismHooks {
-  const EditRealismHooks({
-    required this.rewindToLastAcceptedReply,
-    required this.restoreScoredRegisters,
-  });
-
-  /// 1:1 stamp-less rewind of the scored registers to the last reply.
-  final bool Function() rewindToLastAcceptedReply;
-  final void Function(Map<String, dynamic> stamp) restoreScoredRegisters;
-}
-
-/// Scene Guests, the group speaker pick and the opening greeting (WP6).
+/// Scene Guests and the opening greeting (WP6).
 class EditCastHooks {
   const EditCastHooks({
     required this.guestBusy,
     required this.isGuestAuthored,
     required this.guestFor,
     required this.setStatus,
-    required this.guestChimeIns,
-    required this.pickPresentSpeaker,
     required this.greetingIndex,
     required this.setGreetingIndex,
     required this.greetingOwner,
@@ -81,12 +51,6 @@ class EditCastHooks {
 
   /// The chat's one-line status notice.
   final void Function(String? text, {bool isError}) setStatus;
-
-  /// Re-runs the guest chime gate against the new host reply.
-  final Future<void> Function({required String userText}) guestChimeIns;
-
-  /// A present group member, for a group impersonate nobody has answered.
-  final CharacterCard Function() pickPresentSpeaker;
 
   /// The opening greet on screen.
   final int Function() greetingIndex;

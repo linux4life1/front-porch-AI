@@ -135,7 +135,7 @@ class ControlsDoor {
   /// Ending a call also releases any parked call-model swap.
   void setCallMode(bool value) {
     _callMode = value;
-    if (!value) deps.hooks.exitCallModelSwap();
+    if (!value) deps.send().exitCallModelSwap();
     deps.notify();
   }
 

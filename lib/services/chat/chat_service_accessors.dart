@@ -90,43 +90,10 @@ extension ChatServiceAccessors on ChatService {
   /// (`sceneTokensFor`) so the chat page and the web chat state agree.
   AppearanceSettings get appearance => _storageService.appearance;
 
-  /// The chat-scoped lorebook: lore that lives and dies with this one
-  /// conversation. The sidebar edits it directly (live instance) and calls
-  /// [commitChatLorebookEdit] to notify + persist.
-  Lorebook get chatLorebook => _loreTimedEffects.chatLorebook;
-
   Future<void> commitChatLorebookEdit() async {
     notifyListeners();
     await _saveChat();
   }
-
-  // The last turn's lore meter (lastLoreOverflow, lastLoreTokens,
-  // lastLoreBudget) is in prompt_api.dart.
-
-  /// Read surface for the sidebar's sticky/cooldown countdown pills.
-  LorebookTimedEffects get loreTimedEffects => _loreTimedEffects;
-
-  /// Mutation-free "would trigger next" preview for the composer draft.
-  Set<LorebookEntry> previewLoreTriggers(String draft) =>
-      _lorebookScanner.previewTriggers(draft);
-
-  /// The post-group-filter active lore set — what is ACTUALLY injected this
-  /// turn. Sidebar dots and the web facade read this so they never show an
-  /// inclusion-group loser as active.
-  Set<LorebookEntry> currentlyActiveLoreEntries() => realism.lore.injector
-      .activeEntries(sessionSeed: _session.currentSessionId ?? '')
-      .toSet();
-
-  /// Public attach surface for chat tools / UI (Living Worlds).
-  /// Primary-first then lore (compatible with lore collectors).
-  List<String> get chatWorldIds => List.unmodifiable(_chatPlaceSlots.allIds);
-
-  /// Setting slot (0..1) — owns weather / room description for this chat.
-  String? get chatPrimaryWorldId => _chatPlaceSlots.primaryId;
-
-  /// Lore slots (0..N) — lorebook entries only; never drive weather.
-  List<String> get chatLoreWorldIds =>
-      List.unmodifiable(_chatPlaceSlots.loreIds);
 
   /// Coarse absence bucket ("a few days"), or null under the threshold /
   /// fresh chat. Words only — never digits (see AbsenceTracker).
@@ -138,40 +105,6 @@ extension ChatServiceAccessors on ChatService {
       _storageService.realismSettings.absenceBannerEnabled
       ? absencePhrase
       : null;
-
-  // ── Thin public surface for flat members still read/written by
-  // UI/pages/dialogs. Full impl in the respective *Service (chaos_mode_service,
-  // relationship_service, expression_classifier in chat/). 1:1 vs group parity
-  // via the services' cbs + god impersonation dance (unchanged). ──
-  ExpressionService get expressionService => _expressionService;
-  int get chaosPressure => _chaosModeService.chaosPressure;
-  String get activeFixation => _relationshipService.activeFixation;
-  bool get pendingTrustRepair => _relationshipService.pendingTrustRepair;
-
-  /// Returns the standard expression label for the current emotion.
-  ///
-  /// If a manual expression is set via [setManualExpression], returns that.
-  /// When classification mode is 'onnx', uses the ONNX classifier result.
-  /// Otherwise maps the nuanced emotion to a standard label using
-  /// [EmotionLabels.nuancedToStandard]. Delegates to _expressionService;
-  /// prefer calling that directly in new code. (Historical note: an earlier
-  /// comment here claimed this getter, resolveExpressionAvatar,
-  /// setManualExpression, and setExpressionClassifierService had all been
-  /// "excised". They had not — chat_page.dart and main.dart still call them
-  /// live. A cleanup that trusted the old comment would have deleted working
-  /// code; don't repeat that mistake.)
-  String? get currentExpressionLabel =>
-      _expressionService.currentExpressionLabel;
-  AvatarImage? resolveExpressionAvatar(
-    CharacterCard character, {
-    bool rerollIfSame = false,
-  }) => _expressionService.resolveExpressionAvatarFor(
-    character,
-    labelOf: () => expressionLabelFor(character),
-    rerollIfSame: rerollIfSame,
-  );
-
-  bool get isCancellingRealismEval => realism.evalStatus.cancelling;
 
   void _onBackendIdentityMaybeChanged() {
     if (_disposed) return;
@@ -187,18 +120,6 @@ extension ChatServiceAccessors on ChatService {
   /// The removable identity of [_onCharacterLibraryChanged].
   VoidCallback get _onCharacterLibrary =>
       _characterLibraryListener[this] ??= _onCharacterLibraryChanged;
-
-  /// Human-readable mood label containing exact emotion string and valence direction.
-  String get moodLabel {
-    if (_characterEmotion.isEmpty) return 'Neutral';
-    final capEmotion =
-        _characterEmotion.substring(0, 1).toUpperCase() +
-        _characterEmotion.substring(1);
-    final intensity = _emotionIntensity.isNotEmpty
-        ? ' ($_emotionIntensity)'
-        : '';
-    return '$capEmotion$intensity';
-  }
 
   /// Set the CharacterRepository so group mode can look up characters.
   void setCharacterRepository(CharacterRepository repo) {
@@ -251,20 +172,6 @@ extension ChatServiceAccessors on ChatService {
   /// Set the TtsService after construction (for TTS-aware auto-play delay).
   void setTtsService(TtsService service) {
     _ttsService = service;
-  }
-
-  /// Test-only: arm Porch Night force-ack for [diaryCharacterId] so Continue
-  /// strip coverage can prove `porch_night` is cleared (audit P0.3).
-  @visibleForTesting
-  void debugArmPorchNightForTest({
-    required String diaryCharacterId,
-    required String injectionText,
-  }) {
-    _porchMemoryImport.ackState.arm(
-      diaryCharacterId: diaryCharacterId,
-      injectionText: injectionText,
-      journalCardIds: const [],
-    );
   }
 
   /// Set the MemoryService after construction (for RAG memory retrieval).
@@ -406,81 +313,176 @@ extension ChatServiceAccessors on ChatService {
 /// (test/hygiene/realism_gate_ratchet_test.dart).
 extension _ChatServiceControlsNames on ChatService {
   bool get _realismEnabled => controlsDoor.realismEnabled;
-  bool get _clockRunning => controlsDoor.clockRunning;
-  bool get _callMode => controlsDoor.callMode;
-  UserTurnHold get _userTurn => controlsDoor.userTurn;
-  ChanceTime get _chance => controlsDoor.chance;
 }
 
-/// Builds the message-edits door.
-extension ChatServiceEditsWiring on ChatService {
-  /// The message-edits door. Each hook is debt (see edit_hooks.dart).
-  EditsDoor _buildEditsDoor() {
-    final door = EditsDoor(
-      EditDeps(
-        session: _session,
-        view: EditsView(
-          messages: () => messages,
-          activeCharacter: () => activeCharacter,
-          isGroupMode: () => isGroupMode,
-          activeGroup: () => activeGroup,
-          groupCharacters: () => groupCharacters,
-          observerMode: () => observerMode,
-          greetingIndex: () => greetingIndex,
-          isGenerating: () => isGenerating,
-          isSettlingTurn: () => isSettlingTurn,
-          isEvaluatingRealism: () => isEvaluatingRealism,
-          realismEnabled: () => realismEnabled,
-          needsActive: () => needsActive,
-        ),
-        services: EditServices(
-          db: () => _db,
-          storage: () => _storageService,
-          personas: () => _userPersonaService,
-          graph: () => realism,
-          history: () => sessionStore.history,
-          macroResolver: () => promptAssembler.macros,
-          objectives: () => objectivesDoor,
-          media: () => mediaDoor,
-          lanes: _lanes,
-        ),
-        characterIdFor: _getCharacterIdFromCard,
-        saveChat: _saveChat,
-        notify: notifyListeners,
-        engine: () => turnEngine,
-        turn: EditTurnHooks(
-          answerTrailingUserLine: _generateFromTrailingUserTurn,
-        ),
-        realism: EditRealismHooks(
-          rewindToLastAcceptedReply: _rewindRelationshipToLastAcceptedReply,
-          restoreScoredRegisters: _restoreScoredRegisters,
-        ),
-        cast: EditCastHooks(
-          guestBusy: () => castDoor.guests.state.busy,
-          isGuestAuthored: _isGuestAuthoredMessage,
-          guestFor: _sceneGuestForMessage,
-          setStatus: (text, {isError = false}) =>
-              _setGuestStatus(text, isError: isError),
-          guestChimeIns: _maybeRunSceneGuestChimeIns,
-          pickPresentSpeaker: _pickPresentGroupSpeaker,
-          greetingIndex: () => castDoor.greetings.greetingIndex,
-          setGreetingIndex: (index) => _greetingIndex = index,
-          greetingOwner: _greetingOwnerCard,
-          firstMessage: _buildFirstMessage,
-          invalidateGreetingEval: () async {
-            await _invalidateGreetingEval();
-            turnEngine.greetingEval.clearEntered();
-          },
-          stampGreetingIndex: _stampGreetingIndex,
-          isOpeningGreetingChat: () => castDoor.greetings.isOpeningGreetingChat,
-          seedGroupGreeting: _applyGroupCustomGreetingSeed,
-          seedGreeting: _applyGreetingOpeningSeed,
-        ),
-        sessions: () => sessionStore,
-        prompts: () => promptAssembler,
+/// Builds the Realism graph, the controls door, the model lanes, the prompt
+/// assembler, the turn engine and the send spine. Each hook stands in for a
+/// member of this library until WP11 (see [RealismShellHooks],
+/// [ControlsShellHooks], [PromptShellHooks] and [SendShellHooks]).
+extension ChatServiceRealismWiring on ChatService {
+  RealismGraph _buildRealismGraph() => RealismGraph(
+    RealismDeps(
+      session: _session,
+      services: RealismServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: promptAssembler.macros,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        memory: () => _memoryService,
+        llmProvider: () => _llmProvider,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        evalStagger: kEvalDispatchStagger,
+        lanes: _lanes,
       ),
-    );
-    _forwardDoorNotify(door);
-    return door;
-  }
+      doors: RealismDoors(
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+        objectives: () => objectivesDoor,
+        sessions: () => sessionStore,
+        controls: () => controlsDoor,
+        prompts: () => promptAssembler,
+        turn: () => turnEngine,
+        send: () => sendSpine,
+      ),
+      hooks: RealismShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+        disposed: () => _disposed,
+      ),
+      notify: notifyListeners,
+    ),
+  );
+
+  ControlsDoor _buildControlsDoor() => ControlsDoor(
+    ControlsDeps(
+      session: _session,
+      storage: _storageService,
+      personas: _userPersonaService,
+      db: () => _db,
+      characters: () => _characterRepository,
+      graph: () => realism,
+      cast: () => castDoor,
+      lanes: _lanes,
+      turn: this,
+      engine: () => turnEngine,
+      send: () => sendSpine,
+      saveChat: _saveChat,
+      notify: notifyListeners,
+      hooks: ControlsShellHooks(
+        disposed: () => _disposed,
+        characterIdFor: _getCharacterIdFromCard,
+      ),
+    ),
+  );
+
+  LlmLanes _buildLanes() => LlmLanes(
+    kobold: () => _koboldService,
+    provider: () => _llmProvider,
+    testMouth: () => testLlmServiceOverride,
+    testWorker: () => testWorkerLlmServiceOverride,
+    testIsLocal: () => testIsLocalOverride,
+    isGenerating: () => turnEngine.progress.isGenerating,
+    transport: () => realism.transport,
+    notify: notifyListeners,
+  );
+
+  /// The prompt assembler. Each hook is debt (see [PromptShellHooks]).
+  PromptAssembler _buildPromptAssembler() => PromptAssembler(
+    PromptDeps(
+      session: _session,
+      services: PromptServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        memory: () => _memoryService,
+        lanes: _lanes,
+      ),
+      doors: PromptDoors(
+        graph: () => realism,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        media: () => mediaDoor,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+        turn: () => turnEngine,
+      ),
+      hooks: PromptShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+      ),
+      notify: notifyListeners,
+    ),
+  );
+
+  /// The turn engine.
+  TurnEngine _buildTurnEngine() => TurnEngine(
+    TurnDeps(
+      session: _session,
+      services: TurnServices(
+        storage: _storageService,
+        personas: _userPersonaService,
+        kobold: _koboldService,
+        llmProvider: () => _llmProvider,
+        tts: () => _ttsService,
+        memory: () => _memoryService,
+        lanes: _lanes,
+      ),
+      doors: TurnDoors(
+        graph: () => realism,
+        prompts: () => promptAssembler,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        importer: () => chatImporter,
+        send: () => sendSpine,
+      ),
+      characterIdFor: _getCharacterIdFromCard,
+      ragCharacterId: _getCharacterId,
+      notify: notifyListeners,
+    ),
+  );
+
+  /// The send spine. Its hooks are debt (see [SendShellHooks]).
+  SendSpine _buildSendSpine() => SendSpine(
+    SendDeps(
+      session: _session,
+      services: SendServices(
+        storage: _storageService,
+        personas: _userPersonaService,
+        llmProvider: () => _llmProvider,
+        characters: () => _characterRepository,
+      ),
+      doors: SendDoors(
+        engine: () => turnEngine,
+        prompts: () => promptAssembler,
+        graph: () => realism,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        actions: () => actionsDoor,
+        importer: () => chatImporter,
+      ),
+      service: this,
+      hooks: SendShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        chatScreenOpen: () => _chatScreens != 0,
+      ),
+      notify: notifyListeners,
+    ),
+  );
 }

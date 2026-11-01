@@ -61,7 +61,7 @@ class EntryCover {
     // A send parked on "Did time pass?" has written only its line; the
     // switch cancels the question and the send stops on the chat change.
     while (_d.services.turn().isTurnBusy &&
-        !_d.hooks.skipAsked() &&
+        !_d.services.send().gates.skipAsked &&
         DateTime.now().isBefore(deadline)) {
       await Future.delayed(const Duration(milliseconds: 50));
     }

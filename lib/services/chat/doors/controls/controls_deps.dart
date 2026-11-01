@@ -23,6 +23,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
@@ -42,6 +43,7 @@ class ControlsDeps {
     required this.lanes,
     required this.turn,
     required this.engine,
+    required this.send,
     required this.saveChat,
     required this.notify,
     required this.hooks,
@@ -75,6 +77,10 @@ class ControlsDeps {
   /// The turn engine: a reply, its post-gen settle, an import or narration
   /// holds a Realism start ([TurnEngine.isTurnBusy]).
   final TurnEngine Function() engine;
+
+  /// The send spine: the call-model swap ending a call releases, the
+  /// upcoming group speaker and the name a Chance Time event is said of.
+  final SendSpine Function() send;
   final Future<void> Function() saveChat;
 
   /// The service's own notify, synchronous: a switch paints before its
@@ -92,9 +98,6 @@ class ControlsShellHooks {
   const ControlsShellHooks({
     required this.disposed,
     required this.characterIdFor,
-    required this.exitCallModelSwap,
-    required this.upcomingSpeaker,
-    required this.speakerName,
   });
 
   // ── Identity and lifetime (WP11) ──────────────────────────────────────
@@ -103,18 +106,4 @@ class ControlsShellHooks {
 
   /// The stable id a card's rows and group entries are keyed by.
   final String Function(CharacterCard card) characterIdFor;
-
-  // ── Send (WP10c) ──────────────────────────────────────────────────────
-
-  /// Ending a call releases the parked call-model swap.
-  final void Function() exitCallModelSwap;
-
-  // ── Send (WP10c) ──────────────────────────────────────────────────────
-
-  /// The rotation head, moved past members who are Away or at work.
-  final CharacterCard? Function() upcomingSpeaker;
-
-  /// Who a Chance Time event names: the upcoming group speaker, else the
-  /// 1:1 host.
-  final String Function() speakerName;
 }

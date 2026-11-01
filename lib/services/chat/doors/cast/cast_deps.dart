@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -65,6 +66,7 @@ class CastDeps {
     required this.objectives,
     required this.prompts,
     required this.turn,
+    required this.send,
     required this.characterIdFor,
     required this.saveChat,
     required this.notify,
@@ -110,6 +112,10 @@ class CastDeps {
   /// eval's stale guard ([TurnEngine.greetingEval]).
   final TurnEngine Function() turn;
 
+  /// The send spine: the group speaker pick and its skip check
+  /// ([GroupSpeakers]), and the idle turn's staging ([IdleStage]).
+  final SendSpine Function() send;
+
   /// The stable id a card's rows key by (`stableGroupId`, or a member id).
   final String Function(CharacterCard card) characterIdFor;
   final Future<void> Function() saveChat;
@@ -133,12 +139,7 @@ class CastShellHooks {
     required this.mouthReady,
     required this.directing,
     required this.setObserverMode,
-    required this.groupSpeakerSkips,
-    required this.setNextCharacter,
     required this.nextCharacter,
-    required this.pickPresentSpeaker,
-    required this.workFieldsFor,
-    required this.memberInScene,
     required this.reloadGroupRoster,
     required this.addToGroup,
     required this.removeFromGroup,
@@ -153,10 +154,9 @@ class CastShellHooks {
     required this.resolvedOpeningGreetings,
     required this.guestDirector,
     required this.mintLlm,
-    required this.stageIdleTurn,
   });
 
-  // ── Lifetime, delete, the voice and the mouth (WP10c, WP11) ──────────
+  // ── Lifetime, delete, the voice and the mouth (WP11) ──────────────────
 
   final bool Function() disposed;
 
@@ -172,16 +172,7 @@ class CastShellHooks {
   /// The user is off stage in a group (Director Mode).
   final bool Function() directing;
   final void Function(bool on) setObserverMode;
-
-  /// Away or at work: the turn picker passes them over.
-  final bool Function(CharacterCard card) groupSpeakerSkips;
-
-  /// The group UI's one-shot speaker pick.
-  final void Function(CharacterCard card) setNextCharacter;
   final CharacterCard? Function() nextCharacter;
-  final CharacterCard Function() pickPresentSpeaker;
-  final WorkFields Function(CharacterCard card) workFieldsFor;
-  final bool Function(CharacterCard card) memberInScene;
   final Future<void> Function() reloadGroupRoster;
   final Future<bool> Function(
     CharacterCard card,
@@ -218,14 +209,10 @@ class CastShellHooks {
   final List<String> Function() openingAllGreetings;
   final List<String> Function() resolvedOpeningGreetings;
 
-  // ── Guests and idle turns ─────────────────────────────────────────────
+  // ── Guests ────────────────────────────────────────────────────────────
 
   final SceneGuestDirector Function() guestDirector;
 
   /// The model a guest is minted with (the test override first).
   final LLMService? Function() mintLlm;
-
-  /// The shell half of an idle turn: the clock's away pace, the speaker
-  /// pick, their bars as the chip's baseline, and the cue built for them.
-  final ({CharacterCard? speaker, String cue}) Function() stageIdleTurn;
 }

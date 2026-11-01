@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/chat_importer.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -43,7 +44,6 @@ class TurnDeps {
     required this.doors,
     required this.characterIdFor,
     required this.ragCharacterId,
-    required this.hooks,
     required this.notify,
   });
 
@@ -58,7 +58,6 @@ class TurnDeps {
   /// The chat's own id: `group_<id>` in a group, the host's id in 1:1
   /// (WP11).
   final String Function() ragCharacterId;
-  final TurnShellHooks hooks;
 
   /// The service's own notify, synchronous: the status bar, the composer,
   /// the overlay and the web push read each transition of a turn at the
@@ -107,6 +106,7 @@ class TurnDoors {
     required this.objectives,
     required this.media,
     required this.importer,
+    required this.send,
   });
 
   /// The Realism Engine: judges, passes, the clock, Needs, Pockets.
@@ -133,29 +133,8 @@ class TurnDoors {
 
   /// An import in flight holds the turn busy.
   final ChatImporter Function() importer;
-}
 
-// Debt: every hook below is state or behaviour the send spine still owns
-// (WP10c). A hook goes when its owner becomes a door.
-
-/// What the turn engine still reaches in the chat service library.
-class TurnShellHooks {
-  const TurnShellHooks({
-    required this.skipAsked,
-    required this.pickPresentSpeaker,
-    required this.groupSpeakerSkips,
-    required this.presenceSkipBanner,
-  });
-
-  /// A send is parked on "Did time pass?": it owns the turn.
-  final bool Function() skipAsked;
-
-  /// The next group member who is With you (the rotation's pick).
-  final CharacterCard Function() pickPresentSpeaker;
-
-  /// Away or at work: the member's turn is a glance banner.
-  final bool Function(CharacterCard card) groupSpeakerSkips;
-
-  /// The banner a skipped member's turn writes.
-  final String Function(CharacterCard card) presenceSkipBanner;
+  /// The send spine: a send parked on "Did time pass?" owns the turn, and
+  /// the group speaker pick, its skip check and the skip banner.
+  final SendSpine Function() send;
 }

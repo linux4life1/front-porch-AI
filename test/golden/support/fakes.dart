@@ -43,6 +43,7 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
@@ -656,6 +657,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       objectives: () => objectivesDoor,
       prompts: _noDoorDep,
       turn: _noDoorDep,
+      send: _noDoorDep,
       characterIdFor: characterIdFor,
       saveChat: () async {},
       notify: () {},
@@ -686,6 +688,15 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   /// it throws.
   @override
   TurnEngine get turnEngine => _noDoorDep();
+
+  /// The send spine behind the send bridge (sendMessage, the busy reason,
+  /// the "Did time pass?" gate, the group speaker pick, the Chance Time
+  /// reveal, the recap controls). Its deps are unwired: the settle-wait
+  /// flag answers false and the skip gate answers empty, as the file-scope
+  /// flag did on this fake; anything that reads the chat, a door or a
+  /// service throws, as a private read on this fake always did.
+  @override
+  late final SendSpine sendSpine = SendSpine(_UnwiredSendDeps());
 
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
@@ -722,8 +733,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       saveChat: ({replaceAll = false}) async {},
       notify: notifyListeners,
       engine: _noDoorDep,
-      turn: _UnwiredEditHooks(),
-      realism: _UnwiredEditHooks(),
+      send: _noDoorDep,
       cast: _UnwiredEditHooks(),
       sessions: () => sessionStore,
       prompts: _noDoorDep,
@@ -814,7 +824,6 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       session: _UnwiredSession(),
       sessions: () => sessionStore,
       services: _UnwiredEntryHooks(),
-      hooks: _UnwiredEntryHooks(),
       shared: _UnwiredSessionHooks(),
       notify: notifyListeners,
     ),
@@ -853,9 +862,9 @@ class _UnwiredSessionHooks implements SessionServices, SessionShellHooks {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// The entry door's services and hooks with nothing wired: any read is a
+/// The entry door's services with nothing wired: any read is a
 /// NoSuchMethodError, as a private member read on this fake always was.
-class _UnwiredEntryHooks implements EntryServices, EntryShellHooks {
+class _UnwiredEntryHooks implements EntryServices {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -863,6 +872,12 @@ class _UnwiredEntryHooks implements EntryServices, EntryShellHooks {
 /// A chat session with nothing behind it: the entry bodies read the open
 /// chat through the service's private session, which this fake never had.
 class _UnwiredSession implements ChatSessionState {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// [SendDeps] with nothing wired: any read is a NoSuchMethodError.
+class _UnwiredSendDeps implements SendDeps {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -875,8 +890,7 @@ class _UnwiredTransferHost implements TransferHost {
 
 /// The edits door's services and hooks with nothing wired: any read is a
 /// NoSuchMethodError, as a private member read on this fake always was.
-class _UnwiredEditHooks
-    implements EditServices, EditTurnHooks, EditRealismHooks, EditCastHooks {
+class _UnwiredEditHooks implements EditServices, EditCastHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

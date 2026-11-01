@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -87,7 +88,7 @@ class TurnEngine {
     busyElsewhere: () =>
         deps.doors.importer().isImporting ||
         deps.doors.cast().narrating ||
-        deps.hooks.skipAsked(),
+        deps.doors.send().gates.skipAsked,
   );
   late final TurnEntry entry = TurnEntry(this);
   late final TurnStream stream = TurnStream(this);
@@ -125,6 +126,7 @@ class TurnEngine {
   CastDoor get _cast => _d.doors.cast();
   PromptAssembler get _prompts => _d.doors.prompts();
   MediaDoor get _media => _d.doors.media();
+  SendSpine get _send => _d.doors.send();
   StorageService get _storageService => _d.services.storage;
   UserPersonaService get _userPersonaService => _d.services.personas;
   KoboldService get _koboldService => _d.services.kobold;
@@ -226,7 +228,8 @@ class TurnEngine {
         if (forceSpeaker == null) {
           t.rotationBeforePick = _session.groupManager?.rotation;
         }
-        speakingCharacter = forceSpeaker ?? _d.hooks.pickPresentSpeaker();
+        speakingCharacter =
+            forceSpeaker ?? _send.speakers.pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _session.activeCharacter!;
       }
@@ -237,7 +240,7 @@ class TurnEngine {
           mode != GenerationMode.continue_ &&
           forceSpeaker == null &&
           AwayPulse.shouldWriteSkipBanner(
-            speakerSkips: _d.hooks.groupSpeakerSkips(speakingCharacter),
+            speakerSkips: _send.speakers.groupSpeakerSkips(speakingCharacter),
             hasUnconsumedReturn: _awayPulse.pendingReturnSpeakId != null,
           )) {
         // Whole roster (or a forced @name) is Away / At work. Do not eat
@@ -258,7 +261,7 @@ class TurnEngine {
         }
         _session.messages.add(
           ChatMessage(
-            text: _d.hooks.presenceSkipBanner(speakingCharacter),
+            text: _send.speakers.presenceSkipBanner(speakingCharacter),
             sender: 'System',
             isUser: false,
           ),
