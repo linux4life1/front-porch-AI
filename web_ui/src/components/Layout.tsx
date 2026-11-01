@@ -17,6 +17,7 @@ const NAV = [
   { to: '/models', label: 'Models', icon: '🧠', end: false },
   { to: '/remote', label: 'Remote', icon: '🌐', end: false },
   { to: '/settings', label: 'Settings', icon: '🎛️', end: false },
+  { to: '/backups', label: 'Backups', icon: '💾', end: false },
   { to: '/account', label: 'Account', icon: '⚙️', end: false },
 ];
 

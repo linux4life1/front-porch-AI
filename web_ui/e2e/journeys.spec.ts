@@ -2181,6 +2181,42 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
   }
 });
 
+// Backups & restore: a snapshot made from the web holds the settings too,
+// a restore waits for the desktop's next launch behind the password
+// step-up, and cancelling it leaves nothing waiting.
+test('a web snapshot restore waits for the next launch and can be cancelled', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const state = async () =>
+    (await (await request.get('/api/backups')).json()) as {
+      snapshots: { id: string; hasSettings: boolean }[];
+      pending: { kind: string } | null;
+    };
+  try {
+    await openRoute(page, '/backups');
+    await page.getByRole('button', { name: 'Create backup now' }).click();
+    await expect(page.getByText('Backup created.')).toBeVisible();
+    const made = (await state()).snapshots[0];
+    expect(made.hasSettings).toBe(true);
+
+    const row = page.locator('.backup-list li').first();
+    await expect(row).toContainText('library and settings');
+    await row.getByRole('button', { name: 'Restore', exact: true }).click();
+    await expect(row.getByText('Also restore settings')).toBeVisible();
+    const go = row.getByRole('button', { name: 'Restore this backup' });
+    await expect(go).toBeDisabled();
+    await row.getByLabel('Web login password').fill(process.env.FPAI_PASSWORD!);
+    await go.click();
+    await expect(page.getByTestId('pending-restore')).toContainText('library and settings');
+    expect((await state()).pending?.kind).toBe('snapshot');
+
+    await page.getByRole('button', { name: 'Cancel restore' }).click();
+    await expect(page.getByTestId('pending-restore')).toHaveCount(0);
+    expect((await state()).pending).toBeNull();
+  } finally {
+    await request.delete('/api/backups/pending');
+  }
+});
+
 // Porch Life's Realism Engine is the permission: off, the chat's own Realism
 // switch greys out at the chat's choice and says where to look; back on, the
 // existing-chats question offers to switch it on where it is off.

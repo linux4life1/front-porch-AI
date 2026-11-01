@@ -64,6 +64,7 @@ const ROUTES: ((i: { character: string; story: string; group: string; member: st
   () => '/chat',
   () => '/settings',
   () => '/account',
+  () => '/backups',
   () => '/remote',
   () => '/models',
   () => '/images',

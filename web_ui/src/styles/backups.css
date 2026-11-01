@@ -1,0 +1,20 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Backups & restore. */
+
+.backups-page .card { margin-bottom: 16px; }
+.backups-page .card > button { margin-top: 8px; }
+.backup-list { list-style: none; padding: 0; margin: 10px 0 0; }
+.backup-list li { border-top: 1px solid var(--border); padding: 8px 0; }
+.backup-row {
+  display: flex; flex-wrap: wrap; align-items: center;
+  justify-content: space-between; gap: 8px;
+}
+.backup-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.backup-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.backup-confirm {
+  margin-top: 8px; padding: 10px 12px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.backup-confirm > button { margin-top: 8px; }
+.backups-page label.checkbox { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+.backups-page input[type='file'] { max-width: 100%; }

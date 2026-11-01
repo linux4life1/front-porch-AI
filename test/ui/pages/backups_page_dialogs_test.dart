@@ -23,6 +23,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/backup/pending_restore.dart';
+import 'package:front_porch_ai/services/backup_service.dart';
 import 'package:front_porch_ai/ui/pages/backups_page.dart';
 
 void main() {
@@ -159,5 +161,89 @@ void main() {
       List.filled(16, 7),
       reason: 'Restore puts the backup in place of the live database',
     );
+  });
+
+  // A snapshot taken with its settings offers to restore them too. The
+  // library comes back at once; the settings wait for the next launch,
+  // because every running service already holds the current values.
+  Future<String> pumpWithSettings(WidgetTester tester) async {
+    await pumpPage(tester);
+    final root = BackupService.storageRoot!;
+    await tester.runAsync(
+      () => File(
+        BackupService.settingsPathFor(backup.path),
+      ).writeAsString('{"format":1,"nightly":false,"values":{}}'),
+    );
+    final nested = tester.state<NavigatorState>(find.byType(Navigator).last);
+    nested.pop();
+    await settle(tester);
+    nested.push(MaterialPageRoute<void>(builder: (_) => const BackupsPage()));
+    await settle(tester);
+    await tester.tap(find.widgetWithText(TextButton, 'Restore'));
+    await tester.pumpAndSettle();
+    return root;
+  }
+
+  Future<PendingRestore?> stagedAfterRestore(
+    WidgetTester tester,
+    String root,
+  ) async {
+    await tester.tap(dialogButton('Restore'));
+    await settle(tester);
+    PendingRestore? staged;
+    for (var i = 0; i < 20 && staged == null; i++) {
+      staged = await tester.runAsync<PendingRestore?>(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return PendingRestore.read(root);
+      });
+      await tester.pump();
+    }
+    return staged;
+  }
+
+  testWidgets('Restore with "Also restore settings" stages the settings for '
+      'the next launch', (tester) async {
+    final root = await pumpWithSettings(tester);
+    expect(
+      find.widgetWithText(CheckboxListTile, 'Also restore settings'),
+      findsOneWidget,
+    );
+    final staged = await stagedAfterRestore(tester, root);
+    expect(staged?.kind, PendingRestoreKind.settings);
+    await tester.runAsync(AppDatabase.closeAndReset);
+  });
+
+  testWidgets('Restore with "Also restore settings" unticked keeps the '
+      'current settings', (tester) async {
+    final root = await pumpWithSettings(tester);
+    await tester.tap(
+      find.widgetWithText(CheckboxListTile, 'Also restore settings'),
+    );
+    await tester.pump();
+    expect(await stagedAfterRestore(tester, root), isNull);
+    await tester.runAsync(AppDatabase.closeAndReset);
+  });
+
+  // The notice leaving the screen is proven by the backup_restore E2E (its
+  // post-restore turn has to reach Send). In this harness the messenger only
+  // starts its timer on a rebuild that never comes, so pumping time proves
+  // nothing either way; this pins the settings that make it leave.
+  testWidgets('the "settings come back next launch" notice is set to time '
+      'out after 10 seconds', (tester) async {
+    final root = await pumpWithSettings(tester);
+    await stagedAfterRestore(tester, root);
+    // The notice shows once the settings are staged; a slow runner needs
+    // more real time for that than the helper's loop gives.
+    for (var i = 0; i < 40 && find.text('Quit now').evaluate().isEmpty; i++) {
+      await settle(tester);
+    }
+    // It carries a "Quit now" action, and a snack bar with an action stays
+    // up until dismissed unless told otherwise: it would sit over the chat
+    // composer for the rest of the session.
+    final notice = tester.widget<SnackBar>(find.byType(SnackBar).first);
+    expect(notice.action?.label, 'Quit now');
+    expect(notice.persist, isFalse);
+    expect(notice.duration, const Duration(seconds: 10));
+    await tester.runAsync(AppDatabase.closeAndReset);
   });
 }
