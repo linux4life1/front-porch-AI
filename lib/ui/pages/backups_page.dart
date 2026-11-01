@@ -344,6 +344,9 @@ class _BackupsPageState extends State<BackupsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: Duration(seconds: settingsStaged ? 10 : 4),
+          // A snack bar with an action stays until dismissed by default,
+          // and this one would sit over the chat composer for good.
+          persist: false,
           action: settingsStaged
               ? SnackBarAction(
                   label: 'Quit now',

@@ -223,4 +223,22 @@ void main() {
     expect(await stagedAfterRestore(tester, root), isNull);
     await tester.runAsync(AppDatabase.closeAndReset);
   });
+
+  testWidgets('the "settings come back next launch" notice goes away on its '
+      'own and does not cover the app', (tester) async {
+    final root = await pumpWithSettings(tester);
+    expect(
+      (await stagedAfterRestore(tester, root))?.kind,
+      PendingRestoreKind.settings,
+    );
+    await settle(tester);
+    // It carries a "Quit now" action, and a snack bar with an action stays
+    // up until dismissed unless told otherwise: it would sit over the chat
+    // composer for the rest of the session.
+    final notice = tester.widget<SnackBar>(find.byType(SnackBar).first);
+    expect(notice.action?.label, 'Quit now');
+    expect(notice.persist, isFalse);
+    expect(notice.duration, const Duration(seconds: 10));
+    await tester.runAsync(AppDatabase.closeAndReset);
+  });
 }
