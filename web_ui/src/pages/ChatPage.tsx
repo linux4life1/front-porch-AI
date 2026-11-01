@@ -22,6 +22,8 @@ import { ChatOverlays } from './chat/ChatOverlays';
 import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
 import { SceneBackdrop, parseSceneBackdrop } from './chat/SceneBackdrop';
 import { SceneSkyCanvas, useSceneSky } from './chat/SceneSkyCanvas';
+import { moodLookOf, moodPaintsOf } from '../theme/moodAtmosphere';
+import { usePaintedThemeMode } from '../theme/usePaintedThemeMode';
 import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
@@ -185,6 +187,17 @@ export function ChatPage() {
     () => new Map((state?.cast ?? []).map((c) => [c.id, c])),
     [state?.cast],
   );
+  // Mood on the character: the level, the Drama and the desktop's colours
+  // for the mode this page paints, for the insight panel and the bubbles.
+  const paintedMode = usePaintedThemeMode();
+  const moodLevel = state?.moodOnCharacter;
+  const moodDrama = state?.moodDrama;
+  const moodPaintsWire = state?.moodPaints;
+  const moodLook = useMemo(
+    () => moodLookOf({ moodOnCharacter: moodLevel, moodDrama }),
+    [moodLevel, moodDrama],
+  );
+  const moodPaints = useMemo(() => moodPaintsOf(moodPaintsWire, paintedMode), [moodPaintsWire, paintedMode]);
 
   if (!state || opening || switching || state.isLoadingSession) {
     if (loadError && !opening) {
@@ -246,6 +259,8 @@ export function ChatPage() {
   const insight = realismForPanel ? (
     <ChatInsight
       realism={realismForPanel}
+      moodLook={moodLook}
+      moodPaints={moodPaints}
       focusedIsLiteGuest={focusedIsLiteGuest}
       lorebook={state.lorebook}
       groupLorebookUnreadable={state.groupLorebookUnreadable}
@@ -391,6 +406,9 @@ export function ChatPage() {
               messages={state.messages}
               castById={castById}
               multiCast={multiCast}
+              moodLook={moodLook}
+              moodPaints={moodPaints}
+              liveMood={state.realism ? { emotion: state.realism.emotion, intensity: state.realism.emotionIntensity, held: state.realism.emotionHeld ?? 0 } : null}
               lastIndex={lastIndex}
               busy={state.isGenerating}
               settling={!!state.isSettlingTurn}

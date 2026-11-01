@@ -532,3 +532,10 @@ mark.find-hit.active {
   padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 [data-layout="phone"] .skip-confirm-sheet .modal-actions button { flex: 1; }
+
+/* Mood on the character at its full level: the latest reply wears its mood
+   (ChatMessageList moodOf). The hue is the desktop's, set per bubble. */
+.bubble.mood-bubble {
+  border: calc(1px + 2px * var(--mood-a, 0)) solid color-mix(in srgb, var(--mood-hue) calc(45% + 50% * var(--mood-a, 0)), transparent);
+  box-shadow: 0 0 calc(16px + 36px * var(--mood-a, 0)) calc(1px + 5px * var(--mood-a, 0)) color-mix(in srgb, var(--mood-hue) calc(50% * var(--mood-a, 0)), transparent);
+}

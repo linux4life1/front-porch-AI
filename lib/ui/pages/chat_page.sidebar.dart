@@ -172,11 +172,17 @@ class ChatRightSidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          ChatSidebarPortrait(
+          // Mood on the character: the portrait inside its mood ring.
+          MoodPortraitFrame(
+            chat: chatService,
             character: character,
             isGroup: isGroup,
-            sidebarWidth: sidebarWidth,
-            resolveCharImage: resolveCharImage,
+            child: ChatSidebarPortrait(
+              character: character,
+              isGroup: isGroup,
+              sidebarWidth: sidebarWidth,
+              resolveCharImage: resolveCharImage,
+            ),
           ),
           ChatSidebarMainSettings(
             chatService: chatService,

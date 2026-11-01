@@ -24,6 +24,7 @@ import 'package:flutter/rendering.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_look.dart';
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_anchor.dart';
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
 import 'package:front_porch_ai/ui/chat_components/stage/transcript_window.dart';
@@ -61,6 +62,7 @@ class ChatMessageList extends StatefulWidget {
     this.padding = const EdgeInsets.all(20),
     this.window,
     this.onNeedOlderHistory,
+    this.moodLook = MoodLook.off,
   });
 
   final String? sessionId;
@@ -86,6 +88,10 @@ class ChatMessageList extends StatefulWidget {
   /// on every row.
   final bool replyStreaming;
   final ChatThemeOverrides? themeOverrides;
+
+  /// Appearance → Mood on the character, from the page with the real
+  /// storage: the latest reply wears its mood at the full level.
+  final MoodLook moodLook;
   final EdgeInsetsGeometry padding;
 
   /// Shared with journal jump so a receipt can mount its row first.
@@ -441,6 +447,14 @@ class _ChatMessageListState extends State<ChatMessageList> {
     );
   }
 
+  /// The latest reply, which wears its mood at the full level; -1 when the
+  /// level is lower. Searched from the end, so it is found in a step or two.
+  int get _latestReply => widget.moodLook.bubblesOn
+      ? widget.messages.lastIndexWhere(
+          (m) => !m.isUser && m.characterId != '__director__',
+        )
+      : -1;
+
   Widget _row(ChatMessage msg, int index) {
     final (senderImage, senderColor) = widget.resolveSpeaker(msg);
     final above = widget.aboveBubble?.call(msg, index);
@@ -465,6 +479,8 @@ class _ChatMessageListState extends State<ChatMessageList> {
           isGenerating: widget.generatingAt?.call(index) ?? widget.isGenerating,
           followStreamingReplies: widget.followStreamingReplies,
           themeOverrides: widget.themeOverrides,
+          moodLook: widget.moodLook,
+          moodFramed: index == _latestReply,
         ),
         ?extra,
       ],

@@ -128,6 +128,9 @@ class ChatRealismRead {
         // the desktop cannot disagree (needs_bar.dart reads the same two).
         'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
         'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
+        // Mood on the character inverts this member's hygiene bar. Additive.
+        'enjoysLowHygiene':
+            card.frontPorchExtensions?.enjoysLowHygiene ?? false,
       };
     }
     return null;
@@ -196,6 +199,10 @@ class ChatRealismRead {
           : <String, int>{},
       'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
       'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
+      // Mood on the character inverts the hygiene bar. Additive.
+      'enjoysLowHygiene':
+          _chat.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+          false,
     };
   }
 }

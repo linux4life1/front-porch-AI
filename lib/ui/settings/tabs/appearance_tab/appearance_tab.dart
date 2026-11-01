@@ -24,8 +24,8 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'accent_picker_row.dart';
 import 'appearance_choice.dart';
+import 'background_weather_section.dart';
 import 'chat_appearance_section.dart';
-import 'scene_sound_controls.dart';
 import 'theme_card_grid.dart';
 
 /// Settings → Appearance: the app theme, light/dark/system mode, accent, UI
@@ -75,34 +75,6 @@ class AppearanceTab extends StatelessWidget {
                   labelOf: (c) => c.label,
                   onChanged: appearance.setCorners,
                 ),
-                AppearanceChoice<AmbientScene>(
-                  key: const ValueKey('appearance-ambient-scene'),
-                  label: 'Ambient scene',
-                  values: AmbientScene.values,
-                  selected: appearance.ambientScene,
-                  labelOf: (s) => s.label,
-                  onChanged: appearance.setAmbientScene,
-                ),
-                // A local model shares the GPU with the stage's moving
-                // weather; on by default, it only matters with effects on.
-                MergeSemantics(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const AppearanceCaption('Pause effects while generating'),
-                      const SizedBox(height: 6),
-                      Switch(
-                        key: const ValueKey('appearance-ambient-pause'),
-                        value: appearance.pauseEffectsWhileGenerating,
-                        onChanged: appearance.setPauseEffectsWhileGenerating,
-                      ),
-                    ],
-                  ),
-                ),
-                // Rain, wind, birds or crickets for the scene, thunder after
-                // a storm's flash; off by default.
-                SceneSoundControls(appearance: appearance),
               ],
             ),
             const SizedBox(height: 16),
@@ -115,6 +87,8 @@ class AppearanceTab extends StatelessWidget {
                   : const Icon(Icons.restart_alt, size: 18),
               label: const Text('Reset accent, font and corners'),
             ),
+            // The weather's own section, only while Story Weather is on.
+            const BackgroundWeatherSection(),
             const SizedBox(height: 28),
             const ChatAppearanceSection(),
           ],
