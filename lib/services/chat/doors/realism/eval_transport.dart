@@ -54,7 +54,6 @@ class EvalTransport {
   /// model and per engine load.
   final LocalModelKeys _modelKeys = LocalModelKeys();
 
-  RealismShellHooks get _h => _g.deps.hooks;
   StorageService get _storageService => _g.deps.services.storage;
   KoboldService get _koboldService => _g.deps.services.kobold;
   LLMProvider? get _llmProvider => _g.deps.services.llmProvider();
@@ -74,12 +73,41 @@ class EvalTransport {
             toolChoice: toolChoice,
             getPreferTextEvals: () =>
                 _storageService.realismSettings.preferTextEvals,
-            fireTextEval: (p, {onChunk}) => _h.fireLLMEval(
+            fireTextEval: (p, {onChunk}) => _g.transport.fireLLMEval(
               p,
               repeatPenalty: kScalarEvalRepeatPenalty,
               label: label,
             ),
           );
+
+  /// The realism/eval text door: [LlmEvalEngine.fireLLMEval] on the worker
+  /// lane. No GBNF: the JSON answers ride regex extraction and stop
+  /// sequences (the grammar went in the 0.9.8 clean port).
+  Future<String?> fireLLMEval(
+    String prompt, {
+    void Function(String)? onChunk,
+    double repeatPenalty = 1.15,
+    String label = 'eval',
+    bool salvageReasoning = true,
+    int? maxLength,
+    Duration? wallClockTimeout,
+    bool abortClientOnStop = false,
+    bool Function(String accumulated)? stopWhen,
+    void Function()? onGuardAbort,
+  }) => _g.lanes.withWorkerLane(
+    () => _g.llmEvalEngine.fireLLMEval(
+      prompt,
+      onChunk: onChunk,
+      repeatPenalty: repeatPenalty,
+      label: label,
+      salvageReasoning: salvageReasoning,
+      maxLength: maxLength,
+      wallClockTimeout: wallClockTimeout,
+      abortClientOnStop: abortClientOnStop,
+      stopWhen: stopWhen,
+      onGuardAbort: onGuardAbort,
+    ),
+  );
 
   /// Tool-calling door shared by the background passes: same eval posture
   /// as the text door (low temp, reasoning off). All backends probe — local
@@ -88,7 +116,7 @@ class EvalTransport {
   Future<LlmToolResponse?> fireToolEval(ToolEvalSpec spec) async {
     var reached = false;
     try {
-      return await _h.withWorkerLane(() {
+      return await _g.lanes.withWorkerLane(() {
         reached = true;
         return fireToolEvalUnheld(spec);
       });
@@ -108,7 +136,7 @@ class EvalTransport {
     LLMService? via,
     String? identity,
   }) async {
-    final service = via ?? _h.sideLaneLlm();
+    final service = via ?? _g.lanes.sideLane;
     final id = identity ?? backendIdentity;
     // [EvalTraffic]: label from the named choice, never tools.first — after
     // kJudgeEvalTools that would always be report_relationship.
@@ -186,8 +214,8 @@ class EvalTransport {
   /// Worker lane uses a prefixed key so its verdict never lands on the
   /// mouth model's pill.
   String get backendIdentity {
-    if (_h.workerLaneActive()) {
-      final worker = _h.testWorkerLlm();
+    if (_g.lanes.workerLaneActive) {
+      final worker = _g.lanes.testWorker();
       if (worker != null) {
         final url = worker is LlmApiEndpoint
             ? (worker as LlmApiEndpoint).apiUrl
@@ -211,17 +239,17 @@ class EvalTransport {
   /// The chat model's identity. [remoteModel] names another model on the same
   /// remote host (a studio wizard's own pick); empty means chat's own.
   String mouthIdentity({String remoteModel = ''}) {
-    final service = _h.mouthLlm();
+    final service = _g.lanes.mouth;
     final remoteApiUrl = service is LlmApiEndpoint
         ? (service as LlmApiEndpoint).apiUrl
-        : (_h.testLlm() != null && !_h.testIsLocal()
+        : (_g.lanes.testMouth() != null && !_g.lanes.testIsLocal()
               ? _storageService.backendSettings.remoteApiUrl
               : '');
     // The model is named by what names it: a local one by its file (name and
     // size, not folder), a remote one by its host and name. Each leaves out
     // the other's leftovers (the remote name typed last week, the local file
     // picked last month); they would send a known model to be tested again.
-    final local = _h.mouthIsLocal();
+    final local = _g.lanes.mouthIsLocal;
     return evalBackendIdentityFor(
       backendName: service.backendName,
       remoteApiUrl: remoteApiUrl,
@@ -273,8 +301,8 @@ class EvalTransport {
   /// swaps in is named by its own model, which the swap puts there and checks.
   bool get _workerNamedByEngine {
     final provider = _llmProvider;
-    return _h.workerLaneActive() &&
-        _h.testWorkerLlm() == null &&
+    return _g.lanes.workerLaneActive &&
+        _g.lanes.testWorker() == null &&
         provider != null &&
         provider.workerBackend == BackendType.kobold &&
         !provider.workerGpuSwapAvailable;
@@ -282,7 +310,9 @@ class EvalTransport {
 
   /// True while the local engine is ready on a model nobody has confirmed.
   bool get localModelUnknown =>
-      (_h.workerLaneActive() ? _workerNamedByEngine : _h.mouthIsLocal()) &&
+      (_g.lanes.workerLaneActive
+          ? _workerNamedByEngine
+          : _g.lanes.mouthIsLocal) &&
       _koboldService.isProcessRunning &&
       (localModelPath ?? '').isEmpty;
 
@@ -302,7 +332,7 @@ class EvalTransport {
   /// chat model's when the chat backend is local, the worker's when it is.
   bool _identityIsLocalEngine(String identity) => identity.startsWith('worker|')
       ? _llmProvider?.workerBackend == BackendType.kobold
-      : _h.mouthIsLocal();
+      : _g.lanes.mouthIsLocal;
 
   // ── The sidebar's tool-calling pill and the web facade ────────────────
 
@@ -340,7 +370,7 @@ extension RealismTransportWiring on RealismGraph {
       probe: transport.probe,
       fireToolEval: transport.fireToolEval,
       getBackendIdentity: () => transport.backendIdentity,
-      isBackendReady: () => deps.hooks.sideLaneLlm().isReady,
+      isBackendReady: () => lanes.sideLane.isReady,
       modelKnown: () => !transport.localModelUnknown,
       isBusy: () =>
           deps.hooks.isGenerating() || (provider()?.gpuSwapBusy ?? false),

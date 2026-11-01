@@ -43,6 +43,10 @@ class _HistoryAnchor {
 
 final Expando<_HistoryAnchor> _historyAnchorOf = Expando();
 
+/// Regex matching any `{{macro}}` or `{{macro::args}}` pattern.
+/// Used to detect stray unresolved macros in chat history.
+final _macroPattern = RegExp(r'\{\{(\w+)(?:::(.+?))?\}\}');
+
 /// Private prompt chat-history builders and token counting/budgeting. Pure
 /// formatting over `_session.messages` plus token accounting — no orchestration or
 /// engine logic — extracted verbatim from `chat_service.dart` (zero behaviour
@@ -293,8 +297,7 @@ extension ChatServiceDoorWiring on ChatService {
   ActionsDoor _buildActionsDoor() => ActionsDoor(
     session: _session,
     personas: _userPersonaService,
-    mouthLlm: () => _mouthLlm,
-    mouthStream: _mouthGenerateStream,
+    lanes: _lanes,
   );
 
   /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
@@ -326,11 +329,11 @@ extension ChatServiceDoorWiring on ChatService {
             _isGrowthPassRunning = false;
           },
           groupRepository: () => entryDoor.groupRepository,
-          rebindToday: _rebindTodayObjectiveFromDb,
+          rebindToday: () => realism.planner.rebindTodayObjectiveFromDb(),
           clearToday: _clearTodayPointer,
-          holdToday: _persistTodayObjectiveId,
-          releaseToday: _releaseHeldToday,
-          revertToday: _revertTodayPointer,
+          holdToday: (id) => realism.planner.persistTodayObjectiveId(id),
+          releaseToday: (id) => realism.planner.releaseHeldToday(id),
+          revertToday: (entry) => realism.planner.revertTodayPointer(entry),
         ),
       ),
     );
@@ -353,6 +356,7 @@ extension ChatServiceDoorWiring on ChatService {
         characters: () => _characterRepository,
         llmProvider: () => _llmProvider,
         graph: () => realism,
+        controls: () => controlsDoor,
         realism: () => realism.scope,
         snapshot: () => _realismSnapshot,
         mood: () => _mood,
@@ -374,9 +378,6 @@ extension ChatServiceDoorWiring on ChatService {
         generate: () => _generateResponse(GenerationMode.normal),
         skipAsked: () => _skipAsked,
         upcomingSpeaker: () => _upcomingGroupSpeaker,
-        refreshEnjoysLowHygiene: refreshEnjoysLowHygieneFromActiveCharacter,
-        persistMemberExtensions: (id) =>
-            persistGroupMemberExtensions(memberId: id),
       ),
       shared: _sessionHooks(),
       notify: notifyListeners,
@@ -396,7 +397,7 @@ extension ChatServiceDoorWiring on ChatService {
 
 /// The entry door's state and behaviour under the names the rest of this
 /// library still uses. Each line is debt its caller's package retires by
-/// calling [ChatService.entryDoor] itself (WP9b to WP10c).
+/// calling [ChatService.entryDoor] itself (WP10a to WP10c).
 extension _ChatServiceEntryNames on ChatService {
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;

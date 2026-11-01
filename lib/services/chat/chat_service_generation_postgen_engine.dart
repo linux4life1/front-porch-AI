@@ -46,7 +46,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // throws, the inline restore below is skipped and the next turn's
     // save would write to the wrong member.
     try {
-      await _openWorkerLane();
+      await _lanes.openWorkerLane();
       // The cast's hidden feelings for each other react to what the speaker
       // just said, Director Mode included: the cast talking among themselves
       // is the whole scene. Continue skips it: the first half of the reply
@@ -134,7 +134,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           await Future.wait([
             _runPostGenNeedsChecks(scoredReply),
             Future<void>.delayed(
-              _kEvalDispatchStagger,
+              kEvalDispatchStagger,
             ).then((_) => _replyFacts.prefetch(scoredReply)),
           ]);
         } catch (e) {
@@ -303,7 +303,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         );
       }
     } finally {
-      await _closeWorkerLane();
+      await _lanes.closeWorkerLane();
       // The pointer goes back on a throw or an abort too. The settling flag
       // is cleared in the OUTER finally so guest turns, stale epochs and
       // earlier errors are covered too.
@@ -374,7 +374,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     CharacterCard? lentTo;
     final sid = _getCharacterIdFromCard(t.speakingCharacter);
     try {
-      await _openWorkerLane();
+      await _lanes.openWorkerLane();
       // A chat opened while the lane opened owns the pointer now.
       if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
         return;
@@ -401,7 +401,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
     } finally {
       if (lentTo != null) _endSpeakerLoan(lentTo);
-      await _closeWorkerLane();
+      await _lanes.closeWorkerLane();
     }
   }
 

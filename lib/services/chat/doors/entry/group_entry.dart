@@ -72,12 +72,12 @@ class GroupEntry {
   String _getCharacterIdFromCard(CharacterCard c) => _sh.characterIdFor(c);
 
   /// The chat's own Realism switch: reset, then seeded from the group.
-  set _realismChatSwitch(bool on) => _sh.setChatRealism(on);
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// The chat's stored Needs switch: seeded here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _sh.setNeedsSimEnabled(on);
-  set _enjoysLowHygiene(bool on) => _sh.setEnjoysLowHygiene(on);
+  set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
+  set _enjoysLowHygiene(bool on) => _s.controls().chatEnjoysLowHygiene = on;
   set _isGrowthPassRunning(bool on) => _s.graph().growthPassRunning = on;
 
   /// Enter group chat mode with the given GroupChat definition.

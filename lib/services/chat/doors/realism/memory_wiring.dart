@@ -86,7 +86,7 @@ extension RealismMemoryWiring on RealismGraph {
       store: journalStore,
       review: journalReview,
       probe: transport.probe,
-      fireLLMEval: (p) => _h.fireLLMEval(p, label: 'journal'),
+      fireLLMEval: (p) => transport.fireLLMEval(p, label: 'journal'),
       fireToolEval: transport.fireToolEval,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       getPassEpoch: _h.memoryPassEpoch,
@@ -125,7 +125,7 @@ extension RealismMemoryWiring on RealismGraph {
       // Same register EmotionInjection reads — in group non-obs the pre-gen
       // load-into-scalars dance has set it to the upcoming speaker's emotion
       // by assembly time, so mood-congruent recall is per-speaker (parity).
-      getCurrentEmotion: () => _h.realismEnabled() ? registers.emotion : '',
+      getCurrentEmotion: () => controls.realismEnabled ? registers.emotion : '',
       getCurrentStoryDay: () => time.dayCount,
       getStoryStartDate: () => time.startDate,
     );
@@ -196,7 +196,7 @@ extension RealismMemoryWiring on RealismGraph {
       store: growthStore,
       review: growthReview,
       probe: transport.probe,
-      fireLLMEval: (p) => _h.fireLLMEval(p, label: 'growth'),
+      fireLLMEval: (p) => transport.fireLLMEval(p, label: 'growth'),
       fireToolEval: transport.fireToolEval,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       getPassEpoch: _h.memoryPassEpoch,
@@ -336,10 +336,10 @@ extension RealismMemoryWiring on RealismGraph {
       // told was not being tracked. The promise still resolves; only the score
       // write is skipped.
       applyTrustDelta: (d) {
-        if (_h.realismEnabled()) relationship.applyTrustDelta(d);
+        if (controls.realismEnabled) relationship.applyTrustDelta(d);
       },
       applyBondDelta: (d) {
-        if (_h.realismEnabled()) relationship.applyScoreDelta(d);
+        if (controls.realismEnabled) relationship.applyScoreDelta(d);
       },
       onSalienceKick: () => growthDesk.requestSalienceKick(),
       onCacheWarmed: () {
@@ -359,7 +359,7 @@ extension RealismMemoryWiring on RealismGraph {
       // crosses days — not the engine. The clock gate is that condition for
       // either driver; with both off it is false, i.e. exactly the old gate.
       isEnabled: () =>
-          _h.clockRunning() &&
+          controls.clockRunning &&
           _storageService.memorySettings.journalEnabled &&
           _storageService.realismSettings.dreamsEnabled,
     );

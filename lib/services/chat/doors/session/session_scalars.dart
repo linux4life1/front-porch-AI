@@ -51,11 +51,11 @@ class SessionScalars {
   NeedsSimulation get _needsSimulation => _scope.needs();
 
   /// The chat's own Realism switch, restored from the row.
-  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// The chat's stored Needs switch: restored here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _h.setNeedsSimEnabled(on);
+  set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
 
   /// Metadata (author note, summary, name/description, look selection,
   /// fork lineage), relationship scalars (RAW persisted values — the legacy
@@ -219,7 +219,7 @@ class SessionScalars {
       hasSavedVector: hasSavedNeeds,
       isGroup: _activeGroup != null,
     );
-    _h.setObjectivesEnabled(s.objectivesEnabled);
+    _s.controls().objectivesEnabled = s.objectivesEnabled;
     if (_needsSimEnabled) {
       // Seed defaults first, then overlay the saved vector ONLY when it has
       // values. A blank saved vector (e.g. needs was toggled on mid-chat
@@ -263,9 +263,9 @@ class SessionScalars {
     // Re-sync from the character's current setting so that toggling
     // "Enjoys low hygiene" on the character affects existing chats on next
     // load.
-    _h.setEnjoysLowHygiene(
-      _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ?? false,
-    );
+    _s.controls().chatEnjoysLowHygiene =
+        _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+        false;
 
     // Load per-chat theme overrides.
     try {

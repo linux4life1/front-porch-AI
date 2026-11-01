@@ -164,7 +164,7 @@ class Reprocessor {
     notifyListeners();
     var result = FeelingsRescore.unreadable;
     try {
-      final ok = await _d.turn.withWorkerLane(
+      final ok = await _d.services.lanes.withWorkerLane(
         () => _rescoreFeelingsHeld(
           msg,
           index: index,
@@ -275,7 +275,7 @@ class Reprocessor {
     _s.graph().evalStatus.evaluating = true;
     _s.graph().evalStatus.streamText = '';
     notifyListeners();
-    final idle = _d.turn.mouthIdle();
+    final idle = _d.services.lanes.mouthIdle();
     if (idle != null) await idle;
     await _s.graph().judges.runPreGenJudges(
       onChunk: _s.graph().evalStatus.onChunk,
@@ -285,7 +285,7 @@ class Reprocessor {
 
     final pending = _pendingRealismMetadata ?? const <String, dynamic>{};
     final scored =
-        !_d.realism.evalCancelled() &&
+        !_d.services.graph().evalStatus.cancelled &&
         pending[kFeelingsUnscoredMeta] != true &&
         (pending.containsKey('bond_delta') ||
             pending.containsKey('trust_delta') ||

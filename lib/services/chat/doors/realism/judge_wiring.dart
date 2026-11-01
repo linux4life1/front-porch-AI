@@ -33,7 +33,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 extension RealismJudgeWiring on RealismGraph {
   RealismEvals buildEvals() {
     return RealismEvals(
-      fireLLMEval: (p, {onChunk}) => _h.fireLLMEval(
+      fireLLMEval: (p, {onChunk}) => transport.fireLLMEval(
         p,
         onChunk: onChunk,
         repeatPenalty: kScalarEvalRepeatPenalty,
@@ -41,7 +41,7 @@ extension RealismJudgeWiring on RealismGraph {
       ),
       fireTightEval: (prompt, {onChunk, wallClockTimeout}) async {
         var aborted = false;
-        final raw = await _h.fireLLMEval(
+        final raw = await transport.fireLLMEval(
           prompt,
           onChunk: onChunk,
           repeatPenalty: kScalarEvalRepeatPenalty,
@@ -71,7 +71,9 @@ extension RealismJudgeWiring on RealismGraph {
       getBackendIdentity: () => transport.backendIdentity,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       isEvalCancelled: () =>
-          evalStatus.cancelling || _h.evalCancelled() || _h.staleGreetingEval(),
+          evalStatus.cancelling ||
+          evalStatus.cancelled ||
+          _h.staleGreetingEval(),
       stripThinkBlocks: stripEvalThinkBlocks,
       extractJsonInt: evalJsonInt,
       extractJsonBool: evalJsonBool,
@@ -79,10 +81,11 @@ extension RealismJudgeWiring on RealismGraph {
       getActiveGroup: () => session.activeGroup,
       getIsObserverMode: () => _doors.entry().director.observerMode,
       getUserName: () => deps.services.personas.persona.name,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       // A Feelings re-score leaves the turn's quests as they were.
       getObjectivesEnabled: () =>
-          _h.objectivesActive() && !_doors.edits().reprocess.rescoringFeelings,
+          controls.objectivesActive &&
+          !_doors.edits().reprocess.rescoringFeelings,
       getMessages: () => session.messages,
       getPendingRealismMetadata: () => registers.pending ?? {},
       setPendingRealismMetadata: growthDesk.writePendingRealismMetadata,
@@ -128,7 +131,7 @@ extension RealismJudgeWiring on RealismGraph {
       getAmbitions: () =>
           session.activeCharacter == null ||
               !_storageService.realismSettings.ambitionsEnabled ||
-              !_h.objectivesActive()
+              !controls.objectivesActive
           ? const []
           : ambitionsFor(session.activeCharacter!),
       // PR 5: one shared source for the mutual opening — the ladder and the
@@ -165,7 +168,7 @@ extension RealismJudgeWiring on RealismGraph {
           // identically and cannot drift.
           intimateAgency:
               _storageService.realismSettings.intimateAgencyEnabled &&
-              _h.realismEnabled(),
+              controls.realismEnabled,
         );
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
@@ -206,13 +209,13 @@ extension RealismJudgeWiring on RealismGraph {
     final objectives = _doors.objectives();
     return ObjectiveProposal(
       stripThinkBlocks: stripEvalThinkBlocks,
-      getLlmService: _h.sideLaneLlm,
+      getLlmService: () => lanes.sideLane,
       getActiveCharacter: () => session.activeCharacter,
       ownerCard: objectives.ownerCard,
       getActiveGroup: () => session.activeGroup,
       getIsObserverMode: () => _doors.entry().director.observerMode,
       getUserName: () => deps.services.personas.persona.name,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getMessages: () => session.messages,
       getActiveObjectives: () => objectives.activeObjectives,
       tasksForObjective: objectives.tasks.tasksFor,
@@ -227,7 +230,7 @@ extension RealismJudgeWiring on RealismGraph {
       writeSyncedTasks: objectives.completion.writeSyncedTasks,
       retireObjective: objectives.completion.retireFromSync,
       setObjectiveDormant: objectives.completion.setDormant,
-      isHeldToday: _h.isHeldTodayObjective,
+      isHeldToday: planner.isHeldTodayObjective,
       getIsCheckingCompletion: () => objectives.isCheckingCompletion,
       // Every flip notifies: the web relay pushes the phone's goal-check
       // overlay (and its Skip) from it. The pre-reply check had no notify.
@@ -249,8 +252,8 @@ extension RealismJudgeWiring on RealismGraph {
       // ambition progress can move. Fire-and-forget; owner resolved from the
       // objective row's characterId (per-character in groups by construction).
       onQuestAchieved: (obj) {
-        if (_h.isHeldTodayObjective(obj)) {
-          unawaited(_h.onTodayObjectiveCompleted(obj));
+        if (planner.isHeldTodayObjective(obj)) {
+          unawaited(planner.onTodayObjectiveCompleted(obj));
           return;
         }
         // The Ambitions switch has to stop the WORK, not just the display.
@@ -290,16 +293,19 @@ extension RealismJudgeWiring on RealismGraph {
         );
       },
       onObjectiveStale: (obj) {
-        if (!_h.isHeldTodayObjective(obj)) return;
+        if (!planner.isHeldTodayObjective(obj)) return;
         final today = _doors.sessions().today;
         final held = today.todaySentence ?? obj.objective;
-        _h.recordTodayPointerOp();
+        planner.recordTodayPointerOp();
         today.todayObjectiveId = null;
         today.todayObjectiveText = null;
         today.setTodaySentence(null);
         unawaited(() async {
-          await _h.journalResolvedToday(held, fate: PlannerTodayFate.abandoned);
-          await _h.persistTodayObjectiveId(null);
+          await planner.journalResolvedToday(
+            held,
+            fate: PlannerTodayFate.abandoned,
+          );
+          await planner.persistTodayObjectiveId(null);
         }());
       },
     );

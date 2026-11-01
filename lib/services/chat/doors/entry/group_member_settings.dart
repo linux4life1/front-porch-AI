@@ -119,7 +119,9 @@ class GroupMemberSettings {
         (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
           afterglowEnabled: on,
         );
-    await _d.hooks.persistMemberExtensions(_getCharacterIdFromCard(member));
+    await _s.controls().persistGroupMemberExtensions(
+      memberId: _getCharacterIdFromCard(member),
+    );
   }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).

@@ -44,7 +44,7 @@ extension ChatServiceTurnStops on ChatService {
     _postGenAbortRequested = true;
     _isCancellingRealismEval = true;
     _realismEvalCancelled = true;
-    _abortAllLanes();
+    _lanes.abortAll();
     final deadline = DateTime.now().add(const Duration(seconds: 5));
     while (_isPostGenerating && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 16));
@@ -85,7 +85,7 @@ extension ChatServiceTurnStops on ChatService {
       _cancelRequested = true;
       // A waiting reply leaves the line, and nothing of this turn is on the
       // wire to cut. Otherwise abort mouth speech and side-lane evals/clerk.
-      if (!_dropWaitingReplies()) _abortAllLanes();
+      if (!_lanes.dropWaitingReplies()) _lanes.abortAll();
     }
   }
 
@@ -94,7 +94,8 @@ extension ChatServiceTurnStops on ChatService {
     _needsSimulation.consumePendingCatastrophe();
     if (!_isGenerating) return;
     _cancelRequested = true;
-    _dropWaitingReplies(); // not held up by the pass ahead; nothing is aborted
+    _lanes
+        .dropWaitingReplies(); // not held up by the pass ahead; nothing is aborted
     // Spin until _generateResponse finishes its cleanup
     while (_isGenerating) {
       await Future.delayed(const Duration(milliseconds: 10));
@@ -179,7 +180,7 @@ extension ChatServiceTurnStops on ChatService {
   Future<void> cancelRealismEval() async {
     // Always tear down both lanes first — a fused/clerk call on the
     // worker can still be in flight when the mouth flags look idle.
-    _abortAllLanes();
+    _lanes.abortAll();
     _needsSimulation.consumePendingCatastrophe();
 
     // No-op if there is nothing to cancel. Post-gen clock/wear is
@@ -216,4 +217,184 @@ extension ChatServiceTurnStops on ChatService {
     // Keep _realismEvalCancelled so sendMessage returns early.
     notifyListeners();
   }
+}
+
+/// Builds the session store and the transfer doors that call it. Each
+/// session hook stands in for a private member of another part.
+extension ChatServiceSessionWiring on ChatService {
+  SessionStore _buildSessionStore() => SessionStore(
+    SessionDeps(
+      session: _session,
+      services: SessionServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: _macroResolver,
+        characters: () => _characterRepository,
+        groupRepository: () => entryDoor.groupRepository,
+        graph: () => realism,
+        controls: () => controlsDoor,
+        realism: () => realism.scope,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        lorebook: () => _lorebookScanner,
+        loreTimers: () => _loreTimedEffects,
+        expression: () => _expressionService,
+        clockReader: () => _clockReader,
+        clockWriter: () => _clockWriter,
+        growthStore: () => _growthStore,
+        growthDesk: () => _growthDesk,
+        journal: () => _journalStore,
+        porchImport: () => _porchMemoryImport,
+        birthdays: () => _birthdaySync,
+        chaos: () => _chaosModeService,
+        needsPass: () => _needsPass,
+        pocketsRewinds: () => _pocketsRewinds,
+        dance: () => _realismDance,
+        mood: () => _mood,
+        sceneMoves: _sceneMoves,
+        autoChat: entryDoor.autoChat,
+      ),
+      hooks: _sessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
+  /// The session store's hooks; the entry door takes the same ones.
+  SessionShellHooks _sessionHooks() => SessionShellHooks(
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    waitForTurnToSettle: () => entryDoor.cover.waitForTurnToSettle(),
+    cancelAndWaitForGeneration: _cancelAndWaitForGeneration,
+    resetDirectorModeToDefault: () =>
+        entryDoor.director.resetDirectorModeToDefault(),
+    rekeyGroupStores: () => entryDoor.rekey.rekeyGroupStores(),
+    clearContextBudget: _clearContextBudget,
+    loadContextBudget: _loadContextBudgetForSession,
+    persistContextBudget: _persistContextBudgetForSession,
+    armPromptPicker: _armPromptPickerIfDue,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    setActiveGroup: (group, {groupRepo}) =>
+        entryDoor.group.setActiveGroup(group, groupRepo: groupRepo),
+    beginSessionLoad: () => entryDoor.cover.beginSessionLoad(),
+    endSessionLoad: () => entryDoor.cover.endSessionLoad(),
+  );
+
+  ChatImporter _buildChatImporter() => ChatImporter(
+    _session,
+    _buildTransferHost(),
+    saveChat: _saveChat,
+    notify: notifyListeners,
+  );
+
+  ChatPackager _buildChatPackager() =>
+      ChatPackager(_session, _buildTransferHost(), importer: chatImporter);
+
+  /// What the transfer doors reach besides the session store. Every entry
+  /// past the services and the Realism graph is debt the turn engine (WP10)
+  /// retires.
+  TransferHost _buildTransferHost() => TransferHost(
+    db: () => _db,
+    storage: _storageService,
+    personas: _userPersonaService,
+    imageGen: () => _imageGenService,
+    memory: () => _memoryService,
+    characters: () => _characterRepository,
+    journalStore: () => _journalStore,
+    growthDesk: () => _growthDesk,
+    sceneGuests: castDoor.guests.state,
+    sessions: () => sessionStore,
+    graph: () => realism,
+    isTurnBusy: () => _isTurnBusy,
+    isGenerating: () => _isGenerating,
+    invalidateGreetingEval: castDoor.greetings.invalidateGreetingEval,
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
+    enterSceneGuestSilently: (guest) =>
+        castDoor.guests.enterSceneGuest(guest, speak: false),
+    loadActiveObjectives: objectivesDoor.loadActiveObjectives,
+    loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
+    formatForRagEmbedding: _formatMessagesForRagEmbedding,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    deleteSessionQuietly: (id) =>
+        editsDoor.editor.deleteSession(id, startReplacement: false),
+  );
+}
+
+/// The session store's state and behaviour under the names the rest of
+/// this library still uses. Each line is debt its caller's package retires
+/// by calling [ChatService.sessionStore] itself (WP8 to WP10).
+extension _ChatServiceSessionNames on ChatService {
+  SessionHistoryWindow get _history => sessionStore.history;
+  String get _summary => sessionStore.summary;
+  int get _summaryLastIndex => sessionStore.summaryLastIndex;
+  bool get _summaryPaused => sessionStore.summaryPaused;
+  set _summaryPaused(bool v) => sessionStore.summaryPaused = v;
+  bool get _isSummaryGenerating => sessionStore.isSummaryGenerating;
+  set _isSummaryGenerating(bool v) => sessionStore.isSummaryGenerating = v;
+  String get _authorNote => sessionStore.authorNote;
+  set _authorNote(String v) => sessionStore.authorNote = v;
+  int get _authorNoteStrength => sessionStore.authorNoteStrength;
+  set _authorNoteStrength(int v) => sessionStore.authorNoteStrength = v;
+  ChatGenerationSettings get _sessionGenSettings => sessionStore.genSettings;
+  bool get _isNewChat => sessionStore.isNewChat;
+  set _isNewChat(bool v) => sessionStore.isNewChat = v;
+  bool get _isLoadingSession => sessionStore.isLoadingSession;
+  int get _chatSwitches => sessionStore.chatSwitches;
+  bool get _absenceAckPending => sessionStore.absenceAckPending;
+  set _absenceAckPending(bool v) => sessionStore.absenceAckPending = v;
+  bool get _absenceAckConsumed => sessionStore.absenceAckConsumed;
+  set _absenceAckConsumed(bool v) => sessionStore.absenceAckConsumed = v;
+
+  // The today line (TodaySentence).
+  set _onTodayAbandoned(void Function(String? held)? v) =>
+      sessionStore.today.onTodayAbandoned = v;
+  void _clearTodayPointer() => sessionStore.today.clearTodayPointer();
+
+  // Load, save and the window.
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      sessionStore.save(replaceAll: replaceAll);
+  void _rememberRecapEdit(String text) => sessionStore.rememberRecapEdit(text);
+  Future<void> _awaitHistoryHydrated() =>
+      sessionStore.window.awaitHistoryHydrated();
+}
+
+/// The model lanes' test surface and the studio wizards' tool check (bodies
+/// in [LlmLanes]). Public extension members: no fake overrides them.
+extension ChatServiceLlmLanes on ChatService {
+  @visibleForTesting
+  LLMService get debugMouthLlm => _lanes.mouth;
+
+  @visibleForTesting
+  LLMService get debugSideLaneLlm => _lanes.sideLane;
+
+  @visibleForTesting
+  String get debugEvalBackendIdentity => _evalBackendIdentity;
+
+  @visibleForTesting
+  bool get debugOneShotActive => _oneShotActive;
+
+  @visibleForTesting
+  void debugMarkEvalToolsSupported() =>
+      _toolProbe.markSupported(_evalBackendIdentity);
+
+  @visibleForTesting
+  Future<String?> debugFireSideLaneEval(String prompt) =>
+      realism.transport.fireLLMEval(prompt, label: 'test-worker');
+
+  /// The tool-calling verdict for the one model a studio wizard runs on
+  /// (see [LlmLanes.toolCheckFor]).
+  StudioToolCheck toolCheckFor({
+    LLMService? via,
+    String remoteModel = '',
+    bool autoAsk = true,
+  }) =>
+      _lanes.toolCheckFor(via: via, remoteModel: remoteModel, autoAsk: autoAsk);
+
+  /// Ask the wizard's model again now (its "Check now").
+  Future<void> retestToolsFor({LLMService? via, String remoteModel = ''}) =>
+      _lanes.retestToolsFor(via: via, remoteModel: remoteModel);
 }

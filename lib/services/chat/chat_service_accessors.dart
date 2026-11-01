@@ -68,6 +68,28 @@ extension ChatServiceAccessors on ChatService {
   /// so startup wiring and post-swap rebinding can never drift apart.
   void setDatabase(AppDatabase db) => updateDatabase(db);
 
+  /// A deleted chat's saved cache is let go. This runs inside the database's
+  /// delete: what goes wrong is said in the log and goes no further.
+  void _letGoOfDeletedChat(String chat) {
+    try {
+      _koboldService.forgetChat(chat);
+    } on Object catch (e) {
+      debugPrint('[Chat] letting go of a deleted chat\'s cache failed: $e');
+    }
+    // A deleted chat is owed no starting-point scan any more.
+    unawaited(
+      _storageService.realismSettings.settleRealismStart(chat).catchError((
+        Object e,
+      ) {
+        debugPrint('[Realism] forgetting a deleted chat\'s scan failed: $e');
+      }),
+    );
+  }
+
+  /// The app's appearance choices, read live by the Ambient Stage
+  /// (`sceneTokensFor`) so the chat page and the web chat state agree.
+  AppearanceSettings get appearance => _storageService.appearance;
+
   /// The chat-scoped lorebook: lore that lives and dies with this one
   /// conversation. The sidebar edits it directly (live instance) and calls
   /// [commitChatLorebookEdit] to notify + persist.
@@ -152,40 +174,6 @@ extension ChatServiceAccessors on ChatService {
     rerollIfSame: rerollIfSame,
   );
 
-  /// The one-shot decision for THIS turn — the tri-state setting resolved
-  /// against the live backend (pure policy in resolveOneShotMode; the
-  /// probe verdict and locality are the only inputs storage can't know; both
-  /// describe the model that runs the evals, the helper when one is on).
-  /// Consulted by the pre-generation dance, the regen replay, and the
-  /// retroactive baseline scan, so all three paths flip together.
-  bool get _oneShotActive => resolveOneShotMode(
-    mode: _storageService.realismSettings.oneShotMode,
-    isLocal: _evalModelIsLocal,
-    toolSupport: _toolProbe.supportFor(_evalBackendIdentity),
-    // A live voice call upgrades Off to Auto's fuse-where-safe rule — one
-    // eval call instead of three before the character can speak.
-    callMode: _callMode,
-    preferTextEvals: _storageService.realismSettings.preferTextEvals,
-  );
-
-  /// Porch Life Passage of Time — live. Not a seeded copy, not per-chat.
-  bool get _clockRunning => StoryClock.isRunning(
-    passageOfTimeEnabled: _storageService.realismSettings.passageOfTimeDefault,
-  );
-
-  /// Objectives are actually running for this chat: the per-chat switch AND the
-  /// global one (docs/design/feature-independence.md). Objectives depend on
-  /// nothing but their own eval cost — not the Realism Engine, not the Journal.
-  ///
-  /// The global is applied LIVE here rather than AND-ed into `_objectivesEnabled`
-  /// at seed time the way Needs does it. That difference is deliberate: the
-  /// stored-AND means flipping the global off leaves every already-open chat
-  /// running, which for Needs is merely surprising but here would defeat the
-  /// switch's whole purpose — stopping a recurring model call. Checking live
-  /// means "off" takes effect on the next turn, everywhere.
-  bool get _objectivesActiveImpl =>
-      _objectivesEnabled && _storageService.realismSettings.objectivesEnabled;
-
   bool get isCancellingRealismEval => _isCancellingRealismEval;
 
   void _onBackendIdentityMaybeChanged() {
@@ -213,37 +201,6 @@ extension ChatServiceAccessors on ChatService {
         ? ' ($_emotionIntensity)'
         : '';
     return '$capEmotion$intensity';
-  }
-
-  /// Returns whether the currently active character enjoys low hygiene.
-  /// We always prefer the live value from the character's FrontPorchExtensions
-  /// so that toggling the setting on the character immediately affects any
-  /// already-loaded chats (no database change required).
-  bool get enjoysLowHygiene {
-    // Group chats have no single "active character" hygiene preference — it is
-    // strictly per-speaker (the injection builders resolve it from each
-    // member's own card). Never fall through to the 1:1 scalar in a group, or a
-    // preference carried in from a previous 1:1 (e.g. a "enjoys being dirty"
-    // character) would stay stale and invert every group member's hygiene.
-    if (_activeGroup != null) {
-      return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
-          false;
-    }
-    return _session.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
-        _enjoysLowHygiene;
-  }
-
-  /// Re-reads the "Enjoys low hygiene" preference from the currently active
-  /// character's FrontPorchExtensions. Call this after editing the character
-  /// so that existing chats immediately pick up the new setting without a
-  /// database change.
-  void refreshEnjoysLowHygieneFromActiveCharacter() {
-    if (_session.activeCharacter != null) {
-      _enjoysLowHygiene =
-          _session.activeCharacter!.frontPorchExtensions?.enjoysLowHygiene ??
-          false;
-      notifyListeners();
-    }
   }
 
   /// Set the CharacterRepository so group mode can look up characters.
@@ -406,11 +363,11 @@ extension ChatServiceAccessors on ChatService {
     _sceneGuest.statusClearTimer?.cancel();
     _characterRepository?.removeListener(_onCharacterLibrary);
     _storageService.removeListener(_onBackendIdentity);
-    _storageService.removeListener(_realismPermission.settingsChanged);
+    _storageService.removeListener(controlsDoor.permission.settingsChanged);
     _llmProvider?.removeListener(_onBackendIdentity);
     _toolProbe.removeListener(notifyListeners);
     _toolSupportTester.dispose();
-    _disposeStudioToolTester();
+    _lanes.dispose();
     unawaited(_deletedChats?.cancel());
   }
 
@@ -436,13 +393,33 @@ extension ChatServiceAccessors on ChatService {
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);
     // Porch Life's Realism permission, read now so a later change is seen.
-    _storageService.addListener(_realismPermission.settingsChanged);
+    _storageService.addListener(controlsDoor.permission.settingsChanged);
     _onTodayAbandoned = (held) {
       // Sour mood first — deactivate is DB I/O and must not gate the
       // feeling. Day-ate already journals then deactivates; abandon
       // used to wait on the isolate and leave emotion empty under load.
-      unawaited(_journalResolvedToday(held, fate: PlannerTodayFate.abandoned));
-      unawaited(_deactivateTodayObjective());
+      final planner = realism.planner;
+      unawaited(
+        planner.journalResolvedToday(held, fate: PlannerTodayFate.abandoned),
+      );
+      unawaited(planner.deactivateTodayObjective());
     };
   }
+}
+
+/// The controls door's gates and state under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.controlsDoor] itself (WP10a to WP10c).
+/// `_realismEnabled` is the library's one name for the Realism gate
+/// (test/hygiene/realism_gate_ratchet_test.dart).
+extension _ChatServiceControlsNames on ChatService {
+  bool get _realismEnabled => controlsDoor.realismEnabled;
+
+  /// The chat's stored Needs switch; Needs run behind `NeedsPass.active`.
+  bool get _needsSimEnabled => controlsDoor.needsSimEnabled;
+  bool get _clockRunning => controlsDoor.clockRunning;
+  bool get _oneShotActive => controlsDoor.oneShotActive;
+  bool get _callMode => controlsDoor.callMode;
+  UserTurnHold get _userTurn => controlsDoor.userTurn;
+  ChanceTime get _chance => controlsDoor.chance;
 }

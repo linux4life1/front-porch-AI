@@ -21,6 +21,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
@@ -63,6 +64,7 @@ class SessionServices {
     required this.characters,
     required this.groupRepository,
     required this.graph,
+    required this.controls,
     required this.realism,
     required this.cast,
     required this.objectives,
@@ -97,6 +99,11 @@ class SessionServices {
   /// The Realism graph: the restores, the host's Pockets record, the
   /// places and the Growth pass flag a session boundary resets.
   final RealismGraph Function() graph;
+
+  /// The chat's own switches a session stores, restores, seeds and carries
+  /// (Realism, Needs, Objectives, Afterglow, low hygiene), and the Realism
+  /// start a load may owe.
+  final ControlsDoor Function() controls;
 
   /// The open chat as the Realism Engine sees it: the scalar services, the
   /// group map, the emotion registers and the chat's stored Needs switch.
@@ -138,16 +145,6 @@ class SessionShellHooks {
     required this.ragCharacterId,
     required this.waitForTurnToSettle,
     required this.cancelAndWaitForGeneration,
-    required this.realismEnabled,
-    required this.chatRealism,
-    required this.setChatRealism,
-    required this.setNeedsSimEnabled,
-    required this.objectivesEnabled,
-    required this.setObjectivesEnabled,
-    required this.enjoysLowHygiene,
-    required this.setEnjoysLowHygiene,
-    required this.afterglowChatSwitch,
-    required this.onRealismStarted,
     required this.resetDirectorModeToDefault,
     required this.rekeyGroupStores,
     required this.clearContextBudget,
@@ -175,30 +172,6 @@ class SessionShellHooks {
 
   /// Cuts a streaming reply and waits for the stream to stop.
   final Future<void> Function() cancelAndWaitForGeneration;
-
-  // ── The chat's switches and seeds (WP9b) ──────────────────────────────
-
-  /// The Realism gate: Porch Life allows it AND the chat's own switch.
-  final bool Function() realismEnabled;
-
-  /// The chat's own Realism switch, the one a chat stores, seeds and
-  /// carries (test/hygiene/realism_gate_ratchet_test.dart).
-  final bool Function() chatRealism;
-  final void Function(bool on) setChatRealism;
-
-  /// Writes the chat's stored Needs switch; it is read through
-  /// [RealismScope.needsSimEnabled].
-  final void Function(bool on) setNeedsSimEnabled;
-  final bool Function() objectivesEnabled;
-  final void Function(bool on) setObjectivesEnabled;
-  final bool Function() enjoysLowHygiene;
-  final void Function(bool on) setEnjoysLowHygiene;
-
-  /// The chat's own Afterglow switch (1:1 card or group chat).
-  final bool Function() afterglowChatSwitch;
-
-  /// A 1:1 chat's Realism has started running; it may score its start.
-  final void Function() onRealismStarted;
 
   // ── Group roster (WP8) ────────────────────────────────────────────────
 

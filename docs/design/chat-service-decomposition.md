@@ -483,6 +483,16 @@ Done when: part baseline → 19, the settings parity manifest test passes,
 `integration_test/settings_persistence_test.dart` and
 `story_time_test.dart` pass.
 
+Landed at 22 parts and 65 fields (42 in the bag, 23 on the class), all
+five parts retired. `ControlsDoor` owns the chat's switches, the Realism
+gate, live `objectivesActive` and `clockRunning`, the One-Shot tri-state,
+call mode, the permission watch, start queue, user-turn hold, Chance Time
+and time nudging. `LlmLanes` is a leaf, not a door. `chat_defaults.dart`
+is a plain library. The Realism gate ratchet's four switch entries
+(shell 1, fields 1, gate file 2, planner 2) became one entry for the door
+at 6, and the gate-file constant points at `chat_service_accessors.dart`
+where the one remaining alias lives.
+
 ### WP10a. Prompt assembler
 
 Parts retired (8, ~2,500 lines): `chat_service_generation_blocks`,

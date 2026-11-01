@@ -18,6 +18,10 @@
 
 part of '../chat_service.dart';
 
+/// True while [sendMessage] is holding a typed line behind post-gen evals.
+/// The composer already cleared; the bubble is not in the list yet.
+bool _sendWaitingOnSettle = false;
+
 /// Small streaming / turn-busy accessors (zero behaviour change).
 extension ChatServiceGenerationStreamAccessors on ChatService {
   /// The honest "this turn is still in motion" predicate — what the mutation
@@ -38,10 +42,10 @@ extension ChatServiceGenerationStreamAccessors on ChatService {
   void _notifyStreamListeners() {
     if (_streamNotifyTimer != null) return; // trailing notify already queued
     final elapsed = DateTime.now().difference(_lastStreamNotify);
-    if (elapsed >= _kStreamNotifyInterval) {
+    if (elapsed >= kStreamNotifyInterval) {
       _notifyStreamTick();
     } else {
-      _streamNotifyTimer = Timer(_kStreamNotifyInterval - elapsed, () {
+      _streamNotifyTimer = Timer(kStreamNotifyInterval - elapsed, () {
         _streamNotifyTimer = null;
         _notifyStreamTick();
       });
@@ -143,4 +147,103 @@ extension ChatServiceSendGates on ChatService {
   /// (objective_check_gate_test reads this name in the send part).
   Future<void> _maybeCheckTaskCompletionSync() =>
       objectivesDoor.completion.maybeCheckSync();
+}
+
+/// The Realism graph's state and objects under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.realism] itself (WP10a to WP10c).
+extension _ChatServiceRealismNames on ChatService {
+  // State the graph owns.
+  bool get _realismEvalCancelled => realism.evalStatus.cancelled;
+  set _realismEvalCancelled(bool v) => realism.evalStatus.cancelled = v;
+  Map<String, dynamic>? get _pendingRealismMetadata =>
+      realism.registers.pending;
+  set _pendingRealismMetadata(Map<String, dynamic>? v) =>
+      realism.registers.pending = v;
+  String get _characterEmotion => realism.registers.emotion;
+  String get _emotionIntensity => realism.registers.intensity;
+  set _isGrowthPassRunning(bool v) => realism.growthPassRunning = v;
+  bool get _isEvaluatingRealism => realism.evalStatus.evaluating;
+  set _isEvaluatingRealism(bool v) => realism.evalStatus.evaluating = v;
+  bool get _isCancellingRealismEval => realism.evalStatus.cancelling;
+  set _isCancellingRealismEval(bool v) => realism.evalStatus.cancelling = v;
+  String get _realismEvalStreamText => realism.evalStatus.streamText;
+  set _realismEvalStreamText(String v) => realism.evalStatus.streamText = v;
+  Timer? get _evalChunkTimer => realism.evalStatus.chunkTimer;
+  set _evalChunkTimer(Timer? t) => realism.evalStatus.chunkTimer = t;
+  ChatPlaceSlots get _chatPlaceSlots => realism.places.slots;
+  SceneMoveState get _sceneMoves => realism.places.sceneMoves;
+  LorebookTimedEffects get _loreTimedEffects => realism.lore.timedEffects;
+  ToolTransportProbe get _toolProbe => realism.transport.probe;
+  FireToolEval get _fireToolEval => realism.transport.fireToolEval;
+
+  // The leaves.
+  LorebookScanner get _lorebookScanner => realism.lore.scanner;
+  LorebookInjector get _lorebookInjector => realism.lore.injector;
+  TimeService get _timeService => realism.time;
+  StoryClockReader get _clockReader => realism.clockReader;
+  StoryClockWriter get _clockWriter => realism.clockWriter;
+  EpisodeCrumbMinter get _episodeCrumbs => realism.episodeCrumbs;
+  BirthdaySync get _birthdaySync => realism.birthdays;
+  ChaosModeService get _chaosModeService => realism.chaos;
+  NsfwService get _nsfwService => realism.nsfw;
+  NeedsSimulation get _needsSimulation => realism.needs;
+  GroupRealismStore get _groupStore => realism.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => realism.groups.members;
+  NeedsPass get _needsPass => realism.needsPass;
+  StandingMood get _standingMood => realism.standingMood;
+  MoodRegisters get _mood => realism.mood;
+  RealismSnapshot get _realismSnapshot => realism.snapshot;
+  RealismJudges get _realismJudges => realism.judges;
+  RealismDance get _realismDance => realism.dance;
+  RelationshipService get _relationshipService => realism.relationship;
+  ExpressionService get _expressionService => realism.expression;
+  AuthorNoteBuilder get _authorNoteBuilder => realism.authorNotes;
+  InventoryInjection get _inventoryInjection => realism.inventoryInjection;
+  PocketsLedger get _pocketsLedger => realism.pocketsLedger;
+  PocketsRewinds get _pocketsRewinds => realism.pocketsRewinds;
+  PocketsPass get _pocketsPass => realism.pocketsPass;
+  ItemCardJournal get _itemCards => realism.itemCards;
+  ReplyFacts get _replyFacts => realism.replyFacts;
+  AfterglowPass get _afterglow => realism.afterglow;
+  PromiseDebtService get _promiseDebtService => realism.promiseDebt;
+  DreamService get _dreamService => realism.dreams;
+  ChaosInjection get _chaosInjection => realism.chaosInjection;
+  RealismStateInjection get _realismStateInjection =>
+      realism.realismStateInjection;
+  LlmEvalEngine get _llmEvalEngine => realism.llmEvalEngine;
+  RealismEvals get _realismEvals => realism.evals;
+  ObjectiveProposal get _objectiveProposal => realism.objectiveProposal;
+  CastFeelingsJudge get _castFeelingsJudge => realism.castFeelingsJudge;
+  JournalStore get _journalStore => realism.journalStore;
+  PorchMemoryImportService get _porchMemoryImport => realism.porchImport;
+  ToolSupportTester get _toolSupportTester => realism.toolSupportTester;
+  JournalMaintenance get _journalMaintenance => realism.journalMaintenance;
+  JournalInjection get _journalInjection => realism.journalInjection;
+  GrowthStore get _growthStore => realism.growthStore;
+  GrowthDesk get _growthDesk => realism.growthDesk;
+
+  // Behaviour.
+  RealismScope _realismScope() => realism.scope;
+  bool get _realismActiveThisMode => realism.realismActiveThisMode;
+  String get _evalBackendIdentity => realism.transport.backendIdentity;
+  PlayerSkip _buildPlayerSkip() => realism.playerSkip();
+  List<LoreEntryRef> _collectLoreRefs({bool? inheritOverride}) =>
+      realism.lore.collectLoreRefs(inheritOverride: inheritOverride);
+  void _restoreRealismStateForSpeaker(
+    ChatMessage msg, {
+    bool restoreClock = false,
+  }) => realism.restores.forSpeaker(msg, restoreClock: restoreClock);
+  void _restoreRealismStateFromMessage(
+    ChatMessage? msg, {
+    String? groupSpeakerId,
+    bool restoreClock = false,
+  }) => realism.restores.fromMessage(
+    msg,
+    groupSpeakerId: groupSpeakerId,
+    restoreClock: restoreClock,
+  );
+  Future<void> _runPostGenNeedsChecks(String responseText) =>
+      realism.restores.runPostGenNeedsChecks(responseText);
+  void _applyMoodDecay() => realism.restores.applyMoodDecay();
 }

@@ -18,6 +18,12 @@
 
 part of '../chat_service.dart';
 
+/// Set when regenerate/continue abort in-flight post-gen evals (needs,
+/// climax, pockets, posture) so the rejected reply is not scored. Cleared
+/// after a successful yield, at finalize start, and in regen's finally —
+/// leftover latch must not survive into the next turn.
+bool _postGenAbortRequested = false;
+
 /// Phase 6 (final) of `_generateResponse`: state reset, sanitizer, lorebook,
 /// first save, Scene-Guest clock, TTS, and director auto-play.
 /// Realism/Needs bookkeeping and Journal/Growth live in
@@ -419,5 +425,16 @@ extension ChatServiceGenerationPostGen on ChatService {
       'stamped=${_timeService.bodyTimeLabel} '
       'slot=${t.streamTarget.swipeIndex}',
     );
+  }
+}
+
+/// The post-gen abort latch's test hook (Realism's other test hooks are on
+/// the realism bridge).
+extension ChatServicePostGenTestHooks on ChatService {
+  /// Test-only: mark the in-flight post-gen as rejected so lite/engine
+  /// finalize can prove they skip wear (same flag `_yieldSettlingTurn` sets).
+  @visibleForTesting
+  void debugRequestPostGenAbort() {
+    _postGenAbortRequested = true;
   }
 }

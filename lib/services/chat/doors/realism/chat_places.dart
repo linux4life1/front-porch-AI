@@ -343,7 +343,7 @@ class ChatPlaces {
       _worldRepository,
       fireToolEval: transport.fireToolEval,
       fireTextEval: (p, {onChunk}) =>
-          _g.deps.hooks.fireLLMEval(p, onChunk: onChunk),
+          _g.transport.fireLLMEval(p, onChunk: onChunk),
       probe: transport.probe,
       getBackendIdentity: () => transport.backendIdentity,
     );

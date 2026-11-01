@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -118,6 +119,7 @@ class EditServices {
     required this.macroResolver,
     required this.objectives,
     required this.media,
+    required this.lanes,
   });
 
   final AppDatabase Function() db;
@@ -132,4 +134,8 @@ class EditServices {
   final MacroResolver Function() macroResolver;
   final ObjectivesDoor Function() objectives;
   final MediaDoor Function() media;
+
+  /// The mouth and worker lanes: impersonate's stream, Reprocess on the
+  /// worker lane, KoboldCpp's idle wait and the word odds' local check.
+  final LlmLanes lanes;
 }
