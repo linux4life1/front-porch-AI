@@ -26,10 +26,11 @@ import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
+import 'package:front_porch_ai/services/backup/backup_retention.dart';
 import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/pending_restore.dart';
-import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
+import 'package:front_porch_ai/services/backup/snapshot_files.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 
 /// Creates timestamped backups of the SQLite database (now the primary safety
@@ -40,12 +41,8 @@ import 'package:front_porch_ai/services/prefs_recovery.dart';
 ///     [dailyRetentionDays] calendar days, so a backup survives a full rolling
 ///     week even after the recent window has scrolled past it.
 class BackupService {
-  /// Recent rolling tier: the newest this-many snapshots are always kept.
-  static const int maxBackups = 10;
-
-  /// Daily tier: additionally keep ONE backup per calendar day for the last
-  /// this-many days (a rolling week of dailies on top of the recent snapshots).
-  static const int dailyRetentionDays = 7;
+  static const int maxBackups = BackupRetention.maxBackups;
+  static const int dailyRetentionDays = BackupRetention.dailyRetentionDays;
 
   static const Duration _autoBackupInterval = Duration(minutes: 30);
   static const String _backupDir = 'backups';
@@ -102,6 +99,7 @@ class BackupService {
 
     if (!await snapshotDatabaseTo(backupPath)) return null;
     await _writeSettingsSidecar(backupPath);
+    await _keepUserFiles(backupPath);
     debugPrint('[Backup] Created backup: $backupPath');
     return backupPath;
   }
@@ -170,14 +168,52 @@ class BackupService {
     }
   }
 
-  /// Deletes a snapshot and the settings that travel with it.
-  static Future<void> deleteBackup(File backup) async {
+  /// Captures and cleanups of the file store run one at a time: a cleanup
+  /// beside a capture could remove a stored file the capture is reusing
+  /// before its list is written.
+  static Future<void> _fileStoreTurn = Future.value();
+
+  static Future<void> _inFileStoreTurn(Future<void> Function() work) {
+    final next = _fileStoreTurn.then((_) => work());
+    _fileStoreTurn = next.catchError((Object e) {
+      debugPrint('[Backup] file store work failed: $e');
+    });
+    return _fileStoreTurn;
+  }
+
+  /// Stores the user's files with the snapshot at [backupPath]. A snapshot
+  /// whose files could not be kept still has its database and settings;
+  /// the list shows it without files.
+  static Future<void> _keepUserFiles(String backupPath) async {
+    final root = storageRoot;
+    if (root == null) return;
+    await _inFileStoreTurn(() => SnapshotFiles(root).capture(backupPath));
+  }
+
+  /// Removes stored files no snapshot or waiting restore lists any more.
+  static Future<void> _cleanUpFileStore() async {
+    final root = storageRoot;
+    if (root == null) return;
+    await _inFileStoreTurn(
+      () => SnapshotFiles(
+        root,
+      ).cleanUp(alsoKeep: [PendingRestore.filesListIn(root)]),
+    );
+  }
+
+  /// Deletes a snapshot and the settings and file list that travel with it.
+  static Future<void> deleteBackup(File backup, {bool cleanUp = true}) async {
     await backup.delete();
-    final settings = File(settingsPathFor(backup.path));
-    if (await settings.exists()) await settings.delete();
+    for (final side in [
+      settingsPathFor(backup.path),
+      SnapshotFiles.listPathFor(backup.path),
+    ]) {
+      if (await File(side).exists()) await File(side).delete();
+    }
     // Files a restore replaced, kept beside its safety snapshot.
     final replaced = Directory('${path.withoutExtension(backup.path)}.files');
     if (await replaced.exists()) await replaced.delete(recursive: true);
+    if (cleanUp) await _cleanUpFileStore();
   }
 
   /// The snapshots with what the list shows about each, newest first.
@@ -194,6 +230,7 @@ class BackupService {
             stat.size,
             stat.modified.toLocal(),
             File(settingsPathFor(f.path)).existsSync(),
+            hasFiles: File(SnapshotFiles.listPathFor(f.path)).existsSync(),
           ),
         );
       } catch (e) {
@@ -203,19 +240,24 @@ class BackupService {
     return out;
   }
 
-  /// Stages the settings saved with [entry] for the next launch.
+  /// Stages the settings and files saved with [entry] for the next launch.
   static Future<void> stageSnapshotSettings(BackupEntry entry) async {
     final root = storageRoot;
     if (root == null) throw StateError('Database path not initialized');
     await PendingRestore.stageSettings(
       root,
-      File(settingsPathFor(entry.file.path)),
+      entry.hasSettings ? File(settingsPathFor(entry.file.path)) : null,
       entry.modified,
+      files: _filesOf(entry),
     );
   }
 
+  static File? _filesOf(BackupEntry entry) =>
+      entry.hasFiles ? File(SnapshotFiles.listPathFor(entry.file.path)) : null;
+
   /// Stages [entry] for the next launch: its database, and its settings
-  /// when [withSettings] and it has them. The web app restores this way.
+  /// and files when [withSettings] and it has them. The web app restores
+  /// this way.
   static Future<void> stageSnapshotRestore(
     BackupEntry entry, {
     required bool withSettings,
@@ -229,6 +271,7 @@ class BackupService {
           ? File(settingsPathFor(entry.file.path))
           : null,
       entry.modified,
+      files: withSettings ? _filesOf(entry) : null,
     );
   }
 
@@ -363,95 +406,52 @@ class BackupService {
   ///     [dailyRetentionDays] calendar days (today counts as day 0).
   /// Everything else is deleted. This gives fine-grained recent history plus a
   /// rolling week of daily restore points without unbounded growth. The pure
-  /// policy lives in [backupsToKeep] (filesystem-free, unit-tested); this method
-  /// just supplies the file data and deletes the complement.
+  /// policy lives in [BackupRetention] (filesystem-free, unit-tested); this
+  /// method supplies the file data, deletes the complement, then drops
+  /// stored files no snapshot lists any more.
   static Future<void> pruneBackups() async {
     final backups = await listBackups(); // newest first (by mtime)
     final entries = [
       for (final f in backups) (path: f.path, modified: f.statSync().modified),
     ];
-    final drop = backupsToDrop(entries, DateTime.now());
+    final drop = BackupRetention.toDrop(entries, DateTime.now());
 
     for (final f in backups) {
       if (!drop.contains(f.path)) continue;
       try {
-        await deleteBackup(f);
+        await deleteBackup(f, cleanUp: false);
         debugPrint('[Backup] Pruned old backup: ${f.path}');
       } catch (e) {
         debugPrint('[Backup] Failed to prune: $e');
       }
     }
+    await _cleanUpFileStore();
   }
 
-  /// How many restore safety copies are kept, newest first.
-  static const int maxSafetyCopies = 3;
-
-  /// The backups [pruneBackups] deletes, given them NEWEST-FIRST. Safety
-  /// copies (the undo for a restore) are kept apart from the automatic
-  /// snapshots: they never count toward [backupsToKeep], and the newest
-  /// [maxSafetyCopies] of them stay.
+  /// See [BackupRetention.toDrop].
   @visibleForTesting
   static Set<String> backupsToDrop(
     List<({String path, DateTime modified})> backupsNewestFirst,
     DateTime now,
-  ) {
-    final safety = [
-      for (final b in backupsNewestFirst)
-        if (RestoreApplier.isSafetyCopy(b.path)) b.path,
-    ];
-    final snapshots = [
-      for (final b in backupsNewestFirst)
-        if (!RestoreApplier.isSafetyCopy(b.path)) b,
-    ];
-    final keep = snapshots.length <= maxBackups
-        ? {for (final b in snapshots) b.path}
-        : backupsToKeep(snapshots, now);
-    return {
-      for (final b in snapshots)
-        if (!keep.contains(b.path)) b.path,
-      ...safety.skip(maxSafetyCopies),
-    };
-  }
+  ) => BackupRetention.toDrop(backupsNewestFirst, now);
 
-  /// Pure retention policy (no filesystem) — exposed for testing. Given backups
-  /// as (path, modified) ordered NEWEST-FIRST and the current time [now], returns
-  /// the set of paths to KEEP under the recent + daily rules described on
-  /// [pruneBackups]. Order matters: the first entry seen for a day is treated as
-  /// that day's most-recent snapshot.
+  /// See [BackupRetention.toKeep].
   @visibleForTesting
   static Set<String> backupsToKeep(
     List<({String path, DateTime modified})> backupsNewestFirst,
     DateTime now,
-  ) {
-    final keep = <String>{};
-
-    // Recent tier — the newest maxBackups snapshots.
-    for (var i = 0; i < backupsNewestFirst.length && i < maxBackups; i++) {
-      keep.add(backupsNewestFirst[i].path);
-    }
-
-    // Daily tier — one per calendar day for the last dailyRetentionDays days.
-    final todayMidnight = DateTime(now.year, now.month, now.day);
-    final seenDays = <String>{};
-    for (final b in backupsNewestFirst) {
-      final mod = b.modified;
-      final day = DateTime(mod.year, mod.month, mod.day);
-      final ageDays = todayMidnight.difference(day).inDays;
-      if (ageDays < 0 || ageDays >= dailyRetentionDays) {
-        continue; // future-dated (clock skew) or older than the rolling week
-      }
-      if (seenDays.add('${day.year}-${day.month}-${day.day}')) {
-        keep.add(b.path); // most-recent backup of this day
-      }
-    }
-
-    return keep;
-  }
+  ) => BackupRetention.toKeep(backupsNewestFirst, now);
 }
 
 /// One automatic snapshot as the Backups list shows it.
 class BackupEntry {
-  const BackupEntry(this.file, this.size, this.modified, this.hasSettings);
+  const BackupEntry(
+    this.file,
+    this.size,
+    this.modified,
+    this.hasSettings, {
+    this.hasFiles = false,
+  });
 
   final File file;
   final int size;
@@ -460,4 +460,8 @@ class BackupEntry {
   /// Whether the snapshot carries settings. Snapshots from before settings
   /// were backed up are database only.
   final bool hasSettings;
+
+  /// Whether the snapshot carries the user's files (portraits, pictures,
+  /// worlds, voices). Older snapshots do not.
+  final bool hasFiles;
 }

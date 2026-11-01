@@ -25,12 +25,43 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart' show formatRelativeTime;
 
-/// What a restore of [kind] puts back, for the sentences below.
-String restoreScope(PendingRestoreKind kind) => switch (kind) {
-  PendingRestoreKind.full => 'library, settings and files',
-  PendingRestoreKind.snapshot => 'library and settings',
-  PendingRestoreKind.settings => 'settings',
-};
+/// What a restore of [kind] puts back, for the sentences below. [files]
+/// says a snapshot or settings restore brings the user's files too.
+String restoreScope(PendingRestoreKind kind, {bool files = false}) =>
+    switch (kind) {
+      PendingRestoreKind.full => 'library, settings and files',
+      PendingRestoreKind.snapshot =>
+        files ? 'library, settings and files' : 'library and settings',
+      PendingRestoreKind.settings => files ? 'settings and files' : 'settings',
+    };
+
+/// What an automatic snapshot holds, for its row in the list.
+String snapshotContents(bool settings, bool files) =>
+    switch ((settings, files)) {
+      (true, true) => 'library, settings and files',
+      (true, false) => 'library and settings',
+      (false, true) => 'library and files',
+      (false, false) => 'library only',
+    };
+
+/// The restore dialog's checkbox for what comes back beside the library.
+String restoreExtrasTitle(BackupEntry b) =>
+    switch ((b.hasSettings, b.hasFiles)) {
+      (true, true) => 'Also restore settings and files',
+      (false, true) => 'Also restore files',
+      _ => 'Also restore settings',
+    };
+
+String restoreExtrasDetail(BackupEntry b) {
+  final what = [
+    if (b.hasSettings) 'Saved prompts, presets and every other setting',
+    if (b.hasFiles)
+      b.hasSettings
+          ? 'portraits, pictures, worlds and voices'
+          : 'Portraits, pictures, worlds and voices',
+  ].join(', ');
+  return '$what come back the next time you open Front Porch AI.';
+}
 
 /// Closes the app through its normal quit path (saves flushed, engines
 /// stopped), so a restore staged for the next launch can run.
@@ -73,7 +104,7 @@ Future<void> showRestartToFinish(BuildContext context, DateTime created) {
 
 /// The notice after the first frame when this launch applied a restore.
 Future<void> showRestoreOutcome(BuildContext context, RestoreOutcome o) {
-  final what = 'Your ${restoreScope(o.kind)}';
+  final what = 'Your ${restoreScope(o.kind, files: o.withFiles)}';
   return showWarmDialog<void>(
     context,
     title: o.error == null ? 'Backup restored' : "The restore didn't finish",
@@ -130,7 +161,7 @@ class PendingRestoreBannerState extends State<PendingRestoreBanner> {
         final pending = snap.data;
         if (pending == null) return const SizedBox.shrink();
         final theme = Theme.of(context);
-        final what = restoreScope(pending.kind);
+        final what = restoreScope(pending.kind, files: pending.withFiles);
         return Container(
           margin: const EdgeInsets.only(bottom: 20),
           padding: const EdgeInsets.all(16),

@@ -28,6 +28,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
+import 'package:front_porch_ai/services/backup/snapshot_files.dart';
 
 /// What a restore waiting for the next launch will put back.
 enum PendingRestoreKind { full, snapshot, settings }
@@ -41,9 +42,18 @@ enum PendingRestoreKind { full, snapshot, settings }
 /// the next launch, after the settings store is healed and before the
 /// database or any setting is read.
 class PendingRestore {
-  const PendingRestore(this.kind, this.staged, this.created);
+  const PendingRestore(
+    this.kind,
+    this.staged,
+    this.created, {
+    this.withFiles = false,
+  });
 
   final PendingRestoreKind kind;
+
+  /// Whether a snapshot or settings restore also puts back the user's
+  /// files (a full restore always does).
+  final bool withFiles;
 
   /// When it was staged.
   final DateTime staged;
@@ -55,6 +65,7 @@ class PendingRestore {
   static const String _archiveName = 'pending.fpbackup';
   static const String _settingsName = 'settings.json';
   static const String _snapshotName = 'snapshot.db';
+  static const String _filesName = 'files.json';
 
   /// The result of the restore applied at this launch, for the notice
   /// after the first frame. Null when nothing was pending.
@@ -62,6 +73,11 @@ class PendingRestore {
 
   static Directory dirFor(String root) =>
       Directory(p.join(root, 'KoboldManager', 'restore'));
+
+  /// The snapshot file list a waiting restore holds. The files it names
+  /// stay in the snapshot file store until it is applied or dropped.
+  static String filesListIn(String root) =>
+      p.join(dirFor(root).path, _filesName);
 
   /// Where the storage root and database file are before anything has
   /// opened them. Mirrors `AppDatabase.instance()`, which owns the rule.
@@ -93,6 +109,7 @@ class PendingRestore {
         ),
         DateTime.parse('${doc['staged']}').toLocal(),
         DateTime.parse('${doc['created']}').toLocal(),
+        withFiles: doc['files'] == true,
       );
     } catch (e) {
       debugPrint('[Restore] pending restore marker unreadable: $e');
@@ -109,14 +126,16 @@ class PendingRestore {
   static Future<void> _writeMarker(
     Directory dir,
     PendingRestoreKind kind,
-    DateTime created,
-  ) async {
+    DateTime created, {
+    bool files = false,
+  }) async {
     final tmp = File(p.join(dir.path, '$_marker.tmp'));
     await tmp.writeAsString(
       jsonEncode({
         'kind': kind.name,
         'staged': DateTime.now().toUtc().toIso8601String(),
         'created': created.toUtc().toIso8601String(),
+        'files': files,
       }),
       flush: true,
     );
@@ -128,37 +147,68 @@ class PendingRestore {
     return dirFor(root).create(recursive: true);
   }
 
-  /// Stages a snapshot's settings file for the next launch. Throws
-  /// [FormatException] when it cannot be read.
+  /// Stages a snapshot's settings file, and its [files] list when given,
+  /// for the next launch (the desktop puts the database back in place
+  /// first). Throws [FormatException] when either cannot be read.
   static Future<void> stageSettings(
     String root,
-    File settings,
-    DateTime created,
-  ) async {
-    SettingsSnapshot.decode(await settings.readAsString());
+    File? settings,
+    DateTime created, {
+    File? files,
+  }) async {
+    if (settings == null && files == null) {
+      throw const FormatException('that snapshot has no settings or files');
+    }
+    await _check(settings, files);
     final dir = await _freshDir(root);
-    await settings.copy(p.join(dir.path, _settingsName));
-    await _writeMarker(dir, PendingRestoreKind.settings, created);
+    await _copyExtras(dir, settings, files);
+    await _writeMarker(
+      dir,
+      PendingRestoreKind.settings,
+      created,
+      files: files != null,
+    );
   }
 
-  /// Stages an automatic snapshot (its database, and its settings when it
-  /// has them) for the next launch. The web app restores snapshots this way,
-  /// since it cannot reload the desktop's open database in place.
+  /// Stages an automatic snapshot (its database, and its settings and
+  /// [files] when given) for the next launch. The web app restores
+  /// snapshots this way, since it cannot reload the desktop's open
+  /// database in place.
   static Future<void> stageSnapshot(
     String root,
     File database,
     File? settings,
-    DateTime created,
-  ) async {
+    DateTime created, {
+    File? files,
+  }) async {
+    await _check(settings, files);
+    final dir = await _freshDir(root);
+    await database.copy(p.join(dir.path, _snapshotName));
+    await _copyExtras(dir, settings, files);
+    await _writeMarker(
+      dir,
+      PendingRestoreKind.snapshot,
+      created,
+      files: files != null,
+    );
+  }
+
+  static Future<void> _check(File? settings, File? files) async {
     if (settings != null) {
       SettingsSnapshot.decode(await settings.readAsString());
     }
-    final dir = await _freshDir(root);
-    await database.copy(p.join(dir.path, _snapshotName));
+    if (files != null) await SnapshotFiles.readList(files.path);
+  }
+
+  static Future<void> _copyExtras(
+    Directory dir,
+    File? settings,
+    File? files,
+  ) async {
     if (settings != null) {
       await settings.copy(p.join(dir.path, _settingsName));
     }
-    await _writeMarker(dir, PendingRestoreKind.snapshot, created);
+    if (files != null) await files.copy(p.join(dir.path, _filesName));
   }
 
   /// Checks [archive] and stages it for the next launch. When [move] is
@@ -239,8 +289,20 @@ class PendingRestore {
           (rel) => safeTarget(root, rel),
         );
       } else {
-        if (pending.kind == PendingRestoreKind.snapshot) {
-          await applier.applyDatabase(File(p.join(dir.path, _snapshotName)));
+        final database = pending.kind == PendingRestoreKind.snapshot
+            ? File(p.join(dir.path, _snapshotName))
+            : null;
+        final files = File(filesListIn(root));
+        if (await files.exists()) {
+          await applier.applySnapshotFiles(
+            await SnapshotFiles.readList(files.path),
+            SnapshotFiles(root),
+            Directory(p.join(dir.path, 'staging')),
+            (rel) => safeTarget(root, rel),
+            database: database,
+          );
+        } else if (database != null) {
+          await applier.applyDatabase(database);
         }
         final settingsFile = File(p.join(dir.path, _settingsName));
         if (await settingsFile.exists()) {
@@ -250,11 +312,21 @@ class PendingRestore {
         }
       }
       await cancel(root);
-      lastOutcome = RestoreOutcome(pending.kind, pending.created, null);
+      lastOutcome = RestoreOutcome(
+        pending.kind,
+        pending.created,
+        null,
+        withFiles: pending.withFiles,
+      );
       debugPrint('[Restore] applied ${pending.kind.name} restore');
     } catch (e) {
       debugPrint('[Restore] restore failed: $e');
-      lastOutcome = RestoreOutcome(pending.kind, pending.created, '$e');
+      lastOutcome = RestoreOutcome(
+        pending.kind,
+        pending.created,
+        '$e',
+        withFiles: pending.withFiles,
+      );
       try {
         await File(p.join(dir.path, _marker)).delete();
       } catch (markerError) {
@@ -277,9 +349,15 @@ class PendingRestore {
 
 /// How the restore applied at this launch went.
 class RestoreOutcome {
-  const RestoreOutcome(this.kind, this.backupCreated, this.error);
+  const RestoreOutcome(
+    this.kind,
+    this.backupCreated,
+    this.error, {
+    this.withFiles = false,
+  });
 
   final PendingRestoreKind kind;
+  final bool withFiles;
   final DateTime backupCreated;
 
   /// Null when it worked.
