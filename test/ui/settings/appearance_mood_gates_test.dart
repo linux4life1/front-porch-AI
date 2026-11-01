@@ -142,4 +142,30 @@ void main() {
     expect(storage.appearance.moodOnCharacter, MoodOnCharacter.off);
     expect(tester.widget<Slider>(slider).onChanged, isNull);
   });
+
+  testWidgets('the Background weather header fits a narrow tab', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final storage = _Storage();
+    addTearDown(storage.dispose);
+    // The sweep's 400px window leaves the Appearance tab about 150px, less
+    // than the title alone; the row must wrap it beside the icon, not
+    // overflow.
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: SizedBox(width: 140, child: BackgroundWeatherSection()),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.text('Background weather'), findsOneWidget);
+    expect(find.byTooltip(BackgroundWeatherSection.tooltip), findsOneWidget);
+  });
 }

@@ -54,10 +54,12 @@ class BackgroundWeatherSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 28),
+        // The header shrinks beside its icon so a narrow tab wraps the
+        // title instead of overflowing.
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SectionHeader('Background weather'),
+            const Flexible(child: SectionHeader('Background weather')),
             const SizedBox(width: 6),
             Tooltip(
               message: tooltip,
