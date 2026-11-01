@@ -515,6 +515,16 @@ Done when: part baseline → 11, those 21 files pass, and
 `integration_test/lorebook_chat_test.dart`, `continue_path_test.dart` and
 `app_smoke_test.dart` pass.
 
+Landed at 14 parts and 57 fields (33 in the bag, 24 on the class), all
+eight parts retired. The turn record is now the public `GenTurn` leaf
+(34 rename sites); `PromptAssembler` runs the four prompt phases on it
+and `ContextBudget` is its own class. The 21 prompt-section files and the
+lore, history-prefix and Continue suites pass unedited. Test re-points
+were path only in four leaf tests (`token_count_memo`, `prompt_plan`,
+`keyword_lore_system_head`, `journal_off_no_recap`) and seven markers in
+the group-card manifest; neither gate ratchet needed an edit. The
+`ImpersonatePromptHooks` are gone.
+
 ### WP10b. Turn engine
 
 Parts retired (6, ~2,050 lines): `chat_service_generation`,
