@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -44,7 +45,7 @@ class EditDeps {
     required this.realism,
     required this.cast,
     required this.sessions,
-    required this.prompt,
+    required this.prompts,
   });
 
   /// The open chat: messages, session id, active character, group.
@@ -69,7 +70,11 @@ class EditDeps {
 
   /// Chat switching and the history window: the session store's own.
   final SessionStore Function() sessions;
-  final ImpersonatePromptHooks prompt;
+
+  /// The prompt pieces impersonate shares with the reply path: the prompt
+  /// source, the persona and Author's Note blocks, the macro context, the
+  /// history window and token counting.
+  final PromptAssembler Function() prompts;
 }
 
 /// The public read surface of the chat service, as closures. The real

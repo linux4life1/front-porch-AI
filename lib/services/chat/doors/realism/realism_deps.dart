@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
@@ -108,6 +109,7 @@ class RealismDoors {
     required this.objectives,
     required this.sessions,
     required this.controls,
+    required this.prompts,
   });
 
   final CastDoor Function() cast;
@@ -122,6 +124,9 @@ class RealismDoors {
   /// Objectives, Afterglow, the clock, One-Shot, the eval's Chance Time
   /// lock).
   final ControlsDoor Function() controls;
+
+  /// The prompt assembler: the chat's macro context lore keys resolve with.
+  final PromptAssembler Function() prompts;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -136,7 +141,6 @@ class RealismShellHooks {
     required this.disposed,
     required this.staleGreetingEval,
     required this.memoryPassEpoch,
-    required this.macroContext,
     required this.isGenerating,
     required this.isTurnBusy,
     required this.stampGroupUserTurnBaseline,
@@ -150,12 +154,6 @@ class RealismShellHooks {
   /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
   final String Function() ragCharacterId;
   final bool Function() disposed;
-
-  // ── Prompt (WP10a) ────────────────────────────────────────────────────
-
-  /// The chat's macro context for [speaking] (lore keys resolve with it).
-  final MacroContext Function(CharacterCard speaking, {String? scenario})
-  macroContext;
 
   // ── Turn (WP10b, WP10c) ───────────────────────────────────────────────
 

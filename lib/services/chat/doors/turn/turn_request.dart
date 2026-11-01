@@ -16,24 +16,62 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Phase 4 of `_generateResponse` (see chat_service_generation.dart): syncs
-/// the late-filled plan sections, renders the final prompt, records the
-/// Context Viewer snapshot, builds the stop-sequence list, resolves the LLM
-/// service (+ call-mode model swap), builds [GenerationParams], and starts
-/// the stream (plus the prefill perf poller). Extracted verbatim (mechanical
-/// `x` → `t.x` carrier rename only — see `_GenTurn`) from the single
-/// ~1.9k-line `_generateResponse` method during the god-file split
-/// (docs/design/god-file-elimination.md). Zero behaviour change.
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
+import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+
+/// Phase 4 of `_generateResponse`: syncs the late-filled plan sections,
+/// renders the final prompt, records the Context Viewer snapshot, builds
+/// the stop-sequence list, resolves the LLM service (+ call-mode model
+/// swap), builds [GenerationParams], rings the tool doorbell and the forced
+/// lookup, and starts the stream; the turn engine's prefill bookkeeping
+/// then runs ([PromptShellHooks.enterPrefill]). The body is the one the
+/// generation part held (`x` → `t.x` carrier names, see [GenTurn]); zero
+/// behaviour change.
 ///
-/// H3 (do not "fix"): [contextSize] below is the bare ChatService GETTER
-/// (`contextSize` on `ChatService`, session-resolved), a DIFFERENT value from
-/// the raw backend-settings local of the same name in the RAG phase
-/// (`chat_service_generation_rag.dart`). Do not hoist either onto the
-/// carrier or unify the two scopes.
-extension ChatServiceGenerationRequest on ChatService {
-  Future<void> _dispatchGeneration(_GenTurn t) async {
+/// H3 (do not "fix"): `contextLimit` below is the session-resolved
+/// [PromptAssembler.contextSize] (the chat service's `contextSize` getter), a
+/// DIFFERENT value from the raw backend-settings local of the same name in
+/// the RAG phase ([TurnRag]). Do not hoist either onto the carrier or unify
+/// the two scopes.
+class TurnRequest {
+  TurnRequest(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  UserPersonaService get _userPersonaService => _d.services.personas;
+  LLMProvider? get _llmProvider => _d.services.llmProvider();
+  LlmLanes get _lanes => _d.services.lanes;
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  MediaDoor get _mediaDoor => _d.doors.media();
+  PromptHistory get _transcript => _a.history;
+  ContextBudgetStore get _contextBudget => _a.budget.store;
+  ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _callMode => _d.doors.controls().callMode;
+  String? get _pendingIdleCue => _d.doors.cast().idle.pendingIdleCue;
+  ToolTransportProbe get _toolProbe => _g.transport.probe;
+  String get _evalBackendIdentity => _g.transport.backendIdentity;
+  String? get _callEvalModelOriginal => _a.callSwap.parkedOriginal;
+  set _callEvalModelOriginal(String? v) => _a.callSwap.parkedOriginal = v;
+
+  Future<void> dispatch(GenTurn t) async {
     // Realism injection was already computed above for budget
 
     // Inject fourth-wall idle cue if Dynamic Responses triggered.
@@ -67,11 +105,11 @@ extension ChatServiceGenerationRequest on ChatService {
     // the Total a user compares with the context size is what the send
     // weighs, not an estimate that drifts by model (issue #550's reading).
     final sectionMap = t.plan.sectionTexts();
-    final sentTokens = await _countTokens(sectionMap.values.join());
+    final sentTokens = await _transcript.countTokens(sectionMap.values.join());
     _contextBudget.recordLastSend(
       budgetMap: scaleBudgetRows(t.plan.budgetEstimates(), sentTokens),
       sectionMap: sectionMap,
-      contextLimit: contextSize,
+      contextLimit: _a.contextSize,
       droppedMessages: t.droppedMessages,
     );
 
@@ -149,7 +187,7 @@ extension ChatServiceGenerationRequest on ChatService {
     // regenerate, first group speaker, or continue of that reply) and never
     // on a later idle/AFK, group auto-advance, or guest turn. Blind backends
     // get null and rely on the history marker from _formatHistoryLine.
-    final turnImages = await mediaDoor.buildTurnImages(t.mode);
+    final turnImages = await _mediaDoor.buildTurnImages(t.mode);
 
     GenerationParams paramsOf(
       String p, {
@@ -159,7 +197,9 @@ extension ChatServiceGenerationRequest on ChatService {
     }) {
       // A rewrite from a word also writes inside the answer: no thinking.
       final callOrContinue =
-          _callMode || t.mode == GenerationMode.continue_ || _isSeeded(t);
+          _callMode ||
+          t.mode == GenerationMode.continue_ ||
+          _a.tokenAlts.isSeeded(t);
       return GenerationParams(
         prompt: p,
         systemPrompt: systemPrompt ?? chatSystemPrompt,
@@ -199,9 +239,9 @@ extension ChatServiceGenerationRequest on ChatService {
             : null,
         images: turnImages,
         kvChat: _session.currentSessionId,
-        stillWant: () => !_cancelRequested,
-        chatMessages: _seededMessages(t, p),
-        onLogprobs: _logprobsSink(t),
+        stillWant: () => !_d.hooks.cancelRequested(),
+        chatMessages: _a.tokenAlts.seededMessages(t, p),
+        onLogprobs: _a.tokenAlts.logprobsSink(t),
       );
     }
 
@@ -237,7 +277,7 @@ extension ChatServiceGenerationRequest on ChatService {
     final includeWiki =
         t.forcedWikiQuery == null &&
         shouldAdvertiseWikiSearch(
-          wikiUrl: mediaDoor.wikiBaseUrl,
+          wikiUrl: _mediaDoor.wikiBaseUrl,
           directUserSend: t.directUserSend,
           continueMode: t.mode == GenerationMode.continue_,
           toolsUnsupported: xmlOnly,
@@ -281,8 +321,8 @@ extension ChatServiceGenerationRequest on ChatService {
               llm: sideLaneLlm,
               params: job.params,
               catalog: job.catalog,
-              search: mediaDoor.webSearchService,
-              wiki: mediaDoor.wikiSearchService,
+              search: _mediaDoor.webSearchService,
+              wiki: _mediaDoor.wikiSearchService,
               backendIdentity: _evalBackendIdentity,
             );
             if (round.searchReceipt != null) {
@@ -299,7 +339,7 @@ extension ChatServiceGenerationRequest on ChatService {
         });
       }
     }
-    final forced = await mediaDoor.runForcedLookup(
+    final forced = await _mediaDoor.runForcedLookup(
       webQuery: t.forcedWebQuery,
       wikiQuery: t.forcedWikiQuery,
     );
@@ -322,81 +362,7 @@ extension ChatServiceGenerationRequest on ChatService {
     // speech start while the mouth is still unloaded.
     await _llmProvider?.waitForWorkerLaneIdle(pinSpeech: true);
     t.stream = llmService.generateStream(genParams);
-
-    // ── Phase: Prefilling ──
-    // The HTTP request is now in flight. For KoboldCPP, the model is
-    // processing the prompt (prefill/eval). No tokens arrive until
-    // prefill finishes. Poll /api/extra/perf for real-time status.
-    _generationPhase = GenerationPhase.prefilling;
-    _prefillStartTime = DateTime.now();
-    _prefillPromptTokens = (prompt.length / 4).ceil(); // Rough placeholder
-    notifyListeners();
-
-    // If using local KoboldCPP, poll /api/extra/perf during prefill
-    // to get real prompt processing metrics.
-    final isLocalBackend = t.isLocalBackend =
-        _llmProvider == null || _llmProvider!.isLocal;
-    if (isLocalBackend) {
-      // Get REAL token count from the model's tokenizer (async, updates UI when done)
-      _koboldService.countTokens(prompt).then((realCount) {
-        if (_generationPhase == GenerationPhase.prefilling && realCount > 0) {
-          _prefillPromptTokens = realCount;
-          debugPrint(
-            '[Prefill] Actual token count from tokenizer: $realCount (was ~${(prompt.length / 4).ceil()} est)',
-          );
-          notifyListeners();
-        }
-      });
-
-      t.perfPoller = Timer.periodic(const Duration(seconds: 2), (_) async {
-        if (_generationPhase != GenerationPhase.prefilling) {
-          t.perfPoller?.cancel();
-          t.perfPoller = null;
-          return;
-        }
-        final perf = await _koboldService.fetchPerf();
-        if (perf != null) {
-          _lastPerfData = perf;
-          notifyListeners();
-        }
-      });
-    }
-  }
-
-  /// Pre-turn half of the call-model swap (voice call safe speed lane): the
-  /// old swap fired only in the request phase, so every pre-generation LLM
-  /// call of a voice turn — the realism judges, the time eval, the
-  /// objective check — still waited on the full-size main model, which is
-  /// where the "Thinking…" silence actually lived. sendMessage enters the
-  /// swap before that work; the request phase above adopts it into
-  /// [_GenTurn.originalModelName], whose existing restore sites (postgen,
-  /// stream-cancel, catch) put the main model back. Same gate as the
-  /// in-request swap — every backend that carries the model as a request
-  /// parameter (remote APIs AND oMLX, which rides openRouterService;
-  /// isLocal is true only for managed KoboldCpp, where a swap would mean a
-  /// process restart per turn).
-  void _enterCallEvalModelSwap() {
-    if (_callEvalModelOriginal != null) return; // already parked this turn
-    if (!_callMode ||
-        _storageService.sttSettings.callModelName.isEmpty ||
-        _llmProvider == null ||
-        _llmProvider!.isLocal) {
-      return;
-    }
-    _callEvalModelOriginal = _llmProvider!.openRouterService.modelName;
-    _llmProvider!.openRouterService.configure(
-      modelName: _storageService.sttSettings.callModelName,
-    );
-  }
-
-  /// Abandon half: restores the main model when a swapped turn never reaches
-  /// the request phase (eval cancelled) or the call ends with a swap parked
-  /// (the callMode setter calls this on every call end, belt and braces).
-  void _exitCallEvalModelSwap() {
-    final original = _callEvalModelOriginal;
-    if (original == null || _llmProvider == null) return;
-    _callEvalModelOriginal = null;
-    _llmProvider!.openRouterService.configure(modelName: original);
+    _d.hooks.enterPrefill(t, prompt);
   }
 
   /// Latest user line for the web-search doorbell. promptText, so a photo
@@ -408,44 +374,4 @@ extension ChatServiceGenerationRequest on ChatService {
     }
     return '';
   }
-}
-
-/// The turn side of token alternatives (store and rewrite in the edits
-/// door's TokenAlts): seed a rewrite, ask KoboldCpp for word odds, keep the
-/// reply's unsure places. Continue is never seeded and never asks.
-extension ChatServiceTokenAltTurn on ChatService {
-  /// A rewrite from a word: the reply starts with [_GenTurn.continuePrefix],
-  /// which KoboldCpp continues as a trailing assistant message.
-  bool _isSeeded(_GenTurn t) => TokenAlts.isSeeded(t.mode, t.continuePrefix);
-
-  /// Hands the pending rewrite seed to the turn being planned.
-  void _applyRegenSeed(_GenTurn t) {
-    final seed = editsDoor.tokenAlts.takeSeed();
-    if (seed != null && t.mode == GenerationMode.normal) {
-      t.continuePrefix = seed;
-    }
-  }
-
-  List<Map<String, Object>>? _seededMessages(_GenTurn t, String prompt) =>
-      _isSeeded(t)
-      ? [
-          {'role': 'user', 'content': prompt},
-          {'role': 'assistant', 'content': t.continuePrefix},
-        ]
-      : null;
-
-  /// Asks for word odds on a normal reply from KoboldCpp, and nowhere else.
-  void Function(List<Object?>)? _logprobsSink(_GenTurn t) {
-    if (!_lanes.mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
-      return null;
-    }
-    return editsDoor.tokenAlts.sinkFor(t);
-  }
-
-  /// Keeps the unsure places of the finished reply on its swipe.
-  void _stampTokenAlts(_GenTurn t) => editsDoor.tokenAlts.stamp(
-    t,
-    t.streamTarget,
-    from: _isSeeded(t) ? t.continuePrefix.length : 0,
-  );
 }

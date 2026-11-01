@@ -100,11 +100,8 @@ extension ChatServiceAccessors on ChatService {
     await _saveChat();
   }
 
-  /// Names of lore entries dropped by the token budget on the last
-  /// generation, plus the meter numbers the sidebar shows.
-  List<String> get lastLoreOverflow => _lastLoreOverflow;
-  int get lastLoreTokens => _lastLoreTokens;
-  int get lastLoreBudget => _lastLoreBudget;
+  // The last turn's lore meter (lastLoreOverflow, lastLoreTokens,
+  // lastLoreBudget) is in prompt_api.dart.
 
   /// Read surface for the sidebar's sticky/cooldown countdown pills.
   LorebookTimedEffects get loreTimedEffects => _loreTimedEffects;

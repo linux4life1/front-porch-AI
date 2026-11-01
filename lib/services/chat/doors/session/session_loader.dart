@@ -119,8 +119,11 @@ class SessionLoader {
       // 0-session: no per-chat gen overrides — without this, character B's
       // first chat ran (and could SAVE) character A's temp/stops/sanitizer.
       _store.genSettings = ChatGenerationSettings();
-      _h.armPromptPicker(); // prompt-picker SOW: a card with no saved session is a new chat
-      _h.clearContextBudget();
+      _s
+          .prompts()
+          .source
+          .armPickerIfDue(); // prompt-picker SOW: a card with no saved session is a new chat
+      _s.prompts().budget.clear();
       return;
     }
 

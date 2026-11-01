@@ -16,23 +16,59 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:math' as math;
 
-/// Phase 3 of `_generateResponse` (see chat_service_generation.dart): RAG
-/// memory retrieval + the joint memory/history budget trim. Extracted
-/// verbatim (mechanical `x` → `t.x` carrier rename only — see `_GenTurn`)
-/// from the single ~1.9k-line `_generateResponse` method during the
-/// god-file split (docs/design/god-file-elimination.md). Zero behaviour
-/// change. Also carries `_getMemorySourceIds` — relocated verbatim from
-/// `chat_service.dart` (its only caller lives in this phase) to offset the
-/// new part directives against the god-file line-count ratchet.
-extension ChatServiceGenerationRag on ChatService {
-  Future<void> _retrieveGenerationMemories(_GenTurn t) async {
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/memory_service.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+
+/// Absolute ceiling on the RAG memories block, applied on top of the
+/// percentage budget (1:1's 10% / the group's configurable %). The block is
+/// verbatim old transcript injected AFTER the history; past ~2,500 tokens
+/// models start replaying it as if it were the current scene, so the cap
+/// keeps large-context setups (10% of 32k = 3,200) under that line too.
+const int kRagMemoryBudgetCapTokens = 1200;
+
+/// Phase 3 of `_generateResponse`: RAG memory retrieval, the joint
+/// memory/history budget trim and the turn's retrieval receipt. The body
+/// is the one the generation part held (`x` → `t.x` carrier names, see
+/// [GenTurn]); zero behaviour change.
+class TurnRag {
+  TurnRag(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  MemoryService? get _memoryService => _d.services.memory();
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  PromptHistory get _transcript => _a.history;
+  SessionHistoryWindow get _history => _sessions.history;
+  GroupMemberSettings get _members => _d.doors.entry().members;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  bool get _isNewChat => _sessions.isNewChat;
+  bool get _clockRunning => _d.doors.controls().clockRunning;
+  String get _characterEmotion => _g.registers.emotion;
+  RelationshipService get _relationshipService => _g.relationship;
+  TimeService get _timeService => _g.time;
+  Future<void> _awaitHistoryHydrated() =>
+      _sessions.window.awaitHistoryHydrated();
+
+  Future<void> retrieve(GenTurn t) async {
     // ── RAG Memory Retrieval ──
     // When messages are dropped from context, search for relevant past memories
     // Skip retrieval for brand new chats to prevent old memories from interfering
     final effectiveRagEnabled = _activeGroup != null
-        ? groupRagEnabled
+        ? _members.groupRagEnabled
         : _storageService.memorySettings.ragEnabled;
 
     if (_isNewChat) {
@@ -81,7 +117,7 @@ extension ChatServiceGenerationRag on ChatService {
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
         // injection format/budget below is shared — only the source id swaps.
-        final packed = await _getMemorySourceIds(guest: t.guestSpeaker);
+        final packed = await _a.ragSources.sourceIds(guest: t.guestSpeaker);
         final sourceIds = packed.sourceIds;
         debugPrint('[RAG:Chat] Memory source IDs: $sourceIds');
 
@@ -100,7 +136,7 @@ extension ChatServiceGenerationRag on ChatService {
         // The slider was previously DEAD here — 1:1 silently rode the group
         // default (8) and turning it down did nothing. 0 = "All" on both.
         final retrievalLimit = _activeGroup != null
-            ? groupRetrievalCount
+            ? _members.groupRetrievalCount
             : _storageService.memorySettings.ragRetrievalCount;
 
         final List<RetrievedMemory> rawMemories;
@@ -114,7 +150,7 @@ extension ChatServiceGenerationRag on ChatService {
             currentSessionId: _session.currentSessionId ?? '',
             inContextStart: _history.basePosition + t.droppedMessages,
             limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
-            characterPriorities: currentGroupRAGPriorities,
+            characterPriorities: _members.currentGroupRAGPriorities,
             sessionScopedCharacterIds: sessionScoped,
           );
         }
@@ -184,7 +220,7 @@ extension ChatServiceGenerationRag on ChatService {
             _storageService.backendSettings.contextSize,
           );
           final budgetFraction = _activeGroup != null
-              ? (groupMemoryBudgetPercent / 100.0)
+              ? (_members.groupMemoryBudgetPercent / 100.0)
               : 0.10;
           final memoryBudget = math.min(
             (contextSize * budgetFraction).round(),
@@ -263,7 +299,7 @@ extension ChatServiceGenerationRag on ChatService {
             // EMPTY (a lone oversize memory is dropped, never shipped over
             // budget). historyBudget <= 0 means the fixed sections already
             // fill the context — no room for memories at all.
-            int memTokens = await _countTokens(t.memoriesBlock);
+            int memTokens = await _transcript.countTokens(t.memoriesBlock);
             while (memTokens > 0 &&
                 (memTokens > memoryBudget ||
                     t.historyBudget - memTokens <= 0)) {
@@ -274,13 +310,13 @@ extension ChatServiceGenerationRag on ChatService {
               t.memoriesBlock = included.isEmpty ? '' : buildBlock(included);
               memTokens = t.memoriesBlock.isEmpty
                   ? 0
-                  : await _countTokens(t.memoriesBlock);
+                  : await _transcript.countTokens(t.memoriesBlock);
             }
             if (memTokens > 0) {
               // Re-walk history with the remainder (strictly positive here;
-              // _buildChatHistoryWithBudget treats <= 0 as UNLIMITED) so
+              // buildChatHistoryWithBudget treats <= 0 as UNLIMITED) so
               // fixed + history + memories + reserve <= context.
-              final rebudget = await _buildChatHistoryWithBudget(
+              final rebudget = await _transcript.buildChatHistoryWithBudget(
                 t.historyBudget - memTokens,
                 depthLore: t.loreDepth,
                 splitLatestTurn: true,
@@ -354,98 +390,5 @@ extension ChatServiceGenerationRag on ChatService {
         status: kRagReceiptNotOperational,
       );
     }
-  }
-
-  /// Resolve the RAG source character ids for retrieval.
-  ///
-  /// Normally keyed on the active character (or the group bucket). When a
-  /// [guest] is supplied (Scene Guests Phase 4), retrieval is keyed on the
-  /// guest's OWN id instead — the same id the guest embeds under via
-  /// [_maybeEmbedMessages] — plus that guest's cross-character memory sources.
-  /// This keeps the guest's episodic memory isolated from the host's: the
-  /// host's memories are never injected on a guest turn, and vice versa.
-  ///
-  /// Groups: conversation RAG stays on `group_<id>`. Data Bank rows and
-  /// library `memory_sources` key by the origin portrait basename / library
-  /// UUID, never the group-private avatar UUID. [sessionScoped] is the
-  /// group bucket plus those library ids so 1:1 embeddings cannot bleed;
-  /// explicit cross-character sources that are not members stay unscoped.
-  Future<({List<String> sourceIds, Set<String> sessionScoped})>
-  _getMemorySourceIds({CharacterCard? guest}) async {
-    final currentId = guest != null
-        ? _getCharacterIdFromCard(guest)
-        : _getCharacterId();
-    final sourceIds = <String>[currentId];
-    final sessionScoped = <String>{if (currentId.isNotEmpty) currentId};
-
-    Future<void> addMemorySources(String? libraryDbId) async {
-      if (libraryDbId == null || libraryDbId.isEmpty) return;
-      try {
-        final dbChar = await _db.getCharacterById(libraryDbId);
-        final ms = dbChar.memorySources;
-        if (ms.isNotEmpty && ms != '[]') {
-          final decoded = List<String>.from(
-            (jsonDecode(ms) as List).map((e) => e.toString()),
-          );
-          for (final id in decoded) {
-            if (!sourceIds.contains(id)) sourceIds.add(id);
-          }
-          if (decoded.isNotEmpty) {
-            debugPrint('[RAG:Chat] Cross-character sources: $decoded');
-          }
-        }
-      } catch (e) {
-        debugPrint('[RAG:Chat] Failed to read memorySources: $e');
-      }
-    }
-
-    if (guest != null) {
-      await addMemorySources(guest.dbId);
-      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
-    }
-
-    if (_activeGroup != null) {
-      final library =
-          _characterRepository?.characters ?? const <CharacterCard>[];
-      final repo = _groupChatRepository;
-      final members = repo != null
-          ? await repo.getMembersForGroup(_activeGroup!.id)
-          : const <GroupMember>[];
-      if (members.isNotEmpty) {
-        for (final m in members) {
-          final ident = MemberOriginResolver.libraryRagIdentity(
-            originStableId: m.originStableId,
-            originLibraryDbId: m.originLibraryDbId,
-            memberName: m.name,
-            libraryCharacters: library,
-          );
-          final sid = ident.sourceId;
-          if (sid != null && sid.isNotEmpty) {
-            if (!sourceIds.contains(sid)) sourceIds.add(sid);
-            sessionScoped.add(sid);
-          }
-          await addMemorySources(ident.libraryDbId);
-        }
-      } else {
-        for (final c in _groupCharacters) {
-          final ident = MemberOriginResolver.libraryRagIdentity(
-            originStableId: null,
-            originLibraryDbId: null,
-            memberName: c.name,
-            libraryCharacters: library,
-          );
-          final sid = ident.sourceId;
-          if (sid != null && sid.isNotEmpty) {
-            if (!sourceIds.contains(sid)) sourceIds.add(sid);
-            sessionScoped.add(sid);
-          }
-          await addMemorySources(ident.libraryDbId);
-        }
-      }
-      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
-    }
-
-    await addMemorySources(_session.activeCharacter?.dbId);
-    return (sourceIds: sourceIds, sessionScoped: sessionScoped);
   }
 }

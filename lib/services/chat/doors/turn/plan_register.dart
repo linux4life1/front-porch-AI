@@ -16,17 +16,30 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 
-extension ChatServiceGenerationPlanRegister on ChatService {
+/// The turn's [PromptPlan]: every section registered in render order, and
+/// the Continue strip of the state zone. Bodies as the generation part
+/// held them; zero behaviour change.
+class PlanRegister {
+  PlanRegister(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+
   /// Register every section with the plan, in render order. This ONE
   /// list is what the system message, user message, fixed-token count,
   /// and Context Viewer budget map are all rendered from — every lore
   /// bucket is counted (including @depth entries, which are spliced
   /// into history later WITHOUT re-counting, via rendered:false), and
   /// history/memories are budget-fitted afterwards (counted:false).
-  void _registerGenerationPlanSections(
-    _GenTurn t, {
+  void register(
+    GenTurn t, {
     required String loreDepthJoined,
     required String objectiveBlock,
     required String worldBlock,
@@ -170,7 +183,11 @@ extension ChatServiceGenerationPlanRegister on ChatService {
     // After a long skip: one plain fact line saying how long it was, right
     // where the transcript resumes and outside the state frame, so the new
     // date is not one more note that "may be behind" (time_skip_anchor.dart).
-    plan.add(id: 'time_skip', label: 'Time Skip', text: _timeSkipAnchorBlock());
+    plan.add(
+      id: 'time_skip',
+      label: 'Time Skip',
+      text: _a.blocks.timeSkipAnchorBlock(),
+    );
     // The latest beat (latestTurnStart), cut off the transcript and rendered
     // here: the last thing the model reads before the speaker's name is the
     // turn it answers, not the notes above or its own long replies. Local
@@ -219,7 +236,7 @@ extension ChatServiceGenerationPlanRegister on ChatService {
     }
   }
 
-  void _stripContinuePlanSections(_GenTurn t) {
+  void stripContinue(GenTurn t) {
     if (t.mode != GenerationMode.continue_) return;
     final plan = t.plan;
     // Continue is plain transcript + the partial being extended — no
@@ -245,7 +262,7 @@ extension ChatServiceGenerationPlanRegister on ChatService {
     plan.section('item_intro').text = '';
     plan.section('web_search').text = '';
     plan.section('regen_critique').text = '';
-    // RAG skip is the Continue branch in _retrieveGenerationMemories
+    // RAG skip is the Continue branch in TurnRag.retrieve
     // (zeroing droppedMessages is not enough once tail-open ORs
     // basePosition). Keep this 0 so later budget math does not treat
     // Continue as a drop.

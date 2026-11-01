@@ -81,6 +81,49 @@ extension ChatServiceGenerationStreamAccessors on ChatService {
   /// yet. UI shows a holding banner so the wait does not look like a lost send.
   bool get isSendWaitingOnSettle => _sendWaitingOnSettle;
 
+  /// The request is in flight (the prompt assembler started the stream):
+  /// the prefill phase, its prompt token count and the perf poll.
+  void _enterPrefill(GenTurn t, String prompt) {
+    // ── Phase: Prefilling ──
+    // The HTTP request is now in flight. For KoboldCPP, the model is
+    // processing the prompt (prefill/eval). No tokens arrive until
+    // prefill finishes. Poll /api/extra/perf for real-time status.
+    _generationPhase = GenerationPhase.prefilling;
+    _prefillStartTime = DateTime.now();
+    _prefillPromptTokens = (prompt.length / 4).ceil(); // Rough placeholder
+    notifyListeners();
+
+    // If using local KoboldCPP, poll /api/extra/perf during prefill
+    // to get real prompt processing metrics.
+    final isLocalBackend = t.isLocalBackend =
+        _llmProvider == null || _llmProvider!.isLocal;
+    if (isLocalBackend) {
+      // Get REAL token count from the model's tokenizer (async, updates UI when done)
+      _koboldService.countTokens(prompt).then((realCount) {
+        if (_generationPhase == GenerationPhase.prefilling && realCount > 0) {
+          _prefillPromptTokens = realCount;
+          debugPrint(
+            '[Prefill] Actual token count from tokenizer: $realCount (was ~${(prompt.length / 4).ceil()} est)',
+          );
+          notifyListeners();
+        }
+      });
+
+      t.perfPoller = Timer.periodic(const Duration(seconds: 2), (_) async {
+        if (_generationPhase != GenerationPhase.prefilling) {
+          t.perfPoller?.cancel();
+          t.perfPoller = null;
+          return;
+        }
+        final perf = await _koboldService.fetchPerf();
+        if (perf != null) {
+          _lastPerfData = perf;
+          notifyListeners();
+        }
+      });
+    }
+  }
+
   // ── Round-4b forwarder body (see chat_service_accessors.dart's banner
   // comment for why this stays a one-line forwarder on the class body) ──
   double get _tokensPerSecondImpl {
@@ -198,8 +241,6 @@ extension _ChatServiceRealismNames on ChatService {
   RealismDance get _realismDance => realism.dance;
   RelationshipService get _relationshipService => realism.relationship;
   ExpressionService get _expressionService => realism.expression;
-  AuthorNoteBuilder get _authorNoteBuilder => realism.authorNotes;
-  InventoryInjection get _inventoryInjection => realism.inventoryInjection;
   PocketsLedger get _pocketsLedger => realism.pocketsLedger;
   PocketsRewinds get _pocketsRewinds => realism.pocketsRewinds;
   PocketsPass get _pocketsPass => realism.pocketsPass;
@@ -208,9 +249,6 @@ extension _ChatServiceRealismNames on ChatService {
   AfterglowPass get _afterglow => realism.afterglow;
   PromiseDebtService get _promiseDebtService => realism.promiseDebt;
   DreamService get _dreamService => realism.dreams;
-  ChaosInjection get _chaosInjection => realism.chaosInjection;
-  RealismStateInjection get _realismStateInjection =>
-      realism.realismStateInjection;
   LlmEvalEngine get _llmEvalEngine => realism.llmEvalEngine;
   RealismEvals get _realismEvals => realism.evals;
   ObjectiveProposal get _objectiveProposal => realism.objectiveProposal;
@@ -219,7 +257,6 @@ extension _ChatServiceRealismNames on ChatService {
   PorchMemoryImportService get _porchMemoryImport => realism.porchImport;
   ToolSupportTester get _toolSupportTester => realism.toolSupportTester;
   JournalMaintenance get _journalMaintenance => realism.journalMaintenance;
-  JournalInjection get _journalInjection => realism.journalInjection;
   GrowthStore get _growthStore => realism.growthStore;
   GrowthDesk get _growthDesk => realism.growthDesk;
 
@@ -246,4 +283,21 @@ extension _ChatServiceRealismNames on ChatService {
   Future<void> _runPostGenNeedsChecks(String responseText) =>
       realism.restores.runPostGenNeedsChecks(responseText);
   void _applyMoodDecay() => realism.restores.applyMoodDecay();
+}
+
+/// The prompt assembler's pieces under the names the rest of this library
+/// still uses. Each line is debt its caller's package retires by calling
+/// [ChatService.promptAssembler] itself (WP10b, WP10c).
+extension _ChatServicePromptNames on ChatService {
+  // The stream and post-gen parts (WP10b).
+  void _stampReplyContext(ChatMessage target, {required bool continuing}) =>
+      promptAssembler.budget.stampReplyContext(target, continuing: continuing);
+  bool _isSeeded(GenTurn t) => promptAssembler.tokenAlts.isSeeded(t);
+  void _stampTokenAlts(GenTurn t) => promptAssembler.tokenAlts.stamp(t);
+
+  // The send spine (WP10c).
+  set _lastUserMessageAt(DateTime? at) =>
+      promptAssembler.lastUserMessageAt = at;
+  void _enterCallEvalModelSwap() => promptAssembler.callSwap.enter();
+  void _exitCallEvalModelSwap() => promptAssembler.callSwap.exit();
 }

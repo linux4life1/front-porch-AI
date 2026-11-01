@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -86,6 +87,7 @@ class SessionServices {
     required this.mood,
     required this.sceneMoves,
     required this.autoChat,
+    required this.prompts,
   });
 
   final AppDatabase Function() db;
@@ -132,6 +134,10 @@ class SessionServices {
 
   /// The running auto-chat's turn budget; a paused run belongs to its chat.
   final AutoChatBudget autoChat;
+
+  /// The prompt assembler: the Context Viewer budget a session loads,
+  /// saves and clears, and the prompt picker a new 1:1 arms.
+  final PromptAssembler Function() prompts;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -147,10 +153,6 @@ class SessionShellHooks {
     required this.cancelAndWaitForGeneration,
     required this.resetDirectorModeToDefault,
     required this.rekeyGroupStores,
-    required this.clearContextBudget,
-    required this.loadContextBudget,
-    required this.persistContextBudget,
-    required this.armPromptPicker,
     required this.setActiveCharacter,
     required this.setActiveGroup,
     required this.beginSessionLoad,
@@ -180,15 +182,6 @@ class SessionShellHooks {
   /// Moves group stores keyed by an old member id to the current one; true
   /// when a session-scoped map moved.
   final Future<bool> Function() rekeyGroupStores;
-
-  // ── Prompt budget and the prompt picker (WP10a) ───────────────────────
-
-  final void Function() clearContextBudget;
-  final Future<void> Function(String sessionId) loadContextBudget;
-  final Future<void> Function(String sessionId) persistContextBudget;
-
-  /// A new 1:1 with a card prompt asks for it, or applies the choice.
-  final void Function() armPromptPicker;
 
   // ── Chat entry (WP8) ──────────────────────────────────────────────────
 

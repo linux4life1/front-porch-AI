@@ -25,7 +25,7 @@ PromptPlan _plan({required String loreBefore}) {
 void main() {
   test('production register keeps lore.before out of the system zone', () {
     final src = File(
-      'lib/services/chat/chat_service_generation_plan_register.dart',
+      'lib/services/chat/doors/turn/plan_register.dart',
     ).readAsStringSync();
     final systemAdd = src.indexOf("id: 'system'");
     final loreAdd = src.indexOf("id: 'lore.before'");

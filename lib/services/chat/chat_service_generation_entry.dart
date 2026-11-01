@@ -166,19 +166,18 @@ extension ChatServicePromiseLedger on ChatService {
 }
 
 /// Approach A′ soft members on the turn path (the two checks take the
-/// library-private turn record `_GenTurn`, the turn engine's, WP10b), and
+/// turn record [GenTurn], the turn engine's, WP10b), and
 /// the lazily built slash-command handler, guest director and cast
 /// detector. All cross-state routes back here through callbacks so the
 /// leaves never import this library.
 extension ChatServiceTurnHelpers on ChatService {
   /// 1:1 guest turn **or** a soft group member speaking. Do not set
   /// `guestSpeaker` for the latter — that skip would drop Away / pick.
-  bool _isLiteTurn(_GenTurn t) =>
-      t.guestSpeaker != null || _speakerIsSoft(t.speakingCharacter);
+  bool _isLiteTurn(GenTurn t) => promptAssembler.isLiteTurn(t);
 
   /// After the clock commits; body in [AfterglowPass.tickAfterClock]. A lite
   /// beat (guest or soft member) has no speaker refractory to open.
-  void _tickRefractoryAfterClock(_GenTurn t) => _afterglow.tickAfterClock(
+  void _tickRefractoryAfterClock(GenTurn t) => _afterglow.tickAfterClock(
     t.mode,
     speakerIdOf: () =>
         _isLiteTurn(t) ? null : _getCharacterIdFromCard(t.speakingCharacter),
@@ -384,4 +383,27 @@ extension ChatServiceTurnHelpers on ChatService {
       getOfferedOrIgnoredNames: () => _sceneGuest.offeredOrIgnoredNames,
     );
   }
+}
+
+/// The entry door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.entryDoor] itself (WP10b, WP10c).
+extension _ChatServiceEntryNames on ChatService {
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => entryDoor.director.observerMode;
+  bool get _directing => entryDoor.director.directing;
+  bool get _autoPlayActive => entryDoor.director.autoPlayActive;
+  bool get _shouldTrackInterCharacterRelationships =>
+      entryDoor.reads.shouldTrackInterCharacterRelationships;
+  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
+  AutoChatBudget get _autoChatBudget => entryDoor.autoChat;
+  GroupChatRepository? get _groupChatRepository => entryDoor.groupRepository;
+  set _groupChatRepository(GroupChatRepository? repo) =>
+      entryDoor.groupRepository = repo;
+
+  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
+  Future<void> _autoPlayNext() => entryDoor.director.autoPlayNext();
+  bool _autoChatPausesAfter(ChatMessage reply) =>
+      entryDoor.director.autoChatPausesAfter(reply);
 }

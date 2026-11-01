@@ -230,7 +230,7 @@ extension ChatServiceSessionWiring on ChatService {
         storage: _storageService,
         personas: _userPersonaService,
         worlds: _worldRepository,
-        macros: _macroResolver,
+        macros: promptAssembler.macros,
         characters: () => _characterRepository,
         groupRepository: () => entryDoor.groupRepository,
         graph: () => realism,
@@ -256,6 +256,7 @@ extension ChatServiceSessionWiring on ChatService {
         mood: () => _mood,
         sceneMoves: _sceneMoves,
         autoChat: entryDoor.autoChat,
+        prompts: () => promptAssembler,
       ),
       hooks: _sessionHooks(),
       notify: notifyListeners,
@@ -271,10 +272,6 @@ extension ChatServiceSessionWiring on ChatService {
     resetDirectorModeToDefault: () =>
         entryDoor.director.resetDirectorModeToDefault(),
     rekeyGroupStores: () => entryDoor.rekey.rekeyGroupStores(),
-    clearContextBudget: _clearContextBudget,
-    loadContextBudget: _loadContextBudgetForSession,
-    persistContextBudget: _persistContextBudgetForSession,
-    armPromptPicker: _armPromptPickerIfDue,
     setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
     setActiveGroup: (group, {groupRepo}) =>
         entryDoor.group.setActiveGroup(group, groupRepo: groupRepo),
@@ -335,10 +332,6 @@ extension _ChatServiceSessionNames on ChatService {
   set _summaryPaused(bool v) => sessionStore.summaryPaused = v;
   bool get _isSummaryGenerating => sessionStore.isSummaryGenerating;
   set _isSummaryGenerating(bool v) => sessionStore.isSummaryGenerating = v;
-  String get _authorNote => sessionStore.authorNote;
-  set _authorNote(String v) => sessionStore.authorNote = v;
-  int get _authorNoteStrength => sessionStore.authorNoteStrength;
-  set _authorNoteStrength(int v) => sessionStore.authorNoteStrength = v;
   ChatGenerationSettings get _sessionGenSettings => sessionStore.genSettings;
   bool get _isNewChat => sessionStore.isNewChat;
   set _isNewChat(bool v) => sessionStore.isNewChat = v;

@@ -92,18 +92,22 @@ class ScalarCarries {
     final int soleAuthorStrength = _groupAuthorNoteStrengths[soleId] ?? 4;
 
     return () {
-      // Seed, never setNsfwCooldownEnabled: its "off" zeroes Lust. First, so
-      // the restore below reads the switch the 1:1 keeps.
+      // The 1:1 keeps the switch the group chat showed for the survivor. The
+      // restore below is a carry, so it lands with that switch off too: off
+      // only hides her Lust and recovery, and a rewind gate must not drop them.
       _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: soleNsfwEnabled);
-      if (wasRealismOn && snapshot != null) {
+      final carried = snapshot;
+      if (wasRealismOn && carried != null) {
         _realismChatSwitch = true;
         _needsSimEnabled = wasNeedsOn;
-        _relationshipService.restoreFromMessageState(snapshot);
-        _mood.restoreFromStamp(snapshot);
-        _nsfwService.restoreNsfwFromMessageState(snapshot);
+        _relationshipService.restoreFromMessageState(carried);
+        _mood.restoreFromStamp(carried);
+        _nsfwService.carry(
+          () => _nsfwService.restoreNsfwFromMessageState(carried),
+        );
         _clockWriter.syncLoadedSlotClocks();
         if (wasNeedsOn) {
-          final needs = snapshot['needs'];
+          final needs = carried['needs'];
           if (needs is Map && needs['vector'] is Map) {
             _needsSimulation.restoreFromSnapshot({
               'vector': Map<String, int>.from(needs['vector'] as Map),
@@ -145,7 +149,9 @@ class ScalarCarries {
       _realismChatSwitch = true;
       _relationshipService.restoreFromMessageState(state);
       _mood.restoreFromStamp(state);
-      _nsfwService.restoreNsfwFromMessageState(state);
+      // A carry: the host's Lust and recovery land whatever switch the new
+      // group chat holds at this point (it takes the 1:1's only below).
+      _nsfwService.carry(() => _nsfwService.restoreNsfwFromMessageState(state));
       _clockWriter.syncLoadedSlotClocks();
       if (needsEnabled) {
         final needs = state['needs'];

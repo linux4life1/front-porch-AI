@@ -106,7 +106,6 @@ void main() {
       bool afterglow = true,
       String? blob,
       bool deleted = false,
-      int lust = 0,
     }) => db
         .into(db.sessions)
         .insert(
@@ -117,19 +116,11 @@ void main() {
             nsfwCooldownEnabled: Value(afterglow),
             groupRealismState: Value(blob ?? '{}'),
             characterEmotion: const Value('wistful'),
-            arousalLevel: Value(lust),
             deletedAt: Value(deleted ? DateTime(2026, 10, 1) : null),
           ),
         );
     await session('one-off', character: 'char-a', afterglow: false);
     await session('one-on', character: 'char-b');
-    // Stored off but holding Lust: the October overwrite, which opens on.
-    await session(
-      'one-repaired',
-      character: 'char-d',
-      afterglow: false,
-      lust: 30,
-    );
     await session(
       'one-trash',
       character: 'char-c',
@@ -170,7 +161,7 @@ void main() {
     expect(after['one-off']!['nsfw_cooldown_enabled'], 1);
     expect(changed('group-off'), {'group_realism_state'});
     expect(changed('group-template-off'), {'group_realism_state'});
-    for (final id in ['one-on', 'group-on', 'one-trash', 'one-repaired']) {
+    for (final id in ['one-on', 'group-on', 'one-trash']) {
       expect(changed(id), isEmpty, reason: '$id was not asked about');
     }
 
@@ -643,5 +634,37 @@ void main() {
       expect(await call('POST', f), {'changed': 0}, reason: f);
     }
     expect(await rows(), before, reason: 'nothing changed');
+  });
+
+  // Off hides Lust and recovery and keeps them, so a 1:1 chat stored off
+  // that holds either is a chat switched off: it is asked about, and turning
+  // it on changes its switch alone, keeping what it held.
+  test('a 1:1 chat stored off with Lust and a recovery is counted, and '
+      'turning it on keeps both', () async {
+    await db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(
+            id: 'one-off-lust',
+            characterId: const Value('char-d'),
+            nsfwCooldownEnabled: const Value(false),
+            arousalLevel: const Value(30),
+            refractoryMinutesRemaining: const Value(45),
+            refractoryMinutesTotal: const Value(45),
+          ),
+        );
+    final offer = ExistingChatsOffer(db, null);
+    expect(await offer.countAfterglowOff(), 1);
+    expect(await offer.turnAfterglowOn(), 1);
+    final row = await db
+        .customSelect(
+          'SELECT nsfw_cooldown_enabled AS o, arousal_level AS a, '
+          'refractory_minutes_remaining AS m FROM sessions '
+          "WHERE id = 'one-off-lust'",
+        )
+        .getSingle();
+    expect(row.data['o'], 1);
+    expect(row.data['a'], 30);
+    expect(row.data['m'], 45);
   });
 }

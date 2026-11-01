@@ -18,13 +18,11 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -42,6 +40,7 @@ import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_api.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_api.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
@@ -55,14 +54,12 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_api.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
-import 'package:front_porch_ai/services/group_turn_manager.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
-import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
-import 'package:front_porch_ai/services/macro_resolver.dart';
 
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
@@ -78,23 +75,16 @@ export 'chat/doors/realism/realism_api.dart';
 export 'chat/planner_today_fate.dart';
 export 'chat/chat_defaults.dart';
 export 'chat/doors/controls/controls_api.dart';
+export 'chat/doors/turn/prompt_api.dart';
 
-part 'chat/chat_service_history.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_generation.dart';
 part 'chat/chat_service_generation_entry.dart';
-part 'chat/chat_service_generation_blocks.dart';
-part 'chat/chat_service_generation_plan.dart';
-part 'chat/chat_service_generation_plan_register.dart';
-part 'chat/chat_service_generation_rag.dart';
-part 'chat/chat_service_generation_request.dart';
 part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_idle_autonomous.dart';
-part 'chat/chat_service_prompt_blocks.dart';
-part 'chat/chat_service_context_budget.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
@@ -288,14 +278,18 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   void setTodaySentence(String? v) => sessionStore.today.setTodaySentence(v);
   void abandonToday() => sessionStore.today.abandonToday();
 
-  Map<String, int> get lastPromptBudget => _contextBudget.budget;
-  Map<String, String> get lastPromptSections => _contextBudget.sections;
-  ContextBudgetSource get promptBudgetSource => _contextBudget.source;
-  DateTime? get promptBudgetAssembledAt => _contextBudget.assembledAt;
-  int get promptDroppedMessages => _contextBudget.droppedMessages;
-  Future<void> estimateContextBudgetNow() => _estimateContextBudgetNow();
-  int get contextSize =>
-      sessionStore.genSettings.resolveContextSize(_storageService);
+  /// The reply's prompt and request: blocks, plan, history window, RAG,
+  /// the Context Viewer budget and the prompt source; old names in
+  /// prompt_api.dart. Fakes pin the Context Viewer forwarders below.
+  late final PromptAssembler promptAssembler = _buildPromptAssembler();
+  Map<String, int> get lastPromptBudget => promptAssembler.budget.budget;
+  Map<String, String> get lastPromptSections => promptAssembler.budget.sections;
+  ContextBudgetSource get promptBudgetSource => promptAssembler.budget.source;
+  DateTime? get promptBudgetAssembledAt => promptAssembler.budget.assembledAt;
+  int get promptDroppedMessages => promptAssembler.budget.droppedMessages;
+  Future<void> estimateContextBudgetNow() =>
+      promptAssembler.budget.estimateNow();
+  int get contextSize => promptAssembler.contextSize;
 
   /// Per-session generation parameter overrides. The dialog reads/writes this.
   ChatGenerationSettings get sessionGenSettings => sessionStore.genSettings;

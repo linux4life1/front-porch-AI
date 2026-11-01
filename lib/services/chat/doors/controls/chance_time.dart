@@ -88,17 +88,24 @@ class ChanceTime {
   /// the NAME back to its card and read that member's STORED refractory —
   /// never the live scalars, which may still hold the previous speaker's. No
   /// match answers false: chaos fails open and spins today's wheel. Soft bodies
-  /// answer false by decision — their desire is honest.
+  /// answer false by decision — their desire is honest. A body Afterglow does
+  /// not run for answers false too (Porch Life, the chat's switch or the
+  /// member's): its recovery is kept hidden, and a hidden lock must not
+  /// steer the wheel.
   bool hardLockForSpeakerNamed(String name) {
     if (_activeGroup == null) {
+      if (!_g.nsfw.nsfwCooldownEnabled) return false;
       final r = _g.nsfw.refractory;
       return r.running && !r.soft;
     }
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
     if (card == null) return false;
-    final r =
-        _g.groups.members[_d.hooks.characterIdFor(card)]?.refractory ??
-        Refractory.none;
+    final id = _d.hooks.characterIdFor(card);
+    if (!_d.storage.realismSettings.afterglowEnabled ||
+        !_g.groups.afterglowOnFor(id)) {
+      return false;
+    }
+    final r = _g.groups.members[id]?.refractory ?? Refractory.none;
     return r.running && !r.soft;
   }
 

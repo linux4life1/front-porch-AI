@@ -22,7 +22,7 @@ part of '../chat_service.dart';
 /// target identity, the display-buffer/drain-timer machinery, the per-token
 /// consume loop (stop-sequence + think-tag tracking, TPS pacing), and the
 /// user-cancel finalize path. Extracted verbatim (mechanical `x` → `t.x`
-/// carrier rename only — see `_GenTurn`) from the single ~1.9k-line
+/// carrier rename only — see `GenTurn`) from the single ~1.9k-line
 /// `_generateResponse` method during the god-file split
 /// (docs/design/god-file-elimination.md). Zero behaviour change.
 ///
@@ -33,7 +33,7 @@ part of '../chat_service.dart';
 /// `return;` inside this span meant "exit `_generateResponse` entirely",
 /// which a phase method can no longer do directly.
 extension ChatServiceGenerationStream on ChatService {
-  Future<bool> _consumeGenerationStream(_GenTurn t) async {
+  Future<bool> _consumeGenerationStream(GenTurn t) async {
     t.accumulatedResponse = "";
     bool stopFound = false;
     _tokenBuffer.clear();
@@ -466,7 +466,7 @@ extension ChatServiceGenerationStream on ChatService {
   /// and Continue work, saves, and signals done. The stream-loop break and
   /// the catch path's treatAsCancel both end here; [target] is null when the
   /// throw came before any reply was painted.
-  Future<void> _haltStoppedTurn(_GenTurn t, ChatMessage? target) async {
+  Future<void> _haltStoppedTurn(GenTurn t, ChatMessage? target) async {
     _drainTimer?.cancel();
     _drainTimer = null;
     _tokenBuffer.clear();

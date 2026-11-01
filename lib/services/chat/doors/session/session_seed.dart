@@ -75,7 +75,7 @@ class SessionSeed {
     _store.forkIndex = null;
     _store.selectedLooks.clear();
     _store.genSettings = ChatGenerationSettings();
-    _h.clearContextBudget();
+    _s.prompts().budget.clear();
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;
     _s.graph().growthPassRunning = false;
@@ -330,7 +330,10 @@ class SessionSeed {
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _s.graph().restores.fromMessage(synth, restoreClock: false);
+      // A carry: a package from a chat switched off brings its kept Lust.
+      _nsfwService.carry(
+        () => _s.graph().restores.fromMessage(synth, restoreClock: false),
+      );
     }
     _s.clockWriter().syncLoadedSlotClocks();
 

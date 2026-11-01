@@ -336,25 +336,16 @@ class ControlsDoor {
       : _g.groups.afterglowOnFor(_g.nsfw.loadedMemberId);
 
   /// Writes [afterglowChatSwitch]. It counts only while Porch Life (with
-  /// 18+) allows Afterglow. Either way the chat starts from calm: off zeroes
-  /// Lust and any recovery, as it always has, and on starts from calm
-  /// whatever a receipt left in memory while it was off (stamps recorded
-  /// none).
+  /// 18+) allows Afterglow. Off hides Lust and recovery and holds them where
+  /// they are (hide, never erase, as Pockets does); on shows them again,
+  /// unchanged. Nothing zeroes them either way, in a 1:1 or for any member.
   Future<void> setAfterglowEnabled(bool enabled) async {
     if (enabled == afterglowChatSwitch) return;
-    final nsfw = _g.nsfw;
     if (_activeGroup == null) {
-      nsfw.setNsfwCooldownEnabled(enabled);
+      _g.nsfw.setNsfwCooldownEnabled(enabled);
     } else {
-      final groups = _g.groups;
-      groups.afterglowOn = enabled;
-      for (final id in groups.members.keys.toList()) {
-        groups.memberForWrite(id)
-          ..arousal = 0
-          ..refractory = Refractory.none;
-      }
+      _g.groups.afterglowOn = enabled;
     }
-    nsfw.resetRuntimeArousalAndCooldown();
     await deps.saveChat();
     deps.notify();
   }
