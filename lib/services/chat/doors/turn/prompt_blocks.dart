@@ -65,7 +65,7 @@ class PromptBlocks {
   GrowthDesk get _growthDesk => _g.growthDesk;
   LorebookTimedEffects get _loreTimedEffects => _g.lore.timedEffects;
   RealismStateInjection get _realismStateInjection => _g.realismStateInjection;
-  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+  String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
 
   /// A group speaker's card (see [_buildGroupSpeakerCard]).
   String groupSpeakerCard(CharacterCard speaker, {required String userName}) =>

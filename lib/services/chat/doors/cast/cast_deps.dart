@@ -20,6 +20,8 @@ import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
+import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
@@ -27,9 +29,11 @@ import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 
 /// A cast member's arrival line: what they enter doing, and whether the
@@ -67,6 +71,10 @@ class CastDeps {
     required this.prompts,
     required this.turn,
     required this.send,
+    required this.edits,
+    required this.tts,
+    required this.lanes,
+    required this.life,
     required this.characterIdFor,
     required this.saveChat,
     required this.notify,
@@ -116,6 +124,21 @@ class CastDeps {
   /// ([GroupSpeakers]), and the idle turn's staging ([IdleStage]).
   final SendSpine Function() send;
 
+  /// The edits door: a guest's or the director's line is removed through
+  /// its delete, which rewinds what the line applied and saves.
+  final EditsDoor Function() edits;
+
+  /// The voice an idle turn waits on while it speaks.
+  final TtsService? Function() tts;
+
+  /// The mouth an idle turn needs ready. A thunk: the lanes read the turn
+  /// engine's generating flag in turn.
+  final LlmLanes Function() lanes;
+
+  /// Whether the service was disposed: a guest resolve or an idle turn
+  /// started before it stops.
+  final ChatLifetime life;
+
   /// The stable id a card's rows key by (`stableGroupId`, or a member id).
   final String Function(CharacterCard card) characterIdFor;
   final Future<void> Function() saveChat;
@@ -133,10 +156,6 @@ class CastDeps {
 /// still owns. A hook goes when its owner becomes a door (WP7 to WP10).
 class CastShellHooks {
   const CastShellHooks({
-    required this.disposed,
-    required this.deleteMessage,
-    required this.ttsSpeaking,
-    required this.mouthReady,
     required this.directing,
     required this.setObserverMode,
     required this.nextCharacter,
@@ -155,17 +174,6 @@ class CastShellHooks {
     required this.guestDirector,
     required this.mintLlm,
   });
-
-  // ── Lifetime, delete, the voice and the mouth (WP11) ──────────────────
-
-  final bool Function() disposed;
-
-  /// Removes a message, rewinds what it applied, and saves.
-  final Future<void> Function(int index) deleteMessage;
-  final bool Function() ttsSpeaking;
-
-  /// The chat model can take a request now.
-  final bool Function() mouthReady;
 
   // ── Group roster (WP8) ────────────────────────────────────────────────
 

@@ -36,7 +36,7 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 /// the stop-sequence list, resolves the LLM service (+ call-mode model
 /// swap), builds [GenerationParams], rings the tool doorbell and the forced
 /// lookup, and starts the stream; the turn engine's prefill bookkeeping
-/// then runs ([PromptShellHooks.enterPrefill]). The body is the one the
+/// then runs (`TurnEngine.enterPrefill`). The body is the one the
 /// generation part held (`x` → `t.x` carrier names, see [GenTurn]); zero
 /// behaviour change.
 ///

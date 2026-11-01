@@ -8,26 +8,27 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// The ChatService god object only ever shrinks. Every part of the shell is an
-// extension that reads and writes one shared pool of state: the instance
-// fields of the `ChatServiceFieldBag` mixin
-// (lib/services/chat/chat_service_fields.dart) and of the `ChatService` class
-// body (lib/services/chat_service.dart), `late final` ones included. The
-// decomposition (docs/design/chat-service-decomposition.md) moves that state
-// into doors that own it; this ratchet is how each package proves it did.
+// The ChatService god object only ever shrinks. The decomposition
+// (docs/design/chat-service-decomposition.md) moved its shared pool of state
+// into doors that own it and deleted the `ChatServiceFieldBag` mixin (WP11);
+// what is left is the shell's own small state. This ratchet counts the
+// instance fields of the `ChatService` class body
+// (lib/services/chat_service.dart), `late final` ones included, plus those of
+// any mixin in its `with` clause, so neither the shell nor a new bag can
+// regrow state.
 //
 // It counts those fields (getters, setters and methods are not fields; one
 // declaration of `String? a, b;` is two) and compares the total with
 // test/baselines/chat_service_fields.json:
 //   1. More fields than the baseline fails: new state goes in the door that
 //      owns its domain, or a leaf class under lib/services/chat/, never in
-//      the shared bag.
+//      the shell or a mixin on it.
 //   2. Fewer fields than the baseline also fails until the baseline is
 //      lowered in the same change, so a freed slot cannot be refilled.
 //
 // With FPAI_TIGHTEN_BASELINES=1 the baseline is lowered to the tree (never
 // raised). Any baseline edit needs the maintainer's approved-test-change
-// label. WP11 deletes the bag, and this ratchet with it.
+// label.
 //
 // The member scanner is shared with chat_service_api_manifest_test.dart,
 // which holds its fixture tests.
@@ -44,27 +45,28 @@ import 'chat_service_api_manifest_test.dart'
         kChatServiceShell;
 
 const _baselinePath = 'test/baselines/chat_service_fields.json';
-const _bag = 'ChatServiceFieldBag';
 
-/// Every instance field of the bag and of the class body, as ratchet hits.
+/// Every instance field of the class body and of each mixin in its `with`
+/// clause, as ratchet hits.
 Map<String, List<RatchetHit>> _fields() {
   final shell = chatServiceLibrary();
-  final bag =
-      shell.find('mixin', _bag) ??
-      (throw StateError(
-        'mixin $_bag is not declared in the $kChatServiceShell library. If '
-        'the bag is gone (WP11), delete this ratchet and its baseline too.',
-      ));
+  final cls = chatServiceClass(shell);
   List<RatchetHit> instanceFields(DartDeclaration d) => [
     for (final m in d.members)
       if (m.kind == MemberKind.field && !m.isStatic)
         RatchetHit(d.source.path, m.line, m.line, 0, m.name, m.name),
   ];
   return {
-    '$_bag (${bag.source.path})': instanceFields(bag),
-    'ChatService class body ($kChatServiceShell)': instanceFields(
-      chatServiceClass(shell),
-    ),
+    for (final name in cls.mixins)
+      '$name (mixin)': instanceFields(
+        shell.find('mixin', name) ??
+            (throw StateError(
+              'mixin $name (ChatService `with` clause) is not declared in the '
+              '$kChatServiceShell library, so its fields cannot be counted. '
+              'State does not go in a mixin: put it in the door that owns it.',
+            )),
+      ),
+    'ChatService class body ($kChatServiceShell)': instanceFields(cls),
   };
 }
 
@@ -90,7 +92,7 @@ void main() {
       fail(
         'ChatService has $now instance fields; $_baselinePath allows '
         '$allowed.\n$breakdown\n'
-        'New state does not go in the shared bag or the shell: put it in the '
+        'New state does not go in a mixin or the shell: put it in the '
         'door that owns its domain, or a leaf class under lib/services/chat/ '
         'with explicit inputs (docs/design/chat-service-decomposition.md).',
       );

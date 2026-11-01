@@ -16,48 +16,38 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
-import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
-import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/chat/chat_defaults.dart';
-import 'package:front_porch_ai/services/chat/llm_lanes.dart';
+import 'package:front_porch_ai/services/chat/chat_bindings.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
+import 'package:front_porch_ai/services/chat/chat_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
-import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
-import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
-import 'package:front_porch_ai/services/chat/doors/realism/realism_api.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
-import 'package:front_porch_ai/services/chat/doors/turn/turn_api.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
-import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 
 export 'chat/realism_snapshot.dart'
@@ -78,31 +68,55 @@ export 'chat/doors/turn/prompt_api.dart';
 export 'chat/doors/turn/turn_api.dart';
 export 'chat/doors/turn/send_api.dart';
 
-part 'chat/chat_service_accessors.dart';
-part 'chat/chat_service_fields.dart';
-
-class ChatService extends ChangeNotifier with ChatServiceFieldBag {
+/// The one chat notifier Provider, the web facades and the UI see: a
+/// constructor, a getter per door, and the forwarders the golden fakes
+/// override. Every door is built by [ChatWiring]; old names reach a door
+/// through the `*_api.dart` bridges exported above.
+class ChatService extends ChangeNotifier {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
   final WorldRepository _worldRepository;
-  late AppDatabase _db;
-  LLMProvider? _llmProvider;
-  CharacterRepository? _characterRepository;
-  TtsService? _ttsService;
-  ImageGenService? _imageGenService;
-  MemoryService? _memoryService;
 
-  late final MediaDoor mediaDoor = _buildMediaDoor();
+  /// The services main.dart hands this chat after it is built.
+  final _bound = BoundServices();
+  late final _life = ChatLifetime(_koboldService);
+
+  /// The open chat every door reads (messages, session id, character,
+  /// group). Its session id setter tells KoboldCpp which chat is open.
+  late final _session = ChatSessionState(onChatOpened: _life.chatOpened);
+  late final _wiring = ChatWiring(
+    kobold: _koboldService,
+    personas: _userPersonaService,
+    storage: _storageService,
+    worlds: _worldRepository,
+    bound: _bound,
+    session: _session,
+    life: _life,
+    service: this,
+    notify: notifyListeners,
+  );
+
+  /// Listeners on the services around this chat, init and dispose.
+  late final _bindings = ChatBindings(
+    kobold: _koboldService,
+    storage: _storageService,
+    bound: _bound,
+    life: _life,
+    wiring: _wiring,
+    notify: notifyListeners,
+  );
+
+  MediaDoor get mediaDoor => _wiring.mediaDoor;
 
   /// Roster, Scene Guests, greetings, Away, idle turns (cast_api.dart).
-  late final CastDoor castDoor = _buildCastDoor();
-  late final ActionsDoor actionsDoor = _buildActionsDoor();
+  CastDoor get castDoor => _wiring.castDoor;
+  ActionsDoor get actionsDoor => _wiring.actionsDoor;
   List<String> get suggestedActions => actionsDoor.suggestedActions;
   bool get isGeneratingActions => actionsDoor.isGeneratingActions;
 
   /// Quests and the goal check; the members below forward so fakes pin them.
-  late final ObjectivesDoor objectivesDoor = _buildObjectivesDoor();
+  ObjectivesDoor get objectivesDoor => _wiring.objectivesDoor;
   Objective? get primaryObjective => objectivesDoor.primaryObjective;
   List<Objective> get secondaryObjectives => objectivesDoor.secondaryObjectives;
   ObjectiveTally get objectiveTally => objectivesDoor.objectiveTally;
@@ -125,10 +139,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// The chat's switches and gates: Realism, Needs, Objectives, Afterglow,
   /// Chaos, the call, the clock, One-Shot, Chance Time; old names in
   /// controls_api.dart. Fakes pin the forwarders below.
-  late final ControlsDoor controlsDoor = _buildControlsDoor();
-
-  /// The mouth and worker lanes and the studio wizards' tool check.
-  late final LlmLanes _lanes = _buildLanes();
+  ControlsDoor get controlsDoor => _wiring.controlsDoor;
 
   /// Fake-pinned (widget fakes override; extension members can't be).
   /// Ending a call also releases any parked call-model swap.
@@ -142,7 +153,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// feelings, mood, Afterglow, Pockets, the judges and their transport, the
   /// prompt injections, the Journal, Growth Rings, lore and places. The
   /// getters below forward into it; fakes override them.
-  late final RealismGraph realism = _buildRealismGraph();
+  RealismGraph get realism => _wiring.realism;
 
   Biome get activeChatBiome => realism.weather.activeChatBiome;
 
@@ -173,7 +184,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
 
   /// The stable id for a card, exposed so UI can look a record up without
   /// reaching for a private. Same resolver every Pockets surface uses.
-  String characterIdFor(CharacterCard c) => _getCharacterIdFromCard(c);
+  String characterIdFor(CharacterCard c) => _session.characterIdFor(c);
 
   JournalReview get journalReview => realism.journalReview;
 
@@ -197,8 +208,8 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   bool get isImporting => chatImporter.isImporting;
 
   /// The import and export doors; their old names live in transfer_api.dart.
-  late final ChatImporter chatImporter = _buildChatImporter();
-  late final ChatPackager chatPackager = _buildChatPackager();
+  ChatImporter get chatImporter => _wiring.chatImporter;
+  ChatPackager get chatPackager => _wiring.chatPackager;
 
   /// A reply, its post-gen settle, an import or narration is running: the
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
@@ -210,12 +221,12 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// again, the "Did time pass?" gate, the group speaker pick, the Chance
   /// Time reveal, the recap controls and the idle turn's staging; old names
   /// in send_api.dart.
-  late final SendSpine sendSpine = _buildSendSpine();
+  SendSpine get sendSpine => _wiring.sendSpine;
 
   /// One generation: stream, progress, post-generation passes, the stops;
   /// old names in turn_api.dart. The status members around it forward so
   /// fakes pin them.
-  late final TurnEngine turnEngine = _buildTurnEngine();
+  TurnEngine get turnEngine => _wiring.turnEngine;
   double get generationProgress => turnEngine.progress.generationProgress;
   int get tokensGenerated => turnEngine.progress.tokensGenerated;
   int get maxTokens => turnEngine.progress.maxTokens;
@@ -232,19 +243,18 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// log — null for plain remote APIs, which expose no prefill data. Thin
   /// delegation; source selection lives in LLMProvider.activeLiveProgress.
   LiveGenProgress? get activeLiveProgress =>
-      _llmProvider?.activeLiveProgress ?? _koboldService.liveProgress;
+      _bound.llmProvider?.activeLiveProgress ?? _koboldService.liveProgress;
 
   /// Estimated prompt token count for the current generation (for progress display).
   int get prefillPromptTokens => turnEngine.progress.prefillPromptTokens;
 
   /// Kobold's tokenizer and perf poll are measured. oMLX and remote hosts
   /// are not — the status bar must not print a chars/4 guess as tokens.
-  bool get prefillMetricsAreMeasured =>
-      _llmProvider == null || _llmProvider!.isLocal;
+  bool get prefillMetricsAreMeasured => _bound.llmProvider?.isLocal ?? true;
 
   /// Opening a 1:1 or a group, the group roster and its per-member reads
   /// and switches; old names in entry_api.dart. Fakes pin the members below.
-  late final EntryDoor entryDoor = _buildEntryDoor();
+  EntryDoor get entryDoor => _wiring.entryDoor;
   bool get isGroupMode => _session.groupManager?.isActive ?? false;
   GroupChat? get activeGroup => _session.groupManager?.activeGroup;
   bool get observerMode => _session.groupManager?.observerMode ?? false;
@@ -258,19 +268,19 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
 
   int get greetingIndex => castDoor.greetings.greetingIndex;
 
-  /// Listener wiring lives in [_initImpl] (chat_service_accessors.dart).
+  /// Listener wiring lives in [ChatBindings.init].
   ChatService(
     this._koboldService,
     this._userPersonaService,
     this._storageService,
     this._worldRepository,
   ) {
-    _initImpl();
+    _bindings.init();
   }
 
   /// The open chat's row: load, save, fork, new chat, history window and
   /// today line; old names in session_api.dart. Fakes pin the members below.
-  late final SessionStore sessionStore = _buildSessionStore();
+  SessionStore get sessionStore => _wiring.sessionStore;
   String get authorNote => sessionStore.authorNote;
   int get authorNoteStrength => sessionStore.authorNoteStrength;
   int get historyBasePosition => sessionStore.history.basePosition;
@@ -282,7 +292,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   /// The reply's prompt and request: blocks, plan, history window, RAG,
   /// the Context Viewer budget and the prompt source; old names in
   /// prompt_api.dart. Fakes pin the Context Viewer forwarders below.
-  late final PromptAssembler promptAssembler = _buildPromptAssembler();
+  PromptAssembler get promptAssembler => _wiring.promptAssembler;
   Map<String, int> get lastPromptBudget => promptAssembler.budget.budget;
   Map<String, String> get lastPromptSections => promptAssembler.budget.sections;
   ContextBudgetSource get promptBudgetSource => promptAssembler.budget.source;
@@ -321,6 +331,10 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   Future<void> setNeedsSimEnabled(bool on) =>
       controlsDoor.setNeedsSimEnabled(on);
   bool get realismEnabled => _realismEnabled;
+
+  /// The one name for the Realism gate in this library: Porch Life allows
+  /// it AND the chat's own switch (test/hygiene/realism_gate_ratchet_test).
+  bool get _realismEnabled => controlsDoor.realismEnabled;
   bool get realismChatSwitch => controlsDoor.realismChatSwitch;
   bool get realismAllowed => _storageService.realismSettings.realismAllowed;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
@@ -331,8 +345,10 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   bool get afterglowChatSwitch => controlsDoor.afterglowChatSwitch;
   Future<void> setAfterglowEnabled(bool on) =>
       controlsDoor.setAfterglowEnabled(on);
-  MemoryService? get memoryService => _memoryService;
-  Map<String, dynamic>? get lastRagReceipt => _lastRagReceiptImpl;
+  MemoryService? get memoryService => _bound.memory;
+
+  /// Reads the public [messages], so a fake is never probed for privates.
+  Map<String, dynamic>? get lastRagReceipt => lastRagReceiptIn(messages);
   String get standingMoodSummary => realism.standingMood.summary;
 
   bool get isEvaluatingRealism => realism.evalStatus.evaluating;
@@ -369,7 +385,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
 
   /// Edit, delete, regen, swipes, Reprocess, impersonate; old names in
   /// edits_api.dart. The two members below forward so fakes pin them.
-  late final EditsDoor editsDoor = _buildEditsDoor();
+  EditsDoor get editsDoor => _wiring.editsDoor;
   int? get regenerableHostBelowGuestsIndex =>
       editsDoor.regen.hostBelowGuestsIndex;
   void editMessage(int index, String newText) =>
@@ -382,21 +398,69 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   Future<List<Objective>> getActiveObjectivesFor(CharacterCard character) =>
       objectivesDoor.getActiveObjectivesFor(character);
 
-  late final _doorNotify = CoalescedNotify(notifyListeners);
+  /// The app's appearance choices, read live by the Ambient Stage
+  /// (`sceneTokensFor`) so the chat page and the web chat state agree.
+  AppearanceSettings get appearance => _storageService.appearance;
 
-  /// Re-emits a door's changes as this service's, once per microtask.
-  void _forwardDoorNotify(ChangeNotifier door) =>
-      door.addListener(_doorNotify.call);
+  /// The coarse absence phrase gated by the welcome-back-banner setting:
+  /// the ONE gate the desktop banner and the web facade both read.
+  String? get absenceBannerPhrase =>
+      _storageService.realismSettings.absenceBannerEnabled
+      ? sessionStore.absencePhrase
+      : null;
+
+  Future<void> commitChatLorebookEdit() async {
+    notifyListeners();
+    await sessionStore.save();
+  }
+
+  /// Point this chat — and the MemoryService it owns — at [db], at startup
+  /// and after a swap (body in [ChatBindings.updateDatabase]).
+  void updateDatabase(AppDatabase db) => _bindings.updateDatabase(db);
+
+  /// Alias of [updateDatabase] so startup wiring and post-swap rebinding can
+  /// never drift apart.
+  void setDatabase(AppDatabase db) => updateDatabase(db);
+
+  /// The services main.dart wires after construction (the LLM provider and
+  /// the character library also get this chat's listeners).
+  void setCharacterRepository(CharacterRepository repo) =>
+      _bindings.setCharacterRepository(repo);
+  void setLLMProvider(LLMProvider provider) =>
+      _bindings.setLLMProvider(provider);
+  void setTtsService(TtsService service) => _bound.tts = service;
+  void setMemoryService(MemoryService service) => _bound.memory = service;
+  void setImageGenService(ImageGenService service) => _bound.imageGen = service;
+
+  /// The desktop's chat page opened or closed; a "Did time pass?" question
+  /// needs one open (or a web client), and KoboldCpp's cache follows it.
+  void chatScreenOpened() => _life.screenOpened(_session.currentSessionId);
+  void chatScreenClosed() => _life.screenClosed();
+
+  /// Test-only overrides for driving the real LLM paths (realism evals +
+  /// chat generation) with canned responses without a full LLMProvider.
+  @visibleForTesting
+  LLMService? get testLlmServiceOverride => _bound.testMouth;
+  @visibleForTesting
+  set testLlmServiceOverride(LLMService? v) => _bound.testMouth = v;
+  @visibleForTesting
+  bool get testIsLocalOverride => _bound.testIsLocal;
+  @visibleForTesting
+  set testIsLocalOverride(bool v) => _bound.testIsLocal = v;
+  @visibleForTesting
+  LLMService? get testWorkerLlmServiceOverride => _bound.testWorker;
+  @visibleForTesting
+  set testWorkerLlmServiceOverride(LLMService? v) => _bound.testWorker = v;
 
   @override
   void notifyListeners() {
-    if (_disposed) return;
+    if (_life.disposed) return;
     super.notifyListeners();
   }
 
   @override
   void dispose() {
-    _disposeCleanupImpl();
+    _bindings.dispose();
     super.dispose();
   }
 }

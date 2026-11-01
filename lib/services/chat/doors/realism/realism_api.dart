@@ -24,6 +24,8 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
+import 'package:front_porch_ai/services/expression_classifier.dart'
+    show ExpressionClassifierService;
 import 'package:front_porch_ai/services/chat_service.dart';
 
 /// The group lore in play (bodies in [ChatLore]).
@@ -406,6 +408,11 @@ extension ChatServiceRealismReads on ChatService {
   /// that mistake.)
   String? get currentExpressionLabel =>
       realism.expression.currentExpressionLabel;
+
+  /// Set the ExpressionClassifierService after construction (for ONNX
+  /// emotion classification).
+  void setExpressionClassifierService(ExpressionClassifierService service) =>
+      realism.expression.setExpressionClassifierService(service);
   AvatarImage? resolveExpressionAvatar(
     CharacterCard character, {
     bool rerollIfSame = false,

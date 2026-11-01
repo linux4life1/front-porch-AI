@@ -49,8 +49,9 @@ class PostGenSide {
   LLMProvider? get _llmProvider => _d.services.llmProvider();
   TtsService? get _ttsService => _d.services.tts();
   MemoryService? get _memoryService => _d.services.memory();
-  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
-  String _getCharacterId() => _d.ragCharacterId();
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
+  String _getCharacterId() => _session.ragCharacterId();
 
   AutoChatBudget get _autoChatBudget => _entry.autoChat;
   Future<void> _autoPlayNext() => _entry.director.autoPlayNext();

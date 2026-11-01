@@ -219,7 +219,7 @@ extension RealismEvalWiring on RealismGraph {
       getGroupNeeds: groups.needsOf,
       setGroupNeeds: groups.setNeeds,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getMessages: () => session.messages,
       needsSimulation: needs,
       getNeedsSimEnabled: () => needsPass.active,
@@ -312,6 +312,5 @@ extension RealismEvalWiring on RealismGraph {
 }
 
 extension on RealismGraph {
-  RealismShellHooks get _h => deps.hooks;
   RealismDoors get _doors => deps.doors;
 }

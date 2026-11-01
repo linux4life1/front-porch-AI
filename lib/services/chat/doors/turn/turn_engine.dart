@@ -131,7 +131,8 @@ class TurnEngine {
   UserPersonaService get _userPersonaService => _d.services.personas;
   KoboldService get _koboldService => _d.services.kobold;
   LLMProvider? get _llmProvider => _d.services.llmProvider();
-  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
 
   GroupChat? get _activeGroup => _session.activeGroup;
   AwayPulseState get _awayPulse => _cast.away.state;

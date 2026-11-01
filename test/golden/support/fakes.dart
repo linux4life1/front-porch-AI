@@ -45,6 +45,7 @@ import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -658,6 +659,10 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       prompts: _noDoorDep,
       turn: _noDoorDep,
       send: _noDoorDep,
+      edits: _noDoorDep,
+      tts: _noDoorDep,
+      lanes: _noDoorDep,
+      life: _UnwiredLifetime(),
       characterIdFor: characterIdFor,
       saveChat: () async {},
       notify: () {},
@@ -851,6 +856,13 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
 /// [CastShellHooks] with nothing wired: any call is a NoSuchMethodError.
 class _UnwiredCastHooks implements CastShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A [ChatLifetime] with nothing wired: reading it is a NoSuchMethodError,
+/// as the cast hooks' unwired lifetime read was before it moved here.
+class _UnwiredLifetime implements ChatLifetime {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

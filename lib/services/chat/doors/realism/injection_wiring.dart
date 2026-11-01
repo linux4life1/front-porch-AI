@@ -70,7 +70,7 @@ extension RealismInjectionWiring on RealismGraph {
           deps.doors.entry().reads.shouldTrackInterCharacterRelationships,
       getGroupInt: (charId, key, {int defaultValue = 0}) =>
           groups.intOr(charId, key, defaultValue),
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getInterCharacterRelationships:
           relationship.getInterCharacterRelationships,
     );
@@ -123,7 +123,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
     );
   }
 
@@ -135,7 +135,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
     );
   }
 
@@ -145,7 +145,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       // The install's 18+ master switch — the SAME one that shows or hides
       // the After Dark group in Settings. A card may carry intimate
       // preferences; with 18+ off they stay out of the prompt entirely rather
@@ -169,7 +169,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       // Off means off: with the switch down the record is never read, so the
       // fragment is absent rather than stale. The check itself now lives in
       // pocketsFor — one gate for every surface, rather than each caller
@@ -194,7 +194,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getUserName: () => deps.services.personas.persona.name,
     );
   }
@@ -207,7 +207,7 @@ extension RealismInjectionWiring on RealismGraph {
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getMutualOpening: mutualAfterglowOpening,
       getPcdActive: pcdActive,
     );
@@ -228,7 +228,7 @@ extension RealismInjectionWiring on RealismGraph {
       pcdStamped: (m) => m.activeMetadata?['pcd'] == true,
       speakerOf: (m) {
         final card = speakerFor(m);
-        return card == null ? null : _h.characterIdFor(card);
+        return card == null ? null : session.characterIdFor(card);
       },
     );
   }
@@ -251,7 +251,7 @@ extension RealismInjectionWiring on RealismGraph {
       if (group) {
         final card = speakerFor(m);
         if (card == null ||
-            _h.characterIdFor(card) != groups.currentSpeakerId()) {
+            session.characterIdFor(card) != groups.currentSpeakerId()) {
           continue;
         }
       }
@@ -278,7 +278,7 @@ extension RealismInjectionWiring on RealismGraph {
       getGroupCharacters: () => session.groupCharacters,
       getEnjoysLowHygiene: () => controls.enjoysLowHygiene,
       getGroupNeeds: groups.needsOf,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getNeedsOff: () =>
           session.activeCharacter?.frontPorchExtensions?.needsOff ?? const [],
     );
@@ -360,14 +360,13 @@ extension RealismInjectionWiring on RealismGraph {
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
       getActiveCharacter: () => session.activeCharacter,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
     );
   }
 }
 
 extension on RealismGraph {
   StorageService get _storageService => deps.services.storage;
-  RealismShellHooks get _h => deps.hooks;
   bool _isGuestAuthored(ChatMessage m) =>
       deps.doors.cast().guests.isGuestAuthoredMessage(m);
 }

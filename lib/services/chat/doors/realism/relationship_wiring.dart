@@ -26,7 +26,6 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 /// slot in a group, plus the "Our Story" card a tier crossing plants.
 extension RealismRelationshipWiring on RealismGraph {
   RelationshipService buildRelationship() {
-    final h = deps.hooks;
     final entry = deps.doors.entry;
     Map<String, GroupMemberRealism> slots() => groups.members;
     return RelationshipService(
@@ -41,14 +40,14 @@ extension RealismRelationshipWiring on RealismGraph {
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getCurrentGroupMemberIds: () => fullGroupCharacters(
         session.groupCharacters,
-      ).map(h.characterIdFor).toSet(),
+      ).map(session.characterIdFor).toSet(),
       getOtherGroupMemberIds: (selfId) => fullGroupCharacters(
         session.groupCharacters,
-      ).map(h.characterIdFor).where((id) => id != selfId).toList(),
+      ).map(session.characterIdFor).where((id) => id != selfId).toList(),
       getOtherGroupMemberIdToLowerName: (selfId) {
         final m = <String, String>{};
         for (final other in fullGroupCharacters(session.groupCharacters)) {
-          final oid = h.characterIdFor(other);
+          final oid = session.characterIdFor(other);
           if (oid == selfId) continue;
           m[oid] = other.name.toLowerCase();
         }

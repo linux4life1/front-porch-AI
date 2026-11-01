@@ -17,9 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart' show AppDatabase;
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
@@ -44,15 +44,19 @@ class RealismDeps {
     required this.session,
     required this.services,
     required this.doors,
-    required this.hooks,
+    required this.life,
     required this.notify,
   });
 
-  /// The open chat: messages, session id, active character, group.
+  /// The open chat: messages, session id, active character, group, and
+  /// the stable ids a card's rows are keyed by
+  /// ([ChatSessionState.characterIdFor], [ChatSessionState.ragCharacterId]).
   final ChatSessionState session;
   final RealismServices services;
   final RealismDoors doors;
-  final RealismShellHooks hooks;
+
+  /// Whether the service was disposed: a late memory pass stops notifying.
+  final ChatLifetime life;
 
   /// The service's own notify, synchronous: the leaves notified in place
   /// before they were built here, and the overlay and the web push read
@@ -140,26 +144,4 @@ class RealismDoors {
   /// The send spine: the group speaker's pre-turn baseline on the latest
   /// user line ([SendHandoff.stampGroupUserTurnBaseline]).
   final SendSpine Function() send;
-}
-
-// Debt: every hook below is state or behaviour another part of the chat
-// service still owns. A hook goes when its owner becomes a door; the work
-// package that retires it is named on each group.
-
-/// What the Realism graph still reaches in the chat service library.
-class RealismShellHooks {
-  const RealismShellHooks({
-    required this.characterIdFor,
-    required this.ragCharacterId,
-    required this.disposed,
-  });
-
-  // ── Identity and lifetime (WP11) ──────────────────────────────────────
-
-  /// The stable id a card's rows and group entries are keyed by.
-  final String Function(CharacterCard card) characterIdFor;
-
-  /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
-  final String Function() ragCharacterId;
-  final bool Function() disposed;
 }

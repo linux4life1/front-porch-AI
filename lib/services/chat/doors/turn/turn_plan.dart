@@ -104,7 +104,7 @@ class TurnPlan {
   AuthorNoteBuilder get _authorNoteBuilder => _g.authorNotes;
   NeedsSimulation get _needsSimulation => _g.needs;
   bool _isLiteTurn(GenTurn t) => _a.isLiteTurn(t);
-  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+  String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
 
   Future<void> build(GenTurn t) async {
     _a.tokenAlts.applyRegenSeed(t);

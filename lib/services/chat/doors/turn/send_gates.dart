@@ -152,7 +152,7 @@ class SendGates {
   /// AFK never send through here anyway), so the guess applies. A chat
   /// change under the question cancels it.
   Future<SkipVerdict?> askSkip(PendingSkip question, String? token) async {
-    if (_callMode || (!_s.deps.hooks.chatScreenOpen() && !_skipWebAsker())) {
+    if (_callMode || (!_s.deps.life.chatScreenOpen && !_skipWebAsker())) {
       return null;
     }
     final answer = _skipGate.ask(question);

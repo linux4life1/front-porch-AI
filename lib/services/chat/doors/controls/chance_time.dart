@@ -108,7 +108,7 @@ class ChanceTime {
     }
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
     if (card == null) return false;
-    final id = _d.hooks.characterIdFor(card);
+    final id = _session.characterIdFor(card);
     if (!_d.storage.realismSettings.afterglowEnabled ||
         !_g.groups.afterglowOnFor(id)) {
       return false;

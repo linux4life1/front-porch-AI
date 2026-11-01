@@ -109,7 +109,8 @@ class SendSpine {
   ObjectivesDoor get objectives => deps.doors.objectives();
   MediaDoor get media => deps.doors.media();
   void notify() => deps.notify();
-  String characterIdFor(CharacterCard card) => deps.hooks.characterIdFor(card);
+  String characterIdFor(CharacterCard card) =>
+      deps.session.characterIdFor(card);
   Future<void> saveChat({bool replaceAll = false}) =>
       sessions.save(replaceAll: replaceAll);
 

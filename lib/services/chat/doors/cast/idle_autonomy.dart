@@ -48,7 +48,6 @@ class IdleAutonomy {
   /// `dynamicResponseMaxMessages` the sidebar, `/afk` and Settings share.
   int consecutiveAutoResponses = 0;
 
-  CastShellHooks get _h => _d.hooks;
   TurnEngine get _turn => _d.turn();
   GenerationSettings get _gen => _d.storage.generationSettings;
 
@@ -61,7 +60,7 @@ class IdleAutonomy {
   void resumeDynamicResponses() {
     if (!_gen.dynamicResponses) return;
     if (!hasCompletedExchange) return;
-    if (_h.disposed()) return;
+    if (_d.life.disposed) return;
     resetIdleTimer();
   }
 
@@ -93,16 +92,16 @@ class IdleAutonomy {
   }
 
   void _onIdleTimerFired() {
-    if (_h.disposed()) return;
+    if (_d.life.disposed) return;
     if (_turn.isTurnBusy) {
       resetIdleTimer();
       return;
     }
-    if (_h.ttsSpeaking()) {
+    if (_d.tts()?.isSpeaking ?? false) {
       resetIdleTimer();
       return;
     }
-    if (!_h.mouthReady()) {
+    if (!_d.lanes().mouth.isReady) {
       resetIdleTimer();
       return;
     }

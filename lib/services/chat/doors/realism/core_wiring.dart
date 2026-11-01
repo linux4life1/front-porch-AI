@@ -148,7 +148,7 @@ extension RealismCoreWiring on RealismGraph {
     history: _doors.sessions().history,
     messageCount: () => session.messages.length,
     workFieldsFor: workFieldsFor,
-    characterIdFor: _h.characterIdFor,
+    characterIdFor: session.characterIdFor,
     journalStore: () => journalStore,
   );
 
@@ -158,7 +158,7 @@ extension RealismCoreWiring on RealismGraph {
     time: () => time,
     persona: () => deps.services.personas.persona,
     cast: clockCast,
-    characterIdFor: _h.characterIdFor,
+    characterIdFor: session.characterIdFor,
     journalStore: () => journalStore,
     objectivesActive: () => controls.objectivesActive,
     db: deps.services.db,
@@ -169,8 +169,8 @@ extension RealismCoreWiring on RealismGraph {
   GroupRealismStore buildGroups() => GroupRealismStore(
     isGroup: () => session.activeGroup != null,
     groupCharacters: () => session.groupCharacters,
-    characterIdFor: _h.characterIdFor,
-    hostId: _h.ragCharacterId,
+    characterIdFor: session.characterIdFor,
+    hostId: session.ragCharacterId,
     activeCharacter: () => session.activeCharacter,
     isGenerating: () => _doors.turn().progress.isGenerating,
     nextCharacter: () => _doors.entry().director.nextCharacter,
@@ -191,7 +191,7 @@ extension RealismCoreWiring on RealismGraph {
     needsSimEnabled: () => controls.needsSimEnabled,
     realismSettings: () => _storageService.realismSettings,
     clockRunning: () => controls.clockRunning,
-    characterIdFor: _h.characterIdFor,
+    characterIdFor: session.characterIdFor,
     groups: groups,
     needs: () => needs,
     relationship: () => relationship,
@@ -347,7 +347,6 @@ extension RealismCoreWiring on RealismGraph {
 
 extension on RealismGraph {
   StorageService get _storageService => deps.services.storage;
-  RealismShellHooks get _h => deps.hooks;
   RealismDoors get _doors => deps.doors;
   TodaySentence get _today => _doors.sessions().today;
 

@@ -53,7 +53,8 @@ class TurnStream {
   UserPersonaService get _userPersonaService => _d.services.personas;
   KoboldService get _koboldService => _d.services.kobold;
   LLMProvider? get _llmProvider => _d.services.llmProvider();
-  String? _getCharacterIdForCard(CharacterCard card) => _d.characterIdFor(card);
+  String? _getCharacterIdForCard(CharacterCard card) =>
+      _session.characterIdFor(card);
 
   MoodRegisters get _mood => _g.mood;
   Map<String, dynamic>? get _pendingRealismMetadata => _g.registers.pending;

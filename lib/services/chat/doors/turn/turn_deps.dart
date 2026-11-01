@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
@@ -42,22 +41,15 @@ class TurnDeps {
     required this.session,
     required this.services,
     required this.doors,
-    required this.characterIdFor,
-    required this.ragCharacterId,
     required this.notify,
   });
 
-  /// The open chat: messages, session id, active character, group.
+  /// The open chat: messages, session id, active character, group, and
+  /// the stable ids a card's rows and memory are keyed by
+  /// ([ChatSessionState.characterIdFor], [ChatSessionState.ragCharacterId]).
   final ChatSessionState session;
   final TurnServices services;
   final TurnDoors doors;
-
-  /// The stable id a card's rows and group entries are keyed by (WP11).
-  final String Function(CharacterCard card) characterIdFor;
-
-  /// The chat's own id: `group_<id>` in a group, the host's id in 1:1
-  /// (WP11).
-  final String Function() ragCharacterId;
 
   /// The service's own notify, synchronous: the status bar, the composer,
   /// the overlay and the web push read each transition of a turn at the

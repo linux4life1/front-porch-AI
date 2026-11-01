@@ -79,7 +79,7 @@ class CastDoor {
   /// was disposed since [token] (a session id snapshot) was taken. Async
   /// cast work bails after an await when this is true.
   bool sceneChanged(String? token) =>
-      _d.hooks.disposed() || _d.session.currentSessionId != token;
+      _d.life.disposed || _d.session.currentSessionId != token;
 
   /// The unified ordered cast of speakers for the active chat, regardless of
   /// mode. This is the single roster the UI reads instead of branching on

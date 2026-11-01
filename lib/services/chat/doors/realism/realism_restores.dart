@@ -44,7 +44,7 @@ class RealismRestores {
   TimeService get _timeService => _g.time;
   RealismDance get _realismDance => _g.dance;
   String _getCharacterIdFromCard(CharacterCard card) =>
-      _g.deps.hooks.characterIdFor(card);
+      _g.session.characterIdFor(card);
 
   /// The chat's STORED Needs switch: this file rewinds state with it.
   bool get _needsSimEnabled => _g.controls.needsSimEnabled;

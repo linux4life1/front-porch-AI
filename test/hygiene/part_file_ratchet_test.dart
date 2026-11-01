@@ -26,13 +26,14 @@
 //      must have its entry lowered or deleted in the same change, so the
 //      freed slot cannot be refilled by a new mechanical split.
 //
-// The exceptions below are part libraries by design, not legacy. They obey
-// the same three rules on purpose. ChatService's parts all hang off one
-// shell, so its count is the group total: a new chat_service_*.dart part
-// raises it and fails. ChatService work that keeps moving moves inside an
-// existing part or out to a leaf class under lib/services/chat/, and neither
-// changes the count. A ceiling that did not also lock in shrinks would let a
-// removed part be swapped for a new one with no one noticing.
+// The exception below is a part library by design, not legacy: the Drift
+// database library, whose tables, migrations and queries share one library
+// with its generated code. It obeys the same three rules on purpose. Its
+// count is the total of its handwritten parts: a new database part raises
+// it and fails, and database work moves inside an existing part or out to
+// a plain class, neither of which changes the count. A ceiling that did not
+// also lock in shrinks would let a removed part be swapped for a new one
+// with no one noticing.
 //
 // With FPAI_TIGHTEN_BASELINES=1 the baseline is lowered to the tree (never
 // raised). Any baseline edit still needs the approved-test-change label.
@@ -46,7 +47,6 @@ const _baselinePath = 'test/baselines/part_files.json';
 /// Libraries that are `part` libraries by design. Frozen: no new parts.
 const _exceptions = {
   'lib/database/database.dart': 'the Drift database library',
-  'lib/services/chat_service.dart': 'the ChatService shell',
 };
 
 const _advice =

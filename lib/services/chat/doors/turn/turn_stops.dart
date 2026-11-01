@@ -53,7 +53,8 @@ class TurnStops {
   StorageService get _storageService => _d.services.storage;
   LLMProvider? get _llmProvider => _d.services.llmProvider();
   LlmLanes get _lanes => _d.services.lanes;
-  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
   bool get _skipAsked => _d.doors.send().gates.skipAsked;
   bool get _isImporting => _d.doors.importer().isImporting;
 

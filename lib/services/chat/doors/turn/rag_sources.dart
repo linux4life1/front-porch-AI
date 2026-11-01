@@ -42,8 +42,8 @@ class RagSources {
       _d.doors.entry().groupRepository;
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
-  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
-  String _getCharacterId() => _d.hooks.ragCharacterId();
+  String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
+  String _getCharacterId() => _session.ragCharacterId();
 
   /// Resolve the RAG source character ids for retrieval.
   ///

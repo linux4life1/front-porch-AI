@@ -54,7 +54,9 @@ class GuestJoin {
       _guests.clearExitUndo();
       if (departure != null) {
         final idx = _session.messages.indexOf(departure);
-        if (idx >= 0) _h.deleteMessage(idx); // removes + reverts + saves
+        if (idx >= 0) {
+          _d.edits().editor.deleteMessage(idx); // removes + reverts + saves
+        }
       }
       await _h.reloadGroupRoster();
       _guests.setStatus('${pendingMember.name} is back in the chat.');
@@ -68,7 +70,9 @@ class GuestJoin {
     _guests.clearExitUndo();
     if (departure != null) {
       final idx = _session.messages.indexOf(departure);
-      if (idx >= 0) _h.deleteMessage(idx); // removes + reverts + saves
+      if (idx >= 0) {
+        _d.edits().editor.deleteMessage(idx); // removes + reverts + saves
+      }
     }
     final id = guest.dbId;
     if (id != null && !_state.ids.contains(id)) {

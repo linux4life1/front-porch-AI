@@ -51,7 +51,8 @@ class PostGenPasses {
   CastDoor get _cast => _d.doors.cast();
   StorageService get _storageService => _d.services.storage;
   LlmLanes get _lanes => _d.services.lanes;
-  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
 
   GroupChat? get _activeGroup => _session.activeGroup;
   AfterglowPass get _afterglow => _g.afterglow;

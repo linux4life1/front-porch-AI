@@ -232,7 +232,7 @@ class TodayPlanner {
     final owner =
         ownerId ??
         (await _heldTodayRow())?.characterId ??
-        (card == null ? null : _g.deps.hooks.characterIdFor(card));
+        (card == null ? null : _g.session.characterIdFor(card));
     if (sessionId == null || owner == null) return;
     await _g.journalStore.addCard(
       sessionId: sessionId,

@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart' show AppDatabase;
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
@@ -42,15 +41,15 @@ class PromptDeps {
     required this.session,
     required this.services,
     required this.doors,
-    required this.hooks,
     required this.notify,
   });
 
-  /// The open chat: messages, session id, active character, group.
+  /// The open chat: messages, session id, active character, group, and
+  /// the stable ids a card's rows and memory are keyed by
+  /// ([ChatSessionState.characterIdFor], [ChatSessionState.ragCharacterId]).
   final ChatSessionState session;
   final PromptServices services;
   final PromptDoors doors;
-  final PromptShellHooks hooks;
 
   /// The service's own notify, synchronous: the Context Viewer refresh,
   /// the Author's Note and the prompt picker repaint at once, as the parts
@@ -134,24 +133,4 @@ class PromptDoors {
   /// The turn engine: Stop (the request's `stillWant`) and the prefill
   /// phase the request enters once it is in flight.
   final TurnEngine Function() turn;
-}
-
-// Debt: every hook below is state or behaviour another part of the chat
-// service still owns. A hook goes when its owner becomes a door; the work
-// package that retires it is named on each group.
-
-/// What the prompt assembler still reaches in the chat service library.
-class PromptShellHooks {
-  const PromptShellHooks({
-    required this.characterIdFor,
-    required this.ragCharacterId,
-  });
-
-  // ── Identity (WP11) ───────────────────────────────────────────────────
-
-  /// The stable id a card's rows and group entries are keyed by.
-  final String Function(CharacterCard card) characterIdFor;
-
-  /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
-  final String Function() ragCharacterId;
 }

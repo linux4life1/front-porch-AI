@@ -586,7 +586,7 @@ void main() {
   test('the scanner sees the declarations it reads', () {
     final shell = chatServiceLibrary();
     final cls = chatServiceClass(shell);
-    expect(cls.mixins, isNotEmpty, reason: 'ChatService has a with clause');
+    expect(cls.mixins, isEmpty, reason: 'the field bag is gone (WP11)');
     expect(
       reachableExtensions(shell),
       isNotEmpty,

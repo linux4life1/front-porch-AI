@@ -46,6 +46,12 @@ extension ChatServiceGroupEntry on ChatService {
     GroupChatRepository? groupRepo,
   }) => entryDoor.group.setActiveGroup(group, groupRepo: groupRepo);
 
+  /// Wired by main.dart so that group member loading works for all call
+  /// sites (creation, home taps, fork, etc.) without every caller having to
+  /// pass the repo.
+  void setGroupChatRepository(GroupChatRepository repo) =>
+      entryDoor.groupRepository = repo;
+
   /// The library character a group member came from, or null.
   CharacterCard? originLibraryCardFor(CharacterCard member) =>
       entryDoor.roster.originLibraryCardFor(member);

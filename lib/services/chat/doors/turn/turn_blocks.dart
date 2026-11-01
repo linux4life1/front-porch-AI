@@ -82,7 +82,7 @@ class TurnBlocks {
   bool _isLiteTurn(GenTurn t) => _a.isLiteTurn(t);
   bool _isGuestAuthoredMessage(ChatMessage m) =>
       _cast.guests.isGuestAuthoredMessage(m);
-  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+  String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
 
   Future<void> assemble(GenTurn t) async {
     // Days lived off-screen land before any prompt reads a body.

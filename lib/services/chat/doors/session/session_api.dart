@@ -36,6 +36,10 @@ extension ChatServiceSessionState on ChatService {
   String? get sessionName => sessionStore.sessionName;
   String? get sessionDescription => sessionStore.sessionDescription;
 
+  /// Coarse absence bucket ("a few days"), or null under the threshold /
+  /// fresh chat. Words only — never digits (see AbsenceTracker).
+  String? get absencePhrase => sessionStore.absencePhrase;
+
   /// The per-chat gallery look for [characterId], or null (library face).
   String? selectedLookFor(String characterId) =>
       sessionStore.selectedLookFor(characterId);

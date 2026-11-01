@@ -389,7 +389,7 @@ class GuestFlow {
   /// (the repository hands back its live reference); the scenario is blanked
   /// only in the prompt at guest-turn time.
   Future<void> resolveSceneGuestCards() async {
-    if (_h.disposed()) return;
+    if (_d.life.disposed) return;
     final repo = _d.characters();
     if (repo == null) return;
     // Never two passes at once: each awaits per-id reads then mutates the
@@ -423,7 +423,7 @@ class GuestFlow {
           ..clear()
           ..addAll(resolved);
         _d.notify();
-      } while (state.resolvePending && !_h.disposed());
+      } while (state.resolvePending && !_d.life.disposed);
     } finally {
       state.resolving = false;
     }

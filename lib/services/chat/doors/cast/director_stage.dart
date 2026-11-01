@@ -110,7 +110,9 @@ class DirectorStage {
     _guests.clearExitUndo();
     if (goodbye != null) {
       final idx = _session.messages.indexOf(goodbye);
-      if (idx >= 0) _h.deleteMessage(idx); // removes + reverts + saves
+      if (idx >= 0) {
+        _d.edits().editor.deleteMessage(idx); // removes + reverts + saves
+      }
     }
     _h.setObserverMode(false);
     await _d.saveChat();
@@ -332,6 +334,8 @@ class DirectorStage {
     if (last.displayText.trim().isNotEmpty) return;
     await _turn.waitForTurnToSettle();
     final idx = _session.messages.indexOf(last);
-    if (idx >= 0) await _h.deleteMessage(idx); // + reverts realism, saves
+    if (idx >= 0) {
+      await _d.edits().editor.deleteMessage(idx); // + reverts realism, saves
+    }
   }
 }

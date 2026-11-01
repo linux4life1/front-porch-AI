@@ -9,7 +9,7 @@
 // (at your option) any later version.
 
 // Realism runs behind one gate. `_realismEnabled` (a getter in
-// lib/services/chat/chat_service_accessors.dart) is Porch Life's Realism
+// lib/services/chat_service.dart) is Porch Life's Realism
 // permission AND the chat's own switch; every reader in the ChatService
 // library, and every leaf through its RealismScope, reads it, so Porch Life
 // off stops Realism in every open chat from its next turn.
@@ -30,7 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/source_ratchet.dart';
 
-const _gateFile = 'lib/services/chat/chat_service_accessors.dart';
+const _gateFile = 'lib/services/chat_service.dart';
 
 /// The ChatService library (the shell and its parts) and its chat leaves.
 List<String> _chatServiceLibrary() => [

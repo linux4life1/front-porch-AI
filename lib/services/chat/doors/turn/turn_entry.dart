@@ -66,7 +66,8 @@ class TurnEntry {
   StorageService get _storageService => _d.services.storage;
   UserPersonaService get _userPersonaService => _d.services.personas;
   LLMProvider? get _llmProvider => _d.services.llmProvider();
-  String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
 
   GroupChat? get _activeGroup => _session.activeGroup;
   Future<void> _addGuestWithStatus({

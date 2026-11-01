@@ -195,7 +195,7 @@ class ControlsDoor {
   bool get realismTurnBusy => deps.engine().isTurnBusy || userTurn.held;
 
   void _onRealismPermissionChanged(bool allowed) {
-    if (deps.hooks.disposed()) return;
+    if (deps.life.disposed) return;
     deps.notify();
     if (allowed) onRealismStarted();
   }
@@ -370,7 +370,7 @@ class ControlsDoor {
     // the chat has moved to another group.
     final targets = [
       for (final c in _session.groupCharacters)
-        if (memberId == null || deps.hooks.characterIdFor(c) == memberId) c,
+        if (memberId == null || deps.session.characterIdFor(c) == memberId) c,
     ];
     // One write at a time: two saves of one member race on its avatar PNG.
     // The queue only orders them; each caller still sees its own error.

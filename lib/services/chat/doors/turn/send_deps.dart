@@ -18,8 +18,8 @@
 
 import 'package:flutter/foundation.dart';
 
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
@@ -43,11 +43,13 @@ class SendDeps {
     required this.services,
     required this.doors,
     required this.service,
-    required this.hooks,
+    required this.life,
     required this.notify,
   });
 
-  /// The open chat: messages, session id, active character, group.
+  /// The open chat: messages, session id, active character, group, and
+  /// the stable id a card's rows are keyed by
+  /// ([ChatSessionState.characterIdFor]).
   final ChatSessionState session;
   final SendServices services;
   final SendDoors doors;
@@ -55,7 +57,10 @@ class SendDeps {
   /// Notifies as the chat changes (the chat service itself): a "Did time
   /// pass?" question watches it for a chat switch under the question.
   final Listenable service;
-  final SendShellHooks hooks;
+
+  /// Whether a desktop chat page is open, so a "Did time pass?" question
+  /// has someone to answer it ([ChatLifetime.chatScreenOpen]).
+  final ChatLifetime life;
 
   /// The service's own notify, synchronous: the composer, the skip sheet,
   /// the Chance Time wheel and the web push read each transition of a send
@@ -135,22 +140,4 @@ class SendDoors {
 
   /// An import in flight refuses a send.
   final ChatImporter Function() importer;
-}
-
-// Debt: every hook below is state or behaviour the shell library still
-// owns (WP11). A hook goes when its owner becomes a door.
-
-/// What the send spine still reaches in the chat service library.
-class SendShellHooks {
-  const SendShellHooks({
-    required this.characterIdFor,
-    required this.chatScreenOpen,
-  });
-
-  /// The stable id a card's rows and group entries are keyed by.
-  final String Function(CharacterCard card) characterIdFor;
-
-  /// A desktop chat page is open, so a "Did time pass?" question has
-  /// someone to answer it.
-  final bool Function() chatScreenOpen;
 }

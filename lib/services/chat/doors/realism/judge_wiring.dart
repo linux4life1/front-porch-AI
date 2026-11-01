@@ -180,7 +180,10 @@ extension RealismJudgeWiring on RealismGraph {
       isSideQuestCooldownActive: () {
         final card = session.activeCharacter;
         return card != null &&
-            sideQuestCooldownActive(session.messages, _h.characterIdFor(card));
+            sideQuestCooldownActive(
+              session.messages,
+              session.characterIdFor(card),
+            );
       },
       getSideQuestCap: () => deps.services.maxSecondaryObjectives,
       setObjective:
@@ -265,10 +268,10 @@ extension RealismJudgeWiring on RealismGraph {
         if (sessionId == null) return;
         final card =
             session.groupCharacters
-                .where((c) => _h.characterIdFor(c) == obj.characterId)
+                .where((c) => session.characterIdFor(c) == obj.characterId)
                 .firstOrNull ??
             (session.activeCharacter != null &&
-                    _h.characterIdFor(session.activeCharacter!) ==
+                    session.characterIdFor(session.activeCharacter!) ==
                         obj.characterId
                 ? session.activeCharacter
                 : null);
@@ -314,6 +317,5 @@ extension RealismJudgeWiring on RealismGraph {
 
 extension on RealismGraph {
   StorageService get _storageService => deps.services.storage;
-  RealismShellHooks get _h => deps.hooks;
   RealismDoors get _doors => deps.doors;
 }

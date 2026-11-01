@@ -19,8 +19,8 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/database/database.dart' show AppDatabase;
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
@@ -46,10 +46,12 @@ class ControlsDeps {
     required this.send,
     required this.saveChat,
     required this.notify,
-    required this.hooks,
+    required this.life,
   });
 
-  /// The open chat: messages, session id, active character, group.
+  /// The open chat: messages, session id, active character, group, and
+  /// the stable id a card's rows are keyed by
+  /// ([ChatSessionState.characterIdFor]).
   final ChatSessionState session;
   final StorageService storage;
 
@@ -86,24 +88,8 @@ class ControlsDeps {
   /// The service's own notify, synchronous: a switch paints before its
   /// save, and the composer reads the user-turn hold's release at once.
   final void Function() notify;
-  final ControlsShellHooks hooks;
-}
 
-// Debt: every hook below is state or behaviour another part of the chat
-// service still owns. A hook goes when its owner becomes a door; the work
-// package that retires it is named on each group.
-
-/// What the controls door still reaches in the chat service library.
-class ControlsShellHooks {
-  const ControlsShellHooks({
-    required this.disposed,
-    required this.characterIdFor,
-  });
-
-  // ── Identity and lifetime (WP11) ──────────────────────────────────────
-
-  final bool Function() disposed;
-
-  /// The stable id a card's rows and group entries are keyed by.
-  final String Function(CharacterCard card) characterIdFor;
+  /// Whether the service was disposed: a Porch Life change after it is
+  /// ignored.
+  final ChatLifetime life;
 }

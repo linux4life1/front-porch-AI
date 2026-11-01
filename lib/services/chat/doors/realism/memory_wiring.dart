@@ -57,7 +57,7 @@ extension RealismMemoryWiring on RealismGraph {
       libraryStableGroupIds: () {
         final repo = deps.services.characters();
         if (repo == null) return <String>{};
-        return {for (final c in repo.characters) _h.characterIdFor(c)};
+        return {for (final c in repo.characters) session.characterIdFor(c)};
       },
       getConsumedBlockKeys: () =>
           _storageService.memorySettings.porchConsumedBlockKeys,
@@ -97,7 +97,7 @@ extension RealismMemoryWiring on RealismGraph {
       getActiveCharacter: () => session.activeCharacter,
       getActiveGroup: () => session.activeGroup,
       getGroupCharacters: () => session.groupCharacters,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getMessages: () => session.messages,
       getUserName: () => deps.services.personas.persona.name,
       getCursor: () => _sessions.summaryLastIndex,
@@ -153,12 +153,12 @@ extension RealismMemoryWiring on RealismGraph {
       resolveMacros: (charId, text) {
         String? name;
         if (session.activeCharacter != null &&
-            _h.characterIdFor(session.activeCharacter!) == charId) {
+            session.characterIdFor(session.activeCharacter!) == charId) {
           name = session.activeCharacter!.name;
         }
         if (name == null) {
           for (final c in session.groupCharacters) {
-            if (_h.characterIdFor(c) == charId) {
+            if (session.characterIdFor(c) == charId) {
               name = c.name;
               break;
             }
@@ -166,7 +166,7 @@ extension RealismMemoryWiring on RealismGraph {
         }
         if (name == null) {
           for (final g in _guestCards) {
-            if (_h.characterIdFor(g) == charId) {
+            if (session.characterIdFor(g) == charId) {
               name = g.name;
               break;
             }
@@ -207,7 +207,7 @@ extension RealismMemoryWiring on RealismGraph {
       getActiveGroup: () => session.activeGroup,
       getGroupCharacters: () => session.groupCharacters,
       getSceneGuestCards: () => _guestCards,
-      getCharacterIdFromCard: _h.characterIdFor,
+      getCharacterIdFromCard: session.characterIdFor,
       getMessages: () => session.messages,
       getUserName: () => deps.services.personas.persona.name,
       getRecap: () => _sessions.summary,
@@ -238,7 +238,7 @@ extension RealismMemoryWiring on RealismGraph {
     activeGroup: () => session.activeGroup,
     groupCharacters: () => session.groupCharacters,
     sceneGuestCards: () => _guestCards,
-    characterIdFor: _h.characterIdFor,
+    characterIdFor: session.characterIdFor,
     memorySettings: () => _storageService.memorySettings,
     hasLlm: () => deps.services.llmProvider() != null,
     isGrowthPassRunning: () => growthPassRunning,
@@ -274,7 +274,7 @@ extension RealismMemoryWiring on RealismGraph {
     growth: () => growthDesk,
     itemCards: () => itemCards,
     db: deps.services.db,
-    disposed: _h.disposed,
+    disposed: () => deps.life.disposed,
     notify: deps.notify,
   );
 
@@ -298,7 +298,7 @@ extension RealismMemoryWiring on RealismGraph {
       getMaxCards: () => _storageService.memorySettings.journalMaxCards,
       onWaypoint: () => growthDesk.requestSalienceKick(),
       onCacheWarmed: () {
-        if (!_h.disposed()) deps.notify();
+        if (!deps.life.disposed) deps.notify();
       },
     );
   }
@@ -312,7 +312,7 @@ extension RealismMemoryWiring on RealismGraph {
     final sessionId = session.currentSessionId;
     final list = card.frontPorchExtensions?.ambitions ?? const [];
     if (sessionId == null || list.isEmpty) return const [];
-    final cid = _h.characterIdFor(card);
+    final cid = session.characterIdFor(card);
     ambitions.ensureCacheWarm(sessionId, cid);
     final progress = ambitions.cachedProgress(sessionId, cid) ?? const {};
     return [for (final a in list) (text: a, progress: progress[a] ?? 0)];
@@ -343,7 +343,7 @@ extension RealismMemoryWiring on RealismGraph {
       },
       onSalienceKick: () => growthDesk.requestSalienceKick(),
       onCacheWarmed: () {
-        if (!_h.disposed()) deps.notify();
+        if (!deps.life.disposed) deps.notify();
       },
     );
   }
@@ -368,7 +368,6 @@ extension RealismMemoryWiring on RealismGraph {
 
 extension on RealismGraph {
   StorageService get _storageService => deps.services.storage;
-  RealismShellHooks get _h => deps.hooks;
   SessionStore get _sessions => deps.doors.sessions();
   List<CharacterCard> get _guestCards => deps.doors.cast().guests.state.cards;
   Future<void> _saveChat() => _sessions.save();

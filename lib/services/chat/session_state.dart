@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// The open chat every ChatService domain reads: its messages, its session
 /// id, the 1:1 character and the group manager. ChatService owns one and
@@ -57,4 +58,33 @@ class ChatSessionState {
 
   List<CharacterCard> get groupCharacters =>
       groupManager?.characters ?? const <CharacterCard>[];
+
+  /// The stable id a card's rows and group entries are keyed by. Roster
+  /// members use [groupMemberStoreId] (UUID-first). A library card looked
+  /// up during a group (cast collapse origin, 1:1 host) stays on
+  /// [CharacterCard.stableGroupId].
+  String characterIdFor(CharacterCard card) {
+    if (activeGroup != null && _isGroupRosterCard(card)) {
+      return groupMemberStoreId(card);
+    }
+    return card.stableGroupId;
+  }
+
+  bool _isGroupRosterCard(CharacterCard card) {
+    for (final c in groupCharacters) {
+      if (identical(c, card)) return true;
+      if (card.dbId != null && card.dbId == c.dbId) return true;
+    }
+    return false;
+  }
+
+  /// The chat's own id, its memory bucket: `group_<id>` in a group, the
+  /// host's id in 1:1, `unknown` with no chat open.
+  String ragCharacterId() {
+    final group = activeGroup;
+    if (group != null) return 'group_${group.id}';
+    final host = activeCharacter;
+    if (host == null) return "unknown";
+    return characterIdFor(host);
+  }
 }
