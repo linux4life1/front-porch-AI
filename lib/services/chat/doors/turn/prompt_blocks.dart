@@ -16,22 +16,71 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
+import 'package:front_porch_ai/services/world_repository.dart';
 
 /// Prompt-block builders: the Author's Note (setter + strength-modulated
-/// wrapper), the user-persona block, and the time-skip anchor and bridge
-/// context. All read state only; identical in 1:1 and group modes.
-extension ChatServicePromptBlocks on ChatService {
+/// wrapper), the user-persona block, the time-skip anchor and bridge
+/// context, the chat's macro context, the realism state block and a group
+/// speaker's card. All read state only (but the Author's Note setter);
+/// identical in 1:1 and group modes.
+class PromptBlocks {
+  PromptBlocks(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  UserPersonaService get _userPersonaService => _d.services.personas;
+  WorldRepository get _worldRepository => _d.services.worlds;
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  GroupMemberSettings get _members => _d.doors.entry().members;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => _d.doors.entry().director.observerMode;
+  bool get _realismEnabled => _d.doors.controls().realismEnabled;
+  bool get _clockRunning => _d.doors.controls().clockRunning;
+  String get _summary => _sessions.summary;
+  String get _authorNote => _sessions.authorNote;
+  set _authorNote(String v) => _sessions.authorNote = v;
+  int get _authorNoteStrength => _sessions.authorNoteStrength;
+  set _authorNoteStrength(int v) => _sessions.authorNoteStrength = v;
+  Map<String, dynamic>? get _pendingRealismMetadata => _g.registers.pending;
+  TimeService get _timeService => _g.time;
+  RelationshipService get _relationshipService => _g.relationship;
+  Map<String, GroupMemberRealism> get _groupRealism => _g.groups.members;
+  PromiseDebtService get _promiseDebtService => _g.promiseDebt;
+  ChatPlaceSlots get _chatPlaceSlots => _g.places.slots;
+  GrowthDesk get _growthDesk => _g.growthDesk;
+  LorebookTimedEffects get _loreTimedEffects => _g.lore.timedEffects;
+  RealismStateInjection get _realismStateInjection => _g.realismStateInjection;
+  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+
+  /// A group speaker's card (see [_buildGroupSpeakerCard]).
+  String groupSpeakerCard(CharacterCard speaker, {required String userName}) =>
+      _buildGroupSpeakerCard(speaker, userName: userName);
+
   void setAuthorNote(String note, {int? strength}) {
     _authorNote = note;
     if (strength != null) _authorNoteStrength = strength;
-    _saveChat();
-    notifyListeners();
+    _sessions.save();
+    _d.notify();
   }
 
   /// Build the Author's Note block with strength-modulated wrapper text.
   /// Strength 1–3: subtle suggestion, 4–7: standard, 8–10: urgent directive.
-  String _buildAuthorNoteBlock() {
+  String authorNoteBlock() {
     if (_authorNote.isEmpty) return '';
     if (_authorNoteStrength <= 3) {
       return '[Author\'s Note (gentle suggestion): $_authorNote]\n';
@@ -46,7 +95,7 @@ extension ChatServicePromptBlocks on ChatService {
   /// The user's self-description is ground truth. (What the character has
   /// *learned* about the user now lives in their per-chat Journal cards —
   /// injected separately via journal_injection — not here.)
-  Future<String> _buildUserPersonaBlock(String userName) async {
+  Future<String> userPersonaBlock(String userName) async {
     final persona = _userPersonaService.persona;
     final personaText = persona.persona.trim();
     final safeUserName = userName.replaceAll(RegExp(r'[\n\r"]'), ' ').trim();
@@ -77,7 +126,7 @@ extension ChatServicePromptBlocks on ChatService {
   /// The time-skip anchor for this reply prompt: '' unless the clock runs
   /// and a skip of hours or more is this turn's or a recent one
   /// (time_skip_anchor.dart).
-  String _timeSkipAnchorBlock() {
+  String timeSkipAnchorBlock() {
     if (!_clockRunning) return '';
     final meta = _pendingRealismMetadata;
     final pending =
@@ -94,7 +143,7 @@ extension ChatServicePromptBlocks on ChatService {
   /// What the bridge narrator should know beyond the last lines: who the
   /// cast are, their bond with the user, the place, the recap and the
   /// promises still open. Same fields in 1:1 and group.
-  TimeSkipBridgeContext _timeSkipBridgeContext() {
+  TimeSkipBridgeContext timeSkipBridgeContext() {
     final cast = _activeGroup != null
         ? _groupCharacters.toList()
         : [?_session.activeCharacter];
@@ -136,18 +185,12 @@ extension ChatServicePromptBlocks on ChatService {
       openThreads: threads.take(4).toList(),
     );
   }
-}
 
-/// The chat's macro context and the realism state block the prompt reads.
-extension ChatServicePromptContext on ChatService {
   /// Full chat-context MacroContext for prompt builds: card fields, group
   /// roster, last messages, idle clock, and the macro variable stores
   /// (locals ride _loreTimedEffects per chat; globals live in settings).
   /// Shared by generation, impersonation, and lore-key resolution.
-  MacroContext _buildChatMacroContext(
-    CharacterCard speaking, {
-    String? scenario,
-  }) {
+  MacroContext macroContext(CharacterCard speaking, {String? scenario}) {
     ChatMessage? lastUser;
     ChatMessage? lastChar;
     for (final m in _session.messages.reversed) {
@@ -173,9 +216,9 @@ extension ChatServicePromptContext on ChatService {
           : null,
       lastUserMessage: lastUser?.displayText,
       lastCharMessage: lastChar?.displayText,
-      idleDuration: _lastUserMessageAt == null
+      idleDuration: _a.lastUserMessageAt == null
           ? null
-          : DateTime.now().difference(_lastUserMessageAt!),
+          : DateTime.now().difference(_a.lastUserMessageAt!),
       getLocalVar: (n) => _loreTimedEffects.localMacroVars[n],
       setLocalVar: (n, v) => _loreTimedEffects.localMacroVars[n] = v,
       getGlobalVar: _storageService.lorebookSettings.getGlobalMacroVar,
@@ -187,6 +230,54 @@ extension ChatServicePromptContext on ChatService {
   /// "[How <Name> is right now: …]" block the model receives (salience-gated
   /// natural language, no simulation scalars; see
   /// docs/design/prompt-state-injection.md §3).
-  String _getRealismStateInjection() =>
+  String realismStateInjection() =>
       _realismStateInjection.buildRealismStateInjection();
+
+  /// The identity line and the speaker's persona, examples and
+  /// instructions (group override or card prompt, then the card's
+  /// post-history).
+  /// Shared by generation and the Context Viewer estimate.
+  String _buildGroupSpeakerCard(
+    CharacterCard speaker, {
+    required String userName,
+  }) {
+    final others = [
+      for (final ch in _groupCharacters)
+        if (ch.name != speaker.name) ch.name,
+    ];
+    final turnNote =
+        (speaker.isLite ? buildLiteGroupTurnNote : buildSpeakerTurnNote)(
+          speakerName: speaker.name,
+          otherMemberNames: others,
+          userName: userName,
+          observerMode: _observerMode,
+        );
+    final macros = MacroContext(
+      userName: userName,
+      characterName: speaker.name,
+    );
+    String resolve(String text, String section) =>
+        text.isEmpty ? text : _a.macros.resolve(text, macros, section: section);
+    final groupCharPrompt = _members
+        .getSystemPromptForGroupCharacter(speaker)
+        .trim();
+    return buildGroupTurnCard(
+      turnNote: turnNote,
+      personaLine: buildSpeakerPersonaLine(
+        name: speaker.name,
+        personality: _growthDesk.resolvedCardPersonality(speaker, userName),
+      ),
+      examplesBlock: buildSpeakerExamplesBlock(
+        name: speaker.name,
+        examples: resolve(speaker.mesExample, 'mesExample'),
+      ),
+      instructionsBlock: buildSpeakerInstructionsBlock(
+        name: speaker.name,
+        instructions: groupCharPrompt.isNotEmpty
+            ? groupCharPrompt
+            : speaker.systemPrompt,
+        postHistory: resolve(speaker.postHistoryInstructions, 'postHistory'),
+      ),
+    );
+  }
 }

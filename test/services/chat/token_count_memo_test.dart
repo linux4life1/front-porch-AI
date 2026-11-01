@@ -33,7 +33,7 @@ void main() {
 
   test('history consults the memo before the Kobold tokenizer', () {
     final src = File(
-      'lib/services/chat/chat_service_history.dart',
+      'lib/services/chat/doors/turn/history_window.dart',
     ).readAsStringSync();
     final start = src.indexOf('Future<int> _countTokens');
     final body = src.substring(start, src.indexOf('\n  }', start));

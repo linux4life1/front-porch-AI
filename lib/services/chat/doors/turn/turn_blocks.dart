@@ -16,16 +16,75 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Phase 1 of `_generateResponse` (see chat_service_generation.dart): the
-/// system prompt + lorebook + persona + scenario + examples + Scene-Guest +
-/// summary + Journal prompt-section assembly. Extracted verbatim (mechanical
-/// `x` → `t.x` carrier rename only — see `_GenTurn`) from the single
-/// ~1.9k-line `_generateResponse` method during the god-file split
-/// (docs/design/god-file-elimination.md). Zero behaviour change.
-extension ChatServiceGenerationBlocks on ChatService {
-  Future<void> _assembleGenerationBlocks(_GenTurn t) async {
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/database/database.dart' show JournalMemoryData;
+
+/// Phase 1 of `_generateResponse`: the system prompt + lorebook + persona +
+/// scenario + examples + Scene-Guest + summary + Journal prompt-section
+/// assembly, written onto the turn record. The body is the one the
+/// generation part held (`x` → `t.x` carrier names, see [GenTurn]); zero
+/// behaviour change.
+class TurnBlocks {
+  TurnBlocks(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  CastDoor get _cast => _d.doors.cast();
+  MediaDoor get _mediaDoor => _d.doors.media();
+  PromptSource get _source => _a.source;
+  PromptBlocks get _blocks => _a.blocks;
+  GroupMemberSettings get _members => _d.doors.entry().members;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => _d.doors.entry().director.observerMode;
+  bool get _directing => _d.doors.entry().director.directing;
+  bool get _callMode => _d.doors.controls().callMode;
+  bool get _clockRunning => _d.doors.controls().clockRunning;
+  String get _summary => _sessions.summary;
+  int get _summaryLastIndex => _sessions.summaryLastIndex;
+  String get _authorNote => _sessions.authorNote;
+  ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
+  set _lastLoreOverflow(List<String> v) => _a.lastLoreOverflow = v;
+  set _lastLoreTokens(int v) => _a.lastLoreTokens = v;
+  set _lastLoreBudget(int v) => _a.lastLoreBudget = v;
+  String? get _entranceDirective => _cast.entranceDirective;
+  set _entranceDirective(String? v) => _cast.entranceDirective = v;
+  DirectorScene get _directorScene => _cast.directorScene;
+  SceneGuestState get _sceneGuest => _cast.guests.state;
+  AwayPulseState get _awayPulse => _cast.away.state;
+  NeedsPass get _needsPass => _g.needsPass;
+  ToolTransportProbe get _toolProbe => _g.transport.probe;
+  String get _evalBackendIdentity => _g.transport.backendIdentity;
+  LorebookInjector get _lorebookInjector => _g.lore.injector;
+  GrowthDesk get _growthDesk => _g.growthDesk;
+  TimeService get _timeService => _g.time;
+  JournalStore get _journalStore => _g.journalStore;
+  String get _characterEmotion => _g.registers.emotion;
+  RelationshipService get _relationshipService => _g.relationship;
+  BirthdaySync get _birthdaySync => _g.birthdays;
+  JournalInjection get _journalInjection => _g.journalInjection;
+  bool _isLiteTurn(GenTurn t) => _a.isLiteTurn(t);
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      _cast.guests.isGuestAuthoredMessage(m);
+  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+
+  Future<void> assemble(GenTurn t) async {
     // Days lived off-screen land before any prompt reads a body.
     if (t.mode == GenerationMode.normal) _needsPass.landLivedBeatBeforeReply();
     // ── System prompt selection (Path B clean hierarchy) ──
@@ -35,15 +94,15 @@ extension ChatServiceGenerationBlocks on ChatService {
     // 3. Character's normal card system prompt (fallback if no group override for them).
     // 4. (Later) Per-character Author's Note is injected separately with its own strength.
     if (_activeGroup != null) {
-      t.systemPrompt = _groupBasePrompt;
+      t.systemPrompt = _source.groupBasePrompt;
     } else {
       // Every backend now speaks the OpenAI chat protocol (local KoboldCpp
       // via its /v1/chat/completions door), so the server applies the model's
       // instruct template — use the chat-style default system prompt.
-      t.systemPrompt = _resolveOneToOneBase(t.speakingCharacter);
+      t.systemPrompt = _source.resolveOneToOneBase(t.speakingCharacter);
     }
 
-    if (_amendmentsAllowed) {
+    if (_source.amendmentsAllowed) {
       t.systemPrompt = _storageService.generationSettings
           .withSystemPromptAddition(t.systemPrompt);
     }
@@ -67,7 +126,7 @@ extension ChatServiceGenerationBlocks on ChatService {
         (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
         (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
     if (forcedLookup ||
-        (mediaDoor.lookupsActive &&
+        (_mediaDoor.lookupsActive &&
             t.directUserSend &&
             !t.autonomous &&
             t.mode != GenerationMode.continue_)) {
@@ -138,7 +197,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // would overrule kDirectorSceneRules, so the block is left out.
     t.userPersonaBlock = _directing
         ? ''
-        : await _buildUserPersonaBlock(t.userName);
+        : await _blocks.userPersonaBlock(t.userName);
 
     // Scenario — the group scene is SHARED across the whole cast (one identical
     // scenario), so a group never uses a per-character EVOLVED scenario (that
@@ -188,24 +247,28 @@ extension ChatServiceGenerationBlocks on ChatService {
       t.postHistoryBlock = '${t.speakingCharacter.postHistoryInstructions}\n';
     }
 
-    if (_amendmentsAllowed) {
+    if (_source.amendmentsAllowed) {
       t.postHistoryBlock = _storageService.generationSettings
           .withPostHistoryAddition(t.postHistoryBlock);
     }
 
     // Author's note — placed right before the character speaks for maximum influence
     if (_authorNote.isNotEmpty) {
-      t.authorNoteBlock = _buildAuthorNoteBlock();
+      t.authorNoteBlock = _blocks.authorNoteBlock();
     }
 
     // Per-character Author's Note (group mode only): if the current speaker has
     // a personal note, inject it using the same strength-modulated style.
     // Falls back gracefully (no-op) if absent. Appended after any group-level note.
     if (_activeGroup != null) {
-      final charNote = getAuthorNoteForGroupCharacter(t.speakingCharacter);
+      final charNote = _members.getAuthorNoteForGroupCharacter(
+        t.speakingCharacter,
+      );
       if (charNote.isNotEmpty) {
         // Use per-character strength if set, otherwise fall back to group default
-        final s = getAuthorNoteStrengthForGroupCharacter(t.speakingCharacter);
+        final s = _members.getAuthorNoteStrengthForGroupCharacter(
+          t.speakingCharacter,
+        );
         final name = t.speakingCharacter.name;
         String perCharBlock;
         if (s <= 3) {
@@ -315,7 +378,7 @@ extension ChatServiceGenerationBlocks on ChatService {
     // notes keep the author-note seat near the end, as in 1:1: further up,
     // some models ignore the Author's Note and the Director goal.
     if (_activeGroup != null) {
-      t.speakerCardBlock = _buildGroupSpeakerCard(
+      t.speakerCardBlock = _blocks.groupSpeakerCard(
         t.speakingCharacter,
         userName: t.userName,
       );
@@ -412,52 +475,5 @@ extension ChatServiceGenerationBlocks on ChatService {
         t.journalCoverLines = journal.injectedContents;
       }
     }
-  }
-
-  /// The identity line and the speaker's persona, examples and
-  /// instructions (group override or card prompt, then the card's
-  /// post-history).
-  /// Shared by generation and the Context Viewer estimate.
-  String _buildGroupSpeakerCard(
-    CharacterCard speaker, {
-    required String userName,
-  }) {
-    final others = [
-      for (final ch in _groupCharacters)
-        if (ch.name != speaker.name) ch.name,
-    ];
-    final turnNote =
-        (speaker.isLite ? buildLiteGroupTurnNote : buildSpeakerTurnNote)(
-          speakerName: speaker.name,
-          otherMemberNames: others,
-          userName: userName,
-          observerMode: _observerMode,
-        );
-    final macros = MacroContext(
-      userName: userName,
-      characterName: speaker.name,
-    );
-    String resolve(String text, String section) => text.isEmpty
-        ? text
-        : _macroResolver.resolve(text, macros, section: section);
-    final groupCharPrompt = getSystemPromptForGroupCharacter(speaker).trim();
-    return buildGroupTurnCard(
-      turnNote: turnNote,
-      personaLine: buildSpeakerPersonaLine(
-        name: speaker.name,
-        personality: _growthDesk.resolvedCardPersonality(speaker, userName),
-      ),
-      examplesBlock: buildSpeakerExamplesBlock(
-        name: speaker.name,
-        examples: resolve(speaker.mesExample, 'mesExample'),
-      ),
-      instructionsBlock: buildSpeakerInstructionsBlock(
-        name: speaker.name,
-        instructions: groupCharPrompt.isNotEmpty
-            ? groupCharPrompt
-            : speaker.systemPrompt,
-        postHistory: resolve(speaker.postHistoryInstructions, 'postHistory'),
-      ),
-    );
   }
 }

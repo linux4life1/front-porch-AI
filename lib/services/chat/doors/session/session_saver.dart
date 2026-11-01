@@ -288,7 +288,7 @@ class SessionSaver {
     );
 
     // Context Budget snapshot (last real send) — raw SQL, schema v44.
-    await _d.hooks.persistContextBudget(sessionId);
+    await _s.prompts().budget.persist(sessionId);
 
     await replaceMessages(
       sessionId,

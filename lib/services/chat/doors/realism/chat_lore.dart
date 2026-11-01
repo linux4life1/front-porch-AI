@@ -95,7 +95,7 @@ class ChatLore {
       if (ch == null) return key;
       return _g.deps.services.macros.resolve(
         key,
-        _g.deps.hooks.macroContext(ch),
+        _g.deps.doors.prompts().macroContext(ch),
         section: 'lorekeys',
       );
     },

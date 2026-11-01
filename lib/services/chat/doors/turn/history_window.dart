@@ -16,7 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_deps.dart';
+import 'package:front_porch_ai/services/kobold_service.dart';
+import 'package:front_porch_ai/services/llm_provider.dart';
 
 /// Once the context is full, evict oldest messages in CHUNKS of this many
 /// instead of one per turn (docs/design/prompt-state-injection.md Phase 3).
@@ -30,11 +36,10 @@ part of '../chat_service.dart';
 /// from oscillating the drop across a chunk boundary between turns.
 const int kHistoryTrimChunk = 8;
 
-/// Per-service history-window anchor (see the monotonic-anchor comment in
-/// [_buildChatHistoryWithBudget]). An [Expando] rather than a ChatService
-/// field ONLY because the shell sits at the 1,000-line ratchet's edge —
-/// per-instance state, garbage-collected with the service, invisible to
-/// golden fakes.
+/// Per-chat-service history-window anchor (see the monotonic-anchor comment
+/// in [PromptHistory.buildChatHistoryWithBudget]). Still an [Expando], now
+/// keyed by the [PromptHistory] (one per service), so the budget walk below
+/// keeps the exact body the prefix-cache tests pinned.
 class _HistoryAnchor {
   String? session;
   int dropped = 0;
@@ -47,23 +52,39 @@ final Expando<_HistoryAnchor> _historyAnchorOf = Expando();
 /// Used to detect stray unresolved macros in chat history.
 final _macroPattern = RegExp(r'\{\{(\w+)(?:::(.+?))?\}\}');
 
-/// Private prompt chat-history builders and token counting/budgeting. Pure
-/// formatting over `_session.messages` plus token accounting — no orchestration or
-/// engine logic — extracted verbatim from `chat_service.dart` (zero behaviour
-/// change) to shrink the god file. Private members, so safe to move to an
-/// extension (never part of the public interface / fakeable).
-extension ChatServiceHistory on ChatService {
+/// The prompt's chat history: one history line per message, the whole
+/// transcript, the transcript that fits a token budget (with the chunked,
+/// monotonic eviction anchor that keeps a local backend's prefix cache
+/// warm), the tiny-context floor, and token counting. Pure formatting over
+/// the open chat's messages plus token accounting; the same in 1:1 and
+/// group, and shared by the reply, Continue, impersonate and the Context
+/// Viewer estimate.
+class PromptHistory {
+  PromptHistory(this._d);
+
+  final PromptDeps _d;
+
+  /// Unchanged history lines are not re-counted (token_count_memo_test).
+  final TokenCountMemo _tokenCountMemo = TokenCountMemo();
+
+  ChatSessionState get _session => _d.session;
+  LLMProvider? get _llmProvider => _d.services.llmProvider();
+  KoboldService get _koboldService => _d.services.kobold;
+
+  /// Count tokens for [text] (see [_countTokens]).
+  Future<int> countTokens(String text) => _countTokens(text);
+
   /// One history line per message (shared by both history builders so they
   /// can never drift). Delegates to [ChatMessage.toPromptHistoryLine] so the
   /// generation prompt and the eval windows ([recentExchange]) agree: think
   /// blocks stay UI-only, photos carry their caption marker, director notes
   /// and generated-image shares keep their brackets.
-  String _formatHistoryLine(ChatMessage m) => m.toPromptHistoryLine();
+  String formatHistoryLine(ChatMessage m) => m.toPromptHistoryLine();
 
   /// One line per message, a time-skip bridge read after its skip line.
   List<String> _promptOrderedLines() => bridgesAfterSkipLines(
     _session.messages,
-    _session.messages.map(_formatHistoryLine).toList(),
+    _session.messages.map(formatHistoryLine).toList(),
   );
 
   Iterable<String> _promptHistoryLines(Iterable<String> lines) =>
@@ -72,12 +93,12 @@ extension ChatServiceHistory on ChatService {
   /// Tiny-context floor: keep the latest user line and everything after it.
   /// A guest chime-in used to keep only `_session.messages.last` (the host reaction)
   /// and the question the guest was meant to answer vanished.
-  ({String history, int droppedCount}) _overflowContinuityHistory() {
+  ({String history, int droppedCount}) overflowContinuityHistory() {
     if (_session.messages.isEmpty) return (history: '', droppedCount: 0);
     final start = overflowHistoryStart(_session.messages);
     return (
       history: _promptHistoryLines(
-        _session.messages.sublist(start).map(_formatHistoryLine),
+        _session.messages.sublist(start).map(formatHistoryLine),
       ).join('\n'),
       droppedCount: start,
     );
@@ -98,7 +119,7 @@ extension ChatServiceHistory on ChatService {
     return n;
   }
 
-  String _buildChatHistory({List<LoreDepthEntry> depthLore = const []}) {
+  String buildChatHistory({List<LoreDepthEntry> depthLore = const []}) {
     final lines = _promptOrderedLines();
     if (lines.any((l) => _macroPattern.hasMatch(l))) {
       debugPrint('[MacroResolver] ⚠ Unresolved macro detected in chat history');
@@ -119,7 +140,7 @@ extension ChatServiceHistory on ChatService {
   Future<
     ({String history, String latestTurn, int droppedCount, int tokenCount})
   >
-  _buildChatHistoryWithBudget(
+  buildChatHistoryWithBudget(
     int tokenBudget, {
     List<LoreDepthEntry> depthLore = const [],
     bool splitLatestTurn = false,
@@ -269,151 +290,4 @@ extension ChatServiceHistory on ChatService {
     _tokenCountMemo.remember(text, tag, count);
     return count;
   }
-}
-
-/// Builds the media and actions doors and, below, the objectives and entry
-/// doors. Each callback stands in for a private member of another part
-/// until that part becomes a door too.
-extension ChatServiceDoorWiring on ChatService {
-  MediaDoor _buildMediaDoor() => MediaDoor(
-    session: _session,
-    storage: _storageService,
-    personas: _userPersonaService,
-    worlds: _worldRepository,
-    imageGen: () => _imageGenService,
-    llmProvider: () => _llmProvider,
-    craftLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
-    saveChat: _saveChat,
-    isBusy: () => _isTurnBusy || castDoor.guests.state.busy,
-    setStatus: (msg, {isError = false, sticky = false}) =>
-        castDoor.guests.setStatus(msg, isError: isError, sticky: sticky),
-    sceneChanged: (token) => castDoor.sceneChanged(token),
-    guestCards: () => castDoor.guests.state.cards,
-    characterIdFor: _getCharacterIdFromCard,
-    expressionLabel: () => currentExpressionLabel,
-    timeOfDay: () => _timeService.timeOfDay,
-  );
-
-  ActionsDoor _buildActionsDoor() => ActionsDoor(
-    session: _session,
-    personas: _userPersonaService,
-    lanes: _lanes,
-  );
-
-  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
-  ObjectivesDoor _buildObjectivesDoor() {
-    final door = ObjectivesDoor(
-      ObjectiveDeps(
-        session: _session,
-        database: () => _db,
-        personas: () => _userPersonaService,
-        storage: () => _storageService,
-        characterIdFor: _getCharacterIdFromCard,
-        saveChat: _saveChat,
-        proposal: () => _objectiveProposal,
-        mood: () => _mood,
-        journal: () => _journalStore,
-        time: () => _timeService,
-        maxSecondaryObjectives: kMaxSecondaryObjectives,
-        hooks: ObjectiveShellHooks(
-          objectivesActive: () => objectivesActive,
-          nextSpeaker: () => entryDoor.director.nextCharacter,
-          hasChatModel: () => _llmProvider != null,
-          pendingMetadata: () => _pendingRealismMetadata ??= {},
-          historyBase: () => _history.basePosition,
-          realismActiveThisMode: () => _realismActiveThisMode,
-          setStatus: (text) => _setGuestStatus(text),
-          zeroSessionFlags: () {
-            _summaryPaused = false;
-            _isSummaryGenerating = false;
-            _isGrowthPassRunning = false;
-          },
-          groupRepository: () => entryDoor.groupRepository,
-          rebindToday: () => realism.planner.rebindTodayObjectiveFromDb(),
-          clearToday: _clearTodayPointer,
-          holdToday: (id) => realism.planner.persistTodayObjectiveId(id),
-          releaseToday: (id) => realism.planner.releaseHeldToday(id),
-          revertToday: (entry) => realism.planner.revertTodayPointer(entry),
-        ),
-      ),
-    );
-    _forwardDoorNotify(door);
-    return door;
-  }
-
-  /// The entry door. Each hook is debt (see [EntryShellHooks]); the
-  /// shared hooks are the session store's own ([_sessionHooks]).
-  EntryDoor _buildEntryDoor() => EntryDoor(
-    EntryDeps(
-      session: _session,
-      sessions: () => sessionStore,
-      services: EntryServices(
-        db: () => _db,
-        storage: _storageService,
-        personas: _userPersonaService,
-        worlds: _worldRepository,
-        macros: _macroResolver,
-        characters: () => _characterRepository,
-        llmProvider: () => _llmProvider,
-        graph: () => realism,
-        controls: () => controlsDoor,
-        realism: () => realism.scope,
-        snapshot: () => _realismSnapshot,
-        mood: () => _mood,
-        chaos: () => _chaosModeService,
-        needsPass: () => _needsPass,
-        expression: () => _expressionService,
-        lorebook: () => _lorebookScanner,
-        clockWriter: () => _clockWriter,
-        growthDesk: () => _growthDesk,
-        birthdays: () => _birthdaySync,
-        cast: () => castDoor,
-        objectives: () => objectivesDoor,
-        media: () => mediaDoor,
-        sceneMoves: _sceneMoves,
-      ),
-      hooks: EntryShellHooks(
-        isTurnBusy: () => _isTurnBusy,
-        bumpGenerationEpoch: () => _generationEpoch++,
-        generate: () => _generateResponse(GenerationMode.normal),
-        skipAsked: () => _skipAsked,
-        upcomingSpeaker: () => _upcomingGroupSpeaker,
-      ),
-      shared: _sessionHooks(),
-      notify: notifyListeners,
-    ),
-  );
-
-  /// True while forked-in character entrances are still playing. The
-  /// composer mirrors sendMessage's early return on it, so it does not
-  /// consume an attached photo for a turn sendMessage would drop.
-  bool get entrancesInFlight => entryDoor.entrancesInFlight;
-
-  /// From the start of a photo turn's captioning through the end of its send
-  /// flow: the captions run while the generating flag is down, so this keeps
-  /// a second sendMessage from interleaving. Photo turns only.
-  bool get isPhotoTurnInFlight => mediaDoor.photoTurnInFlight;
-}
-
-/// The entry door's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt its caller's package retires by
-/// calling [ChatService.entryDoor] itself (WP10a to WP10c).
-extension _ChatServiceEntryNames on ChatService {
-  GroupChat? get _activeGroup => _session.activeGroup;
-  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
-  bool get _observerMode => entryDoor.director.observerMode;
-  bool get _directing => entryDoor.director.directing;
-  bool get _autoPlayActive => entryDoor.director.autoPlayActive;
-  bool get _shouldTrackInterCharacterRelationships =>
-      entryDoor.reads.shouldTrackInterCharacterRelationships;
-  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
-  AutoChatBudget get _autoChatBudget => entryDoor.autoChat;
-  GroupChatRepository? get _groupChatRepository => entryDoor.groupRepository;
-  set _groupChatRepository(GroupChatRepository? repo) =>
-      entryDoor.groupRepository = repo;
-
-  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
-  Future<void> _autoPlayNext() => entryDoor.director.autoPlayNext();
-  bool _autoChatPausesAfter(ChatMessage reply) =>
-      entryDoor.director.autoChatPausesAfter(reply);
 }

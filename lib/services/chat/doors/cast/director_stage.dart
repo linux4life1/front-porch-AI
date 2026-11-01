@@ -279,7 +279,7 @@ class DirectorStage {
               '${skipMomentWords(time.clock)} '
               '(${time.displayClock})',
           minutes: skipped,
-          context: _h.timeSkipBridgeContext(),
+          context: _d.prompts().blocks.timeSkipBridgeContext(),
         ),
         label: 'time_skip_bridge',
       );

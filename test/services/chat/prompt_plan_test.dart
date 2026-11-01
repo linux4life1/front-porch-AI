@@ -269,7 +269,7 @@ void main() {
   // must move together, or the row goes grey.
   test('the Realism section is the Realism Engine, in its colour', () {
     final source = File(
-      'lib/services/chat/chat_service_generation_plan_register.dart',
+      'lib/services/chat/doors/turn/plan_register.dart',
     ).readAsStringSync();
     final label = RegExp(
       r"id: 'realism',\s*label: '([^']+)'",

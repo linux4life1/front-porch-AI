@@ -222,7 +222,7 @@
           "marker": "if (card.description.isNotEmpty) card.description"
         },
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "_growthDesk.resolvedCardPersonality(speaker",
           "shared": "a group turn reads description and personality as one block"
@@ -419,7 +419,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "resolve(speaker.mesExample"
         }
@@ -459,7 +459,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "speakerName: speaker.name"
         }
@@ -510,7 +510,7 @@
           "marker": "if (card.personality.isNotEmpty) card.personality"
         },
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "_growthDesk.resolvedCardPersonality(speaker",
           "shared": "a group turn reads description and personality as one block"
@@ -551,7 +551,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "resolve(speaker.postHistoryInstructions"
         }
@@ -612,7 +612,7 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": ": speaker.systemPrompt"
         }
@@ -3295,7 +3295,7 @@
       "noPhone": "promote and demote run in the chat service (the /promote and /join commands), which the phone reaches by sending the command as chat text",
       "reader": [
         {
-          "path": "lib/services/chat/chat_service_generation_blocks.dart",
+          "path": "lib/services/chat/doors/turn/prompt_blocks.dart",
           "in": "_buildGroupSpeakerCard",
           "marker": "speaker.isLite"
         },

@@ -17,8 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/macro_resolver.dart';
 
 // Debt: every hook below is state or behaviour another part of the chat
 // service still owns. A hook goes when its owner becomes a door; the work
@@ -177,45 +175,4 @@ class EditCastHooks {
   /// Re-seeds a card greet's Realism and Needs.
   final Future<void> Function({required CharacterCard card, required int index})
   seedGreeting;
-}
-
-/// The prompt pieces impersonate shares with the reply path (WP10a).
-class ImpersonatePromptHooks {
-  const ImpersonatePromptHooks({
-    required this.groupBasePrompt,
-    required this.oneToOneBase,
-    required this.amendmentsAllowed,
-    required this.sessionGenSettings,
-    required this.userPersonaBlock,
-    required this.chatHistory,
-    required this.authorNote,
-    required this.authorNoteBlock,
-    required this.macroContext,
-    required this.countTokens,
-    required this.historyWithin,
-    required this.overflowHistory,
-  });
-
-  final String Function() groupBasePrompt;
-  final String Function(CharacterCard card) oneToOneBase;
-
-  /// Global system-prompt and post-history additions may be applied.
-  final bool Function() amendmentsAllowed;
-  final ChatGenerationSettings Function() sessionGenSettings;
-  final Future<String> Function(String userName) userPersonaBlock;
-
-  /// The whole transcript, unbudgeted.
-  final String Function() chatHistory;
-  final String Function() authorNote;
-  final String Function() authorNoteBlock;
-  final MacroContext Function(CharacterCard speaking, {String? scenario})
-  macroContext;
-  final Future<int> Function(String text) countTokens;
-
-  /// The transcript that fits [budget] tokens, with depth lore placed.
-  final Future<String> Function(int budget, List<LoreDepthEntry> depthLore)
-  historyWithin;
-
-  /// The overflow floor: last user line and everything after it.
-  final String Function() overflowHistory;
 }

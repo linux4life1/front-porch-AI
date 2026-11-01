@@ -39,6 +39,11 @@ extension ChatServicePhoto on ChatService {
   ) => mediaDoor.runVisionPhotoCaption(userMsg, imagePath, token);
   Future<List<String>?> buildTurnImages(GenerationMode mode) =>
       mediaDoor.buildTurnImages(mode);
+
+  /// From the start of a photo turn's captioning through the end of its send
+  /// flow: the captions run while the generating flag is down, so this keeps
+  /// a second sendMessage from interleaving. Photo turns only.
+  bool get isPhotoTurnInFlight => mediaDoor.photoTurnInFlight;
 }
 
 /// Model-initiated and forced `web_search` / `wiki_search`.

@@ -33,7 +33,7 @@ bool _postGenAbortRequested = false;
 /// Realism/Needs/Group Post-Generation, Chips, Sidebar & Climax Checks",
 /// which now names this file for the post-gen finalization step.
 extension ChatServiceGenerationPostGen on ChatService {
-  Future<void> _finalizeGenerationTurn(_GenTurn t) async {
+  Future<void> _finalizeGenerationTurn(GenTurn t) async {
     // Speech stream is done (or empty). Drop the pin BEFORE post-eval
     // [openWorkerLane] or finalize deadlocks waiting on itself.
     _llmProvider?.endMouthSpeech();
@@ -316,7 +316,7 @@ extension ChatServiceGenerationPostGen on ChatService {
   /// this sets what the NEXT speaker is told. Continue is the same beat.
   /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
   /// they tick time-only (no Today rewrite).
-  Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
+  Future<void> _maybeAdvanceStoryClockAfterReply(GenTurn t) async {
     // The planner's today line moves here (and a day that rolls retires it):
     // those writes belong to this reply and rewind with it.
     objectivesDoor.turnOps.reply = t.streamTarget.isUser
@@ -329,7 +329,7 @@ extension ChatServiceGenerationPostGen on ChatService {
     }
   }
 
-  Future<void> _advanceStoryClockAfterReply(_GenTurn t) async {
+  Future<void> _advanceStoryClockAfterReply(GenTurn t) async {
     final porch = _storageService.realismSettings.passageOfTimeDefault;
     debugPrint(
       '[Clock] running=$_clockRunning '

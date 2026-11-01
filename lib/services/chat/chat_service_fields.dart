@@ -122,7 +122,6 @@ mixin ChatServiceFieldBag {
   int _prefillPromptTokens =
       0; // Estimated prompt token count for progress display
   Map<String, dynamic>? _lastPerfData; // Cached KoboldCPP perf data
-  final TokenCountMemo _tokenCountMemo = TokenCountMemo();
   final List<String> _tokenBuffer = [];
   Timer? _drainTimer;
   int _displayedTokenCount = 0;
@@ -150,9 +149,8 @@ mixin ChatServiceFieldBag {
 
   // Voice call mode lives on the controls door (controlsDoor.callMode).
 
-  /// Main model parked by the pre-turn call-model swap (sendMessage enters,
-  /// the request phase adopts into the turn carrier — see the request part).
-  String? _callEvalModelOriginal;
+  // The main model parked by the pre-turn call-model swap lives on the
+  // prompt assembler (promptAssembler.callSwap).
 
   // The group repository main.dart wires in and the auto-chat turn budget
   // live on the entry door (entryDoor.groupRepository, entryDoor.autoChat).
@@ -175,25 +173,11 @@ mixin ChatServiceFieldBag {
   // Per-chat lore timers, the parsed group book, the Setting and Lore slots,
   // the climate spans and the scene move state live on the Realism graph
   // (realism.lore, realism.places).
-  // (chatLorebook / commitChatLorebookEdit / lastLoreOverflow / lastLoreTokens
-  // / lastLoreBudget / loreTimedEffects / previewLoreTriggers /
-  // currentlyActiveLoreEntries moved to chat_service_accessors.dart)
-  List<String> _lastLoreOverflow = const [];
-  int _lastLoreTokens = 0;
-  int _lastLoreBudget = 0;
-
-  /// Central macro resolver for prompt template expansion.
-  late final _macroResolver = MacroResolver();
-
-  /// In-memory clock for {{idle_duration}} — set on each user send; null
-  /// after a restart (the macro passes through untouched then).
-  DateTime? _lastUserMessageAt;
-
-  final ContextBudgetStore _contextBudget = ContextBudgetStore();
+  // The last turn's lore meter, the macro resolver, the {{idle_duration}}
+  // clock, the Context Viewer budget, the history window's token memo and
+  // the prompt picker's arm live on the prompt assembler (promptAssembler).
   // Session name, description, per-chat generation settings and theme, and
   // the fork lineage live on the session store.
-  ({String key, ChatGenerationSettings chat})?
-  _promptPickerPending; // prompt-picker SOW: the new 1:1 awaiting the picker
 
   /// Test-only overrides for driving the real LLM paths (realism evals +
   /// chat generation) with canned responses without constructing a full

@@ -31,6 +31,11 @@ extension ChatServiceChatEntry on ChatService {
 
   Future<void> setActiveCharacter(CharacterCard? character) =>
       entryDoor.chat.setActiveCharacter(character);
+
+  /// True while forked-in character entrances are still playing. The
+  /// composer mirrors sendMessage's early return on it, so it does not
+  /// consume an attached photo for a turn sendMessage would drop.
+  bool get entrancesInFlight => entryDoor.entrancesInFlight;
 }
 
 /// Open a group (body in [GroupEntry]).

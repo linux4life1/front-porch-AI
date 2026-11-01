@@ -191,8 +191,11 @@ class NewChatPrep {
     // Fresh chat: drop the prior chat's per-chat gen overrides — forkSession
     // is the ONE path that inherits them on purpose (keep reset blocks in sync).
     _store.genSettings = ChatGenerationSettings();
-    _h.armPromptPicker(); // prompt-picker SOW: new 1:1 with a card prompt asks (or applies the remembered choice)
-    _h.clearContextBudget();
+    _s
+        .prompts()
+        .source
+        .armPickerIfDue(); // prompt-picker SOW: new 1:1 with a card prompt asks (or applies the remembered choice)
+    _s.prompts().budget.clear();
     // Explicit secondary zeros in the startNewChat 1:1/ext-seed branch.
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;

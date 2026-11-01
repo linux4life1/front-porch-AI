@@ -25,7 +25,7 @@ part of '../chat_service.dart';
 /// the clock helper already owns that.
 extension ChatServiceGenerationPostGenEngine on ChatService {
   Future<void> _runPostGenEngineAndPeriodic(
-    _GenTurn t,
+    GenTurn t,
     String newPart,
     String finalResponse,
   ) async {
@@ -81,7 +81,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // live-minus-stamp, so the merge is free), and pockets keeps the
       // ORIGINAL pre-turn stamp so regen/tail-delete rewind to the true
       // base (see _pocketsPass.run's asContinuation).
-      // Present-guest Continue sets guestSpeaker before _GenTurn, so
+      // Present-guest Continue sets guestSpeaker before GenTurn, so
       // this whole block is skipped. Departed-guest Continue refuses
       // before generating. The empty scoredReply is leftover belt if
       // a guest-authored tail ever reaches here with guestSpeaker null.
@@ -363,7 +363,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
   /// Glance only for a group soft member. Skips Needs / bond / posture /
   /// reply-facts / periodic Realism. Writes `_groupRealism[id].withUser`
   /// so [derivePresence] can show Away. 1:1 Scene Guests do not enter.
-  Future<void> _runLiteGroupGlancePass(_GenTurn t, String scoredReply) async {
+  Future<void> _runLiteGroupGlancePass(GenTurn t, String scoredReply) async {
     if (_activeGroup == null) return;
     if (t.guestSpeaker != null) return;
     if (!_speakerIsSoft(t.speakingCharacter)) return;

@@ -289,7 +289,7 @@ class AfterglowPass {
   /// spoken their opening afterglow turn. Continue is the same beat: nothing.
   /// [speakerIdOf] is the turn's speaker, or null for a lite (guest or
   /// soft member) beat; [reply] is the turn's stream target. Both are read
-  /// only past the gate, where the old `_GenTurn` reads were.
+  /// only past the gate, where the old `GenTurn` reads were.
   void tickAfterClock(
     GenerationMode mode, {
     required String? Function() speakerIdOf,

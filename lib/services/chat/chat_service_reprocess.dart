@@ -154,7 +154,7 @@ extension ChatServiceRegenReplay on ChatService {
           personas: () => _userPersonaService,
           graph: () => realism,
           history: () => _history,
-          macroResolver: () => _macroResolver,
+          macroResolver: () => promptAssembler.macros,
           objectives: () => objectivesDoor,
           media: () => mediaDoor,
           lanes: _lanes,
@@ -205,24 +205,7 @@ extension ChatServiceRegenReplay on ChatService {
           seedGreeting: _applyGreetingOpeningSeed,
         ),
         sessions: () => sessionStore,
-        prompt: ImpersonatePromptHooks(
-          groupBasePrompt: () => _groupBasePrompt,
-          oneToOneBase: _resolveOneToOneBase,
-          amendmentsAllowed: () => _amendmentsAllowed,
-          sessionGenSettings: () => _sessionGenSettings,
-          userPersonaBlock: _buildUserPersonaBlock,
-          chatHistory: _buildChatHistory,
-          authorNote: () => _authorNote,
-          authorNoteBlock: _buildAuthorNoteBlock,
-          macroContext: _buildChatMacroContext,
-          countTokens: _countTokens,
-          historyWithin: (budget, depthLore) async =>
-              (await _buildChatHistoryWithBudget(
-                budget,
-                depthLore: depthLore,
-              )).history,
-          overflowHistory: () => _overflowContinuityHistory().history,
-        ),
+        prompts: () => promptAssembler,
       ),
     );
     _forwardDoorNotify(door);
@@ -230,9 +213,10 @@ extension ChatServiceRegenReplay on ChatService {
   }
 }
 
-/// Builds the Realism graph, the controls door and the model lanes. Each
-/// hook stands in for a member of another part until that part becomes a
-/// door (see [RealismShellHooks] and [ControlsShellHooks]).
+/// Builds the Realism graph, the controls door, the model lanes and the
+/// prompt assembler. Each hook stands in for a member of another part until
+/// that part becomes a door (see [RealismShellHooks], [ControlsShellHooks]
+/// and [PromptShellHooks]).
 extension ChatServiceRealismWiring on ChatService {
   RealismGraph _buildRealismGraph() => RealismGraph(
     RealismDeps(
@@ -242,7 +226,7 @@ extension ChatServiceRealismWiring on ChatService {
         storage: _storageService,
         personas: _userPersonaService,
         worlds: _worldRepository,
-        macros: _macroResolver,
+        macros: promptAssembler.macros,
         kobold: _koboldService,
         characters: () => _characterRepository,
         memory: () => _memoryService,
@@ -258,6 +242,7 @@ extension ChatServiceRealismWiring on ChatService {
         objectives: () => objectivesDoor,
         sessions: () => sessionStore,
         controls: () => controlsDoor,
+        prompts: () => promptAssembler,
       ),
       hooks: RealismShellHooks(
         characterIdFor: _getCharacterIdFromCard,
@@ -265,7 +250,6 @@ extension ChatServiceRealismWiring on ChatService {
         disposed: () => _disposed,
         staleGreetingEval: _isStaleGreetingEval,
         memoryPassEpoch: () => _memoryPassEpoch,
-        macroContext: _buildChatMacroContext,
         isGenerating: () => _isGenerating,
         isTurnBusy: () => _isTurnBusy,
         stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
@@ -291,7 +275,7 @@ extension ChatServiceRealismWiring on ChatService {
         disposed: () => _disposed,
         characterIdFor: _getCharacterIdFromCard,
         isTurnBusy: () => _isTurnBusy,
-        exitCallModelSwap: _exitCallEvalModelSwap,
+        exitCallModelSwap: () => promptAssembler.callSwap.exit(),
         upcomingSpeaker: () => _upcomingGroupSpeaker,
         speakerName: () => chanceTimeSpeakerName,
       ),
@@ -307,5 +291,153 @@ extension ChatServiceRealismWiring on ChatService {
     isGenerating: () => _isGenerating,
     transport: () => realism.transport,
     notify: notifyListeners,
+  );
+
+  /// The prompt assembler. Each hook is debt (see [PromptShellHooks]).
+  PromptAssembler _buildPromptAssembler() => PromptAssembler(
+    PromptDeps(
+      session: _session,
+      services: PromptServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        memory: () => _memoryService,
+        lanes: _lanes,
+      ),
+      doors: PromptDoors(
+        graph: () => realism,
+        controls: () => controlsDoor,
+        sessions: () => sessionStore,
+        media: () => mediaDoor,
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+      ),
+      hooks: PromptShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+        cancelRequested: () => _cancelRequested,
+        enterPrefill: _enterPrefill,
+      ),
+      notify: notifyListeners,
+    ),
+  );
+}
+
+/// Builds the media and actions doors and, below, the objectives and entry
+/// doors. Each callback stands in for a private member of another part
+/// until that part becomes a door too.
+extension ChatServiceDoorWiring on ChatService {
+  MediaDoor _buildMediaDoor() => MediaDoor(
+    session: _session,
+    storage: _storageService,
+    personas: _userPersonaService,
+    worlds: _worldRepository,
+    imageGen: () => _imageGenService,
+    llmProvider: () => _llmProvider,
+    craftLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+    saveChat: _saveChat,
+    isBusy: () => _isTurnBusy || castDoor.guests.state.busy,
+    setStatus: (msg, {isError = false, sticky = false}) =>
+        castDoor.guests.setStatus(msg, isError: isError, sticky: sticky),
+    sceneChanged: (token) => castDoor.sceneChanged(token),
+    guestCards: () => castDoor.guests.state.cards,
+    characterIdFor: _getCharacterIdFromCard,
+    expressionLabel: () => currentExpressionLabel,
+    timeOfDay: () => _timeService.timeOfDay,
+  );
+
+  ActionsDoor _buildActionsDoor() => ActionsDoor(
+    session: _session,
+    personas: _userPersonaService,
+    lanes: _lanes,
+  );
+
+  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
+  ObjectivesDoor _buildObjectivesDoor() {
+    final door = ObjectivesDoor(
+      ObjectiveDeps(
+        session: _session,
+        database: () => _db,
+        personas: () => _userPersonaService,
+        storage: () => _storageService,
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        proposal: () => _objectiveProposal,
+        mood: () => _mood,
+        journal: () => _journalStore,
+        time: () => _timeService,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        hooks: ObjectiveShellHooks(
+          objectivesActive: () => objectivesActive,
+          nextSpeaker: () => entryDoor.director.nextCharacter,
+          hasChatModel: () => _llmProvider != null,
+          pendingMetadata: () => _pendingRealismMetadata ??= {},
+          historyBase: () => _history.basePosition,
+          realismActiveThisMode: () => _realismActiveThisMode,
+          setStatus: (text) => _setGuestStatus(text),
+          zeroSessionFlags: () {
+            _summaryPaused = false;
+            _isSummaryGenerating = false;
+            _isGrowthPassRunning = false;
+          },
+          groupRepository: () => entryDoor.groupRepository,
+          rebindToday: () => realism.planner.rebindTodayObjectiveFromDb(),
+          clearToday: _clearTodayPointer,
+          holdToday: (id) => realism.planner.persistTodayObjectiveId(id),
+          releaseToday: (id) => realism.planner.releaseHeldToday(id),
+          revertToday: (entry) => realism.planner.revertTodayPointer(entry),
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
+  }
+
+  /// The entry door. Each hook is debt (see [EntryShellHooks]); the
+  /// shared hooks are the session store's own ([_sessionHooks]).
+  EntryDoor _buildEntryDoor() => EntryDoor(
+    EntryDeps(
+      session: _session,
+      sessions: () => sessionStore,
+      services: EntryServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: promptAssembler.macros,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        graph: () => realism,
+        controls: () => controlsDoor,
+        realism: () => realism.scope,
+        snapshot: () => _realismSnapshot,
+        mood: () => _mood,
+        chaos: () => _chaosModeService,
+        needsPass: () => _needsPass,
+        expression: () => _expressionService,
+        lorebook: () => _lorebookScanner,
+        clockWriter: () => _clockWriter,
+        growthDesk: () => _growthDesk,
+        birthdays: () => _birthdaySync,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        sceneMoves: _sceneMoves,
+      ),
+      hooks: EntryShellHooks(
+        isTurnBusy: () => _isTurnBusy,
+        bumpGenerationEpoch: () => _generationEpoch++,
+        generate: () => _generateResponse(GenerationMode.normal),
+        skipAsked: () => _skipAsked,
+        upcomingSpeaker: () => _upcomingGroupSpeaker,
+      ),
+      shared: _sessionHooks(),
+      notify: notifyListeners,
+    ),
   );
 }

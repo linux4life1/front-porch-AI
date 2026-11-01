@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -70,6 +71,7 @@ class CastDeps {
     required this.growthStore,
     required this.growthDesk,
     required this.objectives,
+    required this.prompts,
     required this.characterIdFor,
     required this.saveChat,
     required this.notify,
@@ -104,6 +106,10 @@ class CastDeps {
   final GrowthStore Function() growthStore;
   final GrowthDesk Function() growthDesk;
   final ObjectivesDoor Function() objectives;
+
+  /// The prompt assembler: what a time-skip bridge narrator is told beyond
+  /// the last lines.
+  final PromptAssembler Function() prompts;
 
   /// The stable id a card's rows key by (`stableGroupId`, or a member id).
   final String Function(CharacterCard card) characterIdFor;
@@ -152,7 +158,6 @@ class CastShellHooks {
     required this.greetingZone,
     required this.markPostGreetingEvalEntered,
     required this.cancelRealismEval,
-    required this.timeSkipBridgeContext,
     required this.selectGreeting,
     required this.openingAllGreetings,
     required this.resolvedOpeningGreetings,
@@ -237,10 +242,6 @@ class CastShellHooks {
 
   /// The turn stops' Realism cancel.
   final Future<void> Function() cancelRealismEval;
-
-  // ── Clock (WP10a) ─────────────────────────────────────────────────────
-
-  final TimeSkipBridgeContext Function() timeSkipBridgeContext;
 
   // ── Greeting swipes (WP5) ─────────────────────────────────────────────
 

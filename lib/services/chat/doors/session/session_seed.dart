@@ -75,7 +75,7 @@ class SessionSeed {
     _store.forkIndex = null;
     _store.selectedLooks.clear();
     _store.genSettings = ChatGenerationSettings();
-    _h.clearContextBudget();
+    _s.prompts().budget.clear();
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;
     _s.graph().growthPassRunning = false;

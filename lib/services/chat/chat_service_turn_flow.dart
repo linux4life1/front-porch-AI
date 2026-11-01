@@ -357,7 +357,7 @@ extension ChatServiceTurnFlow on ChatService {
   /// Normally keyed on the active character (or group bucket). Scene Guests
   /// Phase 4 passes [characterIdOverride] = the guest's id so the just-finished
   /// guest exchange is stored under the GUEST's own id — the same id the guest
-  /// retrieves under in [_getMemorySourceIds] — giving guests episodic memory
+  /// retrieves under in [RagSources.sourceIds] — giving guests episodic memory
   /// without touching the host's embeddings.
   void _maybeEmbedMessages({String? characterIdOverride}) {
     if (_memoryService == null || !_storageService.memorySettings.ragEnabled) {

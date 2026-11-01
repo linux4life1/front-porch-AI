@@ -30,7 +30,7 @@
 /// and re-processes everything after it — which is the whole transcript
 /// (measured: 508 vs 5,020 of 5.5k tokens re-prefilled per warm turn, 9.3x the
 /// wall clock per reply — full numbers on kStateZoneSectionIds, in
-/// chat_service_generation_plan.dart).
+/// doors/turn/turn_plan.dart).
 ///
 /// The measurement that settled it was taken on the maintainer's own 200-card
 /// diary, replayed against one real chat's 42 recorded emotion values: of 41

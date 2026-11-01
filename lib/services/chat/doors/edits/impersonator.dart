@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edit_deps.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -36,7 +37,8 @@ class Impersonator {
 
   ChatSessionState get _session => _d.session;
   EditServices get _s => _d.services;
-  ImpersonatePromptHooks get _p => _d.prompt;
+  PromptAssembler get _p => _d.prompts();
+  ChatGenerationSettings get _genSettings => _d.sessions().genSettings;
   StorageService get _storage => _s.storage();
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
@@ -77,17 +79,17 @@ class Impersonator {
       // Path B clean hierarchy (same as the main generation path)
       String systemPrompt;
       if (_activeGroup != null) {
-        systemPrompt = _p.groupBasePrompt();
+        systemPrompt = _p.source.groupBasePrompt;
       } else {
         // All backends speak the OpenAI chat protocol now (KoboldCpp via its
         // /v1/chat/completions door), so use the chat-style default prompt.
-        systemPrompt = _p.oneToOneBase(speakingCharacter);
+        systemPrompt = _p.source.resolveOneToOneBase(speakingCharacter);
       }
 
       // A group keeps the reply path's system head (base, additions, the
       // mode's FPAI rules). The answered character's card instructions are
       // theirs, not the user's, so they stay out.
-      if (_p.amendmentsAllowed()) {
+      if (_p.source.amendmentsAllowed) {
         systemPrompt = _storage.generationSettings.withSystemPromptAddition(
           systemPrompt,
         );
@@ -104,7 +106,7 @@ class Impersonator {
       // mutates trigger state.
       final loreInjection = _s.graph().lore.injector.buildInjection(
         sessionSeed: _session.currentSessionId ?? '',
-        contextSize: _p.sessionGenSettings().resolveContextSize(_storage),
+        contextSize: _genSettings.resolveContextSize(_storage),
       );
       String loreBefore = loreInjection.beforeChar;
       String loreAfter = loreInjection.afterChar;
@@ -139,7 +141,7 @@ class Impersonator {
       // User persona — inject user's self-description + learned facts
       final userPersonaBlock = _directing
           ? ''
-          : await _p.userPersonaBlock(userName);
+          : await _p.blocks.userPersonaBlock(userName);
 
       // Same shared-scene rule as the reply path: the group's scenario,
       // else the anchor member's original one.
@@ -155,7 +157,7 @@ class Impersonator {
       }
       String scenario = rawScenario;
 
-      String history = _p.chatHistory();
+      String history = _p.history.buildChatHistory();
 
       // Suffix + prefix rule: a typed start is an incomplete USER line
       // (Continue-shaped). Character examples / post-history few-shot the
@@ -164,13 +166,13 @@ class Impersonator {
           ? impersonateDirectorSuffix(prefix: prefix)
           : impersonateSuffix(userName: userName, prefix: prefix);
       const mesExampleBlock = '';
-      var postHistoryBlock = _p.amendmentsAllowed()
+      var postHistoryBlock = _p.source.amendmentsAllowed
           ? _storage.generationSettings.withPostHistoryAddition('')
           : '';
 
       String authorNoteBlock = '';
-      if (_p.authorNote().isNotEmpty) {
-        authorNoteBlock = _p.authorNoteBlock();
+      if (_d.sessions().authorNote.isNotEmpty) {
+        authorNoteBlock = _p.blocks.authorNoteBlock();
       }
 
       // ── Macro resolution pass ──
@@ -291,11 +293,8 @@ class Impersonator {
       plan.add(id: 'impersonate', text: prefixRule);
       plan.add(id: 'suffix', text: suffix);
       final fixedTokens = await _p.countTokens(plan.fixedCountText);
-      final contextBudget = _p.sessionGenSettings().resolveContextSize(
-        _storage,
-      );
-      final generationReserve =
-          _p.sessionGenSettings().resolveMaxLength(_storage) + 50;
+      final contextBudget = _genSettings.resolveContextSize(_storage);
+      final generationReserve = _genSettings.resolveMaxLength(_storage) + 50;
       final historyBudget = contextBudget - fixedTokens - generationReserve;
 
       if (historyBudget > 0) {
@@ -303,7 +302,7 @@ class Impersonator {
       } else if (_session.messages.isNotEmpty) {
         // Same overflow floor as the main generate path: last user line +
         // everything after (think-stripped). Not raw .text (Nina-class hole).
-        history = _p.overflowHistory();
+        history = _p.history.overflowContinuityHistory().history;
       }
 
       // Every backend now speaks the OpenAI chat protocol (local KoboldCpp via
@@ -316,7 +315,7 @@ class Impersonator {
       // Stop sequences: character names only (not user — we ARE the user).
       // Same prioritized builder as the main generation path — no second
       // stop-assembly path (spec §5e).
-      final g = _p.sessionGenSettings();
+      final g = _genSettings;
       final stopList = buildPrioritizedStops(
         configured: g.resolveStopSequences(_storage),
         userName: userName,
@@ -384,10 +383,8 @@ class Impersonator {
       // During streaming the raw text is shown — acceptable because the
       // user can only edit AFTER generation finishes, at which point
       // the sanitized form is presented.
-      if (_p.sessionGenSettings().resolveOutputSanitizerEnabled(_storage)) {
-        final rules = _p.sessionGenSettings().resolveOutputSanitizerRules(
-          _storage,
-        );
+      if (_genSettings.resolveOutputSanitizerEnabled(_storage)) {
+        final rules = _genSettings.resolveOutputSanitizerRules(_storage);
         final sanitized = sanitizeOutput(accumulated, rules);
         if (sanitized != accumulated) {
           accumulated = sanitized;

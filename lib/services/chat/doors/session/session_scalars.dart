@@ -277,9 +277,9 @@ class SessionScalars {
 
     // Context Budget bars from the last real send (empty on older chats).
     try {
-      await _h.loadContextBudget(s.id);
+      await _s.prompts().budget.load(s.id);
     } catch (_) {
-      _h.clearContextBudget();
+      _s.prompts().budget.clear();
     }
 
     _needsSimulation.resetBuffers();

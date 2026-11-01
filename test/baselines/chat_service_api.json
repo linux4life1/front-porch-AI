@@ -283,6 +283,7 @@
   "promoteGuestToFull",
   "promoteObjective",
   "promoteSceneToFull",
+  "promptAssembler",
   "promptBudgetAssembledAt",
   "promptBudgetSource",
   "promptDroppedMessages",

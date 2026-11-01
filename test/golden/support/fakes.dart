@@ -42,6 +42,7 @@ import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -652,6 +653,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       growthStore: _noDoorDep,
       growthDesk: _noDoorDep,
       objectives: () => objectivesDoor,
+      prompts: _noDoorDep,
       characterIdFor: characterIdFor,
       saveChat: () async {},
       notify: () {},
@@ -666,6 +668,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   /// the scalar services) are overridden above and below instead.
   @override
   RealismGraph get realism => _noDoorDep();
+
+  /// The prompt assembler behind the prompt bridge (the reply record, the
+  /// prompt picker, the Author's Note write, the lore meter). Goldens build
+  /// no prompt: every bridge member read a private of the real service
+  /// before, which threw on this fake too, so it throws. The Context Viewer
+  /// forwarders above answer empty instead.
+  @override
+  PromptAssembler get promptAssembler => _noDoorDep();
 
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
@@ -705,7 +715,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       realism: _UnwiredEditHooks(),
       cast: _UnwiredEditHooks(),
       sessions: () => sessionStore,
-      prompt: _UnwiredEditHooks(),
+      prompts: _noDoorDep,
     ),
   );
 
@@ -855,12 +865,7 @@ class _UnwiredTransferHost implements TransferHost {
 /// The edits door's services and hooks with nothing wired: any read is a
 /// NoSuchMethodError, as a private member read on this fake always was.
 class _UnwiredEditHooks
-    implements
-        EditServices,
-        EditTurnHooks,
-        EditRealismHooks,
-        EditCastHooks,
-        ImpersonatePromptHooks {
+    implements EditServices, EditTurnHooks, EditRealismHooks, EditCastHooks {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

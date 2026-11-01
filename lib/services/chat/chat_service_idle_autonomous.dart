@@ -195,7 +195,7 @@ extension ChatServiceCastWiring on ChatService {
       session: _session,
       storage: _storageService,
       personas: _userPersonaService,
-      macros: _macroResolver,
+      macros: promptAssembler.macros,
       database: () => _db,
       characters: () => _characterRepository,
       groupRepository: () => _groupChatRepository,
@@ -214,6 +214,7 @@ extension ChatServiceCastWiring on ChatService {
       growthStore: () => _growthStore,
       growthDesk: () => _growthDesk,
       objectives: () => objectivesDoor,
+      prompts: () => promptAssembler,
       characterIdFor: _getCharacterIdFromCard,
       saveChat: _saveChat,
       notify: notifyListeners,
@@ -280,7 +281,6 @@ extension ChatServiceCastWiring on ChatService {
     },
     markPostGreetingEvalEntered: () => testPostGreetingEvalEntered = true,
     cancelRealismEval: cancelRealismEval,
-    timeSkipBridgeContext: _timeSkipBridgeContext,
     selectGreeting: selectGreeting,
     openingAllGreetings: () => openingAllGreetings,
     resolvedOpeningGreetings: _resolvedOpeningGreetings,
@@ -319,10 +319,7 @@ extension _ChatServiceCastNames on ChatService {
 
   SceneGuestState get _sceneGuest => castDoor.guests.state;
   AwayPulseState get _awayPulse => castDoor.away.state;
-  DirectorScene get _directorScene => castDoor.directorScene;
   bool get _narrating => castDoor.narrating;
-  String? get _entranceDirective => castDoor.entranceDirective;
-  set _entranceDirective(String? v) => castDoor.entranceDirective = v;
   set _stoppedReplyAnchor(ChatMessage? v) =>
       castDoor.guests.stoppedReplyAnchor = v;
   set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
@@ -330,7 +327,6 @@ extension _ChatServiceCastNames on ChatService {
   bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
   set _isProcessingGreeting(bool v) =>
       castDoor.baseline.isProcessingGreeting = v;
-  String? get _pendingIdleCue => castDoor.idle.pendingIdleCue;
   set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
   set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
   int get _consecutiveAutoResponses => castDoor.idle.consecutiveAutoResponses;

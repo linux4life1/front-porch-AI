@@ -16,7 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/world_repository.dart';
 
 /// The STATE ZONE (docs/design/prompt-state-injection.md §6.1) — the blocks
 /// that describe the world and the character rather than the conversation:
@@ -65,17 +73,41 @@ const List<String> kStateZoneSectionIds = [
   'catastrophe',
 ];
 
-/// Phase 2 of `_generateResponse` (see chat_service_generation.dart):
-/// Continue-mode message pop, the macro resolution pass, the realism/world/
-/// Chance Time/porch-night/objective/catastrophe state blocks, PromptPlan
-/// registration (the "wheel hub" every section renders from), and the
-/// fixed-token/history-budget walk. Extracted verbatim (mechanical `x` →
-/// `t.x` carrier rename only — see `_GenTurn`) from the single ~1.9k-line
-/// `_generateResponse` method during the god-file split
-/// (docs/design/god-file-elimination.md). Zero behaviour change.
-extension ChatServiceGenerationPlan on ChatService {
-  Future<void> _buildGenerationPlan(_GenTurn t) async {
-    _applyRegenSeed(t);
+/// Phase 2 of `_generateResponse`: the Continue-mode message pop, the macro
+/// resolution pass, the realism/world/Chance Time/porch-night/objective/
+/// catastrophe state blocks, PromptPlan registration (the "wheel hub" every
+/// section renders from, [PlanRegister]) and the fixed-token/history-budget
+/// walk. The body is the one the generation part held (`x` → `t.x` carrier
+/// names, see [GenTurn]); zero behaviour change.
+class TurnPlan {
+  TurnPlan(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  WorldRepository get _worldRepository => _d.services.worlds;
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  MacroResolver get _macroResolver => _a.macros;
+  PromptHistory get _transcript => _a.history;
+  SessionHistoryWindow get _history => _sessions.history;
+  ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => _d.doors.entry().director.observerMode;
+  ChatPlaceSlots get _chatPlaceSlots => _g.places.slots;
+  ChaosInjection get _chaosInjection => _g.chaosInjection;
+  InventoryInjection get _inventoryInjection => _g.inventoryInjection;
+  PorchMemoryImportService get _porchMemoryImport => _g.porchImport;
+  AuthorNoteBuilder get _authorNoteBuilder => _g.authorNotes;
+  NeedsSimulation get _needsSimulation => _g.needs;
+  bool _isLiteTurn(GenTurn t) => _a.isLiteTurn(t);
+  String _getCharacterIdFromCard(CharacterCard c) => _d.hooks.characterIdFor(c);
+
+  Future<void> build(GenTurn t) async {
+    _a.tokenAlts.applyRegenSeed(t);
     // ── Continue mode: remove the last message from history ──
     // For continue mode, we exclude the last message from the chat history
     // and place it as the prompt suffix so the LLM continues from it naturally.
@@ -128,7 +160,7 @@ extension ChatServiceGenerationPlan on ChatService {
     // ── Macro resolution pass ──
     // Full chat context: card fields, group roster, last messages, idle
     // clock, and the {{setvar}}/{{getvar}} stores.
-    final macroCtx = _buildChatMacroContext(
+    final macroCtx = _a.blocks.macroContext(
       t.speakingCharacter,
       scenario: t.scenario,
     );
@@ -190,7 +222,7 @@ extension ChatServiceGenerationPlan on ChatService {
 
     // Ensure the popped message is always restored, even if prompt assembly throws
     try {
-      t.history = _buildChatHistory(depthLore: t.loreDepth);
+      t.history = _transcript.buildChatHistory(depthLore: t.loreDepth);
 
       // ── Context Shift: budget-aware history trimming ──
 
@@ -228,7 +260,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // pockets, and ambitions (the pin used to be null for lite, so the
       // fallback stole another member).
       final liteTurn = _isLiteTurn(t);
-      final rawRealism = liteTurn ? '' : _getRealismStateInjection();
+      final rawRealism = liteTurn ? '' : _a.blocks.realismStateInjection();
       final realismBlock = rawRealism.isEmpty
           ? ''
           : _macroResolver.resolve(rawRealism, macroCtx, section: 'realism');
@@ -325,7 +357,7 @@ extension ChatServiceGenerationPlan on ChatService {
         _needsSimulation.consumePendingCatastrophe();
       }
 
-      _registerGenerationPlanSections(
+      _a.register.register(
         t,
         loreDepthJoined: loreDepthJoined,
         objectiveBlock: objectiveBlock,
@@ -338,7 +370,7 @@ extension ChatServiceGenerationPlan on ChatService {
       );
 
       final plan = t.plan;
-      final fixedTokens = await _countTokens(plan.fixedCountText);
+      final fixedTokens = await _transcript.countTokens(plan.fixedCountText);
       final contextBudget = _sessionGenSettings.resolveContextSize(
         _storageService,
       );
@@ -348,7 +380,7 @@ extension ChatServiceGenerationPlan on ChatService {
       t.historyBudget = contextBudget - fixedTokens - generationReserve;
 
       if (t.historyBudget > 0) {
-        final result = await _buildChatHistoryWithBudget(
+        final result = await _transcript.buildChatHistoryWithBudget(
           t.historyBudget,
           depthLore: t.loreDepth,
           splitLatestTurn: true,
@@ -403,7 +435,7 @@ extension ChatServiceGenerationPlan on ChatService {
       // stripped). Raw lastMsg.text re-injects <think> (audit 2026-08-11).
       if (t.historyBudget <= 0 && _session.messages.isNotEmpty) {
         // All of it is the latest beat, so all of it renders last.
-        final overflow = _overflowContinuityHistory();
+        final overflow = _transcript.overflowContinuityHistory();
         t.history = '';
         t.latestTurn = overflow.history;
         t.droppedMessages = overflow.droppedCount;
@@ -415,6 +447,6 @@ extension ChatServiceGenerationPlan on ChatService {
       }
     }
 
-    _stripContinuePlanSections(t);
+    _a.register.stripContinue(t);
   }
 }
