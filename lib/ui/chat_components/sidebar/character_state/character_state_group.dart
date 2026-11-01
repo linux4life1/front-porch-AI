@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
     show showPocketItemDialog;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import '../../mood/mood_look.dart';
 
 import '../porch_accordion.dart';
 import 'ambitions_row.dart';
@@ -61,6 +62,10 @@ class CharacterStateGroup extends StatefulWidget {
   /// OPEN_SECTION=timestrip scrolls this [TimeStrip], not the CS header.
   final Key? timeStripKey;
 
+  /// Appearance → Mood on the character, resolved by the sidebar body with
+  /// the real storage; the needs bars throb with it. Off by default.
+  final MoodLook moodLook;
+
   const CharacterStateGroup({
     super.key,
     required this.chat,
@@ -69,6 +74,7 @@ class CharacterStateGroup extends StatefulWidget {
     required this.initiallyExpanded,
     this.onExpansionChanged,
     this.timeStripKey,
+    this.moodLook = MoodLook.off,
   });
 
   @override
@@ -201,6 +207,13 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               ),
               mini: false,
               crossAxisCount: 2,
+              pulseInTrouble: widget.moodLook.portraitOn,
+              enjoysLowHygiene:
+                  chat
+                      .activeCharacter
+                      ?.frontPorchExtensions
+                      ?.enjoysLowHygiene ??
+                  false,
             ),
           ],
           // ── Ambitions (Living Time §6) ──

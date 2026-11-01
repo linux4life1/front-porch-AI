@@ -35,6 +35,11 @@ export interface ChatState {
   isGroupMode?: boolean;
   groupId?: string | null;
   realism?: Realism;
+  /** Appearance → Mood on the character, its Drama and the desktop's colours
+   *  for it (theme/moodAtmosphere.ts). Absent from an older desktop. */
+  moodOnCharacter?: string;
+  moodDrama?: number;
+  moodPaints?: unknown;
   lorebook?: LoreEntry[];
   /** The group's stored lorebook could not be read (its entries are unused). */
   groupLorebookUnreadable?: boolean;

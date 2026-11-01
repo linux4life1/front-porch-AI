@@ -17,6 +17,9 @@ import { type CastMember } from './CastBar';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
+import {
+  firstNeedInTrouble, moodAtmosphereOf, moodVars, needTrouble, type MoodLook, type MoodPaints,
+} from '../theme/moodAtmosphere';
 
 /** Same words as the desktop sidebar's note. */
 const GROUP_LOREBOOK_UNREADABLE_NOTE =
@@ -48,8 +51,13 @@ export function ChatInsight({
   loreOverflow,
   draft,
   toolSupport,
+  moodLook,
+  moodPaints,
 }: {
   realism: Realism;
+  /** Appearance → Mood on the character and the desktop's colours for it. */
+  moodLook?: MoodLook;
+  moodPaints?: MoodPaints | null;
   /** Focused cast member is a lightweight scene guest with no realism state. */
   focusedIsLiteGuest?: boolean;
   lorebook?: LoreEntry[];
@@ -105,6 +113,19 @@ export function ChatInsight({
   // Author's Note strength (injection depth/weight, 1–10) — desktop parity.
   const [strength, setStrength] = useState(authorNoteDepth);
   useEffect(() => setStrength(authorNoteDepth), [authorNoteDepth]);
+  // Mood on the character: the portrait's ring, halo and need rim, and the
+  // needs bars' throb, from this character's own Realism state. Off while
+  // the setting is off, the desktop sent no colours, or Realism is off here.
+  const moodOn = (moodLook?.level ?? 'off') !== 'off' && !!moodPaints && realism.realismEnabled !== false;
+  const enjoysLowHygiene = realism.enjoysLowHygiene === true;
+  const needHue = moodOn && realism.needsEnabled
+    ? (() => { const n = firstNeedInTrouble(realism.needs, enjoysLowHygiene); return n ? moodPaints!.needs[n] ?? null : null; })()
+    : null;
+  const atmosphere = moodAtmosphereOf(realism.emotion, realism.emotionIntensity, realism.emotionHeld, moodLook?.drama ?? 1);
+  const moodStyle = moodOn ? moodVars(atmosphere, moodPaints!, realism.bond.score, realism.trust.level, needHue) : undefined;
+  const moodClass = moodOn
+    ? `mood-portrait on${atmosphere.tone ? ` tone-${atmosphere.tone}` : ''}${needHue ? ' need' : ''}`
+    : 'mood-portrait';
   return (
     <div className="realism-panel">
       <OneShotEvalControl reloadKey={toolsKey} />
@@ -128,6 +149,7 @@ export function ChatInsight({
           in a group for the focused member, wearing their own mood rather
           than the chat's. Hidden on phones via CSS ([data-layout="phone"]
           .portrait-wrap). Self-hides if its image fails. */}
+      <div className={moodClass} style={moodStyle as React.CSSProperties | undefined} data-testid="mood-portrait" data-tone={atmosphere.tone ?? ''}>
       {isGroup ? (
         focusedId ? (
           <Portrait
@@ -152,6 +174,7 @@ export function ChatInsight({
           mood={realism.mood || realism.emotion}
         />
       ) : null}
+      </div>
 
       {/* Author's note sits near the top (matches the desktop sidebar order). */}
       <h4 className="section-label">Author's note</h4>
@@ -233,6 +256,8 @@ export function ChatInsight({
               value={v}
               urgentAt={realism.needsUrgentAt}
               criticalAt={realism.needsCriticalAt}
+              trouble={moodOn ? needTrouble(k, v, enjoysLowHygiene) : undefined}
+              hue={moodOn ? moodPaints!.needs[k] : undefined}
             />
           ))}
         </>

@@ -224,6 +224,10 @@ class SettingsSnapshot {
       // chat state's `scene.sound` carries the same pair to the chat page.
       'sceneSound': _storage.appearance.sceneSound,
       'sceneSoundVolume': _storage.appearance.sceneSoundVolume,
+      // Appearance → Mood on the character and its Drama. Additive; the
+      // chat state carries the same pair to the chat page.
+      'moodOnCharacter': _storage.appearance.moodOnCharacter.key,
+      'moodDrama': _storage.appearance.moodDrama,
       // Bubble Opacity as the desktop paints it: the stored value, else the
       // Ambient scene's default. Additive; an older PWA ignores the key.
       'bubbleOpacity': _storage.uiSettings.bubbleOpacity,

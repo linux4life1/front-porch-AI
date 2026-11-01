@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/group_member_card_palette.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_look.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 
 /// Per-build snapshot of one group member's state, and the expanded
@@ -44,6 +45,7 @@ class GroupMemberCardLook {
     required this.fixation,
     required this.fixationLife,
     required this.needs,
+    this.moodLook = MoodLook.off,
     required this.topNeeds,
     required this.ambitions,
     required this.memberObjectives,
@@ -74,6 +76,9 @@ class GroupMemberCardLook {
   final String? fixation;
   final int? fixationLife;
   final Map<String, int> needs;
+
+  /// Appearance → Mood on the character: the needs bars throb with it.
+  final MoodLook moodLook;
   final List<(String, int)> topNeeds;
   final List<({String text, int progress})> ambitions;
   final List<Objective> memberObjectives;
@@ -212,7 +217,14 @@ class GroupMemberCardLook {
             color: AppColors.textSecondary(context),
           ),
         ),
-        NeedsGrid(needs: needs, mini: false, crossAxisCount: 2),
+        NeedsGrid(
+          needs: needs,
+          mini: false,
+          crossAxisCount: 2,
+          pulseInTrouble: moodLook.portraitOn,
+          enjoysLowHygiene:
+              character.frontPorchExtensions?.enjoysLowHygiene ?? false,
+        ),
       ],
     ];
   }

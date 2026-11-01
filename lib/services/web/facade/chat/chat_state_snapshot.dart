@@ -28,6 +28,8 @@ import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
+import 'package:front_porch_ai/ui/theme/realism_colors.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 /// Builds the full `/api/chat/state` payload from the live chat.
@@ -212,6 +214,15 @@ class ChatStateSnapshot {
       'loreBudget': _chat.lastLoreBudget,
       'loreOverflow': _chat.lastLoreOverflow,
       'realism': _realism.snapshot(),
+      // Appearance → Mood on the character, its Drama, and the colours it
+      // paints with, so the chat page wears the same mood as the desktop
+      // without working out a colour. Off while Porch Life's Realism Engine
+      // is off. Additive; an older PWA ignores the three keys.
+      'moodOnCharacter': _chat.realismAllowed
+          ? _chat.appearance.moodOnCharacter.key
+          : MoodOnCharacter.off.key,
+      'moodDrama': _chat.appearance.moodDrama,
+      'moodPaints': RealismColors.moodPaintsWire(),
       // Active expression label (mood) so the web client can cache-bust the
       // expression portrait and only refetch when the mood actually changes.
       // Read-only — no reclassification here, so 1:1/group parity is unaffected.
