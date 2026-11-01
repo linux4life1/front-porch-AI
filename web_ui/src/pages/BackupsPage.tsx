@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Backups & Restore, matching the desktop Backups page: automatic snapshots
-// (library + settings) and full backups (library, settings and the user's
+// (library, settings and files) and full backups (library, settings and the user's
 // own files). Every restore from here waits for the desktop's next launch.
 
 import { useEffect, useState } from 'react';
@@ -14,6 +14,7 @@ export interface Snapshot {
   created: number;
   size: number;
   hasSettings: boolean;
+  hasFiles?: boolean;
 }
 
 export interface BackupState {
@@ -21,13 +22,28 @@ export interface BackupState {
   maxSnapshots: number;
   dailyDays: number;
   snapshots: Snapshot[];
-  pending: { kind: 'full' | 'snapshot' | 'settings'; created: number; staged: number } | null;
+  pending: { kind: 'full' | 'snapshot' | 'settings'; created: number; staged: number; withFiles?: boolean } | null;
 }
 
-export function restoreScope(kind: 'full' | 'snapshot' | 'settings'): string {
+export function restoreScope(kind: 'full' | 'snapshot' | 'settings', files = false): string {
   if (kind === 'full') return 'library, settings and files';
-  if (kind === 'snapshot') return 'library and settings';
-  return 'settings';
+  if (kind === 'snapshot') return files ? 'library, settings and files' : 'library and settings';
+  return files ? 'settings and files' : 'settings';
+}
+
+/** What a snapshot holds, for its row in the list. */
+export function snapshotContents(s: Snapshot): string {
+  if (s.hasSettings && s.hasFiles) return 'library, settings and files';
+  if (s.hasSettings) return 'library and settings';
+  if (s.hasFiles) return 'library and files';
+  return 'library only';
+}
+
+/** The restore checkbox for what comes back beside the library. */
+export function restoreExtrasLabel(s: Snapshot): string {
+  if (s.hasSettings && s.hasFiles) return 'Also restore settings and files';
+  if (s.hasFiles) return 'Also restore files';
+  return 'Also restore settings';
 }
 
 function when(ms: number): string {
@@ -127,7 +143,7 @@ export function BackupsPage() {
 
   const restoreSnapshot = (s: Snapshot) =>
     act(`restore-${s.id}`, async () => {
-      const body: Record<string, unknown> = { withSettings: s.hasSettings && withSettings };
+      const body: Record<string, unknown> = { withSettings: (s.hasSettings || !!s.hasFiles) && withSettings };
       attachStepUp(body, password, totpEnabled, totpCode);
       setState(await api.post<BackupState>(`/api/backups/${encodeURIComponent(s.id)}/restore`, body));
       setRestoring(null);
@@ -189,7 +205,7 @@ export function BackupsPage() {
       {state?.pending && (
         <section className="card" data-testid="pending-restore">
           <p>
-            A restore is waiting. Your {restoreScope(state.pending.kind)} go back to the backup from{' '}
+            A restore is waiting. Your {restoreScope(state.pending.kind, !!state.pending.withFiles)} go back to the backup from{' '}
             {when(state.pending.created)} the next time Front Porch AI is opened on your computer.
           </p>
           <button onClick={cancelPending} disabled={busy === 'cancel'}>
@@ -201,7 +217,9 @@ export function BackupsPage() {
       <section className="card">
         <h3>Automatic snapshots</h3>
         <p className="muted small">
-          A snapshot of your library and settings is taken every 30 minutes. The newest{' '}
+          A snapshot of your library, settings and files (portraits, pictures, worlds, voices) is taken every 30
+          minutes. The first one keeps a copy of your files beside the backups; after that only changed files take
+          space. The newest{' '}
           {state?.maxSnapshots ?? 10} are always kept, plus one per day for the last{' '}
           {state?.dailyDays ?? 7} days. Snapshots stay on your computer.
         </p>
@@ -219,7 +237,7 @@ export function BackupsPage() {
                   {when(s.created)}
                   <span className="muted small">
                     {' '}
-                    · {megabytes(s.size)} · {s.hasSettings ? 'library and settings' : 'library only'}
+                    · {megabytes(s.size)} · {snapshotContents(s)}
                   </span>
                 </span>
                 <span className="backup-actions">
@@ -257,14 +275,14 @@ export function BackupsPage() {
                     Your library goes back to this snapshot. Anything changed after it was taken is lost.{' '}
                     {FINISH}
                   </p>
-                  {s.hasSettings && (
+                  {(s.hasSettings || s.hasFiles) && (
                     <label className="checkbox">
                       <input
                         type="checkbox"
                         checked={withSettings}
                         onChange={(e) => setWithSettings(e.target.checked)}
                       />{' '}
-                      Also restore settings
+                      {restoreExtrasLabel(s)}
                     </label>
                   )}
                   {stepUp('Restoring replaces your library. Confirm your web login password.')}

@@ -2188,8 +2188,8 @@ test('a web snapshot restore waits for the next launch and can be cancelled', { 
   const request = page.request;
   const state = async () =>
     (await (await request.get('/api/backups')).json()) as {
-      snapshots: { id: string; hasSettings: boolean }[];
-      pending: { kind: string } | null;
+      snapshots: { id: string; hasSettings: boolean; hasFiles?: boolean }[];
+      pending: { kind: string; withFiles?: boolean } | null;
     };
   try {
     await openRoute(page, '/backups');
@@ -2197,17 +2197,20 @@ test('a web snapshot restore waits for the next launch and can be cancelled', { 
     await expect(page.getByText('Backup created.')).toBeVisible();
     const made = (await state()).snapshots[0];
     expect(made.hasSettings).toBe(true);
+    // The sandboxed library has character pictures, so the snapshot keeps files too.
+    expect(made.hasFiles).toBe(true);
 
     const row = page.locator('.backup-list li').first();
-    await expect(row).toContainText('library and settings');
+    await expect(row).toContainText('library, settings and files');
     await row.getByRole('button', { name: 'Restore', exact: true }).click();
-    await expect(row.getByText('Also restore settings')).toBeVisible();
+    await expect(row.getByText('Also restore settings and files')).toBeVisible();
     const go = row.getByRole('button', { name: 'Restore this backup' });
     await expect(go).toBeDisabled();
     await row.getByLabel('Web login password').fill(process.env.FPAI_PASSWORD!);
     await go.click();
-    await expect(page.getByTestId('pending-restore')).toContainText('library and settings');
+    await expect(page.getByTestId('pending-restore')).toContainText('library, settings and files');
     expect((await state()).pending?.kind).toBe('snapshot');
+    expect((await state()).pending?.withFiles).toBe(true);
 
     await page.getByRole('button', { name: 'Cancel restore' }).click();
     await expect(page.getByTestId('pending-restore')).toHaveCount(0);
