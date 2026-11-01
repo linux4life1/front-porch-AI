@@ -97,3 +97,50 @@ extension ChatServiceGenerationStreamAccessors on ChatService {
     return windowElapsed > 0 ? recent / windowElapsed : 0.0;
   }
 }
+
+/// The "Did time pass?" gate a send parks on, and the pre-reply goal check
+/// sendMessage awaits (WP10c).
+extension ChatServiceSendGates on ChatService {
+  /// The "Did time pass?" question the send is waiting on, or null. The
+  /// desktop dialog and the web sheet show it while it is non-null.
+  PendingSkip? get pendingSkip => _skipGate.pending;
+
+  /// A send is parked on [pendingSkip]: it owns the turn, so no other send,
+  /// regen, swipe, Continue or delete starts until it is answered.
+  bool get _skipAsked => _skipGate.pending != null;
+
+  /// The player's answer to [pendingSkip]: a skip, [SkipVerdict.none] for
+  /// "no skip", or null to keep the reader's guess.
+  void answerSkip(SkipVerdict? verdict) {
+    if (_skipGate.answer(verdict)) notifyListeners();
+  }
+
+  /// Whether a web client is connected to answer [pendingSkip].
+  set skipConfirmWebAsker(bool Function() connected) =>
+      _skipWebAsker = connected;
+
+  /// Puts a shaky skip reading to whoever is at a chat screen. Null at once
+  /// in a voice call or with nobody there (pick E: Director auto-chat and
+  /// AFK never send through here anyway), so the guess applies. A chat
+  /// change under the question cancels it.
+  Future<SkipVerdict?> _askSkip(PendingSkip question, String? token) async {
+    if (_callMode || (_chatScreens == 0 && !_skipWebAsker())) return null;
+    final answer = _skipGate.ask(question);
+    notifyListeners();
+    void onChange() {
+      if (_sceneChanged(token) && _skipGate.cancel()) notifyListeners();
+    }
+
+    addListener(onChange);
+    try {
+      return await answer;
+    } finally {
+      removeListener(onChange);
+    }
+  }
+
+  /// The pre-reply goal check. Send runs it; Continue and Regen do not
+  /// (objective_check_gate_test reads this name in the send part).
+  Future<void> _maybeCheckTaskCompletionSync() =>
+      objectivesDoor.completion.maybeCheckSync();
+}

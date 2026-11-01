@@ -38,7 +38,7 @@ class RegenController {
 
   ChatSessionState get _session => _d.session;
   EditServices get _s => _d.services;
-  late final RealismScope _scope = _s.realismScope();
+  late final RealismScope _scope = _s.graph().scope;
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   bool get _realismEnabled => _scope.realismEnabled();
@@ -53,7 +53,7 @@ class RegenController {
       resolveGroupSpeakerForMessage(_groupCharacters, msg);
   bool _isGuestAuthoredMessage(ChatMessage m) => _d.cast.isGuestAuthored(m);
   void _restoreRealismStateForSpeaker(ChatMessage msg) =>
-      _d.realism.restoreForSpeaker(msg);
+      _s.graph().restores.forSpeaker(msg);
   Future<void> _saveChat({bool replaceAll = false}) =>
       _d.saveChat(replaceAll: replaceAll);
   void notifyListeners() => _d.notify();
@@ -180,13 +180,13 @@ class RegenController {
         wikiQuery: wikiQuery,
       );
     } catch (e) {
-      _s.clockWriter().restoreCapturedThroughReader();
+      _s.graph().clockWriter.restoreCapturedThroughReader();
       rethrow;
     } finally {
       _session.groupManager?.endRegeneration();
       _d.turn.setPostGenerating(false);
       _d.turn.clearPostGenAbortFlags();
-      _s.clockReader().applyTipClock();
+      _s.graph().clockReader.applyTipClock();
       // Listeners (web isSettlingTurn → chat_updated) only see the clear
       // through a notification. The flag alone does not broadcast.
       notifyListeners();
@@ -292,34 +292,34 @@ class RegenController {
         // review 2026-08-11). Group-safe: the stamp carries the speaker's
         // own charId. The journal invalidation above already took the
         // rejected turn's item cards with it.
-        _s.pocketsRewinds().restoreFromStamp(lastMsg, after: false);
+        _s.graph().pocketsRewinds.restoreFromStamp(lastMsg, after: false);
       }
 
       // Capture the live clock first. Fail/cancel/abort put it back so
       // a rejected regen never leaves the sidebar on the rewound before.
       // Then rewind to the shared message-level before (every swipe).
-      _s.clockWriter().rewindClockToPreReply(lastMsg);
+      _s.graph().clockWriter.rewindClockToPreReply(lastMsg);
 
-      if (!_d.realism.revertRegenBaseline(
+      if (!_s.graph().regenBaseline.revert(
         lastMsg: lastMsg,
         regenGuest: regenGuest,
         regenSpeakerCard: regenSpeakerCard,
         regenSpeakerSid: regenSpeakerSid,
       )) {
         _session.messages.add(lastMsg);
-        _s.clockWriter().restoreCapturedThroughReader();
+        _s.graph().clockWriter.restoreCapturedThroughReader();
         _restoreRealismStateForSpeaker(lastMsg);
-        _s.pocketsRewinds().restoreFromStamp(lastMsg, after: true);
+        _s.graph().pocketsRewinds.restoreFromStamp(lastMsg, after: true);
         return;
       }
       // A long skip's reply: the revert put the pre-skip mood back.
       final skipMeta = {...?preservedRejectedMeta, ...?lastMsg.activeMetadata};
       final longSkip = (skipMeta[kLongSkipMinutesMeta] as num?)?.toInt() ?? 0;
-      if (longSkip > 0) LongSkipSettle(_s.realismScope()).settle();
+      if (longSkip > 0) LongSkipSettle(_s.graph().scope).settle();
 
       // After the unreadable-baseline bail: the bubble stays, so its
       // journal/growth cites must stay too (same rule as a departed guest).
-      _s.timeline().invalidateFrom(
+      _s.graph().timeline.invalidateFrom(
         persistMessagePosition(
           base: _s.history().basePosition,
           index: _session.messages.length,
@@ -353,9 +353,9 @@ class RegenController {
         if (_realismEnabled) {
           _pendingRealismMetadata!['emotion_label'] = _scope.emotion();
         }
-        _pendingRealismMetadata!['realism_state'] = _s
-            .realismSnapshot()
-            .capture(preTurn: regenPreTurn);
+        _pendingRealismMetadata!['realism_state'] = _s.graph().snapshot.capture(
+          preTurn: regenPreTurn,
+        );
 
         // If cancellation was requested during realism evaluation, abort
         // generation — restoring the popped reply first, for the same reason
@@ -365,9 +365,9 @@ class RegenController {
           _session.messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
-          _s.clockReader().applyTipClock();
+          _s.graph().clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
-          _s.pocketsRewinds().restoreFromStamp(lastMsg, after: true);
+          _s.graph().pocketsRewinds.restoreFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
           _realismEvalCancelled = false;
           notifyListeners();
@@ -377,7 +377,7 @@ class RegenController {
       }
 
       // Invalidate ONNX cache for the new response (delegated)
-      _s.expression().invalidateOnnxCacheForNewResponse();
+      _s.graph().expression.invalidateOnnxCacheForNewResponse();
 
       // Generate into a new message — it will be appended by the generation.
       // For a guest message we pass guestSpeaker so the new swipe is spoken as

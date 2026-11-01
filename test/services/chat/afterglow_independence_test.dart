@@ -56,6 +56,8 @@ import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
+import 'package:front_porch_ai/services/group_turn_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -299,12 +301,12 @@ void main() {
           isUser: false,
         ),
       ];
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => GroupChat(id: 'g1', name: 'The porch'),
-        groupCharacters: () => [ada, vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera
+          ..groupManager = (GroupTurnManager()
+            ..enterGroup(GroupChat(id: 'g1', name: 'The porch'), [ada, vera])),
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -414,12 +416,12 @@ void main() {
           isUser: false,
         ),
       ];
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => GroupChat(id: 'g1', name: 'The porch'),
-        groupCharacters: () => [ada, vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera
+          ..groupManager = (GroupTurnManager()
+            ..enterGroup(GroupChat(id: 'g1', name: 'The porch'), [ada, vera])),
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -548,12 +550,10 @@ void main() {
               required buildPrompt,
             }) async => '{"is_climax":true,"refractory_turns":$judgeTurns}',
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -725,12 +725,10 @@ void main() {
               return verdict;
             },
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -920,12 +918,10 @@ void main() {
               required buildPrompt,
             }) async => '{"is_climax":true,"refractory_turns":6}',
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -1143,12 +1139,10 @@ void main() {
         isUser: false,
       ),
     ];
-    final scope = RealismScope(
-      messages: messages,
-      activeCharacter: () => mara,
-      setActiveCharacter: (_) {},
-      activeGroup: () => null,
-      groupCharacters: () => const [],
+    final scope = RealismScope.of(
+      session: ChatSessionState()
+        ..messages.addAll(messages)
+        ..activeCharacter = mara,
       observerMode: () => false,
       realismEnabled: () => true,
       needsSimEnabled: () => false,

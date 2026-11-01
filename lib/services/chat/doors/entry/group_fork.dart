@@ -56,8 +56,8 @@ class GroupFork {
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
   ChaosModeService get _chaosModeService => _s.chaos();
-  ChatPlaceSlots get _places => _d.hooks.chatPlaceSlots();
-  Pockets? get _pockets => _d.shared.hostPockets();
+  ChatPlaceSlots get _places => _s.graph().places.slots;
+  Pockets? get _pockets => _s.graph().hostPockets;
   bool get _isTurnBusy => _d.hooks.isTurnBusy();
   String _getCharacterIdFromCard(CharacterCard c) =>
       _d.shared.characterIdFor(c);

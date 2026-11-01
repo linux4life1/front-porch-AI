@@ -77,7 +77,7 @@ class SessionForker {
     } catch (e) {
       debugPrint('[Chat] chat world seed failed: $e');
     }
-    await _d.hooks.reloadChatWorldIds();
+    await _s.graph().places.reload();
   }
 
   /// Re-read this chat's attached worlds from the database. Needed when
@@ -85,7 +85,7 @@ class SessionForker {
   /// back-fills that character's chats that had none, and an already-open
   /// conversation should pick up the new climate without being reopened.
   Future<void> refreshChatWorlds() async {
-    await _d.hooks.reloadChatWorldIds();
+    await _s.graph().places.reload();
     _d.notify();
   }
 
@@ -187,7 +187,9 @@ class SessionForker {
     // Forks stay in the parent chat's place: carry the world attachments so
     // the climate/setting follow (mid-chat climate spans reset to the world
     // default, like every other new session).
-    await seedChatWorldsForNewSession(carryRefs: _d.hooks.chatPlaceIds());
+    await seedChatWorldsForNewSession(
+      carryRefs: _s.graph().places.slots.allIds,
+    );
     await _s.media().copyWikiForForkedSession(oldSessionId);
     _store.parentSessionId = oldSessionId;
     _store.forkIndex = tip;
@@ -203,7 +205,7 @@ class SessionForker {
     _store.selectedLooks.clear();
     _store.summaryPaused = false;
     _store.isSummaryGenerating = false;
-    _d.hooks.setGrowthPassRunning(false);
+    _s.graph().growthPassRunning = false;
 
     // Time-travel: stamped after, else before+chip, else snap, else
     // before. Unstamped Carmen tip keeps the live clock. Stamp-less

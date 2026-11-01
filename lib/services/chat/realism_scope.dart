@@ -22,7 +22,8 @@ import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 /// call, and the 1:1 host and a group speaker read the same scalars (the
 /// group dance loads the speaker into them).
 class RealismScope {
-  /// The live scope ChatService builds over its one [ChatSessionState].
+  /// The live scope the Realism graph builds, once, over the chat's one
+  /// [ChatSessionState].
   const RealismScope.of({
     required this.session,
     required this.observerMode,
@@ -49,71 +50,6 @@ class RealismScope {
     required this.saveChat,
     required this.notify,
   });
-
-  /// The closure form a leaf test uses to build a scope with no ChatService
-  /// (test/services/chat/afterglow_independence_test.dart). The closures
-  /// answer through a [ChatSessionState] view, so leaves read one shape.
-  factory RealismScope({
-    required List<ChatMessage> messages,
-    required CharacterCard? Function() activeCharacter,
-    required void Function(CharacterCard?) setActiveCharacter,
-    required GroupChat? Function() activeGroup,
-    required List<CharacterCard> Function() groupCharacters,
-    required bool Function() observerMode,
-    required bool Function() realismEnabled,
-    required bool Function() needsSimEnabled,
-    required RealismSettings Function() realismSettings,
-    required bool Function() clockRunning,
-    required String Function(CharacterCard) characterIdFor,
-    required GroupRealismStore groups,
-    required NeedsSimulation Function() needs,
-    required RelationshipService Function() relationship,
-    required NsfwService Function() nsfw,
-    required TimeService Function() time,
-    required Map<String, dynamic>? Function() pending,
-    required void Function(Map<String, dynamic>?) setPending,
-    required String Function() emotion,
-    required void Function(String) setEmotion,
-    required String Function() intensity,
-    required void Function(String) setIntensity,
-    required String Function() cause,
-    required void Function(String) setCause,
-    required int Function() heldTurns,
-    required void Function(int) setHeldTurns,
-    required Future<void> Function() saveChat,
-    required void Function() notify,
-  }) => RealismScope.of(
-    session: _ClosureSessionState(
-      messages,
-      activeCharacter,
-      setActiveCharacter,
-      activeGroup,
-      groupCharacters,
-    ),
-    observerMode: observerMode,
-    realismEnabled: realismEnabled,
-    needsSimEnabled: needsSimEnabled,
-    realismSettings: realismSettings,
-    clockRunning: clockRunning,
-    characterIdFor: characterIdFor,
-    groups: groups,
-    needs: needs,
-    relationship: relationship,
-    nsfw: nsfw,
-    time: time,
-    pending: pending,
-    setPending: setPending,
-    emotion: emotion,
-    setEmotion: setEmotion,
-    intensity: intensity,
-    setIntensity: setIntensity,
-    cause: cause,
-    setCause: setCause,
-    heldTurns: heldTurns,
-    setHeldTurns: setHeldTurns,
-    saveChat: saveChat,
-    notify: notify,
-  );
 
   /// The open chat: its messages (the same list object, not a copy), the
   /// active character and the group. The group dance impersonates a speaker
@@ -157,36 +93,4 @@ class RealismScope {
   final void Function(int) setHeldTurns;
   final Future<void> Function() saveChat;
   final void Function() notify;
-}
-
-/// A [ChatSessionState] that answers from the closure form's inputs.
-class _ClosureSessionState extends ChatSessionState {
-  _ClosureSessionState(
-    this._messages,
-    this._activeCharacter,
-    this._setActiveCharacter,
-    this._activeGroup,
-    this._groupCharacters,
-  );
-
-  final List<ChatMessage> _messages;
-  final CharacterCard? Function() _activeCharacter;
-  final void Function(CharacterCard?) _setActiveCharacter;
-  final GroupChat? Function() _activeGroup;
-  final List<CharacterCard> Function() _groupCharacters;
-
-  @override
-  List<ChatMessage> get messages => _messages;
-
-  @override
-  CharacterCard? get activeCharacter => _activeCharacter();
-
-  @override
-  set activeCharacter(CharacterCard? c) => _setActiveCharacter(c);
-
-  @override
-  GroupChat? get activeGroup => _activeGroup();
-
-  @override
-  List<CharacterCard> get groupCharacters => _groupCharacters();
 }

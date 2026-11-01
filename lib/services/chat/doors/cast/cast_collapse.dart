@@ -104,7 +104,7 @@ class CastCollapse {
     // 1) While still in group mode, capture the survivor's full state to
     //    carry back to the 1:1. originId is the id the 1:1 keys by.
     final originId = _d.characterIdFor(origin);
-    final restoreSurvivor = _h.captureSurvivor(soleId);
+    final restoreSurvivor = _d.graph().carries.captureSurvivor(soleId);
     // Undistilled legacy evolved text (pre-rings growth) moves from the
     // group JSON maps to the 1:1 columns after re-home.
     String soleLegacyPers = '';
@@ -217,7 +217,7 @@ class CastCollapse {
     }
     if (hostMember == null) return; // host member not found: don't mis-key
     final hostId = _d.characterIdFor(hostMember);
-    _h.carryHostScalars(hostId, state);
+    _d.graph().carries.carryHostScalars(hostId, state);
 
     // COPY the host's objectives, memory and growth onto the new group (the
     // original 1:1 stays the revert snapshot; collapse re-keys instead).

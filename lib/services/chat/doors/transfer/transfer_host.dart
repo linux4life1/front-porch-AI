@@ -20,6 +20,7 @@ import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/growth_desk.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_state.dart';
@@ -37,8 +38,9 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 /// of another shell part, and every field of the shared bag, that import
 /// and export still reach. Each is one typed call the shell implements
 /// inside its library. The session store (WP7) retired the session and
-/// scalar ones: the doors call [sessions] for those. The Realism graph (WP9)
-/// and the turn engine (WP10) retire the rest.
+/// scalar ones: the doors call [sessions] for those, and the Realism graph
+/// (WP9a) the Realism capture through [graph]. The turn engine (WP10)
+/// retires the rest.
 class TransferHost {
   TransferHost({
     required this.db,
@@ -61,7 +63,7 @@ class TransferHost {
     required this.loadActiveObjectives,
     required this.loadSpeakerObjectives,
     required this.formatForRagEmbedding,
-    required this.captureRealismState,
+    required this.graph,
     required this.setActiveCharacter,
     required this.deleteSessionQuietly,
   });
@@ -84,10 +86,11 @@ class TransferHost {
   /// the walk-back, the history window and chat switching.
   final SessionStore Function() sessions;
 
-  // ── Debt: the Realism capture (WP9a) and turn flags (WP10) ────────────
+  /// The Realism graph: the live `realism_state` capture, for the
+  /// stamp-contract test hook.
+  final RealismGraph Function() graph;
 
-  /// The live `realism_state` capture, for the stamp-contract test hook.
-  final Map<String, dynamic> Function() captureRealismState;
+  // ── Debt: turn flags (WP10) ───────────────────────────────────────────
 
   /// The turn-busy predicate the composer and the window cast edits share.
   final bool Function() isTurnBusy;

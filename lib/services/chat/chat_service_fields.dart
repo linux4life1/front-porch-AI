@@ -28,10 +28,6 @@ mixin ChatServiceFieldBag {
   /// cache of it. Moves with the database, so it is re-made on a swap.
   StreamSubscription<String>? _deletedChats;
 
-  /// The chat model's key in the eval identity, read from its file once per
-  /// model and per engine load.
-  final _modelKeys = LocalModelKeys();
-
   /// True while Try again (regenerate on a trailing user line) runs. That
   /// regen holds `_isPostGenerating`, but no reply exists to keep.
   bool _answeringUnansweredLine = false;
@@ -39,9 +35,6 @@ mixin ChatServiceFieldBag {
   bool _disposed = false;
   // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
   // live on the cast door (ChatService.castDoor, doors/cast/).
-
-  // Slice 6: suggested scene move + per-setting decline memory.
-  final SceneMoveState _sceneMoves = SceneMoveState();
 
   ChatCommandHandler? _commandHandler;
 
@@ -51,8 +44,6 @@ mixin ChatServiceFieldBag {
   /// Serializes [sendMessage] so two composer taps during settle cannot
   /// both pass `_isGenerating` and then both run after the wait.
   Future<void> _sendChain = Future.value();
-  Map<String, dynamic>?
-  _pendingRealismMetadata; // stores deltas for the next generation
   bool _isGenerating = false;
 
   /// True while the awaited POST-generation work is still running.
@@ -167,36 +158,15 @@ mixin ChatServiceFieldBag {
   // The group repository main.dart wires in and the auto-chat turn budget
   // live on the entry door (entryDoor.groupRepository, entryDoor.autoChat).
 
-  /// The char→char judge, built on first use.
-  CastFeelingsJudge? _castFeelingsJudgeCache;
-
   // A group's per-member notes, prompts and RAG knobs, the Author's Note,
   // the gallery looks and the recap ("Where we are") live on the session
   // store (sessionStore.groupConfig and the store's own fields).
   // Director Mode state is owned by _session.groupManager when active.
   // ── Realism Mode ──
   bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
-  bool _isEvaluatingRealism = false;
-  bool _isCancellingRealismEval = false;
-  String _realismEvalStreamText = '';
-
-  // Verifier phase coordination (god-owned for overlay + chips; leaf is stateless/prompt+rule).
-  // Set around verify calls (via thin cb from leaves) so "🕵️ Verifying Realism output (pass X/Y)" shows
-  // using the *exact same* overlay widgetry. 0 new void _ privates.
-  bool _isVerifyingRealism = false;
-  int _verificationPass = 0;
-  int _verificationMaxPasses = 1;
-  // Debounce timer — batches rapid per-chunk notifyListeners() calls during
-  // eval streaming into a single rebuild every 150 ms. Without this, a
-  // 40-token JSON response fires 40+ notifyListeners() calls and widgets that
-  // are mid-deactivation throw "Looking up a deactivated widget's ancestor".
-  Timer? _evalChunkTimer;
-
-  // Emotional state. Cause and hold go through MoodRegisters (`_mood`).
-  String _characterEmotion = '';
-  String _emotionIntensity = ''; // mild/moderate/strong
-  String _emotionCause = '';
-  int _emotionHeldTurns = 0;
+  // The eval overlay's flags, streamed text and verifier pass, the emotion
+  // registers and the pending turn metadata live on the Realism graph
+  // (ChatService.realism: evalStatus, registers).
 
   // Chaos Mode state lives on _chaosModeService. UI park flags stay here.
   bool _chanceTimePendingTrigger =
@@ -216,12 +186,9 @@ mixin ChatServiceFieldBag {
   bool _enjoysLowHygiene =
       false; // inversion for hygiene (enjoys being dirty/sweaty/musky)
 
-  /// Per-chat lore session state (ST sticky/cooldown timers, macro locals,
-  /// chat-scoped lorebook) — persisted inside the session's groupRealismState
-  /// blob via additive keys, hydrated on session load, cleared at session
-  /// boundaries via the scanner reset.
-  final _loreTimedEffects = LorebookTimedEffects();
-
+  // Per-chat lore timers, the parsed group book, the Setting and Lore slots,
+  // the climate spans and the scene move state live on the Realism graph
+  // (realism.lore, realism.places).
   // (chatLorebook / commitChatLorebookEdit / lastLoreOverflow / lastLoreTokens
   // / lastLoreBudget / loreTimedEffects / previewLoreTriggers /
   // currentlyActiveLoreEntries moved to chat_service_accessors.dart)
@@ -229,35 +196,12 @@ mixin ChatServiceFieldBag {
   int _lastLoreTokens = 0;
   int _lastLoreBudget = 0;
 
-  // The group lorebook is stored as a JSON string on the group row. Parse it
-  // ONCE and keep the live instance — the scanner writes trigger state onto
-  // these entry objects, so a fresh parse per read (the pre-Phase-2 behavior)
-  // silently discarded every keyword trigger and left group books constant-only.
-  // String-compare invalidation: editing the book in group settings replaces
-  // the JSON string, which re-parses (and intentionally clears trigger state,
-  // same as editing semantics elsewhere).
-  Lorebook? _cachedGroupBook;
-  String? _cachedGroupBookJson;
-  bool _groupLorebookUnreadable = false;
-
-  /// Living Worlds: Primary Setting + Lore slots for the open session.
-  /// Loaded on session open; group template seeds new chats.
-  ChatPlaceSlots _chatPlaceSlots = const ChatPlaceSlots();
-
-  /// Hydrated mid-chat climate spans + world default (Living Worlds phase 1).
-  BiomeSchedule _biomeSchedule = const BiomeSchedule();
-
   /// Central macro resolver for prompt template expansion.
   late final _macroResolver = MacroResolver();
 
   /// In-memory clock for {{idle_duration}} — set on each user send; null
   /// after a restart (the macro passes through untouched then).
   DateTime? _lastUserMessageAt;
-
-  /// The 1:1 speaker's pockets. In a group each member's record lives in their
-  /// `_groupRealism` slot instead, which is what keeps it session-scoped and
-  /// deleted with the chat; this scalar is the same record for the host.
-  Pockets? _pockets;
 
   Completer<void>?
   _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
@@ -269,7 +213,6 @@ mixin ChatServiceFieldBag {
   _promptPickerPending; // prompt-picker SOW: the new 1:1 awaiting the picker
 
   String? _evalCleanSrc, _evalCleanOut;
-  bool _isGrowthPassRunning = false;
 
   /// Test-only overrides for driving the real LLM paths (realism evals +
   /// chat generation) with canned responses without constructing a full
@@ -283,7 +226,4 @@ mixin ChatServiceFieldBag {
 
   // The Feelings rescore flag and crossings, and the word-rewrite seed, live
   // on the edits door (editsDoor.reprocess, editsDoor.tokenAlts).
-
-  /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
-  final _toolProbe = ToolTransportProbe();
 }

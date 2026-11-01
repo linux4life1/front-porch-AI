@@ -47,18 +47,18 @@ const _stateAndRewinds = <String, String>{
       'rewinds (restore, refund) of a stamp a reply carries, refunds a delete',
   'lib/services/chat/doors/entry/chat_entry.dart': 'seeds the bars at open',
   'lib/services/chat/doors/entry/group_entry.dart': 'seeds the bars at open',
-  'lib/services/chat/chat_service_group_lite.dart':
+  'lib/services/chat/doors/cast/cast_controller.dart':
       'seeds a soft member who becomes full',
   'lib/services/chat/doors/entry/group_roster.dart': 'seeds a member who joins',
-  'lib/services/chat/chat_service_greeting_seed.dart': 'seeds from a greeting',
+  'lib/services/chat/doors/realism/needs_seeds.dart': 'seeds from a greeting',
   'lib/services/chat/doors/session/session_seed.dart': 'seeds from an import',
   'lib/services/chat/doors/session/session_scalars.dart':
       'restores the bars from a session',
   'lib/services/chat/doors/session/new_chat.dart':
       'saves the bars with a session',
-  'lib/services/chat/chat_service_speaker_objectives.dart':
+  'lib/services/chat/doors/realism/realism_restores.dart':
       'restores the bars from a message\'s snapshot on rewind',
-  'lib/services/chat/chat_service_regen_revert.dart':
+  'lib/services/chat/doors/realism/regen_baseline.dart':
       'rewinds a regen to its stamp',
   'lib/services/chat/chat_service_message_ops.dart':
       'rewinds a delete to its stamp',

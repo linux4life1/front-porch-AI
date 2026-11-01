@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
@@ -51,7 +52,7 @@ class EntryDeps {
   final EntryShellHooks hooks;
 
   /// The hooks the session store takes too (the chat's switches and seeds,
-  /// Pockets, the turn's cancel, identity), wired once and handed to both.
+  /// the turn's cancel, identity), wired once and handed to both.
   final SessionShellHooks shared;
 
   /// The service's own notify, synchronous: the loading cover rises before
@@ -73,6 +74,7 @@ class EntryServices {
     required this.macros,
     required this.characters,
     required this.llmProvider,
+    required this.graph,
     required this.realism,
     required this.snapshot,
     required this.mood,
@@ -98,6 +100,10 @@ class EntryServices {
 
   /// Starts the local backend on entry when Settings asks for it.
   final LLMProvider? Function() llmProvider;
+
+  /// The Realism graph: the host's Pockets record, the places, the Pockets
+  /// seed and the Growth pass flag an entry resets.
+  final RealismGraph Function() graph;
 
   /// The open chat as the Realism Engine sees it: the scalar services, the
   /// group map and the chat's stored Needs switch.
@@ -133,7 +139,6 @@ class EntryShellHooks {
     required this.upcomingSpeaker,
     required this.refreshEnjoysLowHygiene,
     required this.persistMemberExtensions,
-    required this.chatPlaceSlots,
   });
 
   // ── Turn (WP10b) ──────────────────────────────────────────────────────
@@ -163,9 +168,4 @@ class EntryShellHooks {
 
   /// Writes a group member's Front Porch extensions to their row.
   final Future<void> Function(String memberId) persistMemberExtensions;
-
-  // ── Places (WP9a) ─────────────────────────────────────────────────────
-
-  /// The open chat's Setting and Lore slots.
-  final ChatPlaceSlots Function() chatPlaceSlots;
 }

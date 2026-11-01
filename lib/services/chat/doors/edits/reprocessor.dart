@@ -24,6 +24,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edit_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/reprocess_targets.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 
 export 'package:front_porch_ai/services/chat/doors/edits/reprocess_targets.dart';
 
@@ -102,7 +103,7 @@ class Reprocessor {
 
   ChatSessionState get _session => _d.session;
   EditServices get _s => _d.services;
-  late final RealismScope _scope = _s.realismScope();
+  late final RealismScope _scope = _s.graph().scope;
   GroupChat? get _activeGroup => _session.activeGroup;
   RelationshipService get _relationshipService => _scope.relationship();
   NsfwService get _nsfwService => _scope.nsfw();
@@ -119,7 +120,7 @@ class Reprocessor {
     int index,
     String critique, {
     Set<String> onlyNeeds = const <String>{},
-  }) => _s.needsReprocess().manualReprocessNeeds(
+  }) => _s.graph().needsReprocess.manualReprocessNeeds(
     index,
     critique,
     onlyNeeds: onlyNeeds,
@@ -127,11 +128,11 @@ class Reprocessor {
 
   /// Revert a prior manual reprocess on the given message.
   Future<bool> revertNeedsReprocess(int index) =>
-      _s.needsReprocess().revertNeedsReprocess(index);
+      _s.graph().needsReprocess.revertNeedsReprocess(index);
 
   Future<FeelingsRescore> reprocessFeelings(int index) async {
     const refused = FeelingsRescore.refused;
-    if (_d.turn.isTurnBusy() || !_d.realism.realismActiveThisMode()) {
+    if (_d.turn.isTurnBusy() || !_s.graph().realismActiveThisMode) {
       return refused;
     }
     if (targets.reprocessFeelingsTargetFor(index) == null) return refused;
@@ -158,7 +159,7 @@ class Reprocessor {
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
     _d.turn.setPostGenerating(true);
-    _d.realism.setEvaluatingRealism(true);
+    _s.graph().evalStatus.evaluating = true;
     _d.turn.clearPostGenAbortFlags();
     notifyListeners();
     var result = FeelingsRescore.unreadable;
@@ -183,8 +184,8 @@ class Reprocessor {
       _session.activeCharacter = preActive;
       _groupStore.turnSpeakerId = prePin;
       objectives.activeObjectives = preObjectives;
-      _d.realism.stopEvalChunkTimer();
-      _d.realism.setEvaluatingRealism(false);
+      _s.graph().evalStatus.stopChunkTimer();
+      _s.graph().evalStatus.evaluating = false;
       _d.turn.setPostGenerating(false);
       _d.turn.clearPostGenAbortFlags();
     }
@@ -205,13 +206,13 @@ class Reprocessor {
     _session.activeCharacter = speaker;
     if (inGroup) {
       _groupStore.turnSpeakerId = sid;
-      _s.realismDance().loadIntoScalars(sid);
+      _s.graph().dance.loadIntoScalars(sid);
     }
     _s.objectives().activeObjectives = await _objectivesBeforeTurn(
       speaker,
       msg.activeMetadata?['objective_turn_ops'],
     );
-    final now = _s.realismSnapshot().capture();
+    final now = _s.graph().snapshot.capture();
     final nowCadence = _relationshipService.captureCadenceAndFeelings();
     final nowTiers = {
       'bond': _relationshipService.relationshipTier,
@@ -259,8 +260,8 @@ class Reprocessor {
       stamp['arousalLevel'],
       groupSid,
     );
-    _d.realism.applyMoodDecay();
-    if (groupSid != null) _s.realismDance().loadIntoScalars(groupSid);
+    _s.graph().restores.applyMoodDecay();
+    if (groupSid != null) _s.graph().dance.loadIntoScalars(groupSid);
     // Posture is written after the reply; the one-shot judge read the
     // position the turn began in.
     final stanceBefore =
@@ -271,13 +272,13 @@ class Reprocessor {
 
     _pendingRealismMetadata = <String, dynamic>{};
     rescoringFeelings = true;
-    _d.realism.setEvaluatingRealism(true);
-    _d.realism.clearEvalStream();
+    _s.graph().evalStatus.evaluating = true;
+    _s.graph().evalStatus.streamText = '';
     notifyListeners();
     final idle = _d.turn.mouthIdle();
     if (idle != null) await idle;
-    await _s.realismJudges().runPreGenJudges(
-      onChunk: _d.realism.onEvalChunk,
+    await _s.graph().judges.runPreGenJudges(
+      onChunk: _s.graph().evalStatus.onChunk,
       logSpeakerName: speaker.name,
     );
     rescoringFeelings = false;
@@ -318,7 +319,7 @@ class Reprocessor {
       if (pending.containsKey(k)) meta[k] = pending[k];
     }
     meta['emotion_label'] = _scope.emotion();
-    _s.mood().stampCause(meta);
+    _s.graph().mood.stampCause(meta);
     final verdict = pending[RealismVerification.kMetaKey];
     if (verdict is Map) {
       meta[RealismVerification.kMetaKey] = {
@@ -326,7 +327,7 @@ class Reprocessor {
         ...verdict,
       };
     }
-    final live = _s.realismSnapshot().capture();
+    final live = _s.graph().snapshot.capture();
     meta['realism_state'] = {
       ...Map<String, dynamic>.from(meta['realism_state'] as Map),
       for (final k in [..._kJudgedRegisters, 'arousalLevel'])
@@ -336,7 +337,7 @@ class Reprocessor {
     // cited at the reply (a length one past its index).
     for (final c in rescoreCrossings) {
       if (c.newTier != nowTiers[c.axis]) {
-        _d.realism.plantTierCrossing(c, citeLength: index + 1);
+        _s.graph().plantTierCrossing(c, citeLength: index + 1);
       }
     }
     // In place: the reply's metadata and its swipe slot share one map.
@@ -406,14 +407,14 @@ class Reprocessor {
       state,
       groupSpeakerId: groupSid,
     );
-    _s.mood().restoreFromStamp(state);
+    _s.graph().mood.restoreFromStamp(state);
     // Lust is scored only while Afterglow runs; a re-score leaves it alone.
     if (arousal is num && _nsfwService.nsfwCooldownEnabled) {
       _nsfwService.setArousalLevel(arousal.toInt());
     }
     if (groupSid == null) return;
-    _s.realismDance().saveScalarsIntoGroup(groupSid);
+    _s.graph().dance.saveScalarsIntoGroup(groupSid);
     // The save skips an empty mood; a first-turn member had none.
-    _s.mood().saveToMember(groupSid, evenIfEmpty: true);
+    _s.graph().mood.saveToMember(groupSid, evenIfEmpty: true);
   }
 }

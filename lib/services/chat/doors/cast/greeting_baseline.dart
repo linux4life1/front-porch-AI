@@ -131,7 +131,7 @@ class GreetingBaseline {
     while (_openingPostureSeed != null) {
       await _openingPostureSeed;
     }
-    if (!_h.realismActiveThisMode()) return;
+    if (!_d.graph().realismActiveThisMode) return;
     if (_relationshipService.spatialStance.isNotEmpty) return;
     // ONCE PER CHAT, not once per empty stance.
     //
