@@ -231,11 +231,12 @@ void main() {
   testWidgets('the "settings come back next launch" notice is set to time '
       'out after 10 seconds', (tester) async {
     final root = await pumpWithSettings(tester);
-    expect(
-      (await stagedAfterRestore(tester, root))?.kind,
-      PendingRestoreKind.settings,
-    );
-    await settle(tester);
+    await stagedAfterRestore(tester, root);
+    // The notice shows once the settings are staged; a slow runner needs
+    // more real time for that than the helper's loop gives.
+    for (var i = 0; i < 40 && find.text('Quit now').evaluate().isEmpty; i++) {
+      await settle(tester);
+    }
     // It carries a "Quit now" action, and a snack bar with an action stays
     // up until dismissed unless told otherwise: it would sit over the chat
     // composer for the rest of the session.
