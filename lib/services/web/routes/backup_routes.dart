@@ -53,7 +53,13 @@ class WebBackupRoutes {
     unawaited(sweepTemp());
   }
 
-  static const _tempPrefixes = ['fpai_web_backup_', 'fpai_web_restore_'];
+  // The channel is in the name so a nightly running beside stable never
+  // sweeps the other's download in flight.
+  static String get _channel => isPreRelease ? 'beta_' : 'stable_';
+  static final _tempPrefixes = [
+    'fpai_web_backup_$_channel',
+    'fpai_web_restore_$_channel',
+  ];
 
   /// Removes temp folders an earlier run left behind (an app quit mid
   /// download or upload). A full backup there may hold API keys.
@@ -193,7 +199,9 @@ class WebBackupRoutes {
     final denied = await _stepUp(request, body);
     if (denied != null) return denied;
     _dropExpired();
-    final dir = await Directory.systemTemp.createTemp('fpai_web_backup_');
+    final dir = await Directory.systemTemp.createTemp(
+      'fpai_web_backup_$_channel',
+    );
     try {
       final out = await BackupService.createFullBackup(
         dir.path,
@@ -280,7 +288,9 @@ class WebBackupRoutes {
   Future<shelf.Response> _restoreFull(shelf.Request request) async {
     final denied = await _stepUp(request, _headerStepUp(request));
     if (denied != null) return denied;
-    final dir = await Directory.systemTemp.createTemp('fpai_web_restore_');
+    final dir = await Directory.systemTemp.createTemp(
+      'fpai_web_restore_$_channel',
+    );
     final upload = File(
       p.join(dir.path, 'upload${BackupManifest.fileExtension}'),
     );

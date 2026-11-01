@@ -50,6 +50,13 @@ class BackupDbScrub {
         db.execute('VACUUM');
       });
 
+  /// Opens and closes the copy at [path] so SQLite folds a `-wal` or hot
+  /// `-journal` copied beside it into the file and removes it.
+  /// A read is what makes SQLite look at the journal; closing the last
+  /// connection then checkpoints a WAL into the file.
+  static Future<void> settle(String path) =>
+      _run(path, (db) => db.select('SELECT count(*) FROM sqlite_master'));
+
   /// Makes the restored database at [restored] keep the web login of the
   /// database at [live] (this machine's), and signs every device out. When
   /// this machine has no login table yet, the backup's login is kept.

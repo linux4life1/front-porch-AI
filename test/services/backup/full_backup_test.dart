@@ -36,7 +36,9 @@ import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/pending_restore.dart';
+import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
+import 'package:front_porch_ai/services/backup_service.dart';
 
 class _Open implements QueryExecutorUser {
   @override
@@ -372,7 +374,7 @@ void main() {
       root,
       'KoboldManager',
       'backups',
-      'front_porch_2026-10-31T12-00-00-000.db',
+      'front_porch_2026-10-31T12-00-00-000_before_restore.db',
     );
 
     String portrait() =>
@@ -517,6 +519,68 @@ void main() {
       expect(await _label(dbFile), 'changed library');
     });
 
+    test('a restore without keys keeps this machine\'s KoboldCpp preset '
+        'keys', () async {
+      final preset = p.join(root, 'presets', 'mine.kcpps');
+      await put(
+        preset,
+        jsonEncode({'model': 'x.gguf', 'hordekey': 'HK-1', 'password': 'pw'}),
+      );
+      final (out, _) = await writeBackup();
+      await put(
+        preset,
+        jsonEncode({'model': 'y.gguf', 'hordekey': 'HK-mine', 'password': ''}),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await PendingRestore.stageFull(root, out, currentSchema: 63);
+
+      await applyNow(prefs);
+
+      expect(PendingRestore.lastOutcome?.error, isNull);
+      final back = jsonDecode(await File(preset).readAsString());
+      expect(back['model'], 'x.gguf', reason: 'the preset itself comes back');
+      expect(back['hordekey'], 'HK-mine');
+      expect(back['password'], '');
+    });
+
+    test('the safety copy keeps changes still in a journal a crash left '
+        'beside the library', () async {
+      SharedPreferences.setMockInitialValues({});
+      await _library(dbFile, 'changed library');
+      // A write that is still only in the -wal file, as after a crash.
+      final crashed = p.join(tmp.path, 'crashed', 'front_porch.db');
+      final open = NativeDatabase(
+        File(dbFile),
+        enableMigrations: false,
+        setup: (db) => db.execute('PRAGMA journal_mode = WAL'),
+      );
+      await open.ensureOpen(_Open());
+      await open.runCustom("UPDATE lib SET v = 'unsaved library'");
+      await Directory(p.dirname(crashed)).create();
+      await File(dbFile).copy(crashed);
+      await File('$dbFile-wal').copy('$crashed-wal');
+      await open.close();
+      await File(crashed).copy(dbFile);
+      await File('$crashed-wal').copy('$dbFile-wal');
+      final snap = p.join(tmp.path, 'snap.db');
+      await File(crashed).copy(snap);
+      await _library(snap, 'old library');
+      final prefs = await SharedPreferences.getInstance();
+      await PendingRestore.stageSnapshot(
+        root,
+        File(snap),
+        null,
+        DateTime(2026, 10, 30),
+      );
+
+      await applyNow(prefs);
+
+      expect(PendingRestore.lastOutcome?.error, isNull);
+      expect(await _label(dbFile), 'old library');
+      expect(await _label(safetyDb()), 'unsaved library');
+      expect(await File('${safetyDb()}-wal').exists(), isFalse);
+    });
+
     test('a hostile archive writes nothing outside the root and never over '
         'the live database, restore folder or models', () async {
       final (good, manifest) = await writeBackup();
@@ -606,5 +670,34 @@ void main() {
     expect(await _login(staged), 'hash-changed library');
     expect(await _rows(staged, 'web_auth_sessions'), 0);
     expect(await _login(backup), 'hash-old library', reason: 'source kept');
+  });
+
+  test('restore safety copies are kept apart from snapshot retention', () {
+    final now = DateTime(2026, 10, 31, 12);
+    String snap(int i) => 'front_porch_$i.db';
+    String safety(int i) => 'front_porch_$i${RestoreApplier.safetySuffix}.db';
+    // Newest first: an auto snapshot every half hour, with a restore's
+    // safety copy among the oldest.
+    final entries = [
+      for (var i = 0; i < 20; i++)
+        (path: snap(i), modified: now.subtract(Duration(minutes: 30 * i))),
+      for (var i = 0; i < 5; i++)
+        (
+          path: safety(i),
+          modified: now.subtract(Duration(hours: 11, minutes: i)),
+        ),
+    ];
+    final drop = BackupService.backupsToDrop(entries, now);
+    final snapshots = entries.where((e) => !e.path.contains('before'));
+    final keep = BackupService.backupsToKeep(snapshots.toList(), now);
+
+    expect(drop.intersection(keep), isEmpty);
+    expect(
+      drop,
+      containsAll(snapshots.map((e) => e.path).where((p) => !keep.contains(p))),
+    );
+    expect(drop.contains(safety(0)), isFalse);
+    expect(drop.contains(safety(2)), isFalse);
+    expect(drop, containsAll([safety(3), safety(4)]));
   });
 }

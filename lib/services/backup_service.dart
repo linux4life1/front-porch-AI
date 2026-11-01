@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/pending_restore.dart';
+import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 
@@ -366,15 +367,13 @@ class BackupService {
   /// just supplies the file data and deletes the complement.
   static Future<void> pruneBackups() async {
     final backups = await listBackups(); // newest first (by mtime)
-    if (backups.length <= maxBackups) return;
-
     final entries = [
       for (final f in backups) (path: f.path, modified: f.statSync().modified),
     ];
-    final keep = backupsToKeep(entries, DateTime.now());
+    final drop = backupsToDrop(entries, DateTime.now());
 
     for (final f in backups) {
-      if (keep.contains(f.path)) continue;
+      if (!drop.contains(f.path)) continue;
       try {
         await deleteBackup(f);
         debugPrint('[Backup] Pruned old backup: ${f.path}');
@@ -382,6 +381,36 @@ class BackupService {
         debugPrint('[Backup] Failed to prune: $e');
       }
     }
+  }
+
+  /// How many restore safety copies are kept, newest first.
+  static const int maxSafetyCopies = 3;
+
+  /// The backups [pruneBackups] deletes, given them NEWEST-FIRST. Safety
+  /// copies (the undo for a restore) are kept apart from the automatic
+  /// snapshots: they never count toward [backupsToKeep], and the newest
+  /// [maxSafetyCopies] of them stay.
+  @visibleForTesting
+  static Set<String> backupsToDrop(
+    List<({String path, DateTime modified})> backupsNewestFirst,
+    DateTime now,
+  ) {
+    final safety = [
+      for (final b in backupsNewestFirst)
+        if (RestoreApplier.isSafetyCopy(b.path)) b.path,
+    ];
+    final snapshots = [
+      for (final b in backupsNewestFirst)
+        if (!RestoreApplier.isSafetyCopy(b.path)) b,
+    ];
+    final keep = snapshots.length <= maxBackups
+        ? {for (final b in snapshots) b.path}
+        : backupsToKeep(snapshots, now);
+    return {
+      for (final b in snapshots)
+        if (!keep.contains(b.path)) b.path,
+      ...safety.skip(maxSafetyCopies),
+    };
   }
 
   /// Pure retention policy (no filesystem) — exposed for testing. Given backups

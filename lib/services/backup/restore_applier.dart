@@ -26,6 +26,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
+import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 
@@ -59,6 +60,14 @@ class RestoreApplier {
   final int? currentSchema;
   final DateTime Function() _now;
 
+  /// Marks a safety copy's file name. Safety copies are kept apart from
+  /// the automatic snapshots' retention (see BackupService.pruneBackups),
+  /// so the undo for a restore is not pruned a few hours later.
+  static const String safetySuffix = '_before_restore';
+
+  static bool isSafetyCopy(String path) =>
+      p.basenameWithoutExtension(path).endsWith(safetySuffix);
+
   /// Where snapshots live; the safety copy goes there too.
   String get backupsDir => p.join(root, 'KoboldManager', 'backups');
 
@@ -74,12 +83,23 @@ class RestoreApplier {
         .toIso8601String()
         .replaceAll(':', '-')
         .replaceAll('.', '-');
-    final target = p.join(backupsDir, 'front_porch_$stamp.db');
+    final target = p.join(backupsDir, 'front_porch_$stamp$safetySuffix.db');
     final live = File(dbFile);
     if (await live.exists()) {
-      // The database is not open yet, so a plain copy is consistent.
+      // The database is not open yet, so a plain copy is consistent, as
+      // long as a journal an earlier crash left beside it comes too: the
+      // copy is opened once so SQLite folds it in.
       final tmp = File('$target.tmp');
       await live.copy(tmp.path);
+      var journals = false;
+      for (final suffix in const ['-wal', '-journal']) {
+        final j = File('$dbFile$suffix');
+        if (await j.exists()) {
+          await j.copy('${tmp.path}$suffix');
+          journals = true;
+        }
+      }
+      if (journals) await BackupDbScrub.settle(tmp.path);
       await tmp.rename(target);
     }
     safetyDb = target;
@@ -178,6 +198,7 @@ class RestoreApplier {
         }
         final from = p.join(staging.path, 'files', '${moves.length}');
         await _extract(entry, from);
+        if (!manifest.hasSecrets) await _keepPresetKeys(from, target);
         moves.add((
           from: from,
           to: target,
@@ -207,6 +228,30 @@ class RestoreApplier {
     } finally {
       await input.close();
       if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  /// A backup made without keys carries KoboldCpp presets with their keys
+  /// blanked; the preset being replaced keeps its own.
+  static Future<void> _keepPresetKeys(String staged, String target) async {
+    if (!target.toLowerCase().endsWith('.kcpps')) return;
+    final current = File(target);
+    if (!await current.exists()) return;
+    try {
+      final mine = jsonDecode(await current.readAsString());
+      final incoming = jsonDecode(await File(staged).readAsString());
+      if (mine is! Map || incoming is! Map) return;
+      var changed = false;
+      for (final key in FullBackupWriter.presetSecretKeys) {
+        final v = mine[key];
+        if (v != null && v != '' && v != false) {
+          incoming[key] = v;
+          changed = true;
+        }
+      }
+      if (changed) await File(staged).writeAsString(jsonEncode(incoming));
+    } on FormatException catch (e) {
+      debugPrint('[Restore] $target is not a readable preset: $e');
     }
   }
 
