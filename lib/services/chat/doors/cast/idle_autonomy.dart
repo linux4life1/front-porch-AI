@@ -111,8 +111,8 @@ class IdleAutonomy {
     }
 
     // The away pace on the clock, the speaker and their bars, and the cue
-    // built for that speaker (the shell's half; see the idle part).
-    final staged = _h.stageIdleTurn();
+    // built for that speaker (the send spine's half, IdleStage).
+    final staged = _d.send().idle.stage();
     pendingIdleCue = staged.cue;
     autoResponseInProgress = true;
     consecutiveAutoResponses++;

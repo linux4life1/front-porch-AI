@@ -183,7 +183,7 @@ void main() {
 
     test('send fires the check; Continue and Regen do not', () {
       expect(
-        File('lib/services/chat/chat_service_send.dart').readAsStringSync(),
+        File('lib/services/chat/doors/turn/send_turn.dart').readAsStringSync(),
         contains('_maybeCheckTaskCompletionSync'),
       );
       for (final path in [

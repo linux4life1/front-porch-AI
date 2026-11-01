@@ -90,7 +90,8 @@ class GroupDirector {
   /// The character who will speak next in group mode: the rotation head,
   /// moved past members who are Away or At work exactly as the pick does.
   /// Null for random turn order (decided at pick time).
-  CharacterCard? get nextCharacter => _d.hooks.upcomingSpeaker();
+  CharacterCard? get nextCharacter =>
+      _d.services.send().speakers.upcomingGroupSpeaker;
 
   /// Set observer mode on/off.
   void setObserverMode(bool value) {

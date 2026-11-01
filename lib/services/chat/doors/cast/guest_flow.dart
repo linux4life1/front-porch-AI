@@ -106,11 +106,11 @@ class GuestFlow {
         promptText,
       );
       if (target != null) _door.away.releaseHeldAway(target);
-      if (target != null && !_h.groupSpeakerSkips(target)) {
+      if (target != null && !_d.send().speakers.groupSpeakerSkips(target)) {
         debugPrint(
           '[Cast] @-mention: ${target.name} forced as this turn\'s speaker.',
         );
-        _h.setNextCharacter(target);
+        _d.send().speakers.setNextCharacter(target);
       }
       return null;
     }

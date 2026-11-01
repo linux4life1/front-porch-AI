@@ -70,7 +70,8 @@ class Impersonator {
       CharacterCard speakingCharacter;
       if (_activeGroup != null) {
         speakingCharacter =
-            _impersonateGroupSpeaker() ?? _d.cast.pickPresentSpeaker();
+            _impersonateGroupSpeaker() ??
+            _d.send().speakers.pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _session.activeCharacter!;
       }

@@ -1,18 +1,83 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Generate handoff, director note, guest chime-ins, and dream
-// prefetch. preTurnVector is captured before the reply. Wear
-// happens after the clock. Continue does not wear.
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
 
-extension ChatServiceSendHandoff on ChatService {
+import 'send_spine.dart';
+
+/// The hand-off from a user line to the turn engine: the pre-reply score
+/// (needs baseline, decay, the 1:1 host eval), the engine's reply, the idle
+/// timer, the Scene Guest chime-ins and the vision caption. Also the
+/// per-turn baselines a later rewind reads: [stampUserTurnBaseline] (1:1)
+/// and [stampGroupUserTurnBaseline] (group, per speaker).
+///
+/// preTurnVector is captured before the reply. Wear happens after the
+/// clock. Continue does not wear.
+class SendHandoff {
+  SendHandoff(this._s);
+
+  final SendSpine _s;
+
+  ChatSessionState get _session => _s.session;
+  StorageService get _storageService => _s.storage;
+  RealismGraph get realism => _s.graph;
+  TurnEngine get turnEngine => _s.engine;
+  MediaDoor get mediaDoor => _s.media;
+  CastDoor get _cast => _s.cast;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  SceneGuestState get _sceneGuest => _cast.guests.state;
+  bool get _realismEvalCancelled => realism.evalStatus.cancelled;
+  set _realismEvalCancelled(bool v) => realism.evalStatus.cancelled = v;
+  NeedsSimulation get _needsSimulation => realism.needs;
+  NeedsPass get _needsPass => realism.needsPass;
+  RealismSnapshot get _realismSnapshot => realism.snapshot;
+  RealismDance get _realismDance => realism.dance;
+  TimeService get _timeService => realism.time;
+  bool get _realismActiveThisMode => realism.realismActiveThisMode;
+  bool get _clockRunning => _s.controls.clockRunning;
+  bool get _isTurnBusy => turnEngine.isTurnBusy;
+  bool get _entrancesInFlight => _s.entry.entrancesInFlight;
+  set _hasCompletedExchange(bool v) => _cast.idle.hasCompletedExchange = v;
+  void _resetIdleTimer() => _cast.idle.resetIdleTimer();
+  void _applyMoodDecay() => realism.restores.applyMoodDecay();
+  void _exitCallEvalModelSwap() => _s.exitCallModelSwap();
+  Future<void> _saveChat() => _s.saveChat();
+  void notifyListeners() => _s.notify();
+  bool _sceneChanged(String? token) => _cast.sceneChanged(token);
+  Future<void> generateGuestTurn(CharacterCard guest) =>
+      _cast.guests.generateGuestTurn(guest);
+  Future<void> _runAwayPulse({
+    required String userText,
+    required bool fromUserSend,
+  }) => _cast.away.runAwayPulse(userText: userText, fromUserSend: fromUserSend);
+
   /// Pre-turn needs capture, generate, chips baseline, guest chime-ins,
-  /// and vision caption. Called from [sendMessage] after
+  /// and vision caption. Called from [SendTurn.run] after
   /// chaos/call-model/task-completion. Capture stays first so
   /// [preTurnVector] is the body before this beat's wear.
-  Future<void> _sendDecayAndGenerate({
+  Future<void> sendDecayAndGenerate({
     required CharacterCard? addressedGuest,
     required ChatMessage userMsg,
     required String? imagePath,
@@ -20,7 +85,7 @@ extension ChatServiceSendHandoff on ChatService {
     String? forcedWebQuery,
     String? forcedWikiQuery,
   }) async {
-    await _scoreUserTurnBeforeReply(
+    await scoreUserTurnBeforeReply(
       userMsg: userMsg,
       addressedGuest: addressedGuest,
     );
@@ -84,7 +149,7 @@ extension ChatServiceSendHandoff on ChatService {
     // NeedsPass.attachDeltaChipToLastMessage) so EVERY speaker gets them — group
     // auto-advance, /speak and chime-ins reach _generateResponse but never this
     // sendMessage scope, which is why only the first responder used to show
-    // chips. preTurnVector is stamped in _scoreUserTurnBeforeReply.
+    // chips. preTurnVector is stamped in scoreUserTurnBeforeReply.
 
     // ── Scene Guests: auto chime-in ─────────────────────────────────────────
     // The primary 1:1 turn is now 100% finalized (response + chip/realism block
@@ -93,7 +158,7 @@ extension ChatServiceSendHandoff on ChatService {
     // promptText (not raw text) so a photo-only turn feeds the director a
     // "[shared a photo]" marker instead of an empty user message. A routed
     // direct-address speaker is excluded — they already answered this turn.
-    await _maybeRunSceneGuestChimeIns(
+    await maybeRunSceneGuestChimeIns(
       userText: userMsg.promptText,
       exclude: addressedGuest,
     );
@@ -108,14 +173,15 @@ extension ChatServiceSendHandoff on ChatService {
   }
 
   /// Pre-reply scoring of a user turn: needs baseline, decay, and the 1:1
-  /// host eval (groups score inside the dance). Shared by [sendMessage]
-  /// and Generate reply on a trailing user message so both score alike.
-  Future<void> _scoreUserTurnBeforeReply({
+  /// host eval (groups score inside the dance). Shared by
+  /// [SendSpine.sendMessage] and Generate reply on a trailing user message
+  /// ([TryAgain]) so both score alike.
+  Future<void> scoreUserTurnBeforeReply({
     required ChatMessage userMsg,
     CharacterCard? addressedGuest,
   }) async {
     if (addressedGuest == null && _activeGroup == null) {
-      _stampUserTurnBaseline(userMsg);
+      stampUserTurnBaseline(userMsg);
     }
     // Evaluate realism systems before generating response
     // Capture pre-turn needs vector (before decay + fulfillment) so that
@@ -199,7 +265,7 @@ extension ChatServiceSendHandoff on ChatService {
   /// present. Each gate eval + guest turn is a slow LLM call, so it bails if the
   /// user switches chats / the scene changes (so guests never speak into the
   /// wrong conversation).
-  Future<void> _maybeRunSceneGuestChimeIns({
+  Future<void> maybeRunSceneGuestChimeIns({
     required String userText,
     CharacterCard? exclude,
   }) async {
@@ -225,7 +291,7 @@ extension ChatServiceSendHandoff on ChatService {
   /// Record where 1:1 realism stood before [userMsg] was first scored. A
   /// later re-score (Generate reply after a rewind) keeps the first record.
   /// Mutated in place: a user bubble's swipeMetadata[0] aliases [metadata].
-  void _stampUserTurnBaseline(ChatMessage userMsg) {
+  void stampUserTurnBaseline(ChatMessage userMsg) {
     if (!userMsg.isUser) return;
     if (!_realismActiveThisMode && !_needsPass.active) return;
     final meta = userMsg.metadata ??= <String, dynamic>{};
@@ -235,11 +301,11 @@ extension ChatServiceSendHandoff on ChatService {
     );
   }
 
-  /// Group twin of [_stampUserTurnBaseline], per speaker. Runs inside the
+  /// Group twin of [stampUserTurnBaseline], per speaker. Runs inside the
   /// dance before decay, while [charId] is impersonated. Every member who
   /// scores the latest user line is stamped on it — an auto-advance or Next
   /// responder too, or deleting both replies would re-score that one twice.
-  void _stampGroupUserTurnBaseline(String charId) {
+  void stampGroupUserTurnBaseline(String charId) {
     final i = _session.messages.lastIndexWhere((m) => m.isUser);
     if (i < 0) return;
     final meta = _session.messages[i].metadata ??= <String, dynamic>{};
@@ -254,197 +320,4 @@ extension ChatServiceSendHandoff on ChatService {
     );
     meta[kRealismPreTurnBySpeaker] = bySpeaker;
   }
-
-  /// Generate reply on a trailing user message (reply deleted, cancelled,
-  /// failed, or a fork at the user line). The turn's score rode the lost
-  /// reply, so rewind to the user message's stamp and score it again, the
-  /// same way a send does. Same input, same deltas — never stacked (#339).
-  Future<void> _generateFromTrailingUserTurn({
-    String? webQuery,
-    String? wikiQuery,
-    CharacterCard? forceSpeaker,
-  }) async {
-    _stoppedReplyAnchor = null;
-    turnEngine.progress.answeringUnansweredLine = true;
-    _userTurn.open();
-    try {
-      await _answerTrailingUserTurn(webQuery, wikiQuery, forceSpeaker);
-    } finally {
-      turnEngine.progress.answeringUnansweredLine = false;
-      _userTurn.close();
-    }
-  }
-
-  Future<void> _answerTrailingUserTurn(
-    String? webQuery,
-    String? wikiQuery,
-    CharacterCard? forceSpeaker,
-  ) async {
-    final userMsg = _session.messages.last;
-    final baseAt = _session.messages.length;
-    _rewindToUserTurnBaseline(userMsg);
-    // Group scores inside _generateResponse's dance for the picked speaker.
-    // A group line from before stamps has nothing to rewind to, so it keeps
-    // the old no-dance retry rather than stacking on a still-scored member.
-    final groupLegacy =
-        _activeGroup != null &&
-        userMsg.metadata?[kRealismPreTurnBySpeaker] is! Map;
-    var cancelled = false;
-    if (_activeGroup == null) {
-      await _scoreUserTurnBeforeReply(userMsg: userMsg);
-      cancelled = _realismEvalCancelled;
-      if (cancelled) {
-        // Quests the cancelled score proposed have no reply to ride on.
-        await objectivesDoor.revertTurn(
-          ChatMessage(
-            text: '',
-            sender: '',
-            isUser: false,
-            metadata: _pendingRealismMetadata,
-          ),
-        );
-        _needsSimulation.consumePendingCatastrophe();
-        _pendingRealismMetadata = null;
-        _realismEvalCancelled = false;
-      }
-    } else {
-      // Send pulses before generating (and honours @Name of an Away
-      // member); directUserSend below then skips the in-turn pulse.
-      await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
-    }
-    if (!cancelled) {
-      mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
-      await turnEngine.generate(
-        GenerationMode.normal,
-        directUserSend: true,
-        forceSpeaker: forceSpeaker,
-        skipSpeakerEval: groupLegacy,
-      );
-    }
-    // Cancelled or failed with no reply: leave the line unscored, as it was
-    // before the tap, 1:1 and group alike. A kept partial reply is answered.
-    final answered = _session.messages
-        .skip(baseAt)
-        .any((m) => !m.isUser && m.sender != 'System' && m.text.isNotEmpty);
-    if (!answered) {
-      _rewindToUserTurnBaseline(userMsg);
-      await _saveChat();
-      notifyListeners();
-    }
-  }
-
-  void _rewindToUserTurnBaseline(ChatMessage userMsg) {
-    final meta = userMsg.metadata;
-    if (_activeGroup == null) {
-      final stamp = meta?[kRealismPreTurn];
-      if (stamp is Map) {
-        _restoreRealismStateFromMessage(_realismStampCarrier(stamp));
-      } else {
-        _rewindRelationshipToLastAcceptedReply();
-      }
-      return;
-    }
-    final bySpeaker = meta?[kRealismPreTurnBySpeaker];
-    if (bySpeaker is! Map) return;
-    for (final entry in bySpeaker.entries) {
-      final sid = entry.key;
-      final stamp = entry.value;
-      if (sid is! String || stamp is! Map) continue;
-      if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
-        continue;
-      }
-      _realismDance.loadIntoScalars(sid);
-      _restoreRealismStateFromMessage(
-        _realismStampCarrier(stamp),
-        groupSpeakerId: sid,
-      );
-      _realismDance.saveScalarsIntoGroup(sid);
-      // The save skips an empty mood; a first-turn member had none.
-      _mood.writeMemberFromStamp(sid, stamp);
-    }
-  }
-
-  /// Stamp-less 1:1 user line (sent before stamps existed): rewind only the
-  /// scored registers to the last accepted reply. Needs and pockets were
-  /// already refunded by the delete that left this line trailing.
-  bool _rewindRelationshipToLastAcceptedReply() {
-    for (var i = _session.messages.length - 2; i >= 0; i--) {
-      final m = _session.messages[i];
-      if (m.isUser || m.sender == 'System') continue;
-      final state = m.activeMetadata?['realism_state'];
-      if (state is! Map) continue;
-      _restoreScoredRegisters(Map<String, dynamic>.from(state));
-      return true;
-    }
-    return false;
-  }
-
-  /// Bond/trust/feelings, mood and arousal from one realism stamp.
-  void _restoreScoredRegisters(Map<String, dynamic> s) {
-    _relationshipService.restoreFromMessageState(s);
-    _mood.restoreFromStamp(s);
-    realism.nsfw.restoreNsfwFromRealismState(s);
-  }
-
-  ChatMessage _realismStampCarrier(Map stamp) => ChatMessage(
-    text: '',
-    sender: '',
-    isUser: false,
-    metadata: {'realism_state': Map<String, dynamic>.from(stamp)},
-  );
-}
-
-/// True while [sendMessage] is holding a typed line behind post-gen evals.
-/// The composer already cleared; the bubble is not in the list yet.
-bool _sendWaitingOnSettle = false;
-
-/// The "Did time pass?" gate a send parks on, and the pre-reply goal check
-/// sendMessage awaits (WP10c).
-extension ChatServiceSendGates on ChatService {
-  /// Typed send is queued behind post-gen evals. Composer is empty; no bubble
-  /// yet. UI shows a holding banner so the wait does not look like a lost send.
-  bool get isSendWaitingOnSettle => _sendWaitingOnSettle;
-
-  /// The "Did time pass?" question the send is waiting on, or null. The
-  /// desktop dialog and the web sheet show it while it is non-null.
-  PendingSkip? get pendingSkip => _skipGate.pending;
-
-  /// A send is parked on [pendingSkip]: it owns the turn, so no other send,
-  /// regen, swipe, Continue or delete starts until it is answered.
-  bool get _skipAsked => _skipGate.pending != null;
-
-  /// The player's answer to [pendingSkip]: a skip, [SkipVerdict.none] for
-  /// "no skip", or null to keep the reader's guess.
-  void answerSkip(SkipVerdict? verdict) {
-    if (_skipGate.answer(verdict)) notifyListeners();
-  }
-
-  /// Whether a web client is connected to answer [pendingSkip].
-  set skipConfirmWebAsker(bool Function() connected) =>
-      _skipWebAsker = connected;
-
-  /// Puts a shaky skip reading to whoever is at a chat screen. Null at once
-  /// in a voice call or with nobody there (pick E: Director auto-chat and
-  /// AFK never send through here anyway), so the guess applies. A chat
-  /// change under the question cancels it.
-  Future<SkipVerdict?> _askSkip(PendingSkip question, String? token) async {
-    if (_callMode || (_chatScreens == 0 && !_skipWebAsker())) return null;
-    final answer = _skipGate.ask(question);
-    notifyListeners();
-    void onChange() {
-      if (_sceneChanged(token) && _skipGate.cancel()) notifyListeners();
-    }
-
-    addListener(onChange);
-    try {
-      return await answer;
-    } finally {
-      removeListener(onChange);
-    }
-  }
-
-  /// The pre-reply goal check. Send runs it; Continue and Regen do not
-  /// (objective_check_gate_test reads this name in the send part).
-  Future<void> _maybeCheckTaskCompletionSync() =>
-      objectivesDoor.completion.maybeCheckSync();
 }

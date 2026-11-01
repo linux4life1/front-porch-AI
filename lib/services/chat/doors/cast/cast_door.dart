@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/away_pulse_runner.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_collapse.dart';
@@ -79,4 +80,27 @@ class CastDoor {
   /// cast work bails after an await when this is true.
   bool sceneChanged(String? token) =>
       _d.hooks.disposed() || _d.session.currentSessionId != token;
+
+  /// The unified ordered cast of speakers for the active chat, regardless of
+  /// mode. This is the single roster the UI reads instead of branching on
+  /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
+  /// `sceneGuestCards`:
+  ///   - Group chat → each group member, in turn order (no distinct host).
+  ///   - 1:1 / NPC chat → the host (`cast[0]`, realism-bearing) followed by any
+  ///     present Scene Guests (lite NPCs, realism off).
+  /// Empty only when no chat is loaded.
+  List<ChatParticipant> get participants {
+    if (_d.session.groupManager?.isActive ?? false) {
+      return [
+        for (final c in _d.session.groupCharacters)
+          ChatParticipant(card: c, isHost: false),
+      ];
+    }
+    final host = _d.session.activeCharacter;
+    return [
+      if (host != null) ChatParticipant(card: host, isHost: true),
+      for (final g in guests.state.cards)
+        ChatParticipant(card: g, isHost: false, isSceneGuest: true),
+    ];
+  }
 }

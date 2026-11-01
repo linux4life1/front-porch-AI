@@ -579,6 +579,15 @@ Continue or post-gen pass unedited, and `integration_test/app_smoke_test.dart`,
 `group_smoke_test.dart`, `web_server_test.dart` and
 `suggested_action_composer_test.dart` pass. Web E2E runs green.
 
+Landed at 2 parts and 33 fields (7 in the bag, 26 on the class), four
+parts retired: `send`, `send_handoff`, `turn_flow` and WP6's pinned
+`idle_autonomous`. `SendGates.busyReason` is the one guard predicate the
+spine, the composer and the web relay read. The idle turn is staged by the
+spine and handed to the cast door's `IdleAutonomy`. Test re-points were
+path only in `objective_check_gate_test`, `catastrophe_clear_on_cancel_test`
+and `afk_cue_speaker_test`. The remaining parts are `accessors` and
+`fields`, which hold only the door builders for WP11 to dissolve.
+
 ### WP11. Close-out
 
 Parts retired (2): `chat_service_accessors`, `chat_service_fields`.

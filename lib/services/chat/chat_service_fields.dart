@@ -24,43 +24,32 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  // Every other piece of the chat's state lives on the door that owns it:
+  // the cast (guests, Away, idle turns, the director's scene), the transfer
+  // doors (an import in flight), the turn engine (the turn's flags, the
+  // status bar's numbers, the token and sentence streams), the send spine
+  // (the send queue, the "Did time pass?" gate), the entry door (entrances,
+  // the group repository, auto-chat), the session store (loading, the
+  // history window, the save chain, per-chat settings, the recap), the
+  // controls door (the switches, the call, Chance Time's park), the Realism
+  // graph (eval status, registers, Chaos, lore, places), the prompt
+  // assembler (the call-model swap, the macro resolver, the lore meter, the
+  // Context Viewer budget) and the edits door (the Feelings rescore, the
+  // word-rewrite seed). Director Mode state is the group manager's.
+
   /// The database's word of every chat it deletes, for KoboldCpp's saved
   /// cache of it. Moves with the database, so it is re-made on a swap.
   StreamSubscription<String>? _deletedChats;
 
   bool _disposed = false;
-  // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
-  // live on the cast door (ChatService.castDoor, doors/cast/).
-
-  // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
-  // (read in the turn engine's cast scan, TurnEntry). kCastScanInterval → chat_defaults.dart.
-
-  /// Serializes [sendMessage] so two composer taps during settle cannot
-  /// both pass `isGenerating` and then both run after the wait.
-  Future<void> _sendChain = Future.value();
-  // An import in flight (`isImporting`) and the `.porch` chat-move claim
-  // live on the transfer doors (chatImporter, chatPackager).
-
-  // The turn's flags (isGenerating, the settling window, Stop, the epoch),
-  // the status bar's numbers, the display buffer and the token and sentence
-  // streams live on the turn engine (ChatService.turnEngine.progress).
-
-  // The forked-in entrances' flag lives on the entry door
-  // (entryDoor.entrancesInFlight).
-  // The session-load and chat-switch flags, the history window and the
-  // save chain live on the session store (ChatService.sessionStore).
 
   /// The open chat every domain reads (messages, session id, character,
   /// group manager). Its session id setter tells KoboldCpp which chat is open.
   late final _session = ChatSessionState(onChatOpened: _keeperFollows);
 
-  /// Chat screens open on the desktop ([chatScreenOpened]).
+  /// Chat screens open on the desktop ([chatScreenOpened]); a "Did time
+  /// pass?" question needs one (or a web client) to be asked.
   int _chatScreens = 0;
-
-  /// The "Did time pass?" question, and whether a web client is there to
-  /// answer one (see `pendingSkip`).
-  final SkipConfirmGate _skipGate = SkipConfirmGate();
-  bool Function() _skipWebAsker = () => false;
 
   /// The desktop's chat page opened: the chat it shows is the open one.
   void chatScreenOpened() {
@@ -84,38 +73,6 @@ mixin ChatServiceFieldBag {
     }
   }
 
-  // Voice call mode lives on the controls door (controlsDoor.callMode).
-
-  // The main model parked by the pre-turn call-model swap lives on the
-  // prompt assembler (promptAssembler.callSwap).
-
-  // The group repository main.dart wires in and the auto-chat turn budget
-  // live on the entry door (entryDoor.groupRepository, entryDoor.autoChat).
-
-  // A group's per-member notes, prompts and RAG knobs, the Author's Note,
-  // the gallery looks and the recap ("Where we are") live on the session
-  // store (sessionStore.groupConfig and the store's own fields).
-  // Director Mode state is owned by _session.groupManager when active.
-  // ── Realism Mode ──
-  // The chat's own switches (Realism, Needs, Objectives, low hygiene) and
-  // their gates live on the controls door (ChatService.controlsDoor).
-  // The eval overlay's flags, streamed text and verifier pass, the emotion
-  // registers and the pending turn metadata live on the Realism graph
-  // (ChatService.realism: evalStatus, registers).
-
-  // Chaos Mode state lives on the Realism graph's chaos service; Chance
-  // Time's park (the overlay trigger, the parked send, the phone's
-  // pre-picked event) on the controls door (controlsDoor.chance).
-
-  // Per-chat lore timers, the parsed group book, the Setting and Lore slots,
-  // the climate spans and the scene move state live on the Realism graph
-  // (realism.lore, realism.places).
-  // The last turn's lore meter, the macro resolver, the {{idle_duration}}
-  // clock, the Context Viewer budget, the history window's token memo and
-  // the prompt picker's arm live on the prompt assembler (promptAssembler).
-  // Session name, description, per-chat generation settings and theme, and
-  // the fork lineage live on the session store.
-
   /// Test-only overrides for driving the real LLM paths (realism evals +
   /// chat generation) with canned responses without constructing a full
   /// LLMProvider (heavy deps).
@@ -125,87 +82,33 @@ mixin ChatServiceFieldBag {
   bool testIsLocalOverride = false;
   @visibleForTesting
   LLMService? testWorkerLlmServiceOverride;
-
-  // The Feelings rescore flag and crossings, and the word-rewrite seed, live
-  // on the edits door (editsDoor.reprocess, editsDoor.tokenAlts).
 }
 
 /// The Realism graph's, the session store's, the entry door's and the
 /// prompt assembler's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt its caller's package retires by
-/// calling the door itself (WP10c, WP11).
+/// library still uses. Each line is debt WP11 retires by calling the door
+/// itself.
 extension _ChatServiceDoorNames on ChatService {
   // State the graph owns.
-  bool get _realismEvalCancelled => realism.evalStatus.cancelled;
-  set _realismEvalCancelled(bool v) => realism.evalStatus.cancelled = v;
-  Map<String, dynamic>? get _pendingRealismMetadata =>
-      realism.registers.pending;
-  set _pendingRealismMetadata(Map<String, dynamic>? v) =>
-      realism.registers.pending = v;
-  String get _characterEmotion => realism.registers.emotion;
-  String get _emotionIntensity => realism.registers.intensity;
   set _isGrowthPassRunning(bool v) => realism.growthPassRunning = v;
-  ChatPlaceSlots get _chatPlaceSlots => realism.places.slots;
-  LorebookTimedEffects get _loreTimedEffects => realism.lore.timedEffects;
   ToolTransportProbe get _toolProbe => realism.transport.probe;
 
   // The leaves.
-  LorebookScanner get _lorebookScanner => realism.lore.scanner;
-  TimeService get _timeService => realism.time;
-  ChaosModeService get _chaosModeService => realism.chaos;
-  NeedsSimulation get _needsSimulation => realism.needs;
-  Map<String, GroupMemberRealism> get _groupRealism => realism.groups.members;
-  NeedsPass get _needsPass => realism.needsPass;
-  MoodRegisters get _mood => realism.mood;
-  RealismSnapshot get _realismSnapshot => realism.snapshot;
-  RealismDance get _realismDance => realism.dance;
-  RelationshipService get _relationshipService => realism.relationship;
   ExpressionService get _expressionService => realism.expression;
-  DreamService get _dreamService => realism.dreams;
-  JournalStore get _journalStore => realism.journalStore;
-  PorchMemoryImportService get _porchMemoryImport => realism.porchImport;
   ToolSupportTester get _toolSupportTester => realism.toolSupportTester;
 
   // Behaviour.
-  RealismScope _realismScope() => realism.scope;
-  bool get _realismActiveThisMode => realism.realismActiveThisMode;
   String get _evalBackendIdentity => realism.transport.backendIdentity;
-  PlayerSkip _buildPlayerSkip() => realism.playerSkip();
-  void _restoreRealismStateFromMessage(
-    ChatMessage? msg, {
-    String? groupSpeakerId,
-    bool restoreClock = false,
-  }) => realism.restores.fromMessage(
-    msg,
-    groupSpeakerId: groupSpeakerId,
-    restoreClock: restoreClock,
-  );
-  void _applyMoodDecay() => realism.restores.applyMoodDecay();
 
-  // The prompt assembler and the entry door.
-  set _lastUserMessageAt(DateTime? at) =>
-      promptAssembler.lastUserMessageAt = at;
-  void _enterCallEvalModelSwap() => promptAssembler.callSwap.enter();
-  void _exitCallEvalModelSwap() => promptAssembler.callSwap.exit();
+  // The open chat and the entry door.
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
-  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
   set _groupChatRepository(GroupChatRepository? repo) =>
       entryDoor.groupRepository = repo;
-  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
 
   // The session store.
   set _summaryPaused(bool v) => sessionStore.summaryPaused = v;
-  bool get _isSummaryGenerating => sessionStore.isSummaryGenerating;
   set _isSummaryGenerating(bool v) => sessionStore.isSummaryGenerating = v;
-  bool get _isNewChat => sessionStore.isNewChat;
-  set _isNewChat(bool v) => sessionStore.isNewChat = v;
-  bool get _isLoadingSession => sessionStore.isLoadingSession;
-  int get _chatSwitches => sessionStore.chatSwitches;
-  bool get _absenceAckPending => sessionStore.absenceAckPending;
-  set _absenceAckPending(bool v) => sessionStore.absenceAckPending = v;
-  bool get _absenceAckConsumed => sessionStore.absenceAckConsumed;
-  set _absenceAckConsumed(bool v) => sessionStore.absenceAckConsumed = v;
 
   // The today line (TodaySentence).
   set _onTodayAbandoned(void Function(String? held)? v) =>
@@ -215,46 +118,13 @@ extension _ChatServiceDoorNames on ChatService {
   // Load, save and the window.
   Future<void> _saveChat({bool replaceAll = false}) =>
       sessionStore.save(replaceAll: replaceAll);
-  void _rememberRecapEdit(String text) => sessionStore.rememberRecapEdit(text);
-  Future<void> _awaitHistoryHydrated() =>
-      sessionStore.window.awaitHistoryHydrated();
 }
 
 /// The cast door's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt its caller's package retires by
-/// calling [ChatService.castDoor] itself (WP10c, WP11).
+/// library still uses. Each line is debt WP11 retires by calling
+/// [ChatService.castDoor] itself.
 extension _ChatServiceCastNames on ChatService {
-  /// The unified ordered cast of speakers for the active chat, regardless of
-  /// mode. This is the single roster the UI reads instead of branching on
-  /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
-  /// `sceneGuestCards`:
-  ///   - Group chat → each group member, in turn order (no distinct host).
-  ///   - 1:1 / NPC chat → the host (`cast[0]`, realism-bearing) followed by any
-  ///     present Scene Guests (lite NPCs, realism off).
-  /// Empty only when no chat is loaded.
-  List<ChatParticipant> get _castImpl {
-    if (isGroupMode) {
-      return [
-        for (final c in groupCharacters)
-          ChatParticipant(card: c, isHost: false),
-      ];
-    }
-    final host = _session.activeCharacter;
-    return [
-      if (host != null) ChatParticipant(card: host, isHost: true),
-      for (final g in _sceneGuest.cards)
-        ChatParticipant(card: g, isHost: false, isSceneGuest: true),
-    ];
-  }
-
   SceneGuestState get _sceneGuest => castDoor.guests.state;
-  AwayPulseState get _awayPulse => castDoor.away.state;
-  bool get _narrating => castDoor.narrating;
-  set _stoppedReplyAnchor(ChatMessage? v) =>
-      castDoor.guests.stoppedReplyAnchor = v;
-  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
-  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
-  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
 
   bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
   void _setGuestStatus(
@@ -262,74 +132,357 @@ extension _ChatServiceCastNames on ChatService {
     bool isError = false,
     bool sticky = false,
   }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
-  void _clearExitUndo() => castDoor.guests.clearExitUndo();
-  bool _isGuestAuthoredMessage(ChatMessage m) =>
-      castDoor.guests.isGuestAuthoredMessage(m);
-  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
-      castDoor.guests.sceneGuestForMessage(m);
-  CharacterCard? _directAddressRoutedGuest(String promptText) =>
-      castDoor.guests.directAddressRoutedGuest(promptText);
   Future<void> _resolveSceneGuestCards() =>
       castDoor.guests.resolveSceneGuestCards();
-
-  Future<void> _commitPendingMemberExit() =>
-      castDoor.roster.commitPendingMemberExit();
-  bool _speakerIsSoft(CharacterCard speaker) =>
-      castDoor.roster.speakerIsSoft(speaker);
-  Future<bool> _bridgeLongSkip({
-    required DateTime from,
-    required int skipped,
-    required ChatMessage skipLine,
-    required String? token,
-  }) => castDoor.stage.bridgeLongSkip(
-    from: from,
-    skipped: skipped,
-    skipLine: skipLine,
-    token: token,
-  );
-
-  Future<void> _invalidateGreetingEval() =>
-      castDoor.greetings.invalidateGreetingEval();
-  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
-      castDoor.greetings.buildFirstMessage(
-        character,
-        greetingText: greetingText,
-      );
-  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
-  Future<void> _applyGreetingOpeningSeed({
-    required CharacterCard card,
-    required int index,
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGreetingOpeningSeed(
-    card: card,
-    index: index,
-    scheduleEval: scheduleEval,
-  );
-  Future<void> _applyGroupCustomGreetingSeed(
-    int index, {
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
-    index,
-    scheduleEval: scheduleEval,
-  );
-  void _stampGreetingIndex(int index) =>
-      castDoor.greetings.stampGreetingIndex(index);
-
-  Future<void> _runAwayPulse({
-    required String userText,
-    required bool fromUserSend,
-  }) => castDoor.away.runAwayPulse(
-    userText: userText,
-    fromUserSend: fromUserSend,
-  );
-  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
   void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
 }
 
-/// The turn engine's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt the send spine retires by calling
-/// [ChatService.turnEngine] itself (WP10c).
-extension _ChatServiceTurnNames on ChatService {
-  bool get _isGenerating => turnEngine.progress.isGenerating;
-  bool get _isTurnBusy => turnEngine.isTurnBusy;
+/// Builds the message-edits door.
+extension ChatServiceEditsWiring on ChatService {
+  /// The message-edits door. Each hook is debt (see edit_hooks.dart).
+  EditsDoor _buildEditsDoor() {
+    final door = EditsDoor(
+      EditDeps(
+        session: _session,
+        view: EditsView(
+          messages: () => messages,
+          activeCharacter: () => activeCharacter,
+          isGroupMode: () => isGroupMode,
+          activeGroup: () => activeGroup,
+          groupCharacters: () => groupCharacters,
+          observerMode: () => observerMode,
+          greetingIndex: () => greetingIndex,
+          isGenerating: () => isGenerating,
+          isSettlingTurn: () => isSettlingTurn,
+          isEvaluatingRealism: () => isEvaluatingRealism,
+          realismEnabled: () => realismEnabled,
+          needsActive: () => needsActive,
+        ),
+        services: EditServices(
+          db: () => _db,
+          storage: () => _storageService,
+          personas: () => _userPersonaService,
+          graph: () => realism,
+          history: () => sessionStore.history,
+          macroResolver: () => promptAssembler.macros,
+          objectives: () => objectivesDoor,
+          media: () => mediaDoor,
+          lanes: _lanes,
+        ),
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        notify: notifyListeners,
+        engine: () => turnEngine,
+        send: () => sendSpine,
+        cast: EditCastHooks(
+          guestBusy: () => castDoor.guests.state.busy,
+          isGuestAuthored: (m) => castDoor.guests.isGuestAuthoredMessage(m),
+          guestFor: (m) => castDoor.guests.sceneGuestForMessage(m),
+          setStatus: (text, {isError = false}) =>
+              _setGuestStatus(text, isError: isError),
+          greetingIndex: () => castDoor.greetings.greetingIndex,
+          setGreetingIndex: (index) => castDoor.greetings.greetingIndex = index,
+          greetingOwner: () => castDoor.greetings.greetingOwnerCard(),
+          firstMessage: (card, {greetingText}) => castDoor.greetings
+              .buildFirstMessage(card, greetingText: greetingText),
+          invalidateGreetingEval: () async {
+            await castDoor.greetings.invalidateGreetingEval();
+            turnEngine.greetingEval.clearEntered();
+          },
+          stampGreetingIndex: (i) => castDoor.greetings.stampGreetingIndex(i),
+          isOpeningGreetingChat: () => castDoor.greetings.isOpeningGreetingChat,
+          seedGroupGreeting: (i) =>
+              castDoor.greetings.applyGroupCustomGreetingSeed(i),
+          seedGreeting: ({required card, required index}) => castDoor.greetings
+              .applyGreetingOpeningSeed(card: card, index: index),
+        ),
+        sessions: () => sessionStore,
+        prompts: () => promptAssembler,
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
+  }
+}
+
+/// Builds the cast door. Each hook is debt (see [CastShellHooks]).
+extension ChatServiceCastWiring on ChatService {
+  CastDoor _buildCastDoor() => CastDoor(
+    CastDeps(
+      session: _session,
+      storage: _storageService,
+      personas: _userPersonaService,
+      macros: promptAssembler.macros,
+      database: () => _db,
+      characters: () => _characterRepository,
+      groupRepository: () => entryDoor.groupRepository,
+      imageGen: () => _imageGenService,
+      graph: () => realism,
+      realism: () => realism.scope,
+      evals: () => realism.evals,
+      snapshot: () => realism.snapshot,
+      dance: () => realism.dance,
+      judges: () => realism.judges,
+      mood: () => realism.mood,
+      clockWriter: () => realism.clockWriter,
+      chaos: () => realism.chaos,
+      evalEngine: () => realism.llmEvalEngine,
+      journal: () => realism.journalStore,
+      growthStore: () => realism.growthStore,
+      growthDesk: () => realism.growthDesk,
+      objectives: () => objectivesDoor,
+      prompts: () => promptAssembler,
+      turn: () => turnEngine,
+      send: () => sendSpine,
+      characterIdFor: _getCharacterIdFromCard,
+      saveChat: _saveChat,
+      notify: notifyListeners,
+      hooks: _castHooks(),
+    ),
+  );
+
+  CastShellHooks _castHooks() => CastShellHooks(
+    disposed: () => _disposed,
+    deleteMessage: deleteMessage,
+    ttsSpeaking: () => _ttsService != null && _ttsService!.isSpeaking,
+    mouthReady: () => _lanes.mouth.isReady,
+    directing: () => entryDoor.director.directing,
+    setObserverMode: (on) => entryDoor.director.observerMode = on,
+    nextCharacter: () => entryDoor.director.nextCharacter,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
+    addToGroup: (card, repo, {asLite = false}) =>
+        entryDoor.roster.addCharacterToGroup(card, repo, asLite: asLite),
+    removeFromGroup: (card, repo) =>
+        entryDoor.roster.removeCharacterFromGroup(card, repo),
+    forkToGroup:
+        (
+          additional,
+          repo, {
+          entrances = const {},
+          liteArrivalKeys = const {},
+        }) => entryDoor.fork.forkToGroupChat(
+          additional,
+          repo,
+          entrances: entrances,
+          liteArrivalKeys: liteArrivalKeys,
+        ),
+    forgetMember: (id) => entryDoor.forgetMember(id),
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    loadSession: (id) => sessionStore.loader.loadSession(id),
+    ragCharacterId: _getCharacterId,
+    parseJsonMap: _tryParseJsonMap,
+    selectGreeting: selectGreeting,
+    openingAllGreetings: () => openingAllGreetings,
+    resolvedOpeningGreetings: editsDoor.swipes.resolvedOpeningGreetings,
+    guestDirector: () => turnEngine.entry.sceneGuestDirector(),
+    mintLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+  );
+}
+
+/// Builds the media and actions doors and, below, the objectives and entry
+/// doors. Each callback stands in for a private member of another part
+/// until that part becomes a door too.
+extension ChatServiceDoorWiring on ChatService {
+  MediaDoor _buildMediaDoor() => MediaDoor(
+    session: _session,
+    storage: _storageService,
+    personas: _userPersonaService,
+    worlds: _worldRepository,
+    imageGen: () => _imageGenService,
+    llmProvider: () => _llmProvider,
+    craftLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+    saveChat: _saveChat,
+    isBusy: () => turnEngine.isTurnBusy || castDoor.guests.state.busy,
+    setStatus: (msg, {isError = false, sticky = false}) =>
+        castDoor.guests.setStatus(msg, isError: isError, sticky: sticky),
+    sceneChanged: (token) => castDoor.sceneChanged(token),
+    guestCards: () => castDoor.guests.state.cards,
+    characterIdFor: _getCharacterIdFromCard,
+    expressionLabel: () => currentExpressionLabel,
+    timeOfDay: () => realism.time.timeOfDay,
+  );
+
+  ActionsDoor _buildActionsDoor() => ActionsDoor(
+    session: _session,
+    personas: _userPersonaService,
+    lanes: _lanes,
+  );
+
+  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
+  ObjectivesDoor _buildObjectivesDoor() {
+    final door = ObjectivesDoor(
+      ObjectiveDeps(
+        session: _session,
+        database: () => _db,
+        personas: () => _userPersonaService,
+        storage: () => _storageService,
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        proposal: () => realism.objectiveProposal,
+        mood: () => realism.mood,
+        journal: () => realism.journalStore,
+        time: () => realism.time,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        hooks: ObjectiveShellHooks(
+          objectivesActive: () => objectivesActive,
+          nextSpeaker: () => entryDoor.director.nextCharacter,
+          hasChatModel: () => _llmProvider != null,
+          pendingMetadata: () => realism.registers.pending ??= {},
+          historyBase: () => sessionStore.history.basePosition,
+          realismActiveThisMode: () => realism.realismActiveThisMode,
+          setStatus: (text) => _setGuestStatus(text),
+          zeroSessionFlags: () {
+            _summaryPaused = false;
+            _isSummaryGenerating = false;
+            _isGrowthPassRunning = false;
+          },
+          groupRepository: () => entryDoor.groupRepository,
+          rebindToday: () => realism.planner.rebindTodayObjectiveFromDb(),
+          clearToday: _clearTodayPointer,
+          holdToday: (id) => realism.planner.persistTodayObjectiveId(id),
+          releaseToday: (id) => realism.planner.releaseHeldToday(id),
+          revertToday: (entry) => realism.planner.revertTodayPointer(entry),
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
+  }
+
+  /// The entry door. Its shared hooks are the session store's own
+  /// ([_sessionHooks]).
+  EntryDoor _buildEntryDoor() => EntryDoor(
+    EntryDeps(
+      session: _session,
+      sessions: () => sessionStore,
+      services: EntryServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: promptAssembler.macros,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        graph: () => realism,
+        controls: () => controlsDoor,
+        realism: () => realism.scope,
+        snapshot: () => realism.snapshot,
+        mood: () => realism.mood,
+        chaos: () => realism.chaos,
+        needsPass: () => realism.needsPass,
+        expression: () => realism.expression,
+        lorebook: () => realism.lore.scanner,
+        clockWriter: () => realism.clockWriter,
+        growthDesk: () => realism.growthDesk,
+        birthdays: () => realism.birthdays,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        turn: () => turnEngine,
+        send: () => sendSpine,
+        sceneMoves: realism.places.sceneMoves,
+      ),
+      shared: _sessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+}
+
+/// Builds the session store and the transfer doors that call it. Each
+/// session hook stands in for a private member of another part.
+extension ChatServiceSessionWiring on ChatService {
+  SessionStore _buildSessionStore() => SessionStore(
+    SessionDeps(
+      session: _session,
+      services: SessionServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: promptAssembler.macros,
+        characters: () => _characterRepository,
+        groupRepository: () => entryDoor.groupRepository,
+        graph: () => realism,
+        controls: () => controlsDoor,
+        realism: () => realism.scope,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        lorebook: () => realism.lore.scanner,
+        loreTimers: () => realism.lore.timedEffects,
+        expression: () => realism.expression,
+        clockReader: () => realism.clockReader,
+        clockWriter: () => realism.clockWriter,
+        growthStore: () => realism.growthStore,
+        growthDesk: () => realism.growthDesk,
+        journal: () => realism.journalStore,
+        porchImport: () => realism.porchImport,
+        birthdays: () => realism.birthdays,
+        chaos: () => realism.chaos,
+        needsPass: () => realism.needsPass,
+        pocketsRewinds: () => realism.pocketsRewinds,
+        dance: () => realism.dance,
+        mood: () => realism.mood,
+        sceneMoves: realism.places.sceneMoves,
+        autoChat: entryDoor.autoChat,
+        prompts: () => promptAssembler,
+        turn: () => turnEngine,
+      ),
+      hooks: _sessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
+  /// The session store's hooks; the entry door takes the same ones.
+  SessionShellHooks _sessionHooks() => SessionShellHooks(
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    resetDirectorModeToDefault: () =>
+        entryDoor.director.resetDirectorModeToDefault(),
+    rekeyGroupStores: () => entryDoor.rekey.rekeyGroupStores(),
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    setActiveGroup: (group, {groupRepo}) =>
+        entryDoor.group.setActiveGroup(group, groupRepo: groupRepo),
+    beginSessionLoad: () => entryDoor.cover.beginSessionLoad(),
+    endSessionLoad: () => entryDoor.cover.endSessionLoad(),
+  );
+
+  ChatImporter _buildChatImporter() => ChatImporter(
+    _session,
+    _buildTransferHost(),
+    saveChat: _saveChat,
+    notify: notifyListeners,
+  );
+
+  ChatPackager _buildChatPackager() =>
+      ChatPackager(_session, _buildTransferHost(), importer: chatImporter);
+
+  /// What the transfer doors reach besides the session store. Every entry
+  /// past the services and the Realism graph is debt the turn engine (WP10)
+  /// retires.
+  TransferHost _buildTransferHost() => TransferHost(
+    db: () => _db,
+    storage: _storageService,
+    personas: _userPersonaService,
+    imageGen: () => _imageGenService,
+    memory: () => _memoryService,
+    characters: () => _characterRepository,
+    journalStore: () => realism.journalStore,
+    growthDesk: () => realism.growthDesk,
+    sceneGuests: castDoor.guests.state,
+    sessions: () => sessionStore,
+    graph: () => realism,
+    turn: () => turnEngine,
+    invalidateGreetingEval: castDoor.greetings.invalidateGreetingEval,
+    characterIdFor: _getCharacterIdFromCard,
+    ragCharacterId: _getCharacterId,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
+    enterSceneGuestSilently: (guest) =>
+        castDoor.guests.enterSceneGuest(guest, speak: false),
+    loadActiveObjectives: objectivesDoor.loadActiveObjectives,
+    loadSpeakerObjectives: objectivesDoor.loadObjectivesForCurrentSpeaker,
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    deleteSessionQuietly: (id) =>
+        editsDoor.editor.deleteSession(id, startReplacement: false),
+  );
 }

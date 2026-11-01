@@ -38,6 +38,14 @@ class ChanceTime {
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
 
+  /// The rotation head, moved past members who are Away or at work.
+  CharacterCard? get _upcomingSpeaker =>
+      _d.send().speakers.upcomingGroupSpeaker;
+
+  /// Who a Chance Time event names: the upcoming group speaker, else the
+  /// 1:1 host.
+  String get _speakerName => _d.send().chanceReveal.chanceTimeSpeakerName;
+
   /// True for one cycle to pop the overlay.
   bool pendingTrigger = false;
 
@@ -59,7 +67,7 @@ class ChanceTime {
   List<String> spinWheelEvents() {
     _previewSpeaker();
     return _g.chaos.spinWheelEvents(
-      allowPair: _partners(_d.hooks.speakerName()).isNotEmpty,
+      allowPair: _partners(_speakerName).isNotEmpty,
       allowUser: !(_session.groupManager?.observerMode ?? false),
     );
   }
@@ -71,14 +79,14 @@ class ChanceTime {
   /// answers, as in round robin. Round robin and a hand-picked or @-named
   /// member already name one.
   void _previewSpeaker() {
-    if (_activeGroup == null || _d.hooks.upcomingSpeaker() != null) return;
+    if (_activeGroup == null || _upcomingSpeaker != null) return;
     _session.groupManager?.previewRandomSpeaker();
   }
 
   /// Accepting an event holds the member it names as the next random pick,
   /// in case a turn since the spin used that pick up.
   void _holdSpeaker(String name) {
-    if (_activeGroup == null || _d.hooks.upcomingSpeaker() != null) return;
+    if (_activeGroup == null || _upcomingSpeaker != null) return;
     final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
     if (card != null) _session.groupManager?.previewSpeaker(card);
   }
@@ -110,7 +118,7 @@ class ChanceTime {
   }
 
   /// The hard lock for whoever Chance Time names now.
-  bool get speakerHardLocked => hardLockForSpeakerNamed(_d.hooks.speakerName());
+  bool get speakerHardLocked => hardLockForSpeakerNamed(_speakerName);
 
   List<String> _partners(String speakerName) => [
     for (final c in _groupCharacters)

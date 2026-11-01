@@ -54,7 +54,7 @@ class TurnStops {
   LLMProvider? get _llmProvider => _d.services.llmProvider();
   LlmLanes get _lanes => _d.services.lanes;
   String _getCharacterIdFromCard(CharacterCard card) => _d.characterIdFor(card);
-  bool get _skipAsked => _d.hooks.skipAsked();
+  bool get _skipAsked => _d.doors.send().gates.skipAsked;
   bool get _isImporting => _d.doors.importer().isImporting;
 
   GroupChat? get _activeGroup => _session.activeGroup;

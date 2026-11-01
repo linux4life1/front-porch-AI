@@ -63,20 +63,22 @@ class AwayPulseRunner {
     if (!AwayPulse.shouldPulse(
       fromUserSend: fromUserSend,
       presentSpeakerTurns: state.presentSpeakerTurns,
-      nobodyPresent: _groupCharacters.every(_h.groupSpeakerSkips),
+      nobodyPresent: _groupCharacters.every(
+        _d.send().speakers.groupSpeakerSkips,
+      ),
     )) {
       return;
     }
 
     PresenceWhere presenceOf(CharacterCard card) {
-      final work = _h.workFieldsFor(card);
+      final work = _d.send().speakers.workFieldsFor(card);
       return derivePresence(
         occupation: work.occupation,
         hours: work.hours,
         clockMinutes: _timeService.clockMinutes,
         weekday: _timeService.clock.weekday,
         workDays: work.workDays,
-        inScene: _h.memberInScene(card),
+        inScene: _d.send().speakers.memberInScene(card),
       );
     }
 
@@ -139,14 +141,14 @@ class AwayPulseRunner {
     if (_activeGroup == null) return null;
     for (final card in _groupCharacters) {
       if (_d.characterIdFor(card) != memberId) continue;
-      final work = _h.workFieldsFor(card);
+      final work = _d.send().speakers.workFieldsFor(card);
       return derivePresence(
         occupation: work.occupation,
         hours: work.hours,
         clockMinutes: _timeService.clockMinutes,
         weekday: _timeService.clock.weekday,
         workDays: work.workDays,
-        inScene: _h.memberInScene(card),
+        inScene: _d.send().speakers.memberInScene(card),
       );
     }
     return null;

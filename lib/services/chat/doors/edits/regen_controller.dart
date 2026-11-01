@@ -152,7 +152,7 @@ class RegenController {
       webQuery: webQuery,
       wikiQuery: wikiQuery,
     );
-    await _d.cast.guestChimeIns(userText: userText);
+    await _d.send().handoff.maybeRunSceneGuestChimeIns(userText: userText);
   }
 
   Future<void> regenerateLastMessage({
@@ -453,7 +453,7 @@ class RegenController {
       // No reply to swipe: rewind to the user line's stamp and score it again.
       // A failed member is forced, not picked: the rotation already moved
       // past them, and a pick would move it again.
-      await _d.turn.answerTrailingUserLine(
+      await _d.send().tryAgain.answerTrailingUserLine(
         webQuery: webQuery,
         wikiQuery: wikiQuery,
         forceSpeaker: failedSpeaker,

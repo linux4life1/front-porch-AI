@@ -339,6 +339,7 @@
   "sendBusyReason",
   "sendMessage",
   "sendRefusal",
+  "sendSpine",
   "sentenceStream",
   "sessionDescription",
   "sessionGenSettings",

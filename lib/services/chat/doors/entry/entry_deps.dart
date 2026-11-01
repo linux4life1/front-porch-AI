@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart' show AppDatabase;
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
@@ -26,6 +25,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
@@ -39,7 +39,6 @@ class EntryDeps {
     required this.session,
     required this.sessions,
     required this.services,
-    required this.hooks,
     required this.shared,
     required this.notify,
   });
@@ -51,7 +50,6 @@ class EntryDeps {
   /// session and saves the new one through it.
   final SessionStore Function() sessions;
   final EntryServices services;
-  final EntryShellHooks hooks;
 
   /// The hooks the session store takes too (the turn's cancel, identity,
   /// the roster and the prompt budget), wired once and handed to both.
@@ -92,6 +90,7 @@ class EntryServices {
     required this.objectives,
     required this.media,
     required this.turn,
+    required this.send,
     required this.sceneMoves,
   });
 
@@ -134,26 +133,11 @@ class EntryServices {
   /// chat switch bumps so every in-flight turn's late writes go stale.
   final TurnEngine Function() turn;
 
+  /// The send spine: a send parked on "Did time pass?" (a switch does not
+  /// wait for it) and the rotation head moved past members who are Away or
+  /// at work ([GroupSpeakers.upcomingGroupSpeaker]).
+  final SendSpine Function() send;
+
   /// Suggested scene moves; stale offers die with the chat.
   final SceneMoveState sceneMoves;
-}
-
-// Debt: every hook below is state or behaviour another part of the chat
-// service still owns. A hook goes when its owner becomes a door; the work
-// package that retires it is named on each group.
-
-/// What the entry door still reaches in the chat service library.
-class EntryShellHooks {
-  const EntryShellHooks({
-    required this.skipAsked,
-    required this.upcomingSpeaker,
-  });
-
-  // ── Send (WP10c) ──────────────────────────────────────────────────────
-
-  /// A send is parked on "Did time pass?"; a switch does not wait for it.
-  final bool Function() skipAsked;
-
-  /// The rotation head, moved past members who are Away or at work.
-  final CharacterCard? Function() upcomingSpeaker;
 }

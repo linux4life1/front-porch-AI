@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.da
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/send_spine.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
@@ -43,8 +44,7 @@ class EditDeps {
     required this.saveChat,
     required this.notify,
     required this.engine,
-    required this.turn,
-    required this.realism,
+    required this.send,
     required this.cast,
     required this.sessions,
     required this.prompts,
@@ -70,8 +70,11 @@ class EditDeps {
   /// Stop, the phase), the settling yield, the backend check, the memory
   /// epoch, the regen judge replay and delete's Needs and Pockets rewinds.
   final TurnEngine Function() engine;
-  final EditTurnHooks turn;
-  final EditRealismHooks realism;
+
+  /// The send spine: Try again on a trailing user line and its stamp-less
+  /// rewind ([TryAgain]), the Scene Guest chime gate after a regen
+  /// ([SendHandoff]) and the group speaker pick ([GroupSpeakers]).
+  final SendSpine Function() send;
   final EditCastHooks cast;
 
   /// Chat switching and the history window: the session store's own.

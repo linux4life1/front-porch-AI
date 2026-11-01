@@ -258,7 +258,8 @@ extension RealismEvalWiring on RealismGraph {
     speakerIsSoft: (speaker) => _doors.cast().roster.speakerIsSoft(speaker),
     withWorkerLane: (work) => lanes.withWorkerLane(work),
     tickRefractoryPerReply: afterglow.tickPerReply,
-    stampGroupUserTurnBaseline: _h.stampGroupUserTurnBaseline,
+    stampGroupUserTurnBaseline: (charId) =>
+        _doors.send().handoff.stampGroupUserTurnBaseline(charId),
     applyMoodDecay: restores.applyMoodDecay,
     seedOpeningPosture: () => _doors.cast().baseline.seedOpeningPosture(),
     objectives: () => _doors.objectives().activeObjectives,
