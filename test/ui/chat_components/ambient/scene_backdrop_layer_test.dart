@@ -59,18 +59,28 @@ SceneBackdropGame _game(WidgetTester tester) => tester
     .game!;
 
 /// Pumps the widget and lets the picture decode (real async work, so
-/// under runAsync) and the game mount and take it.
+/// under runAsync) and the game mount and take it. Every call here shows a
+/// new picture, so it waits until the game holds one it did not before: a
+/// fixed wait for the decode ran out on a loaded CI runner.
 Future<SceneBackdropGame> _show(
   WidgetTester tester,
   SceneBackdrop backdrop, {
   bool reduceMotion = false,
   String? condition,
 }) async {
+  final shown = find.byType(GameWidget<SceneBackdropGame>);
+  final before = shown.evaluate().isEmpty ? null : _game(tester).debugCurrent;
   await tester.runAsync(() async {
     await tester.pumpWidget(
       _app(backdrop, reduceMotion: reduceMotion, condition: condition),
     );
-    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final clock = Stopwatch()..start();
+    while (identical(_game(tester).debugCurrent, before)) {
+      if (clock.elapsed > const Duration(seconds: 30)) {
+        fail('the picture had not been taken after 30 seconds');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
   });
   for (var i = 0; i < 6; i++) {
     await tester.pump(const Duration(milliseconds: 20));
