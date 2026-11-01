@@ -135,7 +135,7 @@ class ChanceTime {
   /// wheels skip it, delegate core (pressure/cooldown/injection/metadata/save/
   /// notify) to the service, then complete the completer.
   Future<void> applyChanceTimeResult(String event, String charName) async {
-    // One shared ChatService serves both the desktop wheel and any web clients,
+    // One shared chat service serves both the desktop wheel and any web clients,
     // so either surface may resolve the same parked completer. Whoever lands
     // first wins; a late second accept is a no-op instead of completing an
     // already-completed completer (which would throw a StateError).
