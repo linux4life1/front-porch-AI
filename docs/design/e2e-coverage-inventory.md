@@ -42,6 +42,7 @@ Update this file when you add or retire a suite.
 | `web_ui/browser_test` | **Web UI in real browsers** (Playwright, WebKit phone + Chromium desktop) against the booted app: `web_ui/e2e/sweep.spec.ts` taps every safe control on every screen (fails on covered / tap-through controls, dialogs a finger can't close, phone sideways scroll, broken pictures, console errors, failing `/api`); `web_ui/e2e/journeys.spec.ts` signs in, chats, edits (#330), regenerates + swipes, continues, deletes, switches chats, persists a setting, checks that a fresh greeting fills in `{{char}}` / `{{user}}`, and adds a starter world (root plus places) from the Places page's Starter worlds picker. Own CI job `web-e2e` (not in the e2e-smoke matrix — lives in a subdirectory). `FPAI_E2E_HOLD=1` keeps the sandboxed app serving for `npm run e2e` iteration. |
 | `story_time_test` | Story clock advances + survives reload |
 | `backup_restore_test` | Create → restore → services rebound |
+| `backup_round_trip_test` | Snapshot → delete a character (portrait PNG + chat) and lose a setting → restore with settings and files → simulated next launch applies the staged restore → character, chat, portrait (byte for byte) and setting are back |
 | `persona_folder_test` | Persona form + session; folder create/move/open |
 | `library_organize_test` | Home library: folder tiles follow the sort (made C, B, A → shown A, B, C), the top-level search scope (Top level only / Everywhere), Multi-select → Select all with a search, "N selected (M hidden)", Move to Folder → FolderService membership (#345, #346, #347) |
 | `persona_default_test` | Default persona behaviour |
@@ -106,7 +107,7 @@ Update this file when you add or retire a suite.
 | Photo turn / vision | ❌ |
 | Image gen / studio | ❌ |
 | Chat switch GlobalKey | ✅ chat_switch_smoke |
-| Backup restore | ✅ backup_restore |
+| Backup restore | ✅ backup_restore, backup_round_trip |
 | Web server auth | ✅ web_server |
 | Tunnel / 2FA step-up | ❌ (security; may stay API-level unit) |
 

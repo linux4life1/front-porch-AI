@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/services/backup/pending_restore.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/backups/backup_restart.dart';
 import 'package:front_porch_ai/ui/pages/backups/full_backup_card.dart';
@@ -86,8 +87,9 @@ class _BackupsPageState extends State<BackupsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'A snapshot of your library and settings is taken every 30 '
-          'minutes. The newest ${BackupService.maxBackups} are always kept, '
+          'A snapshot of your library, settings and files (portraits, '
+          'pictures, worlds, voices) is taken every 30 minutes. Files are '
+          'stored once and shared between snapshots. The newest ${BackupService.maxBackups} are always kept, '
           'plus one per day for the last ${BackupService.dailyRetentionDays} '
           'days. Snapshots stay on this computer; for a copy you can keep '
           'elsewhere, make a full backup below.',
@@ -179,9 +181,7 @@ class _BackupsPageState extends State<BackupsPage> {
         ),
       ),
       subtitle: Text(
-        b.hasSettings
-            ? '$sizeMb MB · library and settings'
-            : '$sizeMb MB · library only',
+        '$sizeMb MB · ${snapshotContents(b.hasSettings, b.hasFiles)}',
         style: theme.textTheme.bodySmall?.copyWith(
           color: AppColors.textTertiary(context),
         ),
@@ -270,7 +270,8 @@ class _BackupsPageState extends State<BackupsPage> {
   }
 
   void _confirmRestore(BuildContext context, BackupEntry backup) {
-    var withSettings = backup.hasSettings;
+    final extras = backup.hasSettings || backup.hasFiles;
+    var withSettings = extras;
     showWarmDialog<void>(
       context,
       title: 'Restore Backup?',
@@ -286,16 +287,13 @@ class _BackupsPageState extends State<BackupsPage> {
               'All changes made after this backup was created will be lost.\n\n'
               'Your library reloads in place.',
             ),
-            if (backup.hasSettings)
+            if (extras)
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: withSettings,
                 onChanged: (v) => setLocal(() => withSettings = v ?? false),
-                title: const Text('Also restore settings'),
-                subtitle: const Text(
-                  'Saved prompts, presets and every other setting come back '
-                  'the next time you open Front Porch AI.',
-                ),
+                title: Text(restoreExtrasTitle(backup)),
+                subtitle: Text(restoreExtrasDetail(backup)),
               ),
           ],
         ),
@@ -336,7 +334,7 @@ class _BackupsPageState extends State<BackupsPage> {
           await BackupService.stageSnapshotSettings(backup);
           settingsStaged = true;
         } catch (e) {
-          debugPrint('[Backup] could not stage settings: $e');
+          debugPrint('[Backup] could not stage settings and files: $e');
         }
       }
       if (!mounted) return;
@@ -364,14 +362,14 @@ class _BackupsPageState extends State<BackupsPage> {
                           'please close and reopen Front Porch AI.',
               ),
               if (settingsStaged)
-                const Text(
-                  'Your settings come back the next time you open '
-                  'Front Porch AI.',
+                Text(
+                  'Your ${restoreScope(PendingRestoreKind.settings, files: backup.hasFiles)} '
+                  'come back the next time you open Front Porch AI.',
                 ),
               if (withSettings && !settingsStaged)
                 const Text(
-                  "The settings in that backup couldn't be read, so your "
-                  'current settings stay.',
+                  "The settings and files in that backup couldn't be read, "
+                  'so your current ones stay.',
                 ),
             ],
           ),

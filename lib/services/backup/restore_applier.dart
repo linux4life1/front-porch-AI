@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:archive/archive_io.dart';
 import 'package:flutter/foundation.dart';
@@ -28,6 +29,7 @@ import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
+import 'package:front_porch_ai/services/backup/snapshot_files.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 
 /// Puts a staged restore back at launch, before the database is open.
@@ -206,28 +208,106 @@ class RestoreApplier {
         ));
       }
       await BackupDbScrub.keepMachineLogin(stagedDb.path, dbFile);
-
-      try {
-        for (final m in moves) {
-          String? saved;
-          if (await File(m.to).exists()) {
-            saved = p.join(_safetyFiles, m.rel);
-            await Directory(p.dirname(saved)).create(recursive: true);
-            await File(m.to).rename(saved);
-          }
-          placed.add((target: m.to, saved: saved));
-          await Directory(p.dirname(m.to)).create(recursive: true);
-          await File(m.from).rename(m.to);
-        }
-        await _swapDatabase(stagedDb);
-      } catch (e) {
-        await _undo(placed);
-        rethrow;
-      }
+      await _place(moves, placed, stagedDb);
       if (settings != null) await applySettings(settings);
     } finally {
       await input.close();
       if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  /// Puts back the user's [files] an automatic snapshot holds, from
+  /// [store], and [database] with them when given. All or nothing, like
+  /// [applyFull]: every file is copied out of the store and checked against
+  /// its hash before anything in the live tree moves.
+  Future<void> applySnapshotFiles(
+    List<SnapshotFile> files,
+    SnapshotFiles store,
+    Directory staging,
+    String? Function(String rel) targetFor, {
+    File? database,
+  }) async {
+    if (await staging.exists()) await staging.delete(recursive: true);
+    final placed = <({String target, String? saved})>[];
+    try {
+      File? stagedDb;
+      if (database != null) {
+        stagedDb = File(p.join(staging.path, 'database.db'));
+        await stagedDb.parent.create(recursive: true);
+        await database.copy(stagedDb.path);
+        if (!await looksLikeSqlite(stagedDb)) {
+          throw const FormatException('the backup database is damaged');
+        }
+      }
+      final moves = <({String from, String to, String rel})>[];
+      final seen = <String>{};
+      for (final f in files) {
+        final target = targetFor(f.path);
+        if (target == null || !seen.add(p.normalize(target))) {
+          debugPrint('[Restore] skipped ${f.path}');
+          continue;
+        }
+        if (await _sameAs(target, f)) continue;
+        final blob = File(store.blobPath(f.sha256));
+        if (!await blob.exists()) {
+          throw FormatException('${f.path} is missing from that snapshot');
+        }
+        final from = p.join(staging.path, 'files', '${moves.length}');
+        await Directory(p.dirname(from)).create(recursive: true);
+        await blob.copy(from);
+        if (await Isolate.run(() => SnapshotFiles.hashOf(File(from))) !=
+            f.sha256) {
+          throw FormatException('${f.path} is damaged in that snapshot');
+        }
+        await _keepPresetKeys(from, target);
+        moves.add((
+          from: from,
+          to: target,
+          rel: p.relative(target, from: root),
+        ));
+      }
+      if (stagedDb != null) {
+        await BackupDbScrub.keepMachineLogin(stagedDb.path, dbFile);
+      }
+      await _place(moves, placed, stagedDb);
+    } finally {
+      if (await staging.exists()) await staging.delete(recursive: true);
+    }
+  }
+
+  /// Whether the live file at [target] already is [f], so the restore
+  /// leaves it alone instead of setting the same bytes aside.
+  static Future<bool> _sameAs(String target, SnapshotFile f) async {
+    final live = File(target);
+    if (!await live.exists() || await live.length() != f.size) return false;
+    return await Isolate.run(() => SnapshotFiles.hashOf(File(target))) ==
+        f.sha256;
+  }
+
+  /// Moves every staged file into place, saving what each replaces beside
+  /// the safety copy, then swaps in [stagedDb] when given. A failure puts
+  /// back what was already moved.
+  Future<void> _place(
+    List<({String from, String to, String rel})> moves,
+    List<({String target, String? saved})> placed,
+    File? stagedDb,
+  ) async {
+    try {
+      for (final m in moves) {
+        String? saved;
+        if (await File(m.to).exists()) {
+          saved = p.join(_safetyFiles, m.rel);
+          await Directory(p.dirname(saved)).create(recursive: true);
+          await File(m.to).rename(saved);
+        }
+        placed.add((target: m.to, saved: saved));
+        await Directory(p.dirname(m.to)).create(recursive: true);
+        await File(m.from).rename(m.to);
+      }
+      if (stagedDb != null) await _swapDatabase(stagedDb);
+    } catch (e) {
+      await _undo(placed);
+      rethrow;
     }
   }
 

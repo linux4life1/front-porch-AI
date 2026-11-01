@@ -154,3 +154,16 @@ it('deleting a snapshot asks for the password and sends it in the headers', asyn
     vi.unstubAllGlobals();
   }
 });
+
+it('a snapshot with files says so, and its restore brings the files back too', async () => {
+  const { snapshotContents, restoreExtrasLabel, restoreScope } = await import('./BackupsPage');
+  const withFiles = { id: 'a.db', created: 0, size: 1, hasSettings: true, hasFiles: true };
+  expect(snapshotContents(withFiles)).toBe('library, settings and files');
+  expect(restoreExtrasLabel(withFiles)).toBe('Also restore settings and files');
+  expect(snapshotContents({ ...withFiles, hasSettings: false })).toBe('library and files');
+  expect(restoreExtrasLabel({ ...withFiles, hasSettings: false })).toBe('Also restore files');
+  expect(snapshotContents({ ...withFiles, hasFiles: undefined })).toBe('library and settings');
+  expect(restoreScope('snapshot', true)).toBe('library, settings and files');
+  expect(restoreScope('settings', true)).toBe('settings and files');
+  expect(restoreScope('snapshot')).toBe('library and settings');
+});

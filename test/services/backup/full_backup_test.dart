@@ -38,6 +38,7 @@ import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/pending_restore.dart';
 import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
+import 'package:front_porch_ai/services/backup/snapshot_files.dart';
 import 'package:front_porch_ai/services/backup_service.dart';
 
 class _Open implements QueryExecutorUser {
@@ -699,5 +700,339 @@ void main() {
     expect(drop.contains(safety(0)), isFalse);
     expect(drop.contains(safety(2)), isFalse);
     expect(drop, containsAll([safety(3), safety(4)]));
+  });
+
+  group('round trip', () {
+    late String root;
+    late String dbFile;
+    final binary = List<int>.generate(4096, (i) => (i * 37) % 256);
+
+    String at(String rel) => p.joinAll([root, ...p.posix.split(rel)]);
+
+    // A whole app state: the library, every kind of user file and settings
+    // of every type.
+    setUp(() async {
+      root = p.join(tmp.path, 'FrontPorchAI');
+      dbFile = p.join(root, 'KoboldManager', 'front_porch.db');
+      await _library(dbFile, 'snapshot library');
+      final portrait = File(at('KoboldManager/Characters/Ada.png'));
+      await portrait.parent.create(recursive: true);
+      await portrait.writeAsBytes(binary);
+      await put(at('KoboldManager/Characters/Ada/avatars/smile.png'), 'smile');
+      await put(at('groups/porch crew.png'), 'group picture');
+      await put(at('worlds/Greenhollow/lore.json'), '{"lore":"old"}');
+      await put(at('system/piper_voices/mine.onnx'), 'voice');
+      await put(at('stories/Café night.md'), 'a story');
+      await put(
+        at('KoboldManager/presets/mine.kcpps'),
+        '{"model":"m.gguf","hordekey":"HORDE-SECRET"}',
+      );
+      await put(at('models/big.gguf'), 'model weights');
+      SharedPreferences.setMockInitialValues({
+        'saved_prompts': 'my prompts',
+        'group_system_prompt': 'group prompt',
+        'font_scale': 1.25,
+        'max_tokens': 512,
+        'realism_default': true,
+        'pinned': ['a', 'b'],
+        'remote_api_key': 'sk-secret',
+      });
+    });
+
+    Future<Map<String, String>> tree() async => {
+      for (final rel in SnapshotFiles.userFiles(root))
+        if (!rel.startsWith('KoboldManager/backups/'))
+          rel: SnapshotFiles.hashOf(File(at(rel))),
+    };
+
+    Map<String, Object?> settingsOf(SharedPreferences prefs) => {
+      for (final k in prefs.getKeys()) k: prefs.get(k),
+    };
+
+    /// Takes an automatic snapshot the way BackupService does: database,
+    /// settings without keys, and the user's files.
+    Future<String> snapshot(SharedPreferences prefs) async {
+      final snap = p.join(
+        root,
+        'KoboldManager',
+        'backups',
+        'front_porch_2026-10-30T12-00-00-000.db',
+      );
+      await File(snap).parent.create(recursive: true);
+      await File(dbFile).copy(snap);
+      await put(
+        BackupService.settingsPathFor(snap),
+        SettingsSnapshot.capture(
+          prefs,
+          isNightly: false,
+          includeSecrets: false,
+          root: root,
+        ).encode(),
+      );
+      await SnapshotFiles(root).capture(snap);
+      return snap;
+    }
+
+    /// Everything a bad day can do: portraits deleted with their
+    /// character, files changed, settings lost, the library rolled on.
+    Future<void> wreck(SharedPreferences prefs) async {
+      await _library(dbFile, 'wrecked library');
+      await File(at('KoboldManager/Characters/Ada.png')).delete();
+      await Directory(
+        at('KoboldManager/Characters/Ada'),
+      ).delete(recursive: true);
+      await put(at('worlds/Greenhollow/lore.json'), '{"lore":"overwritten"}');
+      await File(at('stories/Café night.md')).delete();
+      await put(at('groups/new since.png'), 'made after the backup');
+      await prefs.setString('saved_prompts', 'lost in a crash');
+      await prefs.remove('group_system_prompt');
+      await prefs.setDouble('font_scale', 3);
+      await prefs.setStringList('pinned', []);
+    }
+
+    Future<void> launch(SharedPreferences prefs) =>
+        PendingRestore.applyAtStartup(
+          root: root,
+          dbFile: dbFile,
+          prefs: prefs,
+          nightly: false,
+          currentSchema: 63,
+          now: () => DateTime(2026, 10, 31, 12),
+        );
+
+    test('a snapshot puts the whole app state back: every file byte for '
+        'byte, every setting and the library', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final before = await tree();
+      final settingsBefore = settingsOf(prefs);
+      final snap = await snapshot(prefs);
+      final entry = BackupEntry(
+        File(snap),
+        1,
+        DateTime(2026, 10, 30, 12),
+        true,
+        hasFiles: true,
+      );
+      expect(await File(SnapshotFiles.listPathFor(snap)).exists(), isTrue);
+
+      await wreck(prefs);
+      expect(await tree(), isNot(before));
+
+      await PendingRestore.stageSnapshot(
+        root,
+        entry.file,
+        File(BackupService.settingsPathFor(snap)),
+        entry.modified,
+        files: File(SnapshotFiles.listPathFor(snap)),
+      );
+      expect((await PendingRestore.read(root))?.withFiles, isTrue);
+      await launch(prefs);
+
+      expect(PendingRestore.lastOutcome?.error, isNull);
+      expect(PendingRestore.lastOutcome?.withFiles, isTrue);
+      expect(await _label(dbFile), 'snapshot library');
+      final after = await tree();
+      for (final rel in before.keys) {
+        expect(
+          after[rel],
+          before[rel],
+          reason: '$rel must come back as it was',
+        );
+      }
+      expect(
+        await File(at('KoboldManager/Characters/Ada.png')).readAsBytes(),
+        binary,
+      );
+      expect(
+        await File(at('groups/new since.png')).exists(),
+        isTrue,
+        reason: 'a file made after the snapshot is left alone',
+      );
+      expect(settingsOf(prefs), settingsBefore);
+      expect(
+        await File(
+          at(
+            'KoboldManager/backups/'
+            'front_porch_2026-10-31T12-00-00-000_before_restore.files/'
+            'worlds/Greenhollow/lore.json',
+          ),
+        ).readAsString(),
+        '{"lore":"overwritten"}',
+        reason: 'what the restore replaced is kept beside its safety copy',
+      );
+      expect(await PendingRestore.read(root), isNull);
+    });
+
+    test('a full backup puts the whole app state back: every file byte for '
+        'byte, every setting and the library', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final before = await tree();
+      final settingsBefore = settingsOf(prefs);
+      final writer = FullBackupWriter(
+        root: root,
+        prefs: prefs,
+        nightly: false,
+        appVersion: '1.6.2',
+        schemaVersion: 63,
+        snapshotDatabase: (target) async {
+          await File(dbFile).copy(target);
+          return true;
+        },
+      );
+      final out = File(p.join(tmp.path, 'b${BackupManifest.fileExtension}'));
+      await writer.write(out, includeSecrets: true);
+
+      await wreck(prefs);
+      await prefs.remove('remote_api_key');
+      await PendingRestore.stageFull(root, out, currentSchema: 63);
+      await launch(prefs);
+
+      expect(PendingRestore.lastOutcome?.error, isNull);
+      expect(await _label(dbFile), 'snapshot library');
+      final after = await tree();
+      for (final rel in before.keys) {
+        expect(
+          after[rel],
+          before[rel],
+          reason: '$rel must come back as it was',
+        );
+      }
+      expect(settingsOf(prefs), settingsBefore);
+    });
+
+    test('snapshots store each file once, and a stored file goes once no '
+        'snapshot lists it', () async {
+      final prefs = await SharedPreferences.getInstance();
+      // The stored files' times are real: snapshot() writes them now.
+      final clock = DateTime.now();
+      final store = SnapshotFiles(root, now: () => clock);
+      final first = await snapshot(prefs);
+      int stored() => Directory(store.storeDir)
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => !f.path.endsWith('index.json'))
+          .length;
+      final afterFirst = stored();
+      expect(afterFirst, (await tree()).length);
+
+      final second = p.join(p.dirname(first), 'front_porch_second.db');
+      await File(first).copy(second);
+      await store.capture(second);
+      expect(stored(), afterFirst, reason: 'nothing changed, nothing copied');
+
+      await put(at('worlds/Greenhollow/lore.json'), '{"lore":"new"}');
+      final third = p.join(p.dirname(first), 'front_porch_third.db');
+      await File(first).copy(third);
+      await store.capture(third);
+      expect(stored(), afterFirst + 1, reason: 'only the changed file');
+
+      await BackupService.deleteBackup(File(first), cleanUp: false);
+      await BackupService.deleteBackup(File(second), cleanUp: false);
+      final keptByThird = (await SnapshotFiles.readList(
+        SnapshotFiles.listPathFor(third),
+      )).map((f) => f.sha256).toSet();
+
+      await SnapshotFiles(root, now: () => clock).cleanUp();
+      expect(stored(), afterFirst + 1, reason: 'too new to remove yet');
+
+      await SnapshotFiles(
+        root,
+        now: () => clock.add(const Duration(days: 1)),
+      ).cleanUp();
+      expect(stored(), afterFirst);
+      for (final sha in keptByThird) {
+        expect(await File(store.blobPath(sha)).exists(), isTrue);
+      }
+    });
+
+    test(
+      'a waiting restore keeps the files it needs through a cleanup',
+      () async {
+        final prefs = await SharedPreferences.getInstance();
+        final snap = await snapshot(prefs);
+        await PendingRestore.stageSettings(
+          root,
+          null,
+          DateTime(2026, 10, 30, 12),
+          files: File(SnapshotFiles.listPathFor(snap)),
+        );
+        await BackupService.deleteBackup(File(snap), cleanUp: false);
+        final store = SnapshotFiles(
+          root,
+          now: () => DateTime.now().add(const Duration(days: 1)),
+        );
+        await store.cleanUp(alsoKeep: [PendingRestore.filesListIn(root)]);
+        await File(at('KoboldManager/Characters/Ada.png')).delete();
+
+        await launch(prefs);
+
+        expect(PendingRestore.lastOutcome?.error, isNull);
+        expect(
+          await File(at('KoboldManager/Characters/Ada.png')).readAsBytes(),
+          binary,
+        );
+      },
+    );
+
+    test('a snapshot keeps KoboldCpp presets without their keys, and a '
+        'restore keeps this machine\'s', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final snap = await snapshot(prefs);
+      final list = await SnapshotFiles.readList(
+        SnapshotFiles.listPathFor(snap),
+      );
+      final preset = list.singleWhere((f) => f.path.endsWith('.kcpps'));
+      final stored = await File(
+        SnapshotFiles(root).blobPath(preset.sha256),
+      ).readAsString();
+      expect(stored, isNot(contains('HORDE-SECRET')));
+      expect(stored, contains('m.gguf'));
+
+      await put(
+        at('KoboldManager/presets/mine.kcpps'),
+        '{"model":"other.gguf","hordekey":"HORDE-SECRET"}',
+      );
+      await PendingRestore.stageSnapshot(
+        root,
+        File(snap),
+        null,
+        DateTime(2026, 10, 30, 12),
+        files: File(SnapshotFiles.listPathFor(snap)),
+      );
+      await launch(prefs);
+
+      final back = jsonDecode(
+        await File(at('KoboldManager/presets/mine.kcpps')).readAsString(),
+      );
+      expect(back['model'], 'm.gguf');
+      expect(back['hordekey'], 'HORDE-SECRET');
+    });
+
+    test('a snapshot with a damaged stored file restores nothing', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final snap = await snapshot(prefs);
+      final list = await SnapshotFiles.readList(
+        SnapshotFiles.listPathFor(snap),
+      );
+      final lore = list.singleWhere((f) => f.path.endsWith('lore.json'));
+      await File(
+        SnapshotFiles(root).blobPath(lore.sha256),
+      ).writeAsString('rot');
+      await wreck(prefs);
+      final wrecked = await tree();
+
+      await PendingRestore.stageSnapshot(
+        root,
+        File(snap),
+        null,
+        DateTime(2026, 10, 30, 12),
+        files: File(SnapshotFiles.listPathFor(snap)),
+      );
+      await launch(prefs);
+
+      expect(PendingRestore.lastOutcome?.error, contains('lore.json'));
+      expect(await _label(dbFile), 'wrecked library');
+      expect(await tree(), wrecked);
+    });
   });
 }

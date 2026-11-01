@@ -144,8 +144,14 @@ class FullBackupWriter {
   /// preset holding one, else null (the file goes in as it is).
   static Future<String?> _presetWithoutKeys(File file) async {
     if (!file.path.toLowerCase().endsWith('.kcpps')) return null;
+    return presetTextWithoutKeys(await file.readAsString(), file.path);
+  }
+
+  /// [text] (a `.kcpps` preset at [where]) with [presetSecretKeys] blanked,
+  /// or null when it holds none or is not a readable preset.
+  static String? presetTextWithoutKeys(String text, String where) {
     try {
-      final doc = jsonDecode(await file.readAsString());
+      final doc = jsonDecode(text);
       if (doc is! Map) return null;
       var changed = false;
       for (final key in presetSecretKeys) {
@@ -157,7 +163,7 @@ class FullBackupWriter {
       }
       return changed ? jsonEncode(doc) : null;
     } on FormatException catch (e) {
-      debugPrint('[Backup] ${file.path} is not a readable preset: $e');
+      debugPrint('[Backup] $where is not a readable preset: $e');
       return null;
     }
   }

@@ -103,6 +103,7 @@ class WebBackupRoutes {
             'created': e.modified.millisecondsSinceEpoch,
             'size': e.size,
             'hasSettings': e.hasSettings,
+            'hasFiles': e.hasFiles,
           },
       ],
       'pending': pending == null
@@ -111,6 +112,7 @@ class WebBackupRoutes {
               'kind': pending.kind.name,
               'created': pending.created.millisecondsSinceEpoch,
               'staged': pending.staged.millisecondsSinceEpoch,
+              'withFiles': pending.withFiles,
             },
     };
   }
@@ -182,7 +184,7 @@ class WebBackupRoutes {
       );
     } on FormatException {
       return JsonResponse.badRequest(
-        "The settings in that backup can't be read.",
+        "The settings or files in that backup can't be read.",
       );
     }
     return JsonResponse.ok(await _state());
