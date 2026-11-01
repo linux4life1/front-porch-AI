@@ -18,25 +18,11 @@
 
 part of '../chat_service.dart';
 
-/// Per-speaker objective focus/seed + realism-state injection/restore +
-/// post-gen needs checks + mood decay. Extracted verbatim (zero behaviour change).
+/// Group baseline seeds, realism-state injection and restore, post-gen
+/// needs checks and mood decay. The speaker objectives this part was named
+/// for live in the objectives door; the file keeps its name because
+/// needs_gate_ratchet_test and needs_beat_span_test read it by path.
 extension ChatServiceSpeakerObjectives on ChatService {
-  /// Public API: Focus the personal objectives of a specific group member so the
-  /// existing objective management UI and generation can operate on them.
-  /// Does nothing in 1:1 mode.
-  Future<void> focusObjectivesForGroupCharacter(CharacterCard character) async {
-    if (_activeGroup == null) return;
-    final charId = _getCharacterIdFromCard(character);
-    final objs = await _db.getObjectivesForCharacter(
-      charId,
-      chatId: _session.currentSessionId,
-    );
-    _activeObjectives = objs.where((o) => o.active).toList();
-    _objectiveTally = objectiveTallyFrom(charId, objs);
-    await _rebindTodayObjectiveFromDb();
-    notifyListeners();
-  }
-
   // ── Group Creation Baseline Seeding (bond/trust/emotion/time/day only) ──
 
   /// Returns the immutable creation-time baseline realism values for a group member.
@@ -71,152 +57,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
     };
   }
 
-  /// Loads the personal objectives for the current/next speaker into _activeObjectives
-  /// when in group mode. This makes the existing objective UI, generation, and injection
-  /// work per-character in groups without duplicating the entire objective system.
-  Future<void> _loadObjectivesForCurrentSpeaker() async {
-    if (_activeGroup == null || _session.currentSessionId == null) return;
-
-    final speaker = nextCharacter ?? _groupCharacters.firstOrNull;
-    if (speaker == null) {
-      _activeObjectives = [];
-      _objectiveTally = ObjectiveTally.none;
-      _messagesSinceLastCheck = 0;
-      _isCheckingCompletion = false;
-      _summaryPaused =
-          false; // explicit secondary zero for _summaryPaused (symmetric; _loadObjectivesForCurrentSpeaker no-speaker hygiene)
-      _isSummaryGenerating =
-          false; // secondary zero in _loadObjectivesForCurrentSpeaker no-speaker (group hygiene for summary flag)
-      _isGrowthPassRunning =
-          false; // growth-pass flag zero in _loadObjectivesForCurrentSpeaker no-speaker (group hygiene; keep reset blocks in sync)
-      notifyListeners();
-      return;
-    }
-
-    final charId = _getCharacterIdFromCard(speaker);
-    final objs = await _db.getObjectivesForCharacter(
-      charId,
-      chatId: _session.currentSessionId,
-    );
-
-    _activeObjectives = objs.where((o) => o.active).toList();
-    _objectiveTally = objectiveTallyFrom(charId, objs);
-    await _rebindTodayObjectiveFromDb();
-    notifyListeners();
-  }
-
-  /// Import a card's authored "Current Task / Quest" as that character's
-  /// primary objective.
-  ///
-  /// The authoring box was retired from every editor (approved sketch §4:
-  /// Ambitions replaced it, and a per-chat quest belongs in the sidebar's
-  /// Objectives panel, not baked into the card). The FIELD is still read, so a
-  /// quest an author typed before the swap still arrives — quietly, in the one
-  /// place quests now live. No prompt, no banner: it is exactly what they asked
-  /// for when they typed it.
-  ///
-  /// Shared by all three fresh-chat entry points. Two of them (1:1 first entry
-  /// and startNewChat) had carried their own copy of this since V2.5; group
-  /// entry never seeded at all, so a member card's task was dropped on the
-  /// floor — invisible while the editor existed, permanent data loss once it
-  /// was gone.
-  ///
-  /// Deferred to a microtask for the reason the 1:1 copies always were: the
-  /// session row must exist before the objective write. [target] pins a group
-  /// member's task to THEM rather than to whoever happens to speak first; 1:1
-  /// leaves it null and [setObjective] resolves the active character. Not gated
-  /// on [objectivesActive] — this is a data-preservation write, and an
-  /// objective costs nothing while the feature is off.
-  void _importAuthoredTask(FrontPorchExtensions? ext, {CharacterCard? target}) {
-    final task = ext?.currentTask.trim() ?? '';
-    if (task.isEmpty) return;
-    Future.microtask(() async {
-      // Not twice: a chat that already has this goal open keeps the one it
-      // has (the library had one chat holding five copies of the same task).
-      final who = target ?? _session.activeCharacter;
-      if (who != null) {
-        final open = await getActiveObjectivesFor(who);
-        final same = task.toLowerCase();
-        if (open.any((o) => o.objective.trim().toLowerCase() == same)) return;
-      }
-      await setObjective(
-        task,
-        isPrimary: true,
-        targetCharacter: target,
-        origin: kObjectiveOriginCard,
-      );
-      debugPrint(
-        '[ChatService] Imported authored task'
-        '${target != null ? ' for ${target.name}' : ''}: $task',
-      );
-    });
-  }
-
-  /// One-time seeding of objectives that were carried in an imported Group Card.
-  /// Called after group state is loaded for a freshly imported group.
-  Future<void> _seedImportedMemberObjectivesIfPresent() async {
-    if (_activeGroup == null || _session.currentSessionId == null) return;
-
-    try {
-      final stateJson = _activeGroup!.defaultMemberRealismState;
-      if (stateJson.isEmpty || stateJson == '{}') return;
-
-      final map = jsonDecode(stateJson);
-      if (map is! Map) return;
-
-      final importedObj = map['imported_member_objectives'];
-      if (importedObj is! Map) return;
-
-      for (final entry in importedObj.entries) {
-        final charId = entry.key.toString();
-        final list = entry.value as List? ?? [];
-        for (final objData in list) {
-          final objMap = objData as Map<String, dynamic>? ?? {};
-          // Uuid, like every other objective write (chat_service_objectives).
-          // The old id was `obj_<millis>_<charId.hashCode>`, built INSIDE this
-          // loop from the OUTER key — so two objectives for the same member
-          // written in the same millisecond (routinely: the inserts are
-          // adjacent) collided on the primary key. The insert threw, the bare
-          // catch below ate it, and every remaining member's quests were
-          // dropped with no log.
-          final newId = const Uuid().v4();
-          await _db.insertObjective(
-            ObjectivesCompanion.insert(
-              id: newId,
-              characterId: charId,
-              chatId: drift.Value(_session.currentSessionId!),
-              objective:
-                  objMap['objective']?.toString() ?? 'Imported objective',
-              tasks: drift.Value(objMap['tasks']?.toString() ?? '[]'),
-              active: const drift.Value(true),
-              isPrimary: drift.Value(objMap['isPrimary'] == true),
-              checkFrequency: drift.Value(
-                (objMap['checkFrequency'] as num?)?.toInt() ?? 3,
-              ),
-              injectionDepth: drift.Value(
-                (objMap['injectionDepth'] as num?)?.toInt() ?? 4,
-              ),
-              // A group card's goals were authored with the card.
-              origin: drift.Value(
-                objMap['origin'] as String? ?? kObjectiveOriginCard,
-              ),
-            ),
-          );
-        }
-      }
-
-      // Remove the marker so it doesn't seed again. The marker lives on the
-      // GROUP row, and _saveChat only upserts the session — so the in-memory
-      // clear used to evaporate on the next launch and every re-entry seeded
-      // the same quests all over again. Save the group too.
-      map.remove('imported_member_objectives');
-      _activeGroup!.defaultMemberRealismState = jsonEncode(map);
-      await _groupChatRepository?.save(_activeGroup!);
-      await _saveChat();
-    } catch (e) {
-      debugPrint('[ChatService] Imported member objectives seed failed: $e');
-    }
-  }
+  /// The pre-reply goal check. Send runs it; Continue and Regen do not
+  /// (objective_check_gate_test reads this name in the send part).
+  Future<void> _maybeCheckTaskCompletionSync() =>
+      objectivesDoor.completion.maybeCheckSync();
 
   String _getRealismStateInjection() {
     // Thin delegation to the words-only state composer — the single source of

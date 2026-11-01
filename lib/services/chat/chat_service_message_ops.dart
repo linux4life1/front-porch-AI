@@ -18,102 +18,12 @@
 
 part of '../chat_service.dart';
 
-/// Message-list mutation: swipe, continue, session reload/clear/delete,
-/// [deleteMessage], generation cancel, [cancelRealismEval]. Timeline
-/// invalidation lives in TimelineInvalidator (timeline_invalidator.dart).
-extension ChatServiceMessageOps on ChatService {
-  /// Navigate swipes on a specific message. direction: -1 = left, +1 = right.
-  /// If swiping right past the last swipe on the last bot message, regenerates.
-  Future<void> swipeMessage(
-    int messageIndex,
-    int direction, {
-    String? critique,
-  }) async {
-    if (messageIndex < 0 || messageIndex >= _session.messages.length) return;
-    final msg = _session.messages[messageIndex];
-    if (msg.isUser || msg.sender == 'System') return;
-
-    final newIndex = msg.swipeIndex + direction;
-
-    if (direction < 0) {
-      if (newIndex >= 0) {
-        await _commitSwipeIndex(messageIndex, newIndex);
-      }
-      return;
-    }
-
-    if (newIndex < msg.swipes.length) {
-      await _commitSwipeIndex(messageIndex, newIndex);
-    } else if (messageIndex == _session.messages.length - 1) {
-      // Past last swipe on last message — regenerate (aborts settling evals)
-      await regenerateLastMessage(critique: critique);
-    }
-  }
-
-  /// Apply an already-stored swipe index. Host tip restores the speaker
-  /// snapshot. A last-in-chat guest swipe restores the host wear that
-  /// beat left (guest replies have no speaker Realism of their own).
-  /// Buried swipes are navigation, not time travel.
-  Future<void> _commitSwipeIndex(int messageIndex, int newIndex) async {
-    final msg = _session.messages[messageIndex];
-    if (newIndex == msg.swipeIndex) return;
-    if (newIndex < 0 || newIndex >= msg.swipes.length) return;
-
-    final isGuestMsg = _isGuestAuthoredMessage(msg);
-    final isTip =
-        !isGuestMsg &&
-        _session.messages.skip(messageIndex + 1).every(_isGuestAuthoredMessage);
-    final isGuestTip =
-        isGuestMsg && messageIndex == _session.messages.length - 1;
-
-    msg.swipeIndex = newIndex;
-    if (isTip || isGuestTip) {
-      _clockReader.applyTipClock();
-    }
-    if (isTip) _syncRealismStateForSwipe(msg);
-    if (isGuestTip) {
-      _needsRewinds.restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
-    }
-    // Pockets follow the selected variant too — this swipe's own
-    // post-turn record, or the shared pre-turn base when this variant's
-    // pass changed nothing (hostile review 2026-08-11).
-    if (isTip) _pocketsRewinds.restoreFromStamp(msg, after: true);
-    // Timeline integrity follows the same tip-only rule pockets/realism
-    // already use. A TIP swipe is a suffix rewrite: Journal/Growth/RAG
-    // citing this position and later describe events that no longer
-    // happened, then this variant's item cards are re-sown. A buried
-    // swipe is navigation — later memories stay on screen AND in the
-    // diary; only this variant's item cards are re-sown.
-    if (isTip) {
-      _timeline.invalidateFrom(
-        persistMessagePosition(
-          base: _history.basePosition,
-          index: messageIndex,
-        ),
-        thenReplantPlanted: msg,
-      );
-    } else {
-      unawaited(_itemCards.replant(msg, key: 'item_cards_planted'));
-    }
-    await _saveChat();
-    notifyListeners();
-  }
-
-  void _syncRealismStateForSwipe(ChatMessage msg) {
-    if (!_realismEnabled) return;
-
-    // Natively restore the frozen runtime variables for the selected alternate
-    // timeline — in groups, into the swiped speaker's own _groupRealism entry.
-    _restoreRealismStateForSpeaker(msg, restoreClock: false);
-    final speaker = _resolveGroupSpeakerForMessage(msg);
-    if (_activeGroup != null && speaker != null) {
-      _needsRewinds.restoreWornBodiesExceptSpeaker(
-        msg,
-        _getCharacterIdFromCard(speaker),
-      );
-    }
-  }
-
+/// Turn stops and the delete rewinds hygiene tests pin to this file:
+/// Continue's entry, the settling yield, [stopGeneration],
+/// [cancelRealismEval], and delete's Needs baseline and Pockets rewind.
+/// Edit, delete, swipe and the session clears live in the edits door
+/// (lib/services/chat/doors/edits/).
+extension ChatServiceTurnStops on ChatService {
   /// Abort in-flight post-gen evals so a mutation (regen/continue) can
   /// start. Streaming (`_isGenerating`) and import still refuse — those
   /// are not "I already have the reply and I don't want it scored."
@@ -163,210 +73,6 @@ extension ChatServiceMessageOps on ChatService {
         _session.messages.last.activeMetadata?['is_chance_time_narration'] !=
             true) {
       await _generateResponse(GenerationMode.continue_);
-    }
-  }
-
-  /// Reload the current session from the database without clearing messages first.
-  /// Used after cloud sync or DB migration updates the database — preserves the
-  /// user's active chat instead of wiping it.
-  Future<void> reloadCurrentSession() async {
-    if (_session.currentSessionId == null) return;
-    debugPrint(
-      '[ChatService] 🔄 reloadCurrentSession: reloading session ${_session.currentSessionId} '
-      '(currently ${_session.messages.length} messages in memory)',
-    );
-    await loadSession(_session.currentSessionId!);
-  }
-
-  void clearChat() async {
-    debugPrint(
-      '[ChatService] 🟡 clearChat: clearing ${_session.messages.length} messages',
-    );
-    _session.messages.clear();
-    await _saveChat();
-    notifyListeners();
-  }
-
-  /// Delete a specific chat session and its messages.
-  /// If it's the current session, switches to the most recent remaining one.
-  ///
-  /// [startReplacement] is the in-chat folder behaviour (default): when the
-  /// deleted id is the open session and nothing remains, [startNewChat] so
-  /// the user is not left staring at a missing chat. Home / the web library
-  /// pass false so emptying a card's history does not spawn a replacement.
-  Future<void> deleteSession(
-    String sessionId, {
-    bool startReplacement = true,
-  }) async {
-    await _db.deleteMessagesForSession(sessionId);
-    await _db.deleteSessionById(sessionId);
-
-    // If we deleted the current session, switch to another
-    if (sessionId == _session.currentSessionId) {
-      final remaining = await getSessions();
-      if (remaining.isNotEmpty) {
-        if (startReplacement) {
-          await loadSession(remaining.first['id']);
-        } else {
-          _session.messages.clear();
-          _session.currentSessionId = null;
-        }
-      } else {
-        // No sessions left — start fresh only when the open chat asked.
-        debugPrint(
-          '[ChatService] 🟡 deleteSession: no sessions left, clearing messages',
-        );
-        _session.messages.clear();
-        _session.currentSessionId = null;
-        if (startReplacement) {
-          await startNewChat();
-        }
-      }
-    }
-    notifyListeners();
-  }
-
-  Future<void> deleteMessage(int index) async {
-    // The tail is the live reply. Positional writers still assume it stays
-    // last, and removing it made a dream banner the last message, where
-    // the aborted turn's writes landed (2026-07-28). Stop before deleting
-    // THAT bubble. An earlier one is already finished — a group mate's
-    // long generation must not trap it.
-    if (index < 0 || index >= _session.messages.length) return;
-    if (_isTurnBusy && index == _session.messages.length - 1) return;
-    final dbPos = persistMessagePosition(
-      base: _history.basePosition,
-      index: index,
-    );
-    final wasTail = index == _session.messages.length - 1;
-    // Middle-of-history delete needs the full prefix so replaceAll
-    // cannot drop the 11k rows we have not loaded yet.
-    if (!wasTail && _history.hasMore) {
-      await _awaitHistoryHydrated();
-      index = dbPos;
-      if (index < 0 || index >= _session.messages.length) return;
-      if (_isTurnBusy && index == _session.messages.length - 1) return;
-    }
-    // Re-read after the hydration await. The turn may have finished,
-    // in which case this is an ordinary delete.
-    final duringTurn = _isTurnBusy;
-    if (index >= 0 && index < _session.messages.length) {
-      final deleted = _session.messages[index];
-
-      // Pockets stamp restore runs AFTER realism time-travel below (not
-      // here). realism_state.pockets was historically pre-gen and, even
-      // when restamped post-gen, restoring the NEW last message must not
-      // clobber the deleted turn's pre-ops rewind for the deleted speaker
-      // (and any hand-off recipients). Stamp wins last on tail deletes.
-
-      // Needs are refunded by ARITHMETIC (subtract this message's own chips),
-      // not by the realism time-travel below — that only ever rewinds the
-      // tail, so deleting anything older left its needs cost applied forever.
-      // Capture the deleted speaker's needs BEFORE the restore runs; the
-      // refund is settled from this baseline afterwards.
-      final deletedSpeaker = (!deleted.isUser && deleted.sender != 'System')
-          ? _resolveGroupSpeakerForMessage(deleted)
-          : null;
-      final String? deletedSid =
-          (_activeGroup != null && deletedSpeaker != null)
-          ? _getCharacterIdFromCard(deletedSpeaker)
-          : null;
-      // In a group, refund ONLY when the speaker resolved unambiguously —
-      // falling back to the live scalars there would credit whichever member
-      // happens to be loaded, i.e. refund the wrong character. An empty
-      // baseline makes the revert a no-op.
-      final Map<String, int> needsBeforeDelete =
-          (!_needsSimEnabled || (_activeGroup != null && deletedSid == null))
-          ? const <String, int>{}
-          : (deletedSid != null
-                ? Map<String, int>.from(_groupStore.needsOf(deletedSid))
-                : Map<String, int>.from(_needsSimulation.vector));
-      // Co-present bars, before the snapshot restore below. Ana's wear is
-      // undone from these, not from the restored snapshot.
-      final presentBeforeDelete = _needsRewinds.capturePresentBeforeDelete(
-        deleted,
-      );
-
-      _session.messages.removeAt(index);
-
-      // Persist index, not the on-screen 0..23 of a tail window.
-      _timeline.invalidateFrom(dbPos);
-
-      // Time-travel rollback for realism when deleting a character message.
-      // Restore from the new last message if it has a snapshot, regardless
-      // of whether this was the last message. This ensures needs state
-      // (and all realism fields) reset to their previous saved values — in
-      // groups, inside the NEW LAST speaker's own _groupRealism entry.
-      // Clock is the new visible tip's after — tail and non-tail.
-      // The streaming tail's snapshot is the turn still in flight.
-      // Restoring it would rewind the speaker who is generating.
-      if (!duringTurn) _restoreRealismAfterDelete(deleted, wasTail: wasTail);
-
-      // Group: also roll back the DELETED speaker's OWN _groupRealism entry to
-      // their previous stamped turn — otherwise that member's bond/trust/needs
-      // deltas from the removed message stand forever (the state machine only
-      // rewinds whoever is now last). Guards:
-      //   • the deleted message must itself carry a realism_state — otherwise
-      //     it applied no deltas and rewinding would INVENT older history;
-      //   • the sender name must be unambiguous in the roster — restore resolves
-      //     by name (_restoreRealismStateForSpeaker), so with two same-named
-      //     members it could rewind the wrong one; skip that rare case rather
-      //     than corrupt state;
-      //   • skip when the deleted speaker is already the new-last (handled
-      //     above) or has no earlier stamped turn.
-      if (_activeGroup != null &&
-          !deleted.isUser &&
-          deleted.sender != 'System' &&
-          deleted.activeMetadata?['realism_state'] is Map &&
-          deletedSid != null &&
-          (_session.messages.isEmpty ||
-              _resolveGroupSpeakerForMessage(_session.messages.last) !=
-                  deletedSpeaker)) {
-        for (int i = _session.messages.length - 1; i >= 0; i--) {
-          final m = _session.messages[i];
-          final speaker = _resolveGroupSpeakerForMessage(m);
-          if (speaker != null &&
-              _getCharacterIdFromCard(speaker) == deletedSid &&
-              m.activeMetadata?['realism_state'] is Map) {
-            _keepingLiveSpeaker(() {
-              _restoreRealismStateForSpeaker(m, restoreClock: false);
-            });
-            break;
-          }
-        }
-      }
-
-      // Settle needs LAST so it wins over whatever the snapshot restores did
-      // to the vector (see NeedsRewinds.revertForDeletedMessage).
-      _needsRewinds.revertForDeletedMessage(
-        deleted,
-        needsBeforeDelete,
-        groupSid: deletedSid,
-        presentBeforeDelete: presentBeforeDelete,
-      );
-
-      if (!deleted.isUser && deleted.sender != 'System') {
-        _rewindPocketsForDeletedMessage(deleted, wasTail: wasTail);
-        // Tail turn undone, as regen does: Generate reply re-proposes.
-        if (wasTail && !duringTurn) await _revertObjectiveTurnOps(deleted);
-        // The live tip is the reply still being written. Applying the
-        // clock from it mid-turn would move story time under that speaker.
-        if (!duringTurn) {
-          _clockWriter.applyClockAfterDelete(deleted, wasTail: wasTail);
-          if (wasTail) _afterglow.restoreBeforeBeat(deleted);
-        }
-      }
-
-      if (wasTail && _history.hasMore) {
-        await _saveChat(replaceAll: false);
-        final sid = _session.currentSessionId;
-        if (sid != null) {
-          await _db.deleteMessagesAtPosition(sid, dbPos);
-        }
-      } else {
-        await _saveChat(replaceAll: true);
-      }
-      notifyListeners();
     }
   }
 
@@ -454,6 +160,20 @@ extension ChatServiceMessageOps on ChatService {
       setPocketsFor(e.key, e.value);
     }
   }
+
+  /// The deleted speaker's Needs before a delete's restores run, for the
+  /// refund the editor settles last (NeedsRewinds.revertForDeletedMessage).
+  /// In a group, refund ONLY when the speaker resolved unambiguously —
+  /// falling back to the live scalars there would credit whichever member
+  /// happens to be loaded, i.e. refund the wrong character. An empty
+  /// baseline makes the revert a no-op. Reads the chat's stored switch: this
+  /// rewinds state, it does not run Needs.
+  Map<String, int> _needsBeforeDelete(String? deletedSid) =>
+      (!_needsSimEnabled || (_activeGroup != null && deletedSid == null))
+      ? const <String, int>{}
+      : (deletedSid != null
+            ? Map<String, int>.from(_groupStore.needsOf(deletedSid))
+            : Map<String, int>.from(_needsSimulation.vector));
 
   /// Cancel an in-flight Realism eval or post-gen tick. No-op when idle.
   Future<void> cancelRealismEval() async {

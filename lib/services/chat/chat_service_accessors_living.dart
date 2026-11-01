@@ -169,56 +169,6 @@ extension ChatServiceAccessorsLiving on ChatService {
     ];
   }
 
-  /// Index of the most recent host (main character) message that is buried only
-  /// under Scene Guest (Lite NPC) chime-in replies — i.e. the tail of the chat
-  /// is one or more guest messages sitting directly on top of it. Returns null
-  /// when the last message is already the host's (use the normal last-message
-  /// regen), when a user/System message breaks the guest tail, or outside a 1:1
-  /// scene. The UI uses this to offer "regenerate the main character" on a host
-  /// bubble that the last-message-only regen button can no longer reach.
-  int? get _regenerableHostBelowGuestsIndexImpl {
-    if (_activeGroup != null || _session.messages.isEmpty) return null;
-    if (!_isGuestAuthoredMessage(_session.messages.last)) return null;
-    for (int i = _session.messages.length - 1; i >= 0; i--) {
-      final m = _session.messages[i];
-      if (m.isUser || m.sender == 'System') return null;
-      if (!_isGuestAuthoredMessage(m)) return i;
-    }
-    return null;
-  }
-
-  void _editMessageImpl(int index, String newText) async {
-    if (index >= 0 && index < _session.messages.length) {
-      final msg = _session.messages[index];
-      // text setter keeps swipe + realism metadata (chips survive edit).
-      msg.text = newText;
-      // Persist index — on-screen 0..23 is a tail window, not the diary cite.
-      _timeline.invalidateFrom(
-        persistMessagePosition(base: _history.basePosition, index: index),
-      );
-      await _saveChat();
-      notifyListeners();
-    }
-  }
-
-  void _setSessionGenSettingsImpl(ChatGenerationSettings value) {
-    _sessionGenSettings = value;
-    _saveChat();
-    notifyListeners();
-  }
-
-  void _setSessionThemeOverridesImpl(ChatThemeOverrides value) {
-    _sessionThemeOverrides = value;
-    // Persist only when a chat is actually open. The web facade already guards
-    // this, but a bare `_session.currentSessionId!` would crash any other caller that
-    // sets the theme with no active session (session close mid-save, tests).
-    final sid = _session.currentSessionId;
-    if (sid != null) {
-      _db.setThemeOverrides(sid, value.toJsonString());
-    }
-    notifyListeners();
-  }
-
   /// Stream text with think blocks stripped (for display) — memoized on
   /// string identity (the overlay + web broadcast read it every notify).
   /// The `_evalCleanSrc`/`_evalCleanOut` memo fields stay on the class body.
@@ -230,25 +180,9 @@ extension ChatServiceAccessorsLiving on ChatService {
         );
 }
 
-/// Reprocess Needs (body in needs_reprocess.dart) and the group-realism test
-/// hooks. Public extension members: no fake overrides them.
+/// The group-realism test hooks (Reprocess Needs is on the edits bridge).
+/// Public extension members: no fake overrides them.
 extension ChatServiceRealismDoors on ChatService {
-  /// Re-evaluate a message's needs deltas under a user critique; see
-  /// [NeedsReprocess.manualReprocessNeeds] for [onlyNeeds] scoping.
-  Future<bool> manualReprocessNeeds(
-    int index,
-    String critique, {
-    Set<String> onlyNeeds = const <String>{},
-  }) => _needsReprocess.manualReprocessNeeds(
-    index,
-    critique,
-    onlyNeeds: onlyNeeds,
-  );
-
-  /// Revert a prior manual reprocess on the given message.
-  Future<bool> revertNeedsReprocess(int index) =>
-      _needsReprocess.revertNeedsReprocess(index);
-
   /// Test-only: pin the group speaker the same way `_generateResponse` does
   /// ([GroupRealismStore.turnSpeakerId]). Do not assign `_session.activeCharacter`.
   @visibleForTesting

@@ -42,10 +42,10 @@ Future<void> backfillRagAfterImport(
   final charId = host.ragCharacterId();
   if (charId.isEmpty) return;
 
-  await host.awaitHistoryHydrated();
+  await host.sessions().window.awaitHistoryHydrated();
   if (session.currentSessionId != sid) return;
   final formatted = host.formatForRagEmbedding(session.messages);
-  final offset = host.historyBasePosition();
+  final offset = host.sessions().history.basePosition;
   // Bound wall-clock work: each successful window resets stall; null-embed
   // / abort only retry a limited number of times so we never busy-spin the
   // event loop (Muse review of 03d46d9a).

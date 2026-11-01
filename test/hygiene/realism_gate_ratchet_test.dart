@@ -44,36 +44,40 @@ const _ownSwitch = <String, (int, String)>{
   'lib/services/chat_service.dart': (1, 'the public switch, for test doubles'),
   'lib/services/chat/chat_service_fields.dart': (1, 'declares it'),
   _gateFile: (2, 'the gate; the switch\'s setter'),
-  'lib/services/chat/chat_service_session_hydrate.dart': (
-    1,
+  'lib/services/chat/doors/session/session_scalars.dart': (
+    2,
     'restores it from the session row',
   ),
-  'lib/services/chat/chat_service_session_state_save.dart': (
-    1,
+  'lib/services/chat/doors/session/session_saver.dart': (
+    2,
     'saves it, never the gate',
   ),
-  'lib/services/chat/chat_service_chat_entry.dart': (
-    4,
+  'lib/services/chat/doors/entry/chat_entry.dart': (
+    6,
     'resets it; seeds a new 1:1 chat from the card, then ORs the default',
   ),
-  'lib/services/chat/chat_service_session_manage.dart': (
-    1,
+  'lib/services/chat/doors/session/new_chat.dart': (
+    2,
     'seeds a new chat from the card',
   ),
-  'lib/services/chat/chat_service_import_seed.dart': (
-    3,
+  'lib/services/chat/doors/session/session_seed.dart': (
+    5,
     'seeds an import; exports and imports it in a chat package',
   ),
-  'lib/services/chat/chat_service_import_walk.dart': (
-    2,
+  'lib/services/chat/doors/session/walk_back.dart': (
+    4,
     'keeps it across a fork walk-back',
   ),
-  'lib/services/chat/chat_service_group_entry.dart': (
+  'lib/services/chat/chat_service_wiring_mint.dart': (
     2,
+    'hands the session store the chat\'s own switch, to read and write',
+  ),
+  'lib/services/chat/doors/entry/group_entry.dart': (
+    3,
     'resets it; seeds a group chat from its group',
   ),
-  'lib/services/chat/chat_service_group_membership.dart': (
-    2,
+  'lib/services/chat/doors/entry/group_fork.dart': (
+    3,
     'carries a 1:1 chat\'s choice, and its state, into the group it becomes',
   ),
   'lib/services/chat/chat_service_cast_shrink.dart': (
