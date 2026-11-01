@@ -60,12 +60,12 @@ void main() {
 
   test('stopGeneration discards a pending catastrophe even when idle', () {
     final src = File(
-      'lib/services/chat/chat_service_message_ops.dart',
+      'lib/services/chat/doors/turn/turn_stops.dart',
     ).readAsStringSync();
     final body = _methodBody(
       src,
       'void stopGeneration() {',
-      'Future<void> _cancelAndWaitForGeneration()',
+      'Future<void> cancelAndWaitForGeneration()',
     );
     expect(
       body.contains('consumePendingCatastrophe'),
@@ -78,7 +78,7 @@ void main() {
 
   test('cancelRealismEval discards a pending catastrophe', () {
     final src = File(
-      'lib/services/chat/chat_service_message_ops.dart',
+      'lib/services/chat/doors/turn/turn_stops.dart',
     ).readAsStringSync();
     final start = src.indexOf('Future<void> cancelRealismEval()');
     expect(start, greaterThanOrEqualTo(0));
@@ -93,12 +93,12 @@ void main() {
 
   test('_cancelAndWaitForGeneration discards a pending catastrophe', () {
     final src = File(
-      'lib/services/chat/chat_service_message_ops.dart',
+      'lib/services/chat/doors/turn/turn_stops.dart',
     ).readAsStringSync();
     final body = _methodBody(
       src,
-      'Future<void> _cancelAndWaitForGeneration() async {',
-      'void _rewindPocketsForDeletedMessage(',
+      'Future<void> cancelAndWaitForGeneration() async {',
+      'void rewindPocketsForDeletedMessage(',
     );
     expect(
       body.contains('consumePendingCatastrophe'),
@@ -123,7 +123,7 @@ void main() {
 
   test('group generate cancel before plan discards catastrophe', () {
     final src = File(
-      'lib/services/chat/chat_service_generation.dart',
+      'lib/services/chat/doors/turn/turn_engine.dart',
     ).readAsStringSync();
     final dance = src.indexOf('await _realismDance.evaluateForUpcomingSpeaker');
     expect(dance, greaterThanOrEqualTo(0));

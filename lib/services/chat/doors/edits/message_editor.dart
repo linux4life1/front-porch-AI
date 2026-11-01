@@ -40,7 +40,7 @@ class MessageEditor {
   EditServices get _s => _d.services;
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
-  bool get _isTurnBusy => _d.turn.isTurnBusy();
+  bool get _isTurnBusy => _d.engine().isTurnBusy;
   SessionHistoryWindow get _history => _s.history();
 
   String _getCharacterIdFromCard(CharacterCard c) => _d.characterIdFor(c);
@@ -173,7 +173,7 @@ class MessageEditor {
           : null;
       // In a group, refund ONLY when the speaker resolved unambiguously —
       // see needsBeforeDelete (an empty baseline makes the revert a no-op).
-      final needsBeforeDelete = _d.realism.needsBeforeDelete(deletedSid);
+      final needsBeforeDelete = _d.engine().stops.needsBeforeDelete(deletedSid);
       // Co-present bars, before the snapshot restore below. Ana's wear is
       // undone from these, not from the restored snapshot.
       final presentBeforeDelete = _s
@@ -240,7 +240,10 @@ class MessageEditor {
       );
 
       if (!deleted.isUser && deleted.sender != 'System') {
-        _d.realism.rewindPocketsForDelete(deleted, wasTail: wasTail);
+        _d.engine().stops.rewindPocketsForDeletedMessage(
+          deleted,
+          wasTail: wasTail,
+        );
         // Tail turn undone, as regen does: Generate reply re-proposes.
         if (wasTail && !duringTurn) {
           await _s.objectives().revertTurn(deleted);

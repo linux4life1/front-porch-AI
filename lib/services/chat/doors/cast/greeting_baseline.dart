@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/chat_defaults.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// The Realism baseline a chat's opening gets: the post-greeting Read the
 /// Room, the retroactive scan when Realism comes on mid-chat, and the
@@ -53,7 +54,7 @@ class GreetingBaseline {
   String? openingPostureSeededFor;
 
   ChatSessionState get _session => _d.session;
-  CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   RealismEvalStatus get _evalStatus => _d.graph().evalStatus;
   RealismScope get _scope => _d.realism();
   RelationshipService get _relationshipService => _scope.relationship();
@@ -191,8 +192,8 @@ class GreetingBaseline {
     // Groups have a null _session.activeCharacter; still Read the Room when an
     // unauthored opener reached this path.
     if (evalChar == null && _activeGroup == null) return;
-    _h.markPostGreetingEvalEntered();
-    final token = _h.greetingEvalGen();
+    _turn.greetingEval.markEntered();
+    final token = _turn.greetingEval.gen;
     final indexStamp = _door.greetings.greetingIndex;
     final previousActive = _session.activeCharacter;
     if (_session.activeCharacter == null && evalChar != null) {
@@ -223,7 +224,7 @@ class GreetingBaseline {
         ]);
 
         if (_evalStatus.cancelled ||
-            token != _h.greetingEvalGen() ||
+            token != _turn.greetingEval.gen ||
             indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
           _evalStatus.cancelled = false;
@@ -232,7 +233,7 @@ class GreetingBaseline {
 
         // Check for cancellation after each eval
         if (_evalStatus.cancelled ||
-            token != _h.greetingEvalGen() ||
+            token != _turn.greetingEval.gen ||
             indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
           _evalStatus.cancelled =
@@ -275,7 +276,7 @@ class GreetingBaseline {
         isProcessingGreeting = false;
         _d.notify();
       }
-    }, zoneValues: _h.greetingZone(token, indexStamp));
+    }, zoneValues: _turn.greetingEval.zone(token, indexStamp));
   }
 
   /// Retroactive baseline eval — fires when Realism is enabled mid-conversation

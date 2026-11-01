@@ -113,7 +113,7 @@ extension ChatServiceAccessors on ChatService {
   /// The post-group-filter active lore set — what is ACTUALLY injected this
   /// turn. Sidebar dots and the web facade read this so they never show an
   /// inclusion-group loser as active.
-  Set<LorebookEntry> currentlyActiveLoreEntries() => _lorebookInjector
+  Set<LorebookEntry> currentlyActiveLoreEntries() => realism.lore.injector
       .activeEntries(sessionSeed: _session.currentSessionId ?? '')
       .toSet();
 
@@ -171,7 +171,7 @@ extension ChatServiceAccessors on ChatService {
     rerollIfSame: rerollIfSame,
   );
 
-  bool get isCancellingRealismEval => _isCancellingRealismEval;
+  bool get isCancellingRealismEval => realism.evalStatus.cancelling;
 
   void _onBackendIdentityMaybeChanged() {
     if (_disposed) return;
@@ -323,11 +323,6 @@ extension ChatServiceAccessors on ChatService {
     return _getCharacterIdFromCard(_session.activeCharacter!);
   }
 
-  /// Helper used when constructing messages.
-  String? _getCharacterIdForCard(CharacterCard card) {
-    return _getCharacterIdFromCard(card);
-  }
-
   /// Safely parse a JSON string into a mutable `Map<String, String>`.
   /// Returns an empty map if [json] is null, empty, or invalid.
   Map<String, String> _tryParseJsonMap(String? json) {
@@ -356,7 +351,7 @@ extension ChatServiceAccessors on ChatService {
   void _disposeCleanupImpl() {
     _disposed = true;
     _cancelIdleTimer();
-    _cancelStreamNotifyThrottle();
+    turnEngine.progress.cancelStreamNotifyThrottle();
     _sceneGuest.statusClearTimer?.cancel();
     _characterRepository?.removeListener(_onCharacterLibrary);
     _storageService.removeListener(_onBackendIdentity);
@@ -411,12 +406,81 @@ extension ChatServiceAccessors on ChatService {
 /// (test/hygiene/realism_gate_ratchet_test.dart).
 extension _ChatServiceControlsNames on ChatService {
   bool get _realismEnabled => controlsDoor.realismEnabled;
-
-  /// The chat's stored Needs switch; Needs run behind `NeedsPass.active`.
-  bool get _needsSimEnabled => controlsDoor.needsSimEnabled;
   bool get _clockRunning => controlsDoor.clockRunning;
-  bool get _oneShotActive => controlsDoor.oneShotActive;
   bool get _callMode => controlsDoor.callMode;
   UserTurnHold get _userTurn => controlsDoor.userTurn;
   ChanceTime get _chance => controlsDoor.chance;
+}
+
+/// Builds the message-edits door.
+extension ChatServiceEditsWiring on ChatService {
+  /// The message-edits door. Each hook is debt (see edit_hooks.dart).
+  EditsDoor _buildEditsDoor() {
+    final door = EditsDoor(
+      EditDeps(
+        session: _session,
+        view: EditsView(
+          messages: () => messages,
+          activeCharacter: () => activeCharacter,
+          isGroupMode: () => isGroupMode,
+          activeGroup: () => activeGroup,
+          groupCharacters: () => groupCharacters,
+          observerMode: () => observerMode,
+          greetingIndex: () => greetingIndex,
+          isGenerating: () => isGenerating,
+          isSettlingTurn: () => isSettlingTurn,
+          isEvaluatingRealism: () => isEvaluatingRealism,
+          realismEnabled: () => realismEnabled,
+          needsActive: () => needsActive,
+        ),
+        services: EditServices(
+          db: () => _db,
+          storage: () => _storageService,
+          personas: () => _userPersonaService,
+          graph: () => realism,
+          history: () => sessionStore.history,
+          macroResolver: () => promptAssembler.macros,
+          objectives: () => objectivesDoor,
+          media: () => mediaDoor,
+          lanes: _lanes,
+        ),
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        notify: notifyListeners,
+        engine: () => turnEngine,
+        turn: EditTurnHooks(
+          answerTrailingUserLine: _generateFromTrailingUserTurn,
+        ),
+        realism: EditRealismHooks(
+          rewindToLastAcceptedReply: _rewindRelationshipToLastAcceptedReply,
+          restoreScoredRegisters: _restoreScoredRegisters,
+        ),
+        cast: EditCastHooks(
+          guestBusy: () => castDoor.guests.state.busy,
+          isGuestAuthored: _isGuestAuthoredMessage,
+          guestFor: _sceneGuestForMessage,
+          setStatus: (text, {isError = false}) =>
+              _setGuestStatus(text, isError: isError),
+          guestChimeIns: _maybeRunSceneGuestChimeIns,
+          pickPresentSpeaker: _pickPresentGroupSpeaker,
+          greetingIndex: () => castDoor.greetings.greetingIndex,
+          setGreetingIndex: (index) => _greetingIndex = index,
+          greetingOwner: _greetingOwnerCard,
+          firstMessage: _buildFirstMessage,
+          invalidateGreetingEval: () async {
+            await _invalidateGreetingEval();
+            turnEngine.greetingEval.clearEntered();
+          },
+          stampGreetingIndex: _stampGreetingIndex,
+          isOpeningGreetingChat: () => castDoor.greetings.isOpeningGreetingChat,
+          seedGroupGreeting: _applyGroupCustomGreetingSeed,
+          seedGreeting: _applyGreetingOpeningSeed,
+        ),
+        sessions: () => sessionStore,
+        prompts: () => promptAssembler,
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
+  }
 }

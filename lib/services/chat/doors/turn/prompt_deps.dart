@@ -27,7 +27,7 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
-import 'package:front_porch_ai/services/chat/doors/turn/gen_turn.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
@@ -103,6 +103,7 @@ class PromptDoors {
     required this.cast,
     required this.entry,
     required this.edits,
+    required this.turn,
   });
 
   /// The Realism graph: lore, places, the Journal, Growth, the injections
@@ -129,6 +130,10 @@ class PromptDoors {
 
   /// Token alternatives: the rewrite seed and the word odds sink.
   final EditsDoor Function() edits;
+
+  /// The turn engine: Stop (the request's `stillWant`) and the prefill
+  /// phase the request enters once it is in flight.
+  final TurnEngine Function() turn;
 }
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -140,8 +145,6 @@ class PromptShellHooks {
   const PromptShellHooks({
     required this.characterIdFor,
     required this.ragCharacterId,
-    required this.cancelRequested,
-    required this.enterPrefill,
   });
 
   // ── Identity (WP11) ───────────────────────────────────────────────────
@@ -151,13 +154,4 @@ class PromptShellHooks {
 
   /// The chat's own id: `group_<id>` in a group, the host's id in 1:1.
   final String Function() ragCharacterId;
-
-  // ── Turn (WP10b) ──────────────────────────────────────────────────────
-
-  /// Stop was pressed: the request's `stillWant` asks this.
-  final bool Function() cancelRequested;
-
-  /// The request is in flight: the turn's prefill phase, its prompt token
-  /// count and the KoboldCpp perf poll.
-  final void Function(GenTurn t, String prompt) enterPrefill;
 }

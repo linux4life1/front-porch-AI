@@ -192,7 +192,7 @@ class ControlsDoor {
   );
 
   /// A turn in flight, the user's line and its pre-reply judges included.
-  bool get realismTurnBusy => deps.hooks.isTurnBusy() || userTurn.held;
+  bool get realismTurnBusy => deps.engine().isTurnBusy || userTurn.held;
 
   void _onRealismPermissionChanged(bool allowed) {
     if (deps.hooks.disposed()) return;

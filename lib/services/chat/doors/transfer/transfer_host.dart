@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/growth_desk.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_state.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
@@ -39,8 +40,8 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 /// and export still reach. Each is one typed call the shell implements
 /// inside its library. The session store (WP7) retired the session and
 /// scalar ones: the doors call [sessions] for those, and the Realism graph
-/// (WP9a) the Realism capture through [graph]. The turn engine (WP10)
-/// retires the rest.
+/// (WP9a) the Realism capture through [graph], and the turn engine (WP10b)
+/// the turn flags and the RAG line format through [turn].
 class TransferHost {
   TransferHost({
     required this.db,
@@ -53,8 +54,7 @@ class TransferHost {
     required this.growthDesk,
     required this.sceneGuests,
     required this.sessions,
-    required this.isTurnBusy,
-    required this.isGenerating,
+    required this.turn,
     required this.characterIdFor,
     required this.ragCharacterId,
     required this.invalidateGreetingEval,
@@ -62,7 +62,6 @@ class TransferHost {
     required this.enterSceneGuestSilently,
     required this.loadActiveObjectives,
     required this.loadSpeakerObjectives,
-    required this.formatForRagEmbedding,
     required this.graph,
     required this.setActiveCharacter,
     required this.deleteSessionQuietly,
@@ -90,13 +89,12 @@ class TransferHost {
   /// stamp-contract test hook.
   final RealismGraph Function() graph;
 
-  // ── Debt: turn flags (WP10) ───────────────────────────────────────────
+  /// The turn engine: the turn-busy predicate an import or export refuses
+  /// on, the narrow generating flag the RAG backfill yields to, and the one
+  /// RAG line format live embedding uses.
+  final TurnEngine Function() turn;
 
-  /// The turn-busy predicate the composer and the window cast edits share.
-  final bool Function() isTurnBusy;
-
-  /// Tokens are streaming (the narrow generating flag).
-  final bool Function() isGenerating;
+  // ── Debt: the greeting (WP6) ──────────────────────────────────────────
 
   /// Drops a stale greeting eval before an import replaces the opening.
   final Future<void> Function() invalidateGreetingEval;
@@ -120,8 +118,6 @@ class TransferHost {
 
   /// Group objectives reload for the current speaker.
   final Future<void> Function() loadSpeakerObjectives;
-
-  final List<String> Function(List<ChatMessage> messages) formatForRagEmbedding;
 
   // ── Debt: chat entry (WP8) and the edits door ─────────────────────────
 

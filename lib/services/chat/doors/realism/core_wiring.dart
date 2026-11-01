@@ -172,7 +172,7 @@ extension RealismCoreWiring on RealismGraph {
     characterIdFor: _h.characterIdFor,
     hostId: _h.ragCharacterId,
     activeCharacter: () => session.activeCharacter,
-    isGenerating: _h.isGenerating,
+    isGenerating: () => _doors.turn().progress.isGenerating,
     nextCharacter: () => _doors.entry().director.nextCharacter,
     workFieldsFor: workFieldsFor,
   );
@@ -234,7 +234,8 @@ extension RealismCoreWiring on RealismGraph {
   // rides the reply's capture, never a patch of the previous reply.
   MoodRegisters buildMood() => MoodRegisters(
     scope,
-    isTurnBusy: () => _h.isTurnBusy() || _doors.objectives().inObjectiveTurn,
+    isTurnBusy: () =>
+        _doors.turn().isTurnBusy || _doors.objectives().inObjectiveTurn,
   );
 
   RealismSnapshot buildSnapshot() => RealismSnapshot(
@@ -311,7 +312,7 @@ extension RealismCoreWiring on RealismGraph {
       getIsEvaluatingRealism: () => evalStatus.evaluating,
       getStorageService: () => _storageService,
       getLlmServiceForReclass: () => lanes.sideLane,
-      getIsGenerating: _h.isGenerating,
+      getIsGenerating: () => _doors.turn().progress.isGenerating,
       getCharacterEmotion: () => registers.emotion,
       getMessages: () => session.messages,
       getIsThinkingModelForReclass: () {

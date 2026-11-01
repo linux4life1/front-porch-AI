@@ -26,6 +26,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// Scene Guest lifecycle: the status banner, the single add-with-status
 /// entry point, background portraits, the guest turn, the shared "enter"
@@ -54,6 +55,7 @@ class GuestFlow {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
 
   /// True when [m] was authored by a Scene Guest rather than the host,
   /// decided by the stable characterId stamped at guest-turn time, NOT by
@@ -244,7 +246,7 @@ class GuestFlow {
   }) async {
     // Don't race another creation OR an in-flight turn (the mint runs a
     // separate LLM call that doesn't set the generating flag).
-    if (state.busy || _h.isTurnBusy()) {
+    if (state.busy || _turn.isTurnBusy) {
       setStatus('Busy — try again in a moment.', isError: true);
       return;
     }
@@ -352,7 +354,7 @@ class GuestFlow {
   /// and context-guarded so a chat switch cannot leave `busy` stuck.
   Future<void> speakGuestNow(CharacterCard guest) async {
     if (_session.activeGroup != null) return;
-    if (_h.isTurnBusy() || state.busy) {
+    if (_turn.isTurnBusy || state.busy) {
       setStatus('Busy — try again in a moment.', isError: true);
       return;
     }
@@ -374,8 +376,10 @@ class GuestFlow {
   /// the shared growth pass. The exchange then embeds under the GUEST's own
   /// id (episodic memory), fire-and-forget.
   Future<void> generateGuestTurn(CharacterCard guest) async {
-    await _h.generate(guestSpeaker: guest);
-    _h.embedFor(_d.characterIdFor(guest));
+    await _turn.generate(GenerationMode.normal, guestSpeaker: guest);
+    _turn.side.maybeEmbedMessages(
+      characterIdOverride: _d.characterIdFor(guest),
+    );
   }
 
   /// Re-resolve the guest cards from the guest ids. Called whenever the id

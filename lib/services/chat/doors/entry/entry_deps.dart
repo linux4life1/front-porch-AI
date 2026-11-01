@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -90,6 +91,7 @@ class EntryServices {
     required this.cast,
     required this.objectives,
     required this.media,
+    required this.turn,
     required this.sceneMoves,
   });
 
@@ -127,6 +129,11 @@ class EntryServices {
   final ObjectivesDoor Function() objectives;
   final MediaDoor Function() media;
 
+  /// The turn engine: the predicate `sendMessage` and the cast edits share
+  /// ([TurnEngine.isTurnBusy]), an auto-chat turn, and the turn epoch a
+  /// chat switch bumps so every in-flight turn's late writes go stale.
+  final TurnEngine Function() turn;
+
   /// Suggested scene moves; stale offers die with the chat.
   final SceneMoveState sceneMoves;
 }
@@ -138,24 +145,9 @@ class EntryServices {
 /// What the entry door still reaches in the chat service library.
 class EntryShellHooks {
   const EntryShellHooks({
-    required this.isTurnBusy,
-    required this.bumpGenerationEpoch,
-    required this.generate,
     required this.skipAsked,
     required this.upcomingSpeaker,
   });
-
-  // ── Turn (WP10b) ──────────────────────────────────────────────────────
-
-  /// The predicate `sendMessage` and the cast edits share: a reply, its
-  /// post-gen settle, an import or narration is running.
-  final bool Function() isTurnBusy;
-
-  /// A chat switch makes every in-flight turn's late writes stale.
-  final void Function() bumpGenerationEpoch;
-
-  /// One auto-chat turn of the generation engine, in normal mode.
-  final Future<void> Function() generate;
 
   // ── Send (WP10c) ──────────────────────────────────────────────────────
 

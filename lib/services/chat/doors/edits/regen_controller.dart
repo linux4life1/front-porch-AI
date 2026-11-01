@@ -96,11 +96,11 @@ class RegenController {
     String? wikiQuery,
   }) async {
     if (_session.messages.isEmpty || _d.cast.guestBusy()) return;
-    if (!await _d.turn.yieldSettlingTurn()) return;
-    _d.turn.bumpMemoryEpoch();
+    if (!await _d.engine().stops.yieldSettlingTurn()) return;
+    _d.engine().bumpMemoryEpoch();
     // Backend gate BEFORE any guest-tail splice — same restore problem as
     // regenerateLastMessage (see abortIfBackendDown).
-    if (await _d.turn.abortIfBackendDown()) return;
+    if (await _d.engine().entry.abortIfBackendDown()) return;
 
     // Walk back past the trailing guest replies to the host message beneath them.
     int hostIndex = -1;
@@ -161,8 +161,8 @@ class RegenController {
     String? wikiQuery,
   }) async {
     if (_session.messages.isEmpty || _d.cast.guestBusy()) return;
-    if (!await _d.turn.yieldSettlingTurn()) return;
-    _d.turn.bumpMemoryEpoch();
+    if (!await _d.engine().stops.yieldSettlingTurn()) return;
+    _d.engine().bumpMemoryEpoch();
     // Hold the settling flag across the WHOLE regen — the realism revert +
     // eval replay before generation and the swipe-merge after it both run
     // outside the generation, and used to run with every guard open: a
@@ -173,7 +173,7 @@ class RegenController {
     // nested call; the finally makes a wedged flag impossible. The body is
     // extracted (not inlined in the try) purely so its early returns and
     // this hold compose without re-indenting the whole flow.
-    _d.turn.setPostGenerating(true);
+    _d.engine().progress.isPostGenerating = true;
     try {
       await _regenerateLastMessageHeld(
         critique: critique,
@@ -185,8 +185,8 @@ class RegenController {
       rethrow;
     } finally {
       _session.groupManager?.endRegeneration();
-      _d.turn.setPostGenerating(false);
-      _d.turn.clearPostGenAbortFlags();
+      _d.engine().progress.isPostGenerating = false;
+      _d.engine().stops.clearPostGenAbortFlags();
       _s.graph().clockReader.applyTipClock();
       // Listeners (web isSettlingTurn → chat_updated) only see the clear
       // through a notification. The flag alone does not broadcast.
@@ -202,7 +202,7 @@ class RegenController {
     // Backend gate BEFORE the pop below — aborting after removeLast would
     // drop the popped reply (the deep guard in the generation cannot
     // restore it; see abortIfBackendDown).
-    if (await _d.turn.abortIfBackendDown()) return;
+    if (await _d.engine().entry.abortIfBackendDown()) return;
 
     // A failed turn's banner (and empty bubble) go; the user line behind
     // them is then answered by the last branch below, as the member who
@@ -331,7 +331,7 @@ class RegenController {
       // via the per-speaker dance inside the generation). A cancel there has
       // already put the popped reply back with its accepted state.
       if (_realismEnabled && _activeGroup == null && regenGuest == null) {
-        if (!await _d.realism.replayRegenJudges(lastMsg)) return;
+        if (!await _d.engine().replay.replayRegenJudges(lastMsg)) return;
       }
 
       // In group mode the per-speaker realism eval (and its metadata / needs deltas)
@@ -419,7 +419,7 @@ class RegenController {
 
       final preGenLen = _session.messages.length;
       _s.media().armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);
-      await _d.turn.generate(
+      await _d.engine().generate(
         GenerationMode.normal,
         directUserSend: true,
         guestSpeaker: regenGuest,

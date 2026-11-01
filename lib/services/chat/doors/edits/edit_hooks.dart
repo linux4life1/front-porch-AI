@@ -22,47 +22,10 @@ import 'package:front_porch_ai/models/models.dart';
 // service still owns. A hook goes when its owner becomes a door; the work
 // package that retires it is named on each class.
 
-/// The turn engine's flags and calls (WP10b, WP10c).
+/// The send spine's Try again on a trailing user line (WP10c). The turn
+/// engine's own flags and calls are [EditDeps.engine].
 class EditTurnHooks {
-  const EditTurnHooks({
-    required this.isTurnBusy,
-    required this.setPostGenerating,
-    required this.yieldSettlingTurn,
-    required this.clearPostGenAbortFlags,
-    required this.abortIfBackendDown,
-    required this.generate,
-    required this.answerTrailingUserLine,
-    required this.bumpMemoryEpoch,
-    required this.setGenerating,
-    required this.setPhase,
-    required this.cancelRequested,
-    required this.setCancelRequested,
-  });
-
-  /// A reply, its post-gen settle, an import or narration is running.
-  final bool Function() isTurnBusy;
-
-  /// The settling flag every mutation guard reads (`_isPostGenerating`).
-  final void Function(bool on) setPostGenerating;
-
-  /// Aborts in-flight post-gen evals so a regen can start; false when a
-  /// stream, an import or a time-skip question still holds the turn.
-  final Future<bool> Function() yieldSettlingTurn;
-  final void Function() clearPostGenAbortFlags;
-
-  /// Checked before anything is popped: true when the backend is down and
-  /// the user was told so.
-  final Future<bool> Function() abortIfBackendDown;
-
-  /// One generation (`_generateResponse`).
-  final Future<void> Function(
-    GenerationMode mode, {
-    bool directUserSend,
-    CharacterCard? guestSpeaker,
-    CharacterCard? forceSpeaker,
-    String regenCritique,
-  })
-  generate;
+  const EditTurnHooks({required this.answerTrailingUserLine});
 
   /// Try again on a trailing user line (`_generateFromTrailingUserTurn`).
   final Future<void> Function({
@@ -71,46 +34,20 @@ class EditTurnHooks {
     CharacterCard? forceSpeaker,
   })
   answerTrailingUserLine;
-
-  /// A regen invalidates Journal and Growth passes started on the old reply.
-  final void Function() bumpMemoryEpoch;
-
-  /// Impersonate streams on the narrow generating flag and its own phase.
-  final void Function(bool on) setGenerating;
-  final void Function(GenerationPhase phase) setPhase;
-  final bool Function() cancelRequested;
-  final void Function(bool on) setCancelRequested;
 }
 
-/// The Realism hooks other parts still hold: the send spine's stamp-less
-/// rewind (WP10c), and three bodies a hygiene test pins to their part file
-/// (WP10b).
+/// The Realism hooks the send spine still holds: its stamp-less rewind
+/// (WP10c). The regen judge replay and delete's Needs baseline and Pockets
+/// rewind are the turn engine's ([EditDeps.engine]).
 class EditRealismHooks {
   const EditRealismHooks({
     required this.rewindToLastAcceptedReply,
     required this.restoreScoredRegisters,
-    required this.replayRegenJudges,
-    required this.needsBeforeDelete,
-    required this.rewindPocketsForDelete,
   });
 
   /// 1:1 stamp-less rewind of the scored registers to the last reply.
   final bool Function() rewindToLastAcceptedReply;
   final void Function(Map<String, dynamic> stamp) restoreScoredRegisters;
-
-  /// 1:1 regen's decay and judge replay (chat_service_reprocess,
-  /// trust_repair_regen_latch_test). False when the user cancelled it; the
-  /// popped reply is then already back with its accepted state.
-  final Future<bool> Function(ChatMessage lastMsg) replayRegenJudges;
-
-  /// Delete's Needs baseline for the deleted speaker, empty when no refund
-  /// applies (chat_service_message_ops, needs_gate_ratchet_test).
-  final Map<String, int> Function(String? deletedSid) needsBeforeDelete;
-
-  /// Delete's Pockets rewind (chat_service_message_ops,
-  /// catastrophe_clear_on_cancel_test).
-  final void Function(ChatMessage deleted, {required bool wasTail})
-  rewindPocketsForDelete;
 }
 
 /// Scene Guests, the group speaker pick and the opening greeting (WP6).

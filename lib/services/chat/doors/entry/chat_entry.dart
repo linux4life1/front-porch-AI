@@ -38,8 +38,6 @@ class ChatEntry {
 
   ChatSessionState get _session => _d.session;
   EntryServices get _s => _d.services;
-  EntryShellHooks get _h => _d.hooks;
-  SessionShellHooks get _sh => _d.shared;
   SessionStore get _store => _d.sessions();
   GroupSessionConfig get _group => _store.groupConfig;
   RealismScope get _scope => _s.realism();
@@ -78,9 +76,9 @@ class ChatEntry {
     try {
       // Cancel any in-flight generation before switching context, then wait
       // out the settling tail so the reload below reads fully-persisted rows.
-      await _sh.cancelAndWaitForGeneration();
+      await _s.turn().stops.cancelAndWaitForGeneration();
       await _door.cover.waitForTurnToSettle();
-      _h.bumpGenerationEpoch();
+      _s.turn().progress.generationEpoch++;
 
       // Same library card: match by dbId when both sides have one (renames
       // stay light). A grid card with a missing dbId used to fail

@@ -46,7 +46,6 @@ class GroupEntry {
 
   ChatSessionState get _session => _d.session;
   EntryServices get _s => _d.services;
-  EntryShellHooks get _h => _d.hooks;
   SessionShellHooks get _sh => _d.shared;
   SessionStore get _store => _d.sessions();
   GroupSessionConfig get _group => _store.groupConfig;
@@ -89,13 +88,13 @@ class GroupEntry {
     _door.cover.beginSessionLoad();
     try {
       // Cancel any in-flight generation before switching context AND reset author note for new session context
-      await _sh.cancelAndWaitForGeneration();
+      await _s.turn().stops.cancelAndWaitForGeneration();
       await _door.cover.waitForTurnToSettle();
       // Groups have no same-cast fast path — every re-enter clears
       // `_session.messages`. Persist first or the last exchange dies the same
       // way as the 1:1 slow path.
       await _store.save();
-      _h.bumpGenerationEpoch();
+      _s.turn().progress.generationEpoch++;
       // Detach before clearing the recap. A save during the awaits below
       // used to stamp an empty "Where we are" onto the chat being left.
       _session.currentSessionId = null;

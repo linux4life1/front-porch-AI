@@ -73,7 +73,7 @@ extension RealismJudgeWiring on RealismGraph {
       isEvalCancelled: () =>
           evalStatus.cancelling ||
           evalStatus.cancelled ||
-          _h.staleGreetingEval(),
+          _doors.turn().greetingEval.isStale(),
       stripThinkBlocks: stripEvalThinkBlocks,
       extractJsonInt: evalJsonInt,
       extractJsonBool: evalJsonBool,

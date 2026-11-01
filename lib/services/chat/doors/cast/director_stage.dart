@@ -22,6 +22,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
 /// {{user}} on and off a group's stage (Director Mode), the director's
 /// goal and whispers, narrator beats, and the narrator's bridge over a
@@ -34,6 +35,7 @@ class DirectorStage {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   SceneGuestState get _state => _door.guests.state;
   GuestFlow get _guests => _door.guests;
   DirectorScene get _scene => _door.directorScene;
@@ -45,7 +47,7 @@ class DirectorStage {
   Future<bool> stepUserOffStage() async {
     if (_session.activeGroup == null ||
         (_session.groupManager?.observerMode ?? false) ||
-        _h.isTurnBusy()) {
+        _turn.isTurnBusy) {
       return false;
     }
     // An open member-exit undo window closes here, as a send would close it.
@@ -56,7 +58,7 @@ class DirectorStage {
     final before = _session.messages.length;
     _door.entranceDirective = userStepsOutDirective(name);
     try {
-      await _h.generate(skipSpeakerEval: true);
+      await _turn.generate(GenerationMode.normal, skipSpeakerEval: true);
     } catch (e) {
       debugPrint('[Director] step-out narration failed: $e');
       _door.entranceDirective = null; // don't leak into a later turn
@@ -82,13 +84,13 @@ class DirectorStage {
   /// so the next character sees the user present and greets them. The
   /// greeting scores nothing: the last user-side line is a director's note.
   Future<bool> stepUserOnStage() async {
-    if (!_h.directing() || _h.isTurnBusy()) return false;
+    if (!_h.directing() || _turn.isTurnBusy) return false;
     _guests.clearExitUndo();
     _h.setObserverMode(false);
     _door.entranceDirective = userReturnsDirective(_d.personas.persona.name);
     final before = _session.messages.length;
     try {
-      await _h.generate(skipSpeakerEval: true);
+      await _turn.generate(GenerationMode.normal, skipSpeakerEval: true);
     } catch (e) {
       debugPrint('[Director] step-in narration failed: $e');
       _door.entranceDirective = null;
@@ -157,12 +159,12 @@ class DirectorStage {
   /// counts as a running turn, so a note, a cue, an auto-chat tick or a chat
   /// switch waits for it; a beat that returns to another chat is dropped.
   Future<bool> narrateScene(String hint) async {
-    if (!_h.directing() || _h.isTurnBusy()) return false;
+    if (!_h.directing() || _turn.isTurnBusy) return false;
     final token = _session.currentSessionId;
     // The beat closes the undo window the way a note does.
     await _door.roster.commitPendingMemberExit();
     _guests.clearExitUndo();
-    if (_door.sceneChanged(token) || !_h.directing() || _h.isTurnBusy()) {
+    if (_door.sceneChanged(token) || !_h.directing() || _turn.isTurnBusy) {
       return false;
     }
     _door.narrating = true;
@@ -220,7 +222,7 @@ class DirectorStage {
     // flag first.
     if (landed.isNotEmpty && !_door.sceneChanged(token)) {
       await _skipNarratedTime(landed, token);
-      await _h.generate();
+      await _turn.generate(GenerationMode.normal);
     }
     return true;
   }
@@ -328,7 +330,7 @@ class DirectorStage {
       return;
     }
     if (last.displayText.trim().isNotEmpty) return;
-    await _h.waitForTurnToSettle();
+    await _turn.waitForTurnToSettle();
     final idx = _session.messages.indexOf(last);
     if (idx >= 0) await _h.deleteMessage(idx); // + reverts realism, saves
   }

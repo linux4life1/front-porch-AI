@@ -16,53 +16,109 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
 
-/// Set when regenerate/continue abort in-flight post-gen evals (needs,
-/// climax, pockets, posture) so the rejected reply is not scored. Cleared
-/// after a successful yield, at finalize start, and in regen's finally —
-/// leftover latch must not survive into the next turn.
-bool _postGenAbortRequested = false;
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/kobold_service.dart';
+import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/tts_service.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
-/// Phase 6 (final) of `_generateResponse`: state reset, sanitizer, lorebook,
-/// first save, Scene-Guest clock, TTS, and director auto-play.
-/// Realism/Needs bookkeeping and Journal/Growth live in
-/// chat_service_generation_postgen_engine.dart (same library).
+/// Phase 6 (final) of a turn: state reset, sanitizer, lorebook, first
+/// save, the Scene-Guest clock, TTS, director auto-play, and the post-reply
+/// clock decide. Realism/Needs bookkeeping and Journal/Growth live in
+/// [PostGenPasses]; the fire-and-forget passes in [PostGenSide].
 ///
-/// **This is the parity-critical file** — see CLAUDE.md "Tracing
-/// Realism/Needs/Group Post-Generation, Chips, Sidebar & Climax Checks",
-/// which now names this file for the post-gen finalization step.
-extension ChatServiceGenerationPostGen on ChatService {
-  Future<void> _finalizeGenerationTurn(GenTurn t) async {
+/// **This is the parity-critical file** — see CLAUDE.md "Chat contracts"
+/// (Mouth speech, Continue, Clock) for what each step must keep.
+class PostGen {
+  PostGen(this._e);
+
+  final TurnEngine _e;
+
+  TurnDeps get _d => _e.deps;
+  ChatSessionState get _session => _d.session;
+  TurnProgress get _p => _e.progress;
+  RealismGraph get _g => _d.doors.graph();
+  EntryDoor get _entry => _d.doors.entry();
+  SessionStore get _sessions => _d.doors.sessions();
+  ControlsDoor get _controls => _d.doors.controls();
+  CastDoor get _cast => _d.doors.cast();
+  PromptAssembler get _prompts => _d.doors.prompts();
+  ObjectivesDoor get _objectives => _d.doors.objectives();
+  StorageService get _storageService => _d.services.storage;
+  KoboldService get _koboldService => _d.services.kobold;
+  LLMProvider? get _llmProvider => _d.services.llmProvider();
+  TtsService? get _ttsService => _d.services.tts();
+
+  GroupChat? get _activeGroup => _session.activeGroup;
+  AutoChatBudget get _autoChatBudget => _entry.autoChat;
+  bool _autoChatPausesAfter(ChatMessage reply) =>
+      _entry.director.autoChatPausesAfter(reply);
+  bool get _autoPlayActive => _entry.director.autoPlayActive;
+  Future<void> _autoPlayNext() => _entry.director.autoPlayNext();
+  bool get _callMode => _controls.callMode;
+  bool get _clockRunning => _controls.clockRunning;
+  StoryClockWriter get _clockWriter => _g.clockWriter;
+  List<LoreEntryRef> _collectLoreRefs({bool? inheritOverride}) =>
+      _g.lore.collectLoreRefs(inheritOverride: inheritOverride);
+  EpisodeCrumbMinter get _episodeCrumbs => _g.episodeCrumbs;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      _cast.guests.isGuestAuthoredMessage(m);
+  bool _isSeeded(GenTurn t) => _prompts.tokenAlts.isSeeded(t);
+  LorebookScanner get _lorebookScanner => _g.lore.scanner;
+  NeedsPass get _needsPass => _g.needsPass;
+  bool get _observerMode => _entry.director.observerMode;
+  RealismEvals get _realismEvals => _g.evals;
+  RealismScope _realismScope() => _g.scope;
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      _sessions.save(replaceAll: replaceAll);
+  SceneGuestState get _sceneGuest => _cast.guests.state;
+  void _stampTokenAlts(GenTurn t) => _prompts.tokenAlts.stamp(t);
+  TimeService get _timeService => _g.time;
+
+  Future<void> finalize(GenTurn t) async {
     // Speech stream is done (or empty). Drop the pin BEFORE post-eval
     // [openWorkerLane] or finalize deadlocks waiting on itself.
     _llmProvider?.endMouthSpeech();
-    _isGenerating = false;
+    _p.isGenerating = false;
     // Leftover abort from a prior yield/regen hold must not skip THIS
     // turn's clock. A user abort during this finalize re-sets the flags.
-    _clearPostGenAbortFlags();
+    _e.stops.clearPostGenAbortFlags();
     // Settling starts the instant the last token lands — the finalization
     // below (sanitizer, lorebook, _saveChat, post-gen checks, chip attach)
     // is still the turn; the old late raise let a new turn interleave
     // (message_actions Windows CI). Restored in the outer finally.
-    _isPostGenerating = true;
-    _cancelRequested = false;
-    _generationProgress = 0.0;
-    _generationPhase = GenerationPhase.idle;
-    _prefillStartTime = null;
-    _prefillPromptTokens = 0;
-    _generationStartTime = null;
+    _p.isPostGenerating = true;
+    _p.cancelRequested = false;
+    _p.generationProgress = 0.0;
+    _p.generationPhase = GenerationPhase.idle;
+    _p.prefillStartTime = null;
+    _p.prefillPromptTokens = 0;
+    _p.generationStartTime = null;
     t.perfPoller?.cancel();
     t.perfPoller = null;
 
     // Fetch final perf stats from KoboldCPP for post-generation display
     if (t.isLocalBackend) {
       _koboldService.fetchPerf().then((perf) {
-        if (perf != null) _lastPerfData = perf;
+        if (perf != null) _p.lastPerfData = perf;
       });
     }
 
-    if (t.epoch == _generationEpoch &&
+    if (t.epoch == _p.generationEpoch &&
         emptySpeechAfterPregen(
           accumulated: t.accumulatedResponse,
           isContinue: t.mode == GenerationMode.continue_ || _isSeeded(t),
@@ -71,27 +127,27 @@ extension ChatServiceGenerationPostGen on ChatService {
         '[GpuSwap] empty mouth stream after PRE-GEN attach — not success',
       );
       t.streamTarget.text = kEmptySpeechAfterPregenNotice;
-      _tokenBroadcast.add('__ERROR__');
-      _sentenceBroadcast.add('__DONE__');
+      _p.tokenBroadcast.add('__ERROR__');
+      _p.sentenceBroadcast.add('__DONE__');
       await _saveChat();
-      notifyListeners();
+      _d.notify();
       return;
     }
 
     // Signal generation complete to SSE listeners
-    _tokenBroadcast.add('__DONE__');
+    _p.tokenBroadcast.add('__DONE__');
 
     // Flush remaining sentence buffer and signal done to sentence listeners
-    if (_sentenceBuffer.trim().isNotEmpty) {
-      _sentenceBroadcast.add(_sentenceBuffer.trim());
-      _sentenceBuffer = '';
+    if (_p.sentenceBuffer.trim().isNotEmpty) {
+      _p.sentenceBroadcast.add(_p.sentenceBuffer.trim());
+      _p.sentenceBuffer = '';
     }
-    _sentenceBroadcast.add('__DONE__');
+    _p.sentenceBroadcast.add('__DONE__');
 
-    notifyListeners();
+    _d.notify();
 
     // Only finalize if this generation is still current
-    if (t.epoch == _generationEpoch) {
+    if (t.epoch == _p.generationEpoch) {
       // New tokens only from the stream. Continue paints
       // `glueContinueText(continuePrefix, tokens)` mid-stream; we must
       // re-merge the same way before write-back or sanitize, or the saved
@@ -202,8 +258,8 @@ extension ChatServiceGenerationPostGen on ChatService {
       // themselves never invent a Needs map. Everything from here
       // through the periodic evals is gated so the guest's own state
       // stays empty. (Lorebook scan + _saveChat above still ran.)
-      if (!_isLiteTurn(t)) {
-        await _runPostGenEngineAndPeriodic(t, newPart, finalResponse);
+      if (!_e.entry.isLiteTurn(t)) {
+        await _e.passes.run(t, newPart, finalResponse);
       }
 
       // Lite / Scene Guest: no Realism/Needs on the speaker. Group
@@ -213,11 +269,11 @@ extension ChatServiceGenerationPostGen on ChatService {
       // time (soft slots stay empty — they have no Needs). The early
       // `_saveChat` above ran BEFORE this tick — persist the new clock,
       // glance bit, and rewind stamp or a reload loses them.
-      if (_isLiteTurn(t)) {
+      if (_e.entry.isLiteTurn(t)) {
         final scored = t.mode == GenerationMode.continue_
             ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
             : finalResponse;
-        await _runLiteGroupGlancePass(t, scored);
+        await _e.group.runLiteGroupGlancePass(t, scored);
         if (t.mode == GenerationMode.continue_ || !_clockRunning) {
           _timeService.clearBodyBeat();
         }
@@ -225,7 +281,7 @@ extension ChatServiceGenerationPostGen on ChatService {
         // must not keep the tick, wear, chip, or save. Regen waits up
         // to 5s in `_yieldSettlingTurn` — without this gate the aborted
         // wear lands, then replay wears again.
-        if (_postGenAbortRequested) {
+        if (_p.postGenAbortRequested) {
           debugPrint(
             '[Clock] running=$_clockRunning '
             'source=${_timeService.clockGateSource} '
@@ -238,16 +294,16 @@ extension ChatServiceGenerationPostGen on ChatService {
             isContinue: t.mode == GenerationMode.continue_,
           );
         } else {
-          await _maybeAdvanceStoryClockAfterReply(t);
-          if (_postGenAbortRequested) {
+          await maybeAdvanceStoryClockAfterReply(t);
+          if (_p.postGenAbortRequested) {
             _clockWriter.abortSlotClockIfThisTurnTicked(
               () => t.streamTarget,
               isContinue: t.mode == GenerationMode.continue_,
             );
           } else {
             _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
-            _tickRefractoryAfterClock(t);
-            _maybeKickDreamPrefetch();
+            _e.entry.tickRefractoryAfterClock(t);
+            _e.side.maybeKickDreamPrefetch();
             await _saveChat();
           }
         }
@@ -292,12 +348,12 @@ extension ChatServiceGenerationPostGen on ChatService {
         // wait then belongs to the old run and must not add a second.
         final run = _autoChatBudget.run;
         if (_ttsService != null && _ttsService!.isSpeaking) {
-          _waitForTtsThenContinue(run);
+          _e.side.waitForTtsThenContinue(run);
         } else {
-          final delayMs = (directorDelaySec * 1000).round();
+          final delayMs = (_entry.director.directorDelaySec * 1000).round();
           Future.delayed(Duration(milliseconds: delayMs), () {
             if (_autoPlayActive &&
-                !_isGenerating &&
+                !_p.isGenerating &&
                 _autoChatBudget.run == run) {
               _autoPlayNext();
             }
@@ -316,16 +372,14 @@ extension ChatServiceGenerationPostGen on ChatService {
   /// this sets what the NEXT speaker is told. Continue is the same beat.
   /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
   /// they tick time-only (no Today rewrite).
-  Future<void> _maybeAdvanceStoryClockAfterReply(GenTurn t) async {
+  Future<void> maybeAdvanceStoryClockAfterReply(GenTurn t) async {
     // The planner's today line moves here (and a day that rolls retires it):
     // those writes belong to this reply and rewind with it.
-    objectivesDoor.turnOps.reply = t.streamTarget.isUser
-        ? null
-        : t.streamTarget;
+    _objectives.turnOps.reply = t.streamTarget.isUser ? null : t.streamTarget;
     try {
       await _advanceStoryClockAfterReply(t);
     } finally {
-      objectivesDoor.turnOps.reply = null;
+      _objectives.turnOps.reply = null;
     }
   }
 
@@ -335,7 +389,7 @@ extension ChatServiceGenerationPostGen on ChatService {
       '[Clock] running=$_clockRunning '
       'source=${_timeService.clockGateSource} '
       'porchLife=$porch '
-      'mode=${t.mode.name} abort=$_postGenAbortRequested',
+      'mode=${t.mode.name} abort=${_p.postGenAbortRequested}',
     );
     if (t.mode == GenerationMode.continue_) {
       // Continue does not add minutes. A named time in the new
@@ -393,12 +447,12 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (named == null) {
       await _realismEvals.evaluatePhysicalStateCall(
         timeOnly: true,
-        skipTodayEval: _isLiteTurn(t),
+        skipTodayEval: _e.entry.isLiteTurn(t),
         // Director and AFK turns never move the scene (design §3): the
         // clock may still tick, but the model is not offered a move it
         // narrated on an autopilot turn, where the author is away from
         // the keyboard and cannot confirm one anyway.
-        sceneMovesAllowed: !_isLiteTurn(t) && !_observerMode,
+        sceneMovesAllowed: !_e.entry.isLiteTurn(t) && !_observerMode,
       );
     } else {
       await _timeService.applyReconciledClock(named);
@@ -410,7 +464,7 @@ extension ChatServiceGenerationPostGen on ChatService {
       // already stamps through writeSlotClock above.
       _clockWriter.writeSlotClock(msg, kind: SlotClockWrite.tick);
     }
-    if (named == null && _isLiteTurn(t) && _clockRunning) {
+    if (named == null && _e.entry.isLiteTurn(t) && _clockRunning) {
       _clockWriter.writeSlotClock(msg, kind: SlotClockWrite.tick);
     }
     if (_timeService.takeReplySkipMinutes() >= kLongSkipMinutes) {
@@ -425,16 +479,5 @@ extension ChatServiceGenerationPostGen on ChatService {
       'stamped=${_timeService.bodyTimeLabel} '
       'slot=${t.streamTarget.swipeIndex}',
     );
-  }
-}
-
-/// The post-gen abort latch's test hook (Realism's other test hooks are on
-/// the realism bridge).
-extension ChatServicePostGenTestHooks on ChatService {
-  /// Test-only: mark the in-flight post-gen as rejected so lite/engine
-  /// finalize can prove they skip wear (same flag `_yieldSettlingTurn` sets).
-  @visibleForTesting
-  void debugRequestPostGenAbort() {
-    _postGenAbortRequested = true;
   }
 }

@@ -373,7 +373,8 @@ extension RealismTransportWiring on RealismGraph {
       isBackendReady: () => lanes.sideLane.isReady,
       modelKnown: () => !transport.localModelUnknown,
       isBusy: () =>
-          deps.hooks.isGenerating() || (provider()?.gpuSwapBusy ?? false),
+          deps.doors.turn().progress.isGenerating ||
+          (provider()?.gpuSwapBusy ?? false),
       workerLaneReadyForPing: () =>
           provider()?.workerLaneReadyForAutoPing ?? true,
       onNotify: deps.notify,

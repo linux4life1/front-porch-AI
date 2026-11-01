@@ -80,7 +80,7 @@ class ChatImporter {
     if (_session.activeCharacter == null && _session.activeGroup == null) {
       throw Exception('No active character or group');
     }
-    if (_host.isTurnBusy()) throw ChatImportBusy();
+    if (_host.turn().isTurnBusy) throw ChatImportBusy();
     _importing = true;
     try {
       if (testImportHold != null) await testImportHold!.future;

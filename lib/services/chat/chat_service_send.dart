@@ -177,7 +177,7 @@ extension ChatServiceSend on ChatService {
     // captured callerHeldSettling=true and wedged _isTurnBusy for the
     // session.
     try {
-      if (_isPostGenerating) {
+      if (turnEngine.progress.isPostGenerating) {
         _sendWaitingOnSettle = true;
         notifyListeners();
       }
@@ -220,7 +220,7 @@ extension ChatServiceSend on ChatService {
     // done; ones still pending (never made it into a prompt) stay queued for
     // THIS turn. Cleared here, not at prompt build, so a regenerate of the
     // reacting reply reproduces the reaction.
-    _pocketsLedger.dropConsumedItemIntros();
+    realism.pocketsLedger.dropConsumedItemIntros();
 
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.
@@ -247,7 +247,7 @@ extension ChatServiceSend on ChatService {
     // message" unambiguous, and consuming the text as a command would drop
     // the attachment silently.
     if (command) {
-      final handled = await _ensureCommandHandler().handle(trimmed);
+      final handled = await turnEngine.entry.commandHandler().handle(trimmed);
       if (handled) return;
       // Unknown command — fall through and send as a normal message.
     }
@@ -269,7 +269,7 @@ extension ChatServiceSend on ChatService {
       // note. It runs the same turn as any send (dreams, time skips, chaos,
       // @Name cues, Needs, the clock); only the judges that score the user's
       // message stand down, because there is no user message to score.
-      final directing = _directing;
+      final directing = entryDoor.director.directing;
       final imagePath = directing
           ? null
           : await mediaDoor.persistTurnImage(imageBytes);
@@ -456,7 +456,7 @@ extension ChatServiceSend on ChatService {
           _exitCallEvalModelSwap();
           return;
         }
-        await _episodeCrumbs.maybeMint(before, _timeService.clock);
+        await realism.episodeCrumbs.maybeMint(before, _timeService.clock);
         // A day or more (this line, or the calendar since the last turn):
         // settle the moment the scene left; a skip line also gets the
         // narrator to fill in the gap before anyone replies.

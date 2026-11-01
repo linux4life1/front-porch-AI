@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.da
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -41,6 +42,7 @@ class EditDeps {
     required this.characterIdFor,
     required this.saveChat,
     required this.notify,
+    required this.engine,
     required this.turn,
     required this.realism,
     required this.cast,
@@ -64,6 +66,10 @@ class EditDeps {
   /// moment the old code did, so a listener still sees each transition.
   final void Function() notify;
 
+  /// The turn engine: the generation, its flags (generating, settling,
+  /// Stop, the phase), the settling yield, the backend check, the memory
+  /// epoch, the regen judge replay and delete's Needs and Pockets rewinds.
+  final TurnEngine Function() engine;
   final EditTurnHooks turn;
   final EditRealismHooks realism;
   final EditCastHooks cast;

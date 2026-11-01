@@ -43,6 +43,7 @@ import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -654,6 +655,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       growthDesk: _noDoorDep,
       objectives: () => objectivesDoor,
       prompts: _noDoorDep,
+      turn: _noDoorDep,
       characterIdFor: characterIdFor,
       saveChat: () async {},
       notify: () {},
@@ -676,6 +678,14 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   /// forwarders above answer empty instead.
   @override
   PromptAssembler get promptAssembler => _noDoorDep();
+
+  /// The turn engine behind the turn bridge (stop, Continue, the token and
+  /// sentence streams, the settle flag). Goldens run no turn: the status
+  /// forwarders above answer from this fake's fields, and a bridge member
+  /// read a private of the real service before, which threw here too, so
+  /// it throws.
+  @override
+  TurnEngine get turnEngine => _noDoorDep();
 
   // Scene-guest "regenerate the buried host" affordance. These unit goldens never
   // set up a host buried under Lite-NPC replies, so null = MessageBubble shows no
@@ -711,6 +721,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
       characterIdFor: characterIdFor,
       saveChat: ({replaceAll = false}) async {},
       notify: notifyListeners,
+      engine: _noDoorDep,
       turn: _UnwiredEditHooks(),
       realism: _UnwiredEditHooks(),
       cast: _UnwiredEditHooks(),

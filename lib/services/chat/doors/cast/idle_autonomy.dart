@@ -18,7 +18,9 @@
 
 import 'dart:async';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_deps.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
 
 /// Dynamic ("AFK") autonomous responses: the idle timer's lifecycle. When
@@ -47,6 +49,7 @@ class IdleAutonomy {
   int consecutiveAutoResponses = 0;
 
   CastShellHooks get _h => _d.hooks;
+  TurnEngine get _turn => _d.turn();
   GenerationSettings get _gen => _d.storage.generationSettings;
 
   /// Called when the user leaves the chat page.
@@ -91,7 +94,7 @@ class IdleAutonomy {
 
   void _onIdleTimerFired() {
     if (_h.disposed()) return;
-    if (_h.isTurnBusy()) {
+    if (_turn.isTurnBusy) {
       resetIdleTimer();
       return;
     }
@@ -114,8 +117,12 @@ class IdleAutonomy {
     autoResponseInProgress = true;
     consecutiveAutoResponses++;
 
-    _h
-        .generate(forceSpeaker: staged.speaker, autonomous: true)
+    _turn
+        .generate(
+          GenerationMode.normal,
+          forceSpeaker: staged.speaker,
+          autonomous: true,
+        )
         .then((_) {
           pendingIdleCue = null;
           resetIdleTimer();

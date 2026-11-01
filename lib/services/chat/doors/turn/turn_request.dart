@@ -239,7 +239,7 @@ class TurnRequest {
             : null,
         images: turnImages,
         kvChat: _session.currentSessionId,
-        stillWant: () => !_d.hooks.cancelRequested(),
+        stillWant: () => !_d.doors.turn().progress.cancelRequested,
         chatMessages: _a.tokenAlts.seededMessages(t, p),
         onLogprobs: _a.tokenAlts.logprobsSink(t),
       );
@@ -362,7 +362,7 @@ class TurnRequest {
     // speech start while the mouth is still unloaded.
     await _llmProvider?.waitForWorkerLaneIdle(pinSpeech: true);
     t.stream = llmService.generateStream(genParams);
-    _d.hooks.enterPrefill(t, prompt);
+    _d.doors.turn().enterPrefill(t, prompt);
   }
 
   /// Latest user line for the web-search doorbell. promptText, so a photo

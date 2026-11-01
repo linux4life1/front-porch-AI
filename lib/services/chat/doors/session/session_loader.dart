@@ -270,8 +270,8 @@ class SessionLoader {
       _whileSwitchingChat(() async {
         // A streaming reply is cut, as on entering a character; one still
         // settling finishes in the chat it started in.
-        await _h.cancelAndWaitForGeneration();
-        await _h.waitForTurnToSettle();
+        await _s.turn().stops.cancelAndWaitForGeneration();
+        await _s.turn().waitForTurnToSettle();
         await _store.newChat.open(personaId: personaId);
       });
 
@@ -299,7 +299,7 @@ class SessionLoader {
     // A reload mid-settle reads rows the finishing turn hasn't persisted yet
     // (chip attach's save can land AFTER getMessagesForSession below),
     // and that turn's finalization would then write onto the replaced list.
-    await _h.waitForTurnToSettle();
+    await _s.turn().waitForTurnToSettle();
     // Persist the chat we are LEAVING before replacing the messages from
     // rows — only when this load actually switches sessions. A SAME-session
     // reload must NOT flush: flushPendingSaves is a full save, so it would

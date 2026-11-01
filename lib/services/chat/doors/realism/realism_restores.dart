@@ -87,7 +87,9 @@ class RealismRestores {
   /// back or the next save writes the deleted member onto the speaker.
   void keepingLiveSpeaker(void Function() body) {
     final live = _session.activeCharacter;
-    if (_activeGroup == null || !_g.deps.hooks.isTurnBusy() || live == null) {
+    if (_activeGroup == null ||
+        !_g.deps.doors.turn().isTurnBusy ||
+        live == null) {
       body();
       return;
     }

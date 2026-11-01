@@ -28,54 +28,27 @@ mixin ChatServiceFieldBag {
   /// cache of it. Moves with the database, so it is re-made on a swap.
   StreamSubscription<String>? _deletedChats;
 
-  /// True while Try again (regenerate on a trailing user line) runs. That
-  /// regen holds `_isPostGenerating`, but no reply exists to keep.
-  bool _answeringUnansweredLine = false;
-
   bool _disposed = false;
   // Dynamic Responses, Scene Guests, the Away pulse and the director's scene
   // live on the cast door (ChatService.castDoor, doors/cast/).
 
-  ChatCommandHandler? _commandHandler;
-
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
-  // (read in _maybeRunCastDetection). kCastScanInterval → chat_defaults.dart.
+  // (read in the turn engine's cast scan, TurnEntry). kCastScanInterval → chat_defaults.dart.
 
   /// Serializes [sendMessage] so two composer taps during settle cannot
-  /// both pass `_isGenerating` and then both run after the wait.
+  /// both pass `isGenerating` and then both run after the wait.
   Future<void> _sendChain = Future.value();
-  bool _isGenerating = false;
-
-  /// True while the awaited POST-generation work is still running.
-  ///
-  /// `_isGenerating` is cleared the moment the last token lands, but the turn
-  /// is not finished there: the needs-impact eval, the realism-state re-stamp,
-  /// the `RealismDance.saveScalarsIntoGroup` persist and the chip attach all run
-  /// afterwards, and in a group they run under an impersonation dance that
-  /// reassigns `_session.activeCharacter` and loads that member's scalars. For those
-  /// seconds the app used to report "not generating" while the engine was
-  /// still mutating state, so every re-entrancy guard stood open: a delete
-  /// could shift the timeline under a running eval, and a new turn could
-  /// interleave with the previous one's persist.
-  ///
-  /// Deliberately NOT held across the fire-and-forget passes (journal, growth,
-  /// promise-debt, embed, periodic evals). Those are unawaited by design and
-  /// can run indefinitely; blocking input until they finish would trade a race
-  /// for a wedged UI, which is the worse bug.
-  bool _isPostGenerating = false;
   // An import in flight (`isImporting`) and the `.porch` chat-move claim
   // live on the transfer doors (chatImporter, chatPackager).
 
-  // (_isTurnBusy — "this turn is still in motion" predicate for mutation
-  // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
-  // keep testing _isGenerating alone — moved to chat_service_generation_stream.dart)
+  // The turn's flags (isGenerating, the settling window, Stop, the epoch),
+  // the status bar's numbers, the display buffer and the token and sentence
+  // streams live on the turn engine (ChatService.turnEngine.progress).
 
   // The forked-in entrances' flag lives on the entry door
   // (entryDoor.entrancesInFlight).
   // The session-load and chat-switch flags, the history window and the
   // save chain live on the session store (ChatService.sessionStore).
-  bool _cancelRequested = false;
-  int _generationEpoch = 0;
 
   /// The open chat every domain reads (messages, session id, character,
   /// group manager). Its session id setter tells KoboldCpp which chat is open.
@@ -110,42 +83,6 @@ mixin ChatServiceFieldBag {
       debugPrint('[Chat] KoboldCpp could not be told which chat is open: $e');
     }
   }
-
-  double _generationProgress = 0.0;
-
-  // Real-absence awareness (Living Time §2) lives on the session store.
-  int _tokensGenerated = 0;
-  int _maxTokens = 0;
-  DateTime? _generationStartTime;
-  GenerationPhase _generationPhase = GenerationPhase.idle;
-  DateTime? _prefillStartTime; // When we entered prefill (for elapsed timer)
-  int _prefillPromptTokens =
-      0; // Estimated prompt token count for progress display
-  Map<String, dynamic>? _lastPerfData; // Cached KoboldCPP perf data
-  final List<String> _tokenBuffer = [];
-  Timer? _drainTimer;
-  int _displayedTokenCount = 0;
-  final List<DateTime> _tokenTimestamps =
-      []; // Rolling window for TPS measurement
-
-  // ── Streaming rebuild throttle ──
-  // _notifyStreamListeners coalesces per-token notifies into at most one per
-  // ~33 ms with a guaranteed trailing notify (the final token batch always
-  // paints). End-of-turn paths still call plain notifyListeners() directly,
-  // so terminal state (isGenerating=false, chips, perf) is never throttled.
-  DateTime _lastStreamNotify = DateTime.fromMillisecondsSinceEpoch(0);
-  Timer? _streamNotifyTimer;
-  // (_notifyStreamListeners lives in chat_service_generation_stream_accessors)
-
-  // ── Web token broadcast (the web StreamHub's real-time token feed) ──
-  final StreamController<String> _tokenBroadcast =
-      StreamController<String>.broadcast();
-
-  /// Emits complete sentences as they're detected during LLM token streaming.
-  /// Used by call mode to start TTS on the first sentence immediately.
-  final StreamController<String> _sentenceBroadcast =
-      StreamController<String>.broadcast();
-  String _sentenceBuffer = ''; // accumulates tokens until a sentence boundary
 
   // Voice call mode lives on the controls door (controlsDoor.callMode).
 
@@ -191,4 +128,208 @@ mixin ChatServiceFieldBag {
 
   // The Feelings rescore flag and crossings, and the word-rewrite seed, live
   // on the edits door (editsDoor.reprocess, editsDoor.tokenAlts).
+}
+
+/// The Realism graph's, the session store's, the entry door's and the
+/// prompt assembler's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling the door itself (WP10c, WP11).
+extension _ChatServiceDoorNames on ChatService {
+  // State the graph owns.
+  bool get _realismEvalCancelled => realism.evalStatus.cancelled;
+  set _realismEvalCancelled(bool v) => realism.evalStatus.cancelled = v;
+  Map<String, dynamic>? get _pendingRealismMetadata =>
+      realism.registers.pending;
+  set _pendingRealismMetadata(Map<String, dynamic>? v) =>
+      realism.registers.pending = v;
+  String get _characterEmotion => realism.registers.emotion;
+  String get _emotionIntensity => realism.registers.intensity;
+  set _isGrowthPassRunning(bool v) => realism.growthPassRunning = v;
+  ChatPlaceSlots get _chatPlaceSlots => realism.places.slots;
+  LorebookTimedEffects get _loreTimedEffects => realism.lore.timedEffects;
+  ToolTransportProbe get _toolProbe => realism.transport.probe;
+
+  // The leaves.
+  LorebookScanner get _lorebookScanner => realism.lore.scanner;
+  TimeService get _timeService => realism.time;
+  ChaosModeService get _chaosModeService => realism.chaos;
+  NeedsSimulation get _needsSimulation => realism.needs;
+  Map<String, GroupMemberRealism> get _groupRealism => realism.groups.members;
+  NeedsPass get _needsPass => realism.needsPass;
+  MoodRegisters get _mood => realism.mood;
+  RealismSnapshot get _realismSnapshot => realism.snapshot;
+  RealismDance get _realismDance => realism.dance;
+  RelationshipService get _relationshipService => realism.relationship;
+  ExpressionService get _expressionService => realism.expression;
+  DreamService get _dreamService => realism.dreams;
+  JournalStore get _journalStore => realism.journalStore;
+  PorchMemoryImportService get _porchMemoryImport => realism.porchImport;
+  ToolSupportTester get _toolSupportTester => realism.toolSupportTester;
+
+  // Behaviour.
+  RealismScope _realismScope() => realism.scope;
+  bool get _realismActiveThisMode => realism.realismActiveThisMode;
+  String get _evalBackendIdentity => realism.transport.backendIdentity;
+  PlayerSkip _buildPlayerSkip() => realism.playerSkip();
+  void _restoreRealismStateFromMessage(
+    ChatMessage? msg, {
+    String? groupSpeakerId,
+    bool restoreClock = false,
+  }) => realism.restores.fromMessage(
+    msg,
+    groupSpeakerId: groupSpeakerId,
+    restoreClock: restoreClock,
+  );
+  void _applyMoodDecay() => realism.restores.applyMoodDecay();
+
+  // The prompt assembler and the entry door.
+  set _lastUserMessageAt(DateTime? at) =>
+      promptAssembler.lastUserMessageAt = at;
+  void _enterCallEvalModelSwap() => promptAssembler.callSwap.enter();
+  void _exitCallEvalModelSwap() => promptAssembler.callSwap.exit();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
+  set _groupChatRepository(GroupChatRepository? repo) =>
+      entryDoor.groupRepository = repo;
+  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
+
+  // The session store.
+  set _summaryPaused(bool v) => sessionStore.summaryPaused = v;
+  bool get _isSummaryGenerating => sessionStore.isSummaryGenerating;
+  set _isSummaryGenerating(bool v) => sessionStore.isSummaryGenerating = v;
+  bool get _isNewChat => sessionStore.isNewChat;
+  set _isNewChat(bool v) => sessionStore.isNewChat = v;
+  bool get _isLoadingSession => sessionStore.isLoadingSession;
+  int get _chatSwitches => sessionStore.chatSwitches;
+  bool get _absenceAckPending => sessionStore.absenceAckPending;
+  set _absenceAckPending(bool v) => sessionStore.absenceAckPending = v;
+  bool get _absenceAckConsumed => sessionStore.absenceAckConsumed;
+  set _absenceAckConsumed(bool v) => sessionStore.absenceAckConsumed = v;
+
+  // The today line (TodaySentence).
+  set _onTodayAbandoned(void Function(String? held)? v) =>
+      sessionStore.today.onTodayAbandoned = v;
+  void _clearTodayPointer() => sessionStore.today.clearTodayPointer();
+
+  // Load, save and the window.
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      sessionStore.save(replaceAll: replaceAll);
+  void _rememberRecapEdit(String text) => sessionStore.rememberRecapEdit(text);
+  Future<void> _awaitHistoryHydrated() =>
+      sessionStore.window.awaitHistoryHydrated();
+}
+
+/// The cast door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.castDoor] itself (WP10c, WP11).
+extension _ChatServiceCastNames on ChatService {
+  /// The unified ordered cast of speakers for the active chat, regardless of
+  /// mode. This is the single roster the UI reads instead of branching on
+  /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
+  /// `sceneGuestCards`:
+  ///   - Group chat → each group member, in turn order (no distinct host).
+  ///   - 1:1 / NPC chat → the host (`cast[0]`, realism-bearing) followed by any
+  ///     present Scene Guests (lite NPCs, realism off).
+  /// Empty only when no chat is loaded.
+  List<ChatParticipant> get _castImpl {
+    if (isGroupMode) {
+      return [
+        for (final c in groupCharacters)
+          ChatParticipant(card: c, isHost: false),
+      ];
+    }
+    final host = _session.activeCharacter;
+    return [
+      if (host != null) ChatParticipant(card: host, isHost: true),
+      for (final g in _sceneGuest.cards)
+        ChatParticipant(card: g, isHost: false, isSceneGuest: true),
+    ];
+  }
+
+  SceneGuestState get _sceneGuest => castDoor.guests.state;
+  AwayPulseState get _awayPulse => castDoor.away.state;
+  bool get _narrating => castDoor.narrating;
+  set _stoppedReplyAnchor(ChatMessage? v) =>
+      castDoor.guests.stoppedReplyAnchor = v;
+  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
+  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
+  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
+
+  bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
+  void _setGuestStatus(
+    String? msg, {
+    bool isError = false,
+    bool sticky = false,
+  }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
+  void _clearExitUndo() => castDoor.guests.clearExitUndo();
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      castDoor.guests.isGuestAuthoredMessage(m);
+  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
+      castDoor.guests.sceneGuestForMessage(m);
+  CharacterCard? _directAddressRoutedGuest(String promptText) =>
+      castDoor.guests.directAddressRoutedGuest(promptText);
+  Future<void> _resolveSceneGuestCards() =>
+      castDoor.guests.resolveSceneGuestCards();
+
+  Future<void> _commitPendingMemberExit() =>
+      castDoor.roster.commitPendingMemberExit();
+  bool _speakerIsSoft(CharacterCard speaker) =>
+      castDoor.roster.speakerIsSoft(speaker);
+  Future<bool> _bridgeLongSkip({
+    required DateTime from,
+    required int skipped,
+    required ChatMessage skipLine,
+    required String? token,
+  }) => castDoor.stage.bridgeLongSkip(
+    from: from,
+    skipped: skipped,
+    skipLine: skipLine,
+    token: token,
+  );
+
+  Future<void> _invalidateGreetingEval() =>
+      castDoor.greetings.invalidateGreetingEval();
+  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
+      castDoor.greetings.buildFirstMessage(
+        character,
+        greetingText: greetingText,
+      );
+  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
+  Future<void> _applyGreetingOpeningSeed({
+    required CharacterCard card,
+    required int index,
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGreetingOpeningSeed(
+    card: card,
+    index: index,
+    scheduleEval: scheduleEval,
+  );
+  Future<void> _applyGroupCustomGreetingSeed(
+    int index, {
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
+    index,
+    scheduleEval: scheduleEval,
+  );
+  void _stampGreetingIndex(int index) =>
+      castDoor.greetings.stampGreetingIndex(index);
+
+  Future<void> _runAwayPulse({
+    required String userText,
+    required bool fromUserSend,
+  }) => castDoor.away.runAwayPulse(
+    userText: userText,
+    fromUserSend: fromUserSend,
+  );
+  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
+  void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
+}
+
+/// The turn engine's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt the send spine retires by calling
+/// [ChatService.turnEngine] itself (WP10c).
+extension _ChatServiceTurnNames on ChatService {
+  bool get _isGenerating => turnEngine.progress.isGenerating;
+  bool get _isTurnBusy => turnEngine.isTurnBusy;
 }

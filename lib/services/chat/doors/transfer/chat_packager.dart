@@ -197,7 +197,7 @@ class ChatPackager {
   /// Throws [ChatImportBusy] when a turn is live: switching chats must never
   /// happen under a reply that is still streaming or settling.
   Future<List<Uint8List>> exportChatPackagesOf(CharacterCard card) async {
-    if (_host.isTurnBusy()) throw ChatImportBusy();
+    if (_host.turn().isTurnBusy) throw ChatImportBusy();
     final sessions = await _host.sessions().loader.getSessionsForId(
       card.stableGroupId,
     );
@@ -269,7 +269,7 @@ class ChatPackager {
     // Guard BEFORE the export phase, not just inside importChatPackage:
     // phase 1 flips the active character/session, which must never happen
     // under a reply that is still streaming or settling.
-    if (_host.isTurnBusy()) throw ChatImportBusy();
+    if (_host.turn().isTurnBusy) throw ChatImportBusy();
     // Same character on both sides would re-import every chat onto its own
     // owner — instant duplication. Unreachable from the wizard (the target
     // is always a fresh duplicate); this guards the web endpoint's
