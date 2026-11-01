@@ -147,7 +147,7 @@ Live product behaviour, each pinned by a test. Do not collapse the cases.
 | Contract | Rule | Where |
 |----------|------|-------|
 | Mouth speech | Closed think-only body lifts and is spoken; an unclosed cut-off stays tagged, display empty | `lib/utils/think_tags.dart` `resolveMouthSpeech` |
-| Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `chat_service_generation_postgen_engine.dart` |
+| Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `doors/turn/turn_stops.dart`, `doors/turn/post_gen.dart` |
 | Pockets | Hide, never erase: `pocketsFor` is null when off; stored records and the save wire are untouched | `pockets_rewind_test` |
 | Objectives | `objectivesActive` is a live AND of the per-chat switch and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
 | Needs | One gate, `NeedsPass.active` = engine AND chat switch AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
@@ -155,10 +155,10 @@ Live product behaviour, each pinned by a test. Do not collapse the cases.
 | Evals | Score the user's message before generation, never the reply. Regen with the same inputs reproduces the same deltas; non-scalar inputs join `captureCadenceAndFeelings` / `restoreFromMessageState` | `regen_feelings_cadence_test` |
 | Eval transport | Native tool call first, then the regex/JSON text floor. No GBNF on the floor. The prefix-sharing judges send the same `kJudgeEvalTools` list | `docs/design/tools-transport.md` |
 | One-shot | Tri-state auto/on/off; when active it matches the multi-call path; local backends stay multi-call in auto | `one_shot_parity_test` |
-| Post-gen passes | Posture, climax, pockets are post-generation; a fused reply-facts call is transport only, each keeps its own gate | `chat_service_generation_postgen_engine.dart` |
+| Post-gen passes | Posture, climax, pockets are post-generation; a fused reply-facts call is transport only, each keeps its own gate | `doors/turn/post_gen_passes.dart` |
 | Chaos | Per-chat switch plus `chaosModeDefault` OR-override; every conversation start path seeds it (`grep seedFromGroupOrExt`) | `chaos_mode_service.dart` |
 | Journal / Growth | Per chat, per character; cards never cross chats; a Journal rewrite rule applies to Growth too | `swipe_buried_journal_test` |
-| Group restore | Keys by message speaker id, never whoever is active after post-gen; `_saveScalarsIntoGroupRealism` persists group state | `chat_service_group_entry.dart` |
+| Group restore | Keys by message speaker id, never whoever is active after post-gen; `RealismDance.saveScalarsIntoGroup` persists group state | `doors/realism/realism_restores.dart` |
 | Living Worlds | Setting slot owns weather and prose; Lore slots add books only; lore enumerates once per world id | `chat_places_primary_lore_test` |
 
 ## Path-complete chat work

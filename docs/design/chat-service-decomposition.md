@@ -600,8 +600,8 @@ Parts retired (2): `chat_service_accessors`, `chat_service_fields`.
   from `_exceptions` in `test/hygiene/part_file_ratchet_test.dart`, with the
   `approved-test-change` label. From then on the ratchet treats the shell
   like any other library.
-- Delete the field-bag ratchet from WP0 and its baseline; it has nothing
-  left to count. Keep the API manifest.
+- Keep the field ratchet from WP0 and lower its baseline to the shell's
+  own fields, so the shell cannot regrow state. Keep the API manifest.
 - Update CLAUDE.md "Layout" and "Size law": the ChatService shell no longer
   keeps parts. Update `AGENTS.md` to agree.
 
@@ -618,6 +618,36 @@ that now holds the same code. From WP7 on, each package carries exactly
 those path-only re-points for the parts in its scope, with counts
 unchanged and every edit listed in the commit body; that is the
 `approved-test-change` the test-integrity rule asks for.
+
+Landed: `lib/services/chat_service.dart` is one 466-line file with zero
+`part` directives and 9 fields (the four constructor services, the bound
+services holder, the lifetime, the session state, the wiring and the
+bindings). `ChatWiring` builds every door from explicit inputs;
+`ChatBindings` holds init, dispose and the listeners; `ChatLifetime` the
+disposed flag and chat-screen count. The ChatService entry is gone from
+`test/baselines/part_files.json` and from the part ratchet's exceptions,
+so the shell is now an ordinary library to that ratchet. The field ratchet
+stays at 9. The API manifest is unchanged; its one assertion that the class
+had a `with` clause now asserts it has none. CLAUDE.md's Layout, Size law
+and part-library paragraphs describe the door layout.
+
+## Final state
+
+| Measure | Start | End |
+|---|---|---|
+| `part` directives on the shell | 77 | 0 |
+| Instance fields, bag plus shell | 228 | 9 |
+| Shell lines | 499 | 466 |
+| Doors | 0 | 14, plus the lanes leaf and the wiring |
+| Public API manifest | 444 names | 444 plus the 15 door getters |
+
+Every package was verified on the merged tree with the full unit suite,
+the pixel goldens and the integration suites it named, and pushed only
+after that; CI's full matrix ran green on every push. Nothing a user can
+see or configure changed, and `web_ui/` was never touched. A real-model
+poke (KoboldCpp, Qwen 2.5 1.5B, CPU) walked send, regen, swipe, Continue,
+delete, fork to group and a group turn against the booted app after WP9b
+and again after WP11; the readings are in the session summary.
 
 ## Sequencing
 
