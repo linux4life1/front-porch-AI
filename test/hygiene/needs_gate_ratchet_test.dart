@@ -45,12 +45,11 @@ const _stateAndRewinds = <String, String>{
   _pass: 'the gate itself',
   'lib/services/chat/needs_rewinds.dart':
       'rewinds (restore, refund) of a stamp a reply carries, refunds a delete',
-  'lib/services/chat/chat_service_chat_entry.dart': 'seeds the bars at open',
-  'lib/services/chat/chat_service_group_entry.dart': 'seeds the bars at open',
+  'lib/services/chat/doors/entry/chat_entry.dart': 'seeds the bars at open',
+  'lib/services/chat/doors/entry/group_entry.dart': 'seeds the bars at open',
   'lib/services/chat/chat_service_group_lite.dart':
       'seeds a soft member who becomes full',
-  'lib/services/chat/chat_service_group_members.dart':
-      'seeds a member who joins',
+  'lib/services/chat/doors/entry/group_roster.dart': 'seeds a member who joins',
   'lib/services/chat/chat_service_greeting_seed.dart': 'seeds from a greeting',
   'lib/services/chat/doors/session/session_seed.dart': 'seeds from an import',
   'lib/services/chat/doors/session/session_scalars.dart':

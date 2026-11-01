@@ -180,7 +180,6 @@ extension _ChatServiceCastNames on ChatService {
   set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
   int get _greetingIndex => castDoor.greetings.greetingIndex;
   bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
-  set _greetingEvalPending(bool v) => castDoor.baseline.greetingEvalPending = v;
   bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
   set _isProcessingGreeting(bool v) =>
       castDoor.baseline.isProcessingGreeting = v;
@@ -200,7 +199,6 @@ extension _ChatServiceCastNames on ChatService {
   }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
   void _noteStoppedReply({required bool replyKept}) =>
       castDoor.guests.noteStoppedReply(replyKept: replyKept);
-  void _resetGuestActivityState() => castDoor.guests.resetActivityState();
   void _clearExitUndo() => castDoor.guests.clearExitUndo();
   bool _isGuestAuthoredMessage(ChatMessage m) =>
       castDoor.guests.isGuestAuthoredMessage(m);
@@ -224,28 +222,11 @@ extension _ChatServiceCastNames on ChatService {
     String concept, {
     void Function(String step)? onStatus,
   }) => castDoor.joins.mintSceneGuest(name, concept, onStatus: onStatus);
-  Future<bool> _generateMemberEntrance(CharacterCard card, String intent) =>
-      castDoor.joins.generateMemberEntrance(card, intent);
 
   Future<void> _commitPendingMemberExit() =>
       castDoor.roster.commitPendingMemberExit();
-  Future<void> _deleteMemberCleanup(String charId, String? avatarFilename) =>
-      castDoor.roster.deleteMemberCleanup(charId, avatarFilename);
   bool _speakerIsSoft(CharacterCard speaker) =>
       castDoor.roster.speakerIsSoft(speaker);
-  Future<bool> _collapseGroupToSolo(GroupChatRepository repo) =>
-      castDoor.collapse.collapseGroupToSolo(repo);
-  Future<void> _carryHostStateIntoForkedGroup(
-    String hostName,
-    String originalCharId,
-    String? hostSessionId,
-    Map<String, dynamic> state,
-  ) => castDoor.collapse.carryHostStateIntoForkedGroup(
-    hostName,
-    originalCharId,
-    hostSessionId,
-    state,
-  );
   Future<bool> _bridgeLongSkip({
     required DateTime from,
     required int skipped,
@@ -270,8 +251,6 @@ extension _ChatServiceCastNames on ChatService {
         character,
         greetingText: greetingText,
       );
-  String _memberOpeningGreetingText(CharacterCard member) =>
-      castDoor.greetings.memberOpeningGreetingText(member);
   CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
   bool get _isOpeningGreetingChat => castDoor.greetings.isOpeningGreetingChat;
   Future<void> _applyGreetingOpeningSeed({

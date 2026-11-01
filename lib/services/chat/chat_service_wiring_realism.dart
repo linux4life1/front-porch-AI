@@ -160,8 +160,6 @@ extension ChatServiceWiringRealism on ChatService {
 
   /// Per-member group realism state; the map lives on [GroupRealismStore].
   Map<String, GroupMemberRealism> get _groupRealism => _groupStore.members;
-  set _groupRealism(Map<String, GroupMemberRealism> v) =>
-      _groupStore.members = v;
 
   GroupRealismStore _buildGroupStore() => GroupRealismStore(
     isGroup: () => _activeGroup != null,

@@ -39,6 +39,7 @@ import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
@@ -752,6 +753,23 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     ),
   );
 
+  /// The entry door behind the entry bridge (opening a chat, the group
+  /// roster, per-member reads and switches, Director Mode). Its session,
+  /// services and hooks are unwired, so a read or write throws as a private
+  /// read on this fake always did; the loading cover and the group RAG
+  /// knobs read [sessionStore] and notify this fake, as they did.
+  @override
+  late final EntryDoor entryDoor = EntryDoor(
+    EntryDeps(
+      session: _UnwiredSession(),
+      sessions: () => sessionStore,
+      services: _UnwiredEntryHooks(),
+      hooks: _UnwiredEntryHooks(),
+      shared: _UnwiredSessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
   /// Transfer doors over an empty session and an unwired host: goldens never
   /// import or export, so no database or LLM stands behind them.
   @override
@@ -781,6 +799,20 @@ class _UnwiredCastHooks implements CastShellHooks {
 /// The session store's services and hooks with nothing wired: any read is a
 /// NoSuchMethodError, as a private member read on this fake always was.
 class _UnwiredSessionHooks implements SessionServices, SessionShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// The entry door's services and hooks with nothing wired: any read is a
+/// NoSuchMethodError, as a private member read on this fake always was.
+class _UnwiredEntryHooks implements EntryServices, EntryShellHooks {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A chat session with nothing behind it: the entry bodies read the open
+/// chat through the service's private session, which this fake never had.
+class _UnwiredSession implements ChatSessionState {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

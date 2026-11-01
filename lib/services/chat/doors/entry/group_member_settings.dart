@@ -16,24 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 
-/// Per-group-character **settings** — RAG/memory tuning, per-character Author's
-/// Note, and per-character system-prompt overrides — stored in the group's
-/// in-memory maps. Extracted verbatim from `chat_service.dart` (zero behaviour
-/// change) to shrink the god file; as `part of` the same library it reaches the
-/// private group maps, `_activeGroup`, `_getCharacterIdFromCard`, and `_saveChat`
-/// exactly as the in-class methods did.
-extension ChatServiceGroupSettings on ChatService {
+import 'entry_door.dart';
+
+/// A group member's settings in this chat: the RAG knobs, their Author's
+/// Note and system prompt (the session store's [GroupSessionConfig], saved
+/// in the session blob), their own Afterglow switch (on their member card)
+/// and the group's turn order.
+class GroupMemberSettings {
+  GroupMemberSettings(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  SessionStore get _store => _d.sessions();
+  GroupSessionConfig get _group => _store.groupConfig;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  RealismScope get _scope => _s.realism();
+  GroupRealismStore get _groupStore => _scope.groups;
+  NsfwService get _nsfwService => _scope.nsfw();
+  String _getCharacterIdFromCard(CharacterCard c) =>
+      _d.shared.characterIdFor(c);
+
   // ── Group RAG / Memory Settings (stored in checkpoint) ───────────────────
-  bool get groupRagEnabled => _groupRagEnabled;
+  bool get groupRagEnabled => _group.ragEnabled;
 
-  int get groupRetrievalCount => _groupRetrievalCount;
+  int get groupRetrievalCount => _group.retrievalCount;
 
-  double get groupMemoryBudgetPercent => _groupMemoryBudgetPercent;
+  double get groupMemoryBudgetPercent => _group.memoryBudgetPercent;
 
   Map<String, double> get currentGroupRAGPriorities =>
-      Map.unmodifiable(_groupCharacterRAGPriorities);
+      Map.unmodifiable(_group.characterRAGPriorities);
 
   /// RAG retrieval priority for [c] in the active group (1.0 = neutral).
   /// Card-keyed on purpose: storage uses the stable character id — the same
@@ -41,33 +59,33 @@ extension ChatServiceGroupSettings on ChatService {
   /// the settings dialog only has cards. The old NAME-keyed dialog reads
   /// always missed and every character showed 1.0.
   double ragPriorityForGroupCharacter(CharacterCard c) =>
-      _groupCharacterRAGPriorities[_getCharacterIdFromCard(c)] ?? 1.0;
+      _group.characterRAGPriorities[_getCharacterIdFromCard(c)] ?? 1.0;
 
   void setRAGPriorityForGroupCharacter(CharacterCard c, double priority) {
     if (_activeGroup == null) return;
-    _groupCharacterRAGPriorities[_getCharacterIdFromCard(c)] = priority;
-    notifyListeners();
+    _group.characterRAGPriorities[_getCharacterIdFromCard(c)] = priority;
+    _d.notify();
   }
 
   void setGroupRAGEnabled(bool value) {
     if (_activeGroup == null) return;
-    _groupRagEnabled = value;
+    _group.ragEnabled = value;
     // (old checkpoint call removed in v30)
-    notifyListeners();
+    _d.notify();
   }
 
   void setGroupRetrievalCount(int value) {
     if (_activeGroup == null) return;
-    _groupRetrievalCount = value;
+    _group.retrievalCount = value;
     // (old checkpoint call removed in v30)
-    notifyListeners();
+    _d.notify();
   }
 
   void setGroupMemoryBudgetPercent(double value) {
     if (_activeGroup == null) return;
-    _groupMemoryBudgetPercent = value;
+    _group.memoryBudgetPercent = value;
     // (old checkpoint call removed in v30)
-    notifyListeners();
+    _d.notify();
   }
 
   /// Whether the active group currently uses RANDOM turn order (vs round-robin).
@@ -83,19 +101,16 @@ extension ChatServiceGroupSettings on ChatService {
   /// Whether Afterglow runs for [member] in this chat: Porch Life (with 18+)
   /// allows it, the chat's switch is on and, in a group, the member's own.
   bool afterglowRunsFor(CharacterCard member) =>
-      _storageService.realismSettings.afterglowEnabled &&
+      _s.storage.realismSettings.afterglowEnabled &&
       (_activeGroup == null
           ? _nsfwService.storedNsfwCooldownEnabled
           : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
 
   /// A group member's own Afterglow switch, kept on their card in this group
   /// (unset reads on). Switching it either way settles their Lust and any
-  /// recovery, as the chat's switch does. Class forwarder:
-  /// [ChatService.setMemberAfterglowEnabled].
-  Future<void> _setMemberAfterglowEnabledImpl(
-    CharacterCard member,
-    bool on,
-  ) async {
+  /// recovery, as the chat's switch does. The service keeps a one-line
+  /// class forwarder of the same name, which the golden fake overrides.
+  Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
     if (_activeGroup == null) return;
     if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
     member.frontPorchExtensions =
@@ -109,7 +124,7 @@ extension ChatServiceGroupSettings on ChatService {
     if (_nsfwService.loadedMemberId == id) {
       _nsfwService.resetRuntimeArousalAndCooldown();
     }
-    await persistGroupMemberExtensions(memberId: id);
+    await _d.hooks.persistMemberExtensions(id);
   }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).
@@ -130,9 +145,9 @@ extension ChatServiceGroupSettings on ChatService {
     }
     _session.groupManager
         ?.resetTurnState(); // fresh pointer so the order starts at #1
-    await _groupChatRepository?.save(group);
-    await _saveChat();
-    notifyListeners();
+    await _door.groupRepository?.save(group);
+    await _store.save();
+    _d.notify();
   }
 
   /// Returns the Author's Note text (if any) stored specifically for this
@@ -142,16 +157,16 @@ extension ChatServiceGroupSettings on ChatService {
   String getAuthorNoteForGroupCharacter(CharacterCard c) {
     if (_activeGroup == null) return '';
     final id = _getCharacterIdFromCard(c);
-    return _groupAuthorNotes[id] ?? '';
+    return _group.authorNotes[id] ?? '';
   }
 
   /// Returns the strength (1-10) for this character's Author's Note.
   /// Falls back to the group's current authorNoteStrength if no per-character
   /// strength has been explicitly set.
   int getAuthorNoteStrengthForGroupCharacter(CharacterCard c) {
-    if (_activeGroup == null) return _authorNoteStrength;
+    if (_activeGroup == null) return _store.authorNoteStrength;
     final id = _getCharacterIdFromCard(c);
-    return _groupAuthorNoteStrengths[id] ?? _authorNoteStrength;
+    return _group.authorNoteStrengths[id] ?? _store.authorNoteStrength;
   }
 
   /// Sets or clears a per-character Author's Note for the given card while in
@@ -169,18 +184,18 @@ extension ChatServiceGroupSettings on ChatService {
     final trimmed = note.trim();
 
     if (trimmed.isEmpty) {
-      _groupAuthorNotes.remove(id);
-      _groupAuthorNoteStrengths.remove(id);
+      _group.authorNotes.remove(id);
+      _group.authorNoteStrengths.remove(id);
     } else {
-      _groupAuthorNotes[id] = trimmed;
+      _group.authorNotes[id] = trimmed;
       // Store per-character strength if provided, otherwise fall back to group default
-      final effectiveStrength = strength ?? _authorNoteStrength;
-      _groupAuthorNoteStrengths[id] = effectiveStrength;
+      final effectiveStrength = strength ?? _store.authorNoteStrength;
+      _group.authorNoteStrengths[id] = effectiveStrength;
     }
 
     // (old checkpoint call removed in v30)
-    _saveChat();
-    notifyListeners();
+    _store.save();
+    _d.notify();
   }
 
   /// Returns the system prompt (if any) stored specifically for this character
@@ -192,7 +207,7 @@ extension ChatServiceGroupSettings on ChatService {
   String getSystemPromptForGroupCharacter(CharacterCard c) {
     if (_activeGroup == null) return '';
     final id = _getCharacterIdFromCard(c);
-    return _groupCharacterSystemPrompts[id] ?? '';
+    return _group.characterSystemPrompts[id] ?? '';
   }
 
   /// Sets or clears a per-character system prompt override for the given
@@ -207,13 +222,13 @@ extension ChatServiceGroupSettings on ChatService {
     final trimmed = prompt.trim();
 
     if (trimmed.isEmpty) {
-      _groupCharacterSystemPrompts.remove(id);
+      _group.characterSystemPrompts.remove(id);
     } else {
-      _groupCharacterSystemPrompts[id] = trimmed;
+      _group.characterSystemPrompts[id] = trimmed;
     }
 
     // (old checkpoint call removed in v30)
-    _saveChat();
-    notifyListeners();
+    _store.save();
+    _d.notify();
   }
 }

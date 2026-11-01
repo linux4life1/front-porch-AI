@@ -1,40 +1,85 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+import 'entry_door.dart';
 
 /// One-time, idempotent re-key of group stores from a legacy name/
 /// stableGroupId onto [groupMemberStoreId] (UUID when the member has one).
-extension ChatServiceGroupStoreMigrate on ChatService {
+/// The session store runs it after each group blob load.
+class GroupStoreMigrate {
+  GroupStoreMigrate(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  GroupSessionConfig get _group => _d.sessions().groupConfig;
+  GroupRealismStore get _groupStore => _s.realism().groups;
+  AppDatabase get _db => _s.db();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  GrowthDesk get _growthDesk => _s.growthDesk();
+
   /// Move live maps + definition blobs. Persist the group row when
   /// definition keys moved. Returns true when a session-scoped map moved
   /// (caller persists the session once).
-  Future<bool> _rekeyGroupStores() async {
+  Future<bool> rekeyGroupStores() async {
     if (_activeGroup == null) return false;
     final members = _groupCharacters;
     if (members.isEmpty) return false;
 
     var sessionChanged = false;
-    sessionChanged |= migrateGroupStoreKeys(_groupRealism, members);
-    sessionChanged |= migrateGroupStoreKeys(_groupAuthorNotes, members);
-    sessionChanged |= migrateGroupStoreKeys(_groupAuthorNoteStrengths, members);
+    sessionChanged |= migrateGroupStoreKeys(_groupStore.members, members);
+    sessionChanged |= migrateGroupStoreKeys(_group.authorNotes, members);
     sessionChanged |= migrateGroupStoreKeys(
-      _groupCharacterSystemPrompts,
+      _group.authorNoteStrengths,
       members,
     );
     sessionChanged |= migrateGroupStoreKeys(
-      _groupCharacterRAGPriorities,
+      _group.characterSystemPrompts,
       members,
     );
     sessionChanged |= migrateGroupStoreKeys(
-      objectivesDoor.groupObjectives,
+      _group.characterRAGPriorities,
+      members,
+    );
+    sessionChanged |= migrateGroupStoreKeys(
+      _s.objectives().groupObjectives,
       members,
     );
     sessionChanged |= _rekeyGroupMemberRelationships(members);
 
     if (_rekeyGroupDefinitionBlobs(members)) {
       final group = _activeGroup;
-      final repo = _groupChatRepository;
+      final repo = _door.groupRepository;
       if (group != null && repo != null) {
         unawaited(() async {
           try {
@@ -93,7 +138,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
             ? await _db.getObjectivesForCharacter(id, chatId: sid)
             : const <Objective>[];
         final cardRows = await _db.getObjectivesForCharacter(id);
-        objectivesDoor.groupObjectives[id] = [...sessionRows, ...cardRows];
+        _s.objectives().groupObjectives[id] = [...sessionRows, ...cardRows];
       }
     } catch (e) {
       debugPrint('[GroupStore] Failed to hydrate objectives: $e');
@@ -113,7 +158,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
           await _db.rekeyObjectiveCharacterId(legacy, dest, chatId: sid);
         }
         final clash =
-            _characterRepository?.characters.any(
+            _s.characters()?.characters.any(
               (c) => c.stableGroupId == legacy && c.dbId != member.dbId,
             ) ??
             false;
@@ -130,7 +175,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
     final idMap = groupMemberLegacyIdMap(members);
     if (idMap.isEmpty) return false;
     var changed = false;
-    for (final state in _groupRealism.values) {
+    for (final state in _groupStore.members.values) {
       final rels = state.relationships;
       if (rels == null || rels.isEmpty) continue;
       if (!rels.keys.any(idMap.containsKey)) continue;

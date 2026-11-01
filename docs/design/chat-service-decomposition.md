@@ -413,6 +413,17 @@ or membership pass unedited, and `integration_test/group_smoke_test.dart`,
 `group_realism_wiring_test.dart`, `world_starting_place_test.dart` and
 `realism_off_test.dart` pass.
 
+Landed at 39 parts and 159 fields, all seven parts retired. The entry
+door shares the session store's hooks rather than taking its own copy of
+the Realism switch, so the `_ownSwitch` count moved only by the accessor
+declarations: `chat_entry` 4 → 6, `group_entry` 2 → 3, `group_membership`
+2 → `group_fork` 3, plus three path re-points in `needs_gate_ratchet_test`
+and three in the group-card manifest. Entry notifies synchronously
+because the loading cover and history drawer watch each transition.
+Fields the entry parts touched that still sit in the bag are the Realism
+and Needs switches (WP9b), pockets and place slots (WP9a), the generation
+epoch and pending metadata (WP10b) and the macro resolver (WP10a).
+
 ### WP9a. Realism graph
 
 Parts retired (7, ~2,900 lines): `chat_service_wiring_realism`,

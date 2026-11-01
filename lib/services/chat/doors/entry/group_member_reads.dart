@@ -16,25 +16,45 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
 
-/// Per-group-character realism / needs **read** accessors consumed by the UI
-/// (sidebar member cards, group member grid, roster). Pure reads over the
-/// `_groupRealism` map plus the one mutating reset helper; no orchestration.
-///
-/// Extracted verbatim from `chat_service.dart` (zero behaviour change) to shrink
-/// the god file toward the 500-line cap. As a `part of` the same library, this
-/// extension reaches the private `_groupRealism` map, `_getCharacterIdFromCard`,
-/// `_activeGroup`, and `isGroupRealismActive` exactly as the in-class methods did.
-extension ChatServiceGroupRead on ChatService {
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+
+import 'entry_door.dart';
+
+/// Per-member realism and Needs reads for the group UI (sidebar member
+/// cards, the member grid, the phone): pure reads over the group's
+/// per-member map, plus the one reset of a member's state. Each member's
+/// numbers are the same records a 1:1 shows for the same character.
+class GroupMemberReads {
+  GroupMemberReads(this._door, this._d);
+
+  final EntryDoor _door;
+  final EntryDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  EntryServices get _s => _d.services;
+  RealismScope get _scope => _s.realism();
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  GroupRealismStore get _groupStore => _scope.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => _groupStore.members;
+  ExpressionService get _expression => _s.expression();
+  MoodRegisters get _mood => _s.mood();
+  bool get _realismEnabled => _scope.realismEnabled();
+  bool get _clockRunning => _scope.clockRunning();
+  String _getCharacterIdFromCard(CharacterCard c) =>
+      _d.shared.characterIdFor(c);
+
   /// Empty stance fails toward here. Group card glance.
-  String _spatialStanceForGroupCharacterImpl(CharacterCard character) {
+  String spatialStanceForGroupCharacter(CharacterCard character) {
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.spatialStance ?? '';
   }
 
   /// Glance judge for a group card. Null = unknown (keyword fallback).
-  bool? _withUserForGroupCharacterImpl(CharacterCard character) {
+  bool? withUserForGroupCharacter(CharacterCard character) {
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.withUser;
   }
@@ -128,7 +148,7 @@ extension ChatServiceGroupRead on ChatService {
   ({String chip, bool soft, int minutes}) getRefractoryForGroupCharacter(
     CharacterCard character,
   ) {
-    if (!isGroupRealismActive || !afterglowRunsFor(character)) {
+    if (!isGroupRealismActive || !_door.members.afterglowRunsFor(character)) {
       return (chip: '', soft: false, minutes: 0);
     }
     final body =
@@ -146,19 +166,18 @@ extension ChatServiceGroupRead on ChatService {
   /// Porch Life's Expressions switch: the phone shows a mood picture only
   /// while it is on, as the desktop sidebar does.
   bool get expressionsEnabled =>
-      _storageService.expressionSettings.expressionEnabled;
+      _s.storage.expressionSettings.expressionEnabled;
 
   /// The face label for [character]. In 1:1, the chat's label. In a group,
   /// the member's own mood: the live label (ONNX) is theirs only when it was
   /// classified from a reply they wrote, never a System row or a streaming
   /// placeholder.
   String? expressionLabelFor(CharacterCard character) {
-    if (_activeGroup == null) return currentExpressionLabel;
-    if (_storageService.expressionSettings.expressionClassificationMode ==
-        'onnx') {
+    if (_activeGroup == null) return _expression.currentExpressionLabel;
+    if (_s.storage.expressionSettings.expressionClassificationMode == 'onnx') {
       // Read first: it keeps the classifier following new replies.
-      final live = currentExpressionLabel;
-      final source = _expressionService.onnxLabelSource;
+      final live = _expression.currentExpressionLabel;
+      final source = _expression.onnxLabelSource;
       final speaker = source == null || source.sender == 'System'
           ? null
           : resolveGroupSpeakerForMessage(
@@ -172,7 +191,7 @@ extension ChatServiceGroupRead on ChatService {
         return live;
       }
     }
-    return _expressionService.labelForEmotion(
+    return _expression.labelForEmotion(
       getEmotionForGroupCharacter(character) ?? '',
     );
   }
@@ -231,75 +250,17 @@ extension ChatServiceGroupRead on ChatService {
       ); // also clears hidden 'relationships' toward other group members
       // (old checkpoint call removed in v30)
       debugPrint('[GroupRealism] Reset per-character state for $id');
-      notifyListeners();
+      _d.notify();
     }
   }
-
-  // ── Clean delegation layer (GroupTurnManager is the real owner); moved
-  // verbatim from the god file's field block, zero behaviour change ──
-  GroupChat? get _activeGroup => _session.groupManager?.activeGroup;
-  List<CharacterCard> get _groupCharacters =>
-      _session.groupManager?.characters ?? const <CharacterCard>[];
-  bool get _observerMode => _session.groupManager?.observerMode ?? false;
-  set _observerMode(bool value) {
-    _session.groupManager?.setObserverMode(value);
-  }
-
-  /// {{user}} is off stage: a group in Director Mode. Nothing scores the
-  /// director's notes, so bond, trust and feelings toward the user hold
-  /// still. Every per-speaker system keeps running as in any group turn:
-  /// Needs, the clock and weather, and the cast's feelings for each other.
-  bool get _directing => _activeGroup != null && _observerMode;
-
-  /// A new chat starts from the group's own Director Mode default; the live
-  /// switch is per chat (saved in the session blob).
-  void _resetDirectorModeToDefault() {
-    _session.groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
-    _directorScene.hydrate(null); // a fresh chat starts with no directions
-    _autoChatBudget.clear();
-  }
-
-  bool get _autoPlayActive => _session.groupManager?.autoPlayActive ?? false;
-  set _autoPlayActive(bool value) {
-    if (value) {
-      _session.groupManager?.startAutoPlay();
-    } else {
-      _session.groupManager?.stopAutoPlay();
-    }
-  }
-
-  double get directorDelaySec =>
-      _session.groupManager?.directorDelaySec ?? 15.0;
-  set directorDelaySec(double value) {
-    if (_session.groupManager != null) {
-      _session.groupManager!.directorDelaySec = value;
-    }
-  }
-
-  /// The saved auto-chat delay both clients show (desktop Director panel,
-  /// web director strip).
-  double get savedDirectorDelay => _storageService.ttsSettings.directorDelay;
-
-  /// Saves the auto-chat delay and applies it to the running scene.
-  Future<void> setSavedDirectorDelay(double seconds) async {
-    await _storageService.ttsSettings.setDirectorDelay(seconds);
-    directorDelaySec = _storageService.ttsSettings.directorDelay;
-    notifyListeners();
-  }
-
-  bool get autoPlayActive => _session.groupManager?.autoPlayActive ?? false;
-
-  /// The character who will speak next in group mode: the rotation head,
-  /// moved past members who are Away or At work exactly as the pick does.
-  /// Null for random turn order (decided at pick time).
-  CharacterCard? get nextCharacter => _upcomingGroupSpeaker;
 
   /// True for group chats where the Realism Engine is enabled, Director Mode
   /// included: the per-character state still shows (held still while the
   /// user is off stage) and the cast's feelings for each other keep moving.
   /// Used by the group sidebar to decide whether to show per-character
   /// emotion / needs indicators.
-  bool get isGroupRealismActive => _realismEnabled && isGroupMode;
+  bool get isGroupRealismActive =>
+      _realismEnabled && (_session.groupManager?.isActive ?? false);
 
   /// Phase 3: Hard cap for inter-character relationship tracking.
   /// Hidden inter-character dynamics (seeding, decay, injection, updates)
@@ -310,105 +271,8 @@ extension ChatServiceGroupRead on ChatService {
   /// - Inter-character 'relationships' maps remain empty / are ignored.
   /// - Full members still receive per-speaker realism evaluations for
   ///   their feelings **toward the user** (visible bars continue to work).
-  bool get _shouldTrackInterCharacterRelationships {
+  bool get shouldTrackInterCharacterRelationships {
     if (_activeGroup == null) return false;
     return shouldTrackInterCharacterAmong(_groupCharacters);
-  }
-
-  /// Set observer mode on/off.
-  void setObserverMode(bool value) {
-    _observerMode = value;
-    if (!value) {
-      _autoPlayActive = false;
-    }
-    if (_sceneGuest.exitUndoUserStep) _clearExitUndo(); // flip beats undo
-    if (_activeGroup != null) unawaited(_saveChat()); // saved per chat
-    notifyListeners();
-  }
-
-  /// Start auto-play: characters keep chatting automatically. A paused run
-  /// resumes with the turns it had left.
-  void startAutoPlay() {
-    if (_activeGroup == null || !_observerMode) return;
-    if (!_autoChatBudget.resume()) {
-      _autoChatBudget.arm(_storageService.ttsSettings.directorTurnBudget);
-    }
-    _autoPlayActive = true;
-    notifyListeners();
-    _autoPlayNext();
-  }
-
-  /// Pause auto-play: a reply already running finishes, and the run keeps
-  /// its turns for [startAutoPlay] to resume.
-  void pauseAutoPlay() {
-    if (!_autoPlayActive) return;
-    _autoPlayActive = false;
-    _autoChatBudget.pause();
-    notifyListeners();
-  }
-
-  /// Stop auto-play and end the run.
-  void stopAutoPlay() {
-    _autoPlayActive = false;
-    _autoChatBudget.clear();
-    notifyListeners();
-  }
-
-  /// Auto-chat is paused with turns left to resume.
-  bool get autoPlayPaused =>
-      _directing && !_autoPlayActive && _autoChatBudget.paused;
-
-  /// Internal: trigger the next auto-play response.
-  Future<void> _autoPlayNext() async {
-    if (!_autoPlayActive || !_observerMode || _activeGroup == null) return;
-    // Both auto-play schedulers (generation.dart and _waitForTtsThenContinue)
-    // arm their delay AFTER the awaited post-gen section has already finished,
-    // so this is clear by the time they fire; no re-arm machinery is needed.
-    if (_isTurnBusy) return; // wait for the current turn to finish settling
-
-    // Each spoken reply post-decides the clock; the next speaker is
-    // announced at that time (bucket brigade). No pre-tick.
-    _autoChatBudget.turnRunning = true;
-    try {
-      await _generateResponse(GenerationMode.normal);
-    } finally {
-      _autoChatBudget.turnRunning = false;
-    }
-  }
-
-  /// Turns left in this auto-chat run, or null when it has no limit or no
-  /// run is going or paused.
-  int? get autoChatTurnsLeft =>
-      _autoPlayActive || autoPlayPaused ? _autoChatBudget.remaining : null;
-
-  /// The saved auto-chat turn budget (0 = no limit).
-  int get savedDirectorTurnBudget =>
-      _storageService.ttsSettings.directorTurnBudget;
-
-  Future<void> setSavedDirectorTurnBudget(int turns) async {
-    await _storageService.ttsSettings.setDirectorTurnBudget(turns);
-    notifyListeners();
-  }
-
-  /// After an auto-chat turn: pauses when [reply] speaks to the absent user,
-  /// or when the run's budget is spent. True when it paused.
-  bool _autoChatPausesAfter(ChatMessage reply) {
-    final String why;
-    if (replyAddressesUser(
-      reply.displayText,
-      _userPersonaService.persona.name,
-    )) {
-      why = 'Auto-chat paused: ${reply.sender} spoke to you.';
-    } else if (_autoChatBudget.spend()) {
-      why = 'Auto-chat paused: the run of turns is done.';
-    } else {
-      return false;
-    }
-    _autoPlayActive = false;
-    // Spoken to, the run can resume; spent, there is nothing left.
-    _autoChatBudget.pause();
-    _setGuestStatus(why);
-    notifyListeners();
-    return true;
   }
 }

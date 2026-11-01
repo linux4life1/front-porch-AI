@@ -79,12 +79,8 @@ mixin ChatServiceFieldBag {
   // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
   // keep testing _isGenerating alone — moved to chat_service_generation_stream.dart)
 
-  // True while a forked-in character's custom entrance sequence is running
-  // (fire-and-forget after forkToGroupChat). Blocks user-triggered turns so the
-  // one-shot _entranceDirective can't be consumed/overwritten by a racing user
-  // turn. (Follow-up: pass the directive as a local into _generateResponse to
-  // drop the shared field entirely.)
-  bool _entrancesInFlight = false;
+  // The forked-in entrances' flag lives on the entry door
+  // (entryDoor.entrancesInFlight).
   // The session-load and chat-switch flags, the history window and the
   // save chain live on the session store (ChatService.sessionStore).
   bool _cancelRequested = false;
@@ -168,12 +164,8 @@ mixin ChatServiceFieldBag {
   /// the request phase adopts into the turn carrier — see the request part).
   String? _callEvalModelOriginal;
 
-  // Wired for decoupled group member loading (so setActiveGroup works even if caller
-  // doesn't explicitly pass groupRepo every time). Set from main.dart provider setup.
-  GroupChatRepository? _groupChatRepository;
-
-  /// The running auto-chat's turn budget.
-  final AutoChatBudget _autoChatBudget = AutoChatBudget();
+  // The group repository main.dart wires in and the auto-chat turn budget
+  // live on the entry door (entryDoor.groupRepository, entryDoor.autoChat).
 
   /// The char→char judge, built on first use.
   CastFeelingsJudge? _castFeelingsJudgeCache;

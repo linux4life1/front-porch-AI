@@ -52,8 +52,8 @@ const _ownSwitch = <String, (int, String)>{
     2,
     'saves it, never the gate',
   ),
-  'lib/services/chat/chat_service_chat_entry.dart': (
-    4,
+  'lib/services/chat/doors/entry/chat_entry.dart': (
+    6,
     'resets it; seeds a new 1:1 chat from the card, then ORs the default',
   ),
   'lib/services/chat/doors/session/new_chat.dart': (
@@ -72,12 +72,12 @@ const _ownSwitch = <String, (int, String)>{
     2,
     'hands the session store the chat\'s own switch, to read and write',
   ),
-  'lib/services/chat/chat_service_group_entry.dart': (
-    2,
+  'lib/services/chat/doors/entry/group_entry.dart': (
+    3,
     'resets it; seeds a group chat from its group',
   ),
-  'lib/services/chat/chat_service_group_membership.dart': (
-    2,
+  'lib/services/chat/doors/entry/group_fork.dart': (
+    3,
     'carries a 1:1 chat\'s choice, and its state, into the group it becomes',
   ),
   'lib/services/chat/chat_service_cast_shrink.dart': (
