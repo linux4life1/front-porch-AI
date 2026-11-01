@@ -218,7 +218,8 @@ export function BackupsPage() {
         <h3>Automatic snapshots</h3>
         <p className="muted small">
           A snapshot of your library, settings and files (portraits, pictures, worlds, voices) is taken every 30
-          minutes. The newest{' '}
+          minutes. The first one keeps a copy of your files beside the backups; after that only changed files take
+          space. The newest{' '}
           {state?.maxSnapshots ?? 10} are always kept, plus one per day for the last{' '}
           {state?.dailyDays ?? 7} days. Snapshots stay on your computer.
         </p>

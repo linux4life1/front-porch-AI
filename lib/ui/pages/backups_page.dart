@@ -88,8 +88,9 @@ class _BackupsPageState extends State<BackupsPage> {
       children: [
         Text(
           'A snapshot of your library, settings and files (portraits, '
-          'pictures, worlds, voices) is taken every 30 minutes. Files are '
-          'stored once and shared between snapshots. The newest ${BackupService.maxBackups} are always kept, '
+          'pictures, worlds, voices) is taken every 30 minutes. The first one '
+          'keeps a copy of your files beside the backups; after that only '
+          'changed files take space. The newest ${BackupService.maxBackups} are always kept, '
           'plus one per day for the last ${BackupService.dailyRetentionDays} '
           'days. Snapshots stay on this computer; for a copy you can keep '
           'elsewhere, make a full backup below.',

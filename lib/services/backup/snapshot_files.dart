@@ -218,6 +218,40 @@ class SnapshotFiles {
     return out;
   }
 
+  /// Copies each [wanted] file out of the store at [storeDir] into
+  /// [stageDir] and checks the copy against its hash, skipping the ones
+  /// whose live file already is that file. Runs in one isolate for the
+  /// whole restore. On a missing or damaged stored file, `error` says which
+  /// and nothing should be moved.
+  static ({List<({String from, String target})> files, String? error})
+  stageSync(
+    List<({String rel, String sha, int size, String target})> wanted,
+    String storeDir,
+    String stageDir,
+  ) {
+    final out = <({String from, String target})>[];
+    Directory(stageDir).createSync(recursive: true);
+    for (final w in wanted) {
+      final live = File(w.target);
+      if (live.existsSync() &&
+          live.lengthSync() == w.size &&
+          hashOf(live) == w.sha) {
+        continue;
+      }
+      final blob = File(p.join(storeDir, w.sha.substring(0, 2), w.sha));
+      if (!blob.existsSync()) {
+        return (files: out, error: '${w.rel} is missing from that snapshot');
+      }
+      final from = p.join(stageDir, '${out.length}');
+      blob.copySync(from);
+      if (hashOf(File(from)) != w.sha) {
+        return (files: out, error: '${w.rel} is damaged in that snapshot');
+      }
+      out.add((from: from, target: w.target));
+    }
+    return (files: out, error: null);
+  }
+
   /// The files the list at [listPath] holds. Throws [FormatException]
   /// when it cannot be read.
   static Future<List<SnapshotFile>> readList(String listPath) async {

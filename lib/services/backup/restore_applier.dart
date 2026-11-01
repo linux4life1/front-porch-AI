@@ -239,7 +239,7 @@ class RestoreApplier {
           throw const FormatException('the backup database is damaged');
         }
       }
-      final moves = <({String from, String to, String rel})>[];
+      final wanted = <({String rel, String sha, int size, String target})>[];
       final seen = <String>{};
       for (final f in files) {
         final target = targetFor(f.path);
@@ -247,23 +247,23 @@ class RestoreApplier {
           debugPrint('[Restore] skipped ${f.path}');
           continue;
         }
-        if (await _sameAs(target, f)) continue;
-        final blob = File(store.blobPath(f.sha256));
-        if (!await blob.exists()) {
-          throw FormatException('${f.path} is missing from that snapshot');
-        }
-        final from = p.join(staging.path, 'files', '${moves.length}');
-        await Directory(p.dirname(from)).create(recursive: true);
-        await blob.copy(from);
-        if (await Isolate.run(() => SnapshotFiles.hashOf(File(from))) !=
-            f.sha256) {
-          throw FormatException('${f.path} is damaged in that snapshot');
-        }
-        await _keepPresetKeys(from, target);
+        wanted.add((rel: f.path, sha: f.sha256, size: f.size, target: target));
+      }
+      // One isolate for the whole batch: thousands of portraits must not
+      // mean thousands of isolates before the window shows.
+      final stageDir = p.join(staging.path, 'files');
+      final storeDir = store.storeDir;
+      final staged = await Isolate.run(
+        () => SnapshotFiles.stageSync(wanted, storeDir, stageDir),
+      );
+      if (staged.error != null) throw FormatException(staged.error!);
+      final moves = <({String from, String to, String rel})>[];
+      for (final s in staged.files) {
+        await _keepPresetKeys(s.from, s.target);
         moves.add((
-          from: from,
-          to: target,
-          rel: p.relative(target, from: root),
+          from: s.from,
+          to: s.target,
+          rel: p.relative(s.target, from: root),
         ));
       }
       if (stagedDb != null) {
@@ -273,15 +273,6 @@ class RestoreApplier {
     } finally {
       if (await staging.exists()) await staging.delete(recursive: true);
     }
-  }
-
-  /// Whether the live file at [target] already is [f], so the restore
-  /// leaves it alone instead of setting the same bytes aside.
-  static Future<bool> _sameAs(String target, SnapshotFile f) async {
-    final live = File(target);
-    if (!await live.exists() || await live.length() != f.size) return false;
-    return await Isolate.run(() => SnapshotFiles.hashOf(File(target))) ==
-        f.sha256;
   }
 
   /// Moves every staged file into place, saving what each replaces beside

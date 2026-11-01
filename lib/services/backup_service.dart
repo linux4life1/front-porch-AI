@@ -168,30 +168,37 @@ class BackupService {
     }
   }
 
+  /// Captures and cleanups of the file store run one at a time: a cleanup
+  /// beside a capture could remove a stored file the capture is reusing
+  /// before its list is written.
+  static Future<void> _fileStoreTurn = Future.value();
+
+  static Future<void> _inFileStoreTurn(Future<void> Function() work) {
+    final next = _fileStoreTurn.then((_) => work());
+    _fileStoreTurn = next.catchError((Object e) {
+      debugPrint('[Backup] file store work failed: $e');
+    });
+    return _fileStoreTurn;
+  }
+
   /// Stores the user's files with the snapshot at [backupPath]. A snapshot
   /// whose files could not be kept still has its database and settings;
   /// the list shows it without files.
   static Future<void> _keepUserFiles(String backupPath) async {
     final root = storageRoot;
     if (root == null) return;
-    try {
-      await SnapshotFiles(root).capture(backupPath);
-    } catch (e) {
-      debugPrint('[Backup] files were not kept with the snapshot: $e');
-    }
+    await _inFileStoreTurn(() => SnapshotFiles(root).capture(backupPath));
   }
 
   /// Removes stored files no snapshot or waiting restore lists any more.
   static Future<void> _cleanUpFileStore() async {
     final root = storageRoot;
     if (root == null) return;
-    try {
-      await SnapshotFiles(
+    await _inFileStoreTurn(
+      () => SnapshotFiles(
         root,
-      ).cleanUp(alsoKeep: [PendingRestore.filesListIn(root)]);
-    } catch (e) {
-      debugPrint('[Backup] file store cleanup failed: $e');
-    }
+      ).cleanUp(alsoKeep: [PendingRestore.filesListIn(root)]),
+    );
   }
 
   /// Deletes a snapshot and the settings and file list that travel with it.
