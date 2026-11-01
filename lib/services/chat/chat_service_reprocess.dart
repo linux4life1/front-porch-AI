@@ -147,23 +147,8 @@ extension ChatServiceRegenReplay on ChatService {
           db: () => _db,
           storage: () => _storageService,
           personas: () => _userPersonaService,
-          realismScope: _realismScope,
+          graph: () => realism,
           history: () => _history,
-          timeline: () => _timeline,
-          clockReader: () => _clockReader,
-          clockWriter: () => _clockWriter,
-          needsRewinds: () => _needsRewinds,
-          needsReprocess: () => _needsReprocess,
-          pocketsRewinds: () => _pocketsRewinds,
-          itemCards: () => _itemCards,
-          afterglow: () => _afterglow,
-          realismDance: () => _realismDance,
-          realismJudges: () => _realismJudges,
-          realismSnapshot: () => _realismSnapshot,
-          mood: () => _mood,
-          expression: () => _expressionService,
-          lorebookInjector: () => _lorebookInjector,
-          growthDesk: () => _growthDesk,
           macroResolver: () => _macroResolver,
           objectives: () => objectivesDoor,
           media: () => mediaDoor,
@@ -190,31 +175,10 @@ extension ChatServiceRegenReplay on ChatService {
           mouthIdle: () => _llmProvider?.koboldService.waitForIdle(),
         ),
         realism: EditRealismHooks(
-          realismActiveThisMode: () => _realismActiveThisMode,
           evalCancelled: () => _realismEvalCancelled,
           setEvalCancelled: (on) => _realismEvalCancelled = on,
-          setEvaluatingRealism: (on) => _isEvaluatingRealism = on,
-          clearEvalStream: () => _realismEvalStreamText = '',
-          onEvalChunk: (chunk) {
-            _realismEvalStreamText += chunk;
-            _evalChunkTimer?.cancel();
-            _evalChunkTimer = Timer(const Duration(milliseconds: 150), () {
-              try {
-                notifyListeners();
-              } catch (_) {}
-            });
-          },
-          stopEvalChunkTimer: () {
-            _evalChunkTimer?.cancel();
-            _evalChunkTimer = null;
-          },
-          restoreForSpeaker: _restoreRealismStateForSpeaker,
-          keepingLiveSpeaker: _keepingLiveSpeaker,
           rewindToLastAcceptedReply: _rewindRelationshipToLastAcceptedReply,
           restoreScoredRegisters: _restoreScoredRegisters,
-          applyMoodDecay: _applyMoodDecay,
-          plantTierCrossing: _plantTierCrossing,
-          revertRegenBaseline: _revertRegenRealismBaseline,
           replayRegenJudges: _replayRegenJudges,
           needsBeforeDelete: _needsBeforeDelete,
           rewindPocketsForDelete: _rewindPocketsForDeletedMessage,

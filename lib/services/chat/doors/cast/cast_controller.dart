@@ -57,6 +57,19 @@ class CastController {
   bool speakerIsSoft(CharacterCard speaker) =>
       speaker.isLite || presentSoftMatching(speaker) != null;
 
+  /// The chat's STORED Needs switch: a promote seeds state with it
+  /// (test/hygiene/needs_gate_ratchet_test.dart allows this file).
+  bool get _needsSimEnabled => _d.realism().needsSimEnabled();
+
+  /// A soft member who becomes full gets a full member's bars (only when
+  /// the chat keeps Needs state and they have none yet).
+  void _seedPromotedNeeds(String mid, FrontPorchExtensions? cleared) {
+    final groups = _d.realism().groups;
+    if (_needsSimEnabled && mid.isNotEmpty && groups.needsOf(mid).isEmpty) {
+      groups.setNeeds(mid, NeedsSimulation.baselinesFromExtensions(cleared));
+    }
+  }
+
   bool sceneNameTaken(String name) {
     final wanted = name.trim().toLowerCase();
     return presentSceneNames(
@@ -262,7 +275,7 @@ class CastController {
       );
     }
     await _h.reloadGroupRoster();
-    _h.seedPromotedNeeds(mid, cleared);
+    _seedPromotedNeeds(mid, cleared);
     if (mid.isNotEmpty) {
       final rel = _d.realism().relationship();
       rel.ensureInterCharacterRelationshipsSeeded(mid);

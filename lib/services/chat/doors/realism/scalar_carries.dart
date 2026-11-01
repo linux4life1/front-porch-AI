@@ -16,21 +16,57 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 
 /// The Realism scalars a cast changing shape carries: back into a 1:1 when
 /// a group collapses to one member, and onto the host member when a 1:1
-/// becomes a group. The rest of both moves is [CastCollapse]
-/// (doors/cast/cast_collapse.dart). This part stays because
-/// test/hygiene/realism_gate_ratchet_test.dart pins it to the three places
-/// that read and write the chat's own Realism switch through a cast change.
-extension ChatServiceCastShrink on ChatService {
+/// becomes a group. The rest of both moves is the cast door's CastCollapse.
+/// test/hygiene/realism_gate_ratchet_test.dart pins the places here that
+/// read and write the chat's own Realism switch through a cast change.
+class ScalarCarries {
+  ScalarCarries(this._g);
+
+  final RealismGraph _g;
+
+  RealismShellHooks get _h => _g.deps.hooks;
+  SessionStore get _sessions => _g.deps.doors.sessions();
+
+  /// The chat's own Realism switch, which a cast change carries.
+  bool get _realismChatSwitch => _h.chatRealism();
+  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+
+  /// The chat's stored Needs switch, carried with it.
+  bool get _needsSimEnabled => _h.needsSimEnabled();
+  set _needsSimEnabled(bool on) => _h.setNeedsSimEnabled(on);
+
+  RealismDance get _realismDance => _g.dance;
+  RealismSnapshot get _realismSnapshot => _g.snapshot;
+  GroupRealismStore get _groupStore => _g.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => _g.groups.members;
+  ChaosModeService get _chaosModeService => _g.chaos;
+  NsfwService get _nsfwService => _g.nsfw;
+  RelationshipService get _relationshipService => _g.relationship;
+  MoodRegisters get _mood => _g.mood;
+  StoryClockWriter get _clockWriter => _g.clockWriter;
+  NeedsSimulation get _needsSimulation => _g.needs;
+  set _pockets(Pockets? record) => _g.hostPockets = record;
+  set _authorNote(String v) => _sessions.authorNote = v;
+  set _authorNoteStrength(int v) => _sessions.authorNoteStrength = v;
+  Map<String, String> get _groupAuthorNotes =>
+      _sessions.groupConfig.authorNotes;
+  Map<String, int> get _groupAuthorNoteStrengths =>
+      _sessions.groupConfig.authorNoteStrengths;
+  void setPocketsFor(String characterId, Pockets p) =>
+      _g.setPocketsFor(characterId, p);
+
   /// While still in group mode, capture the survivor's full state to carry
   /// back to the 1:1: the realism snapshot (gated on realism being on) PLUS
   /// the enable-flags, author note, pockets and chaos (carried regardless of
   /// realism). The returned call writes them into the 1:1 after it opens
   /// (opening the 1:1 reset them).
-  void Function() _captureSurvivorScalars(String soleId) {
+  void Function() captureSurvivor(String soleId) {
     final bool wasRealismOn = _realismChatSwitch;
     final bool wasNeedsOn = _needsSimEnabled;
     Map<String, dynamic>? snapshot;
@@ -45,7 +81,7 @@ extension ChatServiceCastShrink on ChatService {
     // register no gate reads.
     final bool soleNsfwEnabled = _groupStore.afterglowOnFor(soleId);
     // Same reasoning for their Pockets record, and read here for the same reason:
-    // step 4 re-enters as a 1:1, which clears _groupRealism. Carried regardless
+    // step 4 re-enters as a 1:1, which clears the group slots. Carried regardless
     // of realism because Pockets does not depend on it — the pass is gated on
     // pocketsEnabled alone, so a survivor can be holding their keys with the
     // engine off. Dropping this is how a collapse would empty their hands.
@@ -85,7 +121,7 @@ extension ChatServiceCastShrink on ChatService {
         }
       }
 
-      // Enable-flags + author note (persisted by _doSaveChat below) — carry
+      // Enable-flags + author note (persisted by the save that follows) — carry
       // regardless of realism so the NSFW toggle, passage-of-time, chaos, and the
       // note are not reset to defaults on collapse.
       _pockets = solePockets;
@@ -102,14 +138,14 @@ extension ChatServiceCastShrink on ChatService {
   /// Carry captured 1:1 [state] onto the host member [hostId]: realism
   /// values only if realism was on; flags, Afterglow, chaos, pockets and the
   /// author note regardless.
-  void _carryHostScalarsIntoMember(String hostId, Map<String, dynamic> state) {
+  void carryHostScalars(String hostId, Map<String, dynamic> state) {
     final realismOn = state['realismOn'] as bool? ?? false;
     final needsEnabled = state['needsSimEnabled'] as bool? ?? false;
     _needsSimEnabled = needsEnabled;
 
     // Realism VALUES (gated on realism being on at fork time): relationship +
     // emotion + nsfw + time via the regenerate restore path, then the canonical
-    // _groupRealism write for the host member.
+    // group-slot write for the host member.
     if (realismOn) {
       _realismChatSwitch = true;
       _relationshipService.restoreFromMessageState(state);
@@ -133,7 +169,7 @@ extension ChatServiceCastShrink on ChatService {
       _realismDance.saveScalarsIntoGroup(hostId);
     }
 
-    // Enable-flags (independent of realism; persist via _doSaveChat columns in
+    // Enable-flags (independent of realism; persist via the session columns in
     // both modes) + author note + evolution + objectives carry REGARDLESS.
     // The host's own Afterglow flag also goes on the host MEMBER, realism or
     // not: in a group the chat-level register is per-speaker state, so a value
@@ -149,9 +185,9 @@ extension ChatServiceCastShrink on ChatService {
       nsfwEnabled: state['chaosNsfwEnabled'] as bool?,
     );
 
-    // Live pockets, regardless of realism — collapse writes `_pockets =
-    // solePockets`; this is the inverse. setActiveGroup cleared the 1:1
-    // scalar; plant the captured kit on the host member.
+    // Live pockets, regardless of realism — collapse writes the host record
+    // from the survivor's; this is the inverse. setActiveGroup cleared the
+    // 1:1 record; plant the captured kit on the host member.
     final pocketsJson = state['pockets'];
     if (pocketsJson is Map) {
       setPocketsFor(
@@ -161,7 +197,7 @@ extension ChatServiceCastShrink on ChatService {
     }
 
     // Author note -> the host member's per-character group note (serialized into
-    // group_realism_state by _saveChat).
+    // group_realism_state by the save).
     final note = state['authorNote'] as String? ?? '';
     if (note.isNotEmpty) {
       _groupAuthorNotes[hostId] = note;
@@ -169,124 +205,4 @@ extension ChatServiceCastShrink on ChatService {
           state['authorNoteStrength'] as int? ?? 4;
     }
   }
-}
-
-/// The cast door's state and behaviour under the names the rest of this
-/// library still uses. Each line is debt its caller's package retires by
-/// calling [ChatService.castDoor] itself (WP5, WP7 to WP10).
-extension _ChatServiceCastNames on ChatService {
-  SceneGuestState get _sceneGuest => castDoor.guests.state;
-  AwayPulseState get _awayPulse => castDoor.away.state;
-  DirectorScene get _directorScene => castDoor.directorScene;
-  bool get _narrating => castDoor.narrating;
-  String? get _entranceDirective => castDoor.entranceDirective;
-  set _entranceDirective(String? v) => castDoor.entranceDirective = v;
-  set _stoppedReplyAnchor(ChatMessage? v) =>
-      castDoor.guests.stoppedReplyAnchor = v;
-  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
-  int get _greetingIndex => castDoor.greetings.greetingIndex;
-  bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
-  bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
-  set _isProcessingGreeting(bool v) =>
-      castDoor.baseline.isProcessingGreeting = v;
-  String? get _pendingIdleCue => castDoor.idle.pendingIdleCue;
-  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
-  bool get _autoResponseInProgress => castDoor.idle.autoResponseInProgress;
-  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
-  int get _consecutiveAutoResponses => castDoor.idle.consecutiveAutoResponses;
-  set _consecutiveAutoResponses(int v) =>
-      castDoor.idle.consecutiveAutoResponses = v;
-
-  bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
-  void _setGuestStatus(
-    String? msg, {
-    bool isError = false,
-    bool sticky = false,
-  }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
-  void _noteStoppedReply({required bool replyKept}) =>
-      castDoor.guests.noteStoppedReply(replyKept: replyKept);
-  void _clearExitUndo() => castDoor.guests.clearExitUndo();
-  bool _isGuestAuthoredMessage(ChatMessage m) =>
-      castDoor.guests.isGuestAuthoredMessage(m);
-  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
-      castDoor.guests.sceneGuestForMessage(m);
-  CharacterCard? _directAddressRoutedGuest(String promptText) =>
-      castDoor.guests.directAddressRoutedGuest(promptText);
-  Future<void> _resolveSceneGuestCards() =>
-      castDoor.guests.resolveSceneGuestCards();
-  Future<void> _addGuestWithStatus({
-    required String displayName,
-    CharacterCard? existing,
-    Future<GuestMintResult> Function(void Function(String step) onStatus)? mint,
-  }) => castDoor.guests.addGuestWithStatus(
-    displayName: displayName,
-    existing: existing,
-    mint: mint,
-  );
-  Future<GuestMintResult> _mintSceneGuest(
-    String name,
-    String concept, {
-    void Function(String step)? onStatus,
-  }) => castDoor.joins.mintSceneGuest(name, concept, onStatus: onStatus);
-
-  Future<void> _commitPendingMemberExit() =>
-      castDoor.roster.commitPendingMemberExit();
-  bool _speakerIsSoft(CharacterCard speaker) =>
-      castDoor.roster.speakerIsSoft(speaker);
-  Future<bool> _bridgeLongSkip({
-    required DateTime from,
-    required int skipped,
-    required ChatMessage skipLine,
-    required String? token,
-  }) => castDoor.stage.bridgeLongSkip(
-    from: from,
-    skipped: skipped,
-    skipLine: skipLine,
-    token: token,
-  );
-
-  Future<void> _seedOpeningPosture() => castDoor.baseline.seedOpeningPosture();
-  Future<void> _runPostGreetingEval() =>
-      castDoor.baseline.runPostGreetingEval();
-  Future<void> _runRetroactiveBaselineEval() =>
-      castDoor.baseline.runRetroactiveBaselineEval();
-  Future<void> _invalidateGreetingEval() =>
-      castDoor.greetings.invalidateGreetingEval();
-  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
-      castDoor.greetings.buildFirstMessage(
-        character,
-        greetingText: greetingText,
-      );
-  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
-  bool get _isOpeningGreetingChat => castDoor.greetings.isOpeningGreetingChat;
-  Future<void> _applyGreetingOpeningSeed({
-    required CharacterCard card,
-    required int index,
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGreetingOpeningSeed(
-    card: card,
-    index: index,
-    scheduleEval: scheduleEval,
-  );
-  Future<void> _applyGroupCustomGreetingSeed(
-    int index, {
-    bool scheduleEval = true,
-  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
-    index,
-    scheduleEval: scheduleEval,
-  );
-  void _stampGreetingIndex(int index) =>
-      castDoor.greetings.stampGreetingIndex(index);
-
-  Future<void> _runAwayPulse({
-    required String userText,
-    required bool fromUserSend,
-  }) => castDoor.away.runAwayPulse(
-    userText: userText,
-    fromUserSend: fromUserSend,
-  );
-  void _releaseHeldAway(CharacterCard card) =>
-      castDoor.away.releaseHeldAway(card);
-  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
-  void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
 }

@@ -21,6 +21,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -55,6 +56,7 @@ class CastDeps {
     required this.characters,
     required this.groupRepository,
     required this.imageGen,
+    required this.graph,
     required this.realism,
     required this.evals,
     required this.snapshot,
@@ -83,6 +85,10 @@ class CastDeps {
   final CharacterRepository? Function() characters;
   final GroupChatRepository? Function() groupRepository;
   final ImageGenService? Function() imageGen;
+
+  /// The Realism graph: the carries, seeds, Pockets gate and clock
+  /// helpers the cast calls, and the leaves below.
+  final RealismGraph Function() graph;
 
   /// The live Realism view (scalars, needs, clock, group slots).
   final RealismScope Function() realism;
@@ -122,10 +128,8 @@ class CastShellHooks {
     required this.waitForTurnToSettle,
     required this.deleteMessage,
     required this.embedFor,
-    required this.isEvaluatingRealism,
     required this.ttsSpeaking,
     required this.mouthReady,
-    required this.needsActive,
     required this.directing,
     required this.setObserverMode,
     required this.groupSpeakerSkips,
@@ -139,14 +143,10 @@ class CastShellHooks {
     required this.removeFromGroup,
     required this.forkToGroup,
     required this.forgetMember,
-    required this.seedPromotedNeeds,
     required this.setActiveCharacter,
     required this.loadSession,
     required this.ragCharacterId,
     required this.parseJsonMap,
-    required this.captureSurvivor,
-    required this.carryHostScalars,
-    required this.realismActiveThisMode,
     required this.oneShotActive,
     required this.evalCancelled,
     required this.clearEvalCancelled,
@@ -156,14 +156,6 @@ class CastShellHooks {
     required this.markPostGreetingEvalEntered,
     required this.cancelRealismEval,
     required this.evalStagger,
-    required this.applySeededPassageOfTime,
-    required this.seedGreetingNeeds,
-    required this.seedSlotNeeds,
-    required this.pocketsEnabledFor,
-    required this.setPocketsFor,
-    required this.clearHostPockets,
-    required this.playerSkip,
-    required this.mintEpisodeCrumbs,
     required this.timeSkipBridgeContext,
     required this.selectGreeting,
     required this.openingAllGreetings,
@@ -186,14 +178,10 @@ class CastShellHooks {
 
   /// Embeds the last exchange under [characterId] (a guest's own memory).
   final void Function(String characterId) embedFor;
-  final bool Function() isEvaluatingRealism;
   final bool Function() ttsSpeaking;
 
   /// The chat model can take a request now.
   final bool Function() mouthReady;
-
-  /// `NeedsPass.active`, the one Needs gate, read live.
-  final bool Function() needsActive;
 
   // ── Group roster (WP8) ────────────────────────────────────────────────
 
@@ -231,10 +219,6 @@ class CastShellHooks {
   /// slot, author notes, system prompts, RAG priorities).
   final void Function(String memberId) forgetMember;
 
-  /// Seeds a promoted soft member's bars, under the chat's Needs state.
-  final void Function(String memberId, FrontPorchExtensions? ext)
-  seedPromotedNeeds;
-
   // ── Chat switching (WP7) ──────────────────────────────────────────────
 
   final Future<void> Function(CharacterCard card) setActiveCharacter;
@@ -244,16 +228,8 @@ class CastShellHooks {
   final String Function() ragCharacterId;
   final Map<String, String> Function(String? json) parseJsonMap;
 
-  // ── Realism carries and greeting seeds (WP9) ──────────────────────────
+  // ── Eval gates and the greeting eval (WP9b) ───────────────────────────
 
-  /// Reads the survivor's scalars while still in group mode; the returned
-  /// call writes them into the 1:1 after it opens.
-  final void Function() Function(String survivorId) captureSurvivor;
-
-  /// Writes a 1:1's captured state onto the group member it became.
-  final void Function(String hostId, Map<String, dynamic> state)
-  carryHostScalars;
-  final bool Function() realismActiveThisMode;
   final bool Function() oneShotActive;
   final bool Function() evalCancelled;
   final void Function() clearEvalCancelled;
@@ -265,30 +241,15 @@ class CastShellHooks {
   /// The zone values a greeting eval runs under (stale-apply guard).
   final Map<Object?, Object?> Function(int token, int index) greetingZone;
   final void Function() markPostGreetingEvalEntered;
+
+  /// The turn stops' Realism cancel (WP10b).
   final Future<void> Function() cancelRealismEval;
 
   /// The delay between staggered multi-call evals.
   final Duration evalStagger;
-  final void Function() applySeededPassageOfTime;
 
-  /// A greeting's bars, under the chat's Needs state (live vector).
-  final void Function(Map<String, int> baselines) seedGreetingNeeds;
+  // ── Clock (WP10a) ─────────────────────────────────────────────────────
 
-  /// A group custom greeting's bars for one member's slot.
-  final void Function(GroupMemberRealism slot, Map<String, int> baselines)
-  seedSlotNeeds;
-  final bool Function(String characterId) pocketsEnabledFor;
-  final void Function(String characterId, Pockets pockets) setPocketsFor;
-
-  /// Empties the 1:1 host's pockets scalar.
-  final void Function() clearHostPockets;
-
-  // ── Clock (WP9b / WP10) ───────────────────────────────────────────────
-
-  /// Moves the clock the way a user's skip line does; minutes skipped.
-  final Future<int> Function(String line, {bool Function()? stale}) playerSkip;
-  final Future<void> Function(DateTime before, DateTime after)
-  mintEpisodeCrumbs;
   final TimeSkipBridgeContext Function() timeSkipBridgeContext;
 
   // ── Greeting swipes (WP5) ─────────────────────────────────────────────

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Slice 6: the scene-move offer assembled once per clock call. Lives in
-// its own file so chat_service_wiring_realism.dart stays under the
+// its own file so the Realism graph's core wiring stays under the
 // 500-line ratchet and so the shape (which places are eligible, how the
 // label reads) is testable without a ChatService.
 

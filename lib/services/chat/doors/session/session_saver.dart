@@ -167,7 +167,7 @@ class SessionSaver {
     // Written whatever the chat's Afterglow switch says: off hides Lust and
     // recovery and keeps them, so switching back on finds them as they were.
     final body = _nsfwService.refractory;
-    final pockets = _d.hooks.hostPockets();
+    final pockets = _s.graph().hostPockets;
 
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;

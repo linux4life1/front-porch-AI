@@ -144,11 +144,6 @@ int _memoryPassEpoch = 0;
 /// The composer already cleared; the bubble is not in the list yet.
 bool _sendWaitingOnSettle = false;
 
-/// Porch Life Passage of Time alone. Card veto and leftover per-chat
-/// are not a gate.
-bool derivedPassageOfTimeEnabled({required bool porchLifeDefault}) =>
-    porchLifeDefault;
-
 /// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
 /// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession,
 /// importChatPackage, forkFromMessage) so a

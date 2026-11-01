@@ -102,7 +102,7 @@ class Impersonator {
       // Lorebook via the shared injector — the same positioned buckets the
       // main generation path uses. Read-only: impersonation never scans or
       // mutates trigger state.
-      final loreInjection = _s.lorebookInjector().buildInjection(
+      final loreInjection = _s.graph().lore.injector.buildInjection(
         sessionSeed: _session.currentSessionId ?? '',
         contextSize: _p.sessionGenSettings().resolveContextSize(_storage),
       );
@@ -129,9 +129,9 @@ class Impersonator {
         );
       } else {
         personaBlock =
-            "${speakingCharacter.name}'s Persona: ${_s.growthDesk().resolvedCardPersonality(speakingCharacter, userName)}";
+            "${speakingCharacter.name}'s Persona: ${_s.graph().growthDesk.resolvedCardPersonality(speakingCharacter, userName)}";
       }
-      final growthBlock = _s.growthDesk().resolvedGrowthBlock(
+      final growthBlock = _s.graph().growthDesk.resolvedGrowthBlock(
         speakingCharacter,
         userName,
       );
@@ -149,7 +149,9 @@ class Impersonator {
             ? _activeGroup!.scenario
             : (_groupCharacters.firstOrNull?.scenario ?? '');
       } else {
-        rawScenario = _s.growthDesk().effectiveScenario(speakingCharacter);
+        rawScenario = _s.graph().growthDesk.effectiveScenario(
+          speakingCharacter,
+        );
       }
       String scenario = rawScenario;
 

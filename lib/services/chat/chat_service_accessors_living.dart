@@ -62,90 +62,6 @@ extension ChatServiceAccessorsLiving on ChatService {
     return _worldRepository.chainFor(primaryId).lastOrNull?.name.trim();
   }
 
-  /// Pure recompute from existing state — nothing stored, so save/load and
-  /// group re-entry agree for free. Gate: a MOVING clock + the global toggle.
-  /// Weather is deterministic math over the day count and needs no eval of its
-  /// own, so its realism term was only ever standing in for "the clock is
-  /// frozen"; [_clockRunning] says that directly, and the Porch Life tab has
-  /// always told users weather depends on Passage of Time. Consumed by the
-  /// injection leaf, the needs decay modifiers, the sidebar TimeStrip, and the
-  /// web facade — one source.
-
-  DailyWeather? get _currentWeatherImpl {
-    if (!_clockRunning || !_storageService.realismSettings.weatherEnabled) {
-      return null;
-    }
-    // The Setting's chain owns weather (locations slice 2): the nearest
-    // climate-enabled ancestor authors it. Empty chain OR an all-lore-only
-    // chain ⇒ off. Lore climate-on (e.g. Mars in Lore) never turns weather
-    // on — a chain walk only ever reaches the Setting's own ancestors.
-    final primaryId = _chatPlaceSlots.primaryId;
-    final chain = primaryId == null
-        ? const <World>[]
-        : _worldRepository.chainFor(primaryId);
-    if (!chainAllowsClimate(chain)) {
-      return null;
-    }
-    final seed = _session.currentSessionId;
-    if (seed == null) return null;
-    return WeatherEngine.weatherFor(
-      sessionSeed: seed,
-      dayCount: _timeService.dayCount,
-      date: _timeService.clock,
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// Tomorrow's story weather under the same gate as [currentWeather].
-  /// Because the engine is a prefix-stable deterministic walk, this forecast
-  /// is exactly what day dayCount+1 will be when the story clock reaches it
-  /// (dayCount is derived from the calendar date, so +1 day ⇔ +1 dayCount) —
-  /// foreshadowed fronts always arrive (except the first day of a mid-chat
-  /// climate switch — see [WeatherInjection.suppressForeshadow]).
-  /// Recompute is O(dayCount) integer math, called once per turn by the
-  /// injection and once per facade read.
-  DailyWeather? get _upcomingWeatherImpl {
-    if (currentWeather == null) return null;
-    return WeatherEngine.weatherFor(
-      sessionSeed: _session.currentSessionId!,
-      dayCount: _timeService.dayCount + 1,
-      date: _timeService.clock.add(const Duration(days: 1)),
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// The current DAY-PART's weather (Living Time §3 v3): the day script's
-  /// condition for the story-clock hour plus the deterministic °C. Same gate
-  /// and recompute contract as [currentWeather] — nothing stored. Consumed
-  /// by the injection, the needs decay view below, the sidebar chip, and the
-  /// web facade.
-  SegmentWeather? get _currentSegmentWeatherImpl {
-    if (currentWeather == null) return null;
-    return WeatherSegments.segmentWeatherFor(
-      sessionSeed: _session.currentSessionId!,
-      dayCount: _timeService.dayCount,
-      date: _timeService.clock,
-      hour: _timeService.clock.hour,
-      biomeAtDay: _biomeAtDay,
-    );
-  }
-
-  /// Sidebar/web read surface (Living Time §6): [card]'s ambitions with
-  /// live progress — triggers the lazy cache warm, so first render may show
-  /// "just beginning" and correct itself one notify later. The ONE merge of
-  /// card-authored definitions + per-chat progress; desktop and web both
-  /// read through it so they can't drift.
-  List<({String text, int progress})> _ambitionsForImpl(CharacterCard card) {
-    final sessionId = _session.currentSessionId;
-    final list = card.frontPorchExtensions?.ambitions ?? const [];
-    if (sessionId == null || list.isEmpty) return const [];
-    final cid = _getCharacterIdFromCard(card);
-    _ambitionService.ensureCacheWarm(sessionId, cid);
-    final progress =
-        _ambitionService.cachedProgress(sessionId, cid) ?? const {};
-    return [for (final a in list) (text: a, progress: progress[a] ?? 0)];
-  }
-
   /// The unified ordered cast of speakers for the active chat, regardless of
   /// mode. This is the single roster the UI reads instead of branching on
   /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
@@ -254,9 +170,8 @@ extension ChatServiceRealismDoors on ChatService {
 }
 
 /// Pockets & Wardrobe and Growth Rings doors for the sidebar, the web facade
-/// and the other parts (bodies in [PocketsLedger] and [GrowthDesk]), plus
-/// the Journal / Growth / Pockets builders. Public extension members: no
-/// fake overrides them.
+/// and the other parts (bodies in [PocketsLedger] and [GrowthDesk]). Public
+/// extension members: no fake overrides them.
 extension ChatServiceMemoryDoors on ChatService {
   /// Combined Pockets gate: Porch Life global AND this character's card flag.
   /// The global is read through the class member first, as the extension
@@ -365,56 +280,188 @@ extension ChatServiceMemoryDoors on ChatService {
 
   /// Manual "Check now". Force-runs even on an empty window.
   Future<void> forceGrowthPass() => _growthDesk.forceGrowthPass();
+}
 
-  ItemCardJournal _buildItemCardJournal() => ItemCardJournal(
-    messages: _session.messages,
-    history: _history,
-    currentSessionId: () => _session.currentSessionId,
-    journalStore: () => _journalStore,
-    db: () => _db,
-    time: () => _timeService,
-    memorySettings: () => _storageService.memorySettings,
-    activeCharacterName: () => _session.activeCharacter?.name,
-  );
+/// Builds the Realism graph. Each hook stands in for a member of another
+/// part until that part becomes a door (see [RealismShellHooks]); the
+/// chat's own switches come from the session store's hooks, wired once.
+extension ChatServiceRealismWiring on ChatService {
+  RealismGraph _buildRealismGraph() {
+    final shared = _sessionHooks();
+    return RealismGraph(
+      RealismDeps(
+        session: _session,
+        services: RealismServices(
+          db: () => _db,
+          storage: _storageService,
+          personas: _userPersonaService,
+          worlds: _worldRepository,
+          macros: _macroResolver,
+          kobold: _koboldService,
+          characters: () => _characterRepository,
+          memory: () => _memoryService,
+          llmProvider: () => _llmProvider,
+          maxSecondaryObjectives: kMaxSecondaryObjectives,
+          evalStagger: _kEvalDispatchStagger,
+        ),
+        doors: RealismDoors(
+          cast: () => castDoor,
+          entry: () => entryDoor,
+          edits: () => editsDoor,
+          objectives: () => objectivesDoor,
+          sessions: () => sessionStore,
+        ),
+        hooks: RealismShellHooks(
+          characterIdFor: shared.characterIdFor,
+          ragCharacterId: shared.ragCharacterId,
+          disposed: () => _disposed,
+          realismEnabled: shared.realismEnabled,
+          chatRealism: shared.chatRealism,
+          setChatRealism: shared.setChatRealism,
+          needsSimEnabled: () => _needsSimEnabled,
+          setNeedsSimEnabled: shared.setNeedsSimEnabled,
+          objectivesActive: () => objectivesActive,
+          enjoysLowHygiene: () => enjoysLowHygiene,
+          afterglowSwitch: () => _afterglowSwitchForLoadedImpl,
+          hardLockFor: _hardLockForSpeakerNamed,
+          clockRunning: () => _clockRunning,
+          oneShotActive: () => _oneShotActive,
+          evalCancelled: () => _realismEvalCancelled,
+          setEvalCancelled: (on) => _realismEvalCancelled = on,
+          staleGreetingEval: _isStaleGreetingEval,
+          memoryPassEpoch: () => _memoryPassEpoch,
+          fireLLMEval: _fireLLMEval,
+          withWorkerLane: _withWorkerLane,
+          sideLaneLlm: () => _sideLaneLlm,
+          sideLaneIsKobold: () => _sideLaneIsKobold,
+          mouthLlm: () => _mouthLlm,
+          mouthIsLocal: () => _mouthIsLocal,
+          workerLaneActive: () => _workerLaneActive,
+          testLlm: () => testLlmServiceOverride,
+          testWorkerLlm: () => testWorkerLlmServiceOverride,
+          testIsLocal: () => testIsLocalOverride,
+          recordTodayPointerOp: _recordTodayPointerOp,
+          journalResolvedToday: _journalResolvedToday,
+          deactivateTodayObjective: _deactivateTodayObjective,
+          upsertTodayObjective: _upsertTodayObjective,
+          isHeldTodayObjective: _isHeldTodayObjective,
+          onTodayObjectiveCompleted: _onTodayObjectiveCompleted,
+          persistTodayObjectiveId: _persistTodayObjectiveId,
+          macroContext: _buildChatMacroContext,
+          isGenerating: () => _isGenerating,
+          isTurnBusy: () => _isTurnBusy,
+          chanceTimeSpeaker: () => chanceTimeSpeakerName,
+          stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
+        ),
+        notify: notifyListeners,
+      ),
+    );
+  }
+}
 
-  GrowthDesk _buildGrowthDesk() => GrowthDesk(
-    messages: _session.messages,
-    macroResolver: _macroResolver,
-    store: () => _growthStore,
-    review: () => _growthReview,
-    service: () => _growthService,
-    journalMaintenance: () => _journalMaintenance,
-    currentSessionId: () => _session.currentSessionId,
-    activeCharacter: () => _session.activeCharacter,
-    activeGroup: () => _activeGroup,
-    groupCharacters: () => _groupCharacters,
-    sceneGuestCards: () => _sceneGuest.cards,
-    characterIdFor: _getCharacterIdFromCard,
-    memorySettings: () => _storageService.memorySettings,
-    hasLlm: () => _llmProvider != null,
-    isGrowthPassRunning: () => _isGrowthPassRunning,
-    awaitHistoryHydrated: _awaitHistoryHydrated,
-    setPending: (v) => _pendingRealismMetadata = v,
-    notify: notifyListeners,
-  );
+/// The Realism graph's state and objects under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.realism] itself (WP9b to WP10c).
+extension _ChatServiceRealismNames on ChatService {
+  // State the graph owns.
+  Map<String, dynamic>? get _pendingRealismMetadata =>
+      realism.registers.pending;
+  set _pendingRealismMetadata(Map<String, dynamic>? v) =>
+      realism.registers.pending = v;
+  String get _characterEmotion => realism.registers.emotion;
+  String get _emotionIntensity => realism.registers.intensity;
+  set _isGrowthPassRunning(bool v) => realism.growthPassRunning = v;
+  bool get _isEvaluatingRealism => realism.evalStatus.evaluating;
+  set _isEvaluatingRealism(bool v) => realism.evalStatus.evaluating = v;
+  bool get _isCancellingRealismEval => realism.evalStatus.cancelling;
+  set _isCancellingRealismEval(bool v) => realism.evalStatus.cancelling = v;
+  String get _realismEvalStreamText => realism.evalStatus.streamText;
+  set _realismEvalStreamText(String v) => realism.evalStatus.streamText = v;
+  Timer? get _evalChunkTimer => realism.evalStatus.chunkTimer;
+  set _evalChunkTimer(Timer? t) => realism.evalStatus.chunkTimer = t;
+  ChatPlaceSlots get _chatPlaceSlots => realism.places.slots;
+  SceneMoveState get _sceneMoves => realism.places.sceneMoves;
+  LorebookTimedEffects get _loreTimedEffects => realism.lore.timedEffects;
+  ToolTransportProbe get _toolProbe => realism.transport.probe;
+  FireToolEval get _fireToolEval => realism.transport.fireToolEval;
 
-  TimelineInvalidator _buildTimelineInvalidator() => TimelineInvalidator(
-    messages: _session.messages,
-    currentSessionId: () => _session.currentSessionId,
-    summary: () => _summary,
-    setSummary: (v) => _summary = v,
-    armRecapClear: () => _recapClearArmed = true,
-    summaryLastIndex: () => _summaryLastIndex,
-    setSummaryLastIndex: (v) => _summaryLastIndex = v,
-    journalStore: () => _journalStore,
-    journalReview: () => _journalReview,
-    journalMaintenance: () => _journalMaintenance,
-    growthStore: () => _growthStore,
-    growthReview: () => _growthReview,
-    growth: () => _growthDesk,
-    itemCards: () => _itemCards,
-    db: () => _db,
-    disposed: () => _disposed,
-    notify: notifyListeners,
+  // The leaves.
+  LorebookScanner get _lorebookScanner => realism.lore.scanner;
+  LorebookInjector get _lorebookInjector => realism.lore.injector;
+  TimeService get _timeService => realism.time;
+  StoryClockReader get _clockReader => realism.clockReader;
+  StoryClockWriter get _clockWriter => realism.clockWriter;
+  EpisodeCrumbMinter get _episodeCrumbs => realism.episodeCrumbs;
+  BirthdaySync get _birthdaySync => realism.birthdays;
+  ChaosModeService get _chaosModeService => realism.chaos;
+  NsfwService get _nsfwService => realism.nsfw;
+  NeedsSimulation get _needsSimulation => realism.needs;
+  GroupRealismStore get _groupStore => realism.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => realism.groups.members;
+  NeedsPass get _needsPass => realism.needsPass;
+  StandingMood get _standingMood => realism.standingMood;
+  MoodRegisters get _mood => realism.mood;
+  RealismSnapshot get _realismSnapshot => realism.snapshot;
+  RealismJudges get _realismJudges => realism.judges;
+  RealismDance get _realismDance => realism.dance;
+  RelationshipService get _relationshipService => realism.relationship;
+  ExpressionService get _expressionService => realism.expression;
+  AuthorNoteBuilder get _authorNoteBuilder => realism.authorNotes;
+  BehavioralInjection get _behavioralInjection => realism.behavioralInjection;
+  InventoryInjection get _inventoryInjection => realism.inventoryInjection;
+  PocketsLedger get _pocketsLedger => realism.pocketsLedger;
+  PocketsRewinds get _pocketsRewinds => realism.pocketsRewinds;
+  PocketsPass get _pocketsPass => realism.pocketsPass;
+  ItemCardJournal get _itemCards => realism.itemCards;
+  ReplyFacts get _replyFacts => realism.replyFacts;
+  AfterglowPass get _afterglow => realism.afterglow;
+  PromiseDebtService get _promiseDebtService => realism.promiseDebt;
+  DreamService get _dreamService => realism.dreams;
+  ChaosInjection get _chaosInjection => realism.chaosInjection;
+  RealismStateInjection get _realismStateInjection =>
+      realism.realismStateInjection;
+  LlmEvalEngine get _llmEvalEngine => realism.llmEvalEngine;
+  RealismEvals get _realismEvals => realism.evals;
+  ObjectiveProposal get _objectiveProposal => realism.objectiveProposal;
+  CastFeelingsJudge get _castFeelingsJudge => realism.castFeelingsJudge;
+  JournalStore get _journalStore => realism.journalStore;
+  PorchMemoryImportService get _porchMemoryImport => realism.porchImport;
+  ToolSupportTester get _toolSupportTester => realism.toolSupportTester;
+  JournalMaintenance get _journalMaintenance => realism.journalMaintenance;
+  JournalInjection get _journalInjection => realism.journalInjection;
+  GrowthStore get _growthStore => realism.growthStore;
+  GrowthDesk get _growthDesk => realism.growthDesk;
+
+  // Behaviour.
+  RealismScope _realismScope() => realism.scope;
+  bool get _realismActiveThisMode => realism.realismActiveThisMode;
+  String get _evalBackendIdentity => realism.transport.backendIdentity;
+  String _mouthEvalIdentity({String remoteModel = ''}) =>
+      realism.transport.mouthIdentity(remoteModel: remoteModel);
+  String? get _localModelPath => realism.transport.localModelPath;
+  Future<LlmToolResponse?> _fireToolEvalUnheld(
+    ToolEvalSpec spec, {
+    LLMService? via,
+    String? identity,
+  }) =>
+      realism.transport.fireToolEvalUnheld(spec, via: via, identity: identity);
+  PlayerSkip _buildPlayerSkip() => realism.playerSkip();
+  List<LoreEntryRef> _collectLoreRefs({bool? inheritOverride}) =>
+      realism.lore.collectLoreRefs(inheritOverride: inheritOverride);
+  void _restoreRealismStateForSpeaker(
+    ChatMessage msg, {
+    bool restoreClock = false,
+  }) => realism.restores.forSpeaker(msg, restoreClock: restoreClock);
+  void _restoreRealismStateFromMessage(
+    ChatMessage? msg, {
+    String? groupSpeakerId,
+    bool restoreClock = false,
+  }) => realism.restores.fromMessage(
+    msg,
+    groupSpeakerId: groupSpeakerId,
+    restoreClock: restoreClock,
   );
+  Future<void> _runPostGenNeedsChecks(String responseText) =>
+      realism.restores.runPostGenNeedsChecks(responseText);
+  void _applyMoodDecay() => realism.restores.applyMoodDecay();
 }

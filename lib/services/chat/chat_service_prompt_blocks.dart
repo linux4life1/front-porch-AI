@@ -137,3 +137,56 @@ extension ChatServicePromptBlocks on ChatService {
     );
   }
 }
+
+/// The chat's macro context and the realism state block the prompt reads.
+extension ChatServicePromptContext on ChatService {
+  /// Full chat-context MacroContext for prompt builds: card fields, group
+  /// roster, last messages, idle clock, and the macro variable stores
+  /// (locals ride _loreTimedEffects per chat; globals live in settings).
+  /// Shared by generation, impersonation, and lore-key resolution.
+  MacroContext _buildChatMacroContext(
+    CharacterCard speaking, {
+    String? scenario,
+  }) {
+    ChatMessage? lastUser;
+    ChatMessage? lastChar;
+    for (final m in _session.messages.reversed) {
+      if (m.characterId == '__director__') continue;
+      lastUser ??= m.isUser ? m : null;
+      lastChar ??= !m.isUser ? m : null;
+      if (lastUser != null && lastChar != null) break;
+    }
+    return MacroContext(
+      userName: _userPersonaService.persona.name,
+      characterName: speaking.name,
+      chatId: _session.currentSessionId,
+      characterId: speaking.dbId,
+      description: speaking.description,
+      personality: _growthDesk.effectivePersonality(speaking),
+      scenario: scenario ?? speaking.scenario,
+      userPersona: _userPersonaService.persona.persona,
+      groupMemberNames: _activeGroup != null
+          ? [for (final c in _groupCharacters) c.name]
+          : null,
+      lastMessage: _session.messages.isNotEmpty
+          ? _session.messages.last.displayText
+          : null,
+      lastUserMessage: lastUser?.displayText,
+      lastCharMessage: lastChar?.displayText,
+      idleDuration: _lastUserMessageAt == null
+          ? null
+          : DateTime.now().difference(_lastUserMessageAt!),
+      getLocalVar: (n) => _loreTimedEffects.localMacroVars[n],
+      setLocalVar: (n, v) => _loreTimedEffects.localMacroVars[n] = v,
+      getGlobalVar: _storageService.lorebookSettings.getGlobalMacroVar,
+      setGlobalVar: _storageService.lorebookSettings.setGlobalMacroVar,
+    );
+  }
+
+  /// The words-only state composer — the single source of the
+  /// "[How <Name> is right now: …]" block the model receives (salience-gated
+  /// natural language, no simulation scalars; see
+  /// docs/design/prompt-state-injection.md §3).
+  String _getRealismStateInjection() =>
+      _realismStateInjection.buildRealismStateInjection();
+}

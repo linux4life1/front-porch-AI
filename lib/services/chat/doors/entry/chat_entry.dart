@@ -66,8 +66,8 @@ class ChatEntry {
   set _needsSimEnabled(bool on) => _sh.setNeedsSimEnabled(on);
   set _enjoysLowHygiene(bool on) => _sh.setEnjoysLowHygiene(on);
   set _objectivesEnabled(bool on) => _sh.setObjectivesEnabled(on);
-  set _isGrowthPassRunning(bool on) => _sh.setGrowthPassRunning(on);
-  set _pockets(Pockets? record) => _sh.setHostPockets(record);
+  set _isGrowthPassRunning(bool on) => _s.graph().growthPassRunning = on;
+  set _pockets(Pockets? record) => _s.graph().hostPockets = record;
 
   Future<void> setActiveCharacter(CharacterCard? character) async {
     // Overlay on BEFORE cancel/settle/flush so ChatPage can cover the switch
@@ -264,7 +264,7 @@ class ChatEntry {
         // prior session there is nothing to load and this is the only thing
         // standing between an authored wardrobe and a sidebar that draws
         // nothing until the user's first message. See seedPocketsFromCards.
-        _sh.seedPocketsFromCards();
+        _s.graph().seedPocketsFromCards();
 
         // If no session loaded, start fresh
         if (_session.messages.isEmpty) {
@@ -310,7 +310,7 @@ class ChatEntry {
               storyStartDate: ext.storyStartDate,
               storyStartTime: ext.storyStartTime,
             );
-            _sh.applySeededPassageOfTime();
+            _s.graph().applySeededPassageOfTime();
             _mood.seed(ext.characterEmotion, ext.emotionIntensity);
             // The card says how a new chat starts its Afterglow; the chat
             // keeps its own switch from here on.

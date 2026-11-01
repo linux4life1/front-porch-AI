@@ -266,3 +266,153 @@ extension ChatServiceHistory on ChatService {
     return count;
   }
 }
+
+/// Builds the media and actions doors and, below, the objectives and entry
+/// doors. Each callback stands in for a private member of another part
+/// until that part becomes a door too.
+extension ChatServiceDoorWiring on ChatService {
+  MediaDoor _buildMediaDoor() => MediaDoor(
+    session: _session,
+    storage: _storageService,
+    personas: _userPersonaService,
+    worlds: _worldRepository,
+    imageGen: () => _imageGenService,
+    llmProvider: () => _llmProvider,
+    craftLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+    saveChat: _saveChat,
+    isBusy: () => _isTurnBusy || castDoor.guests.state.busy,
+    setStatus: (msg, {isError = false, sticky = false}) =>
+        castDoor.guests.setStatus(msg, isError: isError, sticky: sticky),
+    sceneChanged: (token) => castDoor.sceneChanged(token),
+    guestCards: () => castDoor.guests.state.cards,
+    characterIdFor: _getCharacterIdFromCard,
+    expressionLabel: () => currentExpressionLabel,
+    timeOfDay: () => _timeService.timeOfDay,
+  );
+
+  ActionsDoor _buildActionsDoor() => ActionsDoor(
+    session: _session,
+    personas: _userPersonaService,
+    mouthLlm: () => _mouthLlm,
+    mouthStream: _mouthGenerateStream,
+  );
+
+  /// The objectives door. Each hook is debt (see [ObjectiveShellHooks]).
+  ObjectivesDoor _buildObjectivesDoor() {
+    final door = ObjectivesDoor(
+      ObjectiveDeps(
+        session: _session,
+        database: () => _db,
+        personas: () => _userPersonaService,
+        storage: () => _storageService,
+        characterIdFor: _getCharacterIdFromCard,
+        saveChat: _saveChat,
+        proposal: () => _objectiveProposal,
+        mood: () => _mood,
+        journal: () => _journalStore,
+        time: () => _timeService,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        hooks: ObjectiveShellHooks(
+          objectivesActive: () => objectivesActive,
+          nextSpeaker: () => entryDoor.director.nextCharacter,
+          hasChatModel: () => _llmProvider != null,
+          pendingMetadata: () => _pendingRealismMetadata ??= {},
+          historyBase: () => _history.basePosition,
+          realismActiveThisMode: () => _realismActiveThisMode,
+          setStatus: (text) => _setGuestStatus(text),
+          zeroSessionFlags: () {
+            _summaryPaused = false;
+            _isSummaryGenerating = false;
+            _isGrowthPassRunning = false;
+          },
+          groupRepository: () => entryDoor.groupRepository,
+          rebindToday: _rebindTodayObjectiveFromDb,
+          clearToday: _clearTodayPointer,
+          holdToday: _persistTodayObjectiveId,
+          releaseToday: _releaseHeldToday,
+          revertToday: _revertTodayPointer,
+        ),
+      ),
+    );
+    _forwardDoorNotify(door);
+    return door;
+  }
+
+  /// The entry door. Each hook is debt (see [EntryShellHooks]); the
+  /// shared hooks are the session store's own ([_sessionHooks]).
+  EntryDoor _buildEntryDoor() => EntryDoor(
+    EntryDeps(
+      session: _session,
+      sessions: () => sessionStore,
+      services: EntryServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: _macroResolver,
+        characters: () => _characterRepository,
+        llmProvider: () => _llmProvider,
+        graph: () => realism,
+        realism: () => realism.scope,
+        snapshot: () => _realismSnapshot,
+        mood: () => _mood,
+        chaos: () => _chaosModeService,
+        needsPass: () => _needsPass,
+        expression: () => _expressionService,
+        lorebook: () => _lorebookScanner,
+        clockWriter: () => _clockWriter,
+        growthDesk: () => _growthDesk,
+        birthdays: () => _birthdaySync,
+        cast: () => castDoor,
+        objectives: () => objectivesDoor,
+        media: () => mediaDoor,
+        sceneMoves: _sceneMoves,
+      ),
+      hooks: EntryShellHooks(
+        isTurnBusy: () => _isTurnBusy,
+        bumpGenerationEpoch: () => _generationEpoch++,
+        generate: () => _generateResponse(GenerationMode.normal),
+        skipAsked: () => _skipAsked,
+        upcomingSpeaker: () => _upcomingGroupSpeaker,
+        refreshEnjoysLowHygiene: refreshEnjoysLowHygieneFromActiveCharacter,
+        persistMemberExtensions: (id) =>
+            persistGroupMemberExtensions(memberId: id),
+      ),
+      shared: _sessionHooks(),
+      notify: notifyListeners,
+    ),
+  );
+
+  /// True while forked-in character entrances are still playing. The
+  /// composer mirrors sendMessage's early return on it, so it does not
+  /// consume an attached photo for a turn sendMessage would drop.
+  bool get entrancesInFlight => entryDoor.entrancesInFlight;
+
+  /// From the start of a photo turn's captioning through the end of its send
+  /// flow: the captions run while the generating flag is down, so this keeps
+  /// a second sendMessage from interleaving. Photo turns only.
+  bool get isPhotoTurnInFlight => mediaDoor.photoTurnInFlight;
+}
+
+/// The entry door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.entryDoor] itself (WP9b to WP10c).
+extension _ChatServiceEntryNames on ChatService {
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => entryDoor.director.observerMode;
+  bool get _directing => entryDoor.director.directing;
+  bool get _autoPlayActive => entryDoor.director.autoPlayActive;
+  bool get _shouldTrackInterCharacterRelationships =>
+      entryDoor.reads.shouldTrackInterCharacterRelationships;
+  bool get _entrancesInFlight => entryDoor.entrancesInFlight;
+  AutoChatBudget get _autoChatBudget => entryDoor.autoChat;
+  GroupChatRepository? get _groupChatRepository => entryDoor.groupRepository;
+  set _groupChatRepository(GroupChatRepository? repo) =>
+      entryDoor.groupRepository = repo;
+
+  Future<void> _waitForTurnToSettle() => entryDoor.cover.waitForTurnToSettle();
+  Future<void> _autoPlayNext() => entryDoor.director.autoPlayNext();
+  bool _autoChatPausesAfter(ChatMessage reply) =>
+      entryDoor.director.autoChatPausesAfter(reply);
+}

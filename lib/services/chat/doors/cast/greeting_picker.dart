@@ -21,6 +21,7 @@ import 'dart:async';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -42,6 +43,7 @@ class GreetingPicker {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  RealismGraph get _graph => _d.graph();
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   RealismScope get _scope => _d.realism();
@@ -225,28 +227,28 @@ class GreetingPicker {
         storyStartDate: resolved.storyStartDate ?? _keptPersistedStartIso(),
         storyStartTime: resolved.storyStartTime,
       );
-      _h.applySeededPassageOfTime();
+      _graph.applySeededPassageOfTime();
     }
     _nsfwService.resetRuntimeArousalAndCooldown();
 
-    _h.seedGreetingNeeds(resolved.needsBaselines);
+    _graph.seeds.greetingNeeds(resolved.needsBaselines);
 
     final greetingPocketsId = memberId ?? _d.characterIdFor(card);
-    if (_h.pocketsEnabledFor(greetingPocketsId)) {
+    if (_graph.pocketsEnabledFor(greetingPocketsId)) {
       final pockets = Pockets.fromJson(resolved.inventory);
       if (pockets.isEmpty) {
         final fromCard = PocketsLedger.startingPocketsFor(card);
         if (fromCard.isEmpty) {
           if (_activeGroup == null) {
-            _h.clearHostPockets();
+            _graph.hostPockets = null;
           } else {
             _groupStore.memberForWrite(greetingPocketsId).pockets = null;
           }
         } else {
-          _h.setPocketsFor(greetingPocketsId, fromCard);
+          _graph.setPocketsFor(greetingPocketsId, fromCard);
         }
       } else {
-        _h.setPocketsFor(greetingPocketsId, pockets);
+        _graph.setPocketsFor(greetingPocketsId, pockets);
       }
     }
 
@@ -313,9 +315,9 @@ class GreetingPicker {
           hasAuthoredSeed: authored,
           firstMesEmpty: firstMesEmpty,
         ) &&
-        _h.realismActiveThisMode()) {
+        _graph.realismActiveThisMode) {
       unawaited(_baseline.runPostGreetingEval());
-    } else if (_h.realismActiveThisMode()) {
+    } else if (_graph.realismActiveThisMode) {
       unawaited(_baseline.seedOpeningPosture().catchError((Object _) {}));
     }
   }
@@ -375,7 +377,7 @@ class GreetingPicker {
         storyStartDate: timeResolved.storyStartDate ?? _keptPersistedStartIso(),
         storyStartTime: timeResolved.storyStartTime,
       );
-      _h.applySeededPassageOfTime();
+      _graph.applySeededPassageOfTime();
     }
 
     for (final c in _groupCharacters) {
@@ -394,8 +396,8 @@ class GreetingPicker {
       slot.emotionCause = '';
       slot.emotionHeldTurns = 0;
       slot.spatialStance = '';
-      _h.seedSlotNeeds(slot, resolved.needsBaselines);
-      if (_h.pocketsEnabledFor(_d.characterIdFor(c))) {
+      _graph.seeds.slotNeeds(slot, resolved.needsBaselines);
+      if (_graph.pocketsEnabledFor(_d.characterIdFor(c))) {
         final pockets = Pockets.fromJson(resolved.inventory);
         slot.pockets = pockets.isEmpty
             ? PocketsLedger.startingPocketsFor(c)

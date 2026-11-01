@@ -152,15 +152,6 @@ extension ChatServiceAccessors on ChatService {
     rerollIfSame: rerollIfSame,
   );
 
-  /// True when the user-facing Realism Engine (the judges that score the
-  /// user's message: bond, trust, emotion) runs for the current chat mode.
-  /// False in Director Mode, where the user is off stage; Needs, the clock
-  /// and the cast's feelings for each other still run there.
-  bool get _realismActiveThisMode =>
-      _realismEnabled &&
-      !_autoResponseInProgress &&
-      (_activeGroup == null || !_observerMode);
-
   /// The one-shot decision for THIS turn — the tri-state setting resolved
   /// against the live backend (pure policy in resolveOneShotMode; the
   /// probe verdict and locality are the only inputs storage can't know; both
@@ -181,16 +172,6 @@ extension ChatServiceAccessors on ChatService {
   bool get _clockRunning => StoryClock.isRunning(
     passageOfTimeEnabled: _storageService.realismSettings.passageOfTimeDefault,
   );
-
-  /// Porch Life alone. Card veto and leftover per-chat are not a gate.
-  bool get _seededPassageOfTime => derivedPassageOfTimeEnabled(
-    porchLifeDefault: _storageService.realismSettings.passageOfTimeDefault,
-  );
-
-  void _applySeededPassageOfTime() {
-    _timeService.setPassageOfTimeEnabled(_seededPassageOfTime);
-    _timeService.markClockGateSource('porch_life');
-  }
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on
@@ -450,7 +431,7 @@ extension ChatServiceAccessors on ChatService {
     // rebroadcast so the sidebar's tool-calling pill repaints live.
     _toolProbe.addListener(notifyListeners);
     // Settled verdicts outlive the run (a known model is not asked again).
-    _wireToolVerdicts();
+    realism.transport.wireToolVerdicts();
     // Local model path / remote model name changes alter the eval identity —
     // retest tool support for the new model (sidebar pill contract).
     _storageService.addListener(_onBackendIdentity);

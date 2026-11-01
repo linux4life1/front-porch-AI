@@ -288,6 +288,7 @@
   "promptPickerPendingFor",
   "promptSourceJson",
   "ragPriorityForGroupCharacter",
+  "realism",
   "realismAllowed",
   "realismChatSwitch",
   "realismEnabled",

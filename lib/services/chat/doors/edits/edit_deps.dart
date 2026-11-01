@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edit_hooks.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -112,23 +113,8 @@ class EditServices {
     required this.db,
     required this.storage,
     required this.personas,
-    required this.realismScope,
+    required this.graph,
     required this.history,
-    required this.timeline,
-    required this.clockReader,
-    required this.clockWriter,
-    required this.needsRewinds,
-    required this.needsReprocess,
-    required this.pocketsRewinds,
-    required this.itemCards,
-    required this.afterglow,
-    required this.realismDance,
-    required this.realismJudges,
-    required this.realismSnapshot,
-    required this.mood,
-    required this.expression,
-    required this.lorebookInjector,
-    required this.growthDesk,
     required this.macroResolver,
     required this.objectives,
     required this.media,
@@ -138,25 +124,11 @@ class EditServices {
   final StorageService Function() storage;
   final UserPersonaService Function() personas;
 
-  /// The open chat as the Realism Engine sees it: the scalar services,
-  /// the pending turn metadata, the mood and the chat's switches, live.
-  final RealismScope Function() realismScope;
+  /// The Realism graph: the scope (the scalar services, the pending turn
+  /// metadata, the mood and the chat's switches, live), the clock, the
+  /// rewinds, the judges and the overlay's eval status.
+  final RealismGraph Function() graph;
   final SessionHistoryWindow Function() history;
-  final TimelineInvalidator Function() timeline;
-  final StoryClockReader Function() clockReader;
-  final StoryClockWriter Function() clockWriter;
-  final NeedsRewinds Function() needsRewinds;
-  final NeedsReprocess Function() needsReprocess;
-  final PocketsRewinds Function() pocketsRewinds;
-  final ItemCardJournal Function() itemCards;
-  final AfterglowPass Function() afterglow;
-  final RealismDance Function() realismDance;
-  final RealismJudges Function() realismJudges;
-  final RealismSnapshot Function() realismSnapshot;
-  final MoodRegisters Function() mood;
-  final ExpressionService Function() expression;
-  final LorebookInjector Function() lorebookInjector;
-  final GrowthDesk Function() growthDesk;
   final MacroResolver Function() macroResolver;
   final ObjectivesDoor Function() objectives;
   final MediaDoor Function() media;

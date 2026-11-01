@@ -384,3 +384,8 @@ class StoryClock {
     return minutes.clamp(0, maxMinutesPerTurn);
   }
 }
+
+/// Porch Life Passage of Time alone. Card veto and leftover per-chat
+/// are not a gate.
+bool derivedPassageOfTimeEnabled({required bool porchLifeDefault}) =>
+    porchLifeDefault;

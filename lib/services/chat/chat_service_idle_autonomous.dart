@@ -162,3 +162,227 @@ extension ChatServiceIdleAutonomous on ChatService {
         'This is a solitary scene observed from outside the chat.*';
   }
 }
+
+/// Builds the cast door. Each hook is debt (see [CastShellHooks]).
+extension ChatServiceCastWiring on ChatService {
+  CastDoor _buildCastDoor() => CastDoor(
+    CastDeps(
+      session: _session,
+      storage: _storageService,
+      personas: _userPersonaService,
+      macros: _macroResolver,
+      database: () => _db,
+      characters: () => _characterRepository,
+      groupRepository: () => _groupChatRepository,
+      imageGen: () => _imageGenService,
+      graph: () => realism,
+      realism: () => realism.scope,
+      evals: () => _realismEvals,
+      snapshot: () => _realismSnapshot,
+      dance: () => _realismDance,
+      judges: () => _realismJudges,
+      mood: () => _mood,
+      clockWriter: () => _clockWriter,
+      chaos: () => _chaosModeService,
+      evalEngine: () => _llmEvalEngine,
+      journal: () => _journalStore,
+      growthStore: () => _growthStore,
+      growthDesk: () => _growthDesk,
+      objectives: () => objectivesDoor,
+      characterIdFor: _getCharacterIdFromCard,
+      saveChat: _saveChat,
+      notify: notifyListeners,
+      hooks: _castHooks(),
+    ),
+  );
+
+  CastShellHooks _castHooks() => CastShellHooks(
+    isTurnBusy: () => _isTurnBusy,
+    disposed: () => _disposed,
+    generate:
+        ({
+          guestSpeaker,
+          forceSpeaker,
+          autonomous = false,
+          skipSpeakerEval = false,
+        }) => _generateResponse(
+          GenerationMode.normal,
+          guestSpeaker: guestSpeaker,
+          forceSpeaker: forceSpeaker,
+          autonomous: autonomous,
+          skipSpeakerEval: skipSpeakerEval,
+        ),
+    waitForTurnToSettle: () => entryDoor.cover.waitForTurnToSettle(),
+    deleteMessage: deleteMessage,
+    embedFor: (id) => _maybeEmbedMessages(characterIdOverride: id),
+    ttsSpeaking: () => _ttsService != null && _ttsService!.isSpeaking,
+    mouthReady: () => _mouthLlm.isReady,
+    directing: () => entryDoor.director.directing,
+    setObserverMode: (on) => entryDoor.director.observerMode = on,
+    groupSpeakerSkips: _groupSpeakerSkips,
+    setNextCharacter: setNextCharacter,
+    nextCharacter: () => entryDoor.director.nextCharacter,
+    pickPresentSpeaker: _pickPresentGroupSpeaker,
+    workFieldsFor: _workFieldsFor,
+    memberInScene: _memberInScene,
+    reloadGroupRoster: () => entryDoor.roster.reloadGroupRoster(),
+    addToGroup: (card, repo, {asLite = false}) =>
+        entryDoor.roster.addCharacterToGroup(card, repo, asLite: asLite),
+    removeFromGroup: (card, repo) =>
+        entryDoor.roster.removeCharacterFromGroup(card, repo),
+    forkToGroup:
+        (
+          additional,
+          repo, {
+          entrances = const {},
+          liteArrivalKeys = const {},
+        }) => entryDoor.fork.forkToGroupChat(
+          additional,
+          repo,
+          entrances: entrances,
+          liteArrivalKeys: liteArrivalKeys,
+        ),
+    forgetMember: (id) => entryDoor.forgetMember(id),
+    setActiveCharacter: (card) => entryDoor.chat.setActiveCharacter(card),
+    loadSession: (id) => sessionStore.loader.loadSession(id),
+    ragCharacterId: _getCharacterId,
+    parseJsonMap: _tryParseJsonMap,
+    oneShotActive: () => _oneShotActive,
+    evalCancelled: () => _realismEvalCancelled,
+    clearEvalCancelled: () => _realismEvalCancelled = false,
+    greetingEvalGen: () => _greetingEvalGen,
+    bumpGreetingEvalGen: () => _greetingEvalGen++,
+    greetingZone: (token, index) => {
+      _kGreetingEvalToken: token,
+      _kGreetingEvalIndex: index,
+    },
+    markPostGreetingEvalEntered: () => testPostGreetingEvalEntered = true,
+    cancelRealismEval: cancelRealismEval,
+    evalStagger: _kEvalDispatchStagger,
+    timeSkipBridgeContext: _timeSkipBridgeContext,
+    selectGreeting: selectGreeting,
+    openingAllGreetings: () => openingAllGreetings,
+    resolvedOpeningGreetings: _resolvedOpeningGreetings,
+    guestDirector: _ensureSceneGuestDirector,
+    mintLlm: () => testLlmServiceOverride ?? _llmProvider?.activeService,
+    stageIdleTurn: _stageIdleTurn,
+  );
+}
+
+/// The cast door's state and behaviour under the names the rest of this
+/// library still uses. Each line is debt its caller's package retires by
+/// calling [ChatService.castDoor] itself (WP5, WP7 to WP10).
+extension _ChatServiceCastNames on ChatService {
+  SceneGuestState get _sceneGuest => castDoor.guests.state;
+  AwayPulseState get _awayPulse => castDoor.away.state;
+  DirectorScene get _directorScene => castDoor.directorScene;
+  bool get _narrating => castDoor.narrating;
+  String? get _entranceDirective => castDoor.entranceDirective;
+  set _entranceDirective(String? v) => castDoor.entranceDirective = v;
+  set _stoppedReplyAnchor(ChatMessage? v) =>
+      castDoor.guests.stoppedReplyAnchor = v;
+  set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
+  int get _greetingIndex => castDoor.greetings.greetingIndex;
+  bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
+  bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
+  set _isProcessingGreeting(bool v) =>
+      castDoor.baseline.isProcessingGreeting = v;
+  String? get _pendingIdleCue => castDoor.idle.pendingIdleCue;
+  set _pendingIdleCue(String? v) => castDoor.idle.pendingIdleCue = v;
+  set _hasCompletedExchange(bool v) => castDoor.idle.hasCompletedExchange = v;
+  int get _consecutiveAutoResponses => castDoor.idle.consecutiveAutoResponses;
+  set _consecutiveAutoResponses(int v) =>
+      castDoor.idle.consecutiveAutoResponses = v;
+
+  bool _sceneChanged(String? token) => castDoor.sceneChanged(token);
+  void _setGuestStatus(
+    String? msg, {
+    bool isError = false,
+    bool sticky = false,
+  }) => castDoor.guests.setStatus(msg, isError: isError, sticky: sticky);
+  void _noteStoppedReply({required bool replyKept}) =>
+      castDoor.guests.noteStoppedReply(replyKept: replyKept);
+  void _clearExitUndo() => castDoor.guests.clearExitUndo();
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      castDoor.guests.isGuestAuthoredMessage(m);
+  CharacterCard? _sceneGuestForMessage(ChatMessage m) =>
+      castDoor.guests.sceneGuestForMessage(m);
+  CharacterCard? _directAddressRoutedGuest(String promptText) =>
+      castDoor.guests.directAddressRoutedGuest(promptText);
+  Future<void> _resolveSceneGuestCards() =>
+      castDoor.guests.resolveSceneGuestCards();
+  Future<void> _addGuestWithStatus({
+    required String displayName,
+    CharacterCard? existing,
+    Future<GuestMintResult> Function(void Function(String step) onStatus)? mint,
+  }) => castDoor.guests.addGuestWithStatus(
+    displayName: displayName,
+    existing: existing,
+    mint: mint,
+  );
+  Future<GuestMintResult> _mintSceneGuest(
+    String name,
+    String concept, {
+    void Function(String step)? onStatus,
+  }) => castDoor.joins.mintSceneGuest(name, concept, onStatus: onStatus);
+
+  Future<void> _commitPendingMemberExit() =>
+      castDoor.roster.commitPendingMemberExit();
+  bool _speakerIsSoft(CharacterCard speaker) =>
+      castDoor.roster.speakerIsSoft(speaker);
+  Future<bool> _bridgeLongSkip({
+    required DateTime from,
+    required int skipped,
+    required ChatMessage skipLine,
+    required String? token,
+  }) => castDoor.stage.bridgeLongSkip(
+    from: from,
+    skipped: skipped,
+    skipLine: skipLine,
+    token: token,
+  );
+
+  Future<void> _runPostGreetingEval() =>
+      castDoor.baseline.runPostGreetingEval();
+  Future<void> _runRetroactiveBaselineEval() =>
+      castDoor.baseline.runRetroactiveBaselineEval();
+  Future<void> _invalidateGreetingEval() =>
+      castDoor.greetings.invalidateGreetingEval();
+  String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>
+      castDoor.greetings.buildFirstMessage(
+        character,
+        greetingText: greetingText,
+      );
+  CharacterCard? _greetingOwnerCard() => castDoor.greetings.greetingOwnerCard();
+  bool get _isOpeningGreetingChat => castDoor.greetings.isOpeningGreetingChat;
+  Future<void> _applyGreetingOpeningSeed({
+    required CharacterCard card,
+    required int index,
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGreetingOpeningSeed(
+    card: card,
+    index: index,
+    scheduleEval: scheduleEval,
+  );
+  Future<void> _applyGroupCustomGreetingSeed(
+    int index, {
+    bool scheduleEval = true,
+  }) => castDoor.greetings.applyGroupCustomGreetingSeed(
+    index,
+    scheduleEval: scheduleEval,
+  );
+  void _stampGreetingIndex(int index) =>
+      castDoor.greetings.stampGreetingIndex(index);
+
+  Future<void> _runAwayPulse({
+    required String userText,
+    required bool fromUserSend,
+  }) => castDoor.away.runAwayPulse(
+    userText: userText,
+    fromUserSend: fromUserSend,
+  );
+  void _releaseHeldAway(CharacterCard card) =>
+      castDoor.away.releaseHeldAway(card);
+  void _resetIdleTimer() => castDoor.idle.resetIdleTimer();
+  void _cancelIdleTimer() => castDoor.idle.cancelIdleTimer();
+}
