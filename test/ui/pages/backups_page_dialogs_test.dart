@@ -224,8 +224,12 @@ void main() {
     await tester.runAsync(AppDatabase.closeAndReset);
   });
 
-  testWidgets('the "settings come back next launch" notice goes away on its '
-      'own and does not cover the app', (tester) async {
+  // The notice leaving the screen is proven by the backup_restore E2E (its
+  // post-restore turn has to reach Send). In this harness the messenger only
+  // starts its timer on a rebuild that never comes, so pumping time proves
+  // nothing either way; this pins the settings that make it leave.
+  testWidgets('the "settings come back next launch" notice is set to time '
+      'out after 10 seconds', (tester) async {
     final root = await pumpWithSettings(tester);
     expect(
       (await stagedAfterRestore(tester, root))?.kind,
