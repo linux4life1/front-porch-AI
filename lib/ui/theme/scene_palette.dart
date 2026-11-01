@@ -171,3 +171,21 @@ const SceneEffectPaints kSceneEffectPaintsLight = SceneEffectPaints(
   fog: Color(0xB3C9CED3),
   flash: Color(0x66FFFFFF),
 );
+
+// ── The story-clock sky (`scene_sky.dart`) ────────────────────────────────
+
+/// The sun's disc and glow high in the sky, and low near the horizon.
+const Color kSceneSunHigh = Color(0xFFFFF0C8);
+const Color kSceneSunLow = Color(0xFFFFB06A);
+
+/// The moon's lit face and its glow.
+const Color kSceneMoon = Color(0xFFE8ECF6);
+const Color kSceneMoonGlow = Color(0xFFDCE4FF);
+
+/// Stars over a dark canvas, and the darker points a light canvas gets.
+const Color kSceneStarDark = Color(0xFFECF0FF);
+const Color kSceneStarLight = Color(0xFF3C4664);
+
+/// The horizon band at dawn and at dusk: the dawn and evening washes.
+const Color kSceneHorizonDawn = Color(0xFFF2A07B);
+const Color kSceneHorizonDusk = Color(0xFFE8913F);

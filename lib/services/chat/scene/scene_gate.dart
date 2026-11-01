@@ -44,7 +44,8 @@ class SceneGate {
   /// [level] is the user's Ambient scene choice. [theme], [sessionSeed],
   /// [dayCount] and [pauseWhileGenerating] came with the effects and default
   /// so a tint-only caller reads as before; the app passes all of them. A
-  /// null [theme] applies no theme cap.
+  /// null [theme] applies no theme cap. [minute] and [moonPhase] place the
+  /// sky; without a minute it sits at the period's representative time.
   static SceneTokens? resolve({
     required AmbientScene level,
     AppThemeId? theme,
@@ -55,6 +56,8 @@ class SceneGate {
     String sessionSeed = '',
     int dayCount = 0,
     bool pauseWhileGenerating = true,
+    int? minute,
+    double moonPhase = 0.5,
   }) {
     final allowed = sceneLevelFor(level, theme);
     if (allowed == null || day == null) return null;
@@ -65,6 +68,8 @@ class SceneGate {
       temp: day.temp,
       dark: dark,
       level: allowed,
+      minute: minute,
+      moonPhase: moonPhase,
       seed: allowed == SceneLevel.effects
           ? sceneSeed(
               sessionSeed: sessionSeed,

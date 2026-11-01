@@ -20,8 +20,10 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
 import 'package:front_porch_ai/ui/theme/web_theme_tokens.dart';
+import '../story_clock.dart';
 import '../weather_engine.dart';
 import 'scene_effects.dart';
+import 'scene_sky.dart';
 
 /// One translucent layer the stage paints, in paint order.
 @immutable
@@ -56,6 +58,7 @@ class SceneTokens {
     this.seed = 0,
     this.effects = SceneEffectSpec.none,
     this.pauseWhileGenerating = true,
+    this.sky,
   });
 
   /// The story clock's period key, the condition and band names.
@@ -87,12 +90,21 @@ class SceneTokens {
   /// reply is on its way, so a local model has the GPU to itself.
   final bool pauseWhileGenerating;
 
+  /// The story-clock sky over the tint and under the weather, or null for
+  /// a scene resolved without a clock (the stage then paints no sky).
+  final SceneSky? sky;
+
   /// The colours the moving weather paints in, for this brightness.
   SceneEffectPaints get paints =>
       dark ? kSceneEffectPaintsDark : kSceneEffectPaintsLight;
 
   /// Whether the moving weather paints at all.
   bool get hasEffects => level == SceneLevel.effects && !effects.isEmpty;
+
+  /// Whether anything on the stage moves at Tint and effects: the weather,
+  /// or the sky's twinkle and sweep on a clear night.
+  bool get hasMotion =>
+      hasEffects || (level == SceneLevel.effects && sky != null);
 
   /// Every layer composited over [ground], for contrast checks and tests.
   Color compositeOver(Color ground) {
@@ -133,6 +145,25 @@ class SceneTokens {
       },
   };
 
+  /// The sky's colours for this brightness (`scene_sky.dart`): the stops
+  /// the web blends by the minute, and the discs, stars and horizon. Rides
+  /// on the scene's `sky`, not the mode map, which keeps the four keys it
+  /// shipped with.
+  Map<String, Object> skyPaintsWire() => {
+    'scale': dark ? 1.0 : kSceneLightModeScale,
+    'stops': [
+      for (final s in kSceneSkyStops)
+        {'at': s.at, 'colour': WebThemeTokens.css(s.color), 'alpha': s.alpha},
+    ],
+    'sunHigh': WebThemeTokens.css(kSceneSunHigh),
+    'sunLow': WebThemeTokens.css(kSceneSunLow),
+    'moon': WebThemeTokens.css(kSceneMoon),
+    'moonGlow': WebThemeTokens.css(kSceneMoonGlow),
+    'star': WebThemeTokens.css(dark ? kSceneStarDark : kSceneStarLight),
+    'dawn': WebThemeTokens.css(kSceneHorizonDawn),
+    'dusk': WebThemeTokens.css(kSceneHorizonDusk),
+  };
+
   /// The wire the web paints from: the scene's keys plus both brightnesses,
   /// because the PWA may run its own mode (like `webThemeWire` ships both
   /// token maps). [dark] and [light] are the same scene resolved twice.
@@ -150,6 +181,14 @@ class SceneTokens {
     'seed': dark.seed,
     'pauseWhileGenerating': dark.pauseWhileGenerating,
     'effects': dark.effects.toWire(),
+    // Additive: an older PWA ignores the sky and paints the washes alone.
+    // The sky's inputs, then its colours for each brightness.
+    if (dark.sky != null)
+      'sky': {
+        ...dark.sky!.toWire(),
+        'dark': dark.skyPaintsWire(),
+        'light': light.skyPaintsWire(),
+      },
     'dark': dark.toModeWire(),
     'light': light.toModeWire(),
   };
@@ -166,6 +205,7 @@ class SceneTokens {
       other.seed == seed &&
       other.effects == effects &&
       other.pauseWhileGenerating == pauseWhileGenerating &&
+      other.sky == sky &&
       _sameLayers(other.layers, layers);
 
   static bool _sameLayers(List<SceneLayer> a, List<SceneLayer> b) {
@@ -187,6 +227,7 @@ class SceneTokens {
     level,
     seed,
     effects,
+    sky,
   );
 }
 
@@ -205,8 +246,17 @@ class SceneSim {
     SceneLevel level = SceneLevel.tint,
     int seed = 0,
     bool pauseWhileGenerating = true,
+    int? minute,
+    double moonPhase = 0.5,
   }) {
     final scale = dark ? 1.0 : kSceneLightModeScale;
+    // Without a clock the sky sits at the period's representative minute,
+    // so a caller that knows only the period still gets the right sky.
+    final skyMinute =
+        minute ??
+        sceneMinuteOf(
+          StoryClock.representativeTime(DateTime.utc(2000), daypart),
+        );
     final day = kSceneDaypartWash[daypart] ?? SceneWash.none;
     final cond =
         kSceneConditionWash[condition.name] ?? kSceneConditionWash['clear']!;
@@ -231,6 +281,11 @@ class SceneSim {
       seed: seed,
       effects: SceneEffectSpec.forCondition(condition.name),
       pauseWhileGenerating: pauseWhileGenerating,
+      sky: SceneSky.resolve(
+        minute: skyMinute,
+        moonPhase: moonPhase,
+        condition: condition.name,
+      ),
     );
   }
 }

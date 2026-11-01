@@ -89,6 +89,8 @@ class SceneCloudLayer extends Component
 /// twice each, so it makes no images and no shaders.
 class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
   SceneFogLayer() : super(priority: 2);
+  // Priorities: tint -1, sky 0, clouds 1, fog 2, precipitation 3, the
+  // discs 4 (`scene_sky_layer.dart`), the flash 5.
 
   SceneEffectsSim? _builtFor;
   Color? _builtColour;
@@ -187,7 +189,7 @@ class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
 /// for the scene sound to time its thunder by.
 class SceneLightningFlash extends Component
     with HasGameReference<AmbientStageGame> {
-  SceneLightningFlash() : super(priority: 4);
+  SceneLightningFlash() : super(priority: 5);
 
   final Paint _paint = Paint();
   final Paint _bolt = Paint()
