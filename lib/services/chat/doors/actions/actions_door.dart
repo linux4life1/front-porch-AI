@@ -11,6 +11,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -26,19 +27,16 @@ class ActionsDoor extends ChangeNotifier {
   ActionsDoor({
     required ChatSessionState session,
     required UserPersonaService personas,
-    required LLMService Function() mouthLlm,
-    required Stream<String> Function(GenerationParams params) mouthStream,
+    required LlmLanes lanes,
   }) : _session = session,
        _personas = personas,
-       _mouthLlm = mouthLlm,
-       _mouthStream = mouthStream;
+       _lanes = lanes;
 
   final ChatSessionState _session;
   final UserPersonaService _personas;
 
   /// The spoken-reply lane, and its stream (which waits out a GPU swap).
-  final LLMService Function() _mouthLlm;
-  final Stream<String> Function(GenerationParams params) _mouthStream;
+  final LlmLanes _lanes;
 
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;
@@ -88,7 +86,7 @@ class ActionsDoor extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (!_mouthLlm().isReady) {
+      if (!_lanes.mouth.isReady) {
         debugPrint('[Actions] ✗ LLM not ready');
         return;
       }
@@ -131,7 +129,7 @@ class ActionsDoor extends ChangeNotifier {
       );
 
       String responseText = '';
-      await for (final chunk in _mouthStream(params)) {
+      await for (final chunk in _lanes.mouthGenerateStream(params)) {
         responseText += chunk;
       }
       responseText = responseText.trim();

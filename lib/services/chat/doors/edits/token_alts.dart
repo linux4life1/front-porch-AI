@@ -90,7 +90,7 @@ class TokenAlts {
     if (index != _session.messages.length - 1) {
       return 'Only the last reply can be rewritten from a word.';
     }
-    if (!_d.turn.mouthIsLocal()) {
+    if (!_d.services.lanes.mouthIsLocal) {
       return 'Rewriting from a word needs KoboldCpp.';
     }
     return null;

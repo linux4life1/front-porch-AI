@@ -18,17 +18,14 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
-import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -36,34 +33,36 @@ import 'package:front_porch_ai/services/storage/settings/appearance_settings.dar
 import 'package:front_porch_ai/services/tool_choice_style_probe.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
-import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_defaults.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_api.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/coalesced_notify.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_api.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_api.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_api.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_api.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
-import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
-import 'package:drift/drift.dart' as drift;
 
 export 'chat/realism_snapshot.dart'
     show kSpatialStancePreTurn, kWithUserPreTurn;
@@ -77,6 +76,8 @@ export 'chat/doors/session/session_api.dart';
 export 'chat/doors/entry/entry_api.dart';
 export 'chat/doors/realism/realism_api.dart';
 export 'chat/planner_today_fate.dart';
+export 'chat/chat_defaults.dart';
+export 'chat/doors/controls/controls_api.dart';
 
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_reprocess.dart';
@@ -93,17 +94,12 @@ part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_idle_autonomous.dart';
 part 'chat/chat_service_prompt_blocks.dart';
-part 'chat/chat_service_controls.dart';
 part 'chat/chat_service_context_budget.dart';
-part 'chat/chat_service_llm_lanes.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_message_ops.dart';
 part 'chat/chat_service_accessors.dart';
-part 'chat/chat_service_accessors_living.dart';
-part 'chat/chat_service_planner_resolve.dart';
-part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
 
 class ChatService extends ChangeNotifier with ChatServiceFieldBag {
@@ -147,14 +143,18 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
     characterId: characterId,
   );
 
+  /// The chat's switches and gates: Realism, Needs, Objectives, Afterglow,
+  /// Chaos, the call, the clock, One-Shot, Chance Time; old names in
+  /// controls_api.dart. Fakes pin the forwarders below.
+  late final ControlsDoor controlsDoor = _buildControlsDoor();
+
+  /// The mouth and worker lanes and the studio wizards' tool check.
+  late final LlmLanes _lanes = _buildLanes();
+
   /// Fake-pinned (widget fakes override; extension members can't be).
   /// Ending a call also releases any parked call-model swap.
-  bool get callMode => _callMode;
-  set callMode(bool value) {
-    _callMode = value;
-    if (!value) _exitCallEvalModelSwap();
-    notifyListeners();
-  }
+  bool get callMode => controlsDoor.callMode;
+  set callMode(bool value) => controlsDoor.setCallMode(value);
 
   List<Objective> getObjectivesForGroupCharacter(CharacterCard character) =>
       objectivesDoor.getObjectivesForGroupCharacter(character);
@@ -261,7 +261,7 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   List<CharacterCard> get groupCharacters =>
       _session.groupManager?.characters ?? const <CharacterCard>[];
 
-  /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_accessors.dart.
+  /// Ordered cast of speakers, group or 1:1+guests. Body in chat_service_idle_autonomous.dart.
   List<ChatParticipant> get cast => _castImpl;
   double get tokensPerSecond => _tokensPerSecondImpl;
 
@@ -323,17 +323,19 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   String get wikiBaseUrl => mediaDoor.wikiBaseUrl;
   Future<void> setWikiBaseUrl(String url) => mediaDoor.setWikiBaseUrl(url);
   NeedsSimulation get needsSimulation => realism.needs;
-  Future<void> setNeedsSimEnabled(bool on) => _setNeedsSimEnabledImpl(on);
-  bool get realismEnabled => _realismEnabled;
-  bool get realismChatSwitch => _realismChatSwitch;
+  Future<void> setNeedsSimEnabled(bool on) =>
+      controlsDoor.setNeedsSimEnabled(on);
+  bool get realismEnabled => controlsDoor.realismEnabled;
+  bool get realismChatSwitch => controlsDoor.realismChatSwitch;
   bool get realismAllowed => _storageService.realismSettings.realismAllowed;
   String spatialStanceForGroupCharacter(CharacterCard c) =>
       entryDoor.reads.spatialStanceForGroupCharacter(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>
       entryDoor.reads.withUserForGroupCharacter(c);
-  bool get objectivesActive => _objectivesActiveImpl;
-  bool get afterglowChatSwitch => _afterglowChatSwitchImpl;
-  Future<void> setAfterglowEnabled(bool on) => _setAfterglowEnabledImpl(on);
+  bool get objectivesActive => controlsDoor.objectivesActive;
+  bool get afterglowChatSwitch => controlsDoor.afterglowChatSwitch;
+  Future<void> setAfterglowEnabled(bool on) =>
+      controlsDoor.setAfterglowEnabled(on);
   MemoryService? get memoryService => _memoryService;
   Map<String, dynamic>? get lastRagReceipt => _lastRagReceiptImpl;
   String get standingMoodSummary => realism.standingMood.summary;
@@ -346,12 +348,9 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   int get verificationPass => realism.evalStatus.verificationPass;
   int get verificationMaxPasses => realism.evalStatus.verificationMaxPasses;
 
-  /// Stream text with think blocks stripped (for display) — memoized on
-  /// string identity (the overlay + web broadcast read it every notify).
-  /// Class member, not extension: FakeChatService overrides it in goldens.
-  /// The memo fields stay here; the getter body is in
-  /// chat_service_accessors.dart.
-  String get realismEvalStreamTextClean => _realismEvalStreamTextCleanImpl;
+  /// Stream text with think blocks stripped (for display), memoized on the
+  /// graph's eval status. Class member: FakeChatService overrides it.
+  String get realismEvalStreamTextClean => realism.evalStatus.streamTextClean;
   String get characterEmotion => realism.registers.emotion;
   String get emotionIntensity => realism.registers.intensity;
   String get emotionCause => realism.registers.cause;
@@ -359,13 +358,13 @@ class ChatService extends ChangeNotifier with ChatServiceFieldBag {
   String get moodLine => realism.mood.displayLine;
 
   /// The chat's Needs switch; [needsActive] is the gate Needs run behind.
-  bool get needsSimEnabled => _needsSimEnabled;
+  bool get needsSimEnabled => controlsDoor.needsSimEnabled;
   bool get needsActive => realism.needsPass.active;
 
   /// Writes Porch Life Passage of Time — the live clock gate. Class-pinned
   /// so goldens/fakes can override.
   Future<void> setPassageOfTimeEnabled(bool enabled) =>
-      _setPassageOfTimeEnabledImpl(enabled);
+      controlsDoor.setPassageOfTimeEnabled(enabled);
 
   /// A group member's own Afterglow switch (body in [GroupMemberSettings]).
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>

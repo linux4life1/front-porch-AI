@@ -9,7 +9,7 @@
 // (at your option) any later version.
 
 // Realism runs behind one gate. `_realismEnabled` (a getter in
-// lib/services/chat/chat_service_controls.dart) is Porch Life's Realism
+// lib/services/chat/chat_service_accessors.dart) is Porch Life's Realism
 // permission AND the chat's own switch; every reader in the ChatService
 // library, and every leaf through its RealismScope, reads it, so Porch Life
 // off stops Realism in every open chat from its next turn.
@@ -30,7 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/source_ratchet.dart';
 
-const _gateFile = 'lib/services/chat/chat_service_controls.dart';
+const _gateFile = 'lib/services/chat/chat_service_accessors.dart';
 
 /// The ChatService library (the shell and its parts) and its chat leaves.
 List<String> _chatServiceLibrary() => [
@@ -41,9 +41,12 @@ List<String> _chatServiceLibrary() => [
 /// Files that read or write the chat's own switch: how many times, and why
 /// each is right.
 const _ownSwitch = <String, (int, String)>{
-  'lib/services/chat_service.dart': (1, 'the public switch, for test doubles'),
-  'lib/services/chat/chat_service_fields.dart': (1, 'declares it'),
-  _gateFile: (2, 'the gate; the switch\'s setter'),
+  'lib/services/chat/doors/controls/controls_door.dart': (
+    6,
+    'declares it; the public switch, for test doubles; hands the session '
+        'store the chat\'s own switch, to read and write; the gate; the '
+        'switch\'s setter',
+  ),
   'lib/services/chat/doors/session/session_scalars.dart': (
     2,
     'restores it from the session row',
@@ -67,10 +70,6 @@ const _ownSwitch = <String, (int, String)>{
   'lib/services/chat/doors/session/walk_back.dart': (
     4,
     'keeps it across a fork walk-back',
-  ),
-  'lib/services/chat/chat_service_planner_resolve.dart': (
-    2,
-    'hands the session store the chat\'s own switch, to read and write',
   ),
   'lib/services/chat/doors/entry/group_entry.dart': (
     3,

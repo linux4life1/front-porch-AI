@@ -18,6 +18,11 @@
 
 part of '../chat_service.dart';
 
+/// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
+/// pass started against the rejected window cannot apply (or fall through
+/// to XML) after abortGeneration tore the tools call down.
+int _memoryPassEpoch = 0;
+
 /// The regen pieces hygiene tests pin to this file: 1:1 regen's decay and
 /// judge replay (trust_repair_regen_latch_test reads the shared dispatch
 /// here). The regen itself is the edits door's RegenController
@@ -152,6 +157,7 @@ extension ChatServiceRegenReplay on ChatService {
           macroResolver: () => _macroResolver,
           objectives: () => objectivesDoor,
           media: () => mediaDoor,
+          lanes: _lanes,
         ),
         characterIdFor: _getCharacterIdFromCard,
         saveChat: _saveChat,
@@ -165,18 +171,12 @@ extension ChatServiceRegenReplay on ChatService {
           generate: _generateResponse,
           answerTrailingUserLine: _generateFromTrailingUserTurn,
           bumpMemoryEpoch: () => _memoryPassEpoch++,
-          mouthIsLocal: () => _mouthIsLocal,
           setGenerating: (on) => _isGenerating = on,
           setPhase: (phase) => _generationPhase = phase,
           cancelRequested: () => _cancelRequested,
           setCancelRequested: (on) => _cancelRequested = on,
-          mouthStream: _mouthGenerateStream,
-          withWorkerLane: (work) => _withWorkerLane(work),
-          mouthIdle: () => _llmProvider?.koboldService.waitForIdle(),
         ),
         realism: EditRealismHooks(
-          evalCancelled: () => _realismEvalCancelled,
-          setEvalCancelled: (on) => _realismEvalCancelled = on,
           rewindToLastAcceptedReply: _rewindRelationshipToLastAcceptedReply,
           restoreScoredRegisters: _restoreScoredRegisters,
           replayRegenJudges: _replayRegenJudges,
@@ -228,4 +228,84 @@ extension ChatServiceRegenReplay on ChatService {
     _forwardDoorNotify(door);
     return door;
   }
+}
+
+/// Builds the Realism graph, the controls door and the model lanes. Each
+/// hook stands in for a member of another part until that part becomes a
+/// door (see [RealismShellHooks] and [ControlsShellHooks]).
+extension ChatServiceRealismWiring on ChatService {
+  RealismGraph _buildRealismGraph() => RealismGraph(
+    RealismDeps(
+      session: _session,
+      services: RealismServices(
+        db: () => _db,
+        storage: _storageService,
+        personas: _userPersonaService,
+        worlds: _worldRepository,
+        macros: _macroResolver,
+        kobold: _koboldService,
+        characters: () => _characterRepository,
+        memory: () => _memoryService,
+        llmProvider: () => _llmProvider,
+        maxSecondaryObjectives: kMaxSecondaryObjectives,
+        evalStagger: kEvalDispatchStagger,
+        lanes: _lanes,
+      ),
+      doors: RealismDoors(
+        cast: () => castDoor,
+        entry: () => entryDoor,
+        edits: () => editsDoor,
+        objectives: () => objectivesDoor,
+        sessions: () => sessionStore,
+        controls: () => controlsDoor,
+      ),
+      hooks: RealismShellHooks(
+        characterIdFor: _getCharacterIdFromCard,
+        ragCharacterId: _getCharacterId,
+        disposed: () => _disposed,
+        staleGreetingEval: _isStaleGreetingEval,
+        memoryPassEpoch: () => _memoryPassEpoch,
+        macroContext: _buildChatMacroContext,
+        isGenerating: () => _isGenerating,
+        isTurnBusy: () => _isTurnBusy,
+        stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
+      ),
+      notify: notifyListeners,
+    ),
+  );
+
+  ControlsDoor _buildControlsDoor() => ControlsDoor(
+    ControlsDeps(
+      session: _session,
+      storage: _storageService,
+      personas: _userPersonaService,
+      db: () => _db,
+      characters: () => _characterRepository,
+      graph: () => realism,
+      cast: () => castDoor,
+      lanes: _lanes,
+      turn: this,
+      saveChat: _saveChat,
+      notify: notifyListeners,
+      hooks: ControlsShellHooks(
+        disposed: () => _disposed,
+        characterIdFor: _getCharacterIdFromCard,
+        isTurnBusy: () => _isTurnBusy,
+        exitCallModelSwap: _exitCallEvalModelSwap,
+        upcomingSpeaker: () => _upcomingGroupSpeaker,
+        speakerName: () => chanceTimeSpeakerName,
+      ),
+    ),
+  );
+
+  LlmLanes _buildLanes() => LlmLanes(
+    kobold: () => _koboldService,
+    provider: () => _llmProvider,
+    testMouth: () => testLlmServiceOverride,
+    testWorker: () => testWorkerLlmServiceOverride,
+    testIsLocal: () => testIsLocalOverride,
+    isGenerating: () => _isGenerating,
+    transport: () => realism.transport,
+    notify: notifyListeners,
+  );
 }

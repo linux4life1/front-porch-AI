@@ -52,7 +52,7 @@ class SessionSaver {
   GroupRealismStore get _groupStore => _scope.groups;
 
   /// The chat's own Realism switch, saved, never the gate.
-  bool get _realismChatSwitch => _d.hooks.chatRealism();
+  bool get _realismChatSwitch => _s.controls().chatRealism;
 
   Future<void> save({bool replaceAll = false}) async {
     // Turn taken = this write. Snapshot at enqueue so a later reload
@@ -217,7 +217,7 @@ class SessionSaver {
           _nsfwService.storedNsfwCooldownEnabled,
         ),
         needsSimEnabled: drift.Value(_scope.needsSimEnabled()),
-        objectivesEnabled: drift.Value(_d.hooks.objectivesEnabled()),
+        objectivesEnabled: drift.Value(_s.controls().objectivesEnabled),
         // Persist the kit even when the chat-gear switch is off (hide ≠
         // erase). An empty map is a chat that made its choice with no kit
         // yet, so a card edit or Porch Life never re-decides it; only rows

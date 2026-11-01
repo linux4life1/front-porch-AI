@@ -16,18 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
-// Default system prompts + the needs-critical-threshold forward, hoisted to
-// LIBRARY TOP LEVEL (not class statics) as part of the round-4b god-file
-// shrink (docs/design/god-file-elimination.md). These were previously
-// `static const` / `static` members on ChatService; none of them are part of
-// any test fake's interface (statics can't be `@override`d anyway), so moving
-// them out of the class body — and every call site from `ChatService.xxx` to
-// the bare `xxx` — is a pure relocation with zero behaviour change. Values are
-// byte-identical to their old class-static form. `services.dart` exports
-// `chat_service.dart`, so callers already importing the services barrel see
-// these automatically.
+// The chat's default prompts and tuning constants, as library top-level
+// names. They were class statics on ChatService, then top-level names in
+// one of its part files; the shell exports this library, so every caller
+// that imports chat_service.dart still sees them.
 
 /// Cap on active side quests (non-primary). Birthday outings for the
 /// character and for {{user}} both need a slot without kicking a quest
@@ -96,83 +90,18 @@ const String defaultApiSystemPrompt =
     '- Use *asterisks* for actions and narration: *They leaned against the doorframe, arms crossed.*\n'
     '- Internal thoughts can be written in italics or described through narration.';
 
-// Forwarding for critical threshold (moved to NeedsSimulation after buffer removal; UI + cards still reference the old ChatService surface)
+/// The Needs bands, read through [NeedsSimulation] (UI and cards still name
+/// them here).
 int get needCriticalThreshold => NeedsSimulation.needCriticalThreshold;
 int get needUrgentThreshold => NeedsSimulation.needUrgentThreshold;
 
-// The three tuning constants below are the same "private static -> library
-// top-level" move as the consts above, swept in during round 4b: each was a
-// `static const` on ChatService referenced from other part files as
-// `ChatService._xxx`, which is exactly what this technique targets. Still
-// library-private (leading underscore) — nothing outside chat_service.dart's
-// library ever referenced them, so this is a purely internal rename.
-
 /// Run a cast-detection scan every this-many primary (user) turns. Small and
 /// constant so the eval is infrequent and turns stay cheap.
-const int _castScanInterval = 4;
+const int kCastScanInterval = 4;
 
-/// Streaming-notify coalescing window (~30 fps). See the "Streaming rebuild
-/// throttle" comment on `_lastStreamNotify`/`_streamNotifyTimer` in the class
-/// body for the full rationale — those two fields stay put; only this const
-/// (formerly a co-located `static const`) moved.
-const Duration _kStreamNotifyInterval = Duration(milliseconds: 33);
+/// Streaming-notify coalescing window (~30 fps); see the streaming rebuild
+/// throttle beside `_lastStreamNotify` in the ChatService field bag.
+const Duration kStreamNotifyInterval = Duration(milliseconds: 33);
 
 /// Inter-call delay used when staggering the multi-call realism evaluations.
-const _kEvalDispatchStagger = Duration(milliseconds: 50);
-
-// kRealismPreTurn / kRealismPreTurnBySpeaker live in realism_snapshot.dart
-// beside the other pre-turn receipts; the edits door reads them too.
-
-// Internal flag to signal a cancellation request for realism evaluation.
-// This is a file-scope flag to avoid needing to thread state through the
-// entire class in this patch, and is reset once the interruption is surfaced
-// to the UI.
-bool _realismEvalCancelled = false;
-
-/// Set when regenerate/continue abort in-flight post-gen evals (needs,
-/// climax, pockets, posture) so the rejected reply is not scored. Cleared
-/// after a successful yield, at finalize start, and in regen's finally —
-/// leftover latch must not survive into the next turn.
-bool _postGenAbortRequested = false;
-
-/// Bumped on regen / settling abort so a fire-and-forget Journal or Growth
-/// pass started against the rejected window cannot apply (or fall through
-/// to XML) after abortGeneration tore the tools call down.
-int _memoryPassEpoch = 0;
-
-/// True while [sendMessage] is holding a typed line behind post-gen evals.
-/// The composer already cleared; the bubble is not in the list yet.
-bool _sendWaitingOnSettle = false;
-
-/// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
-/// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession,
-/// importChatPackage, forkFromMessage) so a
-/// late unawaited [_runPostGreetingEval] cannot stomp a later opening.
-int _greetingEvalGen = 0;
-
-const Object _kGreetingEvalToken = #_greetingEvalToken;
-const Object _kGreetingEvalIndex = #_greetingEvalIndex;
-
-/// Stale when THIS eval's captured token is no longer the live gen.
-/// [_invalidateGreetingEval] always bumps [_greetingEvalGen], so a later
-/// opening stale-gates the earlier apply without a shared nullable slot.
-/// A missing Zone token is not a greeting apply (normal turn evals).
-bool _isStaleGreetingEval() {
-  final token = Zone.current[_kGreetingEvalToken] as int?;
-  if (token == null) return false;
-  return token != _greetingEvalGen;
-}
-
-/// Set when [_runPostGreetingEval] passes its guards (not skipped solely
-/// because [_session.activeCharacter] is null). Tests prove group unauthored alts
-/// reach the eval path.
-@visibleForTesting
-bool testPostGreetingEvalEntered = false;
-
-// GBNF grammar support for Realism Engine evals (incl. Needs simulation) removed
-// in the 0.9.8 clean port. All JSON outputs now rely on regex extraction + stop
-// sequences inside _fireLLMEval (no _buildKoboldGrammar, no _kGbnf* consts).
-
-/// Regex matching any `{{macro}}` or `{{macro::args}}` pattern.
-/// Used to detect stray unresolved macros in chat history.
-final _macroPattern = RegExp(r'\{\{(\w+)(?:::(.+?))?\}\}');
+const Duration kEvalDispatchStagger = Duration(milliseconds: 50);

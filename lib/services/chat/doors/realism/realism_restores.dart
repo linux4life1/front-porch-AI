@@ -47,7 +47,7 @@ class RealismRestores {
       _g.deps.hooks.characterIdFor(card);
 
   /// The chat's STORED Needs switch: this file rewinds state with it.
-  bool get _needsSimEnabled => _g.deps.hooks.needsSimEnabled();
+  bool get _needsSimEnabled => _g.controls.needsSimEnabled;
 
   // ── Group Creation Baseline Seeding (bond/trust/emotion/time/day only) ──
 

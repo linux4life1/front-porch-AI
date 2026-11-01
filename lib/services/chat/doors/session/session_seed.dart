@@ -46,12 +46,12 @@ class SessionSeed {
 
   /// The chat's own Realism switch: seeded from the card, written to and
   /// read back from a package head.
-  bool get _realismChatSwitch => _h.chatRealism();
-  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+  bool get _realismChatSwitch => _s.controls().chatRealism;
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// The chat's stored Needs switch: seeded and restored here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _h.setNeedsSimEnabled(on);
+  set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
 
   /// Full import seed: clear session lineage/guests/summary and reseed live
   /// Realism/Needs from the card/group so the save does not persist the
@@ -126,8 +126,8 @@ class SessionSeed {
         false,
       );
       _needsSimEnabled = _s.needsPass().seedNeedsSim(extSeed.needsSimChoice);
-      _h.setObjectivesEnabled(settings.objectivesEnabled);
-      _h.setEnjoysLowHygiene(extSeed.enjoysLowHygiene);
+      _s.controls().objectivesEnabled = settings.objectivesEnabled;
+      _s.controls().chatEnjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         _needsSimulation.initializeFreshWithDefaults({
           'hunger': extSeed.needsBaselineHunger,
@@ -180,7 +180,7 @@ class SessionSeed {
       _nsfwService.resetForFreshChat();
       _s.lorebook().resetLorebookTriggerState();
       _needsSimEnabled = false;
-      _h.setEnjoysLowHygiene(false);
+      _s.controls().chatEnjoysLowHygiene = false;
       _needsSimulation.clearVector();
       _needsSimulation.resetBuffers();
       _s.graph().hostPockets = null;
@@ -227,9 +227,9 @@ class SessionSeed {
     final head = <String, dynamic>{
       'realism_enabled': _realismChatSwitch,
       'needs_sim_enabled': _scope.needsSimEnabled(),
-      'enjoys_low_hygiene': _h.enjoysLowHygiene(),
-      'objectives_enabled': _h.objectivesEnabled(),
-      'afterglow_enabled': _h.afterglowChatSwitch(),
+      'enjoys_low_hygiene': _s.controls().chatEnjoysLowHygiene,
+      'objectives_enabled': _s.controls().objectivesEnabled,
+      'afterglow_enabled': _s.controls().afterglowChatSwitch,
       'summary': _store.summary,
       'summary_last_index': _store.summaryLastIndex,
       'affection_score': _relationshipService.affectionScore,
@@ -289,10 +289,10 @@ class SessionSeed {
       _needsSimEnabled = head['needs_sim_enabled'] as bool;
     }
     if (head['enjoys_low_hygiene'] is bool) {
-      _h.setEnjoysLowHygiene(head['enjoys_low_hygiene'] as bool);
+      _s.controls().chatEnjoysLowHygiene = head['enjoys_low_hygiene'] as bool;
     }
     if (head['objectives_enabled'] is bool) {
-      _h.setObjectivesEnabled(head['objectives_enabled'] as bool);
+      _s.controls().objectivesEnabled = head['objectives_enabled'] as bool;
     }
     // The chat's own Afterglow switch, before the Lust it restores below. A
     // package saved before it has none and keeps the card's or group's.

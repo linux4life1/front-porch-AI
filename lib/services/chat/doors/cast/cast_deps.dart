@@ -147,15 +147,11 @@ class CastShellHooks {
     required this.loadSession,
     required this.ragCharacterId,
     required this.parseJsonMap,
-    required this.oneShotActive,
-    required this.evalCancelled,
-    required this.clearEvalCancelled,
     required this.greetingEvalGen,
     required this.bumpGreetingEvalGen,
     required this.greetingZone,
     required this.markPostGreetingEvalEntered,
     required this.cancelRealismEval,
-    required this.evalStagger,
     required this.timeSkipBridgeContext,
     required this.selectGreeting,
     required this.openingAllGreetings,
@@ -228,13 +224,10 @@ class CastShellHooks {
   final String Function() ragCharacterId;
   final Map<String, String> Function(String? json) parseJsonMap;
 
-  // ── Eval gates and the greeting eval (WP9b) ───────────────────────────
+  // ── The greeting eval (WP10b) ────────────────────────────────────────
 
-  final bool Function() oneShotActive;
-  final bool Function() evalCancelled;
-  final void Function() clearEvalCancelled;
-
-  /// The greeting-eval generation a stale opening is checked against.
+  /// The greeting-eval generation a stale opening is checked against (a
+  /// file-scope counter in chat_service_idle_autonomous).
   final int Function() greetingEvalGen;
   final void Function() bumpGreetingEvalGen;
 
@@ -242,11 +235,8 @@ class CastShellHooks {
   final Map<Object?, Object?> Function(int token, int index) greetingZone;
   final void Function() markPostGreetingEvalEntered;
 
-  /// The turn stops' Realism cancel (WP10b).
+  /// The turn stops' Realism cancel.
   final Future<void> Function() cancelRealismEval;
-
-  /// The delay between staggered multi-call evals.
-  final Duration evalStagger;
 
   // ── Clock (WP10a) ─────────────────────────────────────────────────────
 

@@ -56,6 +56,8 @@ import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
@@ -600,9 +602,26 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   late final ActionsDoor actionsDoor = ActionsDoor(
     session: ChatSessionState(),
     personas: FakeUserPersonaService(),
-    mouthLlm: () => throw StateError('goldens run no model'),
-    mouthStream: (_) => const Stream<String>.empty(),
+    lanes: LlmLanes(
+      kobold: () => throw StateError('goldens run no model'),
+      provider: () => null,
+      testMouth: () => null,
+      testWorker: () => null,
+      testIsLocal: () => false,
+      isGenerating: () => isGenerating,
+      transport: _noDoorDep,
+      notify: () {},
+    ),
   );
+
+  /// The controls door behind the controls bridge (the Realism, Objectives
+  /// and Chaos writes, the story clock's controls, Chance Time). Goldens
+  /// read the class forwarders above instead (realismEnabled,
+  /// needsSimEnabled, objectivesActive, afterglowChatSwitch, callMode, …);
+  /// every bridge member read a private of the real service before, which
+  /// threw on this fake too, so it throws.
+  @override
+  ControlsDoor get controlsDoor => _noDoorDep();
 
   /// The cast door behind the cast bridge (guests, greetings, Away, idle).
   /// Empty chat, no database or model, an unwired shell: a state read

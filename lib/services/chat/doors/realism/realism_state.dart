@@ -18,6 +18,8 @@
 
 import 'dart:async';
 
+import 'package:front_porch_ai/services/chat/llm_eval_engine/eval_window.dart';
+
 /// The scalar registers the Realism Engine scores into for the loaded
 /// speaker: the emotion and its intensity, cause and hold, plus the turn's
 /// metadata waiting for the reply it will ride. In a group the dance loads
@@ -46,7 +48,20 @@ class RealismEvalStatus {
 
   bool evaluating = false;
   bool cancelling = false;
+
+  /// The user cancelled the Realism eval; cleared once the interruption is
+  /// surfaced (the send, the regen and the greeting eval each consume it).
+  bool cancelled = false;
   String streamText = '';
+
+  String? _cleanSrc, _cleanOut;
+
+  /// [streamText] with think blocks stripped (for display), memoized on
+  /// string identity: the overlay and the web broadcast read it every
+  /// notify.
+  String get streamTextClean => identical(streamText, _cleanSrc)
+      ? _cleanOut!
+      : _cleanOut = stripEvalThinkBlocks(_cleanSrc = streamText);
 
   /// Debounce timer: batches rapid per-chunk rebuilds during eval streaming
   /// into one every 150 ms. Without it a 40-token JSON reply fires 40+

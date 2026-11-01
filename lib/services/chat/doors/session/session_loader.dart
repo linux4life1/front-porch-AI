@@ -452,6 +452,6 @@ class SessionLoader {
     final owed = rs.realismStartOwed.contains(s.id);
     if (!owed && !rs.savedWhileRealismBlocked(s.updatedAt)) return;
     if (owed) unawaited(rs.settleRealismStart(s.id));
-    _h.onRealismStarted();
+    _s.controls().onRealismStarted();
   }
 }

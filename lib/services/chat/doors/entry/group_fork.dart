@@ -63,7 +63,7 @@ class GroupFork {
       _d.shared.characterIdFor(c);
 
   /// The chat's own Realism switch, carried into the group it becomes.
-  bool get _realismChatSwitch => _d.shared.chatRealism();
+  bool get _realismChatSwitch => _s.controls().chatRealism;
   bool get _needsSimEnabled => _scope.needsSimEnabled();
 
   /// Fork the current 1:1 chat into a new group chat, copying all messages.

@@ -55,11 +55,11 @@ class NewChatOpener {
   AppDatabase get _db => _s.db();
 
   /// The chat's own Realism switch, seeded from the card.
-  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// The chat's stored Needs switch: seeded here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _h.setNeedsSimEnabled(on);
+  set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
 
   String _debugScalars() =>
       'arousal=${_nsfwService.arousalLevel}, fixation=${_relationshipService.activeFixation}/${_relationshipService.fixationLifespan}';
@@ -158,7 +158,7 @@ class NewChatOpener {
       );
       // A silent card follows the Porch Life Needs switch (chat_entry twin).
       _needsSimEnabled = _s.needsPass().seedNeedsSim(extSeed.needsSimChoice);
-      _h.setEnjoysLowHygiene(extSeed.enjoysLowHygiene);
+      _s.controls().chatEnjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         // Fresh chat / new session: seed from card baselines (falls back to
         // needDefaults when the card has no baselines).
@@ -234,7 +234,7 @@ class NewChatOpener {
         // / 0-session new-chat path (matches the 1:1 ext-seed branch,
         // setActiveCharacter and setActiveGroup).
         _needsSimEnabled = false;
-        _h.setEnjoysLowHygiene(false);
+        _s.controls().chatEnjoysLowHygiene = false;
         _needsSimulation.clearVector();
         _needsSimulation.resetBuffers();
         // v47: same as the ext-seed branch above — a fresh chat starts with
@@ -384,7 +384,7 @@ class NewChatOpener {
         _session.messages.isNotEmpty &&
         _session.activeCharacter!.frontPorchExtensions == null) {
       _cast.baseline.greetingEvalPending = true;
-      if (_h.realismEnabled()) {
+      if (_s.controls().realismEnabled) {
         _cast.baseline.runPostGreetingEval();
       }
     }

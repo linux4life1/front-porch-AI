@@ -124,7 +124,7 @@ class GroupMemberSettings {
     if (_nsfwService.loadedMemberId == id) {
       _nsfwService.resetRuntimeArousalAndCooldown();
     }
-    await _d.hooks.persistMemberExtensions(id);
+    await _s.controls().persistGroupMemberExtensions(memberId: id);
   }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).

@@ -30,16 +30,15 @@ class ScalarCarries {
 
   final RealismGraph _g;
 
-  RealismShellHooks get _h => _g.deps.hooks;
   SessionStore get _sessions => _g.deps.doors.sessions();
 
   /// The chat's own Realism switch, which a cast change carries.
-  bool get _realismChatSwitch => _h.chatRealism();
-  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+  bool get _realismChatSwitch => _g.controls.chatRealism;
+  set _realismChatSwitch(bool on) => _g.controls.setChatRealism(on);
 
   /// The chat's stored Needs switch, carried with it.
-  bool get _needsSimEnabled => _h.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _h.setNeedsSimEnabled(on);
+  bool get _needsSimEnabled => _g.controls.needsSimEnabled;
+  set _needsSimEnabled(bool on) => _g.controls.needsSimEnabled = on;
 
   RealismDance get _realismDance => _g.dance;
   RealismSnapshot get _realismSnapshot => _g.snapshot;

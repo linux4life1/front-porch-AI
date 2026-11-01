@@ -44,8 +44,7 @@ class ChatWeather {
   /// Today's story weather, or null when off (living-time-features.md §3).
   DailyWeather? get currentWeather {
     final storage = _g.deps.services.storage;
-    if (!_g.deps.hooks.clockRunning() ||
-        !storage.realismSettings.weatherEnabled) {
+    if (!_g.controls.clockRunning || !storage.realismSettings.weatherEnabled) {
       return null;
     }
     // The Setting's chain owns weather (locations slice 2): the nearest

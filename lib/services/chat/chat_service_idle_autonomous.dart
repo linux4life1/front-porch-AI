@@ -18,6 +18,31 @@
 
 part of '../chat_service.dart';
 
+/// Bumped by [_invalidateGreetingEval] (selectGreeting, startNewChat,
+/// setActiveCharacter, setActiveGroup, loadSession, _loadLastSession,
+/// importChatPackage, forkFromMessage) so a
+/// late unawaited [_runPostGreetingEval] cannot stomp a later opening.
+int _greetingEvalGen = 0;
+
+const Object _kGreetingEvalToken = #_greetingEvalToken;
+const Object _kGreetingEvalIndex = #_greetingEvalIndex;
+
+/// Stale when THIS eval's captured token is no longer the live gen.
+/// [_invalidateGreetingEval] always bumps [_greetingEvalGen], so a later
+/// opening stale-gates the earlier apply without a shared nullable slot.
+/// A missing Zone token is not a greeting apply (normal turn evals).
+bool _isStaleGreetingEval() {
+  final token = Zone.current[_kGreetingEvalToken] as int?;
+  if (token == null) return false;
+  return token != _greetingEvalGen;
+}
+
+/// Set when [_runPostGreetingEval] passes its guards (not skipped solely
+/// because [_session.activeCharacter] is null). Tests prove group unauthored alts
+/// reach the eval path.
+@visibleForTesting
+bool testPostGreetingEvalEntered = false;
+
 /// The shell's half of a Dynamic Responses ("AFK") idle turn: the clock's
 /// away pace, the speaker pick and their bars as the chip's baseline, and
 /// the cue built for that speaker. The timer, its guards and the turn
@@ -216,7 +241,7 @@ extension ChatServiceCastWiring on ChatService {
     deleteMessage: deleteMessage,
     embedFor: (id) => _maybeEmbedMessages(characterIdOverride: id),
     ttsSpeaking: () => _ttsService != null && _ttsService!.isSpeaking,
-    mouthReady: () => _mouthLlm.isReady,
+    mouthReady: () => _lanes.mouth.isReady,
     directing: () => entryDoor.director.directing,
     setObserverMode: (on) => entryDoor.director.observerMode = on,
     groupSpeakerSkips: _groupSpeakerSkips,
@@ -247,9 +272,6 @@ extension ChatServiceCastWiring on ChatService {
     loadSession: (id) => sessionStore.loader.loadSession(id),
     ragCharacterId: _getCharacterId,
     parseJsonMap: _tryParseJsonMap,
-    oneShotActive: () => _oneShotActive,
-    evalCancelled: () => _realismEvalCancelled,
-    clearEvalCancelled: () => _realismEvalCancelled = false,
     greetingEvalGen: () => _greetingEvalGen,
     bumpGreetingEvalGen: () => _greetingEvalGen++,
     greetingZone: (token, index) => {
@@ -258,7 +280,6 @@ extension ChatServiceCastWiring on ChatService {
     },
     markPostGreetingEvalEntered: () => testPostGreetingEvalEntered = true,
     cancelRealismEval: cancelRealismEval,
-    evalStagger: _kEvalDispatchStagger,
     timeSkipBridgeContext: _timeSkipBridgeContext,
     selectGreeting: selectGreeting,
     openingAllGreetings: () => openingAllGreetings,
@@ -273,6 +294,29 @@ extension ChatServiceCastWiring on ChatService {
 /// library still uses. Each line is debt its caller's package retires by
 /// calling [ChatService.castDoor] itself (WP5, WP7 to WP10).
 extension _ChatServiceCastNames on ChatService {
+  /// The unified ordered cast of speakers for the active chat, regardless of
+  /// mode. This is the single roster the UI reads instead of branching on
+  /// `isGroupMode` between `activeCharacter`, `groupCharacters`, and
+  /// `sceneGuestCards`:
+  ///   - Group chat → each group member, in turn order (no distinct host).
+  ///   - 1:1 / NPC chat → the host (`cast[0]`, realism-bearing) followed by any
+  ///     present Scene Guests (lite NPCs, realism off).
+  /// Empty only when no chat is loaded.
+  List<ChatParticipant> get _castImpl {
+    if (isGroupMode) {
+      return [
+        for (final c in groupCharacters)
+          ChatParticipant(card: c, isHost: false),
+      ];
+    }
+    final host = _session.activeCharacter;
+    return [
+      if (host != null) ChatParticipant(card: host, isHost: true),
+      for (final g in _sceneGuest.cards)
+        ChatParticipant(card: g, isHost: false, isSceneGuest: true),
+    ];
+  }
+
   SceneGuestState get _sceneGuest => castDoor.guests.state;
   AwayPulseState get _awayPulse => castDoor.away.state;
   DirectorScene get _directorScene => castDoor.directorScene;
@@ -283,7 +327,6 @@ extension _ChatServiceCastNames on ChatService {
       castDoor.guests.stoppedReplyAnchor = v;
   set _greetingIndex(int v) => castDoor.greetings.greetingIndex = v;
   int get _greetingIndex => castDoor.greetings.greetingIndex;
-  bool get _greetingEvalPending => castDoor.baseline.greetingEvalPending;
   bool get _isProcessingGreeting => castDoor.baseline.isProcessingGreeting;
   set _isProcessingGreeting(bool v) =>
       castDoor.baseline.isProcessingGreeting = v;
@@ -342,10 +385,6 @@ extension _ChatServiceCastNames on ChatService {
     token: token,
   );
 
-  Future<void> _runPostGreetingEval() =>
-      castDoor.baseline.runPostGreetingEval();
-  Future<void> _runRetroactiveBaselineEval() =>
-      castDoor.baseline.runRetroactiveBaselineEval();
   Future<void> _invalidateGreetingEval() =>
       castDoor.greetings.invalidateGreetingEval();
   String _buildFirstMessage(CharacterCard character, {String? greetingText}) =>

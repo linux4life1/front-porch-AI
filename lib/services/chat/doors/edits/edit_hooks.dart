@@ -18,7 +18,6 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 // Debt: every hook below is state or behaviour another part of the chat
@@ -36,14 +35,10 @@ class EditTurnHooks {
     required this.generate,
     required this.answerTrailingUserLine,
     required this.bumpMemoryEpoch,
-    required this.mouthIsLocal,
     required this.setGenerating,
     required this.setPhase,
     required this.cancelRequested,
     required this.setCancelRequested,
-    required this.mouthStream,
-    required this.withWorkerLane,
-    required this.mouthIdle,
   });
 
   /// A reply, its post-gen settle, an import or narration is running.
@@ -82,42 +77,24 @@ class EditTurnHooks {
   /// A regen invalidates Journal and Growth passes started on the old reply.
   final void Function() bumpMemoryEpoch;
 
-  /// The chat model is KoboldCpp (word odds exist only there).
-  final bool Function() mouthIsLocal;
-
   /// Impersonate streams on the narrow generating flag and its own phase.
   final void Function(bool on) setGenerating;
   final void Function(GenerationPhase phase) setPhase;
   final bool Function() cancelRequested;
   final void Function(bool on) setCancelRequested;
-
-  /// The chat model's stream, after the worker lane yields the speech pin.
-  final Stream<String> Function(GenerationParams params) mouthStream;
-
-  /// Runs [work] on the worker lane when one is configured.
-  final Future<bool> Function(Future<bool> Function() work) withWorkerLane;
-
-  /// KoboldCpp's idle wait, or null when the mouth is not KoboldCpp.
-  final Future<void>? Function() mouthIdle;
 }
 
-/// The Realism hooks other parts still hold: the cancel flag (a file-scope
-/// flag, WP9b), the send spine's stamp-less rewind (WP10c), and three
-/// bodies a hygiene test pins to their part file (WP10b).
+/// The Realism hooks other parts still hold: the send spine's stamp-less
+/// rewind (WP10c), and three bodies a hygiene test pins to their part file
+/// (WP10b).
 class EditRealismHooks {
   const EditRealismHooks({
-    required this.evalCancelled,
-    required this.setEvalCancelled,
     required this.rewindToLastAcceptedReply,
     required this.restoreScoredRegisters,
     required this.replayRegenJudges,
     required this.needsBeforeDelete,
     required this.rewindPocketsForDelete,
   });
-
-  /// The user cancelled the Realism eval (`_realismEvalCancelled`).
-  final bool Function() evalCancelled;
-  final void Function(bool on) setEvalCancelled;
 
   /// 1:1 stamp-less rewind of the scored registers to the last reply.
   final bool Function() rewindToLastAcceptedReply;

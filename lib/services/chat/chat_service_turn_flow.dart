@@ -212,13 +212,13 @@ extension ChatServiceTurnFlow on ChatService {
   }
 
   /// True when auto-trigger fires. UI reads then calls consumeChanceTimeTrigger().
-  bool get chanceTimePendingTrigger => _chanceTimePendingTrigger;
+  bool get chanceTimePendingTrigger => _chance.pendingTrigger;
 
   /// True when a chaos event is queued for the next response (blocks manual spin + auto-trigger).
   bool get hasPendingChaosEvent => _chaosModeService.hasPendingChaosEvent;
 
   /// Called by the overlay once it has opened. Clears the auto-trigger flag.
-  void consumeChanceTimeTrigger() => _chanceTimePendingTrigger = false;
+  void consumeChanceTimeTrigger() => _chance.pendingTrigger = false;
 
   // ── Web/mobile Chance Time surface ──────────────────────────────────────
   // The desktop pops its wheel from the one-shot [chanceTimePendingTrigger] via
@@ -232,19 +232,19 @@ extension ChatServiceTurnFlow on ChatService {
   /// accepted. The durable signal the web surface uses to show — and, after a
   /// phone wakes and reconnects, re-show — the reveal modal.
   bool get isAwaitingChanceTime =>
-      _webChanceTimeEvent != null ||
-      (_chanceTimeCompleter != null && !_chanceTimeCompleter!.isCompleted);
+      _chance.webEvent != null ||
+      (_chance.completer != null && !_chance.completer!.isCompleted);
 
   /// Manual SPIN NOW. Parks a pre-picked event until accept. No-op when
   /// chaos is off, an event is already queued, or a park is already live.
   bool requestManualChanceTime() {
     if (!_chaosModeService.chaosModeEnabled) return false;
     if (_chaosModeService.hasPendingChaosEvent) return false;
-    if (_webChanceTimeEvent != null) return false;
+    if (_chance.webEvent != null) return false;
     final wheel = spinWheelEvents();
     if (wheel.isEmpty) return false;
-    _webChanceTimeEvent = wheel.first;
-    _webChanceTimeName = chanceTimeSpeakerName;
+    _chance.webEvent = wheel.first;
+    _chance.webName = chanceTimeSpeakerName;
     notifyListeners();
     return true;
   }
@@ -258,24 +258,21 @@ extension ChatServiceTurnFlow on ChatService {
 
   /// The pre-picked pending event with its placeholders resolved, for the web reveal
   /// modal. Null when nothing is parked.
-  String? get webChanceTimeDisplay => _webChanceTimeEvent == null
+  String? get webChanceTimeDisplay => _chance.webEvent == null
       ? null
       : resolveChanceTimeEvent(
-          _webChanceTimeEvent!,
-          _webChanceTimeName ?? chanceTimeSpeakerName,
+          _chance.webEvent!,
+          _chance.webName ?? chanceTimeSpeakerName,
         );
 
   /// Web/mobile "Accept Your Fate": applies the pre-picked pending event using
   /// the same attribution the desktop wheel uses, then lets generation resume.
   /// No-op if nothing is parked (e.g. the desktop already accepted).
   Future<void> acceptPendingChanceTime() async {
-    final raw = _webChanceTimeEvent;
+    final raw = _chance.webEvent;
     if (raw == null) return;
     // The name the reveal showed, even if a turn has passed since the spin.
-    await applyChanceTimeResult(
-      raw,
-      _webChanceTimeName ?? chanceTimeSpeakerName,
-    );
+    await applyChanceTimeResult(raw, _chance.webName ?? chanceTimeSpeakerName);
   }
 
   // ── The Journal recap ("Where we are") ──────────────────────────────
@@ -437,7 +434,7 @@ extension ChatServiceTurnFlow on ChatService {
     if (_sceneGuest.pendingDetection != null) return; // one offer at a time
 
     _sceneGuest.turnsSinceCastScan++;
-    if (_sceneGuest.turnsSinceCastScan < _castScanInterval) return;
+    if (_sceneGuest.turnsSinceCastScan < kCastScanInterval) return;
     _sceneGuest.turnsSinceCastScan = 0;
 
     // Fire-and-forget: never block the turn on the eval.

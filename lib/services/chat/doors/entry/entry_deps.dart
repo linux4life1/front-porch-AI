@@ -21,6 +21,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
@@ -51,8 +52,8 @@ class EntryDeps {
   final EntryServices services;
   final EntryShellHooks hooks;
 
-  /// The hooks the session store takes too (the chat's switches and seeds,
-  /// the turn's cancel, identity), wired once and handed to both.
+  /// The hooks the session store takes too (the turn's cancel, identity,
+  /// the roster and the prompt budget), wired once and handed to both.
   final SessionShellHooks shared;
 
   /// The service's own notify, synchronous: the loading cover rises before
@@ -75,6 +76,7 @@ class EntryServices {
     required this.characters,
     required this.llmProvider,
     required this.graph,
+    required this.controls,
     required this.realism,
     required this.snapshot,
     required this.mood,
@@ -104,6 +106,10 @@ class EntryServices {
   /// The Realism graph: the host's Pockets record, the places, the Pockets
   /// seed and the Growth pass flag an entry resets.
   final RealismGraph Function() graph;
+
+  /// The chat's own switches an entry resets and seeds, the low-hygiene
+  /// re-read and a group member's own switches, persisted.
+  final ControlsDoor Function() controls;
 
   /// The open chat as the Realism Engine sees it: the scalar services, the
   /// group map and the chat's stored Needs switch.
@@ -137,8 +143,6 @@ class EntryShellHooks {
     required this.generate,
     required this.skipAsked,
     required this.upcomingSpeaker,
-    required this.refreshEnjoysLowHygiene,
-    required this.persistMemberExtensions,
   });
 
   // ── Turn (WP10b) ──────────────────────────────────────────────────────
@@ -160,12 +164,4 @@ class EntryShellHooks {
 
   /// The rotation head, moved past members who are Away or at work.
   final CharacterCard? Function() upcomingSpeaker;
-
-  // ── The chat's switches (WP9b) ────────────────────────────────────────
-
-  /// Re-reads "Enjoys low hygiene" from the active card after an edit.
-  final void Function() refreshEnjoysLowHygiene;
-
-  /// Writes a group member's Front Porch extensions to their row.
-  final Future<void> Function(String memberId) persistMemberExtensions;
 }

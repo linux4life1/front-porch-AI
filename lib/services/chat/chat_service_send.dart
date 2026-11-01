@@ -405,21 +405,21 @@ extension ChatServiceSend on ChatService {
           _chaosModeService.pendingChaosInjection == null) {
         if (checkAndTickChaosPressure()) {
           // Create a completer so sendMessage pauses here until the wheel resolves
-          _chanceTimeCompleter = Completer<void>();
-          _chanceTimePendingTrigger = true;
+          _chance.completer = Completer<void>();
+          _chance.pendingTrigger = true;
           // Pre-pick the one event the web/mobile reveal modal shows + accepts
           // (the desktop spins its own wheel instead — same pool, same accept).
           final webWheel = spinWheelEvents();
-          _webChanceTimeEvent = webWheel.isNotEmpty
+          _chance.webEvent = webWheel.isNotEmpty
               ? webWheel.first
               : 'Fate intervenes in an unexpected way.';
-          _webChanceTimeName = chanceTimeSpeakerName;
+          _chance.webName = chanceTimeSpeakerName;
           notifyListeners(); // UI observes this to show the wheel
           // Wait for the user to spin + accept fate (completes in applyChanceTimeResult)
-          await _chanceTimeCompleter!.future;
-          _chanceTimeCompleter = null;
-          _webChanceTimeEvent = null;
-          _webChanceTimeName = null;
+          await _chance.completer!.future;
+          _chance.completer = null;
+          _chance.webEvent = null;
+          _chance.webName = null;
         }
       }
 

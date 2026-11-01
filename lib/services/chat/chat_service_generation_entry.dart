@@ -328,7 +328,7 @@ extension ChatServiceTurnHelpers on ChatService {
         }
         return '';
       },
-      fireGateEval: (prompt) => _fireLLMEval(
+      fireGateEval: (prompt) => realism.transport.fireLLMEval(
         prompt,
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'guest_gate',
@@ -365,7 +365,7 @@ extension ChatServiceTurnHelpers on ChatService {
         }
         return out.reversed.toList();
       },
-      fireLLMEval: (prompt) => _fireLLMEval(
+      fireLLMEval: (prompt) => realism.transport.fireLLMEval(
         prompt,
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'cast',

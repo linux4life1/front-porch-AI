@@ -44,12 +44,15 @@ extension RealismCoreWiring on RealismGraph {
         growthDesk.requestSalienceKick(onlyIf: registers.pending);
       },
       onStoryDayChanged: () {
-        _h.recordTodayPointerOp();
+        planner.recordTodayPointerOp();
         final held = _today.todaySentence;
         _today.setTodaySentence(null);
         return () async {
-          await _h.journalResolvedToday(held, fate: PlannerTodayFate.dayAte);
-          await _h.deactivateTodayObjective();
+          await planner.journalResolvedToday(
+            held,
+            fate: PlannerTodayFate.dayAte,
+          );
+          await planner.deactivateTodayObjective();
         }();
       },
       // A story day crossed eases the mood one step (mood-with-bite.md):
@@ -95,7 +98,7 @@ extension RealismCoreWiring on RealismGraph {
         places.flagSuggestedPlaceMint(name, descriptor);
       },
       onTodayEval: (line) {
-        _h.recordTodayPointerOp();
+        planner.recordTodayPointerOp();
         if (line.isEmpty) {
           _today.abandonToday();
           return Future<void>.value();
@@ -104,9 +107,12 @@ extension RealismCoreWiring on RealismGraph {
         _today.setTodaySentence(line);
         return () async {
           if (prev != null && prev != line) {
-            await _h.journalResolvedToday(prev, fate: PlannerTodayFate.done);
+            await planner.journalResolvedToday(
+              prev,
+              fate: PlannerTodayFate.done,
+            );
           }
-          await _h.upsertTodayObjective(line);
+          await planner.upsertTodayObjective(line);
         }();
       },
       onPatchLastMessageRealismState: (_, _, _) {
@@ -121,7 +127,7 @@ extension RealismCoreWiring on RealismGraph {
     session: session,
     history: _doors.sessions().history,
     time: () => time,
-    clockRunning: _h.clockRunning,
+    clockRunning: () => controls.clockRunning,
   );
 
   StoryClockWriter buildClockWriter() => StoryClockWriter(
@@ -134,7 +140,7 @@ extension RealismCoreWiring on RealismGraph {
   );
 
   EpisodeCrumbMinter buildEpisodeCrumbs() => EpisodeCrumbMinter(
-    clockRunning: _h.clockRunning,
+    clockRunning: () => controls.clockRunning,
     memorySettings: () => _storageService.memorySettings,
     currentSessionId: () => session.currentSessionId,
     cast: clockCast,
@@ -154,7 +160,7 @@ extension RealismCoreWiring on RealismGraph {
     cast: clockCast,
     characterIdFor: _h.characterIdFor,
     journalStore: () => journalStore,
-    objectivesActive: _h.objectivesActive,
+    objectivesActive: () => controls.objectivesActive,
     db: deps.services.db,
     reloadActiveObjectives: () => _doors.objectives().loadActiveObjectives(),
     maxSecondaryObjectives: deps.services.maxSecondaryObjectives,
@@ -181,10 +187,10 @@ extension RealismCoreWiring on RealismGraph {
   RealismScope buildScope() => RealismScope.of(
     session: session,
     observerMode: () => _doors.entry().director.observerMode,
-    realismEnabled: _h.realismEnabled,
-    needsSimEnabled: _h.needsSimEnabled,
+    realismEnabled: () => controls.realismEnabled,
+    needsSimEnabled: () => controls.needsSimEnabled,
     realismSettings: () => _storageService.realismSettings,
-    clockRunning: _h.clockRunning,
+    clockRunning: () => controls.clockRunning,
     characterIdFor: _h.characterIdFor,
     groups: groups,
     needs: () => needs,
@@ -253,7 +259,7 @@ extension RealismCoreWiring on RealismGraph {
       // PR 6: the hard-lock truth lives in one lookup next to
       // applyChanceTimeResult — spin AND accept re-gate through it, so the
       // two chokepoints cannot drift.
-      isHardLockActive: () => _h.hardLockFor(_h.chanceTimeSpeaker()),
+      isHardLockActive: () => controls.chance.speakerHardLocked,
     );
   }
 
@@ -266,12 +272,12 @@ extension RealismCoreWiring on RealismGraph {
       getGroupValue: (charId, key) => groups.members[charId]?.valueFor(key),
       setGroupValue: (charId, key, v) =>
           groups.memberForWrite(charId).setValue(key, v),
-      isClockRunning: _h.clockRunning,
+      isClockRunning: () => controls.clockRunning,
       // Porch Life (with 18+) allows it AND this chat's own switch is on.
       afterglowOn: () =>
           _storageService.realismSettings.afterglowEnabled &&
-          _h.afterglowSwitch(),
-      chatSwitchOn: _h.afterglowSwitch,
+          controls.afterglowSwitchForLoaded,
+      chatSwitchOn: () => controls.afterglowSwitchForLoaded,
     );
   }
 
@@ -280,13 +286,13 @@ extension RealismCoreWiring on RealismGraph {
       onNotify: notifyListeners,
       onSaveChat: _saveChat,
       getTimeOfDay: () => time.timeOfDay,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getObserverMode: () => _doors.entry().director.observerMode,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getGroupNeeds: groups.needsOf,
       setGroupNeeds: groups.setNeeds,
-      getEnjoysLowHygiene: _h.enjoysLowHygiene,
+      getEnjoysLowHygiene: () => controls.enjoysLowHygiene,
       getNeedsSimEnabled: () => needsPass.active,
     );
   }
@@ -304,7 +310,7 @@ extension RealismCoreWiring on RealismGraph {
       getBackendIdentity: () => transport.backendIdentity,
       getIsEvaluatingRealism: () => evalStatus.evaluating,
       getStorageService: () => _storageService,
-      getLlmServiceForReclass: _h.sideLaneLlm,
+      getLlmServiceForReclass: () => lanes.sideLane,
       getIsGenerating: _h.isGenerating,
       getCharacterEmotion: () => registers.emotion,
       getMessages: () => session.messages,
@@ -320,8 +326,8 @@ extension RealismCoreWiring on RealismGraph {
         }
         return false;
       },
-      getRealismEvalCancelled: _h.evalCancelled,
-      setRealismEvalCancelled: _h.setEvalCancelled,
+      getRealismEvalCancelled: () => evalStatus.cancelled,
+      setRealismEvalCancelled: (on) => evalStatus.cancelled = on,
       setIsEvaluatingRealism: (v) => evalStatus.evaluating = v,
       onHandleRealismEvalCancelledDuringOnnx: () async {
         // Transient banner only — never a persisted chat message. (The old
@@ -330,7 +336,7 @@ extension RealismCoreWiring on RealismGraph {
         // post-generation ONNX avatar classification, so the reply already
         // exists — consuming the flag here is correct (nothing to abort).
         _doors.cast().guests.setStatus('Realism classification interrupted.');
-        _h.setEvalCancelled(false);
+        evalStatus.cancelled = false;
         evalStatus.evaluating = false;
         notifyListeners();
       },
@@ -345,7 +351,7 @@ extension on RealismGraph {
   TodaySentence get _today => _doors.sessions().today;
 
   /// The chat's own Realism switch, for the one leaf input that is it.
-  bool get _realismChatSwitch => _h.chatRealism();
+  bool get _realismChatSwitch => controls.chatRealism;
 
   void notifyListeners() => deps.notify();
   Future<void> _saveChat() => _doors.sessions().save();
