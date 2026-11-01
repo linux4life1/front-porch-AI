@@ -274,15 +274,15 @@ void main() {
       );
     });
 
-    test('setNsfwCooldownEnabled(false) clears cooldown + arousal', () {
+    test('setNsfwCooldownEnabled(false) keeps cooldown + arousal', () {
       final svc = createTestNsfw();
       svc.setNsfwCooldownEnabled(true);
       svc.setArousalLevel(50);
       svc.setRefractory(Refractory.fromJudgeTurns(3));
       svc.setNsfwCooldownEnabled(false);
       expect(svc.nsfwCooldownEnabled, false);
-      expect(svc.arousalLevel, 0);
-      expect(svc.refractory, Refractory.none);
+      expect(svc.arousalLevel, 50);
+      expect(svc.refractory, Refractory.fromJudgeTurns(3));
     });
 
     test('group load/save scalars for speaker roundtrips arousal + refractory + '

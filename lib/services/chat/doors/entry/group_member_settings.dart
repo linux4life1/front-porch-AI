@@ -107,9 +107,11 @@ class GroupMemberSettings {
           : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
 
   /// A group member's own Afterglow switch, kept on their card in this group
-  /// (unset reads on). Switching it either way settles their Lust and any
-  /// recovery, as the chat's switch does. The service keeps a one-line
-  /// class forwarder of the same name, which the golden fake overrides.
+  /// (unset reads on). Off hides their Lust and any recovery and holds them
+  /// where they are; on shows them again, unchanged, as the chat's switch
+  /// does. Nothing of theirs, stored or live, is zeroed, and the rest of the
+  /// cast is untouched. The service keeps a one-line class forwarder of the
+  /// same name, which the golden fake overrides.
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
     if (_activeGroup == null) return;
     if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
@@ -117,14 +119,9 @@ class GroupMemberSettings {
         (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
           afterglowEnabled: on,
         );
-    final id = _getCharacterIdFromCard(member);
-    _groupStore.memberForWrite(id)
-      ..arousal = 0
-      ..refractory = Refractory.none;
-    if (_nsfwService.loadedMemberId == id) {
-      _nsfwService.resetRuntimeArousalAndCooldown();
-    }
-    await _s.controls().persistGroupMemberExtensions(memberId: id);
+    await _s.controls().persistGroupMemberExtensions(
+      memberId: _getCharacterIdFromCard(member),
+    );
   }
 
   /// Set the active group's turn order on the fly (the `/turnorder` macro).

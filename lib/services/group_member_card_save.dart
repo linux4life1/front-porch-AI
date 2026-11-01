@@ -116,8 +116,8 @@ bool liveMemberAfterglow(ChatService chat, CharacterCard card, bool opened) {
 /// Settles a member's own Afterglow switch after their editor saved [saved]
 /// into the open group chat. The editor sets the switch on the card itself,
 /// so the chat would never see it move: the opening value [before] goes back
-/// and the chat sets the new one, which clears the member's Lust and cooldown
-/// as the Group Settings switch does.
+/// and the chat sets the new one, as the Group Settings switch does. Off
+/// hides the member's Lust and recovery and keeps them; nothing is zeroed.
 Future<void> settleMemberAfterglow(
   ChatService chat,
   CharacterCard saved,

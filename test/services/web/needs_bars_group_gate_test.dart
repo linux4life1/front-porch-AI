@@ -222,6 +222,64 @@ void main() {
     await lust(shows: false, why: "the group chat's switch off");
   });
 
+  // Off hides a member's Lust and recovery and keeps them (zeroing them was
+  // a bug): their card, the phone's member block and its chat tools show
+  // neither while their switch is off, and both where they were once it is
+  // back on.
+  testWidgets("a member's Afterglow off hides their Lust and recovery on the "
+      "card and in the phone's feeds; on shows them where they were", (
+    tester,
+  ) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await tester.runAsync(() async {
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+    });
+    final card = member().card;
+    final id = chat.characterIdFor(card);
+    chat.debugSeedGroupSpeakerState(
+      id,
+      arousal: 60,
+      refractory: Refractory.fromMinutes(30),
+    );
+    final chip = chat.getRefractoryForGroupCharacter(card).chip;
+    expect(chip, isNotEmpty);
+    Map<String, dynamic> block() =>
+        ChatRealismRead(chat).participantRealism(member().id)!;
+    Map<dynamic, dynamic> tools() =>
+        ChatToolsFacade(
+              chat,
+              storage,
+              null,
+            ).state(participantId: member().id)['nsfw']
+            as Map;
+
+    await cardShowsBars(tester);
+    expect(find.text('Lust: Intense'), findsOneWidget);
+    expect(find.text(chip), findsOneWidget);
+
+    await tester.runAsync(() => chat.setMemberAfterglowEnabled(card, false));
+    await cardShowsBars(tester);
+    expect(find.textContaining('Lust:'), findsNothing, reason: 'member card');
+    expect(find.text(chip), findsNothing);
+    expect(block()['lustOn'], isFalse);
+    expect((block()['arousal'] as Map)['level'], 0, reason: 'member block');
+    expect(block()['refractoryLabel'], isEmpty);
+    expect(tools()['arousalLevel'], 0, reason: 'chat tools');
+    expect(tools()['refractoryLabel'], isEmpty);
+    expect(chat.getArousalForGroupCharacter(card), 60, reason: 'kept');
+
+    await tester.runAsync(() => chat.setMemberAfterglowEnabled(card, true));
+    await cardShowsBars(tester);
+    expect(find.text('Lust: Intense'), findsOneWidget);
+    expect(find.text(chip), findsOneWidget);
+    expect((block()['arousal'] as Map)['level'], 60);
+    expect(block()['refractoryLabel'], chip);
+    expect(tools()['arousalLevel'], 60);
+    expect(tools()['refractoryLabel'], chip);
+  });
+
   test("the phone's member switch flips that member's own Afterglow", () async {
     await boot();
     addTearDown(() => disposeChatThenCloseDb(chat, db));

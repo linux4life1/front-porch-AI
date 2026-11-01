@@ -330,7 +330,10 @@ class SessionSeed {
         isUser: false,
         metadata: {'realism_state': state},
       );
-      _s.graph().restores.fromMessage(synth, restoreClock: false);
+      // A carry: a package from a chat switched off brings its kept Lust.
+      _nsfwService.carry(
+        () => _s.graph().restores.fromMessage(synth, restoreClock: false),
+      );
     }
     _s.clockWriter().syncLoadedSlotClocks();
 

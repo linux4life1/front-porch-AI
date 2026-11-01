@@ -10,6 +10,7 @@
 // The desktop sidebar: test/ui/chat_components/needs_bars_follow_gate_test.dart.
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -18,7 +19,10 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart' show Refractory;
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart'
+    show BondBars;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -167,5 +171,70 @@ void main() {
 
     await storage!.realismSettings.setNsfwCooldownDefault(false);
     expect(line(), isEmpty, reason: 'Porch Life Afterglow off');
+  });
+
+  // Off hides Lust and recovery and keeps them (zeroing them was a bug): the
+  // desktop's Lust bar, the phone's insight feed and its chat tools show
+  // neither while this chat's switch is off, and both where they were once
+  // it is back on.
+  testWidgets("this chat's Afterglow off hides Lust and recovery on the "
+      "desktop and in the phone's feeds; on shows them where they were", (
+    tester,
+  ) async {
+    await tester.runAsync(boot);
+    final c = chat!;
+    try {
+      await tester.runAsync(() async {
+        await storage!.realismSettings.setAdultThemesEnabled(true);
+        await storage!.realismSettings.setNsfwCooldownDefault(true);
+      });
+      c.nsfwService.setArousalLevel(60);
+      c.nsfwService.setRefractory(Refractory.fromMinutes(30));
+      final chip = c.nsfwService.refractoryWords.chip;
+      Map<String, dynamic> feed() => ChatRealismRead(c).snapshot();
+      Map<dynamic, dynamic> tools() =>
+          ChatToolsFacade(c, storage!, null).state()['nsfw'] as Map;
+      Future<void> desktop() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(width: 340, child: BondBars(chat: c)),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+      }
+
+      await desktop();
+      expect(find.text('Lust: Intense'), findsOneWidget);
+
+      await tester.runAsync(() => c.setAfterglowEnabled(false));
+      await desktop();
+      expect(find.textContaining('Lust:'), findsNothing, reason: 'desktop');
+      expect(find.text(chip), findsNothing);
+      expect(feed()['lustOn'], isFalse);
+      expect((feed()['arousal'] as Map)['level'], 0, reason: 'insight feed');
+      expect(feed()['refractoryLabel'], isEmpty);
+      expect(tools()['cooldownEnabled'], isFalse);
+      expect(tools()['arousalLevel'], 0, reason: 'chat tools');
+      expect(tools()['refractoryLabel'], isEmpty);
+      expect(c.nsfwService.arousalLevel, 60, reason: 'hidden, kept');
+
+      await tester.runAsync(() => c.setAfterglowEnabled(true));
+      await desktop();
+      expect(find.text('Lust: Intense'), findsOneWidget);
+      expect(find.text(chip), findsOneWidget);
+      expect((feed()['arousal'] as Map)['level'], 60);
+      expect(feed()['refractoryLabel'], chip);
+      expect(tools()['arousalLevel'], 60);
+      expect(tools()['refractoryLabel'], chip);
+    } finally {
+      final d = db;
+      chat = null;
+      db = null;
+      await tester.runAsync(() => disposeChatThenCloseDb(c, d));
+    }
   });
 }
