@@ -63,7 +63,7 @@ class GreetingPicker {
   Future<void> invalidateGreetingEval() async {
     _h.bumpGreetingEvalGen();
     await _h.cancelRealismEval();
-    _h.clearEvalCancelled();
+    _d.graph().evalStatus.cancelled = false;
     // A switch or new opening is not the user stopping a reply.
     _door.guests.stoppedReplyAnchor = null;
   }

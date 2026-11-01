@@ -36,7 +36,7 @@ class RegenBaseline {
 
   ChatSessionState get _session => _g.session;
   GroupChat? get _activeGroup => _session.activeGroup;
-  bool get _realismEnabled => _g.deps.hooks.realismEnabled();
+  bool get _realismEnabled => _g.controls.realismEnabled;
   NeedsRewinds get _needsRewinds => _g.needsRewinds;
   AfterglowPass get _afterglow => _g.afterglow;
   RealismDance get _realismDance => _g.dance;
@@ -47,7 +47,7 @@ class RegenBaseline {
   String get _characterEmotion => _g.registers.emotion;
 
   /// The chat's STORED Needs switch: this file rewinds state with it.
-  bool get _needsSimEnabled => _g.deps.hooks.needsSimEnabled();
+  bool get _needsSimEnabled => _g.controls.needsSimEnabled;
 
   /// Returns false when the greeting baseline is unreadable. The
   /// caller must put [lastMsg] back and return without generating —

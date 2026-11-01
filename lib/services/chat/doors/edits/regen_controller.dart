@@ -42,8 +42,9 @@ class RegenController {
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   bool get _realismEnabled => _scope.realismEnabled();
-  bool get _realismEvalCancelled => _d.realism.evalCancelled();
-  set _realismEvalCancelled(bool on) => _d.realism.setEvalCancelled(on);
+  bool get _realismEvalCancelled => _d.services.graph().evalStatus.cancelled;
+  set _realismEvalCancelled(bool on) =>
+      _d.services.graph().evalStatus.cancelled = on;
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
   TimeService get _timeService => _scope.time();

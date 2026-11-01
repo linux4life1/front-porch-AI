@@ -39,7 +39,7 @@ mixin ChatServiceFieldBag {
   ChatCommandHandler? _commandHandler;
 
   // Scene Guest cast detection: gate is realismSettings.sceneGuestDetectionEnabled
-  // (read in _maybeRunCastDetection). _castScanInterval → chat_service_defaults.
+  // (read in _maybeRunCastDetection). kCastScanInterval → chat_defaults.dart.
 
   /// Serializes [sendMessage] so two composer taps during settle cannot
   /// both pass `_isGenerating` and then both run after the wait.
@@ -148,8 +148,7 @@ mixin ChatServiceFieldBag {
       StreamController<String>.broadcast();
   String _sentenceBuffer = ''; // accumulates tokens until a sentence boundary
 
-  /// Whether the app is in voice call mode (auto-disables reasoning for lower latency).
-  bool _callMode = false;
+  // Voice call mode lives on the controls door (controlsDoor.callMode).
 
   /// Main model parked by the pre-turn call-model swap (sendMessage enters,
   /// the request phase adopts into the turn carrier — see the request part).
@@ -163,28 +162,15 @@ mixin ChatServiceFieldBag {
   // store (sessionStore.groupConfig and the store's own fields).
   // Director Mode state is owned by _session.groupManager when active.
   // ── Realism Mode ──
-  bool _realismChatSwitch = false; // this chat's own; gate: _realismEnabled
+  // The chat's own switches (Realism, Needs, Objectives, low hygiene) and
+  // their gates live on the controls door (ChatService.controlsDoor).
   // The eval overlay's flags, streamed text and verifier pass, the emotion
   // registers and the pending turn metadata live on the Realism graph
   // (ChatService.realism: evalStatus, registers).
 
-  // Chaos Mode state lives on _chaosModeService. UI park flags stay here.
-  bool _chanceTimePendingTrigger =
-      false; // true for one cycle to pop the overlay
-  // The single event the web/mobile "reveal your fate" modal shows + accepts
-  // while sendMessage is parked on the completer below. The desktop samples its
-  // own spinning wheel; a phone has no room for one, so we pre-pick one event
-  // from the same pool. Lives only during the park (set at the gate, cleared on
-  // resume) — see [isAwaitingChanceTime] / [acceptPendingChanceTime].
-  String? _webChanceTimeEvent;
-  String? _webChanceTimeName; // who it names, fixed at the spin
-
-  // ── Needs simulation + scene-impact evaluator ──
-  bool _needsSimEnabled = false;
-  // Per-chat Objectives switch (v45). Defaults true; read via objectivesActive.
-  bool _objectivesEnabled = true;
-  bool _enjoysLowHygiene =
-      false; // inversion for hygiene (enjoys being dirty/sweaty/musky)
+  // Chaos Mode state lives on the Realism graph's chaos service; Chance
+  // Time's park (the overlay trigger, the parked send, the phone's
+  // pre-picked event) on the controls door (controlsDoor.chance).
 
   // Per-chat lore timers, the parsed group book, the Setting and Lore slots,
   // the climate spans and the scene move state live on the Realism graph
@@ -203,16 +189,11 @@ mixin ChatServiceFieldBag {
   /// after a restart (the macro passes through untouched then).
   DateTime? _lastUserMessageAt;
 
-  Completer<void>?
-  _chanceTimeCompleter; // pauses sendMessage while wheel is active (UI coordination)
-
   final ContextBudgetStore _contextBudget = ContextBudgetStore();
   // Session name, description, per-chat generation settings and theme, and
   // the fork lineage live on the session store.
   ({String key, ChatGenerationSettings chat})?
   _promptPickerPending; // prompt-picker SOW: the new 1:1 awaiting the picker
-
-  String? _evalCleanSrc, _evalCleanOut;
 
   /// Test-only overrides for driving the real LLM paths (realism evals +
   /// chat generation) with canned responses without constructing a full

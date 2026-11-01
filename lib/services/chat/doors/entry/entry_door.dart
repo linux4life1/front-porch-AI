@@ -133,7 +133,7 @@ class EntryDoor {
             _session.activeCharacter!.dbId == card.dbId)) {
       _session.activeCharacter = card;
     }
-    _d.hooks.refreshEnjoysLowHygiene();
+    _d.services.controls().refreshEnjoysLowHygieneFromActiveCharacter();
     unawaited(_d.services.birthdays().ensure());
     _d.notify();
   }

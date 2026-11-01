@@ -47,8 +47,8 @@ class WalkBack {
   String _getCharacterIdFromCard(CharacterCard c) => _h.characterIdFor(c);
 
   /// The chat's own Realism switch, kept across the walk.
-  bool get _realismChatSwitch => _h.chatRealism();
-  set _realismChatSwitch(bool on) => _h.setChatRealism(on);
+  bool get _realismChatSwitch => _s.controls().chatRealism;
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// 1:1 stamp-less fork: rewind bond/trust/time/emotion/arousal/needs vector
   /// from the card; keep Realism/Needs/Objectives/Chaos toggles (Opus eae4e8f2).
@@ -63,8 +63,8 @@ class WalkBack {
         FrontPorchExtensions();
     final keepRealism = _realismChatSwitch;
     final keepNeeds = _scope.needsSimEnabled();
-    final keepObj = _h.objectivesEnabled();
-    final keepHyg = _h.enjoysLowHygiene();
+    final keepObj = _s.controls().objectivesEnabled;
+    final keepHyg = _s.controls().chatEnjoysLowHygiene;
     final keepChaos = _chaosModeService.chaosModeEnabled;
     final keepChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final keepPressure = _chaosModeService.chaosPressure;
@@ -109,9 +109,9 @@ class WalkBack {
     }
 
     _realismChatSwitch = keepRealism;
-    _h.setNeedsSimEnabled(keepNeeds);
-    _h.setObjectivesEnabled(keepObj);
-    _h.setEnjoysLowHygiene(keepHyg);
+    _s.controls().needsSimEnabled = keepNeeds;
+    _s.controls().objectivesEnabled = keepObj;
+    _s.controls().chatEnjoysLowHygiene = keepHyg;
     _chaosModeService.seedFromGroupOrExt(keepChaos, keepChaosNsfw);
     _chaosModeService.setPressure(keepPressure);
   }

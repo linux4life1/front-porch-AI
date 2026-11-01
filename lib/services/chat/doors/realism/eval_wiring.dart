@@ -38,7 +38,7 @@ extension RealismEvalWiring on RealismGraph {
       getActiveGroup: () => session.activeGroup,
       getIsObserverMode: () => _doors.entry().director.observerMode,
       getUserName: () => deps.services.personas.persona.name,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getMessages: () => session.messages,
       // Shared tools transport for the needs-impact eval (one probe per
       // backend identity, app-wide).
@@ -47,23 +47,23 @@ extension RealismEvalWiring on RealismGraph {
       getBackendIdentity: () => transport.backendIdentity,
       getPreferTextEvals: () =>
           deps.services.storage.realismSettings.preferTextEvals,
-      getLlmService: _h.sideLaneLlm,
-      getIsLocal: _h.sideLaneIsKobold,
+      getLlmService: () => lanes.sideLane,
+      getIsLocal: () => lanes.sideLaneIsKobold,
       getKoboldService: () {
-        final s = _h.sideLaneLlm();
+        final s = lanes.sideLane;
         return s is KoboldService ? s : null;
       },
       reconnectIfAlive: () async {
-        final s = _h.sideLaneLlm();
+        final s = lanes.sideLane;
         if (s is KoboldService) await s.reconnectIfAlive();
       },
       ensureServerIdle: () async {
-        final s = _h.sideLaneLlm();
+        final s = lanes.sideLane;
         if (s is KoboldService) await s.ensureServerIdle();
       },
       getIsCancellingRealismEval: () => evalStatus.cancelling,
       getRealismEvalCancelled: () =>
-          _h.evalCancelled() || _h.staleGreetingEval(),
+          evalStatus.cancelled || _h.staleGreetingEval(),
       getPendingRealismMetadata: () => registers.pending ?? {},
       setPendingRealismMetadata: growthDesk.writePendingRealismMetadata,
       captureRealismState: snapshot.capture,
@@ -148,7 +148,7 @@ extension RealismEvalWiring on RealismGraph {
 
   RealismVerification buildVerifier() {
     return RealismVerification(
-      fireLLMEval: (p, {onChunk}) => _h.fireLLMEval(
+      fireLLMEval: (p, {onChunk}) => transport.fireLLMEval(
         p,
         onChunk: onChunk,
         repeatPenalty: kScalarEvalRepeatPenalty,
@@ -168,7 +168,7 @@ extension RealismEvalWiring on RealismGraph {
                   ?.frontPorchExtensions
                   ?.realismVerificationEnabled ??
               false) &&
-          _h.realismEnabled() &&
+          controls.realismEnabled &&
           (session.activeGroup == null ||
               !_doors.entry().director.observerMode),
       getVerificationMaxReprocesses: () =>
@@ -203,7 +203,7 @@ extension RealismEvalWiring on RealismGraph {
     return NeedsImpactEvaluator(
       evaluateNeedsImpactCall: llmEvalEngine.evaluateNeedsImpactCall,
       verifyRealismOutput: verifier.verify,
-      fireLLMEval: (p, {onChunk}) => _h.fireLLMEval(
+      fireLLMEval: (p, {onChunk}) => transport.fireLLMEval(
         p,
         onChunk: onChunk,
         repeatPenalty: kScalarEvalRepeatPenalty,
@@ -223,7 +223,7 @@ extension RealismEvalWiring on RealismGraph {
       getMessages: () => session.messages,
       needsSimulation: needs,
       getNeedsSimEnabled: () => needsPass.active,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getNeedsModelAuthorityEnabled: () =>
           (session
               .activeCharacter
@@ -237,13 +237,13 @@ extension RealismEvalWiring on RealismGraph {
     scope,
     realismEvals: () => evals,
     verifier: () => verifier,
-    fireLLMEval: _h.fireLLMEval,
+    fireLLMEval: transport.fireLLMEval,
     fireToolEval: transport.fireToolEval,
     toolProbe: transport.probe,
     backendIdentity: () => transport.backendIdentity,
     writePending: growthDesk.writePendingRealismMetadata,
-    evalCancelled: _h.evalCancelled,
-    oneShotActive: _h.oneShotActive,
+    evalCancelled: () => evalStatus.cancelled,
+    oneShotActive: () => controls.oneShotActive,
     personaName: () => deps.services.personas.persona.name,
     dispatchStagger: deps.services.evalStagger,
     directing: () => _doors.entry().director.directing,
@@ -256,7 +256,7 @@ extension RealismEvalWiring on RealismGraph {
     snapshot: () => snapshot,
     realismActiveThisMode: () => realismActiveThisMode,
     speakerIsSoft: (speaker) => _doors.cast().roster.speakerIsSoft(speaker),
-    withWorkerLane: (work) => _h.withWorkerLane(work),
+    withWorkerLane: (work) => lanes.withWorkerLane(work),
     tickRefractoryPerReply: afterglow.tickPerReply,
     stampGroupUserTurnBaseline: _h.stampGroupUserTurnBaseline,
     applyMoodDecay: restores.applyMoodDecay,
@@ -264,7 +264,7 @@ extension RealismEvalWiring on RealismGraph {
     objectives: () => _doors.objectives().activeObjectives,
     setObjectives: (v) => _doors.objectives().activeObjectives = v,
     objectivesFor: (card) => _doors.objectives().getActiveObjectivesFor(card),
-    evalCancelled: _h.evalCancelled,
+    evalCancelled: () => evalStatus.cancelled,
     setEvaluating: (v) => evalStatus.evaluating = v,
     streamText: () => evalStatus.streamText,
     setStreamText: (v) => evalStatus.streamText = v,
@@ -277,7 +277,7 @@ extension RealismEvalWiring on RealismGraph {
   PlayerSkip playerSkip() => PlayerSkip(
     time: time,
     reader: SkipReader(
-      fireLLMEval: (p) => _h.fireLLMEval(p, label: 'skip'),
+      fireLLMEval: (p) => transport.fireLLMEval(p, label: 'skip'),
       stripThinkBlocks: llmEvalEngine.stripThinkBlocks,
       fireToolEval: transport.fireToolEval,
       probe: transport.probe,
@@ -300,7 +300,7 @@ extension RealismEvalWiring on RealismGraph {
       if (pass != null) evalStatus.verificationPass = pass;
       if (maxPasses != null) evalStatus.verificationMaxPasses = maxPasses;
     },
-    clearEvalCancelled: () => _h.setEvalCancelled(false),
+    clearEvalCancelled: () => evalStatus.cancelled = false,
     waitForEvalIdle: () async {
       final koboldForReprocess = deps.services.llmProvider()?.koboldService;
       if (koboldForReprocess != null) {

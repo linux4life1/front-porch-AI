@@ -58,14 +58,14 @@ class ChatEntry {
   GrowthDesk get _growthDesk => _s.growthDesk();
 
   /// The chat's own Realism switch: reset, then seeded from the card.
-  bool get _realismChatSwitch => _sh.chatRealism();
-  set _realismChatSwitch(bool on) => _sh.setChatRealism(on);
+  bool get _realismChatSwitch => _s.controls().chatRealism;
+  set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
   /// The chat's stored Needs switch: seeded here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
-  set _needsSimEnabled(bool on) => _sh.setNeedsSimEnabled(on);
-  set _enjoysLowHygiene(bool on) => _sh.setEnjoysLowHygiene(on);
-  set _objectivesEnabled(bool on) => _sh.setObjectivesEnabled(on);
+  set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
+  set _enjoysLowHygiene(bool on) => _s.controls().chatEnjoysLowHygiene = on;
+  set _objectivesEnabled(bool on) => _s.controls().objectivesEnabled = on;
   set _isGrowthPassRunning(bool on) => _s.graph().growthPassRunning = on;
   set _pockets(Pockets? record) => _s.graph().hostPockets = record;
 

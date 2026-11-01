@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/chat_lore.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/chat_places.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/chat_weather.dart';
@@ -34,6 +35,8 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_state.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/regen_baseline.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/relationship_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/scalar_carries.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/today_planner.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 
 export 'package:front_porch_ai/services/chat/doors/realism/chat_lore.dart';
@@ -52,6 +55,7 @@ export 'package:front_porch_ai/services/chat/doors/realism/realism_restores.dart
 export 'package:front_porch_ai/services/chat/doors/realism/realism_state.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/regen_baseline.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/scalar_carries.dart';
+export 'package:front_porch_ai/services/chat/doors/realism/today_planner.dart';
 
 /// The Realism Engine and everything that hangs off it, built once for the
 /// open chat: the clock, Needs, feelings, mood, Afterglow, Pockets, the
@@ -69,6 +73,12 @@ class RealismGraph {
   final RealismDeps deps;
 
   ChatSessionState get session => deps.session;
+
+  /// The chat's switches and the gates read from them.
+  ControlsDoor get controls => deps.doors.controls();
+
+  /// The mouth and worker lanes.
+  LlmLanes get lanes => deps.services.lanes;
 
   // ── State the graph owns ──────────────────────────────────────────────
 
@@ -202,6 +212,9 @@ class RealismGraph {
   /// A greeting's opening bars.
   late final NeedsSeeds seeds = NeedsSeeds(this);
 
+  /// The planner's today line as a held side quest.
+  late final TodayPlanner planner = TodayPlanner(this);
+
   // ── Reads the doors and the service share ─────────────────────────────
 
   /// True when the user-facing Realism Engine (the judges that score the
@@ -209,7 +222,7 @@ class RealismGraph {
   /// False in Director Mode, where the user is off stage; Needs, the clock
   /// and the cast's feelings for each other still run there.
   bool get realismActiveThisMode =>
-      deps.hooks.realismEnabled() &&
+      controls.realismEnabled &&
       !deps.doors.cast().idle.autoResponseInProgress &&
       (session.activeGroup == null ||
           !deps.doors.entry().director.observerMode);

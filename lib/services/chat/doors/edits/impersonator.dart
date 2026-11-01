@@ -353,7 +353,7 @@ class Impersonator {
         stillWant: () => !_d.turn.cancelRequested(),
       );
 
-      final stream = _d.turn.mouthStream(genParams);
+      final stream = _d.services.lanes.mouthGenerateStream(genParams);
       String accumulated = prefix;
       bool inThinkBlock = false;
 

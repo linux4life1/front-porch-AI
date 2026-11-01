@@ -31,7 +31,7 @@ class NeedsSeeds {
   NeedsSimulation get _needsSimulation => _g.needs;
 
   /// The chat's STORED Needs switch: this file seeds state with it.
-  bool get _needsSimEnabled => _g.deps.hooks.needsSimEnabled();
+  bool get _needsSimEnabled => _g.controls.needsSimEnabled;
 
   /// The live vector a greeting commit seeds (1:1, or a member greet).
   void greetingNeeds(Map<String, int> baselines) {

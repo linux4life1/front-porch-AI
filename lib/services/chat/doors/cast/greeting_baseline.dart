@@ -22,7 +22,9 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_defaults.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 
 /// The Realism baseline a chat's opening gets: the post-greeting Read the
 /// Room, the retroactive scan when Realism comes on mid-chat, and the
@@ -52,6 +54,7 @@ class GreetingBaseline {
 
   ChatSessionState get _session => _d.session;
   CastShellHooks get _h => _d.hooks;
+  RealismEvalStatus get _evalStatus => _d.graph().evalStatus;
   RealismScope get _scope => _d.realism();
   RelationshipService get _relationshipService => _scope.relationship();
   RealismEvals get _realismEvals => _d.evals();
@@ -205,7 +208,7 @@ class GreetingBaseline {
           // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
           _realismEvals.evaluateEmotionalStateCall(),
           Future.delayed(
-            _h.evalStagger,
+            kEvalDispatchStagger,
             () => _realismEvals.evaluateRelationshipCall(),
           ),
           // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
@@ -216,23 +219,24 @@ class GreetingBaseline {
           // is single-flight (see seedOpeningPosture): this one is a head
           // start, and a pre-turn dance that arrives while it is still in flight
           // waits for this answer instead of asking again.
-          Future.delayed(_h.evalStagger * 2, () => seedOpeningPosture()),
+          Future.delayed(kEvalDispatchStagger * 2, () => seedOpeningPosture()),
         ]);
 
-        if (_h.evalCancelled() ||
+        if (_evalStatus.cancelled ||
             token != _h.greetingEvalGen() ||
             indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
-          _h.clearEvalCancelled();
+          _evalStatus.cancelled = false;
           return;
         }
 
         // Check for cancellation after each eval
-        if (_h.evalCancelled() ||
+        if (_evalStatus.cancelled ||
             token != _h.greetingEvalGen() ||
             indexStamp != _door.greetings.greetingIndex) {
           debugPrint('[Realism] Post-greeting eval cancelled or stale');
-          _h.clearEvalCancelled(); // Reset the flag so future messages can proceed
+          _evalStatus.cancelled =
+              false; // Reset the flag so future messages can proceed
           return;
         }
 
@@ -285,36 +289,37 @@ class GreetingBaseline {
     isProcessingGreeting = true; // reuse the greeting overlay
     _d.notify();
     try {
-      if (_h.oneShotActive()) {
+      if (_d.graph().controls.oneShotActive) {
         await _realismEvals
             .evaluateOneShotCall(); // step 10 thin (full in realism_evals)
 
         // Check for cancellation after one-shot eval
-        if (_h.evalCancelled()) {
+        if (_evalStatus.cancelled) {
           debugPrint('[Realism] Retroactive scan cancelled');
-          _h.clearEvalCancelled(); // Reset the flag so future messages can proceed
+          _evalStatus.cancelled =
+              false; // Reset the flag so future messages can proceed
           return;
         }
       } else {
         await Future.wait([
           _realismEvals.evaluateRelationshipCall(),
           Future.delayed(
-            _h.evalStagger,
+            kEvalDispatchStagger,
             () => _realismEvals.evaluateEmotionalStateCall(),
           ),
           Future.delayed(
-            _h.evalStagger * 2,
+            kEvalDispatchStagger * 2,
             () => _realismEvals.evaluatePhysicalStateCall(),
           ),
           Future.delayed(
-            _h.evalStagger * 3,
+            kEvalDispatchStagger * 3,
             () => _realismEvals.evaluateNarrativeCall(),
           ),
         ]);
 
-        if (_h.evalCancelled()) {
+        if (_evalStatus.cancelled) {
           debugPrint('[Realism] Retroactive scan cancelled');
-          _h.clearEvalCancelled();
+          _evalStatus.cancelled = false;
           return;
         }
       }

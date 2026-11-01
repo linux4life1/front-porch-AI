@@ -122,8 +122,8 @@ extension ChatServiceGenerationRequest on ChatService {
     );
 
     // Mouth speaks. Side-lane (clerk) may be a different host.
-    final llmService = _mouthLlm;
-    final sideLaneLlm = _sideLaneLlm;
+    final llmService = _lanes.mouth;
+    final sideLaneLlm = _lanes.sideLane;
 
     // For call mode with a dedicated call model, temporarily swap the model.
     // When sendMessage already swapped for the pre-generation evals (the
@@ -198,7 +198,7 @@ extension ChatServiceGenerationRequest on ChatService {
             ? g2.resolveBannedPhrases(_storageService)
             : null,
         images: turnImages,
-        kvChat: _kvChatKey,
+        kvChat: _session.currentSessionId,
         stillWant: () => !_cancelRequested,
         chatMessages: _seededMessages(t, p),
         onLogprobs: _logprobsSink(t),
@@ -275,7 +275,7 @@ extension ChatServiceGenerationRequest on ChatService {
         wikiWindow: wikiWindowFromMessages(_session.messages),
       );
       if (jobs.isNotEmpty) {
-        await _withWorkerLane(() async {
+        await _lanes.withWorkerLane(() async {
           for (final job in jobs) {
             final round = await runCatalogRound(
               llm: sideLaneLlm,
@@ -317,7 +317,7 @@ extension ChatServiceGenerationRequest on ChatService {
     } else if (catalog.tools.isNotEmpty) {
       debugPrint('[Tools] dispatch no tool result — stream in-character reply');
     }
-    // Occupancy wait is load-bearing: catalog `_withWorkerLane` can nest
+    // Occupancy wait is load-bearing: catalog `_lanes.withWorkerLane` can nest
     // under a journal hold, and releasing the catalog depth must not let
     // speech start while the mouth is still unloaded.
     await _llmProvider?.waitForWorkerLaneIdle(pinSpeech: true);
@@ -436,7 +436,7 @@ extension ChatServiceTokenAltTurn on ChatService {
 
   /// Asks for word odds on a normal reply from KoboldCpp, and nowhere else.
   void Function(List<Object?>)? _logprobsSink(_GenTurn t) {
-    if (!_mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
+    if (!_lanes.mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
       return null;
     }
     return editsDoor.tokenAlts.sinkFor(t);

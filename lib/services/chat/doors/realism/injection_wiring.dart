@@ -35,11 +35,11 @@ extension RealismInjectionWiring on RealismGraph {
       // gate here rather than clearing the loaded list keeps the rows intact
       // for when the switch comes back on.
       getActiveObjectives: () =>
-          _h.objectivesActive() ? objectives().activeObjectives : const [],
+          controls.objectivesActive ? objectives().activeObjectives : const [],
       getPrimaryObjective: () => objectives().primaryObjective,
       tasksForObjective: (o) => objectives().tasks.tasksFor(o),
       getSecondaryObjectives: () => objectives().secondaryObjectives,
-      getStreakLine: () => _h.objectivesActive()
+      getStreakLine: () => controls.objectivesActive
           ? objectiveStreakLine(objectives().objectiveTally.recent)
           : null,
       // In a group only the goal owner's replies count; the ids match because
@@ -61,7 +61,7 @@ extension RealismInjectionWiring on RealismGraph {
   RelationshipInjection buildRelationshipInjection() {
     return RelationshipInjection(
       relationshipService: relationship,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
@@ -78,7 +78,7 @@ extension RealismInjectionWiring on RealismGraph {
 
   EmotionInjection buildEmotionInjection() {
     return EmotionInjection(
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getCharacterEmotion: () => registers.emotion,
       getEmotionIntensity: () => registers.intensity,
       getEmotionCause: () => registers.cause,
@@ -89,7 +89,7 @@ extension RealismInjectionWiring on RealismGraph {
   BehavioralInjection buildBehavioralInjection() {
     return BehavioralInjection(
       relationshipService: relationship,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getOccupation: () => groups.workFieldsForCurrentSpeaker().occupation,
       getHours: () => groups.workFieldsForCurrentSpeaker().hours,
       getOccupationBrief: () =>
@@ -159,7 +159,7 @@ extension RealismInjectionWiring on RealismGraph {
       // for things and nothing would ever come of it.
       getIntimateAgencyEnabled: () =>
           _storageService.realismSettings.intimateAgencyEnabled &&
-          _h.realismEnabled(),
+          controls.realismEnabled,
     );
   }
 
@@ -187,7 +187,7 @@ extension RealismInjectionWiring on RealismGraph {
 
   PromiseDebtInjection buildPromiseDebtInjection() {
     return PromiseDebtInjection(
-      getCurrentStoryDay: () => _h.clockRunning() ? time.dayCount : null,
+      getCurrentStoryDay: () => controls.clockRunning ? time.dayCount : null,
       promiseDebtService: promiseDebt,
       getSessionId: () => session.currentSessionId,
       getActiveCharacter: () => session.activeCharacter,
@@ -202,7 +202,7 @@ extension RealismInjectionWiring on RealismGraph {
   NsfwInjection buildNsfwInjection() {
     return NsfwInjection(
       nsfwService: nsfw,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getActiveCharacter: () => session.activeCharacter,
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
@@ -272,11 +272,11 @@ extension RealismInjectionWiring on RealismGraph {
     return NeedsInjection(
       needsSimulation: needs,
       getNeedsSimEnabled: () => needsPass.active,
-      getRealismEnabled: _h.realismEnabled,
+      getRealismEnabled: () => controls.realismEnabled,
       getIsGroupNonObserverMode: () => session.activeGroup != null,
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
-      getEnjoysLowHygiene: _h.enjoysLowHygiene,
+      getEnjoysLowHygiene: () => controls.enjoysLowHygiene,
       getGroupNeeds: groups.needsOf,
       getCharacterIdFromCard: _h.characterIdFor,
       getNeedsOff: () =>
@@ -306,7 +306,7 @@ extension RealismInjectionWiring on RealismGraph {
       getStandingMood: () => standingMood.injection,
       getAmbitionsEnabled: () =>
           _storageService.realismSettings.ambitionsEnabled &&
-          _h.objectivesActive(),
+          controls.objectivesActive,
       getPromisesEnabled: () =>
           _storageService.realismSettings.promiseLedgerEnabled &&
           _storageService.memorySettings.journalEnabled,
@@ -340,9 +340,9 @@ extension RealismInjectionWiring on RealismGraph {
       getRealismEnabled: () => realismActiveThisMode,
       getOffStageLive: () =>
           deps.doors.entry().director.directing &&
-          _h.realismEnabled() &&
+          controls.realismEnabled &&
           !deps.doors.cast().idle.autoResponseInProgress,
-      getClockRunningOverride: _h.clockRunning,
+      getClockRunningOverride: () => controls.clockRunning,
       // One-shot, opt-in (default OFF), coarse-worded, speculation-forbidding —
       // living-time-features.md §2 "Privacy by design". Lifted here from the
       // time fragment (2026-08-07) so it answers to its own gate: the note is
