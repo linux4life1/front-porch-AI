@@ -26,6 +26,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
+import 'package:front_porch_ai/services/backup/restore_applier.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
 
 /// What a restore waiting for the next launch will put back.
@@ -209,36 +210,44 @@ class PendingRestore {
   /// Applies the restore waiting under [root], if any, and records the
   /// result in [lastOutcome]. Never throws: a restore that fails is
   /// dropped (its file kept for another try) so it cannot fail every launch.
+  /// See [RestoreApplier] for the safety copy and the all-or-nothing rule.
   static Future<void> applyAtStartup({
     required String root,
     required String dbFile,
     required SharedPreferences prefs,
     required bool nightly,
     int? currentSchema,
+    DateTime Function()? now,
   }) async {
     final pending = await read(root);
     if (pending == null) return;
     final dir = dirFor(root);
+    final applier = RestoreApplier(
+      root: root,
+      dbFile: dbFile,
+      prefs: prefs,
+      nightly: nightly,
+      currentSchema: currentSchema,
+      now: now,
+    );
     try {
-      final settingsFile = File(p.join(dir.path, _settingsName));
-      if (pending.kind == PendingRestoreKind.snapshot) {
-        await _replaceDatabase(File(p.join(dir.path, _snapshotName)), dbFile);
-      }
-      if (pending.kind != PendingRestoreKind.full) {
-        if (await settingsFile.exists()) {
-          await SettingsSnapshot.decode(
-            await settingsFile.readAsString(),
-          ).restoreInto(prefs, isNightly: nightly, newRoot: root);
-        }
-      } else {
-        await _applyFull(
+      await applier.takeSafetyCopy();
+      if (pending.kind == PendingRestoreKind.full) {
+        await applier.applyFull(
           File(p.join(dir.path, _archiveName)),
-          root: root,
-          dbFile: dbFile,
-          prefs: prefs,
-          nightly: nightly,
-          currentSchema: currentSchema,
+          Directory(p.join(dir.path, 'staging')),
+          (rel) => safeTarget(root, rel),
         );
+      } else {
+        if (pending.kind == PendingRestoreKind.snapshot) {
+          await applier.applyDatabase(File(p.join(dir.path, _snapshotName)));
+        }
+        final settingsFile = File(p.join(dir.path, _settingsName));
+        if (await settingsFile.exists()) {
+          await applier.applySettings(
+            SettingsSnapshot.decode(await settingsFile.readAsString()),
+          );
+        }
       }
       await cancel(root);
       lastOutcome = RestoreOutcome(pending.kind, pending.created, null);
@@ -254,83 +263,6 @@ class PendingRestore {
     }
   }
 
-  static Future<void> _applyFull(
-    File archive, {
-    required String root,
-    required String dbFile,
-    required SharedPreferences prefs,
-    required bool nightly,
-    int? currentSchema,
-  }) async {
-    final input = InputFileStream(archive.path);
-    final dbTmp = File('$dbFile.restore.tmp');
-    try {
-      final zip = ZipDecoder().decodeStream(input);
-      final manifestEntry = zip.findFile(BackupManifest.entryName);
-      final dbEntry = zip.findFile(BackupManifest.databaseEntry);
-      if (manifestEntry == null || dbEntry == null) {
-        throw const FormatException('not a Front Porch backup');
-      }
-      final manifest = BackupManifest.decode(
-        utf8.decode(manifestEntry.readBytes()!),
-      );
-      final refusal = currentSchema == null
-          ? null
-          : manifest.refusal(currentSchema: currentSchema);
-      if (refusal != null) throw FormatException(refusal);
-      final settingsEntry = zip.findFile(BackupManifest.settingsEntry);
-      final settings = settingsEntry == null
-          ? null
-          : SettingsSnapshot.decode(utf8.decode(settingsEntry.readBytes()!));
-
-      // Everything is checked before anything is replaced.
-      await dbTmp.parent.create(recursive: true);
-      await _extract(dbEntry, dbTmp.path);
-      if (!await _looksLikeSqlite(dbTmp)) {
-        throw const FormatException('the backup database is damaged');
-      }
-
-      for (final entry in zip.files) {
-        if (!entry.isFile ||
-            !entry.name.startsWith(BackupManifest.filesPrefix)) {
-          continue;
-        }
-        final rel = entry.name.substring(BackupManifest.filesPrefix.length);
-        final target = safeTarget(root, rel);
-        if (target == null) {
-          debugPrint('[Restore] skipped unsafe path ${entry.name}');
-          continue;
-        }
-        await _extract(entry, target);
-      }
-
-      await dbTmp.rename(dbFile);
-      await _dropJournals(dbFile);
-      await settings?.restoreInto(prefs, isNightly: nightly, newRoot: root);
-    } finally {
-      await input.close();
-      if (await dbTmp.exists()) await dbTmp.delete();
-    }
-  }
-
-  static Future<void> _dropJournals(String dbFile) async {
-    for (final suffix in const ['-wal', '-shm', '-journal']) {
-      final stale = File('$dbFile$suffix');
-      if (await stale.exists()) await stale.delete();
-    }
-  }
-
-  static Future<void> _replaceDatabase(File source, String dbFile) async {
-    if (!await _looksLikeSqlite(source)) {
-      throw const FormatException('the snapshot database is damaged');
-    }
-    final tmp = File('$dbFile.restore.tmp');
-    await tmp.parent.create(recursive: true);
-    await source.copy(tmp.path);
-    await tmp.rename(dbFile);
-    await _dropJournals(dbFile);
-  }
-
   /// Where [relative] lands below [root], or null for a path that would
   /// escape it or that a backup never carries.
   @visibleForTesting
@@ -340,28 +272,6 @@ class PendingRestore {
     if (!includeInFullBackup(rel)) return null;
     final target = p.normalize(p.joinAll([root, ...p.posix.split(rel)]));
     return p.isWithin(root, target) ? target : null;
-  }
-
-  static Future<void> _extract(ArchiveFile entry, String target) async {
-    await Directory(p.dirname(target)).create(recursive: true);
-    final tmp = '$target.restore-part';
-    final out = OutputFileStream(tmp);
-    try {
-      entry.writeContent(out);
-    } finally {
-      await out.close();
-    }
-    await File(tmp).rename(target);
-  }
-
-  static Future<bool> _looksLikeSqlite(File f) async {
-    final raf = await f.open();
-    try {
-      final head = await raf.read(16);
-      return utf8.decode(head, allowMalformed: true) == 'SQLite format 3\u0000';
-    } finally {
-      await raf.close();
-    }
   }
 }
 

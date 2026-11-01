@@ -39,7 +39,9 @@ class _BackupsPageState extends State<BackupsPage> {
   final _pendingKey = GlobalKey<PendingRestoreBannerState>();
 
   void _refresh() {
-    setState(() => _entries = BackupService.listEntries());
+    setState(() {
+      _entries = BackupService.listEntries();
+    });
     _pendingKey.currentState?.refresh();
   }
 
@@ -57,7 +59,7 @@ class _BackupsPageState extends State<BackupsPage> {
         padding: const EdgeInsets.all(20),
         children: [
           PendingRestoreBanner(key: _pendingKey),
-          _sectionHeader(context, 'Automatic Snapshots'),
+          _sectionHeader(context, 'Database Backups'),
           const SizedBox(height: 8),
           _snapshotBody(context, theme),
           const SizedBox(height: 24),
@@ -282,7 +284,7 @@ class _BackupsPageState extends State<BackupsPage> {
             const WarmDialogText(
               'This will replace your current database with the backup. '
               'All changes made after this backup was created will be lost.\n\n'
-              'Your library reloads in place, so you should not need to restart.',
+              'Your library reloads in place.',
             ),
             if (backup.hasSettings)
               CheckboxListTile(

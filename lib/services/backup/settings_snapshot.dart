@@ -144,8 +144,16 @@ class SettingsSnapshot {
     if (from == null || to == null || from == to || from.isEmpty) {
       return value;
     }
-    String move(String s) =>
-        s.startsWith(from) ? to + s.substring(from.length) : s;
+    // Only whole path segments: a root of /x/FrontPorchAI must not rewrite
+    // /x/FrontPorchAI-Beta/...
+    String move(String s) {
+      if (s == from) return to;
+      for (final sep in const ['/', '\\']) {
+        if (s.startsWith('$from$sep')) return to + s.substring(from.length);
+      }
+      return s;
+    }
+
     return switch (value) {
       final String s => move(s),
       final List<String> l => [for (final s in l) move(s)],

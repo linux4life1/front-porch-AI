@@ -3,8 +3,8 @@
 //
 // The web Backups page lists snapshots with what they hold, restores one
 // with the password step-up and the "also restore settings" choice, shows
-// a waiting restore and cancels it, and only asks for a password before a
-// full backup when API keys go in it.
+// a waiting restore and cancels it, and asks for the password before a
+// full backup or a delete.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -121,17 +121,36 @@ it('a library-only snapshot never asks to restore settings', async () => {
   expect(post?.body).toEqual({ withSettings: false, currentPassword: 'pw' });
 });
 
-it('a full backup needs the password only when API keys go in it', async () => {
+it('a full backup always needs the password, with or without API keys', async () => {
   const download = () => buttons('Download full backup')[0];
-  expect(download().disabled).toBe(false);
-  expect(container.querySelector('input[type="password"]')).toBeNull();
-  const keys = [...container.querySelectorAll('label.checkbox')].find((l) =>
-    l.textContent?.includes('Include API keys'),
-  )!.querySelector('input') as HTMLInputElement;
-  await click(keys);
   expect(download().disabled).toBe(true);
-  await type(container.querySelector('input[type="password"]') as HTMLInputElement, 'pw');
+  const fields = () => [...container.querySelectorAll('input[type="password"]')] as HTMLInputElement[];
+  await type(fields()[0], 'pw');
+  expect(download().disabled).toBe(false);
   await click(download());
-  const post = calls.find((c) => c.path === '/api/backups/full');
-  expect(post?.body).toEqual({ includeSecrets: true, currentPassword: 'pw' });
+  expect(calls.find((c) => c.path === '/api/backups/full')?.body).toEqual({
+    includeSecrets: false,
+    currentPassword: 'pw',
+  });
+});
+
+it('deleting a snapshot asks for the password and sends it in the headers', async () => {
+  const sent: { url: string; init: RequestInit }[] = [];
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+    sent.push({ url, init });
+    return new Response(JSON.stringify(state()), { status: 200 });
+  });
+  try {
+    await click(buttons('Delete')[0]);
+    const go = buttons('Delete this backup')[0];
+    expect(go.disabled).toBe(true);
+    await type(container.querySelector('.backup-list input[type="password"]') as HTMLInputElement, 'pw');
+    await click(buttons('Delete this backup')[0]);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].url).toBe('/api/backups/front_porch_backup_1.db');
+    expect(sent[0].init.method).toBe('DELETE');
+    expect((sent[0].init.headers as Record<string, string>)['X-Current-Password']).toBe('pw');
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

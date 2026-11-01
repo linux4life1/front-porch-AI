@@ -52,6 +52,7 @@ export function BackupsPage() {
   const [totpCode, setTotpCode] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [restoring, setRestoring] = useState<Snapshot | null>(null);
+  const [deleting, setDeleting] = useState<Snapshot | null>(null);
   const [withSettings, setWithSettings] = useState(true);
   const [includeSecrets, setIncludeSecrets] = useState(false);
   const [file, setFile] = useState<File | null>(null);
@@ -101,12 +102,28 @@ export function BackupsPage() {
       setNote('Backup created.');
     });
 
-  const deleteSnapshot = (s: Snapshot) => {
-    if (!window.confirm(`Delete the backup from ${when(s.created)}? This cannot be undone.`)) return;
-    void act(`del-${s.id}`, async () => {
-      setState(await api.del<BackupState>(`/api/backups/${encodeURIComponent(s.id)}`));
-    });
+  // Uploads and DELETEs carry the step-up in headers: they have no JSON body.
+  const stepUpHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { 'X-Current-Password': password };
+    if (totpEnabled && totpCode.trim()) headers['X-Totp-Code'] = totpCode.trim();
+    return headers;
   };
+
+  const deleteSnapshot = (s: Snapshot) =>
+    act(`del-${s.id}`, async () => {
+      const res = await fetch(`/api/backups/${encodeURIComponent(s.id)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: stepUpHeaders(),
+      });
+      const text = await res.text();
+      if (!res.ok) throw parseApiErrorBody(text, res.status);
+      setState(JSON.parse(text) as BackupState);
+      setDeleting(null);
+      setPassword('');
+      setTotpCode('');
+      setNote(`The backup from ${when(s.created)} was deleted.`);
+    });
 
   const restoreSnapshot = (s: Snapshot) =>
     act(`restore-${s.id}`, async () => {
@@ -128,7 +145,7 @@ export function BackupsPage() {
   const downloadFull = () =>
     act('full', async () => {
       const body: Record<string, unknown> = { includeSecrets };
-      if (includeSecrets) attachStepUp(body, password, totpEnabled, totpCode);
+      attachStepUp(body, password, totpEnabled, totpCode);
       const r = await api.post<{ token: string; fileName: string; size: number }>(
         '/api/backups/full',
         body,
@@ -146,11 +163,7 @@ export function BackupsPage() {
   const restoreFull = () =>
     act('upload', async () => {
       if (!file) return;
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/octet-stream',
-        'X-Current-Password': password,
-      };
-      if (totpEnabled && totpCode.trim()) headers['X-Totp-Code'] = totpCode.trim();
+      const headers = { 'Content-Type': 'application/octet-stream', ...stepUpHeaders() };
       const res = await fetch('/api/backups/full/restore', {
         method: 'POST',
         credentials: 'include',
@@ -210,12 +223,34 @@ export function BackupsPage() {
                   </span>
                 </span>
                 <span className="backup-actions">
-                  <button onClick={() => setRestoring(restoring?.id === s.id ? null : s)}>Restore</button>
-                  <button onClick={() => deleteSnapshot(s)} aria-label="Delete backup" disabled={busy === `del-${s.id}`}>
+                  <button
+                    onClick={() => {
+                      setDeleting(null);
+                      setRestoring(restoring?.id === s.id ? null : s);
+                    }}
+                  >
+                    Restore
+                  </button>
+                  <button
+                    onClick={() => {
+                      setRestoring(null);
+                      setDeleting(deleting?.id === s.id ? null : s);
+                    }}
+                    aria-label="Delete backup"
+                  >
                     Delete
                   </button>
                 </span>
               </div>
+              {deleting?.id === s.id && (
+                <div className="backup-confirm">
+                  <p className="muted small">This backup is deleted for good. It cannot be undone.</p>
+                  {stepUp('Deleting a backup removes part of your safety net. Confirm your web login password.')}
+                  <button onClick={() => void deleteSnapshot(s)} disabled={!password || busy === `del-${s.id}`}>
+                    Delete this backup
+                  </button>
+                </div>
+              )}
               {restoring?.id === s.id && (
                 <div className="backup-confirm">
                   <p className="muted small">
@@ -264,8 +299,8 @@ export function BackupsPage() {
         <p className="muted small">
           Anyone with the file can use them. Leave this off for a backup you share or store online.
         </p>
-        {includeSecrets && stepUp('A backup with API keys in it is credential-grade. Confirm your web login password.')}
-        <button onClick={downloadFull} disabled={busy === 'full' || (includeSecrets && !password)}>
+        {stepUp('A full backup holds your whole library. Confirm your web login password.')}
+        <button onClick={downloadFull} disabled={busy === 'full' || !password}>
           {busy === 'full' ? 'Making the backup…' : 'Download full backup'}
         </button>
 
@@ -282,7 +317,7 @@ export function BackupsPage() {
               Your library, settings and files are replaced by the ones in {file.name}. A snapshot of everything as it
               is now is taken first. {FINISH}
             </p>
-            {!includeSecrets && stepUp('Restoring replaces your library. Confirm your web login password.')}
+            <p className="muted small">Restoring uses the web login password above.</p>
             <button onClick={restoreFull} disabled={!password || busy === 'upload'}>
               {busy === 'upload' ? 'Uploading…' : 'Restore this file'}
             </button>

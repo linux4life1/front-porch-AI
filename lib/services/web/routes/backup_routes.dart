@@ -35,10 +35,11 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
 ///
 /// Every restore from here is staged for the desktop's next launch: the web
 /// app cannot reload the desktop's open database or settings in place.
-/// Restoring, and downloading a backup with API keys in it, are
+/// Restoring, deleting a snapshot (the safety net) and making a full backup
+/// (the whole library, and the web login when keys go in) are
 /// credential-grade and need the same password (+ TOTP) step-up as tunnel
-/// enable. A step-up for an upload rides in headers, since the body is the
-/// file.
+/// enable. A step-up for an upload or a DELETE rides in headers, since
+/// those have no JSON body.
 class WebBackupRoutes {
   WebBackupRoutes(this._deps, Router router) {
     router.get('/api/backups', _list);
@@ -49,6 +50,24 @@ class WebBackupRoutes {
     router.post('/api/backups/full/restore', _restoreFull);
     router.post('/api/backups/<id>/restore', _restoreSnapshot);
     router.delete('/api/backups/<id>', _delete);
+    unawaited(sweepTemp());
+  }
+
+  static const _tempPrefixes = ['fpai_web_backup_', 'fpai_web_restore_'];
+
+  /// Removes temp folders an earlier run left behind (an app quit mid
+  /// download or upload). A full backup there may hold API keys.
+  static Future<void> sweepTemp() async {
+    try {
+      await for (final e in Directory.systemTemp.list()) {
+        final name = p.basename(e.path);
+        if (e is Directory && _tempPrefixes.any(name.startsWith)) {
+          await _deleteDir(e);
+        }
+      }
+    } catch (e) {
+      debugPrint('[Backup] could not sweep old web backup files: $e');
+    }
   }
 
   final WebServerDeps _deps;
@@ -113,6 +132,8 @@ class WebBackupRoutes {
   }
 
   Future<shelf.Response> _delete(shelf.Request request, String id) async {
+    final denied = await _stepUp(request, _headerStepUp(request));
+    if (denied != null) return denied;
     final entry = await _entry(id);
     if (entry == null) return JsonResponse.error(404, 'No such backup');
     await BackupService.deleteBackup(entry.file);
@@ -123,6 +144,11 @@ class WebBackupRoutes {
     await BackupService.cancelPendingRestore();
     return JsonResponse.ok(await _state());
   }
+
+  static Map<String, dynamic> _headerStepUp(shelf.Request request) => {
+    'currentPassword': request.headers['x-current-password'] ?? '',
+    'totpCode': request.headers['x-totp-code'],
+  };
 
   Future<shelf.Response?> _stepUp(
     shelf.Request request,
@@ -164,10 +190,8 @@ class WebBackupRoutes {
       return JsonResponse.badRequest('Invalid JSON body');
     }
     final secrets = body['includeSecrets'] == true;
-    if (secrets) {
-      final denied = await _stepUp(request, body);
-      if (denied != null) return denied;
-    }
+    final denied = await _stepUp(request, body);
+    if (denied != null) return denied;
     _dropExpired();
     final dir = await Directory.systemTemp.createTemp('fpai_web_backup_');
     try {
@@ -208,20 +232,41 @@ class WebBackupRoutes {
     final file = entry.file;
     final length = await file.length();
     final name = p.basename(file.path);
-    return shelf.Response.ok(
-      file
-          .openRead()
-          .handleError((Object e) {
+    // The file goes once the download ends, fails or is dropped by the
+    // browser, so a backup with keys in it does not sit in temp.
+    late final StreamController<List<int>> body;
+    StreamSubscription<List<int>>? sub;
+    var cleaned = false;
+    void cleanUp() {
+      if (cleaned) return;
+      cleaned = true;
+      unawaited(_deleteDir(file.parent));
+    }
+
+    body = StreamController<List<int>>(
+      onListen: () {
+        sub = file.openRead().listen(
+          body.add,
+          onError: (Object e) {
             debugPrint('[Backup] download stream failed: $e');
-          })
-          .transform(
-            StreamTransformer<List<int>, List<int>>.fromHandlers(
-              handleDone: (sink) {
-                sink.close();
-                _deleteDir(file.parent);
-              },
-            ),
-          ),
+            body.addError(e);
+          },
+          onDone: () {
+            body.close();
+            cleanUp();
+          },
+          cancelOnError: true,
+        );
+      },
+      onPause: () => sub?.pause(),
+      onResume: () => sub?.resume(),
+      onCancel: () async {
+        await sub?.cancel();
+        cleanUp();
+      },
+    );
+    return shelf.Response.ok(
+      body.stream,
       headers: {
         'Content-Type': 'application/zip',
         'Content-Length': '$length',
@@ -233,10 +278,7 @@ class WebBackupRoutes {
   }
 
   Future<shelf.Response> _restoreFull(shelf.Request request) async {
-    final denied = await _stepUp(request, {
-      'currentPassword': request.headers['x-current-password'] ?? '',
-      'totpCode': request.headers['x-totp-code'],
-    });
+    final denied = await _stepUp(request, _headerStepUp(request));
     if (denied != null) return denied;
     final dir = await Directory.systemTemp.createTemp('fpai_web_restore_');
     final upload = File(

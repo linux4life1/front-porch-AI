@@ -104,17 +104,10 @@ Future<void> healPrefsAndConsolidateFiles() async {
   await PrefsRecovery.healIfCorrupt();
   StartupTrace.mark('PrefsRecovery.healIfCorrupt');
 
-  // Consolidate files BEFORE loading database or any configs.
-  try {
-    await FileConsolidationService.consolidate();
-  } catch (e) {
-    debugPrint('Fatal error during file consolidation: $e');
-  }
-  StartupTrace.mark('FileConsolidationService.consolidate');
-
   // A restore that brings back settings or files waits for this point:
-  // after the settings store is healed, before the database or any
-  // setting is read. See PendingRestore.
+  // after the settings store is healed, before file consolidation (so a
+  // backup from an older layout is consolidated like any other library)
+  // and before the database or any setting is read. See PendingRestore.
   try {
     final prefs = await SharedPreferences.getInstance();
     final layout = await PendingRestore.startupLayout(
@@ -131,6 +124,14 @@ Future<void> healPrefsAndConsolidateFiles() async {
     debugPrint('[Restore] pending restore check failed: $e');
   }
   StartupTrace.mark('PendingRestore.applyAtStartup');
+
+  // Consolidate files BEFORE loading database or any configs.
+  try {
+    await FileConsolidationService.consolidate();
+  } catch (e) {
+    debugPrint('Fatal error during file consolidation: $e');
+  }
+  StartupTrace.mark('FileConsolidationService.consolidate');
 }
 
 Future<({AppDatabase db, bool needsMigration})?> openDatabaseGuarded() async {

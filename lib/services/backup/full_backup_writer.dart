@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive_io.dart';
@@ -23,6 +24,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/settings_snapshot.dart';
 
@@ -81,6 +83,9 @@ class FullBackupWriter {
       if (!await snapshotDatabase(dbTmp.path)) {
         throw const FileSystemException('the database could not be copied');
       }
+      // Signed-in devices never travel, and the web login (its password
+      // hash and TOTP seed) only when secrets do.
+      await BackupDbScrub.forExport(dbTmp.path, keepLogin: includeSecrets);
       await part.parent.create(recursive: true);
       zip.create(part.path);
       open = true;
@@ -99,10 +104,14 @@ class FullBackupWriter {
       );
       for (var i = 0; i < files.length; i++) {
         final rel = files[i];
-        await zip.addFile(
-          File(p.joinAll([root, ...p.posix.split(rel)])),
-          '${BackupManifest.filesPrefix}$rel',
-        );
+        final file = File(p.joinAll([root, ...p.posix.split(rel)]));
+        final name = '${BackupManifest.filesPrefix}$rel';
+        final scrubbed = includeSecrets ? null : await _presetWithoutKeys(file);
+        if (scrubbed != null) {
+          zip.addArchiveFile(ArchiveFile.string(name, scrubbed));
+        } else {
+          await zip.addFile(file, name);
+        }
         onFile?.call(i + 1, files.length);
       }
       await zip.close();
@@ -124,6 +133,32 @@ class FullBackupWriter {
       rethrow;
     } finally {
       if (await dbTmp.exists()) await dbTmp.delete();
+    }
+  }
+
+  /// KoboldCpp preset settings that are credentials: the AI Horde key and
+  /// the API password. A backup without keys carries them blank.
+  static const List<String> presetSecretKeys = ['hordekey', 'password'];
+
+  /// [file]'s text with [presetSecretKeys] blanked when it is a `.kcpps`
+  /// preset holding one, else null (the file goes in as it is).
+  static Future<String?> _presetWithoutKeys(File file) async {
+    if (!file.path.toLowerCase().endsWith('.kcpps')) return null;
+    try {
+      final doc = jsonDecode(await file.readAsString());
+      if (doc is! Map) return null;
+      var changed = false;
+      for (final key in presetSecretKeys) {
+        final v = doc[key];
+        if (v != null && v != '' && v != false) {
+          doc[key] = '';
+          changed = true;
+        }
+      }
+      return changed ? jsonEncode(doc) : null;
+    } on FormatException catch (e) {
+      debugPrint('[Backup] ${file.path} is not a readable preset: $e');
+      return null;
     }
   }
 

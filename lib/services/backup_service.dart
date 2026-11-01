@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/backup/backup_db_scrub.dart';
 import 'package:front_porch_ai/services/backup/backup_manifest.dart';
 import 'package:front_porch_ai/services/backup/full_backup_writer.dart';
 import 'package:front_porch_ai/services/backup/pending_restore.dart';
@@ -153,7 +154,10 @@ class BackupService {
       final snapshot = SettingsSnapshot.capture(
         prefs,
         isNightly: isPreRelease,
-        includeSecrets: true,
+        // Snapshots sit in the storage folder, often a cloud-synced
+        // Documents folder, so keys stay out. The settings file itself is
+        // guarded by PrefsRecovery's good copy.
+        includeSecrets: false,
         root: storageRoot,
       );
       final target = settingsPathFor(backupPath);
@@ -170,6 +174,9 @@ class BackupService {
     await backup.delete();
     final settings = File(settingsPathFor(backup.path));
     if (await settings.exists()) await settings.delete();
+    // Files a restore replaced, kept beside its safety snapshot.
+    final replaced = Directory('${path.withoutExtension(backup.path)}.files');
+    if (await replaced.exists()) await replaced.delete(recursive: true);
   }
 
   /// The snapshots with what the list shows about each, newest first.
@@ -258,9 +265,9 @@ class BackupService {
     return out.path;
   }
 
-  /// Checks [archive] and stages it for the next launch. Before it does, a
-  /// fresh snapshot of the library as it is now is taken, so a restore can
-  /// itself be undone. Throws [FormatException] with a message for the user.
+  /// Checks [archive] and stages it for the next launch. The safety copy
+  /// that lets the restore be undone is taken when it is applied (see
+  /// RestoreApplier). Throws [FormatException] with a message for the user.
   static Future<BackupManifest> stageFullRestore(
     File archive, {
     bool move = false,
@@ -271,7 +278,6 @@ class BackupService {
     final manifest = await PendingRestore.inspect(archive);
     final refusal = manifest.refusal(currentSchema: db.schemaVersion);
     if (refusal != null) throw FormatException(refusal);
-    await createBackup();
     return PendingRestore.stageFull(
       root,
       archive,
@@ -326,11 +332,16 @@ class BackupService {
       throw FileSystemException('Backup file not found', backupPath);
     }
 
+    // The restored copy keeps this machine's web login and signs every
+    // device out, so a restore never rolls the login back.
+    final staged = File('$dbPath.restore.tmp');
+    await BackupDbScrub.stageCopy(backupPath, staged.path, dbPath);
+
     // Close the live DB
     await AppDatabase.closeAndReset();
 
     // Replace with backup
-    await backupFile.copy(dbPath);
+    await staged.rename(dbPath);
     // Remove stale WAL/SHM
     for (final suffix in const ['-wal', '-shm']) {
       try {

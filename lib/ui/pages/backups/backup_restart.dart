@@ -104,7 +104,9 @@ class PendingRestoreBanner extends StatefulWidget {
 class PendingRestoreBannerState extends State<PendingRestoreBanner> {
   late Future<PendingRestore?> _pending = BackupService.pendingRestore();
 
-  void refresh() => setState(() => _pending = BackupService.pendingRestore());
+  void refresh() => setState(() {
+    _pending = BackupService.pendingRestore();
+  });
 
   Future<void> _cancel() async {
     try {
