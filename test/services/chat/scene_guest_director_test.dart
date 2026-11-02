@@ -74,6 +74,21 @@ void main() {
       expect(gatePrompts, isEmpty); // heuristic never even runs
     });
 
+    test('an @-named guest speaks off the typed line; the gate never sees '
+        'an @', () async {
+      guests = [_guest('Juno'), _guest('Ivo')];
+      gateReplies = {'Ivo': '{"speak": false}'};
+      await build().runChimeIns(
+        userText: 'dinner?',
+        typedText: '@Host and @Juno, dinner?',
+        primaryResponse: 'Sure.',
+      );
+      expect(spoke, ['Juno'], reason: 'named in the typed line');
+      expect(gatePrompts, hasLength(1), reason: 'only Ivo went to the gate');
+      expect(gatePrompts.single, contains('User just said: "dinner?"'));
+      expect(gatePrompts.single, isNot(contains('@')));
+    });
+
     test('no-op when no guests are present', () async {
       await build().runChimeIns(userText: 'hello', primaryResponse: 'hi');
       expect(spoke, isEmpty);

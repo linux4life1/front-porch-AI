@@ -257,10 +257,13 @@ class SceneGuestDirector {
   /// gate. [exclude] is a guest who already spoke this turn (the direct-address
   /// routed speaker) — their name saturates the transcript tail, so without
   /// the exclusion the mention heuristic would immediately make them speak a
-  /// second time.
+  /// second time. [typedText] is the line as typed when an `@Name` was
+  /// cleaned out of [userText]: the name match reads it, while the gate
+  /// prompt only ever sees [userText], so no `@` reaches the model.
   Future<void> runChimeIns({
     required String userText,
     required String primaryResponse,
+    String? typedText,
     bool Function()? isContextValid,
     CharacterCard? exclude,
   }) async {
@@ -305,6 +308,7 @@ class SceneGuestDirector {
         if (await _shouldGuestSpeak(
           guest: guest,
           userText: userText,
+          typedText: typedText ?? userText,
           tail: tail,
         )) {
           if (!stillValid()) break; // re-check after the (slow) gate eval
@@ -326,10 +330,11 @@ class SceneGuestDirector {
   Future<bool> _shouldGuestSpeak({
     required CharacterCard guest,
     required String userText,
+    required String typedText,
     required String tail,
   }) async {
     // ── Fast heuristic: the guest was addressed/referenced by name ──────────
-    if (mentionsName(guest.name, userText) || mentionsName(guest.name, tail)) {
+    if (mentionsName(guest.name, typedText) || mentionsName(guest.name, tail)) {
       return true;
     }
 

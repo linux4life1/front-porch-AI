@@ -135,9 +135,11 @@ class RegenController {
 
     // Reconstruct the user text that prompted the host turn for the re-chime gate.
     String userText = '';
+    String typedText = '';
     for (int i = hostIndex - 1; i >= 0; i--) {
       if (_session.messages[i].isUser) {
-        userText = AtMentionText.routingText(_session.messages[i]);
+        userText = _session.messages[i].text;
+        typedText = AtMentionText.routingText(_session.messages[i]);
         break;
       }
     }
@@ -152,7 +154,10 @@ class RegenController {
       webQuery: webQuery,
       wikiQuery: wikiQuery,
     );
-    await _d.send().handoff.maybeRunSceneGuestChimeIns(userText: userText);
+    await _d.send().handoff.maybeRunSceneGuestChimeIns(
+      userText: userText,
+      typedText: typedText,
+    );
   }
 
   Future<void> regenerateLastMessage({
