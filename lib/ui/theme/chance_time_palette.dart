@@ -50,6 +50,13 @@ class ChanceTimePalette {
   /// The calm end of the chaos pressure scale.
   static const Color calm = Color(0xFF2EC4B6);
 
+  /// Misfortune's dim: the room darkens from the edges in.
+  static const Color dread = Color(0xFF28000A);
+
+  /// Misfortune's ash, and the odd ember in it.
+  static const Color ash = Color(0xFF5A5A5A);
+  static const Color ashEmber = Color(0xFF7A2A30);
+
   static const Color pink = Color(0xFFFF6B9D);
   static const Color blue = Color(0xFF118AB2);
 

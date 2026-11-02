@@ -1,0 +1,142 @@
+{
+  "dt": 0.008333333333333333,
+  "plans": [
+    {
+      "seed": 7,
+      "slot": 4,
+      "turns": 4,
+      "within": 0.28097912878729403,
+      "total": 28.053653390605582,
+      "slotUnderPointer": 4
+    },
+    {
+      "seed": 123456,
+      "slot": 0,
+      "turns": 5,
+      "within": 0.6486314537469298,
+      "total": 37.189677890582864,
+      "slotUnderPointer": 0
+    },
+    {
+      "seed": 987654321,
+      "slot": 7,
+      "turns": 6,
+      "within": 0.31744816480204463,
+      "total": 38.23518680086555,
+      "slotUnderPointer": 7
+    }
+  ],
+  "samples": [
+    {
+      "time": 0.25,
+      "steps": 30,
+      "angle": 3.9901453636198054,
+      "omega": 15.254175052076153,
+      "pointer": -1.1,
+      "clicks": 5,
+      "phase": "windup"
+    },
+    {
+      "time": 0.5,
+      "steps": 60,
+      "angle": 7.618847766833776,
+      "omega": 13.830632993358805,
+      "pointer": -0.5290141146087802,
+      "clicks": 9,
+      "phase": "fast"
+    },
+    {
+      "time": 1.0,
+      "steps": 120,
+      "angle": 13.838840525160721,
+      "omega": 11.127022045273307,
+      "pointer": -0.3558440559655003,
+      "clicks": 17,
+      "phase": "fast"
+    },
+    {
+      "time": 2.0,
+      "steps": 240,
+      "angle": 22.4827849438131,
+      "omega": 6.348528141195544,
+      "pointer": -0.08969435696982386,
+      "clicks": 28,
+      "phase": "slowing"
+    },
+    {
+      "time": 3.0,
+      "steps": 360,
+      "angle": 26.82954657503757,
+      "omega": 2.563520301297757,
+      "pointer": -0.2390593784798074,
+      "clicks": 34,
+      "phase": "slowing"
+    },
+    {
+      "time": 3.7,
+      "steps": 444,
+      "angle": 27.91647326008839,
+      "omega": 0.6944981773679615,
+      "pointer": -0.022769593572464317,
+      "clicks": 35,
+      "phase": "nearMiss"
+    },
+    {
+      "time": 4.0,
+      "steps": 480,
+      "angle": 28.039771737416668,
+      "omega": 0.1789806483155587,
+      "pointer": 0.010844246648600777,
+      "clicks": 35,
+      "phase": "nearMiss"
+    },
+    {
+      "time": 4.2,
+      "steps": 504,
+      "angle": 28.053653390605582,
+      "omega": 0.0005903292898779,
+      "pointer": -0.003032088929052712,
+      "clicks": 35,
+      "phase": "nearMiss"
+    },
+    {
+      "time": 4.3,
+      "steps": 516,
+      "angle": 28.081929162648773,
+      "omega": -0.03498468773557306,
+      "pointer": 0.0006009290706684776,
+      "clicks": 35,
+      "phase": "landing"
+    },
+    {
+      "time": 4.45,
+      "steps": 534,
+      "angle": 28.0485286717886,
+      "omega": -0.179243689024986,
+      "pointer": 0.0002653259444972848,
+      "clicks": 35,
+      "phase": "nearMiss"
+    },
+    {
+      "time": 4.75,
+      "steps": 570,
+      "angle": 28.057395914310398,
+      "omega": -0.005567624064610754,
+      "pointer": 0.000040431621244787363,
+      "clicks": 35,
+      "phase": "reveal"
+    },
+    {
+      "time": 5.0,
+      "steps": 600,
+      "angle": 28.05244942548318,
+      "omega": 0.008120879347330856,
+      "pointer": -0.00000863114958889239,
+      "clicks": 35,
+      "phase": "reveal"
+    }
+  ],
+  "landedStep": 504,
+  "lastClickStep": 399,
+  "finalSlot": 4
+}
