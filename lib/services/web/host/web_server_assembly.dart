@@ -70,7 +70,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
           personas,
           streamHub,
           groups,
-          resolveSavedImage: imageFacade?.savedImageFile,
+          resolveSavedImage: imageFacade?.chatImageFile,
           llm: llm,
         )
       : null;

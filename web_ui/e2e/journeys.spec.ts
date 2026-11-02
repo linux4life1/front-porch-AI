@@ -2382,3 +2382,19 @@ test("a member's start in the group's new chats saves to the group", { tag: SERI
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
+
+test('image studio recent shelf keeps its keep choice across navigation', async ({page}) => {
+  const before=await (await page.request.get('/api/image/recent')).json() as {limit:number};
+  try {
+    await openRoute(page,'/images');
+    const shelf=page.getByTestId('studio-recent-shelf');
+    await expect(shelf).toBeVisible();
+    await shelf.getByLabel('How many Recent pictures to keep').selectOption('200');
+    await expect(shelf).toContainText('of 200');
+    await openRoute(page,'/models'); await openRoute(page,'/images');
+    await expect(page.getByTestId('studio-recent-shelf').getByLabel('How many Recent pictures to keep')).toHaveValue('200');
+    expect(((await (await page.request.get('/api/image/recent')).json()) as {limit:number}).limit).toBe(200);
+  } finally {
+    await page.request.post('/api/image/recent/limit',{data:{limit:before.limit}});
+  }
+});

@@ -54,6 +54,8 @@ export interface StudioDeskProps {
   result?: ReactNode;
   /** The picture the last generate saved, to edit next. */
   lastSaved?: { name: string; url: string } | null;
+  /** A Recent picture sent to Edit; a new `seq` opens Edit with it. */
+  editPicture?: { name: string; url: string; seq: number } | null;
   /** How often a CivitAI download is asked about; for tests. */
   civitaiPollMs?: number;
   onSharedBusy?: (busy: boolean) => void;
@@ -89,6 +91,13 @@ export function StudioDesk(props: StudioDeskProps) {
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [note, setNote] = useState('');
   const [known, setKnown] = useState<Record<string, LoraFact>>({});
+  const editPicture = props.editPicture;
+  useEffect(() => {
+    if (!editPicture) return;
+    setPicture({ kind: 'saved', name: editPicture.name, url: editPicture.url });
+    setTab('edit');
+    setMode('edit');
+  }, [editPicture]);
 
   const readyKey = JSON.stringify([
     cfg.backend, cfg.model, cfg.editModel, cfg.comfyCreateWorkflowId, cfg.comfyEditWorkflowId,

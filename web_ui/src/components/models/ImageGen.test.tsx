@@ -313,3 +313,59 @@ function pressedSize() {
     .map((b) => b.textContent ?? '')
     .find((label) => /×/.test(label));
 }
+
+describe('the Recent shelf on the card', () => {
+  const kept = {
+    name: 'rec_1.png', prompt: 'a quiet porch', style: 'cinematic', mode: 'create', model: 'm',
+    createdAt: new Date().toISOString(), kept: false, bytes: 5, url: '/api/image/saved/rec_1.png',
+  };
+  const shelf = (entries: unknown[]) => ({ limit: 50, choices: [50, 200, -1, 0], folder: null, usage: { bytes: 5, count: 1, kept: 0 }, entries });
+
+  it('a fresh picture lands on the shelf and can be starred', async () => {
+    let entries: unknown[] = [];
+    await open({
+      'GET /api/image/recent': () => shelf(entries),
+      'POST /api/image/generate': () => {
+        entries = [kept];
+        return { image: 'data:image/png;base64,AAAA', filename: 'rec_1.png', recent: { name: 'rec_1.png', kept: false } };
+      },
+      'POST /api/image/recent/keep': () => {
+        entries = [{ ...kept, kept: true }];
+        return { entry: entries[0] };
+      },
+    });
+    type('textarea[aria-label="Prompt"]', 'a quiet porch');
+    click('Generate');
+    await settle(8);
+    expect(text()).toContain('Recent · 1 of 50');
+
+    click('☆ Star');
+    await settle();
+    expect(posts('/api/image/recent/keep')[0].body).toEqual({ name: 'rec_1.png', kept: true });
+    expect(button('★ Starred')).toBeDefined();
+  });
+
+  it('brings back a kept picture with its prompt after the page was left', async () => {
+    await open({ 'GET /api/image/recent': shelf([kept]) });
+    expect(container.querySelector('img[alt="Generated"]')).toBeNull();
+
+    (container.querySelector('img[src="/api/image/saved/rec_1.png"]')!.closest('button') as HTMLButtonElement).click();
+    await settle();
+    expect((container.querySelector('img[alt="Generated"]') as HTMLImageElement).src).toContain('/api/image/saved/rec_1.png');
+    expect(field<HTMLTextAreaElement>('textarea[aria-label="Prompt"]').value).toBe('a quiet porch');
+    expect(text()).toContain('Insert into chat');
+  });
+
+  it('sends a kept picture to Edit as the picture to change', async () => {
+    await open({ 'GET /api/image/recent': shelf([kept]) });
+    click('⋯');
+    click('Edit this picture');
+    await settle();
+    type('textarea[aria-label="Prompt"]', 'add a lantern');
+    click('Generate');
+    await settle();
+    const body = posts('/api/image/generate')[0].body as Record<string, unknown>;
+    expect(body.mode).toBe('edit');
+    expect(body.referenceFilename).toBe('rec_1.png');
+  });
+});

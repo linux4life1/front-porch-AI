@@ -16,13 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:typed_data';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/image/edit_profile.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -56,6 +55,9 @@ class EditView extends StatefulWidget {
   final String? initialSourcePath;
   final ValueChanged<Uint8List>? onResultImage;
 
+  /// A picture the Create tab's Recent shelf sends here to edit.
+  final ValueListenable<Uint8List?>? incomingPicture;
+
   const EditView({
     super.key,
     this.onSendToChat,
@@ -64,6 +66,7 @@ class EditView extends StatefulWidget {
     this.acceptLabel = 'Use image',
     this.initialSourcePath,
     this.onResultImage,
+    this.incomingPicture,
   });
 
   @override
@@ -77,6 +80,7 @@ class _EditViewState extends State<EditView> {
   bool _busy = false;
   bool _saving = false;
   String _error = '';
+  final _recent = StudioRecentLink();
 
   /// How strongly the instruction changes the reference (higher = more change).
   /// Defaults to "do what I asked" — multi-change instruction edits come out
@@ -88,13 +92,42 @@ class _EditViewState extends State<EditView> {
   void initState() {
     super.initState();
     _seedInitialSource();
+    widget.incomingPicture?.addListener(_takeIncoming);
   }
 
   @override
   void dispose() {
+    widget.incomingPicture?.removeListener(_takeIncoming);
     _instructionCtrl.dispose();
+    _recent.dispose();
     super.dispose();
   }
+
+  void _takeIncoming() {
+    final bytes = widget.incomingPicture?.value;
+    if (bytes != null && mounted) _useAsSource(bytes);
+  }
+
+  /// Start a new edit from [bytes] (a Recent picture).
+  void _useAsSource(Uint8List bytes) => setState(() {
+    _sourceBytes = bytes;
+    _resultBytes = null;
+    _error = '';
+  });
+
+  /// Bring back a Recent picture as the result, with its instruction.
+  void _restoreRecent(StudioRecentEntry entry, Uint8List bytes) => setState(() {
+    _instructionCtrl.text = entry.prompt;
+    _resultBytes = bytes;
+    _recent.shown = entry;
+    _error = '';
+  });
+
+  Widget get _shelf => StudioRecentShelf(
+    onRestore: _restoreRecent,
+    onEditPicture: _useAsSource,
+    selectedName: _resultBytes == null ? null : _recent.shown?.name,
+  );
 
   /// Pre-load the character's current portrait as the source to edit, so the
   /// Edit tab opens ready to "change this portrait" rather than empty.
@@ -161,6 +194,15 @@ class _EditViewState extends State<EditView> {
               : 'The edit returned no image.';
         }
       });
+      if (bytes != null) {
+        await _recent.remember(
+          context,
+          bytes,
+          instruction,
+          edit: true,
+          onChanged: () => mounted ? setState(() {}) : null,
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -238,38 +280,49 @@ class _EditViewState extends State<EditView> {
     if (_resultBytes != null && _error.isEmpty) {
       return SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: ResultView(
-          imageBytes: _resultBytes!,
-          hasAccept: widget.onAcceptBytes != null,
-          acceptLabel: widget.acceptLabel,
-          isSaving: _saving,
-          onSave: _saveResult,
-          onAccept: () {
-            final cb = widget.onAcceptBytes;
-            final bytes = _resultBytes;
-            if (cb == null || bytes == null) return;
-            setState(() => _saving = true);
-            cb(bytes).whenComplete(() {
-              if (mounted) setState(() => _saving = false);
-            });
-          },
-          onVariations: (_busy || genBusy) ? null : _generate,
-          onEditRegen: () => setState(() {
-            _resultBytes = null;
-            _error = '';
-          }),
-          onSendToChat: widget.onSendToChat == null ? null : _send,
-          onSaveToGallery: widget.onSaveToGalleryBytes == null
-              ? null
-              : () {
-                  final cb = widget.onSaveToGalleryBytes;
-                  final bytes = _resultBytes;
-                  if (cb == null || bytes == null) return;
-                  setState(() => _saving = true);
-                  cb(bytes).whenComplete(() {
-                    if (mounted) setState(() => _saving = false);
-                  });
-                },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ResultView(
+              imageBytes: _resultBytes!,
+              hasAccept: widget.onAcceptBytes != null,
+              acceptLabel: widget.acceptLabel,
+              isSaving: _saving,
+              onSave: _saveResult,
+              onAccept: () {
+                final cb = widget.onAcceptBytes;
+                final bytes = _resultBytes;
+                if (cb == null || bytes == null) return;
+                setState(() => _saving = true);
+                cb(bytes).whenComplete(() {
+                  if (mounted) setState(() => _saving = false);
+                });
+              },
+              onVariations: (_busy || genBusy) ? null : _generate,
+              onEditRegen: () => setState(() {
+                _resultBytes = null;
+                _error = '';
+              }),
+              onSendToChat: widget.onSendToChat == null ? null : _send,
+              onSaveToGallery: widget.onSaveToGalleryBytes == null
+                  ? null
+                  : () {
+                      final cb = widget.onSaveToGalleryBytes;
+                      final bytes = _resultBytes;
+                      if (cb == null || bytes == null) return;
+                      setState(() => _saving = true);
+                      cb(bytes).whenComplete(() {
+                        if (mounted) setState(() => _saving = false);
+                      });
+                    },
+              onKeep: _recent.shown == null
+                  ? null
+                  : () => _recent.toggleKeep(context, () => setState(() {})),
+              kept: _recent.shown?.kept ?? false,
+            ),
+            const SizedBox(height: 16),
+            _shelf,
+          ],
         ),
       );
     }
@@ -318,6 +371,7 @@ class _EditViewState extends State<EditView> {
           errorText: _error,
           onGenerate: (_busy || genBusy) ? null : _generate,
         ),
+        below: _shelf,
       ),
     );
   }
