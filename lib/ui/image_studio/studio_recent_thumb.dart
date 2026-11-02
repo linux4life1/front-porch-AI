@@ -134,18 +134,23 @@ class StudioRecentThumb extends StatelessWidget {
                 Positioned(
                   top: 2,
                   right: 2,
-                  child: Icon(Icons.star, size: 14, color: accent),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundOf(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(1),
+                      child: Icon(Icons.star, size: 14, color: accent),
+                    ),
+                  ),
                 ),
               Positioned(
                 bottom: 0,
                 left: 0,
                 right: 0,
                 child: Container(
-                  color: AppColors.resolve(
-                    context,
-                    AppColors.background,
-                    AppColors.lightBorder,
-                  ),
+                  color: AppColors.backgroundOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,
                     vertical: 2,
@@ -155,8 +160,8 @@ class StudioRecentThumb extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                      fontSize: 9,
+                      color: AppColors.textPrimary(context),
+                      fontSize: 10,
                     ),
                   ),
                 ),
