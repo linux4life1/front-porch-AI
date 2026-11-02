@@ -51,12 +51,18 @@ class GenPresetFollower {
     required this.backend,
     required this.presets,
     this.lookup = recommendedSamplersFor,
+    this.now = DateTime.now,
   });
 
   final GenerationSettings generation;
   final BackendSettings backend;
   final GenPresetSettings presets;
   final Future<RecommendedSamplers> Function(ChatModelId) lookup;
+  final DateTime Function() now;
+
+  /// Switches this close together are one move (changing host, then
+  /// model), so Undo goes back to before the first of them.
+  static const chainWindow = Duration(seconds: 5);
 
   ChatModelId _model = ChatModelId.none;
   int _seq = 0;
@@ -64,6 +70,7 @@ class GenPresetFollower {
   bool _applying = false;
   SamplerValues? _undoValues;
   String? _undoSlot;
+  DateTime? _noticeAt;
 
   /// The current chat model's recommended samplers.
   final recommended = ValueNotifier<RecommendedSamplers>(
@@ -124,8 +131,17 @@ class GenPresetFollower {
       _applying = false;
     }
     if (hadEdits) message += ' Your unsaved changes were set aside.';
-    _undoValues = before;
-    _undoSlot = beforeSlot;
+    final at = now();
+    final last = _noticeAt;
+    final chained =
+        notice.value != null &&
+        last != null &&
+        at.difference(last) < chainWindow;
+    if (!chained) {
+      _undoValues = before;
+      _undoSlot = beforeSlot;
+    }
+    _noticeAt = at;
     notice.value = GenPresetNotice(++_noticeSeq, message);
   }
 
