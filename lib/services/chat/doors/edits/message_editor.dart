@@ -57,6 +57,9 @@ class MessageEditor {
       final msg = _session.messages[index];
       // text setter keeps swipe + realism metadata (chips survive edit).
       msg.text = newText;
+      // The edited line is what routing reads from now on.
+      msg.metadata?.remove(kAtMentionRawTextMeta);
+      msg.activeMetadata?.remove(kAtMentionRawTextMeta);
       // Persist index — on-screen 0..23 is a tail window, not the diary cite.
       _s.graph().timeline.invalidateFrom(
         persistMessagePosition(base: _history.basePosition, index: index),

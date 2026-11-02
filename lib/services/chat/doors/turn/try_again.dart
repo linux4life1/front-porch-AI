@@ -124,7 +124,10 @@ class TryAgain {
     } else {
       // Send pulses before generating (and honours @Name of an Away
       // member); directUserSend below then skips the in-turn pulse.
-      await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
+      await _runAwayPulse(
+        userText: AtMentionText.routingText(userMsg),
+        fromUserSend: true,
+      );
     }
     if (!cancelled) {
       mediaDoor.armForcedLookup(webQuery: webQuery, wikiQuery: wikiQuery);

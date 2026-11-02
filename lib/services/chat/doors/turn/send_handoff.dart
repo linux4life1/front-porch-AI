@@ -111,7 +111,10 @@ class SendHandoff {
       await generateGuestTurn(addressedGuest);
     } else {
       if (_activeGroup != null) {
-        await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
+        await _runAwayPulse(
+          userText: AtMentionText.routingText(userMsg),
+          fromUserSend: true,
+        );
       }
       // This is the sole web-search allow-list entry: a newly appended user
       // message receiving its first host/group response. Every follow-up,

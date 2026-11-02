@@ -348,6 +348,9 @@ class SceneGuestDirector {
   /// Variants shorter than 2 chars are dropped (stray single letters). Shared
   /// by the mention heuristic, the direct-address router, and the @-mention
   /// matcher (static because the @ matcher is).
+  /// Full name and first-name nickname, the forms an `@` may use.
+  static List<String> nameVariantsOf(String name) => _nameVariants(name);
+
   static List<String> _nameVariants(String name) {
     final trimmed = name.trim();
     final out = <String>[];
