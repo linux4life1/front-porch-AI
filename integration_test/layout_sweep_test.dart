@@ -34,7 +34,6 @@ import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 
 import 'support/e2e_sandbox.dart';
-import 'support/e2e_taps.dart';
 import 'support/fake_backend.dart';
 
 const _sizes = {
@@ -202,7 +201,7 @@ void main() {
     for (final name in ['Layout Tester', 'Layout Second']) {
       await tester.ensureVisible(find.text(name).first);
       await tester.pump(const Duration(milliseconds: 400));
-      await tapWhenHittable(tester, find.text(name));
+      await tapWhenHittable(tester, find.text(name).first);
       await tester.pump(const Duration(milliseconds: 400));
     }
     await pumpUntilFound(tester, find.text('Current Roster (2)'));
