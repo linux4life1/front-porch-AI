@@ -11,6 +11,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/at_mention_text.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_director.dart';
 
@@ -484,6 +485,28 @@ void main() {
       expect(clean('  @Sam!  '), '');
       expect(AtMentionText.bareAddress('@Sam', roster: roster)?.name, 'Sam');
       expect(AtMentionText.bareAddress('@Sam hi', roster: roster), isNull);
+    });
+
+    test('routing reads the typed line, photo marker kept', () {
+      ChatMessage line(String shown, String typed, {bool photo = false}) =>
+          ChatMessage(
+            text: shown,
+            sender: 'You',
+            isUser: true,
+            metadata: {
+              kAtMentionRawTextMeta: typed,
+              if (photo) 'is_user_image': true,
+            },
+          );
+      expect(AtMentionText.routingText(line('look', '@Sam look')), '@Sam look');
+      expect(
+        AtMentionText.routingText(line('look', '@Sam look', photo: true)),
+        '@Sam look [shared a photo]',
+      );
+      expect(
+        AtMentionText.routingText(line('', '@Sam', photo: true)),
+        '@Sam [shared a photo]',
+      );
     });
 
     test('an @ that names nobody here is left exactly as typed', () {

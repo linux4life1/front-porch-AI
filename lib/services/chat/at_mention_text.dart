@@ -84,11 +84,18 @@ class AtMentionText {
     return SceneGuestDirector.atMentionedCard(roster, text);
   }
 
-  /// The line routing should read: the typed line when [clean] changed it,
-  /// else the shown line.
+  /// The line routing should read: [ChatMessage.promptText] with the typed
+  /// line in place of the shown one when [clean] changed it, so a photo
+  /// turn keeps its "[shared a photo]" marker either way.
   static String routingText(ChatMessage m) {
     final raw = (m.activeMetadata ?? m.metadata)?[kAtMentionRawTextMeta];
-    return raw is String ? raw : m.promptText;
+    final prompt = m.promptText;
+    if (raw is! String) return prompt;
+    final visible = m.displayText.trim();
+    if (prompt == m.displayText) return raw;
+    return visible.isEmpty
+        ? '${raw.trim()} $prompt'
+        : prompt.replaceFirst(visible, raw.trim());
   }
 
   /// Same boundaries as the router's matcher, longest variant first so
