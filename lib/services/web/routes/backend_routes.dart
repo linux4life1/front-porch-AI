@@ -85,6 +85,7 @@ class WebBackendRoutes {
       router.get('/api/image/models', _imageRemoteModels);
       router.get('/api/image/remote-panel', _imageRemotePanel);
       ImageDeskRoutes(router, deps: _deps, image: image);
+      ImageRecentRoutes(router, image: image);
       ExpressionPackRoutes(router, image: image);
       ImageBatchRoutes(router, image: image);
       CivitaiRoutes(

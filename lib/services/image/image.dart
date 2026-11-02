@@ -58,6 +58,7 @@ export 'studio_desk_picks.dart';
 export 'studio_ready_service.dart';
 export 'studio_readiness.dart';
 export 'studio_ready_words.dart';
+export 'studio_recent_store.dart';
 export 'studio_size.dart';
 export 'studio_support_fit.dart';
 export 'xai_image.dart';

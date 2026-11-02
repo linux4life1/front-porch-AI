@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StudioDesk, type GenerateRequest } from './StudioDesk';
 import { PackBanner } from './studio/PackBanner';
+import { RecentShelf, type RecentEntry } from './studio/RecentShelf';
 import type { ImageConfig } from './studio/types';
 
 const PROGRESS_MS = 1000;
@@ -32,6 +33,10 @@ export function ImageGen({
   const [progress, setProgress] = useState<number | null>(null);
   const [genError, setGenError] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
+  // The Recent shelf picture on show (the computer keeps every result there).
+  const [recent, setRecent] = useState<{ name: string; kept: boolean } | null>(null);
+  const [recentKey, setRecentKey] = useState(0);
+  const [editPicture, setEditPicture] = useState<{ name: string; url: string; seq: number } | null>(null);
   const live = useRef(true);
 
   useEffect(() => {
@@ -103,11 +108,14 @@ export function ImageGen({
     setImage(null);
     setFilename(null);
     setInserted(false);
+    setRecent(null);
     api
-      .post<{ image: string; filename: string | null }>('/api/image/generate', body)
+      .post<{ image: string; filename: string | null; recent?: { name: string; kept: boolean } }>('/api/image/generate', body)
       .then((r) => {
         setImage(r.image);
         setFilename(r.filename);
+        setRecent(r.recent ? { name: r.recent.name, kept: r.recent.kept } : null);
+        setRecentKey((k) => k + 1);
       })
       .catch((e: unknown) => {
         const message = e instanceof ApiError ? e.message : 'Generation failed';
@@ -127,6 +135,26 @@ export function ImageGen({
       .catch((e) => onError(e instanceof ApiError ? e.message : 'Could not insert into chat'));
   };
 
+  const restore = (entry: RecentEntry) => {
+    setImage(entry.url);
+    setFilename(entry.name);
+    setPrompt(entry.prompt);
+    setInserted(false);
+    setGenError('');
+    setRecent({ name: entry.name, kept: entry.kept });
+  };
+
+  const toggleStar = () => {
+    if (!recent) return;
+    api
+      .post('/api/image/recent/keep', { name: recent.name, kept: !recent.kept })
+      .then(() => {
+        setRecent({ ...recent, kept: !recent.kept });
+        setRecentKey((k) => k + 1);
+      })
+      .catch((e) => onError(e instanceof ApiError ? e.message : 'Could not star that picture.'));
+  };
+
   return (
     <section className="card">
       <h3>Image generation</h3>
@@ -144,8 +172,10 @@ export function ImageGen({
         busy={busy}
         progress={progress}
         lastSaved={filename ? { name: filename, url: `/api/image/saved/${encodeURIComponent(filename)}` } : null}
+        editPicture={editPicture}
         result={
-          image ? (
+          <>
+          {image ? (
             <div className="image-result">
               <img src={image} alt="Generated" />
               <div className="image-result-actions">
@@ -157,9 +187,28 @@ export function ImageGen({
                     {inserted ? 'Inserted ✓' : 'Insert into chat'}
                   </button>
                 )}
+                {recent && (
+                  <button type="button" className="secondary" aria-pressed={recent.kept} onClick={toggleStar}>
+                    {recent.kept ? '★ Starred' : '☆ Star'}
+                  </button>
+                )}
               </div>
             </div>
-          ) : null
+          ) : null}
+          <RecentShelf
+            refreshKey={recentKey}
+            selected={image ? recent?.name ?? null : null}
+            onRestore={restore}
+            onEdit={(entry) => setEditPicture({ name: entry.name, url: entry.url, seq: Date.now() })}
+            onChanged={(entries) =>
+              setRecent((now) => {
+                const match = now && entries.find((e) => e.name === now.name);
+                return match && match.kept !== now.kept ? { ...now, kept: match.kept } : now;
+              })
+            }
+            onError={onError}
+          />
+          </>
         }
       />
     </section>

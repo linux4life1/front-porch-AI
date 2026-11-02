@@ -165,13 +165,15 @@ Future<void> saveStudioLook(
   }
 }
 
-/// Attach [bytes] + [prompt] to the conversation, then confirm.
+/// Attach [bytes] + [prompt] to the conversation, then confirm. Does nothing
+/// when there is no picture on show.
 Future<void> sendStudioImageToChat(
   BuildContext context,
   Future<void> Function(Uint8List bytes, String prompt) send,
-  Uint8List bytes,
+  Uint8List? bytes,
   String prompt,
 ) async {
+  if (bytes == null) return;
   await send(bytes, prompt);
   if (context.mounted) {
     ScaffoldMessenger.of(

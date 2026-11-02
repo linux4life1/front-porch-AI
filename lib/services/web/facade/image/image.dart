@@ -27,4 +27,5 @@ export 'image_studio_config.dart';
 export 'image_studio_desk.dart';
 export 'image_studio_packs.dart';
 export 'image_studio_ready.dart';
+export 'image_studio_recent.dart';
 export 'phone_lora_facts.dart';
