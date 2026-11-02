@@ -92,6 +92,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       storage = StorageService();
+      // Let the settings load first, so it cannot undo what a test sets.
+      await storage.initialized;
       facade = ImageFacade(ImageGenService(storage), storage);
       root = Directory.systemTemp.createTempSync('fpai_recent_root_');
       await storage.setRootPath(root.path);
