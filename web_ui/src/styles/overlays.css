@@ -98,8 +98,9 @@
   box-shadow: 0 0 18px rgba(255, 209, 102, 0.45); /* theme-keep: Chance Time game glow */
 }
 /* The wheel: the card widens for it and shrinks it once landed so the event fits. */
-.chance-card-wheel { width: min(380px, 100%); overflow: hidden; }
-.chance-wheel { display: block; margin: 0 auto; max-width: 100%; transition: width 0.6s ease-in-out, height 0.6s ease-in-out; }
+.chance-card-wheel { position: relative; width: min(380px, 100%); overflow: hidden; }
+.chance-wheel-box { margin: 0 auto; max-width: 100%; transition: width 0.6s ease-in-out, height 0.6s ease-in-out; }
+.chance-wheel { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .chance-kind {
   font-weight: 900; font-size: 1.05rem; letter-spacing: 0.04em; animation: chance-reveal 0.4s ease-out;
 }
@@ -108,7 +109,7 @@
 .chance-kind.tone-chaos { color: #ffd166; } /* theme-keep: Chance Time game identity */
 .chance-kind.tone-wildCard { color: #9b5de5; } /* theme-keep: Chance Time game identity */
 @media (prefers-reduced-motion: reduce) {
-  .chance-wheel { transition: none; }
+  .chance-wheel-box { transition: none; }
 }
 @keyframes chance-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes chance-pop {

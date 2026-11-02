@@ -9,6 +9,10 @@
 // result's own key) and tells the modal when the wheel has landed and
 // settled. Under reduce motion the wheel jumps to its stop and tells the
 // modal at once.
+//
+// Like the desktop's game over its overlay, the canvas covers the whole
+// modal card so particles can fly over the event, and a box in the card's
+// flow holds the wheel's place and shrinks once landed.
 
 import { useEffect, useRef } from 'react';
 
@@ -25,7 +29,7 @@ export interface ChanceTimeWheelProps {
   reduceMotion: boolean;
   onLanded: () => void;
   onSettled: () => void;
-  /** The canvas's width in CSS pixels; its height is the same. */
+  /** The wheel box's side in CSS pixels; the canvas is the card's size. */
   size?: number;
 }
 
@@ -40,6 +44,7 @@ export function ChanceTimeWheel({
   size = 280,
 }: ChanceTimeWheelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const landedRef = useRef(onLanded);
   const settledRef = useRef(onSettled);
   landedRef.current = onLanded;
@@ -47,7 +52,8 @@ export function ChanceTimeWheel({
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const box = boxRef.current;
+    if (!canvas || !box) return;
     // A test DOM has no 2D context; the sim still runs so the modal's
     // beats are the same, only nothing is painted.
     const ctx = canvas.getContext('2d');
@@ -66,9 +72,6 @@ export function ChanceTimeWheel({
       }
     }
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.round(size * dpr);
-    canvas.height = Math.round(size * dpr);
-    const R = size * 0.4;
     let raf = 0;
     let last = performance.now();
     const frame = (now: number) => {
@@ -86,28 +89,60 @@ export function ChanceTimeWheel({
         }
       }
       stepDressing(d, sim, dt, rnd);
+      canvas.dataset.phase = sim?.phase ?? 'idle';
       if (ctx) {
+        // The card is the canvas; the wheel sits in its box, which the
+        // card's layout moves and shrinks.
+        const card = canvas.parentElement ?? box;
+        const w = card.clientWidth || size;
+        const h = card.clientHeight || size;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+          canvas.width = Math.round(w * dpr);
+          canvas.height = Math.round(h * dpr);
+        }
+        const side = box.offsetHeight || size;
+        const cx = box.offsetLeft + box.offsetWidth / 2 || w / 2;
+        const cy = box.offsetTop + side / 2;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        paintWheel(ctx, size, size, size / 2, size / 2, R, sim, d);
+        paintWheel(ctx, w, h, cx, cy, side * 0.4, sim, d);
       }
       // Keep going while something still moves; a still wheel costs nothing.
       const moving = (sim && !sim.settled) || d.parts.length > 0 || d.strobe > 0 || d.dread > 0 || d.shake > 0;
-      if (moving || !sim) raf = requestAnimationFrame(frame);
+      raf = moving || !sim ? requestAnimationFrame(frame) : 0;
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [seed, slot, effect, spinning, reduceMotion, size]);
+    // The card grows for the event and shrinks the wheel's box: a still
+    // wheel repaints once per size change instead of every frame.
+    const card = canvas.parentElement;
+    const observer =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(() => {
+            if (!raf) raf = requestAnimationFrame(frame);
+          });
+    if (card) observer?.observe(card);
+    observer?.observe(box);
+    return () => {
+      observer?.disconnect();
+      cancelAnimationFrame(raf);
+    };
+    // `size` is read live from the box each frame, so the landed shrink
+    // never restarts the spin.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed, slot, effect, spinning, reduceMotion]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="chance-wheel"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label={spinning ? 'The Chance Time wheel, spinning' : 'The Chance Time wheel'}
-      data-testid="chance-wheel"
-      data-slot={slot}
-      data-effect={effect}
-    />
+    <>
+      <div ref={boxRef} className="chance-wheel-box" style={{ width: size, height: size }} />
+      <canvas
+        ref={canvasRef}
+        className="chance-wheel"
+        role="img"
+        aria-label={spinning ? 'The Chance Time wheel, spinning' : 'The Chance Time wheel'}
+        data-testid="chance-wheel"
+        data-slot={slot}
+        data-effect={effect}
+      />
+    </>
   );
 }

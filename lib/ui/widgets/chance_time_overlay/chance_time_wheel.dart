@@ -81,9 +81,11 @@ class ChanceTimeWheel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final px = landed ? kChanceWheelBoxLandedPx : kChanceWheelBoxPx;
+    // Under reduce motion the wheel jumps to its stop, so its box jumps too.
+    final reduce = MediaQuery.disableAnimationsOf(context);
     return AnimatedContainer(
       key: const ValueKey('chance-wheel-box'),
-      duration: const Duration(milliseconds: 600),
+      duration: reduce ? Duration.zero : const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
       width: px,
       height: px,
