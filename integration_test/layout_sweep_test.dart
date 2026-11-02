@@ -34,6 +34,7 @@ import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 
 import 'support/e2e_sandbox.dart';
+import 'support/e2e_taps.dart';
 import 'support/fake_backend.dart';
 
 const _sizes = {
@@ -201,13 +202,13 @@ void main() {
     for (final name in ['Layout Tester', 'Layout Second']) {
       await tester.ensureVisible(find.text(name).first);
       await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.text(name).first);
+      await tapWhenHittable(tester, find.text(name));
       await tester.pump(const Duration(milliseconds: 400));
     }
     await pumpUntilFound(tester, find.text('Current Roster (2)'));
     for (var i = 0; i < 2; i++) {
       await tester.ensureVisible(find.text('Next'));
-      await tester.tap(find.text('Next'));
+      await tapWhenHittable(tester, find.text('Next'));
       await tester.pump(const Duration(milliseconds: 800));
     }
     await pumpUntilFound(tester, find.text('Where does the group meet?'));
