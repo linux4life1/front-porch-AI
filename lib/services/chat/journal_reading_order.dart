@@ -35,9 +35,30 @@ abstract final class JournalReadingOrder {
     ];
   }
 
-  /// Our Story, latest moment first. Day headers still group consecutive
-  /// runs, so the days count down from the most recent.
-  static List<MilestoneEntry> timeline(
-    Iterable<MilestoneEntry> chronological,
-  ) => chronological.toList().reversed.toList();
+  /// Our Story, latest moment first, with every entry carrying the day it
+  /// happened on. Rings, Chance Time strikes and objectives have no story
+  /// day of their own; chronologically they belong to the last dated entry
+  /// before them, so that day is carried forward (and entries before the
+  /// first dated one take the first day) BEFORE the list is reversed.
+  /// Renderers print a header when the day changes, so reversing bare
+  /// entries would file a day-less entry under the next day's header.
+  static List<MilestoneEntry> timeline(Iterable<MilestoneEntry> chronological) {
+    final list = chronological.toList();
+    int? day = list.map((e) => e.storyDay).nonNulls.firstOrNull;
+    final dated = <MilestoneEntry>[];
+    for (final e in list) {
+      day = e.storyDay ?? day;
+      dated.add(e.storyDay == day ? e : _onDay(e, day));
+    }
+    return dated.reversed.toList();
+  }
+
+  static MilestoneEntry _onDay(MilestoneEntry e, int? day) => MilestoneEntry(
+    kind: e.kind,
+    text: e.text,
+    storyDay: day,
+    position: e.position,
+    emotion: e.emotion,
+    wallTime: e.wallTime,
+  );
 }
