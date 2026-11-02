@@ -52,6 +52,8 @@ class GenPresetFollower {
     required this.presets,
     this.lookup = recommendedSamplersFor,
     this.now = DateTime.now,
+    this.settle = settleDelay,
+    this.timer = Timer.new,
   });
 
   final GenerationSettings generation;
@@ -60,11 +62,26 @@ class GenPresetFollower {
   final Future<RecommendedSamplers> Function(ChatModelId) lookup;
   final DateTime Function() now;
 
+  /// How long the chat model must stay put before it counts as a switch.
+  final Duration settle;
+  final Timer Function(Duration, void Function()) timer;
+
+  /// A model name typed into a field changes the model on every keystroke;
+  /// only the name the user stops on is a switch, so a prefix that happens
+  /// to match a linked model or a family never loads anything.
+  static const settleDelay = Duration(milliseconds: 800);
+
+  /// The preset that keeps a user's own tuning when the first switch would
+  /// overwrite it and nothing was ever saved.
+  static const keptPresetName = 'My settings';
+
   /// Switches this close together are one move (changing host, then
   /// model), so Undo goes back to before the first of them.
   static const chainWindow = Duration(seconds: 5);
 
   ChatModelId _model = ChatModelId.none;
+  ChatModelId _pending = ChatModelId.none;
+  Timer? _settleTimer;
   int _seq = 0;
   int _noticeSeq = 0;
   bool _applying = false;
@@ -86,6 +103,7 @@ class GenPresetFollower {
   /// not a switch. Returns once its recommended values are known.
   Future<void> start() async {
     _model = ChatModelId.of(backend);
+    _pending = _model;
     await _refreshRecommended(_model, ++_seq);
   }
 
@@ -93,9 +111,17 @@ class GenPresetFollower {
   void onSettingsChanged() {
     if (_applying) return;
     final next = ChatModelId.of(backend);
-    if (next == _model) return;
-    _model = next;
-    unawaited(switched(next));
+    if (next == _pending) return;
+    _pending = next;
+    _settleTimer?.cancel();
+    _settleTimer = null;
+    if (next == _model) return; // typed back to where it started
+    _settleTimer = timer(settle, () {
+      _settleTimer = null;
+      if (_pending != next || next == _model) return;
+      _model = next;
+      unawaited(switched(next));
+    });
   }
 
   /// Applies [next]'s preset or recommended values. Public for tests.
@@ -114,6 +140,7 @@ class GenPresetFollower {
     final hadEdits = slotValues != null && !slotValues.matchedBy(before);
     final linked = presets.linkedPreset(next.key);
     String message;
+    var kept = false;
     _applying = true;
     try {
       if (linked != null) {
@@ -121,6 +148,7 @@ class GenPresetFollower {
         await presets.setSlot(linked);
         message = '${next.label} writes with “$linked”.';
       } else if (!rec.isEmpty && !rec.values.matchedBy(before)) {
+        kept = await _keepFirstTuning(before);
         await rec.values.applyTo(generation, backend);
         await presets.setSlot(null);
         message = 'Loaded ${next.label}\'s settings, ${rec.sourceWords}.';
@@ -131,6 +159,7 @@ class GenPresetFollower {
       _applying = false;
     }
     if (hadEdits) message += ' Your unsaved changes were set aside.';
+    if (kept) message += ' Your old values are saved as “$keptPresetName”.';
     final at = now();
     final last = _noticeAt;
     final chained =
@@ -174,6 +203,16 @@ class GenPresetFollower {
       return;
     }
     if (model == _model) recommended.value = rec;
+  }
+
+  /// Saves values tuned before presets existed, once, so the first switch
+  /// that overwrites them leaves something to load back after the toast.
+  Future<bool> _keepFirstTuning(SamplerValues before) async {
+    if (presets.keptFirstTuning || presets.presets.isNotEmpty) return false;
+    if (SamplerValues.appDefaults.matchedBy(before)) return false;
+    await presets.savePreset(keptPresetName, before);
+    await presets.markKeptFirstTuning();
+    return true;
   }
 
   void dismissNotice(int id) {

@@ -65,12 +65,12 @@ const List<SamplerFamily> kSamplerFamilies = [
   ),
   SamplerFamily(
     'Gemma 3',
-    r'gemma[-_ ]?3',
+    r'gemma[-_ ]?3(?!\d)',
     SamplerValues(temperature: 1.0, topP: 0.95, topK: 64, minP: 0.0),
   ),
   SamplerFamily(
     'Llama 3',
-    r'llama[-_ ]?3',
+    r'llama[-_ ]?3(?!\d)',
     SamplerValues(temperature: 0.6, topP: 0.9),
   ),
   SamplerFamily(

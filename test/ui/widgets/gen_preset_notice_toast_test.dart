@@ -36,6 +36,7 @@ void main() {
     );
 
     await storage.backendSettings.setLastUsedModelPath(next);
+    await tester.pump(const Duration(milliseconds: 1)); // the model settles
     await tester.pump();
     await tester.pump();
     expect(g.temperature, 0.2);

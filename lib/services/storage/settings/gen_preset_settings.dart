@@ -33,6 +33,7 @@ class GenPresetSettings with SettingsBase {
   final Map<String, SamplerValues> _presets = {};
   final Map<String, String> _links = {};
   String? _slot;
+  bool _keptFirstTuning = false;
 
   /// Saved presets in the order they were first saved.
   Map<String, SamplerValues> get presets => Map.unmodifiable(_presets);
@@ -42,6 +43,9 @@ class GenPresetSettings with SettingsBase {
 
   /// The preset the Generation bar last loaded or saved, or null.
   String? get slot => _slot;
+
+  /// Whether the values tuned before presets existed were already saved.
+  bool get keptFirstTuning => _keptFirstTuning;
 
   /// The preset linked to [modelKey], when it still exists.
   String? linkedPreset(String modelKey) {
@@ -81,6 +85,7 @@ class GenPresetSettings with SettingsBase {
     } catch (e) {
       debugPrint('[GenPresets] unreadable gen_preset_links, none kept: $e');
     }
+    _keptFirstTuning = prefs?.getBool(k('gen_presets_kept_tuning')) ?? false;
     final slot = prefs?.getString(k('gen_preset_slot'));
     _slot = slot != null && _presets.containsKey(slot) ? slot : null;
   }
@@ -119,6 +124,11 @@ class GenPresetSettings with SettingsBase {
     _slot = name != null && _presets.containsKey(name) ? name : null;
     await prefs?.setString(k('gen_preset_slot'), _slot ?? '');
     notify();
+  }
+
+  Future<void> markKeptFirstTuning() async {
+    _keptFirstTuning = true;
+    await prefs?.setBool(k('gen_presets_kept_tuning'), true);
   }
 
   Future<void> _persistPresets() async {

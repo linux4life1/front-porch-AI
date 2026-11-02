@@ -28,6 +28,7 @@ class GenPresetStorage extends FakeStorageService {
       backend: backendSettings,
       presets: _presets,
       lookup: (model) async => rec(model),
+      settle: Duration.zero,
     );
   }
 

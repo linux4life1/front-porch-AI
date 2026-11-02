@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,8 +31,16 @@ class _Rig {
       presets: presets,
       lookup: lookup ?? (_) async => RecommendedSamplers.unknown,
       now: now ?? () => clock,
+      timer: (_, fire) {
+        final t = _ManualTimer(fire);
+        timers.add(t);
+        return t;
+      },
     );
   }
+
+  final timers = <_ManualTimer>[];
+  int get pendingSwitches => timers.where((t) => t.isActive).length;
 
   final SharedPreferences prefs;
   final GenerationSettings generation;
@@ -41,8 +51,32 @@ class _Rig {
 
   SamplerValues get live => SamplerValues.capture(generation, backend);
 
-  /// Lets the follower's async switch finish.
-  Future<void> settle() => Future<void>.delayed(Duration.zero);
+  /// The model stays put long enough to count, and the switch finishes.
+  Future<void> settle() async {
+    for (final t in List.of(timers)) {
+      t.fire();
+    }
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+class _ManualTimer implements Timer {
+  _ManualTimer(this._fire);
+  void Function()? _fire;
+
+  void fire() {
+    final f = _fire;
+    _fire = null;
+    f?.call();
+  }
+
+  @override
+  void cancel() => _fire = null;
+  @override
+  bool get isActive => _fire != null;
+  @override
+  int get tick => 0;
 }
 
 Future<_Rig> _rig({
@@ -343,6 +377,99 @@ void main() {
       await r.backend.setRemoteModelName('moonshotai/kimi-k2');
       await r.settle();
       expect(r.generation.temperature, 0.65);
+    });
+  });
+
+  group('switch safety', () {
+    test('typing a model name only switches on the name it stops on', () async {
+      final looked = <String>[];
+      final r = await _rig(
+        prefs: {
+          'backend_type': 'openRouter',
+          'remote_api_url': 'https://openrouter.ai/api/v1',
+          'remote_model_name': 'z-ai/glm-4.6',
+        },
+        lookup: (m) async {
+          looked.add(m.key);
+          return RecommendedSamplers.unknown;
+        },
+      );
+      await r.follower.start();
+      await r.presets.savePreset(
+        'Four-oh',
+        SamplerValues.appDefaults.copyTemp(0.3),
+      );
+      final slot = remoteModelSlot(
+        backend: 'openRouter',
+        url: 'https://openrouter.ai/api/v1',
+      );
+      await r.presets.link(
+        ChatModelId.remote(slot, 'openai/gpt-4o').key,
+        'Four-oh',
+      );
+      looked.clear();
+
+      const typed = 'openai/gpt-4o-mini';
+      for (var i = 1; i <= typed.length; i++) {
+        await r.backend.setRemoteModelName(typed.substring(0, i));
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(r.generation.temperature, 0.7, reason: 'gpt-4o was a prefix');
+      expect(r.pendingSwitches, 1);
+      await r.settle();
+      expect(r.generation.temperature, 0.7);
+      expect(r.presets.slot, isNull);
+      expect(r.follower.notice.value, isNull);
+      expect(looked, [ChatModelId.remote(slot, typed).key]);
+      expect(r.follower.model.key, ChatModelId.remote(slot, typed).key);
+    });
+
+    test('the first switch keeps tuning nobody saved, once', () async {
+      final r = await _rig(
+        prefs: {'last_used_model_path': _cydonia},
+        lookup: (m) async =>
+            m.label.startsWith('Qwen3') ? _known : RecommendedSamplers.unknown,
+      );
+      await r.follower.start();
+      await r.generation.setTemperature(1.25);
+      await r.generation.setMinP(0.05);
+
+      await r.backend.setLastUsedModelPath(_qwen);
+      await r.settle();
+      expect(r.generation.temperature, 0.6);
+      final kept = r.presets.presets[GenPresetFollower.keptPresetName]!;
+      expect(kept.temperature, 1.25);
+      expect(kept.minP, 0.05);
+      expect(r.follower.notice.value!.message, contains('“My settings”'));
+
+      // Deleting it is the user's call; it does not come back.
+      await r.presets.deletePreset(GenPresetFollower.keptPresetName);
+      await r.backend.setLastUsedModelPath(_cydonia);
+      await r.settle();
+      await r.generation.setTemperature(1.4);
+      await r.backend.setLastUsedModelPath(_qwen);
+      await r.settle();
+      expect(r.presets.presets, isEmpty);
+    });
+
+    test('values left at the app defaults are not saved as a preset', () async {
+      final r = await _rig(
+        prefs: {'last_used_model_path': _cydonia},
+        lookup: (m) async =>
+            m.label.startsWith('Qwen3') ? _known : RecommendedSamplers.unknown,
+      );
+      await r.follower.start();
+      await r.backend.setLastUsedModelPath(_qwen);
+      await r.settle();
+      expect(r.generation.temperature, 0.6);
+      expect(r.presets.presets, isEmpty);
+      expect(r.follower.notice.value!.message, isNot(contains('My settings')));
+    });
+
+    test('Llama 3 and Gemma 3 do not claim 30B-style names', () {
+      expect(samplerFamilyFor('Llama-3.1-8B-Instruct')?.label, 'Llama 3');
+      expect(samplerFamilyFor('llama-30b-supercot'), isNull);
+      expect(samplerFamilyFor('gemma-3-27b-it')?.label, 'Gemma 3');
     });
   });
 

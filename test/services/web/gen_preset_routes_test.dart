@@ -179,7 +179,7 @@ void main() {
     );
     for (
       var i = 0;
-      i < 50 && storage.genPresetFollower.notice.value == null;
+      i < 300 && storage.genPresetFollower.notice.value == null;
       i++
     ) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
