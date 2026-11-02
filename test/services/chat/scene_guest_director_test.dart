@@ -211,29 +211,20 @@ void main() {
         primaryResponse: 'all quiet',
       );
       expect(spoke, isEmpty);
-      expect(
-        gatePrompts,
-        hasLength(1),
-        reason: 'should fall through to the LLM gate, not the nickname',
-      );
+      expect(gatePrompts, hasLength(1),
+          reason: 'should fall through to the LLM gate, not the nickname');
     });
 
-    test(
-      'a normal first-name nickname still fires (Mara ← "Mara Vance")',
-      () async {
-        guests = [_guest('Mara Vance')];
-        await build().runChimeIns(
-          userText: 'have you seen Mara today?',
-          primaryResponse: 'not yet',
-        );
-        expect(spoke, ['Mara Vance']);
-        expect(
-          gatePrompts,
-          isEmpty,
-          reason: 'nickname heuristic short-circuits',
-        );
-      },
-    );
+    test('a normal first-name nickname still fires (Mara ← "Mara Vance")',
+        () async {
+      guests = [_guest('Mara Vance')];
+      await build().runChimeIns(
+        userText: 'have you seen Mara today?',
+        primaryResponse: 'not yet',
+      );
+      expect(spoke, ['Mara Vance']);
+      expect(gatePrompts, isEmpty, reason: 'nickname heuristic short-circuits');
+    });
 
     test('exclude: a routed direct-address speaker never re-chimes', () async {
       guests = [_guest('Ann'), _guest('Bob')];
@@ -313,10 +304,7 @@ void main() {
         expect(dir.directlyAddressedGuest('Mara-Lynn came by today'), isNull);
         expect(dir.directlyAddressedGuest('I met Anna-Mara.'), isNull);
         // …while a real spaced-dash vocative still routes.
-        expect(
-          dir.directlyAddressedGuest('Mara - got a second?')?.name,
-          'Mara',
-        );
+        expect(dir.directlyAddressedGuest('Mara - got a second?')?.name, 'Mara');
       });
 
       test('a possessive does NOT route', () {
@@ -422,10 +410,7 @@ void main() {
           'Evelyn',
         );
         expect(
-          SceneGuestDirector.atMentionedCard(
-            cards,
-            '[@Evelyn] thoughts?',
-          )?.name,
+          SceneGuestDirector.atMentionedCard(cards, '[@Evelyn] thoughts?')?.name,
           'Evelyn',
         );
       });
@@ -465,9 +450,7 @@ void main() {
           return valid;
         },
       );
-      expect(spoke, [
-        'Ann',
-      ], reason: 'Bob must not speak after context invalid');
+      expect(spoke, ['Ann'], reason: 'Bob must not speak after context invalid');
     });
   });
 
