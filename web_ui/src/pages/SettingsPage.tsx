@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
@@ -30,6 +30,17 @@ import {
   type GenSettings,
 } from '../components/GenerationSettingsFields';
 import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
+import { GenPresetBar } from '../components/genPresets/GenPresetBar';
+import { ModelPresetSelect } from '../components/genPresets/ModelPresetSelect';
+import { useOnFreshNotice } from '../components/genPresets/GenPresetToast';
+import { useGenPresets } from '../components/genPresets/useGenPresets';
+import {
+  chatModelKey,
+  valuesShown,
+  withValues,
+  type GenPresets,
+  type SamplerValues,
+} from '../components/genPresets/genPresets';
 import { WorkerBackendCard } from '../components/WorkerBackendCard';
 import { SuperGrokCard } from '../components/SuperGrokCard';
 import { parkRemoteModel, rememberedRemoteModel, urlHasStoredApiKey } from '../remoteApiKeys';
@@ -180,6 +191,20 @@ export function SettingsPage() {
   // savedFields of the last load or save.
   const [savedForm, setSavedForm] = useState('');
   const [personaDirty, setPersonaDirty] = useState(false);
+  // The last load or save as the host holds it, which a preset write moves.
+  const base = useRef<Settings | null>(null);
+  const genPresets = useGenPresets();
+  // A preset write (or a model switch) changed the host's values: show
+  // them, and count them as saved.
+  const adoptPreset = useCallback((live: SamplerValues) => {
+    setS((prev) => (prev ? withValues(prev, live) : prev));
+    if (base.current) {
+      base.current = withValues(base.current, live);
+      setSavedForm(savedFields(base.current));
+    }
+  }, []);
+  const onSwitchNotice = useCallback((d: GenPresets) => adoptPreset(d.live), [adoptPreset]);
+  useOnFreshNotice(genPresets.data, onSwitchNotice);
   const { prompt } = useUnsavedChanges(
     personaDirty ||
       (s !== null &&
@@ -191,6 +216,7 @@ export function SettingsPage() {
       .get<Settings>('/api/settings')
       .then((next) => {
         setS(next);
+        base.current = next;
         setSavedForm(savedFields(next));
         setSavedRemoteApiUrl(next.remoteApiUrl);
         setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
@@ -287,6 +313,7 @@ export function SettingsPage() {
       }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
+      base.current = next;
       setSavedForm(savedFields(next));
       setSavedRemoteApiUrl(next.remoteApiUrl);
       setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
@@ -419,6 +446,13 @@ export function SettingsPage() {
 
       <div className="settings-section" data-section="generation">
         <h3 className="settings-section-heading">Generation</h3>
+        <GenPresetBar
+          data={genPresets.data}
+          error={genPresets.error}
+          act={genPresets.act}
+          shown={valuesShown(s)}
+          onAdopt={adoptPreset}
+        />
         <GenerationSettingsFields
           backend={s.backend}
           isLocal={s.isLocal}
@@ -436,6 +470,7 @@ export function SettingsPage() {
           reasoningEfforts={s.reasoningEfforts}
           reasoningLocalSupport={s.reasoningLocalSupport}
           samplerKnobs={s.samplerKnobs}
+          recommended={genPresets.data?.recommended}
           patch={(p) => patch(p as Partial<Settings>)}
           patchGen={patchGen}
         />
@@ -586,6 +621,12 @@ export function SettingsPage() {
               </label>
             </>
           )}
+          <ModelPresetSelect
+            data={genPresets.data}
+            act={genPresets.act}
+            modelKey={chatModelKey(s.backend, s.remoteApiUrl, s.remoteModelName, s.lastUsedModelPath)}
+            onLinked={(next) => adoptPreset(next.live)}
+          />
 
           <WorkerBackendCard
             s={s}

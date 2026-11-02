@@ -16,6 +16,7 @@ class SliderWithInput extends StatefulWidget {
     this.decimalPlaces = 2,
     this.unset = false,
     this.onCleared,
+    this.trailing,
   });
 
   final String label;
@@ -35,6 +36,9 @@ class SliderWithInput extends StatefulWidget {
 
   /// Empty number box writes inherit (null) instead of restoring the last value.
   final VoidCallback? onCleared;
+
+  /// Shown after the number box, such as a per-value reset.
+  final Widget? trailing;
 
   @override
   State<SliderWithInput> createState() => _SliderWithInputState();
@@ -115,6 +119,52 @@ class _SliderWithInputState extends State<SliderWithInput> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final box = SizedBox(
+      width: 80,
+      child: TextField(
+        controller: _controller,
+        focusNode: _focusNode,
+        keyboardType: widget.isInteger
+            ? TextInputType.number
+            : const TextInputType.numberWithOptions(decimal: true),
+        textAlign: TextAlign.right,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 2,
+          ),
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(
+              color: InkColors.fieldEdgeOf(context),
+              width: 1,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(
+              color: InkColors.fieldEdgeOf(context),
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(6),
+            borderSide: BorderSide(
+              color: AppColors.formAccentOf(context),
+              width: 1.5,
+            ),
+          ),
+          filled: true,
+          fillColor: AppColors.hairlineOf(context, 0.05),
+          hintText: widget.unset ? 'inherit' : null,
+        ),
+        onSubmitted: (_) => _commitValue(),
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,52 +195,13 @@ class _SliderWithInputState extends State<SliderWithInput> {
                   ),
               ],
             ),
-            SizedBox(
-              width: 80,
-              child: TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                keyboardType: widget.isInteger
-                    ? TextInputType.number
-                    : const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.right,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
-                      color: InkColors.fieldEdgeOf(context),
-                      width: 1,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
-                      color: InkColors.fieldEdgeOf(context),
-                      width: 1,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(
-                      color: AppColors.formAccentOf(context),
-                      width: 1.5,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: AppColors.hairlineOf(context, 0.05),
-                  hintText: widget.unset ? 'inherit' : null,
-                ),
-                onSubmitted: (_) => _commitValue(),
+            if (widget.trailing == null)
+              box
+            else
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [box, widget.trailing!],
               ),
-            ),
           ],
         ),
         Slider(

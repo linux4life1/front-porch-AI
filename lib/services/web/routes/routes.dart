@@ -16,6 +16,7 @@ export 'token_alts_routes.dart';
 export 'chat_package_routes.dart';
 export 'chat_routes.dart';
 export 'chat_tools_routes.dart';
+export 'gen_preset_routes.dart';
 export 'group_routes.dart';
 export 'persona_convert_routes.dart';
 export 'porch_routes.dart';

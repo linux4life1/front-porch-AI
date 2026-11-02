@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 class ChatSettingsGenerationSection extends StatelessWidget {
@@ -25,6 +26,18 @@ class ChatSettingsGenerationSection extends StatelessWidget {
   /// Waifu Coder fills the remaining context window. Chat Max/Min Output
   /// Tokens would cut a tool call mid-file.
   final bool hideOutputTokenLimits;
+
+  /// A ↺ that drops this chat's own value for one field, back to the
+  /// global one; only while the chat holds one.
+  Widget? _clear(Object? own, VoidCallback clear) => own == null
+      ? null
+      : ValueResetButton(
+          tooltip: 'Use the global value',
+          onPressed: () {
+            clear();
+            onChanged();
+          },
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +66,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
           tooltip:
               'Controls randomness. Low = predictable and focused. High = creative and surprising. 0.7 is a good default.',
           context: context,
+          trailing: _clear(gen.temperature, () => gen.temperature = null),
           onChanged: (val) {
             gen.temperature = val;
             onChanged();
@@ -68,6 +82,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'Filters out unlikely words. Higher = only the most probable words are kept. Start around 0.05–0.1.',
             context: context,
+            trailing: _clear(gen.minP, () => gen.minP = null),
             onChanged: (val) {
               gen.minP = val;
               onChanged();
@@ -82,6 +97,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
           tooltip:
               'Keeps only the most probable words up to this cumulative probability. 1.0 = off (let Min-P do the filtering). 0.9 is the classic default.',
           context: context,
+          trailing: _clear(gen.topP, () => gen.topP = null),
           onChanged: (val) {
             gen.topP = val;
             onChanged();
@@ -98,6 +114,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'Limits choices to the K most likely words. 0 = off. 40–100 are typical values when used.',
             context: context,
+            trailing: _clear(gen.topK, () => gen.topK = null),
             onChanged: (val) {
               gen.topK = val.toInt();
               onChanged();
@@ -113,6 +130,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'Discourages the AI from repeating the same words. Higher = less repetition. 1.1 is a safe default.',
             context: context,
+            trailing: _clear(gen.repeatPenalty, () => gen.repeatPenalty = null),
             onChanged: (val) {
               gen.repeatPenalty = val;
               onChanged();
@@ -129,6 +147,10 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'How far back the AI checks for repetition (in tokens). Higher = checks more of the conversation history.',
             context: context,
+            trailing: _clear(
+              gen.repeatPenaltyTokens,
+              () => gen.repeatPenaltyTokens = null,
+            ),
             onChanged: (val) {
               gen.repeatPenaltyTokens = val.toInt();
               onChanged();
@@ -144,6 +166,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'Exclude Top Choices — removes the most obvious/cliché word choices. Lower = stronger effect. Try 0.1 for more creative writing.',
             context: context,
+            trailing: _clear(gen.xtcThreshold, () => gen.xtcThreshold = null),
             onChanged: (val) {
               gen.xtcThreshold = val;
               onChanged();
@@ -158,6 +181,10 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'How often XTC activates. 0 = never, 1 = always. Try 0.5 for a balance between creativity and coherence.',
             context: context,
+            trailing: _clear(
+              gen.xtcProbability,
+              () => gen.xtcProbability = null,
+            ),
             onChanged: (val) {
               gen.xtcProbability = val;
               onChanged();
@@ -174,6 +201,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'DRY ("Don\'t Repeat Yourself") — the modern anti-repetition sampler; catches repeated phrases, not just words. 0 = off, 0.8 is the usual dose.',
             context: context,
+            trailing: _clear(gen.dryMultiplier, () => gen.dryMultiplier = null),
             onChanged: (val) {
               gen.dryMultiplier = val;
               onChanged();
@@ -189,6 +217,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             tooltip:
                 'Maximum number of tokens the AI can write in one response. Thinking models need higher values since reasoning tokens count toward this limit.',
             context: context,
+            trailing: _clear(gen.maxLength, () => gen.maxLength = null),
             onChanged: (val) {
               gen.maxLength = val.toInt();
               onChanged();
@@ -262,6 +291,10 @@ class ChatSettingsGenerationSection extends StatelessWidget {
               tooltip:
                   'How much the temperature can vary around the base temperature.',
               context: context,
+              trailing: _clear(
+                gen.dynamicTempRange,
+                () => gen.dynamicTempRange = null,
+              ),
               onChanged: (val) {
                 gen.dynamicTempRange = val;
                 onChanged();

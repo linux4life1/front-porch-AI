@@ -18,6 +18,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { describeChatLoadFailure } from '../chatLoad';
 import { type ChatState } from './chatState';
 import { LiveTokenGate } from './liveTokenGate';
+import { announceSettingsChanged } from '../../components/genPresets/genPresets';
 /** The Chance Time modal's state: the parked event, whether Spin was
  * pressed, and the event's kind for the wheel's reveal. */
 type ChanceState = { event: string; revealed: boolean; kind?: string; label?: string; emoji?: string };
@@ -279,6 +280,8 @@ export function useChatSession() {
         // settings_changed: the tools payload carries the clock switch and
         // the refractory words, both of which follow a setting.
         scheduleRefresh();
+        // A model switch made anywhere: the chat's preset toast reads it.
+        if (e.event === 'settings_changed') announceSettingsChanged();
       } else if (e.event === 'connected') {
         // (Re)connected. The socket may have been down (phone sleep, network
         // blip) while the desktop finished a generation or edited the chat, so

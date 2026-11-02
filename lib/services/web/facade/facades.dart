@@ -33,6 +33,8 @@ export 'chargen_facade.dart';
 export 'chat_facade.dart';
 export 'chat_package_facade.dart';
 export 'chat_tools_facade.dart';
+export 'gen_preset_chat.dart';
+export 'gen_presets_facade.dart';
 export 'group_facade.dart';
 export 'persona_conversion_facade.dart';
 export 'porch_facade.dart';

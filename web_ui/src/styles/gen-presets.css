@@ -1,0 +1,38 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/* Generation presets (issue 686): the Settings bar, the model cards' preset
+   pickers, the switch toast and the chat drawer's Generation section. */
+
+.gp-bar { display: flex; flex-direction: column; gap: 10px; }
+.gp-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.gp-head h4 { margin: 0; font-size: 1rem; color: var(--text); }
+.gp-badge {
+  font-size: 0.75rem; padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-2)); color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.gp-badge.quiet { background: var(--surface-2); color: var(--muted); }
+.gp-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gp-row select { flex: 1; min-width: 0; }
+.gp-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.gp-confirm, .gp-name {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 8px; border: 1px solid var(--border); border-radius: var(--radius);
+}
+.gp-name input { flex: 1; min-width: 140px; margin: 0; }
+.gp-confirm span { flex: 1 1 100%; color: var(--text); font-size: 0.85rem; }
+.gp-link { margin: 0; gap: 12px; }
+.gp-link span { overflow-wrap: anywhere; }
+.gp-model { margin: 10px 0; }
+.gp-model select { width: 100%; }
+.gp-toast { align-items: center; }
+.slider-head-right { display: flex; align-items: center; gap: 4px; }
+.slider-reset {
+  background: none; border: none; color: var(--accent); padding: 2px 6px;
+  font-size: 0.95rem; line-height: 1; border-radius: 8px;
+}
+.slider-reset:hover { background: var(--surface-2); }
+.chat-gen { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 12px; }
+.chat-gen h4 { margin: 0 0 8px; font-size: 1rem; color: var(--text); }
+.chat-gen textarea { width: 100%; box-sizing: border-box; }
+.gp-model .muted { display: block; margin-top: 4px; }
+.chat-gen select { width: 100%; }

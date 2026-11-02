@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Slider setting widget extracted from settings_page (Stage 5).
@@ -36,6 +37,7 @@ class SliderSetting extends StatelessWidget {
     this.showInput = false,
     this.isInteger = false,
     this.decimalPlaces = 2,
+    this.reset,
   });
 
   final String label;
@@ -49,8 +51,29 @@ class SliderSetting extends StatelessWidget {
   final bool isInteger;
   final int decimalPlaces;
 
+  /// Where a ↺ beside the value goes back to; shown only when the value
+  /// differs from it.
+  final ResetTarget? reset;
+
+  String _format(double v) =>
+      isInteger ? v.toInt().toString() : v.toStringAsFixed(decimalPlaces);
+
+  Widget? _resetButton() {
+    final target = reset;
+    if (target == null) return null;
+    final differs = isInteger
+        ? value.round() != target.value.round()
+        : (value - target.value).abs() > 1e-6;
+    if (!differs) return null;
+    return ValueResetButton(
+      tooltip: 'Reset to ${_format(target.value)}, ${target.source}',
+      onPressed: () => onChanged(target.value),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final resetButton = _resetButton();
     if (!showInput) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,9 +94,7 @@ class SliderSetting extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                isInteger
-                    ? value.toInt().toString()
-                    : value.toStringAsFixed(decimalPlaces),
+                _format(value),
                 style: TextStyle(
                   color: AppColors.textSecondary(
                     context,
@@ -81,6 +102,7 @@ class SliderSetting extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
+              ?resetButton,
             ],
           ),
           Slider(
@@ -105,6 +127,7 @@ class SliderSetting extends StatelessWidget {
       tooltip: tooltip,
       isInteger: isInteger,
       decimalPlaces: decimalPlaces,
+      trailing: resetButton,
     );
   }
 }

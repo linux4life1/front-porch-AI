@@ -27,6 +27,8 @@ import { attachStepUp, StepUpFields } from '../../components/StepUpFields';
 import { useBackDismiss } from '../../hooks/useBackDismiss';
 import { BACKEND_OPTIONS, backendOptionId } from '../../backendOptions';
 import { rememberedRemoteModel, urlHasStoredApiKey } from '../../remoteApiKeys';
+import { LiveModelPresetSelect } from '../../components/genPresets/ModelPresetSelect';
+import { announceModelSwitch, chatModelKey } from '../../components/genPresets/genPresets';
 
 const MARKER_KEY = 'fpModelSwitch';
 /** Hosted providers that cannot list models without a saved key. */
@@ -41,6 +43,8 @@ export interface ChatModelSnapshot {
   /** Slot → last model used on that host. Absent on older hosts. */
   remoteApiModels?: Record<string, string>;
   omlxAvailable?: boolean;
+  /** The local model file, for its generation preset. */
+  lastUsedModelPath?: string;
 }
 
 const BACKEND_LABELS: Record<string, string> = {
@@ -172,6 +176,8 @@ function ModelSwitchSheet({
     void (async () => {
       try {
         const next = await api.post<ChatModelSnapshot>('/api/settings', body);
+        // The chat's toast reads what the switch did to the Generation values.
+        announceModelSwitch();
         onSaved(
           {
             ...settings,
@@ -331,6 +337,19 @@ function ModelSwitchSheet({
               </Link>
             </>
           )}
+          {/* The preset the model on offer writes with (issue 686). */}
+          <LiveModelPresetSelect
+            modelKey={
+              switching
+                ? chatModelKey(provider.backend, draftUrl, remembered)
+                : chatModelKey(
+                    settings.backend,
+                    settings.remoteApiUrl,
+                    settings.remoteModelName,
+                    settings.lastUsedModelPath,
+                  )
+            }
+          />
           {saving && <p className="muted small">Saving…</p>}
           {error && (
             <p className="error" role="alert">

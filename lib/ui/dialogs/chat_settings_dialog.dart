@@ -23,7 +23,10 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/dialogs/chat_settings_generation_section.dart';
+import 'package:front_porch_ai/ui/dialogs/chat_settings_header.dart';
+import 'package:front_porch_ai/ui/dialogs/chat_settings_preset_row.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 class ChatSettingsDialog extends StatefulWidget {
@@ -113,98 +116,19 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Chat Settings',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary(context),
-                      ),
-                    ),
-                    if (hasOverrides) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.porchAmberOf(
-                            context,
-                          ).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: AppColors.porchAmberOf(
-                              context,
-                            ).withValues(alpha: 0.4),
-                          ),
-                        ),
-                        child: Text(
-                          'Custom',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: AppColors.porchAmberOf(context),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (hasOverrides)
-                      Tooltip(
-                        message: 'Reset to global defaults',
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.restart_alt,
-                            color: AppColors.porchAmberOf(context),
-                            size: 20,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _gen = ChatGenerationSettings();
-                              _bannedPhrasesController.text = storage
-                                  .realismSettings
-                                  .bannedPhrases
-                                  .join('\n');
-                            });
-                            _save();
-                          },
-                        ),
-                      ),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: AppColors.iconSecondary(context),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ],
+            ChatSettingsHeader(
+              hasOverrides: hasOverrides,
+              onReset: () {
+                setState(() {
+                  _gen = ChatGenerationSettings();
+                  _bannedPhrasesController.text = storage
+                      .realismSettings
+                      .bannedPhrases
+                      .join('\n');
+                });
+                _save();
+              },
             ),
-            if (hasOverrides)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  'This chat has custom generation settings that override global defaults.',
-                  style: TextStyle(
-                    color: AppColors.porchAmberOf(
-                      context,
-                    ).withValues(alpha: 0.7),
-                    fontSize: 11,
-                  ),
-                ),
-              ),
             const SizedBox(height: 8),
 
             Expanded(
@@ -212,6 +136,21 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Chats only: Waifu Coder's bag is not the chat model's.
+                    if (widget.settings == null &&
+                        genPresetsOf(storage) != null) ...[
+                      ChatGenPresetRow(
+                        gen: _gen,
+                        storage: storage,
+                        onLoaded: (next) {
+                          setState(() => _gen = next);
+                          _save();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Divider(color: AppColors.borderOf(context)),
+                      const SizedBox(height: 8),
+                    ],
                     // ── System prompt source (prompt-picker SOW) ──────────
                     Text(
                       'System prompt',

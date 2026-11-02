@@ -2398,3 +2398,126 @@ test('image studio recent shelf keeps its keep choice across navigation', async 
     await page.request.post('/api/image/recent/limit',{data:{limit:before.limit}});
   }
 });
+
+// Generation presets (issue 686): a preset saved on Settings → Generation,
+// linked to the chat model from the chat's model sheet, loads when the chat
+// switches back to that model, with a toast whose Undo puts the values back.
+// The stand-in backend lists one model, so the journey leaves it by the
+// API and comes back to it through the sheet.
+test('save a generation preset, link it, switch model, see it load, and Undo', { tag: SERIAL }, async ({ page }) => {
+  type Snap = {
+    backend: string; remoteApiUrl: string; remoteModelName: string;
+    generation: { temperature: number };
+  };
+  const NAME = `Journey preset ${test.info().project.name}`;
+  const settings = async () => (await (await page.request.get('/api/settings')).json()) as Snap;
+  const presets = async () =>
+    (await (await page.request.get('/api/gen-presets')).json()) as {
+      model: { key: string; label: string } | null;
+      links: Record<string, string>;
+    };
+  const before = await settings();
+  const standInModel = before.remoteModelName;
+  try {
+    await openRoute(page, '/settings');
+    const bar = page.getByTestId('gen-preset-bar');
+    await expect(bar).toContainText('Generation preset');
+    const temp = page
+      .getByTestId('generation-fields')
+      .locator('.slider-field', { hasText: 'Temperature' })
+      .locator('input.slider-val');
+    await temp.fill('1.35');
+    await bar.getByRole('button', { name: 'Save as new…' }).click();
+    await bar.getByLabel('New preset name').fill(NAME);
+    await bar.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByTestId('gen-preset-badge')).toHaveText('Saved');
+    await expect.poll(async () => (await settings()).generation.temperature).toBeCloseTo(1.35, 5);
+
+    // Link it to the chat model from the chat's model sheet.
+    await openPorchChat(page);
+    await page.locator('.model-switch-chip').click();
+    const sheet = page.getByRole('dialog', { name: 'Change model' });
+    await sheet.getByLabel('Generation preset for this model').selectOption(NAME);
+    const key = (await presets()).model!.key;
+    await expect.poll(async () => (await presets()).links[key]).toBe(NAME);
+    await sheet.getByRole('button', { name: 'Close' }).click();
+
+    // Leave for another model and cool the values down.
+    const away = await page.request.post('/api/settings', {
+      data: { remoteModelName: 'journey/elsewhere' },
+    });
+    expect(away.ok(), `switching away: ${away.status()}`).toBe(true);
+    await expect.poll(async () => (await presets()).model?.key).not.toBe(key);
+    const cool = await page.request.post('/api/settings', { data: { generation: { temperature: 0.5 } } });
+    expect(cool.ok()).toBe(true);
+
+    // Back to the linked model through the sheet: the preset loads.
+    await openPorchChat(page);
+    await page.locator('.model-switch-chip').click();
+    await sheet.locator('.model-picker-trigger').click();
+    await sheet.locator('.mp-option', { hasText: standInModel }).first().click();
+    const toast = page.getByTestId('gen-preset-toast');
+    await expect(toast).toContainText(`writes with “${NAME}”`, { timeout: 15_000 });
+    expect((await settings()).generation.temperature).toBeCloseTo(1.35, 5);
+
+    await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect(toast).toHaveCount(0);
+    await expect.poll(async () => (await settings()).generation.temperature).toBeCloseTo(0.5, 5);
+    expect((await settings()).remoteModelName).toBe(standInModel);
+  } finally {
+    await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
+    const back = await page.request.post('/api/settings', {
+      data: {
+        backend: before.backend,
+        remoteApiUrl: before.remoteApiUrl,
+        remoteModelName: before.remoteModelName,
+        generation: { temperature: before.generation.temperature },
+        currentPassword: process.env.FPAI_PASSWORD,
+      },
+    });
+    expect(back.ok(), `restoring the model and values: ${back.status()}`).toBe(true);
+  }
+});
+
+// The chat drawer's per-chat Generation (issue 686): a preset loaded into
+// this chat and a value of its own land in the chat, not the global
+// values, and Follow the model hands them all back.
+test('the chat drawer loads a preset into this chat and follows the model again', { tag: SERIAL }, async ({ page }) => {
+  const NAME = `Chat preset ${test.info().project.name}`;
+  const chatGen = async () =>
+    (await (await page.request.get('/api/chat/generation')).json()) as {
+      genPresetName?: string | null; values?: Record<string, unknown>;
+    };
+  const globalTemp = async () =>
+    ((await (await page.request.get('/api/settings')).json()) as { generation: { temperature: number } })
+      .generation.temperature;
+  const saved = await page.request.post('/api/gen-presets/save', { data: { name: NAME } });
+  expect(saved.ok()).toBe(true);
+  const wasGlobal = await globalTemp();
+  try {
+    await openPorchChat(page);
+    if (test.info().project.name.startsWith('phone')) {
+      await page.getByRole('button', { name: 'More chat options' }).click();
+      await page.getByRole('menuitem', { name: /Theme/ }).click();
+    } else {
+      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
+    }
+    const section = page.getByTestId('chat-generation');
+    await expect(section).toContainText('Generation for this chat');
+    await section.getByLabel('Preset for this chat').selectOption(NAME);
+    await expect.poll(async () => (await chatGen()).genPresetName).toBe(NAME);
+    await expect(section).toContainText(`Using “${NAME}”`);
+
+    const temp = section.locator('.slider-field', { hasText: 'Temperature' }).locator('input.slider-val');
+    await temp.fill('1.6');
+    await expect.poll(async () => (await chatGen()).values?.temperature).toBe(1.6);
+    expect(await globalTemp()).toBeCloseTo(wasGlobal, 5);
+
+    await section.getByLabel('Preset for this chat').selectOption('');
+    await expect.poll(async () => (await chatGen()).values ?? {}).toEqual({});
+    await expect(section).toContainText('Following the model');
+  } finally {
+    await page.request.post('/api/chat/generation/preset', { data: { name: null } });
+    await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
+  }
+});

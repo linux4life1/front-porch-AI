@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:provider/provider.dart';
@@ -127,6 +128,9 @@ class _MainLayoutState extends State<MainLayout> {
                   bottom: 16,
                   child: EngineStatusChip(),
                 ),
+                // Model-switch notices with Undo, wherever the switch came
+                // from (Settings, the chat's Model Settings, the web app).
+                const GenPresetNoticeToast(),
               ],
             ),
           ),
