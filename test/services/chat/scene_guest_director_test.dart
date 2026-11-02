@@ -470,7 +470,8 @@ void main() {
       expect(clean('Hey @Mara, how are you?'), 'Hey, how are you?');
       expect(clean('So tell me, @Sam, how was it?'), 'So tell me, how was it?');
       expect(clean('tell @Sam hi from me'), 'tell hi from me');
-      expect(clean('@Mara and @Sam, dinner?'), 'and, dinner?');
+      expect(clean('@Mara and @Sam, dinner?'), 'dinner?');
+      expect(clean('ask @Mara, @Sam or @Evelyn now'), 'ask now');
     });
 
     test('only the gaps are tidied, never the rest of the line', () {

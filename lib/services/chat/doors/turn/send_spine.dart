@@ -311,6 +311,7 @@ class SendSpine {
         ? null
         : cast.guests.bareAddressSpeaker(trimmed);
     if (bareSpeaker != null) {
+      await cast.away.pulseBeforeBareAddress(bareSpeaker, trimmed);
       await engine.entry.commandHandler().handle('/speak ${bareSpeaker.name}');
       return;
     }

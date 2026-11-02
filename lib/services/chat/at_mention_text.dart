@@ -36,6 +36,15 @@ class AtMentionText {
       out = out.replaceAll(_mention(card.name), _gap);
     }
     if (out == text) return text;
+    // A run of mentions is one gap: "@Mara and @Sam, dinner?" must not
+    // leave a dangling "and".
+    final run = RegExp(
+      '$_gap[ \\t]*,?[ \\t]*(?:(?:and|or|&)[ \\t]+)?$_gap',
+      caseSensitive: false,
+    );
+    while (run.hasMatch(out)) {
+      out = out.replaceAll(run, _gap);
+    }
     const sep = r'[,;:\-–—]';
     final rules = <(RegExp, String Function(Match))>[
       // Opening a line: the gap and the separator after it.
