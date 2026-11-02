@@ -167,4 +167,13 @@ void main() {
     settings.load();
     expect(settings.studioRecentLimit, 200);
   });
+
+  test('trimming past the limit leaves other files in the folder', () async {
+    final other = File(p.join(dir.path, 'holiday.png'))..writeAsBytesSync([1]);
+    limit = kStudioRecentOff;
+    await add(1);
+    await add(2);
+    expect((await store.list()).single.prompt, 'prompt 2');
+    expect(other.existsSync(), isTrue);
+  });
 }
