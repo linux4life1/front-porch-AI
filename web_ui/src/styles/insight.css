@@ -65,6 +65,8 @@
 }
 .btn-revert { background: color-mix(in srgb, var(--wash) 6%, transparent); color: var(--muted); border-color: var(--border); }
 .btn-reprocess:hover, .btn-revert:hover { filter: brightness(1.15); }
+/* Touch: the same pills sized as a chip at the end of the top chip row. */
+.chip.chip-action { font-size: 0.68rem; padding: 2px 8px; line-height: inherit; font-family: inherit; }
 /* Centered modal variant of the drawer backdrop (Reprocess critique dialog). */
 .drawer-backdrop.center { align-items: center; justify-content: center; }
 .modal {
