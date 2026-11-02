@@ -53,7 +53,9 @@ class JournalWebSurface {
         'reviewPending': 0,
       };
     }
-    final cards = await chat.journalStore.cardsFor(sessionId, owner.id);
+    final cards = JournalReadingOrder.cards(
+      await chat.journalStore.cardsFor(sessionId, owner.id),
+    );
     final pending = chat.journalReview.hasPendingFor(sessionId)
         ? chat.journalReview.pending!.totalProposals
         : 0;

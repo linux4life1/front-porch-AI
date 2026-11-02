@@ -570,4 +570,34 @@ void main() {
       });
     });
   });
+
+  group('Reading order (issue #690)', () {
+    testWidgets('the diary lists the newest memory of a section first', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await seedCard('We met at the fair.');
+        await seedCard('We danced in the rain.');
+
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final newer = tester.getTopLeft(find.text('We danced in the rain.'));
+        final older = tester.getTopLeft(find.text('We met at the fair.'));
+        expect(newer.dy, lessThan(older.dy));
+      });
+    });
+  });
 }
