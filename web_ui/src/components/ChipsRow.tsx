@@ -11,6 +11,7 @@
 
 import { useState } from 'react';
 import { type Chips, NEED_LABELS } from './chatTypes';
+import { useTouchScreen } from '../hooks/useTouchScreen';
 
 interface Pill {
   key: string;
@@ -33,6 +34,7 @@ export function ChipsRow({
   onRevert: () => void;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const touch = useTouchScreen();
   const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   const realism: Pill[] = [];
@@ -107,12 +109,31 @@ export function ChipsRow({
 
   const openReason = [...realism, ...needs].find((p) => p.key === openKey)?.reason ?? '';
 
+  // Issue 668: on a touch screen the wide pills sat right above the small
+  // message icons and caught stray thumbs, so there they end the top chip row
+  // instead (the Realism row, else the Needs row). Mouse layouts keep the row.
+  const inlineTo = !touch || (!showReprocess && !showRevert) ? null : realism.length > 0 ? 'realism' : needs.length > 0 ? 'needs' : null;
+  const inlinePills = (
+    <>
+      {showReprocess && (
+        <button type="button" className="chip chip-action btn-reprocess" onClick={onReprocess} title="Redo the Needs or the Feelings for this reply" aria-label="Manual Reprocess">
+          ✍ Reprocess
+        </button>
+      )}
+      {showRevert && (
+        <button type="button" className="chip chip-action btn-revert" onClick={onRevert} title="Restore the Needs deltas from before the last reprocess" aria-label="Revert reprocess">
+          ↺ Revert
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className="chips-block">
-      {realism.length > 0 && <div className="chips-row realism">{realism.map(renderPill)}</div>}
-      {needs.length > 0 && <div className="chips-row needs">{needs.map(renderPill)}</div>}
+      {realism.length > 0 && <div className="chips-row realism">{realism.map(renderPill)}{inlineTo === 'realism' && inlinePills}</div>}
+      {needs.length > 0 && <div className="chips-row needs">{needs.map(renderPill)}{inlineTo === 'needs' && inlinePills}</div>}
       {openKey && openReason && <div className="chip-reason">{openReason}</div>}
-      {(showReprocess || showRevert) && (
+      {!inlineTo && (showReprocess || showRevert) && (
         <div className="needs-reprocess-row">
           {showReprocess && (
             <button type="button" className="btn-reprocess" onClick={onReprocess} title="Redo the Needs or the Feelings for this reply">
