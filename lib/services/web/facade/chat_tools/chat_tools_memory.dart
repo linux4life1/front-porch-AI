@@ -202,9 +202,11 @@ class ChatToolsMemory {
         owners.where((p) => p.id == ownerId).firstOrNull ?? owners.firstOrNull;
     final entries = <Map<String, dynamic>>[];
     if (sessionId != null && owner != null) {
-      for (final e in await _chat.milestoneFeed.entriesFor(
-        sessionId: sessionId,
-        characterId: owner.id,
+      for (final e in JournalReadingOrder.timeline(
+        await _chat.milestoneFeed.entriesFor(
+          sessionId: sessionId,
+          characterId: owner.id,
+        ),
       )) {
         entries.add({
           'kind': e.kind,

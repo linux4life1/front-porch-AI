@@ -132,4 +132,20 @@ void main() {
       expect(stillOther.pinned, isFalse);
     });
   });
+
+  group('JournalWebSurface reading order (issue #690)', () {
+    test(
+      'lists pinned first, then newest first, like the desktop diary',
+      () async {
+        final oldest = await seed(content: 'oldest');
+        await seed(content: 'middle');
+        await seed(content: 'newest');
+        await store.setPinned(oldest.id, true);
+
+        final listed = await surface.list(owner.id);
+        final cards = (listed['cards'] as List).cast<Map<String, dynamic>>();
+        expect(cards.map((c) => c['content']), ['oldest', 'newest', 'middle']);
+      },
+    );
+  });
 }

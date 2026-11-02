@@ -14,6 +14,7 @@
 
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,12 +23,14 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/journal_ops.dart';
 import 'package:front_porch_ai/services/chat/journal_review.dart';
+import 'package:front_porch_ai/services/chat/milestone_feed.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/journal_panel.dart';
 import 'package:front_porch_ai/ui/dialogs/journal_card_editor.dart';
 import 'package:front_porch_ai/ui/dialogs/journal_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/journal_timeline_tab.dart';
 
 import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
@@ -570,4 +573,97 @@ void main() {
       });
     });
   });
+
+  group('Reading order (issue #690)', () {
+    testWidgets('the diary lists the newest memory of a section first', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await seedCard('We met at the fair.');
+        await seedCard('We danced in the rain.');
+
+        final chat = _JournalChat(store: store);
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          wrap(
+            chat,
+            JournalDialog(
+              chatService: chat,
+              ownerId: 'mara',
+              ownerName: 'Mara',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final newer = tester.getTopLeft(find.text('We danced in the rain.'));
+        final older = tester.getTopLeft(find.text('We met at the fair.'));
+        expect(newer.dy, lessThan(older.dy));
+      });
+    });
+
+    testWidgets('Our Story counts the days down from the latest', (
+      tester,
+    ) async {
+      await tester.runAsync(() async {
+        await store.addCard(
+          sessionId: 's1',
+          characterId: 'mara',
+          content: 'First porch evening.',
+          category: 'moment',
+          emotionIntensity: 'strong',
+          sourcePositions: const [0],
+          storyDay: 1,
+          maxCards: 200,
+        );
+        await store.addCard(
+          sessionId: 's1',
+          characterId: 'mara',
+          content: 'The night of the storm.',
+          category: 'moment',
+          emotionIntensity: 'strong',
+          sourcePositions: const [4],
+          storyDay: 3,
+          maxCards: 200,
+        );
+
+        final chat = _TimelineChat(
+          store: store,
+          feed: MilestoneFeed(getDb: () => db, getMessages: () => const []),
+        );
+        addTearDown(chat.dispose);
+        sizeForDialog(tester);
+        await tester.pumpWidget(
+          ProviderScope(
+            child: wrap(
+              chat,
+              SizedBox(
+                width: 500,
+                height: 600,
+                child: JournalTimelineTab(chat: chat, ownerId: 'mara'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        double top(String text) => tester.getTopLeft(find.text(text)).dy;
+        expect(top('Day 3'), lessThan(top('Day 1')));
+        expect(
+          top('The night of the storm.'),
+          lessThan(top('First porch evening.')),
+        );
+      });
+    });
+  });
+}
+
+class _TimelineChat extends _JournalChat {
+  _TimelineChat({required super.store, required this.feed});
+
+  final MilestoneFeed feed;
+
+  @override
+  MilestoneFeed get milestoneFeed => feed;
 }
