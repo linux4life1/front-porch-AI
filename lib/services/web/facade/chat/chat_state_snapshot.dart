@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/director/director.dart'
     show kDirectorQuickBeats;
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
+import 'package:front_porch_ai/services/web/facade/chat/chance_time_wire.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
@@ -311,6 +312,7 @@ class ChatStateSnapshot {
       'chanceTime': {
         'pending': _chat.isAwaitingChanceTime,
         'event': ?_chat.webChanceTimeDisplay,
+        ...chanceTimeKindWire(_chat),
       },
       // Crafted /image prompt awaiting review (review setting on). The client
       // shows an edit modal and resolves via POST /api/chat/image-review.

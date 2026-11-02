@@ -16,13 +16,18 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/chance_time_palette.dart';
-import 'package:front_porch_ai/ui/widgets/chance_time/chance_time.dart';
+
+/// The header's height, which the overlay uses to place the wheel.
+const double kChanceTimeHeaderHeight = 60;
+
+/// The wheel's box before and after landing: it shrinks once the wheel
+/// has landed to make room for the result card.
+const double kChanceWheelBoxPx = 290;
+const double kChanceWheelBoxLandedPx = 190;
 
 /// The glowing "CHANCE TIME!" title.
 class ChanceTimeHeader extends StatelessWidget {
@@ -36,7 +41,7 @@ class ChanceTimeHeader extends StatelessWidget {
         // Starburst glow
         Container(
           width: 200,
-          height: 60,
+          height: kChanceTimeHeaderHeight,
           decoration: BoxDecoration(
             gradient: RadialGradient(
               colors: [
@@ -64,104 +69,24 @@ class ChanceTimeHeader extends StatelessWidget {
   }
 }
 
-/// The wheel stack: glow ring, the spinning wheel, gold hub and pointer.
-/// Shrinks once the wheel has [landed] to make room for the result card.
+/// The room the wheel takes in the overlay's column. The wheel itself is
+/// the Flame game painted over the column (`chance_wheel_game.dart`); this
+/// only holds its place, and shrinks once [landed] so the result card
+/// fits, over the same 600 ms the game eases the wheel down.
 class ChanceTimeWheel extends StatelessWidget {
-  const ChanceTimeWheel({
-    super.key,
-    required this.segments,
-    required this.spinning,
-    required this.landed,
-    required this.targetAngle,
-    this.spinAnimation,
-  });
+  const ChanceTimeWheel({super.key, required this.landed});
 
-  final List<String> segments;
-  final bool spinning;
   final bool landed;
-  final double targetAngle;
-
-  /// The running spin; read only while [spinning].
-  final Animation<double>? spinAnimation;
 
   @override
   Widget build(BuildContext context) {
-    // Shrink wheel after landing to give the result card more room
-    final wheelPx = landed ? 190.0 : 290.0;
-    final paintPx = landed ? 174.0 : 274.0;
+    final px = landed ? kChanceWheelBoxLandedPx : kChanceWheelBoxPx;
     return AnimatedContainer(
+      key: const ValueKey('chance-wheel-box'),
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeInOut,
-      width: wheelPx,
-      height: wheelPx,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Outer glow ring
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 600),
-            width: wheelPx + 14,
-            height: wheelPx + 14,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Colors.transparent,
-                  ChanceTimePalette.gold.withValues(alpha: 0.25),
-                ],
-                stops: const [0.85, 1.0],
-              ),
-            ),
-          ),
-          // Spinning wheel
-          AnimatedBuilder(
-            animation: spinning
-                ? spinAnimation!
-                : AlwaysStoppedAnimation(landed ? targetAngle % (2 * pi) : 0),
-            builder: (context, child) {
-              final angle = spinning
-                  ? spinAnimation!.value
-                  : (landed ? targetAngle % (2 * pi) : 0.0);
-              return Transform.rotate(
-                angle: angle,
-                child: CustomPaint(
-                  size: Size(paintPx, paintPx),
-                  painter: WheelPainter(
-                    segments: segments,
-                    colors: ChanceTimePalette.segments,
-                  ),
-                ),
-              );
-            },
-          ),
-          // Gold centre hub
-          Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [ChanceTimePalette.goldPale, ChanceTimePalette.gold],
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-          // Pointer triangle at top
-          Positioned(
-            top: 0,
-            child: CustomPaint(
-              size: const Size(22, 28),
-              painter: PointerPainter(),
-            ),
-          ),
-        ],
-      ),
+      width: px,
+      height: px,
     );
   }
 }

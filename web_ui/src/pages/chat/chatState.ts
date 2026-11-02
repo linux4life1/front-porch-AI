@@ -74,7 +74,7 @@ export interface ChatState {
   pendingMint?: { name: string; descriptor: string; settingName?: string } | null;
   // Chaos "Chance Time" park state: while pending, the engine is frozen waiting
   // for the user to accept their fate (event is pre-resolved server-side).
-  chanceTime?: { pending: boolean; event?: string };
+  chanceTime?: { pending: boolean; event?: string; kind?: string; label?: string; emoji?: string };
   // Crafted /image prompt parked for review (review setting on) — the modal
   // resolves it via POST /api/chat/image-review.
   imagePromptReview?: string;

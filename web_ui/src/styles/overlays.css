@@ -92,6 +92,24 @@
 .chance-btn:hover { filter: brightness(1.08); }
 .chance-btn:active { transform: scale(0.96); }
 .chance-btn.accept { background: linear-gradient(135deg, #06d6a0, #118ab2); } /* theme-keep: Chance Time game identity */
+.chance-btn.spin {
+  font-size: 1.1rem; letter-spacing: 0.18em; padding: 12px 40px; color: #1a1200; /* theme-keep: Chance Time game identity */
+  background: linear-gradient(180deg, #ffd166, #ffc233); /* theme-keep: Chance Time game identity */
+  box-shadow: 0 0 18px rgba(255, 209, 102, 0.45); /* theme-keep: Chance Time game glow */
+}
+/* The wheel: the card widens for it and shrinks it once landed so the event fits. */
+.chance-card-wheel { width: min(380px, 100%); overflow: hidden; }
+.chance-wheel { display: block; margin: 0 auto; max-width: 100%; transition: width 0.6s ease-in-out, height 0.6s ease-in-out; }
+.chance-kind {
+  font-weight: 900; font-size: 1.05rem; letter-spacing: 0.04em; animation: chance-reveal 0.4s ease-out;
+}
+.chance-kind.tone-fortune { color: #06d6a0; } /* theme-keep: Chance Time game identity */
+.chance-kind.tone-misfortune { color: #e63946; } /* theme-keep: Chance Time game identity */
+.chance-kind.tone-chaos { color: #ffd166; } /* theme-keep: Chance Time game identity */
+.chance-kind.tone-wildCard { color: #9b5de5; } /* theme-keep: Chance Time game identity */
+@media (prefers-reduced-motion: reduce) {
+  .chance-wheel { transition: none; }
+}
 @keyframes chance-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes chance-pop {
   from { opacity: 0; transform: translateY(10px) scale(0.94); }

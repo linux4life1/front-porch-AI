@@ -527,7 +527,43 @@ to `web_ui/src/theme/moodAtmosphere.ts` and pinned on both sides.
   while Porch Life's Story Weather is on; the Theme row keeps Mode,
   Accent, UI font and Corners.
 
-## 7. Horizon
+## 7. Tenant 4: The Chance Time wheel (shipped)
+
+Chaos Mode's Chance Time wheel runs on the stage's engine, in its own
+`GameWidget` over the overlay's content rather than on the stage: the
+wheel is modal theatre for a few seconds and never shares the canvas with
+the weather. The spin is plain maths in
+`lib/services/chat/chaos/chance_spin.dart`, ported to
+`web_ui/src/theme/chanceSpin.ts` and pinned on both sides by
+`test/fixtures/chaos/chance_spin_vectors.json`.
+
+- **Outcome first, kept.** The overlay picks the slot (and so the event)
+  before anything moves, exactly as before; `ChanceSpinPlan.draw` solves
+  the spin that lands on it (four to six turns, a stop in the middle half
+  of the slot) and `chanceSlotUnderPointer` is the pinned invariant.
+  Nothing stepped in the sim can change where the wheel stops. The phone's
+  event is pre-picked by the chat, so its wheel lands on the slot the
+  event's text hashes to; the wire gains the event's kind for the reveal.
+- **The spin has weight.** An ease with a 2.5 power, so the last peg
+  passes late and slowly instead of a dead final second; a damped
+  overshoot settles the wheel onto its peg. The pointer pivots at its top,
+  kicks back on every peg by the wheel's speed and springs home, trembling
+  on the last one. Bulbs chase at wheel speed; sparks shed off the rim
+  while fast.
+- **Landing and reveal.** A shake, a pop and flash on the landed slot, its
+  emoji thrown out. Then the reveal in the result's own key, as Flame
+  particle systems on the desktop (`chance_wheel_bursts.dart`) and the
+  same particles on the phone's canvas: confetti for Fortune, a red dim,
+  dead bulbs and grey ash for Misfortune, a lightning strobe and sparks
+  for Chaos, purple motes for Wild Card. A bad result never gets anything
+  festive. The card waits for the settle.
+- **Reduce motion.** The wheel jumps to its stop and the card shows at
+  once; nothing is thrown.
+- **Parity.** The PWA's Chance Time modal, which had a flat card, gets the
+  wheel as a canvas driven by the same sim, SPIN first, the kind banner
+  and the event after the settle.
+
+## 8. Horizon
 
 ### Animated avatars
 
@@ -564,7 +600,7 @@ built-in backgrounds are single images and would need remaking as layers;
 a user's flat custom background stays flat unless an automatic depth
 split is built, which is its own project.
 
-## 8. PR plan
+## 9. PR plan
 
 Weather is three PRs. Each is a draft to Rawhide, ships desktop and web
 together, adds its own `docs/Rawhide.md` bullet, and carries a poke
