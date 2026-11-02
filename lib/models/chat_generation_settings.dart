@@ -55,6 +55,10 @@ class ChatGenerationSettings {
   /// append; `false` sends the base with nothing added.
   bool? promptAmendmentsEnabled;
 
+  /// The generation preset last loaded into this chat's own values, for the
+  /// Chat Settings label. The values themselves live in the fields above.
+  String? genPresetName;
+
   ChatGenerationSettings({
     this.temperature,
     this.minP,
@@ -78,6 +82,7 @@ class ChatGenerationSettings {
     this.outputSanitizerRules,
     this.systemPromptSource,
     this.promptAmendmentsEnabled,
+    this.genPresetName,
   });
 
   /// Whether any field has a non-null override.
@@ -189,6 +194,7 @@ class ChatGenerationSettings {
     if (promptAmendmentsEnabled != null) {
       map['prompt_amendments_enabled'] = promptAmendmentsEnabled;
     }
+    if (genPresetName != null) map['gen_preset'] = genPresetName;
     return map;
   }
 
@@ -229,6 +235,9 @@ class ChatGenerationSettings {
         _ => null,
       },
       promptAmendmentsEnabled: json['prompt_amendments_enabled'] as bool?,
+      genPresetName: json['gen_preset'] is String
+          ? json['gen_preset'] as String
+          : null,
     );
   }
 

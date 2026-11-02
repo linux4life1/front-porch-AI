@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/services/gen_presets/catalog_sampler_defaults.dart';
 import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
 import 'package:front_porch_ai/services/openrouter_tool_support.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
@@ -106,6 +107,7 @@ Future<List<RemoteModelInfo>> fetchOpenAiModelCatalog({
       if (id.isEmpty) continue;
       if (m is Map) {
         rememberReasoningProfileFromCatalog(id, m['reasoning']);
+        CatalogSamplerDefaults.instance.remember(id, m['default_parameters']);
         if (isOpenRouterApiUrl(url)) {
           final advertised = toolsAdvertisedFromParameters(
             m['supported_parameters'],

@@ -10,6 +10,7 @@ export 'root_relocation.dart';
 export 'settings/appearance_settings.dart';
 export 'settings/backend_settings.dart';
 export 'settings/expression_settings.dart';
+export 'settings/gen_preset_settings.dart';
 export 'settings/generation_settings.dart';
 export 'settings/image_gen_settings.dart';
 export 'settings/lorebook_settings.dart';
