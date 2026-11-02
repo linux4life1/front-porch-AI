@@ -16,13 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_model_memory.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/super_grok_card.dart';
@@ -192,6 +196,15 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
             modelName: storageService.backendSettings.remoteModelName,
           ),
         ),
+        ModelGenPresetPicker(
+          modelKey: ChatModelId.remote(
+            remoteModelSlot(
+              backend: storageService.backendSettings.backendType,
+              url: storageService.backendSettings.remoteApiUrl,
+            ),
+            storageService.backendSettings.remoteModelName.trim(),
+          ).key,
+        ),
       ],
       const SizedBox(height: 12),
       Container(
@@ -265,6 +278,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
     if (!mounted) return;
     setState(() => _isFetchingModels = false);
     widget.onModelsFetched(models);
+    // A provider list can carry the model's recommended samplers.
+    unawaited(genPresetsOf(storageService)?.follower.refreshRecommended());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(

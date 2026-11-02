@@ -10,6 +10,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client';
 import { KoboldChatTemplatePicker } from './KoboldChatTemplatePicker';
+import { LiveModelPresetSelect } from '../genPresets/ModelPresetSelect';
+import { localModelKey } from '../genPresets/genPresets';
 import { SpeedTestButton } from './SpeedTestButton';
 import { SpeedTestOverlay } from './SpeedTestOverlay';
 import type { KoboldPhase, SpeedTestCard } from './types';
@@ -239,6 +241,11 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
             {card.speedTest && <SpeedTestButton card={card.speedTest} speed={speed} />}
           </>
         )}
+        {/* The generation preset this model writes with (issue 686). */}
+        <LiveModelPresetSelect
+          modelKey={card.model ? localModelKey(card.model) : null}
+          label="Generation preset"
+        />
       </section>
       <SpeedTestOverlay speed={speed} />
 

@@ -141,6 +141,18 @@
       "dartMarker": "Start every new chat with Realism",
       "webMarker": "Porch Life"
     },
+    "generationPreset": {
+      "section": "generation",
+      "dart": "lib/ui/settings/widgets/generation_preset_bar.dart",
+      "dartMarker": "Generation preset",
+      "webMarker": "Generation preset"
+    },
+    "generationPresetLink": {
+      "section": "generation",
+      "dart": "lib/ui/settings/widgets/generation_preset_bar.dart",
+      "dartMarker": "Use this preset whenever",
+      "webMarker": "Use this preset whenever"
+    },
     "generationParameters": {
       "section": "generation",
       "dart": "lib/ui/settings/tabs/generation_tab.dart",

@@ -12,6 +12,8 @@ import { ChatInsight } from '../components/ChatInsight';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
 import { ChatThemeSettings } from '../components/ChatThemeSettings';
 import { PromptSourcePickerModal, PromptSourceSettings } from '../components/PromptSource';
+import { ChatGenerationSection } from '../components/genPresets/ChatGenerationSection';
+import { GenPresetChatToast } from '../components/genPresets/GenPresetChatToast';
 import { ProcessingOverlay } from '../components/ProcessingOverlay';
 import { useEvaluationView } from '../components/useEvaluationView';
 import { type Realism } from '../components/chatTypes';
@@ -377,6 +379,7 @@ export function ChatPage() {
           onRetryStopped={() => void regenerate()}
           onDismissStopped={() => void dismissStoppedReply()}
         />
+        <GenPresetChatToast />
         {state.absencePhrase && state.sessionId && !absenceDismissed.has(state.sessionId) && (
           <div className="absence-banner">
             <span className="absence-banner-icon">🕰️</span>
@@ -573,6 +576,7 @@ export function ChatPage() {
                 onFailed={reportActionFailure}
               />
             )}
+            <ChatGenerationSection />
             <ChatThemeSettings
               overrides={state.themeOverrides ?? null}
               onSave={async (overrides) => {

@@ -22,8 +22,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
@@ -266,6 +268,8 @@ class ManagedBackendSection extends StatelessWidget {
           onBrowsePicked: onKcppsBrowsePicked,
           onModelStatusChanged: onKcppsModelStatusChanged,
         ),
+        if (selectedModelPath case final path?)
+          ModelGenPresetPicker(modelKey: ChatModelId.local(path).key),
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
