@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/persona/persona.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
@@ -405,9 +406,12 @@ class MessageBubbleAvatar extends StatelessWidget {
         else if (boundToChat)
           Consumer<UserPersonaService>(
             builder: (context, service, _) {
-              final persona = service.personas
-                  .where((p) => p.name == message.sender)
-                  .firstOrNull;
+              final persona = personaForUserMessage(
+                personas: service.personas,
+                current: service.persona,
+                sender: message.sender,
+                stampedId: message.activeMetadata?[kUserPersonaIdMeta],
+              );
               if (persona?.avatarPath != null) {
                 return CircleAvatar(
                   backgroundImage: portraitAvatarImage(

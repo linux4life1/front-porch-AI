@@ -2,5 +2,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export 'persona_file_codec.dart';
+export 'message_persona.dart';
 export 'persona_ids.dart';
 export 'user_persona.dart';

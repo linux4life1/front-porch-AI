@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/persona/persona.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 import 'send_spine.dart';
@@ -121,15 +122,22 @@ class SendTurn {
         ? null
         : await mediaDoor.persistTurnImage(imageBytes);
 
+    // Stamped by id: several personas can share a name, and the bubble
+    // must show the one that actually spoke.
+    final speaker = _s.deps.services.personas.persona;
     final userMsg = directing
         ? directorNoteMessage(outbound)
         : ChatMessage(
             text: outbound,
-            sender: _s.deps.services.personas.persona.name,
+            sender: speaker.name,
             isUser: true,
-            metadata: imagePath != null
-                ? {'is_user_image': true, 'image_path': imagePath}
-                : null,
+            metadata: {
+              kUserPersonaIdMeta: speaker.id,
+              if (imagePath != null) ...{
+                'is_user_image': true,
+                'image_path': imagePath,
+              },
+            },
           );
     // Session token for the caption writes below — captured NOW so a chat
     // switch anywhere during the (long) turn voids the stamp+save.
