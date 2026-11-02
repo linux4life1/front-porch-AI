@@ -590,4 +590,24 @@ void main() {
     await drainTurn();
     expect(chat.messages.last.sender, 'Ana');
   });
+
+  test('a line that is only @ of an Away member: still a user send', () async {
+    await boot(anaQuiet: false);
+    await enterGroup(beaAtWork: false);
+
+    await chat.sendMessage('@Ana');
+    await drainTurn();
+
+    expect(chat.messages.last.sender, 'Ana', reason: 'the @ calls her');
+    expect(
+      chat.messages.where((m) => m.isUser),
+      isEmpty,
+      reason: 'a bare @ leaves no bubble',
+    );
+    expect(
+      llm.quietFires,
+      greaterThan(0),
+      reason: 'the Away pulse runs on a bare @ as it does for "@Ana hi"',
+    );
+  });
 }

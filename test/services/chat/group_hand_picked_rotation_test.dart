@@ -31,6 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/at_mention_text.dart';
 
 import '../../../integration_test/support/fake_backend.dart';
 
@@ -220,5 +221,33 @@ void main() {
     await _drain();
     expect(chat.messages.last.sender, 'Bea', reason: "Bea's goodbye");
     expect(chat.nextCharacter?.name, 'Cy', reason: 'Cy follows Bea');
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('an @mention mid-line: the member speaks, and the @ is gone', () async {
+    await enterGroup();
+    await chat.sendMessage('So tell me, @Bea, how was the day?');
+    await _drain();
+    expect(chat.messages.last.sender, 'Bea', reason: 'the mention speaks');
+    final line = chat.messages.lastWhere((m) => m.isUser);
+    expect(line.text, 'So tell me, how was the day?');
+    expect(backend.lastChatBody, isNot(contains('@Bea')));
+    expect(backend.lastChatBody, contains('So tell me, how was the day?'));
+
+    chat.editMessage(chat.messages.indexOf(line), 'Evening, all.');
+    await _drain();
+    expect(
+      AtMentionText.routingText(line),
+      'Evening, all.',
+      reason: 'an edit is what routing reads from then on',
+    );
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('a line that is only @Name: they speak, no empty bubble', () async {
+    await enterGroup();
+    await chat.sendMessage('@Cy');
+    await _drain();
+    expect(chat.messages.last.sender, 'Cy', reason: 'the mention speaks');
+    expect(chat.messages.where((m) => m.isUser), isEmpty);
+    expect(backend.lastChatBody, isNot(contains('@Cy')));
   }, timeout: const Timeout(Duration(minutes: 2)));
 }

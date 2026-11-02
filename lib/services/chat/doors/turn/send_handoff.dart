@@ -111,7 +111,10 @@ class SendHandoff {
       await generateGuestTurn(addressedGuest);
     } else {
       if (_activeGroup != null) {
-        await _runAwayPulse(userText: userMsg.promptText, fromUserSend: true);
+        await _runAwayPulse(
+          userText: AtMentionText.routingText(userMsg),
+          fromUserSend: true,
+        );
       }
       // This is the sole web-search allow-list entry: a newly appended user
       // message receiving its first host/group response. Every follow-up,
@@ -158,8 +161,10 @@ class SendHandoff {
     // promptText (not raw text) so a photo-only turn feeds the director a
     // "[shared a photo]" marker instead of an empty user message. A routed
     // direct-address speaker is excluded — they already answered this turn.
+    // The typed line too, so a guest named by `@` still gets the name match.
     await maybeRunSceneGuestChimeIns(
       userText: userMsg.promptText,
+      typedText: AtMentionText.routingText(userMsg),
       exclude: addressedGuest,
     );
 
@@ -267,6 +272,7 @@ class SendHandoff {
   /// wrong conversation).
   Future<void> maybeRunSceneGuestChimeIns({
     required String userText,
+    String? typedText,
     CharacterCard? exclude,
   }) async {
     if (_activeGroup != null ||
@@ -282,6 +288,7 @@ class SendHandoff {
     final token = _session.currentSessionId;
     await turnEngine.entry.sceneGuestDirector().runChimeIns(
       userText: userText,
+      typedText: typedText,
       primaryResponse: primaryResponse,
       isContextValid: () => !_sceneChanged(token) && _activeGroup == null,
       exclude: exclude,

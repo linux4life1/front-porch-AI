@@ -125,14 +125,19 @@ class SendTurn {
     // Stamped by id: several personas can share a name, and the bubble
     // must show the one that actually spoke.
     final speaker = _s.deps.services.personas.persona;
+    // An @Name routes the turn, then leaves the line: the bubble and the
+    // prompt carry what was said, routing keeps the typed line.
+    final cleaned = directing ? outbound : _cast.guests.shownUserText(outbound);
+    final shown = cleaned.isEmpty && imageBytes == null ? outbound : cleaned;
     final userMsg = directing
         ? directorNoteMessage(outbound)
         : ChatMessage(
-            text: outbound,
+            text: shown,
             sender: speaker.name,
             isUser: true,
             metadata: {
               kUserPersonaIdMeta: speaker.id,
+              if (shown != outbound) kAtMentionRawTextMeta: outbound,
               if (imagePath != null) ...{
                 'is_user_image': true,
                 'image_path': imagePath,
@@ -249,7 +254,9 @@ class SendTurn {
     // (2026-07-28). Group: "@Member" forces that member as this turn's
     // speaker (inside the call; returns null — the turn proceeds normally).
     // Decision logic lives in the scene-guest leaf.
-    final addressedGuest = _directAddressRoutedGuest(userMsg.promptText);
+    final addressedGuest = _directAddressRoutedGuest(
+      AtMentionText.routingText(userMsg),
+    );
 
     // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
     // Guard + tick delegated (pendingInjection check via service getter).

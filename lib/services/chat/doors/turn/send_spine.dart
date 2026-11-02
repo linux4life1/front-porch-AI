@@ -300,6 +300,21 @@ class SendSpine {
     // Skipped when a photo is attached: an attach makes the intent "send a
     // message" unambiguous, and consuming the text as a command would drop
     // the attachment silently.
+    // A line that is only `@Name` is a request to hear from them, so it
+    // runs as `/speak Name`: they speak and no empty bubble is left. A
+    // director's note keeps its cue as written.
+    final bareSpeaker =
+        command ||
+            imageBytes != null ||
+            skipTag.present ||
+            entry.director.directing
+        ? null
+        : cast.guests.bareAddressSpeaker(trimmed);
+    if (bareSpeaker != null) {
+      await cast.away.pulseBeforeBareAddress(bareSpeaker, trimmed);
+      await engine.entry.commandHandler().handle('/speak ${bareSpeaker.name}');
+      return;
+    }
     if (command) {
       final handled = await engine.entry.commandHandler().handle(trimmed);
       if (handled) return;

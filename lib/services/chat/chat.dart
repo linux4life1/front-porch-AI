@@ -109,6 +109,7 @@ export 'long_skip_settle.dart';
 export 'pockets.dart';
 export 'pockets_invert.dart';
 export 'presence_derive.dart';
+export 'at_mention_text.dart';
 export 'away_pulse.dart';
 export 'with_user_eval.dart';
 export 'pockets_eval.dart';

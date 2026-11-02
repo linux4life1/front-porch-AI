@@ -125,6 +125,26 @@ class GuestFlow {
     return guest;
   }
 
+  /// Who an `@` can name here: the group's members, or in a 1:1 with
+  /// Scene Guests the host and the guests. A plain 1:1 has nobody to
+  /// address, so its lines are left exactly as typed.
+  List<CharacterCard> get _addressable {
+    if (_session.activeGroup != null) return _session.groupCharacters;
+    final host = _session.activeCharacter;
+    if (host == null || state.cards.isEmpty) return const [];
+    return [host, ...state.cards];
+  }
+
+  /// [typed] as the transcript and prompt carry it: every `@Name` of
+  /// someone in the scene is gone. Routing still reads [typed].
+  String shownUserText(String typed) =>
+      AtMentionText.clean(typed, roster: _addressable);
+
+  /// The one a line that is only `@Name` asks to hear from: the send runs
+  /// it as `/speak`, so that member speaks and no empty bubble is left.
+  CharacterCard? bareAddressSpeaker(String typed) =>
+      AtMentionText.bareAddress(typed, roster: _addressable);
+
   /// The one Scene Guest "enter" tail: register the guest's dbId,
   /// re-resolve the cards, persist, then have the guest speak its entrance
   /// through the parity-safe guest-turn path. Shared by `/create`, `/join`

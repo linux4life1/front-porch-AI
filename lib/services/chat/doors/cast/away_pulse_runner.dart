@@ -135,6 +135,17 @@ class AwayPulseRunner {
     }
   }
 
+  /// A line that is only `@Name` runs as `/speak` (no user bubble), but
+  /// it is still the user's send: pulse exactly as `@Name hi` would, and
+  /// when that makes [card] this send's Away return, the forced turn
+  /// consumes it the way the picker would have.
+  Future<void> pulseBeforeBareAddress(CharacterCard card, String typed) async {
+    await runAwayPulse(userText: typed, fromUserSend: true);
+    if (state.pendingReturnSpeakId == _d.characterIdFor(card)) {
+      state.consumingReturnSpeak = true;
+    }
+  }
+
   /// Where a group member is right now: the same read the turn picker
   /// skips on. Null outside a group or for a name not in the roster.
   PresenceWhere? groupMemberPresence(String memberId) {
