@@ -161,8 +161,9 @@ class SendHandoff {
     // promptText (not raw text) so a photo-only turn feeds the director a
     // "[shared a photo]" marker instead of an empty user message. A routed
     // direct-address speaker is excluded — they already answered this turn.
+    // The typed line, so a guest named by `@` still gets the name match.
     await maybeRunSceneGuestChimeIns(
-      userText: userMsg.promptText,
+      userText: AtMentionText.routingText(userMsg),
       exclude: addressedGuest,
     );
 

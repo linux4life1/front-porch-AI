@@ -137,7 +137,7 @@ class RegenController {
     String userText = '';
     for (int i = hostIndex - 1; i >= 0; i--) {
       if (_session.messages[i].isUser) {
-        userText = _session.messages[i].text;
+        userText = AtMentionText.routingText(_session.messages[i]);
         break;
       }
     }
