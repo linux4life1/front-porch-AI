@@ -68,6 +68,9 @@ class AtMentionText {
         out = out.replaceFirst(RegExp('[ \\t]*$_gap[ \\t]*'), ' ');
       }
     }
+    // Only punctuation left ("@Sam!") is still a line of nothing but
+    // mentions.
+    if (RegExp(r'^[\s.,!?;:…\-–—]*$').hasMatch(out)) return '';
     return out.trim();
   }
 
