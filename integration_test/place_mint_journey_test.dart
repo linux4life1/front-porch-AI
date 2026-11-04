@@ -41,7 +41,7 @@ void main() {
     final backend = await FakeBackendServer.start(
       replyPieces: const [
         'The fake backend wanders into a walled garden of salt by the '
-        'tideline.',
+            'tideline.',
       ],
     );
 
@@ -150,20 +150,37 @@ void main() {
     );
     expect(chatService.pendingPlaceMint, isNull);
 
-    // Propose again (chat not re-opened — the name is not ignored, it
-    // was ACCEPTED): 'Add and move' makes the mint the setting and
-    // demotes Ropewalk to the top of Lore.
+    // A second arrival at the SAME name the library now holds: the mint
+    // never re-mints it (a second row would be "The Salt Garden (2)" —
+    // the duplicate bug). The arrival rides the move law instead, and
+    // the answer routes through the same accept path as the dialog's
+    // Move button: the existing place becomes the setting and Ropewalk
+    // demotes to the top of Lore.
     chatService.flagSuggestedPlaceMint(
       'The Salt Garden',
       'again, from the narration',
     );
-    final moved = await chatService.acceptMintedPlace(alsoMove: true);
-    expect(moved.ok, isTrue, reason: moved.error);
-    expect(chatService.chatPrimaryWorldId, moved.world!.id);
+    expect(
+      chatService.pendingPlaceMint,
+      isNull,
+      reason: 'an existing name must never raise the mint dialog',
+    );
+    expect(
+      chatService.pendingPlaceMove?.id,
+      minted.id,
+      reason: 'the arrival becomes a move to the place that exists',
+    );
+    await chatService.acceptPlaceMove();
+    expect(chatService.chatPrimaryWorldId, minted.id);
     final slots = await worldRepo.getChatWorldAttachments(
       chatService.currentSessionId!,
     );
     expect(slots.loreIds.first, ropewalk.id);
+    expect(
+      worldRepo.worlds.where((w) => w.name == 'The Salt Garden').length,
+      1,
+      reason: 'arriving twice writes exactly one place',
+    );
 
     // Ignore: the dialog must stop coming for that name this chat.
     chatService.flagSuggestedPlaceMint('Tide Gate', 'an arch');
