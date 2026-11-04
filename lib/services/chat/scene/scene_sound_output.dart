@@ -47,7 +47,14 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
       await player.setReleaseMode(ReleaseMode.loop);
       _looping = true;
     }
-    await player.play(AssetSource(asset), volume: volume);
+    await player.play(
+      asset.startsWith('audio/')
+          ? AssetSource(asset)
+          : (asset.startsWith('http://') || asset.startsWith('https://')
+                ? UrlSource(asset)
+                : DeviceFileSource(asset)),
+      volume: volume,
+    );
   }
 
   @override

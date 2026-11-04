@@ -3,6 +3,8 @@
 //
 // Primary owns weather/injection; lore climate-on stays lore-only.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/chat_place_slots.dart';
@@ -11,6 +13,98 @@ import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/services/chat/lorebook_collection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/world_injection.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/services/chat/weather_engine.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
+import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_services.dart';
+import '../../golden/support/fakes_storage.dart';
+
+/// A chat double that answers the scene resolver's surface: a Setting slot
+/// (via the realism graph's `places`) and a world repository holding the
+/// Setting and Lore worlds. Weather is seeded deterministically like the
+/// golden fakes; the doors and services behind the graph throw (never read).
+class _PlaceIdentityChat extends FakeChatService {
+  _PlaceIdentityChat(List<World> worlds, {bool group = false})
+    : super(timeOfDay: 'morning', dayCount: 3) {
+    _appearance = AppearanceSettings();
+    unawaited(_appearance.setAmbientScene(AmbientScene.effects));
+    unawaited(_appearance.setSceneSound(true));
+    _worlds = FakeWorldRepository(worlds);
+    _graph = _graphFor(_worlds);
+    _group = group;
+    currentWeatherValue = WeatherEngine.weatherFor(
+      sessionSeed: currentSessionId!,
+      dayCount: timeService.dayCount,
+      date: timeService.clock,
+      biome: Biome.temperate,
+    );
+  }
+
+  late final AppearanceSettings _appearance;
+  late final FakeWorldRepository _worlds;
+  late final RealismGraph _graph;
+  late final bool _group;
+
+  @override
+  AppearanceSettings get appearance => _appearance;
+
+  @override
+  RealismGraph get realism => _graph;
+
+  @override
+  bool get isGroupMode => _group;
+
+  RealismGraph _graphFor(FakeWorldRepository worlds) => RealismGraph(
+    RealismDeps(
+      session: ChatSessionState(),
+      services: RealismServices(
+        db: () => throw StateError('no db'),
+        storage: FakeStorageService(),
+        personas: FakeUserPersonaService(),
+        worlds: worlds,
+        macros: MacroResolver(),
+        kobold: FakeKoboldService(),
+        characters: () => null,
+        memory: () => null,
+        llmProvider: () => null,
+        maxSecondaryObjectives: 1,
+        evalStagger: Duration.zero,
+        lanes: LlmLanes(
+          kobold: () => throw StateError('no model'),
+          provider: () => null,
+          testMouth: () => null,
+          testWorker: () => null,
+          testIsLocal: () => false,
+          isGenerating: () => false,
+          transport: () => throw StateError('no transport'),
+          notify: () {},
+        ),
+      ),
+      doors: RealismDoors(
+        cast: () => throw StateError('no cast'),
+        entry: () => throw StateError('no entry'),
+        edits: () => throw StateError('no edits'),
+        objectives: () => throw StateError('no objectives'),
+        sessions: () => throw StateError('no sessions'),
+        controls: () => throw StateError('no controls'),
+        prompts: () => throw StateError('no prompts'),
+        turn: () => throw StateError('no turn'),
+        send: () => throw StateError('no send'),
+      ),
+      life: ChatLifetime(FakeKoboldService()),
+      notify: () {},
+    ),
+  );
+}
 
 void main() {
   World place({
@@ -244,6 +338,44 @@ void main() {
       final marsRef = refs.firstWhere((r) => r.sourceLabel == 'world:Mars');
       expect(marsRef.placeRank, isNull);
       expect(marsRef.chainId, isNull);
+    });
+  });
+  group('scene ambience keys on the Setting slot, never Lore', () {
+    World setting = World(
+      id: 'setting',
+      name: 'Forest Clearing',
+      lorebook: Lorebook(entries: []),
+      climateEnabled: true,
+    )..ambience = 'forest';
+    World lore = World(
+      id: 'lore',
+      name: 'Cavern',
+      lorebook: Lorebook(entries: []),
+      climateEnabled: true,
+    )..ambience = 'cave';
+
+    SceneTokens? tokensFor(_PlaceIdentityChat chat) {
+      chat.realism.places.slots = ChatPlaceSlots(
+        primaryId: setting.id,
+        loreIds: [lore.id],
+      );
+      return sceneTokensFor(chat);
+    }
+
+    test("1:1: the Setting's ambience is the base loop", () {
+      final chat = _PlaceIdentityChat([setting, lore]);
+      final tokens = tokensFor(chat);
+      expect(tokens?.base?.file, 'forest');
+      expect(tokens?.base?.file, isNot('cave'));
+      final wire = sceneWireFor(chat)!;
+      expect((wire['sound'] as Map<String, Object>)['base'], 'forest');
+    });
+
+    test('group: the same Setting slot keys the sound', () {
+      final chat = _PlaceIdentityChat([setting, lore], group: true);
+      final tokens = tokensFor(chat);
+      expect(tokens?.base?.file, 'forest');
+      expect(tokens?.base?.file, isNot('cave'));
     });
   });
 }

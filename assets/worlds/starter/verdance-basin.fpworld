@@ -12,6 +12,7 @@
     "id": "rainforest",
     "displayName": "Rainforest"
   },
+  "ambience": "forest",
   "locations": [
     {
       "formatVersion": 1,
@@ -23,6 +24,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-verdance-basin-stiltwater"
       }
@@ -37,6 +39,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-verdance-basin-canopy-market"
       }
@@ -51,6 +54,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "forest",
       "meta": {
         "sourceId": "starter-verdance-basin-fern-hollow"
       }

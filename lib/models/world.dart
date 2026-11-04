@@ -150,6 +150,37 @@ class World {
     }
   }
 
+  /// The layered scene ambience preset for this place (e.g. `forest`, a
+  /// bundled `assets/audio/scene/` loop). Rides [placeTraits] like the other
+  /// standing facts, so a climate-off place keeps it without a migration.
+  String? get ambience {
+    final id = placeTraits['ambience']?.toString() ?? '';
+    return id.isEmpty ? null : id;
+  }
+
+  set ambience(String? id) {
+    if (id == null || id.isEmpty) {
+      placeTraits.remove('ambience');
+    } else {
+      placeTraits['ambience'] = id;
+    }
+  }
+
+  /// A user's own ambience file's bare name under `$rootPath/audio/`, or
+  /// null for none. It means nothing on another machine, so exports strip it.
+  String? get customAmbience {
+    final name = placeTraits['customAmbience']?.toString() ?? '';
+    return name.isEmpty ? null : name;
+  }
+
+  set customAmbience(String? name) {
+    if (name == null || name.isEmpty) {
+      placeTraits.remove('customAmbience');
+    } else {
+      placeTraits['customAmbience'] = name;
+    }
+  }
+
   /// The character this world was built from (World from Character), or
   /// null. Provenance only: nothing is linked, so renaming or deleting the
   /// character leaves the world alone.
@@ -180,6 +211,14 @@ class World {
   }) : id = id ?? const Uuid().v4(),
        placeTraits = placeTraits ?? {};
 
+  /// Place traits minus the user's own ambience file reference, which means
+  /// nothing on another machine and must never ride a portable export.
+  Map<String, dynamic> _exportPlaceTraits() {
+    final traits = Map<String, dynamic>.from(placeTraits);
+    traits.remove('customAmbience');
+    return traits;
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -199,7 +238,9 @@ class World {
       'climate_enabled': climateEnabled,
       if (parentWorldId != null) 'parent_world_id': parentWorldId,
       if (defaultPlaceId != null) 'default_place_id': defaultPlaceId,
-      if (climateEnabled && placeTraits.isNotEmpty) 'place_traits': placeTraits,
+      if (ambience != null) 'ambience': ambience,
+      if (climateEnabled && placeTraits.isNotEmpty)
+        'place_traits': _exportPlaceTraits(),
     };
   }
 
@@ -263,6 +304,12 @@ class World {
         json['default_place_id']?.toString() ??
         json['defaultPlaceId']?.toString();
     if (star != null) world.defaultPlaceId = star;
+    // The layered ambience preset rides the same top-level pattern: written
+    // whatever the climate setting, read back the same way, so a climate-off
+    // place keeps its sound on a round-trip.
+    final ambience =
+        json['ambience']?.toString() ?? json['ambienceId']?.toString();
+    if (ambience != null) world.ambience = ambience;
     return world;
   }
 }

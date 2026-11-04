@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'world_ambience_section.dart';
 import 'world_basics_section.dart';
 import 'world_dialog_wording.dart';
 import 'world_edit_draft.dart';
@@ -63,7 +64,6 @@ void showWorldEditDialog(
   // A second Create World tap while the first save is in flight would build
   // a second fresh World and save it too.
   var saving = false;
-
   showDialog(
     context: context,
     builder: (dialogContext) => UnsavedChangesGuard(
@@ -376,6 +376,7 @@ void showWorldEditDialog(
                                         newWorld.coverImage = draft.coverImage;
                                         newWorld.parentWorldId =
                                             draft.parentWorldId;
+                                        applyAmbience(draft, newWorld);
 
                                         // Update lorebook entries
                                         newWorld.lorebook.entries.clear();

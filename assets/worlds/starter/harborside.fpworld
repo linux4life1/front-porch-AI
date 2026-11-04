@@ -12,6 +12,7 @@
     "id": "temperate",
     "displayName": "Temperate"
   },
+  "ambience": "shore",
   "locations": [
     {
       "formatVersion": 1,
@@ -23,6 +24,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "shore",
       "meta": {
         "sourceId": "starter-harborside-the-quay"
       }
@@ -37,6 +39,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-harborside-lantern-street-market"
       }
@@ -51,6 +54,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "shore",
       "meta": {
         "sourceId": "starter-harborside-lighthouse-point"
       }

@@ -205,6 +205,14 @@ class WorldFacade {
         Map<String, dynamic>.from(f['placeTraits'] as Map),
       );
     }
+    if (f.containsKey('ambience')) {
+      final ambience = f['ambience']?.toString().trim() ?? '';
+      world.ambience = ambience.isEmpty ? null : ambience;
+    }
+    if (f.containsKey('customAmbience')) {
+      final custom = f['customAmbience']?.toString().trim() ?? '';
+      world.customAmbience = custom.isEmpty ? null : custom;
+    }
     // Slice 4 web twin: "Part of" changes the parent. Absent key keeps
     // the row's parent (same upsert discipline as the climate fields);
     // an explicit null or '' detaches it to its own world. The unknown/

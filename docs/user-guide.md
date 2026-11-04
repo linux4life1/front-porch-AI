@@ -667,6 +667,7 @@ Make it yours, in Settings and the UI options:
 - **Theme** — dark or light.
 - **Chat themes** — ten complete looks you can drop on any single chat from **Main Settings → UI Settings**: Fantasy, Galactic, Neon Grid, Sakura, Noir, Enchanted Forest, Ocean Depths, Cyberpunk, Roman Empire and Steampunk. Each one sets its own colors, font and bubble border, and you can customize any of it afterwards without losing the rest.
 - **Chat backgrounds** — a built-in set of scenes (cozy library, cyberpunk bedroom, cherry blossoms, beach, coffee shop, rooftop sunset, and more) plus your **own uploaded images**, nameable per chat.
+- **Scene ambience** — a background sound in the chat: the **place** you're in plays its own loop, and the **weather** layers over it (rain adds rain over the place sound, a quiet sky plays the place alone). The global on/off and volume live in **Appearance → Scene sound**; each place picks its own sound in the **Worlds** editor, and can use **Choose custom sound…** to bring in your own MP3.
 - **Chat fonts** — pick from a set of quality fonts (Georgia, Roboto, Open Sans, Lato, Merriweather, Playfair Display, Source Code Pro and others), applied live.
 - **Bubble colors and opacity** — per-character message colors, plus separate colors for quoted dialogue and \*actions\*.
 - **Chat text size** — bigger or smaller message text.

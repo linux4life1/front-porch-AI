@@ -203,6 +203,74 @@ def crickets(n):
     return peak_to(out, -14) + rms_to(air, -44)
 
 
+def forest(n):
+    """A place loop: wind in the pines, distant birdsong, a cool creek."""
+    r = rng('forest')
+    air = band(pink(r, n), low=180, high=2600)
+    song = scatter(r, n, 0.5, int(1.4 * SR), chirp)
+    creek = band(brown(r, n), low=90, high=500) * 0.6
+    swell = 0.6 + 0.4 * np.sin(2 * np.pi * np.arange(n) / SR / 5.2 + r.uniform(0, 6))
+    mix = rms_to(air, -38) * swell + rms_to(song, -22) + rms_to(creek, -30)
+    return rms_to(mix, -25)
+
+
+def gull(r):
+    """A longer, slower sweep than [chirp]: a gull over the shore."""
+    dur = r.uniform(0.18, 0.3)
+    k = int(dur * SR)
+    t = np.arange(k) / SR
+    base = r.uniform(700, 1200)
+    sweep = base * (1 + 0.6 * np.sin(np.pi * t / dur))
+    phase = 2 * np.pi * np.cumsum(sweep) / SR
+    env = np.hanning(k)
+    return np.sin(phase) * env * r.uniform(0.2, 0.8)
+
+
+def shore(n):
+    """A place loop: waves on the shore and gull calls over them."""
+    r = rng('shore')
+    t = np.arange(n) / SR
+    bed = band(brown(r, n), low=70, high=420)
+    swell = 0.5 + 0.5 * np.sin(2 * np.pi * t / 8.1 + r.uniform(0, 6))
+    hiss = band(pink(r, n), low=600, high=2400) * 0.3
+    gulls = scatter(r, n, 0.18, int(0.8 * SR), gull)
+    mix = rms_to(bed, -24) * swell + rms_to(hiss, -36) * swell + rms_to(gulls, -26)
+    return rms_to(mix, -22)
+
+
+def cave(n):
+    """A place loop: low echoes and slow drips off the stone."""
+    r = rng('cave')
+    t = np.arange(n) / SR
+    drone = np.zeros(n)
+    for f, a in ((48.0, 1.0), (63.0, 0.6), (89.0, 0.35)):
+        drone += a * np.sin(2 * np.pi * f * t + r.uniform(0, 6))
+    drone *= 0.75 + 0.25 * np.sin(2 * np.pi * t / 6.4)
+    drops = scatter(r, n, 0.22, 700, lambda q: droplet(q, 700, 1600))
+    air = band(brown(r, n), high=240) * 0.5
+    return rms_to(rms_to(drone, -32) + rms_to(drops, -27) + rms_to(air, -38), -28)
+
+
+def step(r):
+    """A short low thump: a footstep or a cart in the village."""
+    k = int(r.uniform(0.05, 0.12) * SR)
+    t = np.arange(k) / SR
+    noise = band(r.standard_normal(k), low=90, high=500)
+    env = np.minimum(t / 0.01, 1) * np.exp(-t / (k / SR / 3))
+    return noise * env * r.uniform(0.2, 0.8)
+
+
+def village(n):
+    """A place loop: footsteps, voices and the rhythm of everyday work."""
+    r = rng('village')
+    bed = band(pink(r, n), low=140, high=900)
+    steps = scatter(r, n, 1.1, 500, step)
+    voices = scatter(r, n, 0.25, int(0.9 * SR), lambda q: chirp(q) * 0.5)
+    swell = 0.7 + 0.3 * np.sin(2 * np.pi * np.arange(n) / SR / 4.6 + r.uniform(0, 6))
+    mix = rms_to(bed, -32) * swell + rms_to(steps, -25) + rms_to(voices, -30)
+    return rms_to(mix, -24)
+
+
 def fog(n):
     r = rng('fog')
     t = np.arange(n) / SR
@@ -246,6 +314,10 @@ LOOPS = {
     'birds': (10.0, birds),
     'crickets': (8.0, crickets),
     'fog': (12.0, fog),
+    'forest': (10.0, forest),
+    'shore': (12.0, shore),
+    'cave': (10.0, cave),
+    'village': (12.0, village),
 }
 ONE_SHOTS = {'thunder_1': 3.4, 'thunder_2': 4.1, 'thunder_3': 4.8}
 

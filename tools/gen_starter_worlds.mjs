@@ -110,7 +110,7 @@ const AIRLESS = {
 const lore = (name, keys, content) => ({ name, keys, content });
 
 /** One .fpworld envelope (fp_world_package.dart encodeFpWorld shape). */
-function place({ id, name, description, climate = null, traits = null, entries = [], locations = [], defaultPlaceId = null }) {
+function place({ id, name, description, climate = null, traits = null, ambience = null, entries = [], locations = [], defaultPlaceId = null }) {
   const env = {
     formatVersion: 1,
     id,
@@ -122,6 +122,9 @@ function place({ id, name, description, climate = null, traits = null, entries =
   };
   if (climate !== null) env.biome = climate;
   if (climate !== null && traits) env.place_traits = traits;
+  // Sound is not climate: the scene loop rides a top-level key the model
+  // routes into placeTraits.ambience, set whether or not a climate is.
+  if (ambience !== null) env.ambience = ambience;
   if (locations.length) env.locations = locations;
   // Where chats that get the world start: every world names one. The
   // importer re-points it at the imported copy of that place.
@@ -147,6 +150,7 @@ const WORLDS = [
         slug: 'hearthford',
         name: 'Hearthford',
         climate: builtIn('temperate'),
+        ambience: 'village',
         description:
           'A valley town tucked into a fold of the hills, where warm ground keeps the snow off the fields while the ridges above stay white. ' +
           'Steam drifts from vents beside the lanes, the market stays open late, and children play outside in shirtsleeves while frost glitters on the peaks.',
@@ -155,6 +159,7 @@ const WORLDS = [
         slug: 'thawwater-springs',
         name: 'Thawwater Springs',
         climate: builtIn('mediterranean'),
+        ambience: 'cave',
         description:
           'Terraced hot-spring pools climb a hillside under a great glass roof, beaded with condensation and ringed with potted lemon trees. ' +
           'Bathers lounge in the steam, attendants carry towels and iced tea between the tiers, and through the glass the snowfields shine blue at dusk.',
@@ -163,6 +168,7 @@ const WORLDS = [
         slug: 'emberlight',
         name: 'Emberlight',
         climate: builtIn('continental'),
+        ambience: 'village',
         description:
           'A mining town built over its own warm vents: brick chimneys, copper pipes and lit workshop windows. ' +
           'Shift whistles mark the day and the streets smell of coal smoke and fresh bread. ' +
@@ -188,6 +194,7 @@ const WORLDS = [
         name: 'Dome Town Meridian',
         climate: builtIn('temperate'),
         traits: { gravity: 'low' },
+        ambience: 'forest',
         description:
           'A farming town under a vast clear dome, with terraced fields, orchards and a small lake the colonists swear is the bluest water on the moon. ' +
           'People bounce when they walk, children clear fences for fun, and the dome rolls out rain on a schedule everyone grumbles about. ' +
@@ -197,6 +204,7 @@ const WORLDS = [
         slug: 'the-ring',
         name: 'The Ring',
         climate: builtIn('mediterranean'),
+        ambience: 'village',
         description:
           'An orbital habitat shaped like a great wheel, spun so its people walk with a familiar weight. ' +
           'Its inner surface curves up into the sky in both directions: parks, canals and terraced neighbourhoods under a long sunlit strip that dims each evening. ' +
@@ -205,6 +213,7 @@ const WORLDS = [
       {
         slug: 'outpost-nine',
         name: 'Outpost Nine',
+        ambience: 'cave',
         description:
           'A cramped research and mining outpost dug into a crater wall, reached by crawler across the open plain. ' +
           'Nobody steps outside without a pressure suit, and every door to the surface is an airlock with a cycle light and a checklist. ' +
@@ -218,6 +227,7 @@ const WORLDS = [
     root: {
       name: 'Verdance Basin',
       climate: builtIn('rainforest'),
+      ambience: 'forest',
       description:
         'A vast river basin roofed by rainforest, where the air is thick and green and it rains a little nearly every day. ' +
         'Brown rivers wind between the trees, birds and frogs call all night, and people travel by boat or rope bridge because the ground floods half the year.',
@@ -226,6 +236,7 @@ const WORLDS = [
       {
         slug: 'stiltwater',
         name: 'Stiltwater',
+        ambience: 'village',
         description:
           'A town of houses on tall stilts above the floodplain, joined by plank walkways and ladders. ' +
           'When the river rises, people fish from their porches and children paddle canoes between the homes; when it falls, gardens appear in the mud below.',
@@ -233,6 +244,7 @@ const WORLDS = [
       {
         slug: 'canopy-market',
         name: 'Canopy Market',
+        ambience: 'village',
         description:
           'Trade platforms lashed high in the branches of giant trees, reached by rope lifts and swaying bridges. ' +
           'Traders sell fruit, dyes, carved wood and gossip under oilcloth awnings, and rain drips through the leaves onto everyone’s bargains.',
@@ -240,6 +252,7 @@ const WORLDS = [
       {
         slug: 'fern-hollow',
         name: 'Fern Hollow',
+        ambience: 'forest',
         description:
           'A logging village gone quiet since the mill closed, its sawdust heaps grown over with ferns and moss. ' +
           'A handful of families stay on, keeping bees and running a little inn, and the forest creeps a little further into the streets each wet season.',
@@ -252,6 +265,7 @@ const WORLDS = [
     root: {
       name: 'Monsoon Coast',
       climate: builtIn('tropical'),
+      ambience: 'shore',
       description:
         'A long, hot coastline of palm groves, river deltas and fishing towns, where the year turns on the monsoon. ' +
         'Mornings are bright and sticky, afternoon storms roll in off the sea like clockwork, and evenings smell of wet earth, grilled fish and woodsmoke.',
@@ -260,6 +274,7 @@ const WORLDS = [
       {
         slug: 'palmreach',
         name: 'Palmreach',
+        ambience: 'shore',
         description:
           'A fishing town on a narrow sandbar between a calm lagoon and the open sea. ' +
           'Boats are hauled up the beach each evening, nets dry on poles, and the whole town turns out when the catch comes in. ' +
@@ -268,6 +283,7 @@ const WORLDS = [
       {
         slug: 'reedbank',
         name: 'Reedbank',
+        ambience: 'village',
         description:
           'A river town of rice terraces stepping down to a wide brown river, with a flat ferry that crosses on a cable. ' +
           'Farmers work the paddies in wide hats, water buffalo wallow in the shallows, and the ferry keeper knows everybody’s business by noon.',
@@ -275,6 +291,7 @@ const WORLDS = [
       {
         slug: 'old-lantern-quay',
         name: 'Old Lantern Quay',
+        ambience: 'shore',
         description:
           'A half-abandoned port where the big ships stopped calling years ago. ' +
           'Warehouses stand empty with their doors hanging open, but a few lantern-lit tea stalls and a night market still wake the waterfront after dark, and old sailors trade stories on the bollards.',
@@ -287,6 +304,7 @@ const WORLDS = [
     root: {
       name: 'Harborside',
       climate: builtIn('temperate'),
+      ambience: 'shore',
       description:
         'A small seaside town of slate roofs and painted doors climbing a hill above a working harbour. ' +
         'Gulls wheel over the fishing boats, the weather changes three times before lunch, and everybody has an opinion about the best bench for watching the sunset.',
@@ -295,6 +313,7 @@ const WORLDS = [
       {
         slug: 'the-quay',
         name: 'The Quay',
+        ambience: 'shore',
         description:
           'The working waterfront, crowded with crab pots, coiled rope and boats being scraped and painted. ' +
           'Crews mend nets on the stones, the harbourmaster’s radio crackles from an open window, and the smell of salt and diesel hangs over everything.',
@@ -302,6 +321,7 @@ const WORLDS = [
       {
         slug: 'lantern-street-market',
         name: 'Lantern Street Market',
+        ambience: 'village',
         description:
           'A narrow cobbled street of shops and stalls strung with lanterns, busiest on weekend evenings. ' +
           'Bakers, booksellers and a stall selling hot chips in paper cones compete for the crowds, and buskers play in the doorway of the old chapel.',
@@ -309,6 +329,7 @@ const WORLDS = [
       {
         slug: 'lighthouse-point',
         name: 'Lighthouse Point',
+        ambience: 'shore',
         description:
           'A grassy headland at the end of the harbour wall, crowned by a white lighthouse that still turns every night. ' +
           'Wind flattens the grass, waves boom against the rocks below, and on clear evenings the lights of the next town glimmer along the coast.',
@@ -330,6 +351,7 @@ const WORLDS = [
         slug: 'dustwell-crossing',
         name: 'Dustwell Crossing',
         climate: builtIn('desert'),
+        ambience: 'village',
         description:
           'A dusty crossroads town around a deep stone well, where the road dips south into dry country. ' +
           'Sun-bleached signs creak in the wind, the general store sells water by the jug, and travellers wait out the midday heat on the shaded porch of the only tavern.',
@@ -338,6 +360,7 @@ const WORLDS = [
         slug: 'pinecrest-pass',
         name: 'Pinecrest Pass',
         climate: builtIn('highland'),
+        ambience: 'forest',
         description:
           'A high mountain pass where the road climbs through pine forest to a stone waystation at the top. ' +
           'Snow lingers late into spring, fog pours over the ridge without warning, and the keepers ring a bell to guide travellers in when the cloud comes down.',
@@ -345,6 +368,7 @@ const WORLDS = [
       {
         slug: 'ferry-landing',
         name: 'Ferry Landing',
+        ambience: 'shore',
         description:
           'A river landing where the road meets a wide, slow river and a rope ferry carries carts across. ' +
           'There is a boathouse, a tea stall and a noticeboard thick with messages left for travellers, and in a storm the ferry ties up and everyone waits it out together under the eaves.',
@@ -357,6 +381,7 @@ const WORLDS = [
     root: {
       name: 'Greenhollow Estate',
       climate: builtIn('mediterranean'),
+      ambience: 'forest',
       description:
         'A rambling country estate of honey-coloured stone among olive groves, vineyards and old gardens. ' +
         'Summers are bright and dry, with cicadas in the cypresses; winters are mild and rainy, and the house smells of woodsmoke and baking. ' +
@@ -380,6 +405,7 @@ const WORLDS = [
       {
         slug: 'the-conservatory',
         name: 'The Conservatory',
+        ambience: 'forest',
         description:
           'A tall glasshouse of white iron and old glass on the south side of the house, full of palms, orchids and climbing vines. ' +
           'Rain drums on the roof in winter, summer sun turns it into a hothouse, and wicker chairs hide among the leaves for quiet conversations.',
@@ -393,6 +419,7 @@ const WORLDS = [
       {
         slug: 'the-kitchens',
         name: 'The Kitchens',
+        ambience: 'village',
         description:
           'Big flagstoned kitchens below the house, with a bread oven, copper pans and a scrubbed table long enough to seat twenty. ' +
           'Something is always simmering, a radio plays softly by the window, and anyone who sits down is handed a knife and some vegetables.',
@@ -406,6 +433,7 @@ const WORLDS = [
       {
         slug: 'the-old-orchard',
         name: 'The Old Orchard',
+        ambience: 'forest',
         description:
           'Rows of gnarled apple, pear and plum trees running down the slope behind the house to a stream. ' +
           'Bees work the blossom in spring, the grass grows long and gold in summer, and in autumn the ladders come out and the whole household picks.',
@@ -428,6 +456,7 @@ for (const w of WORLDS) {
     description: w.root.description,
     climate: w.root.climate,
     traits: w.root.traits,
+    ambience: w.root.ambience ?? null,
     entries: w.root.entries ?? [],
     // A world may name its start (`start: <slug>`); else its first place.
     defaultPlaceId: `${rootId}-${w.start ?? w.places[0].slug}`,
@@ -438,6 +467,7 @@ for (const w of WORLDS) {
         description: p.description,
         climate: p.climate ?? null,
         traits: p.traits,
+        ambience: p.ambience ?? null,
         entries: p.entries ?? [],
       }),
     ),

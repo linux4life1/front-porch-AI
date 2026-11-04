@@ -15,9 +15,16 @@ import { SceneSoundPlayer, parseSceneSound, sceneLoopFor, type SceneSoundOptions
 
 export function useSceneSound(scene: unknown, opts?: SceneSoundOptions): { onFlash: (f: Flash) => void } {
   const parsed = parseSceneSound(scene);
-  const loop = parsed?.on ? sceneLoopFor(parsed.condition, parsed.daypart) : null;
+  // The wire carries the resolved loops: `base` (the place's identity loop
+  // or the weather-only fallback) and `overlay` (the weather over a place).
+  // An older desktop sends neither, so the PWA falls back to today's
+  // sceneLoopFor choice exactly as before.
+  const loop = parsed?.on ? (parsed.base ?? sceneLoopFor(parsed.condition, parsed.daypart)) : null;
+  const overlay = parsed?.on ? (parsed.overlay ?? null) : null;
+  const baseUrl = parsed?.on ? (parsed.baseUrl ?? null) : null;
   const volume = parsed?.volume ?? 0.5;
   const storm = !!parsed?.on && parsed.condition === 'storm';
+
   const player = useRef<SceneSoundPlayer | null>(null);
   const options = useRef(opts);
 
@@ -34,8 +41,8 @@ export function useSceneSound(scene: unknown, opts?: SceneSoundOptions): { onFla
   }, []);
 
   useEffect(() => {
-    player.current?.update({ loop, volume, storm });
-  }, [loop, volume, storm]);
+    player.current?.update({ loop, overlay, baseUrl, volume, storm });
+  }, [loop, overlay, baseUrl, volume, storm]);
 
   const onFlash = useCallback((f: Flash) => player.current?.flash(f), []);
   return { onFlash };

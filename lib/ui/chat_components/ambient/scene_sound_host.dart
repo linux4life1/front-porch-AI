@@ -45,6 +45,8 @@ class SceneSoundHost extends StatefulWidget {
     required this.volume,
     required this.builder,
     this.output,
+    this.overlayOutput,
+    this.rootPath,
   });
 
   final SceneTokens tokens;
@@ -59,8 +61,16 @@ class SceneSoundHost extends StatefulWidget {
   final Widget Function(BuildContext context, ValueChanged<SceneFlash> onFlash)
   builder;
 
-  /// Where the sound goes; audioplayers unless a test hands in its own.
+  /// Where the base sound goes; audioplayers unless a test hands in its own.
   final SceneSoundOutput Function()? output;
+
+  /// Where the weather overlay goes; a second output instance. Null in tests
+  /// that hand in only one fake — the overlay channel then stays off.
+  final SceneSoundOutput Function()? overlayOutput;
+
+  /// The live data root, so a custom user sound's bare name resolves against
+  /// `$rootPath/audio/` at play time (a root move never breaks it).
+  final String? rootPath;
 
   @override
   State<SceneSoundHost> createState() => _SceneSoundHostState();
@@ -70,7 +80,10 @@ class _SceneSoundHostState extends State<SceneSoundHost>
     with WidgetsBindingObserver, WindowListener {
   late final SceneSoundService _sound = SceneSoundService(
     output: widget.output ?? AudioplayersSceneSoundOutput.new,
+    overlayOutput: widget.overlayOutput ?? AudioplayersSceneSoundOutput.new,
+    audioRootPath: widget.rootPath,
   );
+
   TtsService? _tts;
   bool _appShown = true;
   bool _minimised = false;

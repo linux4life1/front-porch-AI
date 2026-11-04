@@ -27,6 +27,7 @@
         "id": "desert",
         "displayName": "Desert"
       },
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-long-road-dustwell-crossing"
       }
@@ -45,6 +46,7 @@
         "id": "highland",
         "displayName": "Highland"
       },
+      "ambience": "forest",
       "meta": {
         "sourceId": "starter-long-road-pinecrest-pass"
       }
@@ -59,6 +61,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "shore",
       "meta": {
         "sourceId": "starter-long-road-ferry-landing"
       }

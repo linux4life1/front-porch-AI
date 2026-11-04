@@ -26,6 +26,7 @@ import 'world_climate_section.dart';
 import 'world_dialog_wording.dart';
 import 'world_edit_draft.dart';
 import 'world_weather_note.dart';
+import 'world_ambience_section.dart';
 
 /// Basic Information card for the create/edit World dialog: cover
 /// image (picker + thumbnail), name/description fields, the climate
@@ -46,14 +47,12 @@ class WorldBasicsSection extends StatelessWidget {
     this.compact = false,
     this.wording = const WorldDialogWording(isCreate: true),
   });
-
   final BuildContext pageContext;
   final BuildContext pickerContext;
   final WorldEditDraft draft;
   final StateSetter setDialogState;
   final WorldDialogWording wording;
   final bool compact;
-
   @override
   Widget build(BuildContext context) {
     final gap = compact ? 8.0 : 16.0;
@@ -280,6 +279,8 @@ class WorldBasicsSection extends StatelessWidget {
             value: draft.injectDescription,
             onChanged: (v) => setDialogState(() => draft.injectDescription = v),
           ),
+          const SizedBox(height: 12),
+          WorldAmbienceSection(draft: draft, setDialogState: setDialogState),
           if (draft.climateEnabled && !wording.isPlace) ...[
             const SizedBox(height: 16),
             PlaceTraitsEditor(
