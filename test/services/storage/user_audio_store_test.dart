@@ -81,7 +81,7 @@ void main() {
     },
   );
 
-  test('a file that loads is stored by bare name', () async {
+  test('a file that loads is stored under a content-hash name', () async {
     UserAudioStore.testLoadOverride = (path) async {};
     final result = await UserAudioStore.storeUserAudioBytes(
       validMp3(),
@@ -89,7 +89,8 @@ void main() {
       storage,
     );
     expect(result.error, isNull);
-    expect(result.name, 'my_sound.mp3');
+    expect(result.name, startsWith('my_sound-'));
+    expect(result.name, endsWith('.mp3'));
     final file = File(p.join(storage.audioDir.path, result.name!));
     expect(file.existsSync(), isTrue);
     expect(await file.length(), validMp3().length);
@@ -105,4 +106,100 @@ void main() {
     expect(result.error, contains('MiB'));
     expect(storage.audioDir.listSync().isEmpty, isTrue);
   });
+
+  test('two different files with the same original name each keep their own '
+      'sound', () async {
+    // The collision bug: Place A uses your rain.mp3; Place B is later
+    // given a different rain.mp3 from elsewhere. Before, the second copy
+    // overwrote the first and Place A silently played Place B's sound.
+    // Content-addressed names must keep both, and re-offering the very
+    // same file must add nothing.
+    UserAudioStore.testLoadOverride = (path) async {};
+    final audio = Directory(p.join(root.path, 'audio'))..createSync();
+    final firstSrc = File(p.join(audio.path, 'one.mp3'))
+      ..writeAsBytesSync([
+        ...validMp3(),
+        ...List<int>.generate(90, (i) => 100 + i),
+      ]);
+    final first = await UserAudioStore.storeUserAudioPath(
+      firstSrc.path,
+      storage,
+    );
+    expect(first.error, isNull);
+
+    final secondSrc = File(p.join(audio.path, 'two.mp3'))
+      ..writeAsBytesSync([
+        ...validMp3(),
+        ...List<int>.generate(110, (i) => 200 - i),
+      ]);
+    final second = await UserAudioStore.storeUserAudioPath(
+      secondSrc.path,
+      storage,
+    );
+    expect(second.error, isNull);
+    expect(second.name, isNot(first.name));
+
+    // The first world's bytes are untouched under its own name.
+    final kept = File(p.join(audio.path, first.name!));
+    expect(kept.readAsBytesSync(), [
+      ...validMp3(),
+      ...List<int>.generate(90, (i) => 100 + i),
+    ]);
+    // Both land in the shared listing, each once.
+    final names = [
+      for (final f in await UserAudioStore.listUserAudio(storage)) f.name,
+    ];
+    expect(names.where((n) => n.startsWith('one-')), hasLength(1));
+    expect(names.where((n) => n.startsWith('two-')), hasLength(1));
+
+    // Same original name, same bytes offered from a fresh path: one
+    // stored file, no duplicate.
+    final sameSrc = File(p.join(audio.path, 'copy-of-one.mp3'))
+      ..writeAsBytesSync([
+        ...validMp3(),
+        ...List<int>.generate(90, (i) => 100 + i),
+      ]);
+    final same = await UserAudioStore.storeUserAudioPath(sameSrc.path, storage);
+    expect(same.error, isNull);
+    final names2 = [
+      for (final f in await UserAudioStore.listUserAudio(storage)) f.name,
+    ];
+    expect(
+      names2.where((n) => n.startsWith('one-')),
+      hasLength(1),
+      reason: 'the bytes were already stored; nothing duplicated',
+    );
+  }, timeout: const Timeout(Duration(seconds: 30)));
+
+  test('a failed load test erases only the file it just wrote', () async {
+    UserAudioStore.testLoadOverride = (path) async {};
+    final audio = Directory(p.join(root.path, 'audio'))..createSync();
+    final goodSrc = File(p.join(audio.path, 'good.mp3'))
+      ..writeAsBytesSync([
+        ...validMp3(),
+        ...List<int>.generate(90, (i) => 10 + i),
+      ]);
+    final good = await UserAudioStore.storeUserAudioPath(goodSrc.path, storage);
+    expect(good.error, isNull);
+    final goodName = good.name!;
+
+    // A DIFFERENT file the player rejects. Its digest names it apart from
+    // the good one, so the cleanup can only ever delete this bad copy —
+    // the old bug deleted the earlier world's sound here.
+    UserAudioStore.testLoadOverride = (path) async {
+      throw StateError('simulated failure');
+    };
+    final badSrc = File(p.join(audio.path, 'good.mp3'))
+      ..writeAsBytesSync([
+        ...validMp3(),
+        ...List<int>.generate(100, (i) => (i * 7) % 256),
+      ]);
+    final bad = await UserAudioStore.storeUserAudioPath(badSrc.path, storage);
+    expect(bad.error, isNotNull);
+    expect(
+      File(p.join(audio.path, goodName)).existsSync(),
+      isTrue,
+      reason: 'the earlier world sound survives',
+    );
+  }, timeout: const Timeout(Duration(seconds: 30)));
 }

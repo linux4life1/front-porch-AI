@@ -82,7 +82,10 @@ void main() {
       () => pickCustomAmbience(ctx, storage),
     ))!;
     expect(result.error, isNull);
-    expect(result.name, 'forest.mp3');
+    // Content-addressed name: readable stem plus a digest, so a later
+    // "forest.mp3" from elsewhere can never overwrite this sound.
+    expect(result.name, startsWith('forest-'));
+    expect(result.name, endsWith('.mp3'));
     expect(seenCategory, PickerPrefs.catAudio);
     expect(seenExts, ['mp3']);
     final file = File(p.join(storage.audioDir.path, result.name!));

@@ -20,6 +20,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:crypto/crypto.dart' show sha256;
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:path/path.dart' as p;
 
@@ -78,13 +79,24 @@ class UserAudioStore {
       );
     }
     final dir = storage.audioDir;
-    final dest = File(p.join(dir.path, name));
+    // Content-addressed name: the original stem plus a short digest of
+    // the bytes (rain-3fa2c1.mp3). Two different files that share an
+    // original name get two different stored names, so a second
+    // "rain.mp3" can never overwrite the sound another world already
+    // points at; the same file offered again reuses what is on disk.
+    final bytes = await File(path).readAsBytes();
+    final unique = _uniqueName(name, bytes);
+    final dest = File(p.join(dir.path, unique));
+    var wrote = false;
     try {
       await dir.create(recursive: true);
-      if (p.equals(path, dest.path)) {
-        return (name: name, error: null, note: null);
+      if (p.equals(path, dest.path) || await dest.exists()) {
+        // Already stored under this exact name (same bytes, same stem):
+        // reuse it, and never touch a file an existing world may play.
+        return (name: unique, error: null, note: null);
       }
       await File(path).copy(dest.path);
+      wrote = true;
     } catch (e) {
       return (
         name: null,
@@ -94,8 +106,10 @@ class UserAudioStore {
     }
     final load = await _loadTest(dest.path);
     if (!load.ok) {
+      // Freshly written under a name nothing else holds, so erasing it
+      // here can never erase an earlier world's sound.
       try {
-        if (await dest.exists()) await dest.delete();
+        if (wrote && await dest.exists()) await dest.delete();
       } catch (_) {}
       return (
         name: null,
@@ -103,7 +117,7 @@ class UserAudioStore {
         note: null,
       );
     }
-    return (name: name, error: null, note: load.note);
+    return (name: unique, error: null, note: load.note);
   }
 
   /// Store uploaded bytes (PWA / phone app). The name is sanitized to the
@@ -134,11 +148,19 @@ class UserAudioStore {
         note: null,
       );
     }
+    final unique = _uniqueName(name, bytes);
     final dir = storage.audioDir;
-    final dest = File(p.join(dir.path, name));
+    final dest = File(p.join(dir.path, unique));
+    var wrote = false;
     try {
       await dir.create(recursive: true);
-      await dest.writeAsBytes(bytes, flush: true);
+      // Same content already stored (same stem, same bytes): reuse it
+      // and skip the write; a different file under the same original
+      // name gets its own digest and can never clobber the first one.
+      if (!await dest.exists()) {
+        await dest.writeAsBytes(bytes, flush: true);
+        wrote = true;
+      }
     } catch (e) {
       return (
         name: null,
@@ -146,18 +168,37 @@ class UserAudioStore {
         note: null,
       );
     }
-    final load = await _loadTest(dest.path);
-    if (!load.ok) {
-      try {
-        if (await dest.exists()) await dest.delete();
-      } catch (_) {}
-      return (
-        name: null,
-        error: 'That file could not be loaded here.',
-        note: null,
-      );
+    if (wrote) {
+      final load = await _loadTest(dest.path);
+      if (!load.ok) {
+        // Freshly written under a name nothing else holds, so erasing
+        // it here can never erase an earlier world's sound.
+        try {
+          if (await dest.exists()) await dest.delete();
+        } catch (_) {}
+        return (
+          name: null,
+          error: 'That file could not be loaded here.',
+          note: null,
+        );
+      }
+      return (name: unique, error: null, note: load.note);
     }
-    return (name: name, error: null, note: load.note);
+    return (name: unique, error: null, note: null);
+  }
+
+  /// `<stem>-<6 hex of sha256>.mp3`. The digest is over the file bytes,
+  /// so the name doubles as identity: same bytes → same name → reuse;
+  /// any byte different → a new name → no collision, no overwrite. The
+  /// charset stays inside [_safeName]'s alphabet (letters, digits, `_`,
+  /// `.`, `-`), so the web list route and the desktop library enumerate
+  /// each other's files unchanged.
+  static String _uniqueName(String name, Uint8List bytes) {
+    final digest = sha256.convert(bytes).toString();
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final ext = dot > 0 ? name.substring(dot) : '.mp3';
+    return '$stem-${digest.substring(0, 6)}$ext';
   }
 
   /// [fileName] with anything outside the safe sound-name charset replaced

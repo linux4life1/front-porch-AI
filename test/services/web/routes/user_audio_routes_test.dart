@@ -137,7 +137,16 @@ void main() {
       ),
     );
     expect(ok.statusCode, 200);
-    expect(File(p.join(root.path, 'audio', 'ok.mp3')).existsSync(), isTrue);
+    // Stored under a content-addressed name (ok-<digest>.mp3), not the
+    // bare upload name, so a later same-named upload cannot clobber it.
+    final stored = File(p.join(root.path, 'audio', 'ok.mp3'));
+    final hashed = Directory(p.join(root.path, 'audio'))
+        .listSync()
+        .whereType<File>()
+        .where((f) => p.basename(f.path).startsWith('ok-'))
+        .toList();
+    expect(hashed, hasLength(1), reason: 'stored as ok-<digest>.mp3');
+    expect(stored.existsSync(), isFalse);
 
     final bad = await handle(
       shelf.Request(
@@ -147,6 +156,50 @@ void main() {
       ),
     );
     expect(bad.statusCode, 400);
-    expect(File(p.join(root.path, 'audio', 'bad.mp3')).existsSync(), isFalse);
+    expect(
+      Directory(p.join(root.path, 'audio')).listSync().whereType<File>().where(
+        (f) => p.basename(f.path).startsWith('bad-'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('uploads of one name with different bytes both survive', () async {
+    UserAudioStore.testLoadOverride = (path) async {};
+    Future<String> upload(String name, List<int> bytes) async {
+      final res = await handle(
+        shelf.Request(
+          'POST',
+          Uri.parse('http://localhost/api/worlds/audio?name=$name'),
+          body: Uint8List.fromList(bytes),
+        ),
+      );
+      expect(res.statusCode, 200);
+      final body = await res.readAsString();
+      final file = jsonDecode(body)['name'] as String;
+      expect(
+        File(p.join(root.path, 'audio', file)).existsSync(),
+        isTrue,
+        reason: 'the upload wrote its own file',
+      );
+      return file;
+    }
+
+    final first = await upload('rain.mp3', [
+      0xFF,
+      0xE0,
+      ...List<int>.generate(64, (i) => 50 + i),
+    ]);
+    final second = await upload('rain.mp3', [
+      0xFF,
+      0xE0,
+      ...List<int>.generate(72, (i) => 90 - i),
+    ]);
+    expect(second, isNot(first), reason: 'a different file keeps its own name');
+    expect(File(p.join(root.path, 'audio', first)).readAsBytesSync(), [
+      0xFF,
+      0xE0,
+      ...List<int>.generate(64, (i) => 50 + i),
+    ], reason: "the first place's sound is byte-identical");
   });
 }
