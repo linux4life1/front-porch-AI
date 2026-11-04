@@ -87,12 +87,26 @@ class _SceneSoundHostState extends State<SceneSoundHost>
   TtsService? _tts;
   bool _appShown = true;
   bool _minimised = false;
+  bool _focused = true;
+  bool _inRail = false;
+  Timer? _frameWatch;
+
+  /// A Stage Manager rail thumbnail or off-screen park at this size or
+  /// smaller. macOS composites the real window scaled down in the rail,
+  /// so it stays "visible" and the app stays active — only the frame
+  /// tells you the stage is out of sight. The chat surface is unusable
+  /// under this width, so a frame this small is never a working window.
+  static const double _kRailEdge = 400;
+  static const Duration _kFramePoll = Duration(seconds: 1);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    _frameWatch = Timer.periodic(_kFramePoll, (_) => _checkFrame());
+    _checkFrame();
+    unawaited(_syncFocus());
     _sync();
   }
 
@@ -120,6 +134,7 @@ class _SceneSoundHostState extends State<SceneSoundHost>
 
   @override
   void dispose() {
+    _frameWatch?.cancel();
     _tts?.removeListener(_onVoice);
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
@@ -135,15 +150,67 @@ class _SceneSoundHostState extends State<SceneSoundHost>
 
   void _onVoice() => _sound.speaking = _tts?.isSpeaking ?? false;
 
-  void _onVisibility() => _sound.visible = _appShown && !_minimised;
+  // Focus counts as off while no window of the app is key: Stage
+  // Manager parking the stage in the rail resigns key even while the
+  // app stays active and the menu bar still names it.
+  void _onVisibility() =>
+      _sound.visible = _appShown && !_minimised && _focused && !_inRail;
 
-  // Sound keeps playing in a window that is up but not focused, and while a
-  // reply is generated; only a hidden or minimised window holds it.
+  /// Focus at mount is assumed on (the chat page just came up); the
+  /// honest answer arrives on the first blur/focus event. Asking
+  /// window_manager directly is attempted once and ignored where the
+  /// plugin is absent (headless tests).
+  Future<void> _syncFocus() async {
+    try {
+      final focused = await windowManager.isFocused();
+      if (!mounted || focused == _focused) return;
+      _focused = focused;
+      _onVisibility();
+    } catch (_) {
+      // A runner without window_manager: events alone drive focus.
+    }
+  }
+
+  /// The frame check: Stage Manager parks the window as a rail thumbnail
+  /// (or off-screen) while keeping the app active and the window
+  /// nominally visible, so the frame size is the only tell that the
+  /// stage is out of sight. Runners without window_manager (headless
+  /// tests) simply never grow this reason to hold.
+  Future<void> _checkFrame() async {
+    bool? rail;
+    try {
+      final size = await windowManager.getSize();
+      rail = size.width < _kRailEdge || size.height < _kRailEdge * 0.6;
+    } catch (_) {
+      return;
+    }
+    if (!mounted || rail == _inRail) return;
+    _inRail = rail;
+    _onVisibility();
+  }
+
+  // The rule: play while the stage is actually in sight. Holds when the
+  // app goes to the background (Cmd-Tab, hidden, closed lid), when the
+  // window minimises, when Stage Manager parks the stage in its rail
+  // (that resigns key while the app stays active — the menu bar still
+  // names it, so lifecycle alone misses it), and when the frame check
+  // finds a thumbnail-sized or off-screen park. In-app dialogs and menus
+  // never resign key, so they keep the music.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _appShown =
-        state == AppLifecycleState.resumed ||
-        state == AppLifecycleState.inactive;
+    _appShown = state == AppLifecycleState.resumed;
+    _onVisibility();
+  }
+
+  @override
+  void onWindowFocus() {
+    _focused = true;
+    _onVisibility();
+  }
+
+  @override
+  void onWindowBlur() {
+    _focused = false;
     _onVisibility();
   }
 
