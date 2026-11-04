@@ -125,7 +125,11 @@ class PickerPrefs {
   static const String catExport = 'export';
 
   /// Folder pickers (data root, models folder, export destination…).
+
   static const String catDirectory = 'directory';
+
+  /// Custom scene-sound picks (Phase B: a user's own MP3 ambience).
+  static const String catAudio = 'audio';
 
   static String _key(String category) =>
       '${isPreRelease ? 'beta_' : ''}last_picker_dir_$category';

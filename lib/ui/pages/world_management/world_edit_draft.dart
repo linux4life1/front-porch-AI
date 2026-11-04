@@ -39,6 +39,10 @@ class WorldEditDraft {
       startParentWorldId = world?.parentWorldId,
       atmosphere = world?.atmosphere ?? WorldAtmosphere.breathable,
       gravity = world?.gravity ?? WorldGravity.earth,
+      ambienceEnabled =
+          world?.ambience != null || world?.customAmbience != null,
+      ambience = world?.ambience,
+      customAmbience = world?.customAmbience,
       editingEntries = world != null
           ? world.lorebook.entries.map((e) => e.clone()).toList()
           : <LorebookEntry>[],
@@ -71,6 +75,9 @@ class WorldEditDraft {
     startDescController.text,
     atmosphere.name,
     gravity.name,
+    ambienceEnabled,
+    ambience,
+    customAmbience,
     [for (final e in editingEntries) e.toJson()],
   ]);
 
@@ -123,6 +130,15 @@ class WorldEditDraft {
   // Place traits (standing facts; defaults are silent).
   WorldAtmosphere atmosphere;
   WorldGravity gravity;
+
+  /// Scene ambience: independent of climate, so it is editable for every
+  /// world including a place inside another. Off clears both references.
+  bool ambienceEnabled;
+  String? ambience;
+  String? customAmbience;
+  // Transient (not fingerprinted): whether the inline custom-sound
+  // library panel is expanded in the ambience section.
+  bool ambienceLibraryOpen = false;
   // Full clones -- the old 6-field copy stripped imported ST metadata
   // (secondary keys, probability, timers, ...) every time a world was
   // opened for editing and saved.

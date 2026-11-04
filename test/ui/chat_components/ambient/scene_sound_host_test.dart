@@ -124,6 +124,22 @@ void main() {
     window.onWindowRestore();
     expect(out.calls.last, 'resume');
 
+    // Backgrounded — Stage Manager or Cmd-Tab put another app in front:
+    // the room goes quiet even though the app is only inactive, and
+    // fades back when it comes forward.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    expect(out.calls.last, 'pause');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    expect(out.calls.last, 'resume');
+
+    // Stage Manager parked the stage but kept the app active (the app
+    // switcher or a plain window elsewhere holds the keys): blur holds,
+    // focus restores — active alone is not enough to play.
+    window.onWindowBlur();
+    expect(out.calls.last, 'pause');
+    window.onWindowFocus();
+    expect(out.calls.last, 'resume');
+
     // The chat closes: the players go.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

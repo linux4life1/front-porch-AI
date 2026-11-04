@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_sound.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.locations.dart';
 import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
 
@@ -63,6 +64,10 @@ Map<String, dynamic> worldSummaryJson(
   // Slice 5 (additive): "N places" chip and weather author for Stoop.
   'locationCount': locations.locationCount(w.id),
   'climateAuthorId': locations.climateAuthorId(w.id),
+
+  // Additive: the layered scene ambience, so the library list can show it.
+  if (w.ambience != null) 'ambience': w.ambience,
+  if (w.customAmbience != null) 'customAmbience': w.customAmbience,
   // Additive: the starred place an attach-as-Setting lands on.
   'defaultPlaceId': locations.startingPlaceId(w.id),
 };
@@ -89,8 +94,21 @@ Map<String, dynamic> worldDetailJson(
   'entries': lorebookEntriesToJson(w.lorebook),
   if (w.climateEnabled) 'atmosphere': w.atmosphere.name,
   if (w.climateEnabled) 'gravity': w.gravity.name,
+  // Additive: the layered scene ambience and the picker's options, so the
+  // PWA world editor shows the same switch/section as the desktop.
+  if (w.ambience != null) 'ambience': w.ambience,
+  if (w.customAmbience != null) 'customAmbience': w.customAmbience,
+  'ambienceOptions': [
+    for (final p in ScenePlaceLoop.values)
+      {
+        'id': p.file,
+        'label': p.label,
+        'description': kScenePlaceLoopFeel[p.file] ?? '',
+      },
+  ],
   // Slice 4 web twin: the editor preselects "Part of" and shows the
   // inherit-or-own radios from this. Additive.
+
   'parentWorldId': w.parentWorldId,
   // Slice 5 (additive): same keys as the list rows.
   'locationCount': locations.locationCount(w.id),

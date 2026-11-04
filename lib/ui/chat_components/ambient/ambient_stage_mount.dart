@@ -45,16 +45,23 @@ class AmbientStageMount extends StatelessWidget {
     return Selector2<
       ChatService,
       StorageService,
-      (SceneTokens?, bool generating, bool sound, double volume)
+      (
+        SceneTokens?,
+        bool generating,
+        bool sound,
+        double volume,
+        String? rootPath,
+      )
     >(
       selector: (_, chat, storage) => (
         sceneTokensFor(chat),
         chat.isGenerating || chat.isSettlingTurn,
         storage.appearance.sceneSound,
         storage.appearance.sceneSoundVolume,
+        storage.rootPath,
       ),
       builder: (context, scene, _) {
-        final (tokens, generating, sound, volume) = scene;
+        final (tokens, generating, sound, volume, rootPath) = scene;
         if (tokens == null) return const SizedBox.shrink();
         return Positioned.fill(
           child: IgnorePointer(
@@ -62,6 +69,7 @@ class AmbientStageMount extends StatelessWidget {
               tokens: tokens,
               enabled: sound,
               volume: volume,
+              rootPath: rootPath,
               builder: (context, onFlash) => AmbientStage(
                 tokens: tokens,
                 animated:

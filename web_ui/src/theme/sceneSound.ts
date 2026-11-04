@@ -80,7 +80,18 @@ export function rampAt(from: number, to: number, elapsedMs: number): number {
 }
 
 /** What the chat state's `scene` says to play, or null when it says nothing. */
-export interface SceneSoundState { on: boolean; volume: number; condition: string; daypart: string }
+export interface SceneSoundState {
+  on: boolean;
+  volume: number;
+  condition: string;
+  daypart: string;
+  /** The resolved base loop name (bundled), or null for none. */
+  base?: string | null;
+  /** The resolved weather overlay loop name (bundled), or null for none. */
+  overlay?: string | null;
+  /** The app-served URL for a custom user base file, or null for none. */
+  baseUrl?: string | null;
+}
 
 export function parseSceneSound(scene: unknown): SceneSoundState | null {
   if (!scene || typeof scene !== 'object') return null;
@@ -89,7 +100,10 @@ export function parseSceneSound(scene: unknown): SceneSoundState | null {
   const s = w.sound as Record<string, unknown> | undefined;
   if (!s || typeof s !== 'object') return null;
   const volume = typeof s.volume === 'number' && Number.isFinite(s.volume) ? clamp(s.volume, 0, 1) : 0.5;
-  return { on: s.on === true, volume, condition: w.condition, daypart: w.daypart };
+  const base = typeof s.base === 'string' ? s.base : null;
+  const overlay = typeof s.overlay === 'string' ? s.overlay : null;
+  const baseUrl = typeof s.baseUrl === 'string' ? s.baseUrl : null;
+  return { on: s.on === true, volume, condition: w.condition, daypart: w.daypart, base, overlay, baseUrl };
 }
 
 /** The bits of an <audio> element the player uses, so tests can hand in a fake. */
@@ -115,11 +129,15 @@ export class SceneSoundPlayer {
   private readonly makeAudio: (src: string) => AudioLike;
   private readonly onBlocked?: (blocked: boolean) => void;
   private loop: string | null = null;
+  private overlay: string | null = null;
+  private baseUrl: string | null = null;
   private volume = 0.5;
   private storm = false;
   private speaking = false;
   private current: Voice | null = null;
+  private overlayCurrent: Voice | null = null;
   private fading: Voice[] = [];
+
   private readonly thunders = new Set<ReturnType<typeof setTimeout>>();
   /** The three thunders, made (and so fetched) when a storm starts, so a rumble never waits on the network. */
   private thunderEls = new Map<string, AudioLike>();
@@ -138,11 +156,13 @@ export class SceneSoundPlayer {
   }
 
   /** The loop name (null for none: sound off, no scene, a quiet sky), the volume, and whether a storm may thunder. */
-  update(next: { loop: string | null; volume: number; storm: boolean }): void {
+  update(next: { loop: string | null; volume: number; storm: boolean; overlay?: string | null; baseUrl?: string | null }): void {
     this.loop = next.loop;
+    this.overlay = next.overlay ?? null;
+    this.baseUrl = next.baseUrl ?? null;
     this.volume = next.volume;
     this.storm = next.storm;
-    if (this.storm && this.loop !== null) this.readyThunder();
+    if (this.storm && (this.loop !== null || this.overlay !== null || this.baseUrl !== null)) this.readyThunder();
     else this.dropThunder();
     this.reconcile();
   }
@@ -181,9 +201,11 @@ export class SceneSoundPlayer {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.stopWaitingForTap();
     this.dropThunder();
-    for (const v of [...this.fading, ...(this.current ? [this.current] : [])]) this.drop(v);
+    for (const v of [...this.fading, ...(this.current ? [this.current] : []), ...(this.overlayCurrent ? [this.overlayCurrent] : [])]) this.drop(v);
     this.fading = [];
     this.current = null;
+    this.overlayCurrent = null;
+
   }
 
   private get visible(): boolean {
@@ -191,7 +213,7 @@ export class SceneSoundPlayer {
   }
 
   private get thunderAllowed(): boolean {
-    return !this.disposed && this.storm && this.loop !== null && this.visible;
+    return !this.disposed && this.storm && (this.loop !== null || this.overlay !== null || this.baseUrl !== null) && this.visible;
   }
 
   private readonly onVisibility = () => {
@@ -205,22 +227,31 @@ export class SceneSoundPlayer {
       // Hidden: everything holds where it is, silent; a wanted loop resumes on return.
       for (const v of this.fading) this.drop(v);
       this.fading = [];
-      const cur = this.current;
-      if (cur) {
-        this.stopRamp(cur);
-        cur.el.pause();
-        cur.held = true;
-        cur.gain = 0;
-        cur.el.volume = 0;
-        if (this.loop !== cur.name) {
-          this.drop(cur);
-          this.current = null;
-        }
-      }
+      this.holdChannel(this.current, this.loop ?? this.baseUrl, 'current');
+      this.holdChannel(this.overlayCurrent, this.overlay, 'overlay');
       return;
     }
-    if (this.current?.name !== this.loop) {
-      const old = this.current;
+    this.reconcileChannel(this.current, this.loop ?? this.baseUrl, 'current');
+    this.reconcileChannel(this.overlayCurrent, this.overlay, 'overlay');
+  }
+
+  private holdChannel(cur: Voice | null, wantName: string | null, slot: 'current' | 'overlay'): void {
+    if (!cur) return;
+    this.stopRamp(cur);
+    cur.el.pause();
+    cur.held = true;
+    cur.gain = 0;
+    cur.el.volume = 0;
+    if (wantName !== cur.name) {
+      this.drop(cur);
+      if (slot === 'current') this.current = null;
+      else this.overlayCurrent = null;
+    }
+  }
+
+  private reconcileChannel(cur: Voice | null, wantName: string | null, slot: 'current' | 'overlay'): void {
+    if (cur?.name !== wantName) {
+      const old = cur;
       if (old) {
         this.fading.push(old);
         this.ramp(old, 0, () => {
@@ -228,21 +259,30 @@ export class SceneSoundPlayer {
           this.drop(old);
         });
       }
-      this.current = null;
-      if (this.loop) this.current = this.start(this.loop);
+      if (slot === 'current') this.current = null;
+      else this.overlayCurrent = null;
+      if (wantName) {
+        const next = this.start(wantName);
+        if (slot === 'current') this.current = next;
+        else this.overlayCurrent = next;
+      }
     }
-    const cur = this.current;
-    if (!cur) return;
-    if (cur.held) {
+    const channel = slot === 'current' ? this.current : this.overlayCurrent;
+    if (!channel) return;
+    if (channel.held) {
       // Back from a hidden tab: carry on from where it paused.
-      cur.held = false;
-      this.play(cur);
+      channel.held = false;
+      this.play(channel);
     }
-    if (!this.blocked) this.ramp(cur, loopGain(this.volume, this.speaking));
+    if (!this.blocked) this.ramp(channel, loopGain(this.volume, this.speaking));
   }
 
   private start(name: string): Voice {
-    const el = this.makeAudio(sceneSoundSrc(name));
+    const el = this.makeAudio(
+      name.startsWith('http') || name.startsWith('/')
+        ? name
+        : sceneSoundSrc(name),
+    );
     el.loop = true;
     el.volume = 0;
     const voice: Voice = { name, el, gain: 0, timer: null, held: false };
@@ -260,7 +300,7 @@ export class SceneSoundPlayer {
         }
       },
       (e: unknown) => {
-        if (this.disposed || voice !== this.current) return;
+        if (this.disposed || (voice !== this.current && voice !== this.overlayCurrent)) return;
         if (e instanceof DOMException && e.name === 'NotAllowedError') {
           // The browser wants a tap first: wait for one, then try again.
           if (!this.blocked) {
@@ -293,7 +333,10 @@ export class SceneSoundPlayer {
   private readonly onTap = () => {
     this.stopWaitingForTap();
     const cur = this.current;
+    const overlay = this.overlayCurrent;
     if (cur && this.visible) this.play(cur);
+    if (overlay && this.visible) this.play(overlay);
+
   };
 
   /** Moves a voice's level to `to` at RAMP_FULL_MS for a full swing, then runs `then`. */

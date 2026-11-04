@@ -42,6 +42,15 @@ Map<String, Object>? sceneWireFor(ChatService chat) {
     'sound': sceneSoundWire(
       on: chat.appearance.sceneSound,
       volume: chat.appearance.sceneSoundVolume,
+      base: dark.base?.kind == SceneSoundSourceKind.bundled
+          ? dark.base!.file
+          : null,
+      overlay: dark.overlay?.kind == SceneSoundSourceKind.bundled
+          ? dark.overlay!.file
+          : null,
+      baseUrl: dark.base?.kind == SceneSoundSourceKind.device
+          ? '/api/user/audio/${dark.base!.file}'
+          : null,
     ),
   };
 }
@@ -64,18 +73,35 @@ SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
   final clock = chat.timeService.clock;
   final minute = sceneMinuteOf(clock);
   final moonPhase = moonPhaseFor(clock);
-  return (dark) => SceneGate.resolve(
-    level: appearance.ambientScene,
-    theme: appearance.theme,
-    day: segment?.day,
-    segment: segment,
+  // The layered ambience is resolved ONCE here, from the chat's Setting
+  // slot only (never a Lore slot): the same answer the desktop plays and
+  // the web wire sends. A place with no ambience keeps the weather-only
+  // path byte-for-byte.
+  final primaryId = chat.chatPrimaryWorldId;
+  final settingWorld = primaryId == null || primaryId.isEmpty
+      ? null
+      : chat.realism.deps.services.worlds.worldById(primaryId);
+  final ambience = sceneAmbienceFor(
+    condition: segment?.condition.name ?? '',
     daypart: daypart,
-    dark: dark,
-    minute: minute,
-    moonPhase: moonPhase,
-    // currentWeather is null without a session, so '' never paints.
-    sessionSeed: sessionSeed,
-    dayCount: dayCount,
-    pauseWhileGenerating: appearance.pauseEffectsWhileGenerating,
+    placePreset: settingWorld?.ambience,
+    customFile: settingWorld?.customAmbience,
   );
+  return (dark) {
+    final scene = SceneGate.resolve(
+      level: appearance.ambientScene,
+      theme: appearance.theme,
+      day: segment?.day,
+      segment: segment,
+      daypart: daypart,
+      dark: dark,
+      minute: minute,
+      moonPhase: moonPhase,
+      sessionSeed: sessionSeed,
+      dayCount: dayCount,
+      pauseWhileGenerating: appearance.pauseEffectsWhileGenerating,
+    );
+    if (scene == null) return null;
+    return scene.withAmbience(ambience.base, ambience.overlay);
+  };
 }

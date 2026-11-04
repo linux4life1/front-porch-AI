@@ -13,11 +13,11 @@ import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/world_injection.dart';
 
 World _world({String desc = 'A red desert.', bool inject = true}) => World(
-      name: 'Mars',
-      description: desc,
-      lorebook: Lorebook(entries: []),
-      injectDescription: inject,
-    );
+  name: 'Mars',
+  description: desc,
+  lorebook: Lorebook(entries: []),
+  injectDescription: inject,
+);
 
 void main() {
   group('World place traits model', () {
@@ -84,13 +84,15 @@ void main() {
       expect(out, contains('hostile'));
     });
 
-    test('under budget pressure the description truncates, traits survive',
-        () {
+    test('under budget pressure the description truncates, traits survive', () {
       final w = _world(desc: 'x' * (kWorldInjectionMaxChars + 200))
         ..atmosphere = WorldAtmosphere.unbreathable;
       final out = buildWorldInjection([_world(desc: 'y' * 100), w]);
-      expect(out, contains('airlock'),
-          reason: 'behavior beats flavor under the cap');
+      expect(
+        out,
+        contains('airlock'),
+        reason: 'behavior beats flavor under the cap',
+      );
       expect(out.length, lessThan(kWorldInjectionMaxChars + 200));
     });
 
@@ -111,6 +113,33 @@ void main() {
     test('trait-less envelope omits the key (older readers unchanged)', () {
       final envelope = encodeFpWorld(world: _world(), biome: null);
       expect(envelope.containsKey('place_traits'), isFalse);
+    });
+    test('a climate-off place keeps its ambience on an export round-trip', () {
+      final w = _world()
+        ..climateEnabled = false
+        ..ambience = 'forest';
+      final envelope = encodeFpWorld(world: w, biome: null);
+      expect(envelope['ambience'], 'forest');
+      expect(envelope.containsKey('place_traits'), isFalse);
+      final decoded = decodeFpWorld(envelope);
+      expect(decoded.world.climateEnabled, isFalse);
+      expect(decoded.world.ambience, 'forest');
+    });
+
+    test('a custom ambience file never rides an export', () {
+      final w = _world()
+        ..climateEnabled = true
+        ..ambience = 'forest'
+        ..customAmbience = 'my_room.mp3';
+      final envelope = encodeFpWorld(world: w, biome: null);
+      expect(envelope['ambience'], 'forest');
+      expect(
+        (envelope['place_traits'] as Map).containsKey('customAmbience'),
+        isFalse,
+      );
+      final decoded = decodeFpWorld(envelope);
+      expect(decoded.world.customAmbience, isNull);
+      expect(decoded.world.ambience, 'forest');
     });
   });
 

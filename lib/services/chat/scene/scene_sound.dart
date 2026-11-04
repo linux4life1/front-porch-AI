@@ -39,6 +39,32 @@ enum SceneLoop {
   final String file;
 }
 
+/// A bundled per-place ambience loop (the "room you are in"). These are new
+/// files, not the weather/time-of-day set: a place sound replaces the
+/// clear-sky birds/crickets at every time of day.
+enum ScenePlaceLoop {
+  forest('forest', 'Forest clearing'),
+  shore('shore', 'Seaside shore'),
+  cave('cave', 'Cave / cavern'),
+  village('village', 'Village street');
+
+  const ScenePlaceLoop(this.file, this.label);
+
+  /// The file's base name under `assets/audio/scene/`.
+  final String file;
+
+  /// What the author sees in the world menu's ambience picker.
+  final String label;
+}
+
+/// What a place loop sounds like, for the world menu's preview box.
+const Map<String, String> kScenePlaceLoopFeel = {
+  'forest': 'Wind in the pines, distant birdsong, a cool creek.',
+  'shore': 'Waves on the shore and gull calls over them.',
+  'cave': 'Low echoes and slow drips off the stone.',
+  'village': 'Footsteps, voices and the rhythm of everyday work.',
+};
+
 /// The bundled format: MP3, the one compressed format every desktop's
 /// audioplayers backend and every browser plays.
 const String kSceneSoundExt = 'mp3';
@@ -46,12 +72,75 @@ const String kSceneSoundExt = 'mp3';
 /// The asset path audioplayers' `AssetSource` takes (it adds `assets/`).
 String sceneSoundAsset(String file) => 'audio/scene/$file.$kSceneSoundExt';
 
+/// Where a scene sound comes from: a bundled asset, a user's device file
+/// under the data root, or a URL the web player fetches. Bundled names go
+/// through [sceneSoundAsset]; device files and URLs never do.
+enum SceneSoundSourceKind { bundled, device, url }
+
+class SceneSoundSource {
+  const SceneSoundSource.bundled(this.file)
+    : kind = SceneSoundSourceKind.bundled;
+
+  const SceneSoundSource.device(this.file) : kind = SceneSoundSourceKind.device;
+
+  const SceneSoundSource.url(this.file) : kind = SceneSoundSourceKind.url;
+
+  final SceneSoundSourceKind kind;
+  final String file;
+
+  /// The bundled loop this source names, or null for a device/URL source.
+  SceneLoop? get bundledLoop {
+    if (kind != SceneSoundSourceKind.bundled) return null;
+    for (final l in SceneLoop.values) {
+      if (l.file == file) return l;
+    }
+    return null;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SceneSoundSource && other.kind == kind && other.file == file;
+
+  @override
+  int get hashCode => Object.hash(kind, file);
+}
+
+/// The string the desktop output's `loop(String? asset)` receives: bundled
+/// assets keep their `audio/scene/` path, device files and URLs keep their
+/// own source so the output can pick `AssetSource` / `DeviceFileSource` /
+/// `UrlSource` instead of routing a user file through [sceneSoundAsset].
+String? sceneSoundSourcePath(SceneSoundSource source) => switch (source.kind) {
+  SceneSoundSourceKind.bundled => sceneSoundAsset(source.file),
+  SceneSoundSourceKind.device || SceneSoundSourceKind.url => source.file,
+};
+
+/// A bundled place loop by its preset id, or null for an unknown/empty id.
+ScenePlaceLoop? scenePlaceLoopFor(String? presetId) {
+  if (presetId == null || presetId.isEmpty) return null;
+  for (final p in ScenePlaceLoop.values) {
+    if (p.file == presetId) return p;
+  }
+  return null;
+}
+
 /// The scene wire's `sound`: Appearance → Scene sound and its volume, for
-/// the web chat page. Additive; an older PWA ignores it.
+/// the web chat page. Additive; an older PWA ignores it. The layered
+/// resolver's resolved loops ride here too: `base` (bundled file base name
+/// or null), `overlay` (bundled file base name or null), and `baseUrl` only
+/// when the base is a custom user file served by the app.
 Map<String, Object> sceneSoundWire({
   required bool on,
   required double volume,
-}) => {'on': on, 'volume': volume.isNaN ? 0.0 : volume.clamp(0.0, 1.0)};
+  String? base,
+  String? overlay,
+  String? baseUrl,
+}) => {
+  'on': on,
+  'volume': volume.isNaN ? 0.0 : volume.clamp(0.0, 1.0),
+  if (base != null && base.isNotEmpty) 'base': base,
+  if (overlay != null && overlay.isNotEmpty) 'overlay': overlay,
+  if (baseUrl != null && baseUrl.isNotEmpty) 'baseUrl': baseUrl,
+};
 
 /// The thunder one-shots, by file base name.
 const List<String> kSceneThunder = ['thunder_1', 'thunder_2', 'thunder_3'];
@@ -79,6 +168,48 @@ SceneLoop? sceneLoopFor({required String condition, required String daypart}) =>
       'clear' when kSceneNightparts.contains(daypart) => SceneLoop.crickets,
       _ => null,
     };
+
+/// The layered ambience for one scene: the place's identity loop as `base`
+/// and the weather overlay on top of it as `overlay`. A place without an
+/// assigned sound falls back to the existing weather-only loop byte-for-byte;
+/// a place with a sound keeps it at every time of day (the clear-sky
+/// birds/crickets are replaced). Precipitation/storm/fog adds the weather
+/// loop over the place; a quiet sky plays the place loop alone. A custom
+/// user file is the base loop exactly like a bundled place sound.
+({SceneSoundSource? base, SceneSoundSource? overlay}) sceneAmbienceFor({
+  required String condition,
+  required String daypart,
+  String? placePreset,
+  String? customFile,
+}) {
+  final weather = sceneLoopFor(condition: condition, daypart: daypart);
+  final place = customFile == null || customFile.isEmpty
+      ? scenePlaceLoopFor(placePreset)
+      : null;
+  final SceneSoundSource? base;
+  final SceneSoundSource? overlay;
+  if (place != null) {
+    base = SceneSoundSource.bundled(place.file);
+    overlay =
+        weather == null ||
+            weather == SceneLoop.birds ||
+            weather == SceneLoop.crickets
+        ? null
+        : SceneSoundSource.bundled(weather.file);
+  } else if (customFile != null && customFile.isNotEmpty) {
+    base = SceneSoundSource.device(customFile);
+    overlay =
+        weather == null ||
+            weather == SceneLoop.birds ||
+            weather == SceneLoop.crickets
+        ? null
+        : SceneSoundSource.bundled(weather.file);
+  } else {
+    base = weather == null ? null : SceneSoundSource.bundled(weather.file);
+    overlay = null;
+  }
+  return (base: base, overlay: overlay);
+}
 
 /// The flash-to-rumble gap's bounds, in seconds. The stage's sim draws the
 /// gap from the scene's seeded generator (`SceneFlash.rumbleDelay`); the

@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/web/middleware/cors_middleware.dart';
 import 'package:front_porch_ai/services/web/middleware/gzip_middleware.dart';
 import 'package:front_porch_ai/services/web/middleware/security_headers.dart';
 import 'package:front_porch_ai/services/web/routes/routes.dart';
+import 'package:front_porch_ai/services/web/routes/user_audio_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -126,7 +127,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
   if (deps.tunnelManager != null) {
     WebRemoteRoutes(deps, deps.tunnelManager!, router);
   }
-
+  UserAudioRoutes(deps, router);
   return shelf.Pipeline()
       .addMiddleware(const CorsMiddleware().middleware)
       .addMiddleware(SecurityHeaders(deps).middleware)

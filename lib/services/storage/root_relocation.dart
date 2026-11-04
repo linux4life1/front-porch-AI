@@ -36,6 +36,7 @@ const kRootDirsToMove = [
   'koboldcpp_bin',
   'groups',
   'custom_backgrounds',
+  'audio',
   'ImageBatches',
 ];
 

@@ -160,6 +160,58 @@
   overflow-anchor: none;
 }
 .note-input { resize: vertical; }
+
+/* Inline custom-sound drawer in the ambience section. It is a panel, not
+   a modal: the world editor is already a dialog, so the library expands
+   in place and inherits the form's own surface and border tokens. The
+   list caps and scrolls — a big library never eats the editor. */
+.wsg-audio-panel {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2, color-mix(in srgb, var(--accent) 5%, transparent));
+  display: flex;
+  flex-direction: column;
+}
+.wsg-audio-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-bottom: 6px;
+}
+.wsg-audio-title {
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.wsg-audio-import {
+  font-size: 0.8rem; font-weight: 600; color: var(--accent); cursor: pointer;
+}
+.wsg-audio-import input { display: none; }
+.wsg-audio-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 260px; overflow-y: auto;
+}
+.wsg-audio-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 8px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  font-size: 0.85rem;
+}
+.wsg-audio-row:hover { border-color: var(--accent); }
+.wsg-audio-row.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.wsg-audio-play {
+  border: none; background: transparent; color: var(--muted);
+  cursor: pointer; font-size: 0.8rem; padding: 2px 4px;
+}
+.wsg-audio-play:hover { color: var(--accent); }
+.wsg-audio-name {
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 600;
+}
+.wsg-audio-check { color: var(--accent); font-weight: 700; }
+.wsg-audio-done { align-self: flex-end; margin-top: 6px; }
 .summary-recap-view {
   width: 100%;
   padding: 10px;

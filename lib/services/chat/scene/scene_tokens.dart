@@ -23,6 +23,7 @@ import 'package:front_porch_ai/ui/theme/web_theme_tokens.dart';
 import '../story_clock.dart';
 import '../weather_engine.dart';
 import 'scene_effects.dart';
+import 'scene_sound.dart';
 import 'scene_sky.dart';
 
 /// One translucent layer the stage paints, in paint order.
@@ -59,6 +60,8 @@ class SceneTokens {
     this.effects = SceneEffectSpec.none,
     this.pauseWhileGenerating = true,
     this.sky,
+    this.base,
+    this.overlay,
   });
 
   /// The story clock's period key, the condition and band names.
@@ -93,6 +96,31 @@ class SceneTokens {
   /// The story-clock sky over the tint and under the weather, or null for
   /// a scene resolved without a clock (the stage then paints no sky).
   final SceneSky? sky;
+
+  /// The layered ambience the resolver chose: the place's identity loop as
+  /// `base` and the weather overlay on top of it as `overlay`. Null when the
+  /// scene has no sound (sound off, a quiet sky, or no place layer).
+  final SceneSoundSource? base;
+  final SceneSoundSource? overlay;
+
+  /// The same scene with the layered ambience sources set, for `_sceneOf`.
+  /// The stage and the wire both read the one resolver's answer.
+  SceneTokens withAmbience(SceneSoundSource? base, SceneSoundSource? overlay) =>
+      SceneTokens(
+        daypart: daypart,
+        condition: condition,
+        temp: temp,
+        layers: layers,
+        haze: haze,
+        dark: dark,
+        level: level,
+        seed: seed,
+        effects: effects,
+        pauseWhileGenerating: pauseWhileGenerating,
+        sky: sky,
+        base: base,
+        overlay: overlay,
+      );
 
   /// The colours the moving weather paints in, for this brightness.
   SceneEffectPaints get paints =>
@@ -206,6 +234,8 @@ class SceneTokens {
       other.effects == effects &&
       other.pauseWhileGenerating == pauseWhileGenerating &&
       other.sky == sky &&
+      other.base == base &&
+      other.overlay == overlay &&
       _sameLayers(other.layers, layers);
 
   static bool _sameLayers(List<SceneLayer> a, List<SceneLayer> b) {
@@ -228,6 +258,8 @@ class SceneTokens {
     seed,
     effects,
     sky,
+    base,
+    overlay,
   );
 }
 

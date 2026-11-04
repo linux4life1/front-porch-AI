@@ -112,6 +112,7 @@ class StorageService extends ChangeNotifier {
       directories.characterBaseDir(characterName);
 
   Directory get customBackgroundDir => directories.customBackgroundDir;
+  Directory get audioDir => directories.audioDir;
 
   /// Cache directory for downscaled web-UI avatar thumbnails (derived data).
   Directory get webThumbnailCacheDir => directories.webThumbnailCacheDir;
@@ -217,6 +218,7 @@ class StorageService extends ChangeNotifier {
       charactersDir,
       groupsDir,
       customBackgroundDir,
+      audioDir,
       toolsDir,
       skillsDir,
     ]) {
@@ -458,6 +460,7 @@ class StorageService extends ChangeNotifier {
     await charactersDir.create(recursive: true);
     await groupsDir.create(recursive: true);
     await customBackgroundDir.create(recursive: true);
+    await audioDir.create(recursive: true);
 
     if (oldRoot != null) {
       await repointCustomBackgroundsAfterRootMove(

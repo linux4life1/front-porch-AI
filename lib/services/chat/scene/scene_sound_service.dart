@@ -19,6 +19,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:path/path.dart' as p;
 
 import 'scene_effects_sim.dart';
 import 'scene_sound.dart';
@@ -27,7 +28,7 @@ import 'scene_tokens.dart';
 /// Where the scene sound goes: one looping player and one for one-shots,
 /// the way the story reader plays its ambience and page turn. The app's is
 /// `AudioplayersSceneSoundOutput`; tests hand in a fake. Paths are
-/// audioplayers asset paths ([sceneSoundAsset]).
+/// audioplayers asset paths ([sceneSoundAsset]) or a user device file.
 abstract interface class SceneSoundOutput {
   /// Starts [asset] looping from its start at [volume], replacing whatever
   /// loop was playing; null stops the loop.
@@ -53,37 +54,222 @@ typedef SceneSoundTimer = Timer Function(Duration after, void Function() run);
 typedef SceneSoundTicker =
     Timer Function(Duration every, void Function(Timer timer) tick);
 
+/// One loop channel of the layered ambience: its own player, its own ramp,
+/// pause and failure state. The service holds two — the place identity loop
+/// (`base`) and the weather overlay on top of it (`overlay`) — and the
+/// shared duck/visibility/thunder state stays on the service.
+class _SceneSoundChannel {
+  _SceneSoundChannel(this.makeOutput, this.ticker, this.audioRootPath);
+
+  final SceneSoundOutput Function() makeOutput;
+  final SceneSoundTicker ticker;
+  final String? audioRootPath;
+
+  /// Runs after a swap settles, so the service re-reconciles and the new
+  /// loop fades up from silence to the target. The old single-channel
+  /// `_swap` ended with `_reconcile()`; without this the loop would load
+  /// at volume 0 and stay there.
+  void Function()? onSettled;
+  SceneSoundOutput? _out;
+
+  SceneSoundSource? current;
+  double gain = 0;
+  bool paused = false;
+  bool switching = false;
+  Timer? ramp;
+  SceneLoop? failedLoop;
+  SceneSoundSource? failed;
+  bool disposed = false;
+
+  SceneSoundOutput output() => _out ??= makeOutput();
+
+  void _guard(Future<void> f, String what) {
+    unawaited(
+      f.catchError((Object e, StackTrace st) {
+        debugPrint('SceneSound: could not $what: $e\n$st');
+      }),
+    );
+  }
+
+  void reconcile({
+    required SceneSoundSource? want,
+    required double target,
+    required bool visible,
+  }) {
+    if (disposed || switching) return;
+    final asked = want;
+    final ask = asked == failed ? null : asked;
+    if (!visible) {
+      // A loop nobody wants goes now; one that is wanted waits, held.
+      if (ask == null && current != null) {
+        unawaited(swap(null));
+      } else {
+        hold();
+      }
+      return;
+    }
+    if (paused && ask == current) {
+      paused = false;
+      _guard(output().resumeLoop(), 'resume the loop');
+    }
+    if (ask != current) {
+      paused = false;
+      if (current == null || gain <= 0) {
+        unawaited(swap(ask));
+      } else {
+        rampTo(0, then: () => unawaited(swap(ask)));
+      }
+      return;
+    }
+    if (current != null) rampTo(target);
+  }
+
+  void hold() {
+    ramp?.cancel();
+    ramp = null;
+    if (current == null || paused) return;
+    paused = true;
+    setGain(0);
+    _guard(output().pauseLoop(), 'pause the loop');
+  }
+
+  /// Loads [next] at silence (or stops the loop for null), then fades up.
+  Future<void> swap(SceneSoundSource? next) async {
+    ramp?.cancel();
+    ramp = null;
+    switching = true;
+    var started = next;
+    try {
+      await output().loop(next == null ? null : _pathFor(next), 0);
+    } catch (e, st) {
+      // Logged once: the failed loop is remembered and not asked for again.
+      debugPrint(
+        'SceneSound: could not start ${next?.file ?? 'silence'}: '
+        '$e\n$st',
+      );
+      if (next != null) {
+        failed = next;
+        failedLoop = next.bundledLoop;
+        started = null;
+      }
+    }
+    current = started;
+    gain = 0;
+    paused = false;
+    switching = false;
+    onSettled?.call();
+  }
+
+  /// Moves the loop's volume to [to] at [kSceneRampFull] for a full swing,
+  /// one [kSceneRampStep] at a time, then runs [then].
+  void rampTo(double to, {void Function()? then}) {
+    ramp?.cancel();
+    ramp = null;
+    final from = gain;
+    final length = sceneRampLength(from, to);
+    if (length < kSceneRampStep) {
+      if (from != to) setGain(to);
+      then?.call();
+      return;
+    }
+    var elapsed = Duration.zero;
+    ramp = ticker(kSceneRampStep, (timer) {
+      elapsed += kSceneRampStep;
+      setGain(sceneRampAt(from: from, to: to, elapsed: elapsed));
+      if (elapsed >= length) {
+        timer.cancel();
+        if (identical(ramp, timer)) ramp = null;
+        then?.call();
+      }
+    });
+  }
+
+  void setGain(double value) {
+    gain = value;
+    _guard(output().setLoopVolume(value), 'set the loop volume');
+  }
+
+  /// The path the output receives: bundled assets keep their `audio/scene/`
+  /// path, URLs keep theirs, and a device file's bare name is resolved
+  /// against the live `$rootPath/audio/` at play time.
+  String? _pathFor(SceneSoundSource? source) {
+    if (source == null) return null;
+    if (source.kind == SceneSoundSourceKind.device &&
+        audioRootPath != null &&
+        audioRootPath!.isNotEmpty) {
+      return p.join(audioRootPath!, 'audio', source.file);
+    }
+    return sceneSoundSourcePath(source);
+  }
+
+  Future<void> dispose() async {
+    if (disposed) return;
+    disposed = true;
+    ramp?.cancel();
+    ramp = null;
+    final out = _out;
+    _out = null;
+    if (out == null) return;
+    try {
+      await out.dispose();
+    } catch (e, st) {
+      debugPrint('SceneSound: could not release the players: $e\n$st');
+    }
+  }
+}
+
 /// Plays the Ambient Stage's scene sound from the scene the stage paints
 /// (`docs/design/ambient-stage.md` §5). Plain Dart: the chat page's
 /// `SceneSoundHost` feeds it the scene, the Scene sound setting, whether a
 /// voice is speaking, whether the window can be seen, and the stage's
 /// flashes; it decides what plays and how loud.
 ///
-/// - The loop follows (condition, daypart) through [sceneLoopFor]; a change
-///   of loop fades the old one out and the new one in on the one player.
+/// - The base loop follows the layered resolver's answer on the tokens
+///   (`base` = the place's identity loop or the weather-only fallback,
+///   `overlay` = the weather loop over a place). A change of loop fades the
+///   old one out and the new one in on that channel's player.
 /// - Nothing plays with Scene sound off or without a scene (Ambient scene
 ///   Off, or no weather), and nothing while the window is hidden or
 ///   minimised; generating does not stop it.
 /// - A storm's flash is answered by one of three thunders after the
 ///   flash's own seeded gap ([thunderDelayFor], [thunderFor]).
-/// - While a voice speaks the loop ramps down to [kSceneDuck] of its
+/// - While a voice speaks both channels ramp down to [kSceneDuck] of their
 ///   volume and back up after.
 ///
 /// The player is made the first time something has to play, so a chat with
-/// Scene sound off never creates one.
+/// Scene sound off never creates one. The overlay runs on a second
+/// [SceneSoundOutput] instance when [overlayOutput] is given; the interface
+/// itself is unchanged, so existing fakes keep working.
 class SceneSoundService {
   SceneSoundService({
     required SceneSoundOutput Function() output,
+    SceneSoundOutput Function()? overlayOutput,
     SceneSoundTimer? timer,
     SceneSoundTicker? ticker,
-  }) : _makeOutput = output,
-       _timer = timer ?? Timer.new,
-       _ticker = ticker ?? Timer.periodic;
+    String? audioRootPath,
+  }) : _timer = timer ?? Timer.new,
+       _base = _SceneSoundChannel(
+         output,
+         ticker ?? Timer.periodic,
+         audioRootPath,
+       ),
+       _overlay = overlayOutput == null
+           ? null
+           : _SceneSoundChannel(
+               overlayOutput,
+               ticker ?? Timer.periodic,
+               audioRootPath,
+             ) {
+    // The old single-channel `_swap` ended with `_reconcile()`; each
+    // channel now calls back so a fresh loop fades up from silence.
+    _base.onSettled = _reconcile;
+    _overlay?.onSettled = _reconcile;
+  }
 
-  final SceneSoundOutput Function() _makeOutput;
   final SceneSoundTimer _timer;
-  final SceneSoundTicker _ticker;
-  SceneSoundOutput? _out;
+  final _SceneSoundChannel _base;
+
+  final _SceneSoundChannel? _overlay;
 
   SceneTokens? _tokens;
   bool _enabled = false;
@@ -91,38 +277,32 @@ class SceneSoundService {
   bool _speaking = false;
   bool _visible = true;
   bool _disposed = false;
-
-  SceneLoop? _current;
-  double _gain = 0;
-  bool _paused = false;
-  bool _switching = false;
-  Timer? _ramp;
   final Set<Timer> _thunders = {};
 
-  SceneLoop? _failed;
-
-  /// The loop that would not start, if one would not; it is not tried
+  /// The base loop that would not start, if one would not; it is not tried
   /// again (each try would fail and log the same way), so the chat stays
   /// quiet for that sky until the next chat.
-  SceneLoop? get failed => _failed;
+  SceneLoop? get failed => _base.failedLoop ?? _overlay?.failedLoop;
 
-  /// The loop the player holds now, or null for none.
-  SceneLoop? get playing => _current;
+  /// The base loop the player holds now, or null for none.
+  SceneLoop? get playing => _base.current?.bundledLoop;
 
-  /// The loop's volume as last sent to the player.
-  double get gain => _gain;
+  /// The base loop's volume as last sent to the player.
+  double get gain => _base.gain;
 
-  /// Whether the loop is held for a hidden window.
-  bool get paused => _paused;
+  /// Whether the base loop is held for a hidden window.
+  bool get paused => _base.paused;
 
-  /// The loop the scene and the settings ask for now.
+  /// The base loop the scene and the settings ask for now.
   SceneLoop? get wanted {
     final t = _tokens;
     if (!_enabled || t == null) return null;
+    final src = t.base;
+    if (src != null) return src.bundledLoop;
     return sceneLoopFor(condition: t.condition, daypart: t.daypart);
   }
 
-  /// The volume the loop is heading for.
+  /// The volume the loops are heading for.
   double get target =>
       sceneLoopGain(volume: _volume, speaking: _speaking, visible: _visible);
 
@@ -139,14 +319,14 @@ class SceneSoundService {
     _reconcile();
   }
 
-  /// Whether a voice is speaking now; the loop ducks under it.
+  /// Whether a voice is speaking now; the loops duck under it.
   set speaking(bool value) {
     if (_speaking == value) return;
     _speaking = value;
     _reconcile();
   }
 
-  /// Whether the window can be seen; hidden or minimised holds the loop.
+  /// Whether the window can be seen; hidden or minimised holds the loops.
   set visible(bool value) {
     if (_visible == value) return;
     _visible = value;
@@ -163,7 +343,7 @@ class SceneSoundService {
       if (!_thunderAllowed) return;
       final volume = sceneLoopGain(volume: _volume, speaking: _speaking);
       _guard(
-        _output().oneShot(
+        _base.output().oneShot(
           sceneSoundAsset(thunderFor(flash.rumbleDelay)),
           volume,
         ),
@@ -173,21 +353,13 @@ class SceneSoundService {
     _thunders.add(t);
   }
 
-  /// Stops everything and lets the player go.
+  /// Stops everything and lets the players go.
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    _ramp?.cancel();
-    _ramp = null;
     _cancelThunder();
-    final out = _out;
-    _out = null;
-    if (out == null) return;
-    try {
-      await out.dispose();
-    } catch (e, st) {
-      debugPrint('SceneSound: could not release the players: $e\n$st');
-    }
+    await _base.dispose();
+    await _overlay?.dispose();
   }
 
   bool get _thunderAllowed =>
@@ -200,106 +372,36 @@ class SceneSoundService {
     _thunders.clear();
   }
 
-  SceneSoundOutput _output() => _out ??= _makeOutput();
-
-  void _reconcile() {
-    if (_disposed || _switching) return;
-    final asked = wanted;
-    final want = asked == _failed ? null : asked;
-    if (!_visible) {
-      // A loop nobody wants goes now; one that is wanted waits, held.
-      if (want == null && _current != null) {
-        unawaited(_swap(null));
-      } else {
-        _hold();
-      }
-      return;
-    }
-    if (_paused && want == _current) {
-      _paused = false;
-      _guard(_output().resumeLoop(), 'resume the loop');
-    }
-    if (want != _current) {
-      _paused = false;
-      if (_current == null || _gain <= 0) {
-        unawaited(_swap(want));
-      } else {
-        _rampTo(0, then: () => unawaited(_swap(want)));
-      }
-      return;
-    }
-    if (_current != null) _rampTo(target);
-  }
-
-  void _hold() {
-    _ramp?.cancel();
-    _ramp = null;
-    if (_current == null || _paused) return;
-    _paused = true;
-    _setGain(0);
-    _guard(_output().pauseLoop(), 'pause the loop');
-  }
-
-  /// Loads [next] at silence (or stops the loop for null), then fades up.
-  Future<void> _swap(SceneLoop? next) async {
-    _ramp?.cancel();
-    _ramp = null;
-    _switching = true;
-    var started = next;
-    try {
-      await _output().loop(next == null ? null : sceneSoundAsset(next.file), 0);
-    } catch (e, st) {
-      // Logged once: the failed loop is remembered and not asked for again.
-      debugPrint(
-        'SceneSound: could not start ${next?.file ?? 'silence'}: '
-        '$e\n$st',
-      );
-      if (next != null) {
-        _failed = next;
-        started = null;
-      }
-    }
-    _current = started;
-    _gain = 0;
-    _paused = false;
-    _switching = false;
-    _reconcile();
-  }
-
-  /// Moves the loop's volume to [to] at [kSceneRampFull] for a full swing,
-  /// one [kSceneRampStep] at a time, then runs [then].
-  void _rampTo(double to, {void Function()? then}) {
-    _ramp?.cancel();
-    _ramp = null;
-    final from = _gain;
-    final length = sceneRampLength(from, to);
-    if (length < kSceneRampStep) {
-      if (from != to) _setGain(to);
-      then?.call();
-      return;
-    }
-    var elapsed = Duration.zero;
-    _ramp = _ticker(kSceneRampStep, (timer) {
-      elapsed += kSceneRampStep;
-      _setGain(sceneRampAt(from: from, to: to, elapsed: elapsed));
-      if (elapsed >= length) {
-        timer.cancel();
-        if (identical(_ramp, timer)) _ramp = null;
-        then?.call();
-      }
-    });
-  }
-
-  void _setGain(double value) {
-    _gain = value;
-    _guard(_output().setLoopVolume(value), 'set the loop volume');
-  }
-
   void _guard(Future<void> f, String what) {
     unawaited(
       f.catchError((Object e, StackTrace st) {
         debugPrint('SceneSound: could not $what: $e\n$st');
       }),
+    );
+  }
+
+  SceneSoundSource? get _wantedBase {
+    final t = _tokens;
+    if (!_enabled || t == null) return null;
+    final src = t.base;
+    if (src != null) return src;
+    final fallback = sceneLoopFor(condition: t.condition, daypart: t.daypart);
+    return fallback == null ? null : SceneSoundSource.bundled(fallback.file);
+  }
+
+  SceneSoundSource? get _wantedOverlay {
+    final t = _tokens;
+    if (!_enabled || t == null || _overlay == null) return null;
+    return t.overlay;
+  }
+
+  void _reconcile() {
+    if (_disposed) return;
+    _base.reconcile(want: _wantedBase, target: target, visible: _visible);
+    _overlay?.reconcile(
+      want: _wantedOverlay,
+      target: target,
+      visible: _visible,
     );
   }
 }

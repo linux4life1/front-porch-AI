@@ -110,7 +110,14 @@ describe('the scene sound table', () => {
     expect(parseSceneSound(null)).toBeNull();
     expect(parseSceneSound({ condition: 'rain', daypart: 'night' })).toBeNull();
     expect(parseSceneSound({ condition: 'rain', daypart: 'night', sound: { on: true, volume: 4 } }))
-      .toEqual({ on: true, volume: 1, condition: 'rain', daypart: 'night' });
+      .toEqual({ on: true, volume: 1, condition: 'rain', daypart: 'night', base: null, overlay: null, baseUrl: null });
+    // The layered wire carries the resolved loops additively; an older PWA
+    // ignores them and the new one reads them.
+    expect(parseSceneSound({ condition: 'rain', daypart: 'night', sound: { on: true, volume: 0.5, base: 'forest', overlay: 'rain' } }))
+      .toEqual({ on: true, volume: 0.5, condition: 'rain', daypart: 'night', base: 'forest', overlay: 'rain', baseUrl: null });
+    expect(parseSceneSound({ condition: 'rain', daypart: 'night', sound: { on: true, volume: 0.5, baseUrl: '/api/user/audio/room.mp3' } }))
+      .toEqual({ on: true, volume: 0.5, condition: 'rain', daypart: 'night', base: null, overlay: null, baseUrl: '/api/user/audio/room.mp3' });
+
   });
 });
 
@@ -142,6 +149,34 @@ describe('the scene sound player', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(made[1].playing).toBe(false);
     expect(p.playing).toBeNull();
+    p.dispose();
+  });
+
+  it('plays a place base and a weather overlay on two channels', async () => {
+    const p = new SceneSoundPlayer({ makeAudio });
+    p.update({ loop: 'forest', overlay: 'rain', volume: 0.6, storm: false });
+    await flush();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(made).toHaveLength(2);
+    expect(made[0].src).toBe('/audio/scene/forest.mp3');
+    expect(made[1].src).toBe('/audio/scene/rain.mp3');
+    expect(made[1].loop).toBe(true);
+    expect(made[0].volume).toBeCloseTo(0.6);
+    expect(made[1].volume).toBeCloseTo(0.6);
+
+    // A voice ducks both channels together.
+    p.setSpeaking(true);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(made[0].volume).toBeCloseTo(0.6 * SCENE_DUCK);
+    expect(made[1].volume).toBeCloseTo(0.6 * SCENE_DUCK);
+
+    // The weather clears: the overlay fades out, the place loop stays
+    // (still ducked — the voice has not stopped in this case).
+    p.update({ loop: 'forest', overlay: null, volume: 0.6, storm: false });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(made[1].playing).toBe(false);
+    expect(made[0].volume).toBeCloseTo(0.6 * SCENE_DUCK);
+    expect(p.playing).toBe('forest');
     p.dispose();
   });
 
@@ -180,7 +215,15 @@ describe('the scene sound player', () => {
     expect(thunder()).toHaveLength(3);
     p.dispose();
   });
-
+  it('plays a custom user sound from its server URL', async () => {
+    const p = new SceneSoundPlayer({ makeAudio });
+    p.update({ loop: null, baseUrl: '/api/user/audio/room.mp3', volume: 0.6, storm: false });
+    await flush();
+    expect(made).toHaveLength(1);
+    expect(made[0].src).toBe('/api/user/audio/room.mp3');
+    expect(made[0].loop).toBe(true);
+    p.dispose();
+  });
   it('hears the effects canvas flash through the player', () => {
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }));
     vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);

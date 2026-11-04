@@ -63,6 +63,9 @@ class AppDirectories {
   Directory get customBackgroundDir =>
       Directory(path.join(rootPath ?? '', 'custom_backgrounds'));
 
+  /// User-owned custom scene-sound files (`$rootPath/audio/`).
+  Directory get audioDir => Directory(path.join(rootPath ?? '', 'audio'));
+
   /// Cache for downscaled avatar/card thumbnails served to the web/mobile UI.
   /// Purely derived data — safe to delete at any time; regenerated on demand.
   Directory get webThumbnailCacheDir =>

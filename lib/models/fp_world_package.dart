@@ -26,6 +26,10 @@ Map<String, dynamic> encodeFpWorld({
   List<Map<String, dynamic>>? locations,
 }) {
   final loreJson = world.lorebook.toJson();
+  // A user's own sound file means nothing on another machine: it never rides
+  // a .fpworld export or a Stoop upload, even inside a climate-on place_traits.
+  final traits = Map<String, dynamic>.from(world.placeTraits)
+    ..remove('customAmbience');
   return {
     'formatVersion': kFpWorldFormatVersion,
     'id': world.id,
@@ -39,12 +43,16 @@ Map<String, dynamic> encodeFpWorld({
     if (world.climateEnabled) 'biome': biome,
     'climate_enabled': world.climateEnabled,
     // Additive: older apps ignore unknown envelope keys (mixed-fleet rule).
-    if (world.climateEnabled && world.placeTraits.isNotEmpty)
-      'place_traits': world.placeTraits,
+    if (world.climateEnabled && traits.isNotEmpty) 'place_traits': traits,
     if (locations != null && locations.isNotEmpty) 'locations': locations,
     // Additive: the starred place chats start in, by envelope id. The
     // importer re-points it at the fresh local id of that location.
     if (world.defaultPlaceId != null) 'default_place_id': world.defaultPlaceId,
+    // Additive: the layered ambience preset rides the default_place_id
+    // pattern — written whatever the climate setting, so a climate-off place
+    // keeps its sound on export.
+    if (world.ambience != null) 'ambience': world.ambience,
+
     'meta': {
       if (author != null && author.isNotEmpty) 'author': author,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
@@ -152,19 +160,24 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
   return FpWorldPackage(
     formatVersion: formatVersion,
     biome: biome,
-    world: World(
-      id: id,
-      name: name,
-      description: description,
-      lorebook: lorebook,
-      coverImage: cover,
-      sourceId: meta['sourceId']?.toString() ?? id,
-      formatVersion: formatVersion,
-      climateEnabled: climateEnabled,
-      placeTraits: climateEnabled && json['place_traits'] is Map
-          ? Map<String, dynamic>.from(json['place_traits'] as Map)
-          : null,
-    )..defaultPlaceId = json['default_place_id']?.toString(),
+    world:
+        World(
+            id: id,
+            name: name,
+            description: description,
+            lorebook: lorebook,
+            coverImage: cover,
+            sourceId: meta['sourceId']?.toString() ?? id,
+            formatVersion: formatVersion,
+            climateEnabled: climateEnabled,
+            placeTraits: climateEnabled && json['place_traits'] is Map
+                ? (Map<String, dynamic>.from(json['place_traits'] as Map)
+                    ..remove('customAmbience'))
+                : null,
+          )
+          ..defaultPlaceId = json['default_place_id']?.toString()
+          ..ambience =
+              json['ambience']?.toString() ?? json['ambienceId']?.toString(),
     // Slice 5: hand the child envelopes to the importer verbatim; a
     // non-list or missing key (every pre-slice-5 file) decodes empty,
     // keeping old imports byte-for-byte unchanged.

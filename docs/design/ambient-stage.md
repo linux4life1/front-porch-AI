@@ -405,17 +405,19 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
 `lib/ui/pages/story_reader_page.dart`; `<audio>` on the web, with a
 "could not play" fallback like the reader's `useAmbient.tsx`).
 
-- **Sounds.** Nine files under `assets/audio/scene/`, all synthesised by
-  `tools/gen_scene_sounds.py` (numpy, fixed seed, one generator per sound)
-  from noise and sine waves: `rain`, `storm_rain`, `wind`, `birds`,
-  `crickets`, `fog` loops (8 to 12 s, built a second long and the extra
-  second folded over the start with an equal-power crossfade, so the last
-  sample runs into the first) and `thunder_1..3` one-shots (3.4 to 4.8 s
-  brown-noise bursts under a lowpass that closes as they decay). Nothing is
-  recorded or downloaded; the project dedicates the set to the public
-  domain (CC0-1.0), recorded with its provenance in
-  `assets/audio/scene/LICENSE.md`. About 360 KB in all.
-- **Format.** Mono, 22.05 kHz, 40 kbps MP3. It is the one compressed format
+- **Sounds.** Thirteen files under `assets/audio/scene/`: real field
+  recordings from Pixabay (Pixabay Content License), cut to a calm
+  window and loop-crossfaded (3 s equal-power fold), normalised
+  (loops −26 LUFS, thunder −17 LUFS): `rain`, `storm_rain`, `wind`,
+  `birds`, `crickets`, `fog` loops (45 s each), the four per-place loops
+  `forest`, `shore`, `cave`, `village` (the "room you are in" identity
+  layer), and `thunder_1..3` one-shots (≤4.8 s). Provenance per file is
+  recorded in `assets/audio/scene/LICENSE.md`; the originals and the
+  processing script live in `dl/ambient-src/`. About 3.4 MB in all.
+  A fully synthesised CC0 fallback set — every file from seeded noise
+  and sine waves — remains available from `tools/gen_scene_sounds.py`.
+- **Format.** Mono, 44.1 kHz MP3 (loops 56 kbps, thunder 96 kbps). It is
+  the one compressed format
   every audioplayers desktop backend decodes (Windows plays through Media
   Foundation, which has no Vorbis or Opus decoder; macOS through AVPlayer,
   which has no Vorbis; Linux through GStreamer) and every browser plays in
@@ -428,9 +430,15 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   twinned in `web_ui/src/theme/sceneSound.ts`): rain → rain, storm →
   storm_rain, snow → wind, fog → fog, clear at dawn, morning, late morning
   or afternoon → birds, clear at evening or night → crickets, cloudy and
-  overcast → nothing. A change of loop fades the old one out and the new
-  one in (600 ms for a full swing; the desktop swaps on its one loop player
-  at silence, the web runs a true crossfade on two `<audio>` elements).
+  overcast → nothing. The sound is **layered**: the chat's Setting place
+  picks an identity loop (`ScenePlaceLoop`), and the weather adds an overlay
+  on top of it — rain adds `rain` over the place, a quiet sky plays the
+  place alone, and a place with no assigned sound falls back to the
+  weather-only loop byte-for-byte. The time-of-day birds/crickets are
+  replaced by a place sound on a clear sky. A change of loop fades the old
+  one out and the new one in (600 ms for a full swing; the desktop swaps on
+  its one loop player at silence, the web runs a true crossfade on two
+  `<audio>` elements).
 - **Thunder.** The stage's sim already draws each flash's rumble gap from
   the scene's seeded generator (`SceneFlash.rumbleDelay`, 0.4 to 1.8 s), on
   both surfaces; the sound waits that gap (clamped) and plays one of the
@@ -466,6 +474,10 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
 - **Serving.** One copy of the files: the desktop bundles
   `assets/audio/scene/` and its web server serves the same folder to the
   PWA as `/audio/scene/<file>` with byte ranges (Safari asks for them).
+  A user's own sound (Phase B) is stored under `$rootPath/audio/` and served
+  live per request as `/api/user/audio/<name>` with streamed ranges
+  (`media_ranges.dart`), the same name guard as the scene sounds; the chat
+  wire carries its URL as `baseUrl`.
 - **Code.** `SceneSoundService` (plain Dart, fake player and hand-cranked
   timers in its tests), `AudioplayersSceneSoundOutput`, and
   `SceneSoundHost` (lifecycle, minimise, `TtsService`), mounted by
@@ -631,8 +643,10 @@ script for what a sandbox cannot certify.
    seeded first frame (the authoring sandbox cannot run the Linux golden
    image) and a Playwright sweep stop. Poke: token speed with effects on and off on an
    integrated-GPU machine.
-3. **Scene sound.** Shipped as §5 describes: a synthesised CC0 set and
-   its generator script, loops per (condition, part of day) and the
+3. **Scene sound.** Shipped as §5 describes: real field recordings under
+   the Pixabay Content License (provenance in the asset LICENSE.md) with
+   the synthesised CC0 set kept as the generator's fallback, loops per
+   (condition, part of day) and the
    thunder one-shot on the players Porch Stories uses, ducking under TTS,
    the Scene sound switch and volume with web twins, the licence record.
    Tests: the mapping table, thunder scheduling, ducking and the crossfade
