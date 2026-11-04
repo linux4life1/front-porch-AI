@@ -23,9 +23,9 @@ import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'world_ambience_section.dart';
 import 'world_basics_section.dart';
 import 'world_dialog_wording.dart';
+import 'world_edit_apply.dart';
 import 'world_edit_draft.dart';
 import 'world_lorebook_section.dart';
 import 'world_parent_section.dart';
@@ -347,42 +347,7 @@ void showWorldEditDialog(
                                         } else {
                                           newWorld.name = newName;
                                         }
-                                        newWorld.description = draft
-                                            .descController
-                                            .text
-                                            .trim();
-                                        newWorld.climateEnabled =
-                                            draft.climateEnabled;
-                                        // Lorebook-only worlds leave climate fields
-                                        // untouched so a later re-enable restores them.
-                                        if (draft.climateEnabled) {
-                                          // 'custom' ⇒ biomeJson carries the climate and
-                                          // biomeId clears; a built-in clears any stale
-                                          // custom JSON (Biome.resolve prefers JSON).
-                                          newWorld.biomeId =
-                                              draft.selectedBiomeId == 'custom'
-                                              ? null
-                                              : draft.selectedBiomeId;
-                                          newWorld.biomeJson =
-                                              draft.selectedBiomeId == 'custom'
-                                              ? draft.customBiomeJson
-                                              : null;
-                                          newWorld.atmosphere =
-                                              draft.atmosphere;
-                                          newWorld.gravity = draft.gravity;
-                                        }
-                                        newWorld.injectDescription =
-                                            draft.injectDescription;
-                                        newWorld.coverImage = draft.coverImage;
-                                        newWorld.parentWorldId =
-                                            draft.parentWorldId;
-                                        applyAmbience(draft, newWorld);
-
-                                        // Update lorebook entries
-                                        newWorld.lorebook.entries.clear();
-                                        newWorld.lorebook.entries.addAll(
-                                          draft.editingEntries,
-                                        );
+                                        applyDraftFields(newWorld, draft);
 
                                         await saveWorldWithStartingPlace(
                                           repo,

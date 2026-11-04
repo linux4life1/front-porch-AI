@@ -20,12 +20,12 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
-import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.locations.dart';
 import 'package:front_porch_ai/services/web/facade/world_summary_json.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/web/facade/world_facade.chat_places.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.import.dart';
 
 /// Thin adapter for world (portable place) CRUD over [WorldRepository].
@@ -279,194 +279,26 @@ class WorldFacade {
     return _worlds.fpWorldJson(w);
   }
 
-  /// Chat session places (ids + names) + active climate for mid-chat override.
-  Map<String, dynamic> chatPlaces() {
-    final chat = _chat;
-    if (chat == null || chat.currentSessionId == null) {
-      return {
-        'worldIds': <String>[],
-        'primaryId': null,
-        'places': <Map<String, dynamic>>[],
-        'lorePlaces': <Map<String, dynamic>>[],
-        'climateAuthors': false,
-        'climateAuthorName': null,
-        'reachable': <Map<String, dynamic>>[],
-        'weatherOff': 'no_setting',
-        'climateId': 'temperate',
-        'climateDisplayName': Biome.temperate.displayName,
-        'climateFeel': Biome.temperate.feel,
-        'dayCount': 1,
-        'climateOptions': <Map<String, dynamic>>[],
-      };
-    }
-    final primaryId = chat.chatPrimaryWorldId;
-    final loreIds = chat.chatLoreWorldIds;
-    final ids = chat.chatWorldIds;
+  // Chat-scene relay surface: selected places, reach list, climate switch.
+  late final WorldChatPlacesRelay _places = WorldChatPlacesRelay(
+    _worlds,
+    _chat,
+    locations,
+  );
 
-    Map<String, dynamic> placeJson(World w, {required String role}) {
-      final parentId = w.parentWorldId;
-      return {
-        'id': w.id,
-        'name': w.name,
-        'role': role,
-        'climateEnabled': w.climateEnabled,
-        if (w.climateEnabled)
-          'biomeId': w.biomeJson != null
-              ? 'custom'
-              : (w.biomeId ?? 'temperate'),
-        'hasCustomClimate': w.climateEnabled && w.biomeJson != null,
-        'description': w.description,
-        // Slice 4 web twin: "inside X" breadcrumbs on Setting and Lore
-        // tiles read these (desktop cards' parity, mockup p3).
-        'parentWorldId': parentId,
-        'parentName': parentId == null || parentId.isEmpty
-            ? null
-            : _worlds.resolveWorld(parentId)?.name,
-      };
-    }
+  /// See [WorldChatPlacesRelay.chatPlaces].
+  Map<String, dynamic> chatPlaces() => _places.chatPlaces();
 
-    Map<String, dynamic>? primaryPlace;
-    final primaryWorld = primaryId == null
-        ? null
-        : _worlds.resolveWorld(primaryId);
-    if (primaryWorld != null) {
-      primaryPlace = placeJson(primaryWorld, role: 'primary');
-    }
-
-    final lorePlaces = <Map<String, dynamic>>[];
-    for (final id in loreIds) {
-      final w = _worlds.resolveWorld(id);
-      if (w == null) continue;
-      lorePlaces.add(placeJson(w, role: 'lore'));
-    }
-
-    // Older clients: flat places list (primary first, then lore).
-    final places = <Map<String, dynamic>>[?primaryPlace, ...lorePlaces];
-
-    // The Setting's chain author owns climate (locations slice 2) — the
-    // same resolution the desktop weather gate uses. A location inherits;
-    // the custom dropdown entry stays `world:<climate-author-id>`.
-    final climateAuthor = primaryId == null
-        ? null
-        : _worlds.climateAuthorFor(primaryId);
-    final climateAuthors = climateAuthor != null;
-    final String? weatherOff = primaryId == null
-        ? 'no_setting'
-        : (!climateAuthors ? 'setting_lore_only' : null);
-
-    final climate = chat.activeChatBiome;
-    return {
-      'worldIds': ids,
-      'primaryId': primaryId,
-      'primary': primaryPlace,
-      'places': places,
-      'lorePlaces': lorePlaces,
-      'climateAuthors': climateAuthors,
-      // Slice 4 web twin: the PWA names the weather author on an
-      // inheriting Setting ("Weather from <name>", desktop parity) and
-      // fills the "Move the scene" dropdown from the ONE Dart reach law
-      // — no second TypeScript implementation of the rule.
-      'climateAuthorName': climateAuthor?.name,
-      // Additive: the top-level world whose weather-off switch silences
-      // this Setting (weatherOff stays 'setting_lore_only' for old clients).
-      'weatherOffWorldName': primaryId == null
-          ? null
-          : weatherOffRootOf(_worlds.chainFor(primaryId))?.name,
-      'reachable': reachable(primaryId),
-      'weatherOff': ?weatherOff,
-      'climateId': climate.id,
-      'climateDisplayName': climate.displayName,
-      'climateFeel': climate.feel,
-      'dayCount': chat.timeService.dayCount,
-      // Built-ins + the climate AUTHOR's custom only (never lore climate-on).
-      'climateOptions': [
-        if (climateAuthors) ...[
-          for (final b in Biome.builtIns)
-            {'id': b.id, 'displayName': b.displayName},
-          if (climateAuthor.biomeJson != null &&
-              Biome.tryParse(climateAuthor.biomeJson) != null)
-            {
-              'id': 'world:${climateAuthor.id}',
-              'displayName': '${climateAuthor.name} (custom)',
-            },
-        ],
-      ],
-    };
-  }
-
+  /// See [WorldChatPlacesRelay.setChatPlaces].
   Future<Map<String, dynamic>> setChatPlaces(
     List<String> worldIds, {
     String? primaryId,
     List<String>? loreIds,
-  }) async {
-    final chat = _chat;
-    if (chat == null || chat.currentSessionId == null) {
-      return {'ok': false, 'error': 'No active chat'};
-    }
+  }) => _places.setChatPlaces(worldIds, primaryId: primaryId, loreIds: loreIds);
 
-    String? resolveRef(String ref) {
-      final w = _worlds.resolveWorld(ref);
-      if (w == null || isCharacterLinkedWorld(w)) return null;
-      return w.id;
-    }
-
-    if (primaryId != null || loreIds != null) {
-      final p = primaryId == null || primaryId.isEmpty
-          ? null
-          : resolveRef(primaryId);
-      final lore = <String>[];
-      for (final ref in loreIds ?? const <String>[]) {
-        final id = resolveRef(ref);
-        if (id != null && id != p && !lore.contains(id)) lore.add(id);
-      }
-      await chat.setChatPlaceSlots(primaryId: p, loreIds: lore);
-      return {'ok': true, ...chatPlaces()};
-    }
-
-    // Legacy flat worldIds: preserve Primary if still listed; else all lore.
-    final resolved = <String>[];
-    for (final ref in worldIds) {
-      final id = resolveRef(ref);
-      if (id != null && !resolved.contains(id)) resolved.add(id);
-    }
-    await chat.setChatWorldIds(resolved);
-    return {'ok': true, ...chatPlaces()};
-  }
-
-  /// Mid-chat climate switch from current story day (span snapshot).
-  Future<Map<String, dynamic>> setChatClimate(String biomeId) async {
-    final chat = _chat;
-    if (chat == null || chat.currentSessionId == null) {
-      return {'ok': false, 'error': 'No active chat'};
-    }
-    final primaryId = chat.chatPrimaryWorldId;
-    // The chain author owns the switch (locations slice 2): a location
-    // setting may change climate because its parent authors one.
-    final author = primaryId == null
-        ? null
-        : _worlds.climateAuthorFor(primaryId);
-    if (author == null) {
-      return {
-        'ok': false,
-        'error': primaryId == null
-            ? 'No setting — weather stays off'
-            : 'This setting is lore-only — no weather',
-      };
-    }
-    Biome? biome = Biome.builtInById(biomeId);
-    if (biome == null && biomeId.startsWith('world:')) {
-      // Custom climate only from the chain's climate author.
-      final w = _worlds.resolveWorld(biomeId.substring(6));
-      if (w != null && w.id == author.id) {
-        biome = Biome.tryParse(w.biomeJson)?.withId('world:${w.id}');
-      }
-    }
-    if (biome == null) {
-      return {'ok': false, 'error': 'Unknown climate: $biomeId'};
-    }
-    await chat.setChatClimate(biome);
-    return {'ok': true, ...chatPlaces()};
-  }
+  /// See [WorldChatPlacesRelay.setChatClimate].
+  Future<Map<String, dynamic>> setChatClimate(String biomeId) =>
+      _places.setChatClimate(biomeId);
 
   /// Server-side overlap / 2–8 check. Same [Biome.validate] as desktop save.
   List<String> climateErrors(Map<String, dynamic> json) {
