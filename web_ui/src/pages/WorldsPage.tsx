@@ -402,7 +402,7 @@ export function WorldsPage() {
     setAudioLib(true);
     void refreshAudioLibrary();
   };
-  const useStoredSound = (name: string) => {
+  const assignStoredSound = (name: string) => {
     if (!edit) return;
     setEdit({
       ...edit,
@@ -1375,7 +1375,7 @@ export function WorldsPage() {
                         <div
                           key={s.name}
                           className={`wsg-audio-row${selected ? ' selected' : ''}`}
-                          onClick={() => useStoredSound(s.name)}
+                          onClick={() => assignStoredSound(s.name)}
                         >
                           <button
                             type="button"
