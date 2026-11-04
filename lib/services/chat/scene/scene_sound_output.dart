@@ -70,6 +70,7 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
   Duration _duration = Duration.zero;
   double _gain = 1;
   double _crossF = 0;
+  int _crossMs = 0;
   bool _crossing = false;
   bool _paused = false;
   int _gen = 0;
@@ -87,6 +88,7 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
     _takeover = null;
     _crossing = false;
     _crossF = 0;
+    _crossMs = 0;
     if (asset == null) {
       _asset = null;
       await _stopAll();
@@ -100,6 +102,9 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
     unawaited(_slot(1));
     _asset = asset;
     await _stopOther();
+    // Stop first: a slot reused mid-cross would otherwise resume from its
+    // current position when handed the same file again.
+    await _quietly(lead.stop(), 'clear the lead for its new file');
     await lead.setReleaseMode(ReleaseMode.stop);
     await lead.play(_sourceFor(asset), volume: volume);
     final duration = await _durationOf(lead);
@@ -172,29 +177,30 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
     final lead = _lead;
     final asset = _asset;
     if (lead == null || asset == null) return;
-    final pos = await _position(lead);
-    if (gen != _gen || _paused || _lead != lead) return;
-    final seamAt = _duration - kSceneLoopSeam;
-    if (_takeover == null) {
-      if (pos < seamAt || _crossing) return;
+    final over = _takeover;
+    if (over == null) {
+      if (_crossing) return;
+      final pos = await _position(lead);
+      if (gen != _gen || _paused || _lead != lead) return;
+      final seamAt = _duration - kSceneLoopSeam;
+      if (pos < seamAt) return;
       _crossing = true;
-      unawaited(_beginCross(lead, asset, gen));
+      unawaited(_beginCross(lead, asset, gen, (pos - seamAt).inMilliseconds));
       return;
     }
-    final into = pos - seamAt;
-    _crossF = (into.inMilliseconds / kSceneLoopSeam.inMilliseconds).clamp(
-      0.0,
-      1.0,
-    );
+    // A cross runs on the watch's own clock. The lead's reported position
+    // stops being reliable at end of file — the completion handler can
+    // zero it before the next poll — and a fade measured from it can
+    // collapse to zero gain on the handover and never swap. Time cannot.
+    _crossMs += _tick.inMilliseconds;
+    final f = (_crossMs / kSceneLoopSeam.inMilliseconds).clamp(0.0, 1.0);
+    _crossF = f;
     await _setMix(lead);
     if (gen != _gen || _lead != lead) return;
-    // The lead reaches end of file inside the window (ReleaseMode.stop
-    // leaves it there); by then the handover holds the full gain, so
-    // swapping roles has no silence around it.
-    if (_crossF >= 1.0) {
-      final over = _takeover!;
+    if (f >= 1.0) {
       _takeover = null;
       _crossing = false;
+      _crossMs = 0;
       _crossF = 0;
       _leadAt = 1 - _leadAt;
       await _quietly(lead.stop(), 'stop the crossed player');
@@ -202,7 +208,12 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
     }
   }
 
-  Future<void> _beginCross(AudioPlayer lead, String asset, int gen) async {
+  Future<void> _beginCross(
+    AudioPlayer lead,
+    String asset,
+    int gen,
+    int startMs,
+  ) async {
     final over = await _slot(1 - _leadAt);
     if (gen != _gen || _paused || _lead != lead) {
       _crossing = false;
@@ -216,6 +227,7 @@ class AudioplayersSceneSoundOutput implements SceneSoundOutput {
       return;
     }
     _takeover = over;
+    _crossMs = startMs < 0 ? 0 : startMs;
     try {
       await over.setReleaseMode(ReleaseMode.stop);
       await over.play(_sourceFor(asset), volume: 0);
