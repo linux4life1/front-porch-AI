@@ -12,7 +12,7 @@
 //   * depth cap missing → level-3 worlds created (illegal)
 //   * inclusion group missing → minted entries get their own group instead
 //     of joining the ancestor's
-//   * name collision missing → saveWorld throws on duplicate
+//   * name refusal missing → a duplicate mint renamed to "Salt Garden (2)"
 //   * LLM not ready missing → throws instead of failure result
 //   * malformed JSON missing → partial world row created
 
@@ -27,7 +27,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
-import 'package:front_porch_ai/services/services.dart' show LlmToolResponse, StorageService;
+import 'package:front_porch_ai/services/services.dart'
+    show LlmToolResponse, StorageService;
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -88,11 +89,24 @@ String _placeDraftText({
 }) {
   return jsonEncode({
     'short_description': description,
-    'lore_entries': entries ??
+    'lore_entries':
+        entries ??
         [
-          {'name': 'Salt walls', 'keys': 'salt,wall', 'content': 'The walls weep brine.'},
-          {'name': 'Well', 'keys': 'well,water', 'content': 'A stone well in the centre.'},
-          {'name': 'Gate', 'keys': 'gate,iron', 'content': 'An iron gate to the harbour.'},
+          {
+            'name': 'Salt walls',
+            'keys': 'salt,wall',
+            'content': 'The walls weep brine.',
+          },
+          {
+            'name': 'Well',
+            'keys': 'well,water',
+            'content': 'A stone well in the centre.',
+          },
+          {
+            'name': 'Gate',
+            'keys': 'gate,iron',
+            'content': 'An iron gate to the harbour.',
+          },
         ],
   });
 }
@@ -110,11 +124,7 @@ Future<model.World> _root(_Harness h, String name) async {
 }
 
 /// Insert a child world under [parent] and return it.
-Future<model.World> _child(
-    _Harness h,
-    String name,
-    model.World parent,
-) async {
+Future<model.World> _child(_Harness h, String name, model.World parent) async {
   final w = model.World(
     name: name,
     description: 'Child: $name',
@@ -158,66 +168,77 @@ void main() {
         toolChoice: kPlaceMintTool,
         callToText: (resp) => realismToolCallToJson(kPlaceMintTool, resp.calls),
       );
-      expect(salvaged, isNotNull, reason: 'text-only model answer must salvage');
+      expect(
+        salvaged,
+        isNotNull,
+        reason: 'text-only model answer must salvage',
+      );
       final decoded = jsonDecode(salvaged!) as Map<String, dynamic>;
       expect(decoded['short_description'], '');
       expect(decoded['lore_entries'], isA<List>());
     });
 
-    test('successful mint creates a child world under the setting with 3–5 '
-        'lore entries, climate off, model-made marker, and repo sees it',
-        () async {
-      final root = await _root(h, 'Bletchport');
-      final factory = _scriptedFactory(
-        repo: h.repo,
-        toolAnswer: () async => null,
-        textAnswer: _placeDraftText(),
-      );
+    test(
+      'successful mint creates a child world under the setting with 3–5 '
+      'lore entries, climate off, model-made marker, and repo sees it',
+      () async {
+        final root = await _root(h, 'Bletchport');
+        final factory = _scriptedFactory(
+          repo: h.repo,
+          toolAnswer: () async => null,
+          textAnswer: _placeDraftText(),
+        );
 
-      final result = await factory.mint(
-        name: 'Salt Garden',
-        descriptor: 'hedged beds beside the tideline',
-        setting: root,
-        sceneGrounding: 'They walked into a garden of salt.',
-      );
+        final result = await factory.mint(
+          name: 'Salt Garden',
+          descriptor: 'hedged beds beside the tideline',
+          setting: root,
+          sceneGrounding: 'They walked into a garden of salt.',
+        );
 
-      expect(result.ok, isTrue, reason: result.error);
-      final world = result.world!;
-      expect(world.name, 'Salt Garden');
-      expect(world.parentWorldId, root.id);
-      expect(world.climateEnabled, isFalse);
-      expect(world.isModelMade, isTrue);
-      expect(world.description, 'A small courtyard of salt-bleached stone.');
-      expect(world.lorebook.entries.length, 3);
+        expect(result.ok, isTrue, reason: result.error);
+        final world = result.world!;
+        expect(world.name, 'Salt Garden');
+        expect(world.parentWorldId, root.id);
+        expect(world.climateEnabled, isFalse);
+        expect(world.isModelMade, isTrue);
+        expect(world.description, 'A small courtyard of salt-bleached stone.');
+        expect(world.lorebook.entries.length, 3);
 
-      final fromRepo = h.repo.worldById(world.id);
-      expect(fromRepo, isNotNull);
-      expect(fromRepo!.name, 'Salt Garden');
-    });
+        final fromRepo = h.repo.worldById(world.id);
+        expect(fromRepo, isNotNull);
+        expect(fromRepo!.name, 'Salt Garden');
+      },
+    );
 
-    test('depth cap: minting under a level-2 setting lands under its PARENT',
-        () async {
-      final root = await _root(h, 'Continent');
-      final level1 = await _child(h, 'Town', root);
-      final level2 = await _child(h, 'Tavern', level1);
+    test(
+      'depth cap: minting under a level-2 setting lands under its PARENT',
+      () async {
+        final root = await _root(h, 'Continent');
+        final level1 = await _child(h, 'Town', root);
+        final level2 = await _child(h, 'Tavern', level1);
 
-      final factory = _scriptedFactory(
-        repo: h.repo,
-        toolAnswer: () async => null,
-        textAnswer: _placeDraftText(),
-      );
+        final factory = _scriptedFactory(
+          repo: h.repo,
+          toolAnswer: () async => null,
+          textAnswer: _placeDraftText(),
+        );
 
-      final result = await factory.mint(
-        name: 'Back Room',
-        descriptor: 'a private room behind the bar',
-        setting: level2,
-        sceneGrounding: 'They entered the back room.',
-      );
+        final result = await factory.mint(
+          name: 'Back Room',
+          descriptor: 'a private room behind the bar',
+          setting: level2,
+          sceneGrounding: 'They entered the back room.',
+        );
 
-      expect(result.ok, isTrue, reason: result.error);
-      expect(result.world!.parentWorldId, level1.id,
-          reason: 'level-2 parent is the depth cap; mint under level1');
-    });
+        expect(result.ok, isTrue, reason: result.error);
+        expect(
+          result.world!.parentWorldId,
+          level1.id,
+          reason: 'level-2 parent is the depth cap; mint under level1',
+        );
+      },
+    );
 
     test('inclusion group: a parent entry sharing a key means the minted '
         'entry carries the SAME group value', () async {
@@ -238,7 +259,11 @@ void main() {
         toolAnswer: () async => null,
         textAnswer: _placeDraftText(
           entries: [
-            {'name': 'Gate', 'keys': 'gate,iron', 'content': 'A rusty iron gate.'},
+            {
+              'name': 'Gate',
+              'keys': 'gate,iron',
+              'content': 'A rusty iron gate.',
+            },
             {'name': 'Salt walls', 'keys': 'salt', 'content': 'Weeping brine.'},
             {'name': 'Well', 'keys': 'well', 'content': 'Stone mouth.'},
           ],
@@ -256,55 +281,81 @@ void main() {
       final gateEntry = result.world!.lorebook.entries.firstWhere(
         (e) => e.name == 'Gate',
       );
-      expect(gateEntry.group, groupValue,
-          reason: 'shared key "gate" joins the ancestor group');
+      expect(
+        gateEntry.group,
+        groupValue,
+        reason: 'shared key "gate" joins the ancestor group',
+      );
     });
 
-    test('name collision: two mints of "Salt Garden" become "Salt Garden" and '
-        '"Salt Garden (2)" with saveWorld refusing nothing', () async {
-      final root = await _root(h, 'Bletchport');
-      final factory = _scriptedFactory(
-        repo: h.repo,
-        toolAnswer: () async => null,
-        textAnswer: _placeDraftText(),
-      );
+    test(
+      'an existing name is refused, never re-minted as "Name (2)": '
+      'exact and case-insensitive matches fail honestly, no new row',
+      () async {
+        final root = await _root(h, 'Bletchport');
+        final factory = _scriptedFactory(
+          repo: h.repo,
+          toolAnswer: () async => null,
+          textAnswer: _placeDraftText(),
+        );
 
-      final r1 = await factory.mint(
-        name: 'Salt Garden',
-        descriptor: 'first',
-        setting: root,
-        sceneGrounding: 'First arrival.',
-      );
-      expect(r1.ok, isTrue, reason: r1.error);
+        final r1 = await factory.mint(
+          name: 'Salt Garden',
+          descriptor: 'first',
+          setting: root,
+          sceneGrounding: 'First arrival.',
+        );
+        expect(r1.ok, isTrue, reason: r1.error);
 
-      final r2 = await factory.mint(
-        name: 'Salt Garden',
-        descriptor: 'second',
-        setting: root,
-        sceneGrounding: 'Second arrival.',
-      );
-      expect(r2.ok, isTrue, reason: r2.error);
+        final r2 = await factory.mint(
+          name: 'Salt Garden',
+          descriptor: 'second',
+          setting: root,
+          sceneGrounding: 'Second arrival.',
+        );
+        expect(
+          r2.ok,
+          isFalse,
+          reason: 'a mint never re-mints an existing place',
+        );
+        expect(r2.error!.toLowerCase(), contains('already exists'));
 
-      expect(r1.world!.name, 'Salt Garden');
-      expect(r2.world!.name, 'Salt Garden (2)');
-    });
+        final r3 = await factory.mint(
+          name: '  salt  GARDEN ',
+          descriptor: 'case variant',
+          setting: root,
+          sceneGrounding: 'Third arrival.',
+        );
+        expect(r3.ok, isFalse, reason: 'case and space variants collide too');
+        expect(r3.error!.toLowerCase(), contains('already exists'));
 
-    test('LLM not ready → failure result, no world created, no throw',
-        () async {
-      final root = await _root(h, 'Bletchport');
-      final factory = PlaceFactory(h.repo);
+        final gardens = h.repo.worlds.where(
+          (w) => w.name.toLowerCase().contains('garden'),
+        );
+        expect(gardens.map((w) => w.name).toList(), [
+          'Salt Garden',
+        ], reason: 'exactly one row — no " (2)" was ever written');
+      },
+    );
 
-      final result = await factory.mint(
-        name: 'Salt Garden',
-        descriptor: 'x',
-        setting: root,
-        sceneGrounding: 'y',
-      );
+    test(
+      'LLM not ready → failure result, no world created, no throw',
+      () async {
+        final root = await _root(h, 'Bletchport');
+        final factory = PlaceFactory(h.repo);
 
-      expect(result.ok, isFalse);
-      expect(result.world, isNull);
-      expect(result.error, contains('not ready'));
-    });
+        final result = await factory.mint(
+          name: 'Salt Garden',
+          descriptor: 'x',
+          setting: root,
+          sceneGrounding: 'y',
+        );
+
+        expect(result.ok, isFalse);
+        expect(result.world, isNull);
+        expect(result.error, contains('not ready'));
+      },
+    );
 
     test('malformed model JSON (missing entries) → failure "did not produce", '
         'no partial world row', () async {
@@ -325,7 +376,9 @@ void main() {
       expect(result.ok, isFalse);
       expect(result.error!.toLowerCase(), contains('did not produce'));
 
-      final worlds = h.repo.worlds.where((w) => w.name.contains('Salt')).toList();
+      final worlds = h.repo.worlds
+          .where((w) => w.name.contains('Salt'))
+          .toList();
       expect(worlds, isEmpty, reason: 'no partial row must be written');
     });
   });

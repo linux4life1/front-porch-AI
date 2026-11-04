@@ -18,7 +18,7 @@ import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+
 /// Outcome of one mint attempt — reported, never thrown into the chat
 /// loop (the SceneGuestFactory discipline).
 class PlaceMintResult {
@@ -28,6 +28,7 @@ class PlaceMintResult {
   final String? error;
   bool get ok => world != null;
 }
+
 /// Mints a place beside SceneGuestFactory: name + descriptor + the
 /// narration lines where the place was portrayed, plus the parent
 /// chain's own description and lore as grounding.
@@ -48,6 +49,7 @@ class PlaceFactory {
   fireTextEval;
   final ToolTransportProbe? probe;
   final String Function()? getBackendIdentity;
+
   /// The injection law gives the Setting ~600 chars total; a minted
   /// description sized above this would immediately start squeezing the
   /// traits out of the prompt it was minted to enrich.
@@ -58,6 +60,22 @@ class PlaceFactory {
     required World setting,
     required String sceneGrounding,
   }) async {
+    // A mint never re-mints an existing place: no "Name (2)" beside the
+    // original, no model call burned on a duplicate. The judge only sees
+    // the reachable offer, so this is the honest floor under the flag
+    // seam's redirect — a name the library already answers to refuses
+    // here through the ONE collision key, [placeNameKey]. Collisions
+    // between hand-made worlds and imports still rename in saveWorld;
+    // only this model path refuses.
+    final trimmedName = name.trim();
+    final want = placeNameKey(name);
+    for (final w in _worldRepository.worlds) {
+      if (placeNameKey(w.name) == want) {
+        return PlaceMintResult.failure(
+          'a place named "${w.name}" already exists',
+        );
+      }
+    }
     if (fireToolEval == null || fireTextEval == null || probe == null) {
       return const PlaceMintResult.failure('the LLM backend is not ready');
     }
@@ -107,12 +125,8 @@ class PlaceFactory {
         'no parent leaves room under the depth cap',
       );
     }
-    final trimmedName = name.trim();
     final world = World(
-      name: uniqueWorldName(
-        trimmedName,
-        (n) => _worldRepository.worlds.any((w) => w.name == n),
-      ),
+      name: trimmedName,
       description: _fitBudget(draft.description.trim()),
       lorebook: Lorebook(entries: _entriesWithGroups(draft, setting)),
       parentWorldId: parentId,
@@ -130,6 +144,7 @@ class PlaceFactory {
     }
     return PlaceMintResult.success(world);
   }
+
   /// Mint under the Setting; at the cap (town › building › room = two
   /// levels below the root) the new place joins the Setting's PARENT as
   /// a sibling — design §3 "or its parent when the depth cap is hit".
@@ -138,6 +153,7 @@ class PlaceFactory {
     if (depth >= 2) return setting.parentWorldId;
     return setting.id;
   }
+
   String _ancestorGrounding(World setting) {
     final parts = <String>[
       for (final w in worldChain(setting, _worldRepository.worldById)) ...[
@@ -148,6 +164,7 @@ class PlaceFactory {
     ];
     return parts.join('\n\n');
   }
+
   /// The inclusion-group law (design §3): where an ancestor entry shares
   /// a key with a minted one, the new entry joins that group, so the
   /// palace teacup reads as the palace's version and exactly one of the
@@ -184,7 +201,9 @@ class PlaceFactory {
         }(),
     ];
   }
-  String _fitBudget(String description) => description.length <= descriptionBudget
+
+  String _fitBudget(String description) =>
+      description.length <= descriptionBudget
       ? description
       : '${description.substring(0, descriptionBudget - 1).trimRight()}…';
   String _buildPrompt({
@@ -209,6 +228,7 @@ class PlaceFactory {
         'Respond with ONLY a flat JSON object containing '
         '"short_description" and "lore_entries" — no markdown.';
   }
+
   _Draft? _parseDraft(String text) {
     Object? decoded;
     try {
@@ -218,9 +238,10 @@ class PlaceFactory {
     }
     if (decoded is! Map) return null;
     final entries = [
-      for (final raw in decoded['lore_entries'] is List
-          ? decoded['lore_entries'] as List
-          : const [])
+      for (final raw
+          in decoded['lore_entries'] is List
+              ? decoded['lore_entries'] as List
+              : const [])
         if (raw is Map &&
             raw['name']?.toString().trim().isNotEmpty == true &&
             raw['content']?.toString().trim().isNotEmpty == true)
@@ -236,11 +257,13 @@ class PlaceFactory {
     );
   }
 }
+
 class _Draft {
   const _Draft({required this.description, required this.entries});
   final String description;
   final List<_DraftEntry> entries;
 }
+
 class _DraftEntry {
   const _DraftEntry({
     required this.name,

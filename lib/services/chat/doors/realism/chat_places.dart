@@ -292,6 +292,23 @@ class ChatPlaces {
 
   void flagSuggestedPlaceMint(String name, String descriptor) {
     if (name.trim().isEmpty) return;
+    // A mint never re-mints an existing place. The judge only sees the
+    // one-hop reachable offer, so a reply can "arrive" at a name the
+    // library already holds on another branch — that arrival rides the
+    // MOVE dialog for the place that exists, because a mint of it could
+    // only ever save "Name (2)" beside the original. Match runs through
+    // the ONE collision key, [placeNameKey] — the same law the mint's
+    // own refusal below applies.
+    final existing = _existingWorldNamed(name);
+    if (existing != null) {
+      debugPrint(
+        '[Realism:Mint] "$name" already exists (${existing.id}) — '
+        'offering the move instead',
+      );
+      if (sceneMoves.isDeclined(existing.id)) return;
+      flagSuggestedPlaceMove(existing.id); // drops it when already there
+      return;
+    }
     final setting = primaryId == null
         ? null
         : _worldRepository.worldById(primaryId!);
@@ -302,6 +319,30 @@ class ChatPlaces {
     );
     debugPrint('[Realism:Mint] suggested place pending: $name');
     _g.deps.notify();
+  }
+
+  /// The library's answer to a proposed place name, matched through the
+  /// ONE collision key, [placeNameKey]. When several worlds answer, the
+  /// scene can reach decides — a reachable one wins over a far branch.
+  World? _existingWorldNamed(String name) {
+    final want = placeNameKey(name);
+    final matches = _worldRepository.worlds
+        .where((w) => placeNameKey(w.name) == want)
+        .toList();
+    if (matches.isEmpty) return null;
+    final setting = primaryId == null
+        ? null
+        : _worldRepository.worldById(primaryId!);
+    if (setting == null) return matches.first;
+    final reachable = reachablePlaces(
+      setting,
+      _worldRepository.placeWorlds,
+      _worldRepository.worldById,
+    ).map((w) => w.id).toSet();
+    return matches.firstWhere(
+      (w) => reachable.contains(w.id),
+      orElse: () => matches.first,
+    );
   }
 
   /// Add (and optionally move the scene into) the minted place. The
