@@ -237,7 +237,12 @@ a one-line descriptor, the same pair `DetectedCharacter` uses. It fires
 only when the reply narrates arriving at a **named** place that is not in
 the reachable list; an unnamed side street never qualifies. The dialog
 offers Add and move, Just add, Ignore. Ignored names are remembered per
-chat. Nothing is minted until the tap.
+chat. Nothing is minted until the tap. A mint never re-mints an existing
+place: the judge only sees the reachable offer, so an arrival whose name
+a world in the library already answers to (trimmed, case-insensitive)
+rides the MOVE dialog for the place that exists instead of the mint
+dialog, and `PlaceFactory` refuses such a name honestly rather than
+saving `Name (2)` beside the original.
 
 `PlaceFactory` sits beside `SceneGuestFactory`. Inputs: the name, the
 descriptor, the narration lines where the place was portrayed, and the

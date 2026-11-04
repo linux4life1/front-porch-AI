@@ -14,6 +14,14 @@ const kWorldParentUnknown = 'That parent place no longer exists.';
 /// What saving a place inside one of its own rooms reports.
 const kWorldParentCycle = 'A place cannot live inside one of its own rooms.';
 
+/// The ONE place-name collision key: trimmed, case-folded, internal
+/// whitespace runs collapsed. The chat mint redirect and the factory's
+/// refusal both match through this and nothing else, so a name can never
+/// collide in one seam and slip through the other — "salt  GARDEN" and
+/// "Salt Garden" answer to the same place.
+String placeNameKey(String name) =>
+    name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
 /// Ancestor chain leaf-first: `[S, parent(S), …, root]`.
 ///
 /// Stops at a null parent, a lookup miss (a parent row deleted behind this

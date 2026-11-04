@@ -12,6 +12,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -36,6 +38,7 @@ void main() {
   late ChatService chat;
   late AppDatabase db;
   late StorageService storage;
+  late WorldRepository worlds;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -43,7 +46,8 @@ void main() {
     storage = StorageService();
     await storage.initialized;
     db = AppDatabase.forTesting();
-    final worlds = WorldRepository(storage, db);
+    worlds = WorldRepository(storage, db);
+    await worlds.ready;
     chat = ChatService(
       KoboldService(storage),
       UserPersonaService(db),
@@ -107,5 +111,66 @@ void main() {
     expect(r.ok, isFalse);
     expect(r.error, contains('nothing is being proposed'));
     chat.ignoreMintedPlace(); // must not throw
+  });
+
+  group('a mint never re-mints an existing place', () {
+    Future<model.World> seedPlace(String name, {String? parent}) async {
+      final w = model.World(
+        name: name,
+        description: 'A room that already exists.',
+        lorebook: Lorebook(entries: []),
+        parentWorldId: parent,
+      );
+      await worlds.saveWorld(w);
+      return w;
+    }
+
+    test(
+      'a name the library already holds rides the MOVE offer, not a mint',
+      () async {
+        final warmward = await seedPlace('Warmward Guest Chamber');
+        chat.flagSuggestedPlaceMint('Warmward Guest Chamber', 'a duplicate');
+        expect(
+          chat.pendingPlaceMint,
+          isNull,
+          reason: 'the mint dialog must never offer a second copy',
+        );
+        expect(
+          chat.pendingPlaceMove?.id,
+          warmward.id,
+          reason: 'the arrival becomes a move to the place that exists',
+        );
+        expect(chat.pendingPlaceMove?.name, 'Warmward Guest Chamber');
+      },
+    );
+
+    test('the match is trimmed and case-insensitive', () async {
+      final warmward = await seedPlace('Warmward Guest Chamber');
+      chat.flagSuggestedPlaceMint('  warmward  GUEST chamber ', 'x');
+      expect(chat.pendingPlaceMint, isNull);
+      expect(chat.pendingPlaceMove?.id, warmward.id);
+    });
+
+    test('an unknown name still flags a mint untouched', () async {
+      await seedPlace('Warmward Guest Chamber');
+      chat.flagSuggestedPlaceMint('The Salt Garden', 'hedged beds');
+      expect(chat.pendingPlaceMint?.name, 'The Salt Garden');
+      expect(chat.pendingPlaceMove, isNull);
+    });
+
+    test(
+      'a moved-to name that exists can never also be minted from it',
+      () async {
+        // The move redirect means the mint pending can only ever carry a
+        // name the library did NOT hold at flag time; a later clash is
+        // then refused inside PlaceFactory (pinned in place_factory_test).
+        // Here: after the redirect, nothing mint-able lingers.
+        await seedPlace('Warmward Guest Chamber');
+        chat.flagSuggestedPlaceMint('Warmward Guest Chamber', 'x');
+        expect(chat.pendingPlaceMint, isNull);
+        final r = await chat.acceptMintedPlace(alsoMove: false);
+        expect(r.error, contains('nothing is being proposed'));
+      },
+    );
   });
 }
