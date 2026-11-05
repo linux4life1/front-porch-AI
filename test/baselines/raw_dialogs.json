@@ -8,7 +8,7 @@
   "lib/ui/chat_components/sidebar/journal_memory/growth_panel.actions.dart": 4,
   "lib/ui/chat_components/sidebar/journal_memory/growth_panel.editor.dart": 2,
   "lib/ui/chat_components/sidebar/journal_memory/memory_panel.dart": 2,
-  "lib/ui/chat_components/sidebar/sidebar_body.dart": 1,
+  "lib/ui/chat_components/sidebar/sidebar_member_card.dart": 1,
   "lib/ui/chat_components/sidebar/story_tools/chat_places_panel.picker.dart": 5,
   "lib/ui/chat_components/widgets/inline_chat_image.dart": 1,
   "lib/ui/chat_components/widgets/regen_critique_field.dart": 2,
