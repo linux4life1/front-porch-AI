@@ -19,12 +19,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'package:provider/provider.dart';
+
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../../widgets/chat_turn_builder.dart';
 import '../porch_accordion.dart';
+import '../sidebar_reorder.dart';
 import 'afk_panel.dart';
 import 'chaos_panel.dart';
 import 'chat_places_panel.dart';
@@ -52,6 +55,9 @@ class StoryToolsGroup extends StatelessWidget {
   /// lorebook "would trigger next" preview.
   final ValueListenable<TextEditingValue>? draft;
 
+  /// The reorder grip when this accordion sits in the reorderable body.
+  final Widget? dragHandle;
+
   const StoryToolsGroup({
     super.key,
     required this.chatService,
@@ -62,6 +68,7 @@ class StoryToolsGroup extends StatelessWidget {
     required this.onSpinRequested,
     this.character,
     this.draft,
+    this.dragHandle,
   });
 
   @override
@@ -73,35 +80,104 @@ class StoryToolsGroup extends StatelessWidget {
       accent: AppColors.porchHoneyOf(context),
       initiallyExpanded: initiallyExpanded,
       onExpansionChanged: onExpansionChanged,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ChatTurnBuilder(
-            builder: (context, chat) =>
-                ChaosPanel(chat: chat, onSpinRequested: onSpinRequested),
-          ),
-          const SizedBox(height: 12),
-          // Dynamic Responses (AFK) sits directly under Chaos Mode. 1:1 only —
-          // the autonomous idle cue narrates the solo character's day.
-          if (!isGroup) ...[
-            AfkPanel(chat: chatService),
-            const SizedBox(height: 12),
-          ],
-          ChatPlacesPanel(chatService: chatService),
-          const SizedBox(height: 12),
-          if (isGroup)
-            GroupLorebookSection(chatService: chatService, draft: draft)
-          else if (character != null)
-            LorebookSection(
-              character: character!,
-              activeLore: chatService.currentlyActiveLoreEntries(),
-              chatService: chatService,
-              draft: draft,
+      dragHandle: dragHandle,
+      child: ChatTurnBuilder(
+        builder: (context, chat) {
+          final ui = Provider.of<StorageService>(context).uiSettings;
+          final showLorebook = isGroup || character != null;
+          // The leaf ids this accordion can show right now; the stored order
+          // filters to them and appends any it does not know per the default.
+          final visible = <String>[
+            'chaos',
+            if (!isGroup) 'afk',
+            'places',
+            if (showLorebook) 'lorebook',
+            'chat_lorebook',
+          ];
+          final ordered = ui.sidebarLeafOrderFor('story_tools', visible);
+          final pump = ReorderScrollPump.maybeOf(context);
+          return ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            // The lifted leaf must not eat the wheel hit test (see
+            // sidebar_body for why); signals fall through to the armed pump
+            // listeners below.
+            proxyDecorator: (child, index, animation) => IgnorePointer(
+              child: Material(
+                elevation: 2,
+                shadowColor: Colors.transparent,
+                child: child,
+              ),
             ),
-          const SizedBox(height: 12),
-          ChatLorebookSection(chatService: chatService),
-        ],
+            itemCount: ordered.length,
+            // The body pumps its wheel scroll for leaf drags too.
+            onReorderStart: (_) => pump?.reportDrag(true),
+            onReorderEnd: (_) => pump?.reportDrag(false),
+            onReorderItem: (from, to) => ui.setSidebarLeafOrder(
+              'story_tools',
+              _reorderIds(ordered, from, to),
+            ),
+            itemBuilder: (context, i) => WheelPump(
+              // A leaf in hand pumps the body's scroll (see [WheelPump]);
+              // the item key lives here, where the list can see it.
+              key: ValueKey('sidebar-leaf-${ordered[i]}'),
+              pump: pump,
+              child: Padding(
+                // The old Column's 12px gap between leaves, not after the last.
+                padding: EdgeInsets.only(
+                  bottom: i == ordered.length - 1 ? 0 : 12,
+                ),
+                child: _leaf(context, chat, ordered[i], i),
+              ),
+            ),
+          );
+        },
       ),
     );
+  }
+
+  /// The leaf widget for [id], with its reorder grip at [index].
+  Widget _leaf(BuildContext context, ChatService chat, String id, int index) {
+    final grip = SidebarReorderHandle(index: index);
+    switch (id) {
+      case 'chaos':
+        return ChaosPanel(
+          chat: chat,
+          onSpinRequested: onSpinRequested,
+          dragHandle: grip,
+        );
+      case 'afk':
+        return AfkPanel(chat: chatService, dragHandle: grip);
+      case 'places':
+        return ChatPlacesPanel(chatService: chatService, dragHandle: grip);
+      case 'lorebook':
+        return isGroup
+            ? GroupLorebookSection(
+                chatService: chatService,
+                draft: draft,
+                dragHandle: grip,
+              )
+            : LorebookSection(
+                character: character!,
+                activeLore: chatService.currentlyActiveLoreEntries(),
+                chatService: chatService,
+                draft: draft,
+                dragHandle: grip,
+              );
+      case 'chat_lorebook':
+        return ChatLorebookSection(chatService: chatService, dragHandle: grip);
+    }
+    return const SizedBox.shrink();
+  }
+
+  /// The ids reordered by a drag: onReorderItem delivers newIndex already
+  /// adjusted for the removal at oldIndex (no manual decrement).
+  List<String> _reorderIds(List<String> ids, int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return ids;
+    final out = List.of(ids);
+    final item = out.removeAt(oldIndex);
+    out.insert(newIndex, item);
+    return out;
   }
 }

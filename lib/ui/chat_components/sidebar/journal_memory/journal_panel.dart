@@ -45,12 +45,16 @@ class JournalPanel extends StatefulWidget {
   /// or hosts without a scrollable chat behind the panel).
   final ValueChanged<int>? onJumpToMessage;
 
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const JournalPanel({
     super.key,
     required this.chatService,
     required this.characterId,
     required this.characterName,
     this.onJumpToMessage,
+    this.dragHandle,
   });
 
   @override
@@ -124,6 +128,7 @@ class _JournalPanelState extends State<JournalPanel> {
           icon: Icons.menu_book,
           label: 'The Journal',
           accent: accent,
+          dragHandle: widget.dragHandle,
           trailing: Text(
             '${_cards.length}',
             style: TextStyle(

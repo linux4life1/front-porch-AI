@@ -28,6 +28,13 @@ vi.mock('../api/client', () => ({
 }));
 // The tools list reads the same snapshot in full; it is not part of this pin.
 vi.mock('./ChatTools', () => ({ ChatTools: () => null }));
+// The order read rides a socket the panel keeps live; here it never speaks.
+vi.mock('../api/ws', () => ({
+  ChatSocket: class {
+    connect() {}
+    close() {}
+  },
+}));
 
 const { ChatInsight } = await import('./ChatInsight');
 
@@ -92,7 +99,12 @@ describe('One-Shot Eval above the tool-calling pill', () => {
     await renderInsight();
     const row = container.querySelector('.one-shot-row');
     expect(row).not.toBeNull();
-    expect(row?.nextElementSibling?.classList.contains('tool-pill')).toBe(true);
+    // The reorderable body wraps each section in its own div; the two sit
+    // adjacent in the shipped default order.
+    const evalSection = container.querySelector('.insight-section[data-id="one_shot_eval"]');
+    const pillSection = container.querySelector('.insight-section[data-id="tool_calling_pill"]');
+    expect(evalSection).not.toBeNull();
+    expect(evalSection?.nextElementSibling).toBe(pillSection);
     expect(radio('Off').getAttribute('aria-checked')).toBe('true');
     expect(radio('Auto').getAttribute('aria-checked')).toBe('false');
   });

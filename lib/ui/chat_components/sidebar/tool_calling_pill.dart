@@ -35,7 +35,14 @@ const _savedDetail = 'Saved from an earlier test. Tap to ask again.';
 class ToolCallingPill extends StatelessWidget {
   final ChatService chatService;
 
-  const ToolCallingPill({super.key, required this.chatService});
+  /// The reorder grip when this pill sits in the reorderable sidebar body.
+  final Widget? dragHandle;
+
+  const ToolCallingPill({
+    super.key,
+    required this.chatService,
+    this.dragHandle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +121,14 @@ class ToolCallingPill extends StatelessWidget {
             ),
             child: Row(
               children: [
+                if (dragHandle != null)
+                  // Opaque so a grip tap never retests the model.
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {},
+                    child: dragHandle!,
+                  ),
+                const SizedBox(width: 8),
                 if (testing)
                   SizedBox(
                     width: 16,

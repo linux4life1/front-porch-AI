@@ -73,18 +73,32 @@ class SidebarSubHeader extends StatelessWidget {
   final Color accent;
   final Widget? trailing;
 
+  /// The reorder grip (a [SidebarReorderHandle]) when this leaf sits in a
+  /// reorderable accordion body — wrapped opaque so a grip tap never reaches
+  /// the leaf's own controls.
+  final Widget? dragHandle;
+
   const SidebarSubHeader({
     super.key,
     required this.icon,
     required this.label,
     required this.accent,
     this.trailing,
+    this.dragHandle,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
+        if (dragHandle != null)
+          // Opaque so a grip tap never reaches the leaf's own controls.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: dragHandle!,
+          ),
+        const SizedBox(width: 6),
         Icon(icon, size: 14, color: accent),
         const SizedBox(width: 6),
         Expanded(

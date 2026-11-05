@@ -45,12 +45,16 @@ class GrowthPanel extends StatelessWidget {
   /// Receipts tap-to-jump (null in tests or hosts without a chat behind).
   final ValueChanged<int>? onJumpToMessage;
 
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const GrowthPanel({
     super.key,
     required this.chatService,
     required this.characterId,
     required this.characterName,
     this.onJumpToMessage,
+    this.dragHandle,
   });
 
   /// Friendly label + accent for a ring category chip.
@@ -95,6 +99,7 @@ class GrowthPanel extends StatelessWidget {
               icon: Icons.donut_large,
               label: 'Growth · $characterName',
               accent: accent,
+              dragHandle: dragHandle,
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

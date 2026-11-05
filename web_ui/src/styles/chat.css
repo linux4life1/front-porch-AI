@@ -539,3 +539,26 @@ mark.find-hit.active {
   border: calc(1px + 2px * var(--mood-a, 0)) solid color-mix(in srgb, var(--mood-hue) calc(45% + 50% * var(--mood-a, 0)), transparent);
   box-shadow: 0 0 calc(16px + 36px * var(--mood-a, 0)) calc(1px + 5px * var(--mood-a, 0)) color-mix(in srgb, var(--mood-hue) calc(50% * var(--mood-a, 0)), transparent);
 }
+
+/* ── Reorderable chat sidebar ─────────────────────────────────── */
+/* The grip handle is the first element of each section's header row: a small
+   six-dot button that starts a pointer drag and never acts on the section's
+   own control (Error Book P44). touch-action:none keeps a touch drag from
+   scrolling the panel instead. */
+.sidebar-grip {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: none; background: none;
+  color: var(--faint); cursor: grab; touch-action: none;
+}
+.sidebar-grip:active { cursor: grabbing; }
+/* The Reset-to-default pill at the top of the sidebar. */
+.sidebar-reset-pill {
+  align-self: flex-start; padding: 3px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); font-size: 10px; line-height: 1.4; cursor: pointer;
+}
+.sidebar-reset-pill:hover { color: var(--text-strong); }
+/* Each reorderable section is its own item, so the flex gap falls between
+   items rather than inside one. A held item dims while it travels. */
+.insight-section, .tools-section { position: relative; }
+.insight-section.dragging, .tools-section.dragging { opacity: 0.6; }

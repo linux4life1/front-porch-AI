@@ -22,7 +22,14 @@ import 'chat_places_panel.picker.dart';
 class ChatPlacesPanel extends StatelessWidget {
   final ChatService chatService;
 
-  const ChatPlacesPanel({super.key, required this.chatService});
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
+  const ChatPlacesPanel({
+    super.key,
+    required this.chatService,
+    this.dragHandle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +84,7 @@ class ChatPlacesPanel extends StatelessWidget {
               icon: Icons.public,
               label: 'Places',
               accent: AppColors.formAccentOf(context),
+              dragHandle: dragHandle,
               trailing: places.isEmpty
                   ? null
                   : IconButton(

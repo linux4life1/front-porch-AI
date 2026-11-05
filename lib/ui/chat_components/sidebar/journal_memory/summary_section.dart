@@ -32,7 +32,15 @@ import 'summary_recap_field.dart';
 /// docs/design/journal-memory.md §8.
 class SummarySection extends StatefulWidget {
   final ChatService chatService;
-  const SummarySection({super.key, required this.chatService});
+
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
+  const SummarySection({
+    super.key,
+    required this.chatService,
+    this.dragHandle,
+  });
 
   @override
   State<SummarySection> createState() => SummarySectionState();
@@ -101,6 +109,7 @@ class SummarySectionState extends State<SummarySection> {
           icon: Icons.auto_stories,
           label: 'Where we are',
           accent: accent,
+          dragHandle: widget.dragHandle,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

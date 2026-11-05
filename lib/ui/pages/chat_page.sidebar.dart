@@ -30,8 +30,10 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
@@ -192,6 +194,11 @@ class ChatRightSidebar extends StatelessWidget {
             onAvatarsChanged: onAvatarsChanged,
           ),
 
+          // ── Reset the sidebar layout to the shipped default order. Under
+          //    Main Settings, left-aligned: above the portrait the mood ring
+          //    and the clipped pane edge hid it (maintainer, 2026-11-04). ──
+          const _SidebarResetPill(),
+
           // ── Group Settings (group only; sits directly under Main Settings,
           //    above the cast roster, so the whole-group controls are found
           //    before per-character ones) ──
@@ -239,54 +246,6 @@ class ChatRightSidebar extends StatelessWidget {
               onJumpToMessage: onJumpToMessage,
               resolveCharImage: resolveCharImage,
               draft: draft,
-              // ── Director: step out to direct, or back in ──
-              header: isGroup || cast.length > 1
-                  ? Consumer<StorageService>(
-                      builder: (context, storage, _) {
-                        final delay = storage.ttsSettings.directorDelay;
-                        chatService.directorDelaySec = delay;
-                        return DirectorPanel(
-                          directing: chatService.observerMode,
-                          busy:
-                              chatService.isGenerating ||
-                              chatService.isNarrating,
-                          delaySeconds: delay,
-                          onStepOut: () =>
-                              unawaited(chatService.sendMessage('/director')),
-                          onStepIn: () => unawaited(
-                            chatService.sendMessage('/director off'),
-                          ),
-                          onDelayChanged: storage.ttsSettings.setDirectorDelay,
-                          tools: DirectorTools(
-                            memberNames: [
-                              for (final c in chatService.groupCharacters)
-                                c.name,
-                            ],
-                            goal: chatService.directorGoal,
-                            whispers: chatService.directorWhisperRows,
-                            turnBudget: storage.ttsSettings.directorTurnBudget,
-                            turnsLeft: chatService.autoChatTurnsLeft,
-                            busy:
-                                chatService.isGenerating ||
-                                chatService.isNarrating,
-                            onCue: (name) => unawaited(
-                              chatService.sendMessage('/speak $name'),
-                            ),
-                            onBeat: (note) =>
-                                unawaited(chatService.sendMessage(note)),
-                            onGoal: (text) =>
-                                unawaited(chatService.setDirectorGoal(text)),
-                            onClearWhisper: (id) => unawaited(
-                              chatService.setDirectorWhisper(id, ''),
-                            ),
-                            onTurnBudget: (n) => unawaited(
-                              storage.ttsSettings.setDirectorTurnBudget(n),
-                            ),
-                          ),
-                        );
-                      },
-                    )
-                  : null,
               onOpenEditFromEnv: () {
                 unawaited(
                   onEditCharacter(character, ensureRelationshipVisible: true),
@@ -364,5 +323,81 @@ class _ParticipantRoster extends StatelessWidget {
         },
       ),
     );
+  }
+}
+
+/// Small visible pill at the top of the chat sidebar: restore the shipped
+/// section order. Pinned chrome, never a reorderable unit.
+class _SidebarResetPill extends StatelessWidget {
+  const _SidebarResetPill();
+
+  @override
+  Widget build(BuildContext context) {
+    final ui = Provider.of<StorageService>(context, listen: false).uiSettings;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: GestureDetector(
+          onTap: () => _confirmReset(context, ui),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerOf(context),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.borderOf(context)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.restart_alt,
+                  size: 13,
+                  color: AppColors.iconSecondary(context),
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Reset to default',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textSecondary(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Reset is global — one lost arrangement is lost for every chat — so the
+  /// pill asks first. Cancel keeps the current order untouched.
+  Future<void> _confirmReset(BuildContext context, UiSettings ui) async {
+    final yes = await showWarmDialog<bool>(
+      context,
+      title: 'Reset sidebar to default?',
+      icon: Icons.restart_alt,
+      accent: AppColors.porchAmberOf(context),
+      content: const WarmDialogText(
+        'Your sidebar order is shared by all chats. Resetting puts every '
+        'section and accordion leaf back in the order the app shipped with, '
+        'and the arrangement you set is lost.',
+      ),
+      // Pop from inside the dialog so the right route closes.
+      actions: [
+        Builder(
+          builder: (ctx) => warmDialogCancel(ctx, label: 'Keep mine', value: false),
+        ),
+        Builder(
+          builder: (ctx) => warmDialogConfirm(
+            ctx,
+            label: 'Reset',
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ],
+    );
+    if (yes == true) await ui.resetSidebarLayout();
   }
 }

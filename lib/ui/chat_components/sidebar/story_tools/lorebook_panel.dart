@@ -251,12 +251,16 @@ class LorebookSection extends StatelessWidget {
   final ChatService? chatService;
   final ValueListenable<TextEditingValue>? draft;
 
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const LorebookSection({
     super.key,
     required this.character,
     required this.activeLore,
     this.chatService,
     this.draft,
+    this.dragHandle,
   });
 
   @override
@@ -276,6 +280,7 @@ class LorebookSection extends StatelessWidget {
           icon: Icons.menu_book,
           label: 'Lorebook',
           accent: AppColors.porchHoneyOf(context),
+          dragHandle: dragHandle,
         ),
         const SizedBox(height: 4),
         Padding(
@@ -333,10 +338,15 @@ class LorebookSection extends StatelessWidget {
 class GroupLorebookSection extends StatelessWidget {
   final ChatService chatService;
   final ValueListenable<TextEditingValue>? draft;
+
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const GroupLorebookSection({
     super.key,
     required this.chatService,
     this.draft,
+    this.dragHandle,
   });
 
   @override
@@ -350,6 +360,7 @@ class GroupLorebookSection extends StatelessWidget {
           icon: Icons.menu_book,
           label: 'Lorebook',
           accent: AppColors.porchHoneyOf(context),
+          dragHandle: dragHandle,
           trailing: activeEntries.isNotEmpty
               ? Container(
                   padding: const EdgeInsets.symmetric(
