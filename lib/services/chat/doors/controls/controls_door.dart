@@ -72,6 +72,14 @@ class ControlsDoor {
   /// [objectivesActive].
   bool objectivesEnabled = true;
 
+  /// This chat's own Pockets & Wardrobe switch
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Seeds from the card's
+  /// default at new-chat entry and from the stored column on restore
+  /// (missing column → derived from the card once, maintainer ruling D1).
+  /// Group chats keep this honest but unused: their gate answers per member
+  /// from the session bag. Missing reads on, as the card flag always did.
+  bool _pocketsChatSwitch = true;
+
   /// The chat's stored "enjoys low hygiene" (the inversion for hygiene);
   /// [enjoysLowHygiene] prefers the live card.
   bool chatEnjoysLowHygiene = false;
@@ -85,6 +93,12 @@ class ControlsDoor {
   /// read and write.
   bool get chatRealism => _realismChatSwitch;
   void setChatRealism(bool on) => _realismChatSwitch = on;
+
+  /// The 1:1 chat's stored Pockets switch, for the save wire, seeds and the
+  /// checkbox. NOT the gate — that is `PocketsLedger.pocketsEnabledFor`,
+  /// which ANDs the Porch Life global and (in groups) the member's bag.
+  bool get pocketsChatSwitch => _pocketsChatSwitch;
+  void setChatPockets(bool on) => _pocketsChatSwitch = on;
 
   // ── The gates ─────────────────────────────────────────────────────────
 
@@ -309,6 +323,68 @@ class ControlsDoor {
     objectivesEnabled = enabled;
     await deps.saveChat();
     deps.notify();
+  }
+
+  /// Turn this 1:1 chat's Pockets & Wardrobe on or off.
+  /// (docs/design/pockets-wardrobe-chat-toggle.md.)
+  ///
+  /// `false` HIDES and freezes: the record is retained verbatim (the save
+  /// wire writes it outside the gate), no pockets model call runs, hand
+  /// edits are refused — no catch-up mechanic, and the confirmation dialog
+  /// says so before the flip. `true` resumes from the retained record and
+  /// seeds the card's starting kit once ONLY for a chat with no record at
+  /// all, the way [setNeedsSimEnabled] seeds the vector. Never a retro-scan.
+  Future<void> setPocketsEnabled(bool enabled) async {
+    _pocketsChatSwitch = enabled;
+    if (enabled && _g.hostPockets == null) {
+      final card = _session.activeCharacter;
+      if (card != null) {
+        final seed = PocketsLedger.startingPocketsFor(card);
+        if (!seed.isEmpty) _g.hostPockets = seed;
+      }
+    }
+    // Paint first, same rule as Needs: a save that throws must not leave
+    // the switch flipped against a stale panel.
+    deps.notify();
+    await deps.saveChat();
+  }
+
+  /// A group member's per-chat Pockets switch — same contract as
+  /// [setPocketsEnabled] for that member alone: off freezes and hides only
+  /// their track. The UI confirms the freeze, naming the member.
+  Future<void> setMemberPocketsEnabled(String memberId, bool enabled) async {
+    final bag = _g.groups.members[memberId];
+    if (enabled && bag?.pockets == null) {
+      for (final c in _session.groupCharacters) {
+        if (deps.session.characterIdFor(c) == memberId) {
+          final seed = PocketsLedger.startingPocketsFor(c);
+          if (!seed.isEmpty) {
+            _g.groups.memberForWrite(memberId).pockets = seed;
+          }
+          break;
+        }
+      }
+    }
+    _g.groups.memberForWrite(memberId).pocketsSwitch = enabled;
+    deps.notify();
+    await deps.saveChat();
+  }
+
+  /// The switch the checkbox shows: the 1:1 chat's stored choice, or the
+  /// member's per-chat choice (their bag, falling back to the card default
+  /// for a chat the entry seed has not written yet). The STORED value, not
+  /// the live gate — the gate would grey the switch under a Porch Life veto
+  /// the user already made their choice about.
+  bool pocketsSwitchFor(String memberId) {
+    if (_activeGroup == null) return _pocketsChatSwitch;
+    final seeded = _g.groups.members[memberId]?.pocketsSwitch;
+    if (seeded != null) return seeded;
+    for (final c in _session.groupCharacters) {
+      if (deps.session.characterIdFor(c) == memberId) {
+        return c.frontPorchExtensions?.pocketsEnabled ?? true;
+      }
+    }
+    return true;
   }
 
   Future<void> setChaosModeEnabled(bool enabled) async {

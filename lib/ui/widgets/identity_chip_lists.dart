@@ -89,6 +89,21 @@ bool plannerEnabledOf(BuildContext context) {
   }
 }
 
+/// Whether Porch Life allows Pockets & Wardrobe (docs/design/
+/// pockets-wardrobe-chat-toggle.md). Listens, so a vetoed switch repaints
+/// when the global flips. No storage in scope (a bare member-card or dialog
+/// harness) reads as allowed — `realismAllowedOf`'s rule, same reason: a
+/// harness is not a Porch Life veto, and the gate downstream still answers
+/// the real setting wherever tracking actually runs.
+bool pocketsEnabledOf(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context).realismSettings.pocketsEnabled;
+  } catch (e) {
+    debugPrint('[Pockets] no storage in scope, reading Porch Life as on: $e');
+    return true;
+  }
+}
+
 /// Live story clock when a [ChatService] is in scope, else null so
 /// [BirthdayRow] can fall back. Settings and Speak as both claim
 /// "on the story date"; wall-clock was the silent miss.

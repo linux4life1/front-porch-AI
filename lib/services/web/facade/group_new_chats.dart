@@ -54,10 +54,12 @@ class GroupNewChats {
     }
   }
 
-  /// `{realism, needs, needsAllowed, afterglow, inherit, forkSource}` for
-  /// [groupId], or null when the group is unknown. `needsAllowed` is Porch
-  /// Life's Needs: false greys the Needs switch at the group's own choice. `forkSource` is null unless the group was made
-  /// from a 1:1 whose settings it is missing.
+  /// `{realism, needs, needsAllowed, afterglow, pockets, inherit, forkSource}`
+  /// for [groupId], or null when the group is unknown. `needsAllowed` is Porch
+  /// Life's Needs: false greys the Needs switch at the group's own choice.
+  /// `pockets` is the group's Pockets & Wardrobe default for new chats
+  /// (v64, docs/design/pockets-wardrobe-chat-toggle.md). `forkSource` is null
+  /// unless the group was made from a 1:1 whose settings it is missing.
   Future<Map<String, dynamic>?> stateOf(String groupId) async {
     final g = _groups.getById(groupId);
     if (g == null) return null;
@@ -68,6 +70,12 @@ class GroupNewChats {
       'needs': r.needsOn,
       'needsAllowed': _storage?.realismSettings.needsSimDefault ?? true,
       'afterglow': groupAfterglowIn(g.defaultMemberRealismState),
+      // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the group's
+      // Pockets default for new chats. Additive: an older PWA ignores it.
+      'pockets': groupPocketsIn(g.defaultMemberRealismState),
+      // Porch Life's Pockets: false greys the switch at the group's own
+      // choice, the Needs line's shape. Additive.
+      'pocketsAllowed': _storage?.realismSettings.pocketsEnabled ?? true,
       'inherit': g.inheritCharacterLorebooks,
       'forkSource': s == null || !s.differsFrom(g)
           ? null
@@ -125,6 +133,16 @@ class GroupNewChats {
       g.defaultMemberRealismState = withGroupAfterglow(
         g.defaultMemberRealismState,
         body['afterglow'] as bool,
+      );
+    }
+    // v64: written AFTER the realism switch above — that round-trips the
+    // old pockets value through switchGroupTemplateRealism, so this is the
+    // word that lands when one POST carries both. Pockets needs no
+    // Realism, so this writes even onto a seedless blob.
+    if (body['pockets'] is bool) {
+      g.defaultMemberRealismState = withGroupPockets(
+        g.defaultMemberRealismState,
+        body['pockets'] as bool,
       );
     }
     if (body['inherit'] is bool) {

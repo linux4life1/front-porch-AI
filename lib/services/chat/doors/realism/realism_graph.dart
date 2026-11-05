@@ -38,6 +38,7 @@ import 'package:front_porch_ai/services/chat/doors/realism/scalar_carries.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/today_planner.dart';
 import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 export 'package:front_porch_ai/services/chat/doors/realism/chat_lore.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/core_wiring.dart';
@@ -253,6 +254,20 @@ class RealismGraph {
   void seedPocketsFromCards() {
     if (!deps.services.storage.realismSettings.pocketsEnabled) return;
     pocketsLedger.seedPocketsFromCards();
+  }
+
+  /// Seed each group member's per-chat Pockets switch once, from the
+  /// group's new-chat default AND their card default
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Group entry and the
+  /// fresh-group new-chat path both call it before [seedPocketsFromCards],
+  /// which answers the gate this seeds. A member whose bag already carries
+  /// the switch is left alone: mid-chat flips survive reopen.
+  void seedGroupPocketsSwitches() {
+    final group = session.activeGroup;
+    if (group == null) return;
+    pocketsLedger.seedMemberSwitchDefaults(
+      groupDefault: groupPocketsIn(group.defaultMemberRealismState),
+    );
   }
 
   /// Group members in a group, else the 1:1 character when one is set.

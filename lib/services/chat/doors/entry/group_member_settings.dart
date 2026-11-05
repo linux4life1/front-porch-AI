@@ -124,6 +124,23 @@ class GroupMemberSettings {
     );
   }
 
+  /// A member's Pockets & Wardrobe DEFAULT for the group's new chats —
+  /// the card flag on their member copy, not this chat's live switch
+  /// (that one rides their bag; the sidebar switch reads it). AND-ed with
+  /// the group's own new-chat default at entry (D2's worked example: group
+  /// ON + Ben off here ⇒ Ben starts a new chat untracked).
+  Future<void> setMemberPocketsDefault(CharacterCard member, bool on) async {
+    if (_activeGroup == null) return;
+    if ((member.frontPorchExtensions?.pocketsEnabled ?? true) == on) return;
+    member.frontPorchExtensions =
+        (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+          pocketsEnabled: on,
+        );
+    await _s.controls().persistGroupMemberExtensions(
+      memberId: _getCharacterIdFromCard(member),
+    );
+  }
+
   /// Set the active group's turn order on the fly (the `/turnorder` macro).
   /// [random] true → a random member answers each turn; false → round-robin.
   /// When [customOrder] is supplied (round-robin only) the live roster is

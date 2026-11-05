@@ -345,6 +345,20 @@ class ChatService extends ChangeNotifier {
   bool get afterglowChatSwitch => controlsDoor.afterglowChatSwitch;
   Future<void> setAfterglowEnabled(bool on) =>
       controlsDoor.setAfterglowEnabled(on);
+
+  // Pockets & Wardrobe per-chat switches
+  // (docs/design/pockets-wardrobe-chat-toggle.md). Forwarders, not
+  // extensions: the golden fakes answer these for the sidebar widget tests.
+  /// This 1:1 chat's stored Pockets switch (the checkbox reads it; the gate
+  /// is [pocketsEnabledFor]).
+  bool get pocketsChatSwitch => controlsDoor.pocketsChatSwitch;
+
+  /// The member's stored per-chat switch in a group, the 1:1 one outside.
+  bool pocketsSwitchFor(String memberId) =>
+      controlsDoor.pocketsSwitchFor(memberId);
+  Future<void> setPocketsEnabled(bool on) => controlsDoor.setPocketsEnabled(on);
+  Future<void> setMemberPocketsEnabled(String memberId, bool on) =>
+      controlsDoor.setMemberPocketsEnabled(memberId, on);
   MemoryService? get memoryService => _bound.memory;
 
   /// Reads the public [messages], so a fake is never probed for privates.
@@ -380,6 +394,12 @@ class ChatService extends ChangeNotifier {
   /// A group member's own Afterglow switch (body in [GroupMemberSettings]).
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>
       entryDoor.members.setMemberAfterglowEnabled(member, on);
+
+  /// A group member's Pockets default for the group's NEW chats (the card
+  /// flag on their member copy — the sidebar flips the live per-chat
+  /// switch, this sets what a fresh chat starts with).
+  Future<void> setMemberPocketsDefault(CharacterCard member, bool on) =>
+      entryDoor.members.setMemberPocketsDefault(member, on);
 
   bool get chaosNsfwEnabled => realism.chaos.chaosNsfwEnabled;
 

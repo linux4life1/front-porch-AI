@@ -2047,6 +2047,20 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pocketsEnabledMeta = const VerificationMeta(
+    'pocketsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> pocketsEnabled = GeneratedColumn<bool>(
+    'pockets_enabled',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pockets_enabled" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _todayObjectiveIdMeta = const VerificationMeta(
     'todayObjectiveId',
   );
@@ -2294,6 +2308,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     needsSimEnabled,
     needsVector,
     pockets,
+    pocketsEnabled,
     todayObjectiveId,
     evolvedPersonality,
     evolvedScenario,
@@ -2781,6 +2796,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         pockets.isAcceptableOrUnknown(data['pockets']!, _pocketsMeta),
       );
     }
+    if (data.containsKey('pockets_enabled')) {
+      context.handle(
+        _pocketsEnabledMeta,
+        pocketsEnabled.isAcceptableOrUnknown(
+          data['pockets_enabled']!,
+          _pocketsEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('today_objective_id')) {
       context.handle(
         _todayObjectiveIdMeta,
@@ -3145,6 +3169,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}pockets'],
       ),
+      pocketsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pockets_enabled'],
+      ),
       todayObjectiveId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}today_objective_id'],
@@ -3321,6 +3349,16 @@ class Session extends DataClass implements Insertable<Session> {
   /// chat where Pockets is switched off.
   final String? pockets;
 
+  /// v64 — this 1:1 chat's own Pockets & Wardrobe switch
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Before it, the feature
+  /// answered a global Porch Life switch ANDed with a per-character card
+  /// flag, so there was no per-chat control. Nullable, no default: NULL
+  /// means the chat predates the column, and the first load derives it once
+  /// from the card flag (maintainer ruling D1) then persists it. Group chats
+  /// keep their per-member switches inside `group_realism_state` and leave
+  /// this NULL.
+  final bool? pocketsEnabled;
+
   /// v48 — the live Today side-quest row for this chat, or null if none.
   ///
   /// Shape is not enough: a user-typed secondary is also isPrimary false,
@@ -3418,6 +3456,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.needsSimEnabled,
     this.needsVector,
     this.pockets,
+    this.pocketsEnabled,
     this.todayObjectiveId,
     required this.evolvedPersonality,
     required this.evolvedScenario,
@@ -3536,6 +3575,9 @@ class Session extends DataClass implements Insertable<Session> {
     }
     if (!nullToAbsent || pockets != null) {
       map['pockets'] = Variable<String>(pockets);
+    }
+    if (!nullToAbsent || pocketsEnabled != null) {
+      map['pockets_enabled'] = Variable<bool>(pocketsEnabled);
     }
     if (!nullToAbsent || todayObjectiveId != null) {
       map['today_objective_id'] = Variable<String>(todayObjectiveId);
@@ -3668,6 +3710,9 @@ class Session extends DataClass implements Insertable<Session> {
       pockets: pockets == null && nullToAbsent
           ? const Value.absent()
           : Value(pockets),
+      pocketsEnabled: pocketsEnabled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pocketsEnabled),
       todayObjectiveId: todayObjectiveId == null && nullToAbsent
           ? const Value.absent()
           : Value(todayObjectiveId),
@@ -3782,6 +3827,7 @@ class Session extends DataClass implements Insertable<Session> {
       needsSimEnabled: serializer.fromJson<bool>(json['needsSimEnabled']),
       needsVector: serializer.fromJson<String?>(json['needsVector']),
       pockets: serializer.fromJson<String?>(json['pockets']),
+      pocketsEnabled: serializer.fromJson<bool?>(json['pocketsEnabled']),
       todayObjectiveId: serializer.fromJson<String?>(json['todayObjectiveId']),
       evolvedPersonality: serializer.fromJson<String>(
         json['evolvedPersonality'],
@@ -3877,6 +3923,7 @@ class Session extends DataClass implements Insertable<Session> {
       'needsSimEnabled': serializer.toJson<bool>(needsSimEnabled),
       'needsVector': serializer.toJson<String?>(needsVector),
       'pockets': serializer.toJson<String?>(pockets),
+      'pocketsEnabled': serializer.toJson<bool?>(pocketsEnabled),
       'todayObjectiveId': serializer.toJson<String?>(todayObjectiveId),
       'evolvedPersonality': serializer.toJson<String>(evolvedPersonality),
       'evolvedScenario': serializer.toJson<String>(evolvedScenario),
@@ -3954,6 +4001,7 @@ class Session extends DataClass implements Insertable<Session> {
     bool? needsSimEnabled,
     Value<String?> needsVector = const Value.absent(),
     Value<String?> pockets = const Value.absent(),
+    Value<bool?> pocketsEnabled = const Value.absent(),
     Value<String?> todayObjectiveId = const Value.absent(),
     String? evolvedPersonality,
     String? evolvedScenario,
@@ -4050,6 +4098,9 @@ class Session extends DataClass implements Insertable<Session> {
     needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
     needsVector: needsVector.present ? needsVector.value : this.needsVector,
     pockets: pockets.present ? pockets.value : this.pockets,
+    pocketsEnabled: pocketsEnabled.present
+        ? pocketsEnabled.value
+        : this.pocketsEnabled,
     todayObjectiveId: todayObjectiveId.present
         ? todayObjectiveId.value
         : this.todayObjectiveId,
@@ -4229,6 +4280,9 @@ class Session extends DataClass implements Insertable<Session> {
           ? data.needsVector.value
           : this.needsVector,
       pockets: data.pockets.present ? data.pockets.value : this.pockets,
+      pocketsEnabled: data.pocketsEnabled.present
+          ? data.pocketsEnabled.value
+          : this.pocketsEnabled,
       todayObjectiveId: data.todayObjectiveId.present
           ? data.todayObjectiveId.value
           : this.todayObjectiveId,
@@ -4332,6 +4386,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')
+          ..write('pocketsEnabled: $pocketsEnabled, ')
           ..write('todayObjectiveId: $todayObjectiveId, ')
           ..write('evolvedPersonality: $evolvedPersonality, ')
           ..write('evolvedScenario: $evolvedScenario, ')
@@ -4409,6 +4464,7 @@ class Session extends DataClass implements Insertable<Session> {
     needsSimEnabled,
     needsVector,
     pockets,
+    pocketsEnabled,
     todayObjectiveId,
     evolvedPersonality,
     evolvedScenario,
@@ -4485,6 +4541,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.needsSimEnabled == this.needsSimEnabled &&
           other.needsVector == this.needsVector &&
           other.pockets == this.pockets &&
+          other.pocketsEnabled == this.pocketsEnabled &&
           other.todayObjectiveId == this.todayObjectiveId &&
           other.evolvedPersonality == this.evolvedPersonality &&
           other.evolvedScenario == this.evolvedScenario &&
@@ -4559,6 +4616,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<bool> needsSimEnabled;
   final Value<String?> needsVector;
   final Value<String?> pockets;
+  final Value<bool?> pocketsEnabled;
   final Value<String?> todayObjectiveId;
   final Value<String> evolvedPersonality;
   final Value<String> evolvedScenario;
@@ -4632,6 +4690,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
+    this.pocketsEnabled = const Value.absent(),
     this.todayObjectiveId = const Value.absent(),
     this.evolvedPersonality = const Value.absent(),
     this.evolvedScenario = const Value.absent(),
@@ -4706,6 +4765,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
+    this.pocketsEnabled = const Value.absent(),
     this.todayObjectiveId = const Value.absent(),
     this.evolvedPersonality = const Value.absent(),
     this.evolvedScenario = const Value.absent(),
@@ -4780,6 +4840,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<bool>? needsSimEnabled,
     Expression<String>? needsVector,
     Expression<String>? pockets,
+    Expression<bool>? pocketsEnabled,
     Expression<String>? todayObjectiveId,
     Expression<String>? evolvedPersonality,
     Expression<String>? evolvedScenario,
@@ -4866,6 +4927,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (needsSimEnabled != null) 'needs_sim_enabled': needsSimEnabled,
       if (needsVector != null) 'needs_vector': needsVector,
       if (pockets != null) 'pockets': pockets,
+      if (pocketsEnabled != null) 'pockets_enabled': pocketsEnabled,
       if (todayObjectiveId != null) 'today_objective_id': todayObjectiveId,
       if (evolvedPersonality != null) 'evolved_personality': evolvedPersonality,
       if (evolvedScenario != null) 'evolved_scenario': evolvedScenario,
@@ -4945,6 +5007,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<bool>? needsSimEnabled,
     Value<String?>? needsVector,
     Value<String?>? pockets,
+    Value<bool?>? pocketsEnabled,
     Value<String?>? todayObjectiveId,
     Value<String>? evolvedPersonality,
     Value<String>? evolvedScenario,
@@ -5026,6 +5089,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
       needsVector: needsVector ?? this.needsVector,
       pockets: pockets ?? this.pockets,
+      pocketsEnabled: pocketsEnabled ?? this.pocketsEnabled,
       todayObjectiveId: todayObjectiveId ?? this.todayObjectiveId,
       evolvedPersonality: evolvedPersonality ?? this.evolvedPersonality,
       evolvedScenario: evolvedScenario ?? this.evolvedScenario,
@@ -5232,6 +5296,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (pockets.present) {
       map['pockets'] = Variable<String>(pockets.value);
     }
+    if (pocketsEnabled.present) {
+      map['pockets_enabled'] = Variable<bool>(pocketsEnabled.value);
+    }
     if (todayObjectiveId.present) {
       map['today_objective_id'] = Variable<String>(todayObjectiveId.value);
     }
@@ -5350,6 +5417,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')
+          ..write('pocketsEnabled: $pocketsEnabled, ')
           ..write('todayObjectiveId: $todayObjectiveId, ')
           ..write('evolvedPersonality: $evolvedPersonality, ')
           ..write('evolvedScenario: $evolvedScenario, ')

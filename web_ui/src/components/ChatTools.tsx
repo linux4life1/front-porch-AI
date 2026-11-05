@@ -231,7 +231,12 @@ export function ChatTools({
         return (
           <>
             {grip(id)}
-            <ChatToolsPockets t={t} pocketRemove={pocketRemove} pocketAdd={pocketAdd} />
+            <ChatToolsPockets
+              t={t}
+              toggle={toggle}
+              pocketRemove={pocketRemove}
+              pocketAdd={pocketAdd}
+            />
           </>
         );
       case 'our_story':

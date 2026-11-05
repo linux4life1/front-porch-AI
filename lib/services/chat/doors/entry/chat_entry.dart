@@ -230,6 +230,18 @@ class ChatEntry {
         // Harmless while the record was memory-only; now that it is saved, the
         // bleed would be written to the new chat's row and become permanent.
         _pockets = null;
+        // v64: reset the Pockets switch from the NEW character's card
+        // default — this block runs before the load-seed and the ext-seed
+        // below, and a stale switch from the previous chat would answer
+        // this chat's first gate reads (a chat seeded OFF would draw with
+        // empty hands until the ext block corrected it a screen later).
+        // A restored row overwrites this with its own value in
+        // session_scalars; the ext-seed block restates it for the fresh
+        // path. Reset to the DEFAULT is deliberate: Pockets defaults on.
+        _s.controls().setChatPockets(
+          _session.activeCharacter?.frontPorchExtensions?.pocketsEnabled ??
+              true,
+        );
         _realismChatSwitch = false;
         _mood.reset();
         // Time reset via extracted service (keeps multiple reset blocks in sync).
@@ -331,6 +343,10 @@ class ChatEntry {
             // nobody asked for objectives to be a per-character trait. The
             // per-chat store is sessions.objectives_enabled.
             _objectivesEnabled = _s.storage.realismSettings.objectivesEnabled;
+            // v64: the card's Pockets default seeds THIS chat's own switch
+            // (docs/design/pockets-wardrobe-chat-toggle.md). From here the
+            // flag is a memory, not law: each chat changes its own.
+            _s.controls().setChatPockets(ext.pocketsEnabled);
             _enjoysLowHygiene = ext.enjoysLowHygiene;
             if (_needsSimEnabled) {
               // Brand new conversation for this character (no prior session loaded):
@@ -383,6 +399,9 @@ class ChatEntry {
             _needsSimEnabled = _s.needsPass().seedNeedsSim(null);
             if (_needsSimEnabled) _needsSimulation.initializeFresh();
             _objectivesEnabled = _s.storage.realismSettings.objectivesEnabled;
+            // A card that says nothing starts Pockets on, exactly as its
+            // missing flag always read (D1's default-on).
+            _s.controls().setChatPockets(true);
           }
 
           final opening = _session.activeCharacter!.allGreetings;

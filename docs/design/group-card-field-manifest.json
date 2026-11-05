@@ -2892,7 +2892,13 @@
         {
           "path": "lib/services/chat/pockets_ledger.dart",
           "in": "PocketsLedger.pocketsEnabledFor",
-          "marker": "ext.pocketsEnabled"
+          "marker": "cardPocketsDefault(card)"
+        },
+        {
+          "path": "lib/services/chat/pockets_ledger.dart",
+          "in": "PocketsLedger.cardPocketsDefault",
+          "marker": "ext.pocketsEnabled",
+          "hop": "the card-default helper the gate calls on that fallback"
         }
       ]
     },

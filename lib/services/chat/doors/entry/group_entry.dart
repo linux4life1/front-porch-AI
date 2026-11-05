@@ -347,6 +347,12 @@ class GroupEntry {
       // member's authored wardrobe in place, and after the load so a restored
       // session wins. Parity is not optional here — a group member dressed by their
       // author must arrive dressed exactly as they would in a 1:1.
+      //
+      // v64: the per-member Pockets switches seed FIRST (D1) — a fresh chat
+      // from the group default AND the card default, a legacy restore from
+      // the card default once — because the wardrobe seed below answers the
+      // gate they feed. Bags that already carry a switch keep it verbatim.
+      _s.graph().seedGroupPocketsSwitches();
       _s.graph().seedPocketsFromCards();
 
       // Load the objectives for whoever is the initial next speaker (or first char)

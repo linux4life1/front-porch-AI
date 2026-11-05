@@ -32,6 +32,7 @@ class PocketsLedger {
     required this.storyDayCount,
     required this.memorySettings,
     required this.itemCards,
+    required this.chatSwitch,
   });
 
   final RealismScope _scope;
@@ -42,6 +43,11 @@ class PocketsLedger {
   final void Function(Pockets) setHostRecord;
   final CharacterCard? Function(CharacterCard) originLibraryCardFor;
   final String? Function() currentSessionId;
+
+  /// This chat's own Pockets switch ([ControlsDoor._pocketsChatSwitch]) —
+  /// the 1:1 half of the gate. Group chats answer per member from the
+  /// session bag instead (docs/design/pockets-wardrobe-chat-toggle.md).
+  final bool Function() chatSwitch;
 
   /// The story clock's morning-anchored day.
   final int Function() storyDayCount;
@@ -109,21 +115,34 @@ class PocketsLedger {
     ];
   }
 
-  /// Combined Pockets gate: Porch Life global AND this character's card flag.
-  /// Missing extensions / missing key → on. Group copy first, then library.
+  /// The combined Pockets gate
+  /// (docs/design/pockets-wardrobe-chat-toggle.md): Porch Life global AND
+  /// the chat's own choice — the 1:1 chat's stored switch, or the member's
+  /// per-chat switch from the session bag in a group. The card flag is NOT
+  /// law anymore: it is the DEFAULT that seeds a new chat's switch, read at
+  /// entry and here only as the fallback for a bag the entry seed has not
+  /// written yet. Missing switch / missing key → on, as the flag always did.
   bool pocketsEnabledFor(String characterId) {
     if (!pocketsFeatureEnabled) return false;
     CharacterCard? card;
     if (_activeGroup == null) {
-      card = _activeCharacter;
-    } else {
-      for (final c in _groupCharacters) {
-        if (_scope.characterIdFor(c) == characterId) {
-          card = c;
-          break;
-        }
+      return chatSwitch();
+    }
+    for (final c in _groupCharacters) {
+      if (_scope.characterIdFor(c) == characterId) {
+        card = c;
+        break;
       }
     }
+    final seeded = _scope.groups.members[characterId]?.pocketsSwitch;
+    if (seeded != null) return seeded;
+    return cardPocketsDefault(card);
+  }
+
+  /// What [card] (or its library origin) says pockets START as in a new
+  /// chat — the seeded default, not the runtime gate. Group copy first,
+  /// then library; missing reads on.
+  bool cardPocketsDefault(CharacterCard? card) {
     final ext = card?.frontPorchExtensions;
     if (ext != null) return ext.pocketsEnabled;
     if (card != null) {
@@ -132,6 +151,23 @@ class PocketsLedger {
       if (libExt != null) return libExt.pocketsEnabled;
     }
     return true;
+  }
+
+  /// Write each group member's per-chat Pockets switch once, from the
+  /// group's new-chat default AND that member's card default (maintainer
+  /// example, same doc: group ON, Ben OFF ⇒ Mara and Shawn on, Ben off).
+  /// Members whose bag already carries the key are left exactly as they
+  /// are — mid-chat flips survive reopen; a derived value never re-derives.
+  /// Call from the group entry path before [seedPocketsFromCards], which
+  /// answers the gate this seeds.
+  void seedMemberSwitchDefaults({required bool groupDefault}) {
+    for (final c in _groupCharacters) {
+      final id = _scope.characterIdFor(c);
+      final bag = _scope.groups.members[id];
+      if (bag != null && bag.pocketsSwitch != null) continue;
+      _scope.groups.memberForWrite(id).pocketsSwitch =
+          groupDefault && cardPocketsDefault(c);
+    }
   }
 
   /// Transfer roster the model is shown: other group members whose own

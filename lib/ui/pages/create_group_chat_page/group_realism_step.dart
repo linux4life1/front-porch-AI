@@ -245,6 +245,51 @@ class GroupRealismStep extends StatelessWidget {
                   ),
                 ],
               ],
+
+              // v64 (docs/design/pockets-wardrobe-chat-toggle.md): Pockets &
+              // Wardrobe's default for the group's new chats, OUTSIDE the
+              // realism branch — Pockets tracks no bond, no needs, no
+              // engine, so a Realism-off group still owns its default. At
+              // entry each member's starting switch is this AND their own
+              // card's default (group ON + Ben OFF ⇒ Ben starts untracked);
+              // every chat can then flip members individually.
+              const SizedBox(height: 14),
+              Divider(color: AppColors.borderOf(context), height: 1),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Icon(
+                    Icons.inventory_2_outlined,
+                    size: 18,
+                    color: AppColors.porchTerracottaOf(context),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Pockets & Wardrobe',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: d.pocketsEnabled,
+                    activeTrackColor: AppColors.porchTerracottaOf(context),
+                    onChanged: (v) => d.update(() => d.pocketsEnabled = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Inventory tracking for this group’s new chats, unless a '
+                "member's own editor has it off. Each chat can then switch "
+                'members on its own.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
             ],
           ),
         ),

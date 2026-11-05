@@ -25,6 +25,12 @@ export interface NewChatsState {
   needsAllowed?: boolean;
   /** How new chats start Afterglow (absent on an older desktop). */
   afterglow?: boolean;
+  /** How new chats start Pockets & Wardrobe (absent on an older desktop;
+   *  docs/design/pockets-wardrobe-chat-toggle.md). */
+  pockets?: boolean;
+  /** Porch Life's Pockets; false greys the switch at the group's own
+   *  choice (absent from an older app: allowed). */
+  pocketsAllowed?: boolean;
   inherit: boolean;
   forkSource: ForkSource | null;
 }
@@ -172,6 +178,36 @@ export function GroupNewChatsSection({
             onChange={(e) => save({ afterglow: e.target.checked })}
           />
         </label>
+      )}
+      {/* Pockets & Wardrobe sits outside the Realism gate on purpose
+          (docs/design/pockets-wardrobe-chat-toggle.md): the feature tracks
+          a wardrobe without the engine, so a Realism-off group still owns
+          this default. At entry each member's starting switch is this AND
+          their card's own default; every chat can then flip members. */}
+      {state.pockets !== undefined && (
+        <>
+          <label className="tool-toggle" data-testid="group-pockets-default-row">
+            <span>
+              Pockets &amp; Wardrobe
+              <small className="muted gs-sub">
+                Inventory tracking in new chats — unless a member&apos;s own editor has it off.
+                Each chat can then change its mind per member.
+              </small>
+            </span>
+            <input
+              type="checkbox"
+              checked={state.pockets}
+              disabled={state.pocketsAllowed === false}
+              onChange={(e) => save({ pockets: e.target.checked })}
+            />
+          </label>
+          {state.pocketsAllowed === false && (
+            <p className="muted small" data-testid="group-pockets-off-note">
+              Off in Porch Life, so no chat tracks pockets. This group&apos;s choice for new chats
+              is kept.
+            </p>
+          )}
+        </>
       )}
       <label className="tool-toggle">
         <span>

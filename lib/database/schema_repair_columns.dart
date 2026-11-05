@@ -179,6 +179,10 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     // default. NULL means nothing was recorded, which is true for every
     // chat older than the column.
     'pockets TEXT',
+    // v64 — the 1:1 chat's own Pockets switch. Nullable, no default: NULL
+    // means the row predates the column, and the first load derives it once
+    // from the card flag (docs/design/pockets-wardrobe-chat-toggle.md, D1).
+    'pockets_enabled INTEGER',
     // v48 — live Today side-quest row id. Nullable, no default. NULL
     // means this chat has no Today hold, which is true for every row
     // older than the column. Do not guess among secondaries.

@@ -46,7 +46,7 @@ describe('Pockets panel placement', () => {
     const panel = container.querySelector('[data-testid="character-pockets-panel"]');
     expect(panel).toBeTruthy();
     expect(panel!.textContent).toContain('Pockets & Wardrobe');
-    expect(panel!.textContent).toContain('skips inventory tracking');
+    expect(panel!.textContent).toContain('starting choice for new chats');
     expect(panel!.textContent).toContain('Wearing');
     expect(panel!.textContent).toContain('Carrying');
   });

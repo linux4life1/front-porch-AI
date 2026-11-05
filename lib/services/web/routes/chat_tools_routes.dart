@@ -137,6 +137,15 @@ class WebChatToolsRoutes {
         await _facade.setRealismEnabled(value);
       case 'needs':
         await _facade.setNeedsEnabled(value);
+      case 'pockets':
+        await _facade.setPocketsEnabled(value);
+      // A group member's own Pockets switch in this chat: also needs the
+      // member's id (the memberAfterglow shape).
+      case 'memberPockets':
+        final id = body['id'];
+        if (id is! String || !await _facade.setMemberPockets(id, value)) {
+          return JsonResponse.badRequest('a group member id is required');
+        }
       case 'oneShotEval':
         await _facade.setOneShotEval(value);
       case 'chaos':

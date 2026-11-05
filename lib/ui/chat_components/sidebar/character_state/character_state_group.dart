@@ -32,6 +32,7 @@ import '../../mood/mood_look.dart';
 import '../porch_accordion.dart';
 import '../sidebar_reorder.dart';
 import 'ambitions_row.dart';
+import 'pockets_gate_line.dart';
 import 'pockets_row.dart';
 import 'bond_bars.dart';
 import 'needs_line.dart';
@@ -155,10 +156,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
           hasCharacter &&
           ambitions.isNotEmpty)
         'ambitions',
-      if (!widget.isGroup &&
-          hasCharacter &&
-          chat.pocketsEnabledFor(chat.characterIdFor(chat.activeCharacter!)))
-        'pockets',
+      // The pockets leaf stays up while a character is in the chat —
+      // v64: its switch is the ONLY 1:1 way back on (the card editor is
+      // the default, not the runtime switch), so an off chat must show
+      // the line, like Needs does. The PANEL inside keeps its own gate.
+      if (!widget.isGroup && hasCharacter) 'pockets',
       if (realismOn || widget.isGroup || clockRunning) 'time',
     ];
     final ordered = ui.sidebarLeafOrderFor('character_state', visible);
@@ -221,9 +223,7 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
           pump: pump,
           child: Padding(
             // The old Column's 10px gap between portions, not after the last.
-            padding: EdgeInsets.only(
-              bottom: i == ordered.length - 1 ? 0 : 10,
-            ),
+            padding: EdgeInsets.only(bottom: i == ordered.length - 1 ? 0 : 10),
             child: _part(context, chat, ordered[i], i),
           ),
         ),
@@ -290,8 +290,7 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
             // The bars show while Needs run: the gate (Realism, this chat's
             // Needs switch, the Porch Life one), not the stored switch, or
             // they sit frozen with Needs off and read as live.
-            if (chat.needsActive &&
-                chat.needsSimulation.vector.isNotEmpty) ...[
+            if (chat.needsActive && chat.needsSimulation.vector.isNotEmpty) ...[
               const SizedBox(height: 4),
               NeedsGrid(
                 needs: visibleNeeds(
@@ -335,35 +334,51 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
         // the realism branch for the same reason Ambitions does.
         return Builder(
           builder: (context) {
-            // Feature off = panel absent. With it ON the panel renders
-            // even for a missing/empty record, so the FIRST item can be
-            // added by hand (2026-08-13 — the panel used to be ✕-only).
+            // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the gate
+            // LINE is always up — its switch is how an off chat turns back
+            // on, and an off chat says "retained, not tracked" (hide ≠
+            // erase, spoken aloud). Feature off = the PANEL absent, never
+            // greyed; with it ON the panel renders even for an empty
+            // record, so the FIRST item can be added by hand (2026-08-13
+            // — the panel used to be ✕-only).
             final card = chat.activeCharacter!;
             final id = chat.characterIdFor(card);
-            if (!chat.pocketsEnabledFor(id)) {
-              return const SizedBox.shrink();
-            }
-            final p = chat.pocketsFor(id) ?? Pockets();
-            return PocketsRow(
-              pockets: p,
-              day: chat.storyDayCount,
-              onRemove: ({required section, required index}) => chat
-                  .removePocketItem(id, section: section, index: index),
-              onAdd: ({section}) async {
-                final add = await showPocketItemDialog(
-                  context,
+            final live = chat.pocketsEnabledFor(id);
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PocketsGateLine(
+                  chat: chat,
+                  characterId: id,
                   characterName: card.name,
-                  initialSection: section ?? PocketSection.carrying,
-                );
-                if (add == null) return;
-                await chat.addPocketItem(
-                  id,
-                  section: add.section,
-                  name: add.name,
-                  gift: add.gift,
-                  correction: add.correction,
-                );
-              },
+                ),
+                if (live) ...[
+                  const SizedBox(height: 4),
+                  // The bars-show-from-the-gate rule (Error Book 2026-10-08):
+                  // the panel asks the LIVE gate, not the stored switch.
+                  PocketsRow(
+                    pockets: chat.pocketsFor(id) ?? Pockets(),
+                    day: chat.storyDayCount,
+                    onRemove: ({required section, required index}) => chat
+                        .removePocketItem(id, section: section, index: index),
+                    onAdd: ({section}) async {
+                      final add = await showPocketItemDialog(
+                        context,
+                        characterName: card.name,
+                        initialSection: section ?? PocketSection.carrying,
+                      );
+                      if (add == null) return;
+                      await chat.addPocketItem(
+                        id,
+                        section: add.section,
+                        name: add.name,
+                        gift: add.gift,
+                        correction: add.correction,
+                      );
+                    },
+                  ),
+                ],
+              ],
             );
           },
         );
