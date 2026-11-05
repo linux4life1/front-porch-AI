@@ -123,7 +123,11 @@ void main() {
       // v63: characters.lore_world_names — a character card's lore-only
       //      worlds apart from its Setting. Guarded by the Character Setting
       //      split group in test/services/world_repository_test.dart.
-      expect(db.schemaVersion, 63);
+      // v64: sessions.pockets_enabled — the per-chat Pockets & Wardrobe
+      //      switch. Guarded by test/services/chat/pockets_chat_toggle_test
+      //      (the column is law across reopen; NULL derives once) and by
+      //      test/database/v14_to_current_upgrade_test (the ladder lands here).
+      expect(db.schemaVersion, 64);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

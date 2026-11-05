@@ -155,7 +155,13 @@ void main() {
 
         expect(find.byKey(WardrobeChipSection.enableKey), findsNothing);
         expect(find.byKey(WardrobeChipSection.panelKey), findsNothing);
-        expect(find.textContaining('skips inventory tracking'), findsNothing);
+        // v64 re-anchor: the switch's subtitle is the probe (the old
+        // 'skips inventory tracking' copy is gone from the tree either
+        // way, so asserting on it proved nothing any more).
+        expect(
+          find.textContaining('starting choice for new chats'),
+          findsNothing,
+        );
         expect(find.text('Pockets & Wardrobe'), findsNothing);
       },
     );
