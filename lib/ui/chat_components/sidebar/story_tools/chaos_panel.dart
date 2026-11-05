@@ -29,10 +29,15 @@ import '../sidebar_tokens.dart';
 class ChaosPanel extends StatelessWidget {
   final ChatService chat;
   final VoidCallback onSpinRequested;
+
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const ChaosPanel({
     super.key,
     required this.chat,
     required this.onSpinRequested,
+    this.dragHandle,
   });
 
   @override
@@ -53,6 +58,7 @@ class ChaosPanel extends StatelessWidget {
           icon: Icons.casino,
           label: 'Chaos Mode',
           accent: AppColors.chaosAccentOf(context),
+          dragHandle: dragHandle,
           trailing: Switch(
             value: enabled,
             // Route through ChatService, not the raw service: the wrapper

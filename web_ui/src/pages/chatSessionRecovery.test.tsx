@@ -51,17 +51,25 @@ vi.mock('../api/client', () => ({
   ApiError: FakeApiError,
 }));
 
-// The socket handler ChatPage registers — tests drive `token` through it.
-let onEvent: ((e: Record<string, unknown>) => void) | null = null;
+// The socket handlers ChatPage and the sidebar order hook register — tests
+// drive `token` through all of them (the panels keep their own sockets now).
+let eventHandlers: ((e: Record<string, unknown>) => void)[] = [];
 vi.mock('../api/ws', () => ({
   ChatSocket: class {
+    private handler: (e: Record<string, unknown>) => void;
     constructor(handler: (e: Record<string, unknown>) => void) {
-      onEvent = handler;
+      this.handler = handler;
+      eventHandlers.push(handler);
     }
     connect() {}
-    close() {}
+    close() {
+      eventHandlers = eventHandlers.filter((h) => h !== this.handler);
+    }
   },
 }));
+const emit = (e: Record<string, unknown>) => {
+  for (const h of [...eventHandlers]) h(e);
+};
 
 // Stable identity, like the real useState setter (a fresh function each render
 // would re-run the socket effect forever).
@@ -128,7 +136,7 @@ beforeEach(() => {
   (Element.prototype as unknown as { scrollTo: () => void }).scrollTo = () => {};
   (window as { innerWidth: number }).innerWidth = 1280;
   authCalls.length = 0;
-  onEvent = null;
+  eventHandlers = [];
   stateAnswer = () => Promise.resolve(chatState);
 });
 
@@ -158,7 +166,7 @@ describe('ChatPage session recovery', () => {
 describe('ChatPage conversation switch', () => {
   it('drops the old chat\'s live streaming bubble when another chat is opened', async () => {
     await render();
-    act(() => onEvent!({ event: 'token', data: 'half a rep' }));
+    act(() => emit({ event: 'token', data: 'half a rep' }));
     expect(container.querySelector('.bubble.ai.streaming')).not.toBeNull();
 
     click('.conversations-btn');
@@ -171,7 +179,7 @@ describe('ChatPage conversation switch', () => {
 
   it('drops it for "New chat" too', async () => {
     await render();
-    act(() => onEvent!({ event: 'token', data: 'half a rep' }));
+    act(() => emit({ event: 'token', data: 'half a rep' }));
     expect(container.querySelector('.bubble.ai.streaming')).not.toBeNull();
 
     click('.conversations-btn');

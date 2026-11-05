@@ -417,6 +417,7 @@ class WebLiveRelays {
           'theme': webThemeWire(_storage.appearance),
           // Additive: the bubbles' opacity follows the Ambient scene default.
           'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
+          ..._storage.uiSettings.sidebarWireFields, // live sidebar orders
         });
       });
     }

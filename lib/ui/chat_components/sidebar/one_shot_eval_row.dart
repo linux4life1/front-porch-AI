@@ -30,7 +30,10 @@ import 'sidebar_tokens.dart';
 class OneShotEvalRow extends StatelessWidget {
   final ChatService chat;
 
-  const OneShotEvalRow({super.key, required this.chat});
+  /// The reorder grip when this row sits in the reorderable sidebar body.
+  final Widget? dragHandle;
+
+  const OneShotEvalRow({super.key, required this.chat, this.dragHandle});
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +96,14 @@ class OneShotEvalRow extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (dragHandle != null)
+                // Opaque so a grip tap never reaches the pills.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: dragHandle!,
+                ),
+              const SizedBox(width: 5),
               Icon(
                 Icons.speed,
                 size: 14,

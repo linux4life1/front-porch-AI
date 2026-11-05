@@ -34,11 +34,15 @@ class WikiPanel extends StatelessWidget {
     required this.chatService,
     required this.initiallyExpanded,
     this.onExpansionChanged,
+    this.dragHandle,
   });
 
   final ChatService chatService;
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
+
+  /// The reorder grip when this accordion sits in the reorderable body.
+  final Widget? dragHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +63,7 @@ class WikiPanel extends StatelessWidget {
       accent: AppColors.porchAmberOf(context),
       initiallyExpanded: initiallyExpanded,
       onExpansionChanged: onExpansionChanged,
+      dragHandle: dragHandle,
       child: Column(
         key: const Key('wiki-picker'),
         crossAxisAlignment: CrossAxisAlignment.start,

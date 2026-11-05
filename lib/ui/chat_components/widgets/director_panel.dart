@@ -19,6 +19,7 @@ class DirectorPanel extends StatefulWidget {
     required this.onStepIn,
     required this.onDelayChanged,
     this.tools,
+    this.dragHandle,
   });
 
   final bool directing;
@@ -32,6 +33,9 @@ class DirectorPanel extends StatefulWidget {
 
   /// The director's tools ([DirectorTools]), shown while directing.
   final Widget? tools;
+
+  /// The reorder grip when this card sits in the reorderable sidebar body.
+  final Widget? dragHandle;
 
   @override
   State<DirectorPanel> createState() => _DirectorPanelState();
@@ -59,6 +63,14 @@ class _DirectorPanelState extends State<DirectorPanel> {
         children: [
           Row(
             children: [
+              if (widget.dragHandle != null)
+                // Opaque so a grip tap never reaches the card's controls.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {},
+                  child: widget.dragHandle!,
+                ),
+              const SizedBox(width: 8),
               Icon(
                 Icons.movie_creation_outlined,
                 size: 16,

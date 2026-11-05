@@ -231,6 +231,14 @@ class SettingsSnapshot {
       // Bubble Opacity as the desktop paints it: the stored value, else the
       // Ambient scene's default. Additive; an older PWA ignores the key.
       'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
+      // The chat sidebar's remembered section order, per surface. Raw stored
+      // lists (hidden ids kept); the web resolves them against its own
+      // vocabulary. Additive: an older PWA ignores them and keeps its fixed
+      // order.
+      'sidebarOrder': _storage.uiSettings.sidebarOrder,
+      'sidebarLeafOrder': _storage.uiSettings.sidebarLeafOrder,
+      'webSidebarOrder': _storage.uiSettings.webSidebarOrder,
+      'webSidebarToolsOrder': _storage.uiSettings.webSidebarToolsOrder,
       ...readWorkerSettings(_storage, _llm),
     };
   }
