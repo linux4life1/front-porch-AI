@@ -265,6 +265,18 @@ check), `analysis_options.yaml`, `scripts/`, `nightly.yml` (must land on
 - Never amend or rewrite another author's commits.
 - Never `git checkout --`, `git restore`, or `git checkout HEAD --` on a
   file without approval in the current conversation.
+- Every PR body ends with an attribution footer naming the harness and the
+  exact model that made the change, one line, in this shape:
+
+  ```
+  Generated with OpenCode (Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)
+  ```
+
+  The harness is whatever actually drove the work (`OpenCode`, `Pi`,
+  `Claude Code`, `Codex CLI`, …), and the model is the model ID reported
+  by that harness this session — not a family name, not a guess. If the
+  agent truly cannot know its model, write `Generated with <harness>
+  (model unknown)`. Never omit the footer.
 
 ## Reporting
 
