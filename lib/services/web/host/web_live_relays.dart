@@ -417,12 +417,7 @@ class WebLiveRelays {
           'theme': webThemeWire(_storage.appearance),
           // Additive: the bubbles' opacity follows the Ambient scene default.
           'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
-          // Additive: the sidebar order, so an open page repaints at once
-          // instead of keeping its first read.
-          'sidebarOrder': _storage.uiSettings.sidebarOrder,
-          'sidebarLeafOrder': _storage.uiSettings.sidebarLeafOrder,
-          'webSidebarOrder': _storage.uiSettings.webSidebarOrder,
-          'webSidebarToolsOrder': _storage.uiSettings.webSidebarToolsOrder,
+          ..._storage.uiSettings.sidebarWireFields, // live sidebar orders
         });
       });
     }

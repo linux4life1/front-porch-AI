@@ -22,6 +22,19 @@
 // new sequence, and the setter merges hidden ids back into their stored slots.
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
+
+/// The four sidebar-order keys as wire fields, so the live relays spread
+/// them into a settings_changed payload in one line and the PWA repaints an
+/// open page instead of keeping its first read.
+extension SidebarWireFields on UiSettings {
+  Map<String, Object> get sidebarWireFields => {
+    'sidebarOrder': sidebarOrder,
+    'sidebarLeafOrder': sidebarLeafOrder,
+    'webSidebarOrder': webSidebarOrder,
+    'webSidebarToolsOrder': webSidebarToolsOrder,
+  };
+}
 
 /// Applies the sidebar-order keys of a web Settings POST body: the desktop
 /// top-level order, the two accordion leaf orders, the web insight order, the
@@ -46,10 +59,10 @@ Future<void> applySidebarOrderWrite(
     for (final container in const ['story_tools', 'journal_memory']) {
       final list = leaf[container];
       if (list is List) {
-        await ui.setSidebarLeafOrder(
-          container,
-          [for (final id in list) if (id is String && id.isNotEmpty) id],
-        );
+        await ui.setSidebarLeafOrder(container, [
+          for (final id in list)
+            if (id is String && id.isNotEmpty) id,
+        ]);
       }
     }
   }

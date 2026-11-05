@@ -26,16 +26,15 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import '../mood/mood_look.dart';
 import '../widgets/director_panel.dart';
 import '../widgets/director_tools.dart';
 import 'character_state/character_state.dart';
 import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
+import 'sidebar_member_card.dart';
 import 'sidebar_reorder.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/story_tools.dart';
@@ -300,7 +299,7 @@ class _SidebarBodyState extends State<SidebarBody> {
       case 'tool_calling_pill':
         return ToolCallingPill(chatService: chat, dragHandle: grip);
       case 'lite_banner':
-        return _LiteNpcBanner(dragHandle: grip);
+        return LiteNpcBanner(dragHandle: grip);
       case 'author_note':
         return PorchAccordion(
           id: 'author_note',
@@ -333,7 +332,13 @@ class _SidebarBodyState extends State<SidebarBody> {
           isGroup: isGroup,
           moodLook: MoodLook.of(storage),
           groupMemberCard: isGroup
-              ? _buildFocusedMemberCard(context, chat, MoodLook.of(storage))
+              ? buildFocusedMemberCard(
+                  context: context,
+                  focused: widget.focused,
+                  chat: chat,
+                  moodLook: MoodLook.of(storage),
+                  resolveCharImage: widget.resolveCharImage,
+                )
               : null,
           initiallyExpanded: ui.sidebarGroupExpanded(
             'character_state',
@@ -410,121 +415,5 @@ class _SidebarBodyState extends State<SidebarBody> {
     final item = out.removeAt(oldIndex);
     out.insert(newIndex, item);
     return out;
-  }
-
-  /// The focused member's rich card (moved verbatim from chat_page's group
-  /// branch — remove/objectives/avatar behavior unchanged).
-  Widget _buildFocusedMemberCard(
-    BuildContext context,
-    ChatService chat,
-    MoodLook moodLook,
-  ) {
-    final focused = widget.focused;
-    final character = focused.card;
-    final cast = chat.cast;
-    final idx = cast.indexWhere((p) => p.id == focused.id);
-    // Two or more members, or three while directing (one left would end
-    // Director Mode); removing the second-to-last otherwise collapses the
-    // group back to a 1:1.
-    final canRemove = chat.canRemoveCastMember && !chat.isGenerating;
-    return GroupMemberCard(
-      character: character,
-      chatService: chat,
-      moodLook: moodLook,
-      avatarColor: groupCharacterColor(idx < 0 ? 0 : idx),
-      isNextSpeaker: chat.nextCharacter?.name == character.name,
-      isExpanded: true,
-      onTap: chat.isGenerating ? () {} : () => chat.setNextCharacter(character),
-      avatarFile: character.imagePath != null && character.imagePath!.isNotEmpty
-          ? widget.resolveCharImage(character.imagePath!)
-          : null,
-      ringCount: chat.growthRingCountFor(character),
-      canRemove: canRemove,
-      onRemove: canRemove
-          ? () async {
-              final groupRepo = Provider.of<GroupChatRepository>(
-                context,
-                listen: false,
-              );
-              await chat.removeCharacterFromGroup(character, groupRepo);
-            }
-          : null,
-      onOpenObjectives: () {
-        showDialog(
-          context: context,
-          builder: (_) => GroupObjectivesDialog(
-            chatService: chat,
-            groupCharacters: chat.groupCharacters,
-            initialCharacter: character,
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// Status-only banner for a focused lite guest. Promote lives on the
-/// cast avatar strip — do not add a second control here.
-class _LiteNpcBanner extends StatelessWidget {
-  const _LiteNpcBanner({this.dragHandle});
-
-  /// The reorder grip when this banner sits in the reorderable body.
-  final Widget? dragHandle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      margin: const EdgeInsets.only(bottom: SidebarTokens.sectionGap),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
-        borderRadius: BorderRadius.circular(SidebarTokens.wellRadius),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Row(
-        children: [
-          if (dragHandle != null)
-            // Opaque so a grip tap never reaches the banner.
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {},
-              child: dragHandle!,
-            ),
-          const SizedBox(width: 8),
-          Icon(
-            Icons.visibility_off,
-            size: 16,
-            color: AppColors.iconSecondary(context),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Lite NPC — no realism or needs tracking for this guest.',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: AppColors.porchAmberOf(context).withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'GUEST',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: AppColors.porchAmberOf(context),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
