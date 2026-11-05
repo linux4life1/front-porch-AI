@@ -71,6 +71,7 @@ class GroupWizardDraft extends ChangeNotifier {
     chaosNsfwEnabled,
     needsSimEnabled,
     afterglowEnabled,
+    pocketsEnabled,
     memberNeedsBaselines,
     globalTimeOfDay,
     globalDayCount,
@@ -134,6 +135,11 @@ class GroupWizardDraft extends ChangeNotifier {
 
   /// How the group's new chats start Afterglow.
   bool afterglowEnabled = true;
+
+  /// How the group's new chats start Pockets & Wardrobe
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). AND-ed at entry with
+  /// each member's card default.
+  bool pocketsEnabled = true;
 
   // Per-member needs baselines (0-100) — mirrors memberRealismSeeds keys.
   final Map<String, Map<String, int>> memberNeedsBaselines = {};

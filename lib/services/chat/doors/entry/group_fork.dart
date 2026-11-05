@@ -118,6 +118,11 @@ class GroupFork {
       // Live kit, regardless of realism — collapse copies this back onto
       // `_pockets`; the fork must plant it on the host member the same way.
       if (_pockets != null) 'pockets': _pockets!.toJson(),
+      // v64: the 1:1's own Pockets switch rides onto the host member's bag
+      // (docs/design/pockets-wardrobe-chat-toggle.md) — the chat that had
+      // pockets off must not re-open tracking the moment it becomes a
+      // group. A host member's bag seed otherwise falls to card defaults.
+      'pockets_switch': _s.controls().pocketsChatSwitch,
     };
 
     // D5 — one instance per library character per chat. Drop any arrival that

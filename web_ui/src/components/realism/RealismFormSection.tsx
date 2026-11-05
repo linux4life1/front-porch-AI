@@ -300,7 +300,7 @@ export function RealismFormSection({
           <div className="card realism-card" data-testid="character-pockets-panel">
             <ToggleRow
               label="Pockets & Wardrobe"
-              hint="When off, this character skips inventory tracking even if Porch Life has Pockets on. Old cards stay on."
+              hint="The starting choice for new chats with this character, unless Porch Life has Pockets off. Each chat can then change its own switch, and the choice stays in that chat. Old cards stay on."
               value={v.pocketsEnabled}
               onChange={(b) => set({ pocketsEnabled: b })}
             />

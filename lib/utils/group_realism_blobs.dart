@@ -62,6 +62,7 @@ GroupRealismBlobs buildGroupRealismBlobs({
   List<String> alternateGreetings = const [],
   List<GreetingRealismSeed?> greetingSeeds = const [],
   bool afterglowEnabled = true,
+  bool pocketsEnabled = true,
 }) {
   final defaultMember = <String, dynamic>{
     'perChar': <String, dynamic>{},
@@ -72,6 +73,9 @@ GroupRealismBlobs buildGroupRealismBlobs({
     ..._groupOpeningAltsFragment(alternateGreetings, greetingSeeds),
     // Missing reads on, so a group left on writes nothing new.
     if (!afterglowEnabled) kGroupAfterglowKey: false,
+    // Same missing-reads-on shape for Pockets' new-chat default
+    // (docs/design/pockets-wardrobe-chat-toggle.md).
+    if (!pocketsEnabled) kGroupPocketsKey: false,
   };
   final baseline = <String, dynamic>{};
 
@@ -283,6 +287,29 @@ Map<String, dynamic> _decodeGroupBlob(String json) {
   }
 }
 
+/// The group's Pockets & Wardrobe default for its NEW chats
+/// (docs/design/pockets-wardrobe-chat-toggle.md). At entry it is AND-ed with
+/// each member's card default to seed that member's per-chat switch: group
+/// ON + Ben OFF ⇒ Ben starts off, everyone else on. Missing reads on, like
+/// the card flag and Afterglow's group switch. Unlike
+/// [withGroupAfterglow] this writes even onto a seedless blob: Pockets needs
+/// no Realism, so a Realism-less group's default is real and storable.
+const kGroupPocketsKey = 'pockets_enabled';
+
+bool groupPocketsIn(String? blobJson) =>
+    _decodeGroupBlob(blobJson ?? '')[kGroupPocketsKey] != false;
+
+/// [definitionJson] with the group's Pockets default for new chats set to
+/// [on].
+String withGroupPockets(String definitionJson, bool on) {
+  final decoded = _decodeGroupBlob(definitionJson);
+  if (!on) {
+    return jsonEncode({...decoded, kGroupPocketsKey: false});
+  }
+  decoded.remove(kGroupPocketsKey);
+  return decoded.isEmpty ? '{}' : jsonEncode(decoded);
+}
+
 Map<String, dynamic> _groupOpeningAltsFragment(
   List<String> alternateGreetings,
   List<GreetingRealismSeed?> greetingSeeds,
@@ -445,6 +472,7 @@ GroupRealismBlobs switchGroupTemplateRealism({
   final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
   return buildGroupRealismBlobs(
     afterglowEnabled: groupAfterglowIn(defaultMemberJson),
+    pocketsEnabled: groupPocketsIn(defaultMemberJson),
     seeds: seeds,
     needsEnabled: needsOn,
     timeOfDay: time?.timeOfDay ?? 'morning',

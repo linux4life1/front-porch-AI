@@ -53,6 +53,10 @@ class SessionScalars {
   /// The chat's own Realism switch, restored from the row.
   set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
 
+  /// The chat's own Pockets switch, restored from the row (or derived from
+  /// the card once when the v64 column is NULL — see the restore site).
+  set _pocketsChatSwitch(bool on) => _s.controls().setChatPockets(on);
+
   /// The chat's stored Needs switch: restored here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
   set _needsSimEnabled(bool on) => _s.controls().needsSimEnabled = on;
@@ -108,6 +112,17 @@ class SessionScalars {
     // instead of a short topic — truncate to keep the UI and prompts sane.
     _relationshipService.sanitizeFixationIfTooLong();
     _realismChatSwitch = s.realismEnabled;
+    // v64 (docs/design/pockets-wardrobe-chat-toggle.md): restore the 1:1
+    // chat's own Pockets switch. A NULL column means the chat predates it:
+    // derive ONCE from the card's default (maintainer ruling D1) and the
+    // save wire bakes it in — an explicit OFF made through the dialog is
+    // never re-derived. Restored regardless of the record, the other way
+    // round of "hide ≠ erase": the record survives a switch-off; the switch
+    // survives an empty-handed chat.
+    _pocketsChatSwitch =
+        s.pocketsEnabled ??
+        (_session.activeCharacter?.frontPorchExtensions?.pocketsEnabled ??
+            true);
     _scope.setEmotion(s.characterEmotion);
     _scope.setIntensity(s.emotionIntensity);
     _scope.setCause(s.emotionCause);

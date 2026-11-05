@@ -108,6 +108,14 @@ export interface ToolsState {
   // Pockets & Wardrobe (additive, null when the switch is off). set_aside:
   // parked in the scene, still theirs — clothing entries expire at the next
   // story morning server-side, so what arrives here is always current.
+  // v64 (pockets-wardrobe-chat-toggle.md): pocketsSwitch is the focused
+  // participant's OWN stored choice, pocketsAllowed is Porch Life's veto,
+  // pocketsName names them for the turn-off confirmation. All additive —
+  // an older bundle ignores them and keeps the panel-absent-when-off shape.
+  pocketsSwitch?: boolean | null;
+  pocketsAllowed?: boolean;
+  pocketsName?: string | null;
+  pocketsMemberId?: string | null;
   pockets?: {
     worn?: Array<{ name: string; state?: string }>;
     carrying?: Array<{ name: string; state?: string }>;

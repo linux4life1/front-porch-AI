@@ -217,6 +217,16 @@ class Sessions extends Table {
   /// chat where Pockets is switched off.
   TextColumn get pockets => text().nullable()();
 
+  /// v64 — this 1:1 chat's own Pockets & Wardrobe switch
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Before it, the feature
+  /// answered a global Porch Life switch ANDed with a per-character card
+  /// flag, so there was no per-chat control. Nullable, no default: NULL
+  /// means the chat predates the column, and the first load derives it once
+  /// from the card flag (maintainer ruling D1) then persists it. Group chats
+  /// keep their per-member switches inside `group_realism_state` and leave
+  /// this NULL.
+  BoolColumn get pocketsEnabled => boolean().nullable()();
+
   /// v48 — the live Today side-quest row for this chat, or null if none.
   ///
   /// Shape is not enough: a user-typed secondary is also isPrimary false,

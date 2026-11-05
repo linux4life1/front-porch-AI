@@ -171,6 +171,9 @@ class ChatToolsFacade {
   Future<void> setAfterglow(bool v) => _switches.setAfterglow(v);
   Future<bool> setMemberAfterglow(String id, bool v) =>
       _switches.setMemberAfterglow(id, v);
+  Future<void> setPocketsEnabled(bool v) => _switches.setPocketsEnabled(v);
+  Future<bool> setMemberPockets(String id, bool v) =>
+      _switches.setMemberPockets(id, v);
   Future<bool> setMemberRecovery(String id, Object? fields) =>
       _switches.setMemberRecovery(id, fields);
   Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);

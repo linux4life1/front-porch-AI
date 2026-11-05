@@ -199,6 +199,12 @@ class SessionSaver {
           _relationshipService.shortTermDeltasSummary,
         ),
         realismEnabled: drift.Value(_realismChatSwitch),
+        // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the 1:1 chat's
+        // own Pockets switch. Groups keep NULL — their switches are
+        // per-member and ride group_realism_state below.
+        pocketsEnabled: drift.Value(
+          _activeGroup == null ? _s.controls().pocketsChatSwitch : null,
+        ),
         characterEmotion: drift.Value(_scope.emotion()),
         emotionIntensity: drift.Value(_scope.intensity()),
         emotionCause: drift.Value(_scope.cause()),

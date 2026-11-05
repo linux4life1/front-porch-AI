@@ -12,87 +12,143 @@ import { Toggle, type ToolsState, type ToolsToggle } from './ChatToolsShared';
 
 export function ChatToolsPockets({
   t,
+  toggle,
   pocketRemove,
   pocketAdd,
 }: {
   t: ToolsState;
+  toggle: ToolsToggle;
   pocketRemove: (section: string, index: number) => void;
   pocketAdd: (section: string, name: string, gift: boolean, correction?: boolean) => void;
 }) {
-  // `pockets` is null when the feature is OFF (panel absent) and an
-  // EMPTY object when it is on with nothing recorded — the panel still
-  // renders then, so the first item can be hand-added (desktop parity).
-  if (!t.pockets) return null;
-  const worn = t.pockets.worn ?? [];
-  const carrying = t.pockets.carrying ?? [];
+  // v64 (pockets-wardrobe-chat-toggle.md): the switch is the web twin of
+  // the desktop's PocketsGateLine. A host that sends the new keys keeps
+  // the section UP when the feature is off — the switch is how it turns
+  // back on, and "retained, not tracked" is said aloud. An older host
+  // sends none: the panel keeps its old absent-when-off shape, so a new
+  // PWA on an old app cannot show a switch that does nothing.
+  const knows = typeof t.pocketsSwitch === 'boolean';
+  if (!t.pockets && !knows) return null;
+  const allowed = t.pocketsAllowed !== false;
+  const on = typeof t.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
+  const who = (t.pocketsName ?? 'your character').trim() || 'your character';
+  const set = (v: boolean) => {
+    // Turning OFF is the guarded direction — the same freeze warning the
+    // desktop dialog shows, in the PWA's established window.confirm
+    // shape. Dismiss reads No: nothing is posted, the box stays checked.
+    if (!v) {
+      const ok = window.confirm(
+        `Turn off Pockets & Wardrobe for ${who}? There is no catch-up ` +
+          'mechanic implemented. If you turn this off, their current ' +
+          'inventory and wardrobe will be retained but no longer ' +
+          'tracked — changes in the chat will not be reflected when you ' +
+          'turn it back on. Are you sure you want to do this?',
+      );
+      if (!ok) return;
+    }
+    toggle(t.pocketsMemberId ? 'memberPockets' : 'pockets', v, t.pocketsMemberId ? { id: t.pocketsMemberId } : undefined);
+  };
+  const worn = t.pockets?.worn ?? [];
+  const carrying = t.pockets?.carrying ?? [];
   // Parked in the scene, still theirs — greyed so "not on them" reads
   // at a glance (the desktop sidebar's Set aside group, same rules;
   // the server already filtered out clothing that expired overnight).
-  const setAside = t.pockets.set_aside ?? [];
+  const setAside = t.pockets?.set_aside ?? [];
   const label = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
   return (
     <details className="tool-section" open>
       <summary>Pockets &amp; Wardrobe</summary>
       <div className="tool-body">
-        <div className="muted small side-quest-label">Wearing</div>
-        <div className="pocket-items">
-          {worn.length === 0 ? (
-            <span className="pocket-empty">Put clothes on</span>
-          ) : (
-            worn.map((i, n) => (
-              <span className="pocket-item" key={`w${n}`}>
-                {label(i)}
-                <button
-                  className="pocket-x"
-                  title="Remove from the record"
-                  onClick={() => pocketRemove('worn', n)}
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div>
-        {carrying.length > 0 && (
+        {knows && (
+          // The needs row's shape (ChatTools.tsx): the box greys under a
+          // Porch Life veto at the chat's own choice, and the note says
+          // the choice is kept.
+          <label className="tool-toggle">
+            <span>Pockets &amp; Wardrobe</span>
+            <input
+              type="checkbox"
+              aria-label="Pockets & Wardrobe"
+              checked={on}
+              disabled={!allowed}
+              onChange={(e) => set(e.target.checked)}
+            />
+          </label>
+        )}
+        {knows && !allowed && (
+          <div className="muted small">
+            Off in Porch Life, so no chat tracks pockets. This chat&apos;s choice
+            is kept.
+          </div>
+        )}
+        {knows && allowed && !on && (
+          <div className="muted small">
+            {who}&apos;s inventory is retained, not tracked. Turn it back
+            on to follow the story again.
+          </div>
+        )}
+        {t.pockets && (
           <>
-            <div className="muted small side-quest-label">Carrying</div>
+            <div className="muted small side-quest-label">Wearing</div>
             <div className="pocket-items">
-              {carrying.map((i, n) => (
-                <span className="pocket-item" key={`c${n}`}>
-                  {label(i)}
-                  <button
-                    className="pocket-x"
-                    title="Remove from the record"
-                    onClick={() => pocketRemove('carrying', n)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
+              {worn.length === 0 ? (
+                <span className="pocket-empty">Put clothes on</span>
+              ) : (
+                worn.map((i, n) => (
+                  <span className="pocket-item" key={`w${n}`}>
+                    {label(i)}
+                    <button
+                      className="pocket-x"
+                      title="Remove from the record"
+                      onClick={() => pocketRemove('worn', n)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
             </div>
+            {carrying.length > 0 && (
+              <>
+                <div className="muted small side-quest-label">Carrying</div>
+                <div className="pocket-items">
+                  {carrying.map((i, n) => (
+                    <span className="pocket-item" key={`c${n}`}>
+                      {label(i)}
+                      <button
+                        className="pocket-x"
+                        title="Remove from the record"
+                        onClick={() => pocketRemove('carrying', n)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            {setAside.length > 0 && (
+              <>
+                <div className="muted small side-quest-label">Set aside</div>
+                <div className="pocket-items">
+                  {setAside.map((i, n) => (
+                    <span className="pocket-item pocket-item-aside" key={`s${n}`}>
+                      {label(i)}
+                      <button
+                        className="pocket-x"
+                        title="Remove from the record"
+                        onClick={() => pocketRemove('set_aside', n)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            <PocketAddRow onAdd={pocketAdd} />
           </>
         )}
-        {setAside.length > 0 && (
-          <>
-            <div className="muted small side-quest-label">Set aside</div>
-            <div className="pocket-items">
-              {setAside.map((i, n) => (
-                <span className="pocket-item pocket-item-aside" key={`s${n}`}>
-                  {label(i)}
-                  <button
-                    className="pocket-x"
-                    title="Remove from the record"
-                    onClick={() => pocketRemove('set_aside', n)}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          </>
-        )}
-        <PocketAddRow onAdd={pocketAdd} />
       </div>
     </details>
   );

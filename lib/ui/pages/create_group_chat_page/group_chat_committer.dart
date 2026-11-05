@@ -171,6 +171,7 @@ class GroupChatCommitter {
         seeds: remapSeedsToMemberIds(seeds, memberIdMap),
         needsEnabled: d.needsSimEnabled,
         afterglowEnabled: d.afterglowEnabled,
+        pocketsEnabled: d.pocketsEnabled,
         timeOfDay: d.globalTimeOfDay,
         dayCount: d.globalDayCount,
         storyStartDate: d.globalStoryStartDate,
@@ -180,6 +181,11 @@ class GroupChatCommitter {
       );
       defaultMemberJson = blobs.defaultMemberJson;
       baselineJson = blobs.baselineJson;
+    } else if (!d.pocketsEnabled) {
+      // Realism-off but Pockets off too: Pockets needs no Realism, so its
+      // default must still be recorded (a bare '{}' reads pockets ON at
+      // entry — docs/design/pockets-wardrobe-chat-toggle.md).
+      defaultMemberJson = withGroupPockets(defaultMemberJson, false);
     }
 
     final group = GroupChat(

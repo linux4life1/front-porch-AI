@@ -215,6 +215,11 @@ class SessionSeed {
         }
       }
     }
+    // v64: the import's third group seed site (group_entry, startNewChat's
+    // group branch, and here) — a package whose member bags predate the
+    // switch derives each member's once from this group's defaults, then
+    // the stored value is law (docs/design/pockets-wardrobe-chat-toggle.md).
+    _s.graph().seedGroupPocketsSwitches();
     _s.graph().seedPocketsFromCards();
     _s.growthStore().invalidate();
   }
@@ -227,6 +232,7 @@ class SessionSeed {
     final head = <String, dynamic>{
       'realism_enabled': _realismChatSwitch,
       'needs_sim_enabled': _scope.needsSimEnabled(),
+      'pockets_enabled': _s.controls().pocketsChatSwitch,
       'enjoys_low_hygiene': _s.controls().chatEnjoysLowHygiene,
       'objectives_enabled': _s.controls().objectivesEnabled,
       'afterglow_enabled': _s.controls().afterglowChatSwitch,
@@ -293,6 +299,12 @@ class SessionSeed {
     }
     if (head['objectives_enabled'] is bool) {
       _s.controls().objectivesEnabled = head['objectives_enabled'] as bool;
+    }
+    // v64: the imported chat's own 1:1 Pockets switch. Group switches ride
+    // the per-member bag restored with group_realism_state, so this only
+    // writes in 1:1; a package saved before it keeps the card's seed.
+    if (head['pockets_enabled'] case final bool on) {
+      if (_activeGroup == null) _s.controls().setChatPockets(on);
     }
     // The chat's own Afterglow switch, before the Lust it restores below. A
     // package saved before it has none and keeps the card's or group's.

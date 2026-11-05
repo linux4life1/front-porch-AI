@@ -71,6 +71,38 @@ class GroupMemberRealismCard extends StatelessWidget {
     ],
   );
 
+  /// The member's Pockets & Wardrobe DEFAULT for this group's new chats
+  /// (v64, docs/design/pockets-wardrobe-chat-toggle.md): the card flag on
+  /// their member copy, AND-ed with the group's own new-chat default at
+  /// entry. Not this chat's live switch — the sidebar member card carries
+  /// that one, per chat, with the freeze confirmation.
+  Widget _pocketsRow(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Flexible(
+        child: Text(
+          'Pockets — new chats',
+          style: TextStyle(
+            fontSize: 11,
+            color: AppColors.textSecondary(context),
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      const SizedBox(width: 6),
+      SizedBox(
+        height: 24,
+        child: FittedBox(
+          child: Switch(
+            value: char.frontPorchExtensions?.pocketsEnabled ?? true,
+            activeThumbColor: AppColors.porchTerracottaOf(context),
+            onChanged: (v) => controller.updateMemberPockets(char, v),
+          ),
+        ),
+      ),
+    ],
+  );
+
   Widget _avatar() => RealPortrait(
     file: char.imagePath != null ? File(char.imagePath!) : null,
     portrait: (_, file) => CircleAvatar(
@@ -102,6 +134,9 @@ class GroupMemberRealismCard extends StatelessWidget {
     final afterglowShown =
         afterglowEnabledOf(context) && cs.afterglowChatSwitch;
     final ownAfterglow = char.frontPorchExtensions?.afterglowEnabled ?? true;
+    // Forgiving read shared with the sidebar line (a bare dialog harness
+    // has no StorageService; identity_chip_lists.pocketsEnabledOf).
+    final pocketsAllowed = pocketsEnabledOf(context);
 
     return GroupMemberSummaryRow(
       key: ValueKey('member-summary-${groupMemberStoreId(char)}'),
@@ -188,6 +223,21 @@ class GroupMemberRealismCard extends StatelessWidget {
                 ),
               ),
           ],
+          // v64: their Pockets default for new chats, outside the Afterglow
+          // gate — Pockets answers its own switches, in Porch Life's shape:
+          // greyed with a note while the Porch Life global is off.
+          const SizedBox(height: 6),
+          if (pocketsAllowed)
+            _pocketsRow(context)
+          else
+            Text(
+              'Pockets & Wardrobe is off in Porch Life; this default waits '
+              'for it.',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textTertiary(context),
+              ),
+            ),
         ],
       ),
     );

@@ -67,6 +67,13 @@ class _GroupRealismDynamicsEditorState
 
   /// The group's Afterglow for new chats ([kGroupAfterglowKey]).
   bool _afterglow = true;
+
+  /// The group's Pockets & Wardrobe default for new chats
+  /// ([kGroupPocketsKey]) — AND-ed at entry with each member's card default
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Pockets needs no
+  /// Realism, so this card lives OUTSIDE the realism branch and its key
+  /// survives the realism-off emit below.
+  bool _pockets = true;
   String _timeOfDay = 'morning';
   int _dayCount = 1;
   // Story Calendar authoring (story-calendar.md §3a).
@@ -90,6 +97,7 @@ class _GroupRealismDynamicsEditorState
     );
     _greetingSeeds = parseGroupGreetingSeeds(widget.initialDefaultMemberJson);
     _afterglow = groupAfterglowIn(widget.initialDefaultMemberJson);
+    _pockets = groupPocketsIn(widget.initialDefaultMemberJson);
     final parsed = parseGroupRealismSeeds(widget.initialDefaultMemberJson);
     _realismEnabled = parsed.isNotEmpty;
 
@@ -149,11 +157,18 @@ class _GroupRealismDynamicsEditorState
 
   void _emit() {
     if (!_realismEnabled) {
+      // Realism-off emits a bare blob — but the Pockets default rides with
+      // it: the feature needs no Realism, and dropping the key here would
+      // silently re-arm a group the user set off
+      // (docs/design/pockets-wardrobe-chat-toggle.md).
       widget.onChanged(
-        withGroupOpeningAlts(
-          '{}',
-          alternateGreetings: _alternateGreetings,
-          greetingSeeds: _greetingSeeds,
+        withGroupPockets(
+          withGroupOpeningAlts(
+            '{}',
+            alternateGreetings: _alternateGreetings,
+            greetingSeeds: _greetingSeeds,
+          ),
+          _pockets,
         ),
         '{}',
       );
@@ -163,6 +178,7 @@ class _GroupRealismDynamicsEditorState
       seeds: _seedsByMid, // already keyed by mid — no remap needed
       needsEnabled: _needsEnabled,
       afterglowEnabled: _afterglow,
+      pocketsEnabled: _pockets,
       timeOfDay: _timeOfDay,
       dayCount: _dayCount,
       storyStartDate: _storyStartDate,
@@ -313,6 +329,45 @@ class _GroupRealismDynamicsEditorState
               onRelationshipChanged: _updateRelationship,
             ),
           ],
+          // v64 (docs/design/pockets-wardrobe-chat-toggle.md): OUTSIDE the
+          // realism branch — Pockets tracks wardrobe without the engine, so
+          // a Realism-off group still gets a real default. At entry each
+          // member's starting switch is this AND their card's own default
+          // (group ON + Ben OFF ⇒ Ben starts off, the rest on).
+          const SizedBox(height: 16),
+          SwitchListTile(
+            tileColor: AppColors.cardOf(context),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: AppColors.borderOf(context)),
+            ),
+            secondary: Icon(
+              Icons.inventory_2_outlined,
+              color: AppColors.porchTerracottaOf(context),
+            ),
+            title: Text(
+              'Pockets & Wardrobe',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+            subtitle: Text(
+              _pockets
+                  ? 'Inventory tracking in new chats of this group — unless a '
+                        "member's own editor has it off. Each chat can then "
+                        'change its mind per member.'
+                  : 'Off — new chats start with pockets untracked. Members '
+                        'whose editor has it on stay off here until the chat '
+                        'flips their switch.',
+              style: TextStyle(color: AppColors.textSecondary(context)),
+            ),
+            value: _pockets,
+            onChanged: (v) {
+              setState(() => _pockets = v);
+              _emit();
+            },
+          ),
         ],
       ),
     );

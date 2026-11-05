@@ -45,6 +45,29 @@ class ChatToolsSwitches {
     _notify();
   }
 
+  /// Live in-chat Pockets & Wardrobe toggle for THIS chat
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). The PWA shows the same
+  /// freeze confirmation the desktop dialog shows before calling with
+  /// false; the setter retains the record and stops every pockets model
+  /// call, so no catch-up happens either side.
+  Future<void> setPocketsEnabled(bool v) async {
+    await _chat.setPocketsEnabled(v);
+    _notify();
+  }
+
+  /// A group member's own Pockets switch in this chat — the web twin of
+  /// the sidebar member-card line, one member at a time. False when [id]
+  /// is not a member, so the route can reject a bad id.
+  Future<bool> setMemberPockets(String id, bool v) async {
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      await _chat.setMemberPocketsEnabled(id, v);
+      _notify();
+      return true;
+    }
+    return false;
+  }
+
   /// Legacy bool One-Shot toggle — kept so an older PWA bundle's toggle keeps
   /// working (additive contract). An explicit toggle maps to On/Off, never
   /// Auto, the same rule the storage shim applies.

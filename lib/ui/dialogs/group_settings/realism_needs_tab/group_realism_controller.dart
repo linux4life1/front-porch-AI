@@ -117,6 +117,19 @@ class GroupRealismNeedsController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// A member's Pockets & Wardrobe default for the group's new chats
+  /// (v64). Their live per-chat switch lives on the sidebar member card,
+  /// with the freeze confirmation; this writes the card flag the next new
+  /// chat is seeded from.
+  void updateMemberPockets(CharacterCard char, bool value) {
+    chatService.setMemberPocketsDefault(char, value).catchError((Object e) {
+      debugPrint(
+        '[GroupSettings] Pockets default for ${char.name} not saved: $e',
+      );
+    });
+    notifyListeners();
+  }
+
   /// A member's Recovery block, on their card in this group. Saved with the
   /// member's other extensions.
   void updateMemberRecovery(CharacterCard char, RecoveryProfile recovery) {

@@ -258,35 +258,50 @@ class GroupMemberCardLook {
       // here; wardrobe simply never followed them across.
       Builder(
         builder: (context) {
-          // Same off-absent / on-even-when-empty gate as the 1:1
-          // panel (2026-08-13, add-by-hand parity).
+          // v64 (docs/design/pockets-wardrobe-chat-toggle.md): each member
+          // carries their own switch on their own card — flipping Mara off
+          // mid-chat silences only her track. The line is always up (it is
+          // how an off member turns back on); the PANEL asks the live gate
+          // — off is absent, never greyed (Error Book 2026-10-08 covers
+          // what shows, not just what runs).
           final id = chat.characterIdFor(character);
-          if (!chat.pocketsEnabledFor(id)) {
-            return const SizedBox.shrink();
-          }
-          final p = chat.pocketsFor(id) ?? Pockets();
+          final live = chat.pocketsEnabledFor(id);
           return Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: PocketsRow(
-              pockets: p,
-              day: chat.storyDayCount,
-              onRemove: ({required section, required index}) =>
-                  chat.removePocketItem(id, section: section, index: index),
-              onAdd: ({section}) async {
-                final add = await showPocketItemDialog(
-                  context,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PocketsGateLine(
+                  chat: chat,
+                  characterId: id,
                   characterName: character.name,
-                  initialSection: section ?? PocketSection.carrying,
-                );
-                if (add == null) return;
-                await chat.addPocketItem(
-                  id,
-                  section: add.section,
-                  name: add.name,
-                  gift: add.gift,
-                  correction: add.correction,
-                );
-              },
+                  compact: true,
+                ),
+                if (live) ...[
+                  const SizedBox(height: 4),
+                  PocketsRow(
+                    pockets: chat.pocketsFor(id) ?? Pockets(),
+                    day: chat.storyDayCount,
+                    onRemove: ({required section, required index}) => chat
+                        .removePocketItem(id, section: section, index: index),
+                    onAdd: ({section}) async {
+                      final add = await showPocketItemDialog(
+                        context,
+                        characterName: character.name,
+                        initialSection: section ?? PocketSection.carrying,
+                      );
+                      if (add == null) return;
+                      await chat.addPocketItem(
+                        id,
+                        section: add.section,
+                        name: add.name,
+                        gift: add.gift,
+                        correction: add.correction,
+                      );
+                    },
+                  ),
+                ],
+              ],
             ),
           );
         },

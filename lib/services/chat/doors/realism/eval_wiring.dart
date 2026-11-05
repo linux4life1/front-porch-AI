@@ -94,6 +94,7 @@ extension RealismEvalWiring on RealismGraph {
     storyDayCount: () => time.morningAnchoredDayCount,
     memorySettings: () => deps.services.storage.memorySettings,
     itemCards: () => itemCards,
+    chatSwitch: () => controls.pocketsChatSwitch,
   );
 
   PocketsRewinds buildPocketsRewinds() => PocketsRewinds(

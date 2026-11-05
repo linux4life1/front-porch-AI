@@ -479,6 +479,20 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   bool get pocketsFeatureEnabled => false;
 
+  // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the Pockets leaf now
+  // stays mounted so its chat switch is reachable, and PocketsGateLine reads
+  // the STORED switch in build. On a golden fake that switch is class-level
+  // API like the two above: answer it, or every Character State golden
+  // throws mid-render. `true` shows the chat's choice greyed under the
+  // feature-off veto above; the record stays null so nothing else renders.
+  // The setters answer empty so a tap in an interaction test no-ops safely.
+  @override
+  bool pocketsSwitchFor(String memberId) => true;
+  @override
+  Future<void> setPocketsEnabled(bool on) async {}
+  @override
+  Future<void> setMemberPocketsEnabled(String memberId, bool on) async {}
+
   // Objective surface — empty by default (renders the "propose an objective" UI).
   @override
   Objective? get primaryObjective => null;

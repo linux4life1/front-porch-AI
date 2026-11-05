@@ -88,6 +88,29 @@ class ChatToolsSnapshot {
       // Porch Life allows Needs: while it does not, the phone greys this
       // chat's switch, as the desktop's Needs line does (additive).
       'needsAllowed': rs.needsSimDefault,
+      // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the focused
+      // participant's OWN stored Pockets switch (1:1 chat choice / member
+      // bag choice — never the live gate, so a Porch Life veto greys the
+      // checkbox at the chat's choice, not at off), whether Porch Life
+      // allows the feature, and their name for the turn-off confirmation.
+      // A guest focus sends none of the three: the panel keeps its
+      // guest-absent shape. Additive: an older bundle ignores them.
+      'pocketsSwitch': focusedCard == null || _ctx.isGuestFocus(focused)
+          ? null
+          : _chat.pocketsSwitchFor(_chat.characterIdFor(focusedCard)),
+      'pocketsAllowed': rs.pocketsEnabled,
+      'pocketsName': focusedCard == null || _ctx.isGuestFocus(focused)
+          ? null
+          : focusedCard.name,
+      // Set only for a group focus: the PWA then routes the switch at
+      // `memberPockets` with this id, one member at a time (the
+      // memberAfterglow shape). Absent/null = 1:1 → `pockets`.
+      'pocketsMemberId':
+          focusedCard == null ||
+              !_chat.isGroupMode ||
+              _ctx.isGuestFocus(focused)
+          ? null
+          : groupMemberStoreId(focusedCard),
       'realismOneShotEval': rs.realismOneShotEval,
       'realismOneShotMode': rs.oneShotMode.name,
       'focusedId': focused?.id,

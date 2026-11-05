@@ -158,6 +158,9 @@ class NewChatOpener {
       );
       // A silent card follows the Porch Life Needs switch (chat_entry twin).
       _needsSimEnabled = _s.needsPass().seedNeedsSim(extSeed.needsSimChoice);
+      // v64: the card's Pockets default seeds this chat's own switch
+      // (chat_entry twin; docs/design/pockets-wardrobe-chat-toggle.md).
+      _s.controls().setChatPockets(extSeed.pocketsEnabled);
       _s.controls().chatEnjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         // Fresh chat / new session: seed from card baselines (falls back to
@@ -321,6 +324,13 @@ class NewChatOpener {
     // seeding beside the null would have been wiped for every group and
     // silently worked for every 1:1 — the shape of bug that looks fixed until
     // somebody opens a group. One call after both branches cannot go half-right.
+    //
+    // v64: the Pockets switches seed first, from that same rebuilt map —
+    // the rebuild drops every `pockets_switch` key, so a fresh group chat
+    // re-derives each member's starting switch (group default AND card
+    // default); no-op for 1:1, whose switch is the scalar the 1:1 branch
+    // already seeded from the card (docs/design/pockets-wardrobe-chat-toggle.md).
+    _s.graph().seedGroupPocketsSwitches();
     _s.graph().seedPocketsFromCards();
 
     // Drop the previous session's growth cache so the new chat starts with

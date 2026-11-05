@@ -408,6 +408,20 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 64) {
+      // v63→v64: the 1:1 chat's own Pockets & Wardrobe switch
+      // (docs/design/pockets-wardrobe-chat-toggle.md). NULL = predates the
+      // column; the first load derives it once from the card flag (D1) and
+      // persists it. Group switches ride group_realism_state. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN pockets_enabled INTEGER',
+        );
+        debugPrint('[DB] v64: added sessions.pockets_enabled');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.
