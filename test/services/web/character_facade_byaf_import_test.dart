@@ -288,5 +288,59 @@ void main() {
       );
       expect(sessions.single.userPersonaId, personas.defaultPersonaId);
     });
+    test('every chat in the archive comes across, under the pick', () async {
+      Map<String, dynamic> chat(String title, String line) => {
+        'schemaVersion': 1,
+        'title': title,
+        'firstMessages': [
+          {'characterID': 'c1', 'text': 'Hi {user}.'},
+        ],
+        'messages': [
+          {'type': 'human', 'text': line},
+        ],
+      };
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile.string(
+            'manifest.json',
+            jsonEncode({
+              'characters': ['characters/char1/character.json'],
+              'scenarios': ['scenarios/a.json', 'scenarios/b.json'],
+            }),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.string(
+            'characters/char1/character.json',
+            jsonEncode({'displayName': 'Juniper', 'persona': 'A painter.'}),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.string(
+            'scenarios/a.json',
+            jsonEncode(chat('Harbour', 'rowan waves.')),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.string(
+            'scenarios/b.json',
+            jsonEncode(chat('Rain', 'rowan sits.')),
+          ),
+        );
+
+      final result = await facade.importBytes(
+        ZipEncoder().encode(archive),
+        'juniper.byaf',
+        persona: rowanId,
+      );
+      expect(result?['chats'], 2);
+      final sessions = await db.getSessionsForCharacter(
+        result!['id'] as String,
+      );
+      expect(sessions.map((x) => x.name).toSet(), {'Harbour', 'Rain'});
+      for (final x in sessions) {
+        expect(x.userPersonaId, rowanId);
+      }
+    });
   });
 }

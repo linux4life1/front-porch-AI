@@ -233,7 +233,7 @@ class CharacterImporter {
         importGalleryImages: true,
         replaceExistingLooks: forceReplace != null || stableMatch != null,
       );
-      await byaf.importSession(
+      final chats = await byaf.importSession(
         _db,
         preview,
         imported,
@@ -246,6 +246,7 @@ class CharacterImporter {
         'name': imported.name,
         if (forceReplace != null) 'replaced': true,
         'looksImported': looksImported,
+        'chats': chats,
       };
     } catch (_) {
       if (preview != null) deleteByafTempImages(preview.galleryImagePaths);

@@ -453,12 +453,54 @@ void main() {
       ],
     };
 
-    Future<String> writeArchive(Directory dir) async {
+    // A second Backyard chat with the same character: its own title,
+    // opening message, sampler values and history. Same v1 keys.
+    final scenario2 = <String, dynamic>{
+      ...scenario,
+      'title': 'Rainy night',
+      'temperature': 0.7,
+      'firstMessages': [
+        {'characterID': 'juniper1', 'text': 'Rain again, {user}.'},
+      ],
+      'messages': [
+        {
+          'type': 'human',
+          'createdAt': '2025-03-01T20:00:00.000Z',
+          'updatedAt': '2025-03-01T20:00:00.000Z',
+          'text': 'Rowan shakes out an umbrella.',
+        },
+        {
+          'type': 'ai',
+          'outputs': [
+            {
+              'createdAt': '2025-03-01T20:00:05.000Z',
+              'updatedAt': '2025-03-01T20:00:05.000Z',
+              'text': 'Tea is on, Rowan.',
+              'activeTimestamp': '2025-03-01T20:00:05.000Z',
+            },
+          ],
+        },
+      ],
+    };
+
+    Future<String> writeArchive(Directory dir, {bool twoChats = false}) async {
       final pix = base64Decode(
         'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR42mP4/vU9VsQwtCQAafG2wXWW5mYAAAAASUVORK5CYII=',
       );
       final archive = Archive()
-        ..addFile(ArchiveFile.string('manifest.json', jsonEncode(manifest)))
+        ..addFile(
+          ArchiveFile.string(
+            'manifest.json',
+            jsonEncode({
+              ...manifest,
+              if (twoChats)
+                'scenarios': [
+                  'scenarios/scenario1.json',
+                  'scenarios/scenario2.json',
+                ],
+            }),
+          ),
+        )
         ..addFile(
           ArchiveFile.string(
             'characters/juniper1/character.json',
@@ -478,6 +520,11 @@ void main() {
         ..addFile(
           ArchiveFile.string('scenarios/scenario1.json', jsonEncode(scenario)),
         );
+      if (twoChats) {
+        archive.addFile(
+          ArchiveFile.string('scenarios/scenario2.json', jsonEncode(scenario2)),
+        );
+      }
       final path = '${dir.path}/spec.byaf';
       await File(path).writeAsBytes(ZipEncoder().encode(archive));
       return path;
@@ -630,5 +677,92 @@ void main() {
         expect(recommendByafPersonaId(preview.messages, personas), 'p-rowan');
       },
     );
+    test('the second chat carries the same v1 keys', () {
+      expect(scenario2.keys.toSet(), scenario.keys.toSet());
+    });
+
+    test(
+      'parseByaf reads every chat in the archive, not just the first',
+      () async {
+        final path = await writeArchive(tempDir, twoChats: true);
+        final preview = await byaf.parseByaf(path);
+        expect(preview.chats, hasLength(2));
+        expect(preview.chats[0].title, 'Harbour evenings');
+        expect(preview.chats[1].title, 'Rainy night');
+        expect(preview.chats[1].firstMessage, 'Rain again, {user}.');
+        expect(preview.chats[1].modelSettings['temperature'], 0.7);
+        expect(preview.chats[1].messages.map((m) => m.type), ['human', 'ai']);
+        // The card itself still comes from the first chat.
+        expect(preview.firstMessage, '*{character} looks up.* Hi, {user}.');
+        expect(preview.modelSettings['temperature'], 1.2);
+        // Counts and the persona guess see every chat's turns.
+        expect(preview.messages, hasLength(5));
+        expect(await byaf.readChat(path), hasLength(5));
+      },
+    );
+
+    test('importSession writes one chat per Backyard chat', () async {
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      final preview = await byaf.parseByaf(
+        await writeArchive(tempDir, twoChats: true),
+      );
+      final card = byaf.toCharacterCard(preview)..dbId = 'juniper-two';
+      final rowan = UserPersona(id: 'p-rowan', name: 'Rowan');
+
+      final made = await byaf.importSession(
+        db,
+        preview,
+        card,
+        genSettings: byaf.toGenerationSettings(preview),
+        persona: rowan,
+      );
+
+      expect(made, 2);
+      final sessions = await db.getSessionsForCharacter('juniper-two');
+      expect(sessions, hasLength(2));
+      expect(sessions.map((x) => x.id).toSet(), hasLength(2));
+      final byName = {for (final x in sessions) x.name: x};
+      expect(byName.keys.toSet(), {'Harbour evenings', 'Rainy night'});
+      for (final x in sessions) {
+        expect(x.userPersonaId, 'p-rowan');
+      }
+      // Each chat keeps its own Backyard sampler values.
+      expect(
+        jsonDecode(byName['Rainy night']!.generationSettings!)['temperature'],
+        0.7,
+      );
+
+      final first = await db.getMessagesForSession(
+        byName['Harbour evenings']!.id,
+      );
+      expect(first, hasLength(4));
+      final second = await db.getMessagesForSession(byName['Rainy night']!.id);
+      expect(second.map((r) => r.isUser), [false, true, false]);
+      expect(jsonDecode(second[0].swipes), ['Rain again, Rowan.']);
+      expect(second[1].sender, 'Rowan');
+    });
+
+    test('a chat that never started imports nothing for it', () async {
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      final preview = ByafImportPreview(
+        name: 'Juniper',
+        persona: '',
+        chats: [
+          const ByafChat(title: 'Untouched', firstMessage: 'Hello.'),
+          ByafChat(
+            title: 'Talked',
+            messages: [
+              ByafChatMessage(type: 'human', swipes: ['Hi.']),
+            ],
+          ),
+        ],
+      );
+      final card = byaf.toCharacterCard(preview)..dbId = 'juniper-skip';
+      expect(await byaf.importSession(db, preview, card), 1);
+      final sessions = await db.getSessionsForCharacter('juniper-skip');
+      expect(sessions.single.name, 'Talked');
+    });
   });
 }

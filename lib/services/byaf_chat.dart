@@ -44,6 +44,55 @@ class ByafChatMessage {
   String get text => swipes[activeIndex];
 }
 
+/// One Backyard scenario: a separate chat with its own opening message,
+/// history and sampler values. An archive may hold several.
+class ByafChat {
+  final String? title;
+  final String? firstMessage;
+  final List<ByafChatMessage> messages;
+  final Map<String, double> modelSettings;
+
+  const ByafChat({
+    this.title,
+    this.firstMessage,
+    this.messages = const [],
+    this.modelSettings = const {},
+  });
+}
+
+/// Read one scenario JSON: title, opening message, sampler values and
+/// chat history. The card-level fields (narrative, formatting, examples)
+/// are read by the caller from the first scenario only.
+ByafChat parseByafScenario(Map<dynamic, dynamic> json) {
+  String? firstMessage;
+  final firsts = json['firstMessages'];
+  if (firsts is List && firsts.isNotEmpty && firsts.first is Map) {
+    firstMessage = (firsts.first as Map)['text']?.toString();
+  }
+  final settings = <String, double>{};
+  for (final key in [
+    'temperature',
+    'minP',
+    'topP',
+    'topK',
+    'repeatPenalty',
+    'repeatLastN',
+  ]) {
+    final v = json[key];
+    if (v is num) settings[key] = v.toDouble();
+  }
+  // Backyard disables min-p via a separate flag rather than zeroing the
+  // value; carry that semantics over (0 = disabled downstream).
+  if (json['minPEnabled'] == false) settings['minP'] = 0.0;
+  final title = json['title']?.toString().trim();
+  return ByafChat(
+    title: title == null || title.isEmpty ? null : title,
+    firstMessage: firstMessage,
+    messages: parseByafChatMessages(json['messages']),
+    modelSettings: settings,
+  );
+}
+
 /// Convert Backyard AI placeholders {character}/{user} to V2 {{char}}/{{user}}.
 String convertByafPlaceholders(String text) {
   return text

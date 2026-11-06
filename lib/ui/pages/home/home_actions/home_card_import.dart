@@ -223,9 +223,14 @@ class HomeCardImport {
       }
 
       if (context.mounted && importedCard != null) {
-        final chatNote = result2.importChatHistory && parsed.messages.isNotEmpty
+        final chatCount = parsed.chats
+            .where((c) => c.messages.isNotEmpty)
+            .length;
+        final chatNote = !result2.importChatHistory || chatCount == 0
+            ? ''
+            : chatCount == 1
             ? ' with ${parsed.messages.length} chat messages'
-            : '';
+            : ' with $chatCount chats (${parsed.messages.length} messages)';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

@@ -49,6 +49,10 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
   bool _applySettings = true;
   bool _importGallery = true;
 
+  /// Backyard chats that carry a history (one imported chat each).
+  int get _chatCount =>
+      widget.preview.chats.where((c) => c.messages.isNotEmpty).length;
+
   ByafImportResult get _cancelResult => ByafImportResult(
     confirmed: false,
     importChatHistory: false,
@@ -170,7 +174,10 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                               if (preview.messages.isNotEmpty)
                                 _buildInfoChip(
                                   Icons.chat,
-                                  '${preview.messages.length} chat messages',
+                                  _chatCount > 1
+                                      ? '$_chatCount chats, '
+                                            '${preview.messages.length} messages'
+                                      : '${preview.messages.length} chat messages',
                                 ),
                               if (preview.firstMessage != null &&
                                   preview.firstMessage!.isNotEmpty)
@@ -277,11 +284,14 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                         value: _importChat,
                         onChanged: (v) =>
                             setState(() => _importChat = v ?? true),
-                        title:
-                            'Import chat history '
-                            '(${preview.messages.length} messages)',
-                        subtitle:
-                            'Creates a chat session with the imported messages',
+                        title: _chatCount > 1
+                            ? 'Import chat history ($_chatCount chats, '
+                                  '${preview.messages.length} messages)'
+                            : 'Import chat history '
+                                  '(${preview.messages.length} messages)',
+                        subtitle: _chatCount > 1
+                            ? 'Creates one chat for each Backyard chat'
+                            : 'Creates a chat session with the imported messages',
                       ),
                     if (preview.galleryImagePaths.length > 1) ...[
                       const SizedBox(height: 8),
