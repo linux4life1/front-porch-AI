@@ -111,6 +111,9 @@ class GroupChatCommitter {
         source,
         seed,
         realismEnabled: d.realismEnabled,
+        // The Members step's per-member Starts Away pick: null (never
+        // touched) carries the card's own through.
+        startsAway: d.characterStartsAway[id],
       );
 
       // Insert typed GroupMember row using the database instance.

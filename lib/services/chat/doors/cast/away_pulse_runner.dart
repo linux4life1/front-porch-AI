@@ -78,6 +78,7 @@ class AwayPulseRunner {
         clockMinutes: _timeService.clockMinutes,
         weekday: _timeService.clock.weekday,
         workDays: work.workDays,
+        heldAway: _groupRealism[_d.characterIdFor(card)]?.awayHeld ?? false,
         inScene: _d.send().speakers.memberInScene(card),
       );
     }
@@ -159,6 +160,7 @@ class AwayPulseRunner {
         clockMinutes: _timeService.clockMinutes,
         weekday: _timeService.clock.weekday,
         workDays: work.workDays,
+        heldAway: _groupRealism[memberId]?.awayHeld ?? false,
         inScene: _d.send().speakers.memberInScene(card),
       );
     }

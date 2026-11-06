@@ -31,11 +31,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_docs_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_docs_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -247,36 +247,33 @@ void main() {
       },
     );
 
-    test(
-      'updateSettings omitted alts keep base seeds',
-      () async {
-        expect(
-          await facade.updateSettings('g1', {
-            'firstMessage': 'Come in.',
-            'alternateGreetings': ['Stay.'],
-            'greetingSeeds': [
-              {'characterEmotion': 'furious'},
-            ],
-          }),
-          isTrue,
-        );
-        expect(
-          await facade.updateSettings('g1', {
-            'name': 'Renamed-keep-seeds',
-            'systemPrompt': 'Be terse.',
-          }),
-          isTrue,
-        );
-        final g = groups.getById('g1')!;
-        expect(g.name, 'Renamed-keep-seeds');
-        expect(g.alternateGreetings, ['Stay.']);
-        expect(
-          g.greetingSeeds.single!.characterEmotion,
-          'furious',
-          reason: 'omitted alts must not wipe leftover base seeds',
-        );
-      },
-    );
+    test('updateSettings omitted alts keep base seeds', () async {
+      expect(
+        await facade.updateSettings('g1', {
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['Stay.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        }),
+        isTrue,
+      );
+      expect(
+        await facade.updateSettings('g1', {
+          'name': 'Renamed-keep-seeds',
+          'systemPrompt': 'Be terse.',
+        }),
+        isTrue,
+      );
+      final g = groups.getById('g1')!;
+      expect(g.name, 'Renamed-keep-seeds');
+      expect(g.alternateGreetings, ['Stay.']);
+      expect(
+        g.greetingSeeds.single!.characterEmotion,
+        'furious',
+        reason: 'omitted alts must not wipe leftover base seeds',
+      );
+    });
 
     test(
       'updateSettings dirty alts + explicit empty greetingSeeds stays authored-empty',
@@ -324,9 +321,7 @@ void main() {
           isTrue,
         );
         expect(
-          await facade.updateSettings('g1', {
-            'greetingSeeds': [],
-          }),
+          await facade.updateSettings('g1', {'greetingSeeds': []}),
           isTrue,
         );
         final g = groups.getById('g1')!;
@@ -613,6 +608,48 @@ void main() {
       },
     );
 
+    // Starts Away parity (docs/design/group-initial-presence.md): the web
+    // wizard's touched memberStartsAway pick lands on the member ROW's
+    // extensions the way the desktop committer writes it, and a body the
+    // pick never reached (an old phone) leaves every card's own switch.
+    test('a web-made member starts away when their pick says so', () async {
+      final (_, ext, _) = await made({
+        'name': 'Away at the door',
+        'memberIds': [plainId, carded],
+        'memberStartsAway': {plainId: true, carded: false},
+        'realism': {'enabled': true},
+      });
+      expect(
+        ext[plainId]!.startsAway,
+        isTrue,
+        reason:
+            "Plain's touched pick lands in the row the creation seeder "
+            'reads',
+      );
+      expect(
+        ext[plainId]!.stableId,
+        isNotNull,
+        reason: 'the fresh extensions are theirs, not none',
+      );
+      expect(
+        ext[carded]!.startsAway,
+        isFalse,
+        reason: "Carded's touched pick says stay present here",
+      );
+      expect(
+        ext[carded]!.needsBaselineHunger,
+        50,
+        reason: 'the fold leaves the rest of the card alone',
+      );
+
+      final (_, untouched, _) = await made({
+        'name': 'Old Phone',
+        'memberIds': [plainId, carded],
+      });
+      expect(untouched[plainId]!.startsAway, isFalse);
+      expect(untouched[carded]!.startsAway, isFalse);
+    });
+
     test('every Realism-step field lands on the group and members', () async {
       final member = {
         'affection': 70,
@@ -724,7 +761,7 @@ void main() {
       expect(e.needsOff, ['fun']);
       expect(e.needsBaselineHunger, 80);
     });
-  
+
     test('bond and trust take the desktop ranges, clamped there', () async {
       // Changed: Long-Term Bond has its own key (longTermScore, ±300) and
       // trust is Trust Level (±100). The old ±300 trust was Long-Term Bond

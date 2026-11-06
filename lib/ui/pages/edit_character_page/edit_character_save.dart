@@ -162,6 +162,7 @@ class EditCharacterCardWriter {
       passageOfTimeEnabled: d.realismPassageOfTime,
       chaosModeEnabled: d.realismChaosMode,
       afterglowEnabled: d.realismAfterglow,
+      startsAway: d.realismStartsAway,
       // Null keeps a silent card silent (copyWith keeps the base's null)
       // unless the switch moved off the Porch Life value it showed.
       needsSimEnabled: d.realismNeedsSim == d.needsSimShownForSilent

@@ -210,6 +210,19 @@ export function RealismFormSection({
                 )}
               </>
             )}
+            {/* This group member Starts Away: lands held in every chat the
+                group CREATES (docs/design/group-initial-presence.md).
+                Member-only — a 1:1 card has no hold to author, and the
+                create wizard picks it too. Not an 18+ feature: it shows even
+                when Porch Life keeps Afterglow hidden. */}
+            {member !== undefined && engineOn && (
+              <ToggleRow
+                label="Starts away"
+                hint={`Every chat you make with this group starts ${member} Away, before any turn runs. Only Back at the door brings them in — a chat you reopen keeps its own.`}
+                value={v.startsAway}
+                onChange={(b) => set({ startsAway: b })}
+              />
+            )}
             <ToggleRow
               label="Realism verification (Director/Verifier)"
               hint="Optional director thread validates realism + needs deltas (extra eval cost; strong models recommended)"

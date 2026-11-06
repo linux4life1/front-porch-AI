@@ -341,6 +341,8 @@ class ChatService extends ChangeNotifier {
       entryDoor.reads.spatialStanceForGroupCharacter(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>
       entryDoor.reads.withUserForGroupCharacter(c);
+  bool awayHeldForGroupCharacter(CharacterCard c) =>
+      entryDoor.reads.awayHeldForGroupCharacter(c);
   bool get objectivesActive => controlsDoor.objectivesActive;
   bool get afterglowChatSwitch => controlsDoor.afterglowChatSwitch;
   Future<void> setAfterglowEnabled(bool on) =>

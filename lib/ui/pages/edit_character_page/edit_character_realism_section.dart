@@ -204,6 +204,13 @@ class EditCharacterRealismSection extends StatelessWidget {
           onChaosModeChanged: (v) => _edit(() => d.realismChaosMode = v),
           afterglowEnabled: d.realismAfterglow,
           onAfterglowChanged: (v) => _edit(() => d.realismAfterglow = v),
+          // Starts away is a member's own: the hold the group's chats seed
+          // from (docs/design/group-initial-presence.md). A 1:1 card has no
+          // hold to author, so the row is absent there, not greyed.
+          startsAwayEnabled: d.realismStartsAway,
+          onStartsAwayChanged: member == null
+              ? null
+              : (v) => _edit(() => d.realismStartsAway = v),
           realismVerificationEnabled: d.realismVerificationEnabled,
           onRealismVerificationChanged: (v) =>
               _edit(() => d.realismVerificationEnabled = v),

@@ -230,6 +230,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       clockMinutes: chat.timeService.clockMinutes,
       weekday: chat.timeService.clock.weekday,
       workDays: work.workDays,
+      heldAway: chat.awayHeldForGroupCharacter(widget.character),
       inScene: inSceneForPresence(
         stance: chat.spatialStanceForGroupCharacter(widget.character),
         withUser: chat.withUserForGroupCharacter(widget.character),

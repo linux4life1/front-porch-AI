@@ -59,6 +59,15 @@ class GroupMemberReads {
     return _groupRealism[id]?.withUser;
   }
 
+  /// The member's Away hold: the user's hand-set Away, or a chat seeded
+  /// "starts away" (docs/design/group-initial-presence.md). Only Back
+  /// clears it, so every presence read of this member feeds it to
+  /// [derivePresence] — the hold must not disagree with the card.
+  bool awayHeldForGroupCharacter(CharacterCard character) {
+    final id = _getCharacterIdFromCard(character);
+    return _groupRealism[id]?.awayHeld ?? false;
+  }
+
   /// Returns the current emotion label (e.g. "joy", "sadness", "affection") for
   /// the given character when in a realism-enabled group chat. Returns null otherwise.
   String? getEmotionForGroupCharacter(CharacterCard character) {

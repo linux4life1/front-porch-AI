@@ -104,6 +104,11 @@ export interface GroupDraft {
   /** Library id → the Voice picked for that member: a voice id, or '' for
    *  the global voice. No entry keeps the card's own voice. */
   memberVoices: Record<string, string>;
+  /** Library id → that member's Starts Away pick (the Members step,
+   *  docs/design/group-initial-presence.md). No entry keeps the card's own
+   *  switch; a picked value lands in the member row for the creation seeder
+   *  to read. */
+  memberStartsAway: Record<string, boolean>;
   groupLore: LoreDraft[];
   inheritCharacterLorebooks: boolean;
 }
@@ -235,6 +240,7 @@ export const EMPTY_DRAFT: GroupDraft = {
   relationships: {},
   memberPrompts: {},
   memberVoices: {},
+  memberStartsAway: {},
   groupLore: [],
   inheritCharacterLorebooks: false,
 };
@@ -291,6 +297,11 @@ export function createBody(args: {
     // '' is a pick (the global voice), so only members without one drop out.
     memberVoices: Object.fromEntries(
       memberIds.filter((id) => id in d.memberVoices).map((id) => [id, d.memberVoices[id]]),
+    ),
+    // The Members step's Starts Away pick per member: touched switches ride
+    // (true or false), untouched members keep their card's own.
+    memberStartsAway: Object.fromEntries(
+      memberIds.filter((id) => id in d.memberStartsAway).map((id) => [id, d.memberStartsAway[id]]),
     ),
     groupLore: d.groupLore
       .filter((e) => e.content.trim() !== '')
