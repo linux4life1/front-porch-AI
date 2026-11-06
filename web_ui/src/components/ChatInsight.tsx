@@ -10,6 +10,7 @@ import { api } from '../api/client';
 import {
   SIDEBAR_DEFAULTS,
   SidebarGrip,
+  SidebarLockPill,
   SidebarResetPill,
   resolveOrder,
   resetSidebarLayout,
@@ -139,7 +140,7 @@ export function ChatInsight({
   // The remembered order: read from the host snapshot, kept live across
   // `settings_changed`, and POSTed on a drag. The host merges ids hidden
   // right now back into their stored slots.
-  const { stored, commit } = useSidebarOrder('insight');
+  const { stored, locked, commit, setLocked } = useSidebarOrder('insight');
   const visible = [
     'one_shot_eval',
     'tool_calling_pill',
@@ -155,10 +156,11 @@ export function ChatInsight({
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
     commit,
+    !locked,
   );
 
   const grip = (id: string) => (
-    <SidebarGrip onDown={(e) => startDrag(e, id)} />
+    <SidebarGrip locked={locked} onDown={(e) => startDrag(e, id)} />
   );
   const section = (id: string) => {
     switch (id) {
@@ -417,7 +419,10 @@ export function ChatInsight({
       onPointerCancel={endDrag}
       onLostPointerCapture={endDrag}
     >
-      <SidebarResetPill onReset={resetSidebarLayout} />
+      <div className="sidebar-layout-pills">
+        <SidebarResetPill onReset={resetSidebarLayout} />
+        <SidebarLockPill locked={locked} onToggle={() => setLocked(!locked)} />
+      </div>
       {ordered.map((id) => (
         <div
           key={id}

@@ -124,12 +124,15 @@ Fields and keys:
 | Desktop leaves | `_sidebarLeafOrder` (container → list) | `sidebar_leaf_order_<container>` |
 | Web insight | `_webSidebarOrder` | `web_sidebar_order` |
 | Web ChatTools | `_webSidebarToolsOrder` | `web_sidebar_tools_order` |
+| Layout lock (both) | `_sidebarLayoutLocked` | `sidebar_layout_locked` (absent = off) |
 
 API: `sidebarOrderFor(visibleIds)` / `setSidebarOrder(list)`;
 `sidebarLeafOrderFor(containerId, visibleIds)` / `setSidebarLeafOrder(...)`;
 `webSidebarOrderFor(...)` / `setWebSidebarOrder(...)`;
 `webSidebarToolsOrderFor(...)` / `setWebSidebarToolsOrder(...)`;
-`resetSidebarLayout()` (clears every key, restores defaults, notifies).
+`sidebarLayoutLocked` / `setSidebarLayoutLocked(bool)`;
+`resetSidebarLayout()` (clears every order key, restores defaults, notifies;
+leaves the lock alone).
 
 **Order resolution rule.** Stored ids are never dropped. Visible ids follow the
 stored order; ids not in the stored list (new or conditional) append per the
@@ -188,6 +191,27 @@ above the insight children on web) reads **Reset to default** and calls
 `ui.resetSidebarLayout()`. It is pinned chrome, not a reorderable unit. On web
 it POSTs `/api/settings { resetSidebarLayout: true }`.
 
+## The layout lock (2026-11-06)
+
+A second pill sits beside **Reset to default** and reads **Lock layout** /
+**Layout locked**. Toggled on, it sets `sidebarLayoutLocked` and no grip on
+either surface starts a drag: every top-level section and every nested
+accordion leaf draws a dimmed lock icon instead of its grip. The order itself
+is untouched — only the drag start disappears — and the switch is one global
+preference like the order.
+
+- Desktop: `SidebarReorderLock` (an `InheritedWidget` in `sidebar_reorder.dart`)
+  wraps the body; `SidebarReorderHandle` reads it and renders an inert
+  `Icons.lock_outline`.
+- Web: `SidebarGrip` takes `locked` and renders an inert lock; `useReorderDrag`
+  also refuses to start, belt-and-braces.
+- **Reset stays available while locked** and does **not** clear the lock:
+  resetting the order must not silently re-open a layout the user asked to
+  protect. The lock is a separate key (`sidebar_layout_locked`), absent when
+  off, so a fresh install and the default are unlocked.
+- The pills wrap to a second line on a narrow sidebar rather than clipping
+  either control (Error Book: never fit a toolbar by hiding controls).
+
 ## Web twin and transport
 
 The host facade carries the layout to the PWA:
@@ -211,9 +235,16 @@ helper, the order resolution and the persistence calls.
   reorders a top-level section; order survives a remount (mocked prefs); Reset
   restores the default; a hidden conditional section does not corrupt the stored
   order; a nested leaf reorder works. No stub network.
+- **Desktop lock** `test/ui/chat_components/sidebar_lock_test.dart`: locking
+  swaps every grip for the inert lock, a drag moves nothing, Reset still
+  restores the default while locked (and does not unlock), unlocking brings the
+  grips back.
 - **Web** `ChatInsight.reorder.test.tsx` + `ChatTools.reorder.test.tsx`: pointer
   drag reorders and POSTs the order; Reset POSTs the reset. (P40: derive the
   expected index from the product's midpoint rule and write the numbers used.)
+- **Web lock** `SidebarLock.reorder.test.tsx`: the lock POSTs, every grip turns
+  inert, a drag moves nothing, Reset still POSTs while locked, unlocking
+  restores the grips.
 - **Rendering**: the grip renders on each section and leaf; taps elsewhere still
   expand/toggle; the Reset pill is visible at the top; the header holds at 230.
 - **Goldens**: the sidebar goldens drift when grips are added → regenerate with
@@ -266,3 +297,6 @@ Reset pill is a sidebar control, not a Settings-page control).
 - 2026-11-04: SOW written from the maintainer's five calls (scope, global,
   parity, reset, grip) plus two follow-ups (Reset at the top as a pill;
   Character State stays one block). Awaiting build in a separate worktree.
+- 2026-11-06: built; layout lock added beside Reset (maintainer request):
+  one global switch, inert grips on both surfaces, Reset still works while
+  locked and leaves the lock on.

@@ -24,15 +24,16 @@
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 
-/// The four sidebar-order keys as wire fields, so the live relays spread
-/// them into a settings_changed payload in one line and the PWA repaints an
-/// open page instead of keeping its first read.
+/// The four sidebar-order keys plus the layout lock as wire fields, so the
+/// live relays spread them into a settings_changed payload in one line and
+/// the PWA repaints an open page instead of keeping its first read.
 extension SidebarWireFields on UiSettings {
   Map<String, Object> get sidebarWireFields => {
     'sidebarOrder': sidebarOrder,
     'sidebarLeafOrder': sidebarLeafOrder,
     'webSidebarOrder': webSidebarOrder,
     'webSidebarToolsOrder': webSidebarToolsOrder,
+    'sidebarLayoutLocked': sidebarLayoutLocked,
   };
 }
 
@@ -86,5 +87,11 @@ Future<void> applySidebarOrderWrite(
   // Reset-to-default: clear every stored key and restore the shipped order.
   if (body['resetSidebarLayout'] == true) {
     await ui.resetSidebarLayout();
+  }
+
+  // The layout lock: a drag cannot start on either surface while it is on.
+  final locked = body['sidebarLayoutLocked'];
+  if (locked is bool) {
+    await ui.setSidebarLayoutLocked(locked);
   }
 }

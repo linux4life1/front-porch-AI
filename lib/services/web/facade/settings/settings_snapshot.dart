@@ -239,6 +239,9 @@ class SettingsSnapshot {
       'sidebarLeafOrder': _storage.uiSettings.sidebarLeafOrder,
       'webSidebarOrder': _storage.uiSettings.webSidebarOrder,
       'webSidebarToolsOrder': _storage.uiSettings.webSidebarToolsOrder,
+      // The layout lock: one switch for both surfaces. Additive; an older
+      // PWA ignores it and stays draggable.
+      'sidebarLayoutLocked': _storage.uiSettings.sidebarLayoutLocked,
       ...readWorkerSettings(_storage, _llm),
     };
   }
