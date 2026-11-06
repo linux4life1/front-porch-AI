@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 
 /// Per-file BYAF import loop used by the bulk progress dialog. Mirrors the
 /// single-file BYAF pipeline (parse → convert → embed V2 PNG →
@@ -35,6 +36,7 @@ Future<void> importHomeByafFiles(
   required void Function(int current, int total, String name, String? error)
   onProgress,
   required bool Function() isCancelled,
+  UserPersona? persona,
 }) async {
   final byafService = ByafService();
   final v2Service = V2CardService();
@@ -74,6 +76,7 @@ Future<void> importHomeByafFiles(
           imported,
           includeMessages: importChats,
           genSettings: genSettings,
+          persona: persona,
         );
       } else {
         deleteByafTempImages(parsed.galleryImagePaths);
@@ -91,4 +94,40 @@ Future<void> importHomeByafFiles(
       onProgress(i + 1, paths.length, name, '$e');
     }
   }
+}
+
+/// Who the user was in a batch of Backyard chats, asked once for the whole
+/// batch the way Start New Chat asks, with the persona the chats name most
+/// marked Recommended. Null when cancelled (import nothing); a null persona
+/// when no file carries a chat to stamp.
+Future<({UserPersona? persona})?> askHomeByafBatchPersona(
+  BuildContext context,
+  List<String> paths,
+) async {
+  final byaf = ByafService();
+  final chats = <ByafChatMessage>[
+    for (final path in paths) ...await byaf.readChat(path),
+  ];
+  if (chats.isEmpty) return (persona: null);
+  if (!context.mounted) return null;
+  final personas = Provider.of<UserPersonaService>(context, listen: false);
+  final pickedId = await showPersonaPickerDialog(
+    context,
+    subject: '',
+    title: paths.length == 1
+        ? 'Import this Backyard chat as…'
+        : 'Import these ${paths.length} Backyard chats as…',
+    recommendedId: recommendByafPersonaId(
+      chats,
+      personas.personas,
+      defaultId: personas.defaultPersonaId,
+    ),
+  );
+  if (pickedId == null) return null;
+  return (
+    persona: personas.personas.firstWhere(
+      (p) => p.id == pickedId,
+      orElse: () => personas.defaultPersona,
+    ),
+  );
 }

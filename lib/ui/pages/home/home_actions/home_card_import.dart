@@ -138,6 +138,31 @@ class HomeCardImport {
         return;
       }
 
+      // The imported chat is a new chat: ask who the user was, as Start New
+      // Chat does, never assume. Cancel imports nothing.
+      final personas = Provider.of<UserPersonaService>(context, listen: false);
+      UserPersona? speaker;
+      if (result2.importChatHistory && parsed.messages.isNotEmpty) {
+        final card = byafService.toCharacterCard(parsed);
+        final pickedId = await showPersonaPickerDialog(
+          context,
+          subject: card.name,
+          recommendedId: recommendByafPersonaId(
+            parsed.messages,
+            personas.personas,
+            defaultId: personas.defaultPersonaId,
+          ),
+        );
+        if (pickedId == null || !context.mounted) {
+          deleteByafTempImages(parsed.galleryImagePaths);
+          return;
+        }
+        speaker = personas.personas.firstWhere(
+          (p) => p.id == pickedId,
+          orElse: () => personas.defaultPersona,
+        );
+      }
+
       // Convert to CharacterCard
       final card = byafService.toCharacterCard(parsed);
 
@@ -191,15 +216,21 @@ class HomeCardImport {
           importedCard,
           includeMessages: result2.importChatHistory,
           genSettings: genSettings,
+          persona: speaker,
         );
       } else {
         deleteByafTempImages(parsed.galleryImagePaths);
       }
 
       if (context.mounted && importedCard != null) {
-        final chatNote = result2.importChatHistory && parsed.messages.isNotEmpty
+        final chatCount = parsed.chats
+            .where((c) => c.messages.isNotEmpty)
+            .length;
+        final chatNote = !result2.importChatHistory || chatCount == 0
+            ? ''
+            : chatCount == 1
             ? ' with ${parsed.messages.length} chat messages'
-            : '';
+            : ' with $chatCount chats (${parsed.messages.length} messages)';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -225,6 +256,10 @@ class HomeCardImport {
 
     if (choice == null || !context.mounted) return;
     final (:importChats, :applySettings) = choice;
+    final asked = importChats
+        ? await askHomeByafBatchPersona(context, paths)
+        : (persona: null);
+    if (asked == null || !context.mounted) return;
 
     await _bulk.runWithProgress(
       title: 'Import Backyard AI',
@@ -237,6 +272,7 @@ class HomeCardImport {
             applySettings: applySettings,
             onProgress: onProgress,
             isCancelled: isCancelled,
+            persona: asked.persona,
           ),
     );
   }

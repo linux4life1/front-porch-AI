@@ -90,10 +90,14 @@ class WebCharacterRoutes {
   /// - `collision=ask` — return 409 + existing list when name clashes without
   ///   a stableId match (single-file UI prompt)
   /// - `collision=replace&replaceId=` — update that library card in place
+  /// - `persona=ask` — a .byaf carrying a chat returns 409 `persona_pick`
+  ///   with `recommendedPersonaId` until the client resends with
+  ///   `persona=<id>`; absent (older apps) stamps the default persona
   Future<shelf.Response> _import(shelf.Request request) async {
     final filename = request.url.queryParameters['filename'] ?? 'card.png';
     final collision = request.url.queryParameters['collision'] ?? 'keepBoth';
     final replaceId = request.url.queryParameters['replaceId'];
+    final persona = request.url.queryParameters['persona'];
     final List<int> bytes;
     try {
       bytes = await RequestBody.readBytes(
@@ -109,12 +113,14 @@ class WebCharacterRoutes {
       filename,
       collision: collision,
       replaceId: replaceId,
+      persona: persona,
     );
     if (result == null) {
       return JsonResponse.error(422, 'Could not read that character card');
     }
-    if (result['status'] == 'name_collision') {
-      return JsonResponse.error(409, 'name_collision', extra: result);
+    if (result['status'] == 'name_collision' ||
+        result['status'] == 'persona_pick') {
+      return JsonResponse.error(409, '${result['status']}', extra: result);
     }
     return JsonResponse.ok(result);
   }

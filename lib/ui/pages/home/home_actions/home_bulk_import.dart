@@ -113,9 +113,13 @@ class HomeBulkImport {
     required List<String> byafs,
     bool importChats = true,
     bool applySettings = true,
-  }) {
+  }) async {
     final total = pngs.length + byafs.length;
-    if (total == 0) return Future<void>.value();
+    if (total == 0) return;
+    final asked = importChats && byafs.isNotEmpty
+        ? await askHomeByafBatchPersona(context, byafs)
+        : (persona: null);
+    if (asked == null || !context.mounted) return;
     return _runBulkProgressImport(
       title: title,
       totalCount: total,
@@ -140,6 +144,7 @@ class HomeBulkImport {
             onProgress: (current, _, name, error) =>
                 onProgress(done + current, total, name, error),
             isCancelled: isCancelled,
+            persona: asked.persona,
           );
         }
       },

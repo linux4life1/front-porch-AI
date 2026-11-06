@@ -1,0 +1,81 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+// A Backyard import's persona pick: the name-matched persona is badged.
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/persona_picker_dialog.dart';
+
+void main() {
+  testWidgets('an import marks the persona the chat names as Recommended, '
+      'beside the default', (tester) async {
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    final personas = UserPersonaService(db);
+    late String rowan;
+    await tester.runAsync(() async {
+      while (personas.personas.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      rowan = await personas.createPersona('', 'Rowan', '', null);
+    });
+    String? picked;
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<UserPersonaService>.value(
+        value: personas,
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => picked = await showPersonaPickerDialog(
+                context,
+                subject: 'Juniper',
+                recommendedId: rowan,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final badge = find.text('Recommended');
+    expect(badge, findsOneWidget);
+    final row = find.ancestor(of: badge, matching: find.byType(ListTile));
+    expect(
+      find.descendant(of: row, matching: find.text('Rowan')),
+      findsOneWidget,
+    );
+    expect(find.text('Default'), findsOneWidget);
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(picked, rowan);
+
+    await tester.runAsync(() async {
+      personas.dispose();
+      await db.close();
+    });
+  });
+}

@@ -34,9 +34,14 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 ///
 /// [subject] names who the chat is with, so the ask reads as one continuous
 /// action ("Start a new chat with Misty as…").
+///
+/// [recommendedId] badges the persona an import matched by name ("who wrote
+/// this chat"); [title] replaces the new-chat wording for a batch import.
 Future<String?> showPersonaPickerDialog(
   BuildContext context, {
   required String subject,
+  String? recommendedId,
+  String? title,
 }) {
   final service = Provider.of<UserPersonaService>(context, listen: false);
   final personas = service.personas;
@@ -46,7 +51,7 @@ Future<String?> showPersonaPickerDialog(
 
   return showWarmDialog<String>(
     context,
-    title: 'Start a new chat with $subject as…',
+    title: title ?? 'Start a new chat with $subject as…',
     icon: Icons.person_outline,
     accent: AppColors.porchAmberOf(context),
     width: 420,
@@ -73,6 +78,7 @@ Future<String?> showPersonaPickerDialog(
                       persona: p.persona,
                       avatarPath: p.avatarPath,
                       isDefault: p.id == defaultId,
+                      isRecommended: p.id == recommendedId,
                       onTap: () => Navigator.pop(context, p.id),
                     ),
                 ],
@@ -91,6 +97,7 @@ class _PersonaTile extends StatelessWidget {
     required this.avatarPath,
     required this.isDefault,
     required this.onTap,
+    this.isRecommended = false,
   });
 
   final String label;
@@ -98,6 +105,7 @@ class _PersonaTile extends StatelessWidget {
   final String persona;
   final String? avatarPath;
   final bool isDefault;
+  final bool isRecommended;
   final VoidCallback onTap;
 
   @override
@@ -139,19 +147,13 @@ class _PersonaTile extends StatelessWidget {
               ),
             ),
           ),
+          if (isRecommended) ...[
+            const SizedBox(width: 8),
+            _badge('Recommended', AppColors.formAccentOf(context)),
+          ],
           if (isDefault) ...[
             const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'Default',
-                style: TextStyle(fontSize: 10.5, color: accent),
-              ),
-            ),
+            _badge('Default', accent),
           ],
         ],
       ),
@@ -170,4 +172,13 @@ class _PersonaTile extends StatelessWidget {
       onTap: onTap,
     );
   }
+
+  Widget _badge(String text, Color tint) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+    decoration: BoxDecoration(
+      color: tint.withValues(alpha: 0.18),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(text, style: TextStyle(fontSize: 10.5, color: tint)),
+  );
 }

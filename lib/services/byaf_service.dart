@@ -19,11 +19,17 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
+import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/byaf_chat.dart';
+import 'package:front_porch_ai/services/persona/user_persona.dart';
+
+export 'package:front_porch_ai/services/byaf_chat.dart'
+    show ByafChat, ByafChatMessage, recommendByafPersonaId;
 
 /// Preview data from a parsed .byaf file.
 class ByafImportPreview {
@@ -42,8 +48,16 @@ class ByafImportPreview {
   final String? narrative;
   final String? formattingInstructions;
   final List<String> exampleMessages; // raw example-dialogue texts
+  /// Every turn of every chat, in archive order (counts and the persona
+  /// guess read this; the import itself goes chat by chat via [chats]).
   final List<ByafChatMessage> messages;
+
+  /// The first chat's sampler values.
   final Map<String, double> modelSettings;
+
+  /// Every chat in the archive, one per Backyard scenario. Built from
+  /// [firstMessage], [messages] and [modelSettings] when not given.
+  final List<ByafChat> chats;
 
   ByafImportPreview({
     required this.name,
@@ -57,7 +71,16 @@ class ByafImportPreview {
     this.exampleMessages = const [],
     this.messages = const [],
     this.modelSettings = const {},
-  });
+    List<ByafChat>? chats,
+  }) : chats =
+           chats ??
+           [
+             ByafChat(
+               firstMessage: firstMessage,
+               messages: messages,
+               modelSettings: modelSettings,
+             ),
+           ];
 
   /// Portrait extract, or null when the archive carried no usable image.
   String? get extractedImagePath =>
@@ -70,13 +93,6 @@ class ByafLoreItem {
   ByafLoreItem({required this.key, required this.value});
 }
 
-class ByafChatMessage {
-  final String type; // 'ai' or 'human'
-  final String text;
-  final DateTime? createdAt;
-  ByafChatMessage({required this.type, required this.text, this.createdAt});
-}
-
 typedef TemporaryDirectoryProvider = Future<Directory> Function();
 
 /// Service to parse and import Backyard AI .byaf archive files.
@@ -86,6 +102,34 @@ class ByafService {
           getTemporaryDirectory ?? path_provider.getTemporaryDirectory;
 
   final TemporaryDirectoryProvider _getTemporaryDirectory;
+
+  /// Every chat's history in a .byaf, without extracting any images (a
+  /// batch import reads every file's chats before asking who the user was).
+  /// Empty when the archive has no scenario or cannot be read.
+  Future<List<ByafChatMessage>> readChat(String filePath) async {
+    try {
+      final archive = ZipDecoder().decodeBytes(
+        await File(filePath).readAsBytes(),
+      );
+      final manifest = archive.findFile('manifest.json');
+      if (manifest == null) return const [];
+      final scenarios =
+          (jsonDecode(utf8.decode(manifest.content as List<int>))
+              as Map)['scenarios'];
+      if (scenarios is! List) return const [];
+      final out = <ByafChatMessage>[];
+      for (final path in scenarios) {
+        final scenario = archive.findFile(path.toString());
+        if (scenario == null) continue;
+        final json = jsonDecode(utf8.decode(scenario.content as List<int>));
+        if (json is Map) out.addAll(parseByafChatMessages(json['messages']));
+      }
+      return out;
+    } on Exception catch (e) {
+      debugPrint('[BYAF] Could not read the chat in $filePath: $e');
+      return const [];
+    }
+  }
 
   /// Parse a .byaf file and return a preview of the character data.
   Future<ByafImportPreview> parseByaf(String filePath) async {
@@ -167,104 +211,38 @@ class ByafService {
       }
     }
 
-    // 5. Read scenarios
-    String? firstMessage;
+    // 5. Read scenarios: each one is a separate chat. The card's own
+    // fields (narrative, formatting, examples) come from the first.
     String? narrative;
     String? formattingInstructions;
     final exampleMessages = <String>[];
-    final messages = <ByafChatMessage>[];
-    final modelSettings = <String, double>{};
-
-    final scenarioPaths =
-        (manifest['scenarios'] as List?)?.cast<String>() ?? [];
-    if (scenarioPaths.isNotEmpty) {
-      final scenarioFile = archive.findFile(scenarioPaths.first);
-      if (scenarioFile != null) {
-        final scenarioJson =
-            jsonDecode(utf8.decode(scenarioFile.content as List<int>))
-                as Map<String, dynamic>;
-
+    final chats = <ByafChat>[];
+    final scenarioPaths = (manifest['scenarios'] as List?) ?? const [];
+    for (final scenarioPath in scenarioPaths) {
+      final scenarioFile = archive.findFile(scenarioPath.toString());
+      if (scenarioFile == null) continue;
+      final scenarioJson = jsonDecode(
+        utf8.decode(scenarioFile.content as List<int>),
+      );
+      if (scenarioJson is! Map) continue;
+      if (chats.isEmpty) {
         narrative = scenarioJson['narrative']?.toString();
         formattingInstructions = scenarioJson['formattingInstructions']
             ?.toString();
-
-        // First message
-        if (scenarioJson['firstMessages'] is List &&
-            (scenarioJson['firstMessages'] as List).isNotEmpty) {
-          final fm = (scenarioJson['firstMessages'] as List).first;
-          if (fm is Map<String, dynamic>) {
-            firstMessage = fm['text']?.toString();
-          }
-        }
-
         // Example dialogue: BYAF spec items are {characterID, text}. The
         // speaker attribution (including any #{user}:/#{character}: turn
         // markers Backyard authors used) lives inside the text itself.
-        if (scenarioJson['exampleMessages'] is List) {
-          for (final ex in scenarioJson['exampleMessages'] as List) {
-            if (ex is Map<String, dynamic>) {
-              final text = ex['text']?.toString() ?? '';
-              if (text.isNotEmpty) exampleMessages.add(text);
-            }
-          }
-        }
-
-        // Model settings
-        for (final key in [
-          'temperature',
-          'minP',
-          'topP',
-          'topK',
-          'repeatPenalty',
-          'repeatLastN',
-        ]) {
-          if (scenarioJson[key] is num) {
-            modelSettings[key] = (scenarioJson[key] as num).toDouble();
-          }
-        }
-        // Backyard disables min-p via a separate flag rather than zeroing the
-        // value; carry that semantics over (0 = disabled downstream).
-        if (scenarioJson['minPEnabled'] == false) {
-          modelSettings['minP'] = 0.0;
-        }
-
-        // Chat history
-        if (scenarioJson['messages'] is List) {
-          for (final msg in scenarioJson['messages']) {
-            if (msg is Map<String, dynamic>) {
-              final type = msg['type']?.toString() ?? '';
-              String text = '';
-              DateTime? createdAt;
-
-              if (type == 'human') {
-                text = msg['text']?.toString() ?? '';
-                createdAt = DateTime.tryParse(
-                  msg['createdAt']?.toString() ?? '',
-                );
-              } else if (type == 'ai') {
-                // AI messages have outputs array — use first/active one
-                if (msg['outputs'] is List &&
-                    (msg['outputs'] as List).isNotEmpty) {
-                  final output = (msg['outputs'] as List).first;
-                  if (output is Map<String, dynamic>) {
-                    text = output['text']?.toString() ?? '';
-                    createdAt = DateTime.tryParse(
-                      output['createdAt']?.toString() ?? '',
-                    );
-                  }
-                }
-              }
-
-              if (text.isNotEmpty) {
-                messages.add(
-                  ByafChatMessage(type: type, text: text, createdAt: createdAt),
-                );
-              }
-            }
+        final examples = scenarioJson['exampleMessages'];
+        if (examples is List) {
+          for (final ex in examples) {
+            final text = ex is Map ? ex['text']?.toString() ?? '' : '';
+            if (text.isNotEmpty) exampleMessages.add(text);
           }
         }
       }
+      chats.add(parseByafScenario(scenarioJson));
     }
+    final first = chats.isEmpty ? const ByafChat() : chats.first;
 
     return ByafImportPreview(
       name: name,
@@ -272,25 +250,17 @@ class ByafService {
       loreItems: loreItems,
       galleryImagePaths: galleryImagePaths,
       portraitBytes: portraitBytes,
-      firstMessage: firstMessage,
+      firstMessage: first.firstMessage,
       narrative: narrative,
       formattingInstructions: formattingInstructions,
       exampleMessages: exampleMessages,
-      messages: messages,
-      modelSettings: modelSettings,
+      messages: [for (final c in chats) ...c.messages],
+      modelSettings: first.modelSettings,
+      chats: chats.isEmpty ? null : chats,
     );
   }
 
-  /// Convert Backyard AI placeholders {character}/{user} to V2 spec {{char}}/{{user}}.
-  String _convertPlaceholders(String text) {
-    return text
-        .replaceAll('{character}', '{{char}}')
-        .replaceAll('{Character}', '{{char}}')
-        .replaceAll('{CHARACTER}', '{{char}}')
-        .replaceAll('{user}', '{{user}}')
-        .replaceAll('{User}', '{{user}}')
-        .replaceAll('{USER}', '{{user}}');
-  }
+  String _convertPlaceholders(String text) => convertByafPlaceholders(text);
 
   /// Build a V2 `mes_example` block from BYAF example-dialogue texts.
   ///
@@ -317,8 +287,10 @@ class ByafService {
 
   /// Map the scenario's Backyard sampler values onto per-session overrides.
   /// Returns null when the archive carried no model settings.
-  ChatGenerationSettings? toGenerationSettings(ByafImportPreview preview) {
-    final s = preview.modelSettings;
+  ChatGenerationSettings? toGenerationSettings(ByafImportPreview preview) =>
+      _samplerOverrides(preview.modelSettings);
+
+  ChatGenerationSettings? _samplerOverrides(Map<String, double> s) {
     if (s.isEmpty) return null;
     return ChatGenerationSettings(
       temperature: s['temperature'],
@@ -400,60 +372,84 @@ class ByafService {
     return outputPath;
   }
 
-  /// Create the imported chat session: BYAF message history (when
-  /// [includeMessages]) and/or Backyard sampler overrides ([genSettings],
-  /// stored on the session's generation_settings column so resuming the chat
-  /// — or forking it — samples like Backyard did). No-ops when there is
-  /// nothing to persist.
-  Future<void> importSession(
+  /// Create the imported chats: one session per Backyard scenario that has
+  /// a history (when [includeMessages]). Passing [genSettings] applies
+  /// Backyard's sampler values, each chat its own scenario's (falling back
+  /// to [genSettings]), stored on the session's generation_settings column
+  /// so resuming or forking samples like Backyard did; with no history to
+  /// import it still makes one empty session carrying [genSettings].
+  /// [persona] is who the user's lines were written as; null keeps "User".
+  /// Returns how many chats were written.
+  Future<int> importSession(
     AppDatabase db,
     ByafImportPreview preview,
     CharacterCard importedCard, {
     bool includeMessages = true,
     ChatGenerationSettings? genSettings,
+    UserPersona? persona,
   }) async {
-    final withMessages = includeMessages && preview.messages.isNotEmpty;
-    final settingsJson = genSettings?.toJsonString();
-    if ((!withMessages && settingsJson == null) || importedCard.dbId == null) {
-      return;
+    final characterId = importedCard.dbId;
+    if (characterId == null) return 0;
+    final chats = includeMessages
+        ? [
+            for (final c in preview.chats)
+              if (c.messages.isNotEmpty) c,
+          ]
+        : const <ByafChat>[];
+    // Session ids are timestamps (the app's convention). Several chats, or
+    // a fast batch of files, land in the same millisecond: skip taken ids.
+    var next = DateTime.now().millisecondsSinceEpoch;
+    Future<String> freshId() async {
+      while (await db.getSessionById('$next') != null) {
+        next++;
+      }
+      return '${next++}';
     }
 
-    // Create a session ID (timestamp-based, matching the app's convention)
-    final sessionId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    // Insert the session
-    await db.insertSession(
-      SessionsCompanion.insert(
-        id: sessionId,
-        characterId: Value(importedCard.dbId!),
-        name: Value('Imported from Backyard AI'),
-        generationSettings: Value(settingsJson),
-      ),
-    );
-
-    if (!withMessages) return;
-
-    // Build message list
-    final msgs = <MessagesCompanion>[];
-    for (int i = 0; i < preview.messages.length; i++) {
-      final msg = preview.messages[i];
-      final isUser = msg.type == 'human';
-      final sender = isUser ? 'User' : importedCard.name;
-
-      msgs.add(
-        MessagesCompanion(
-          sessionId: Value(sessionId),
-          position: Value(i),
-          sender: Value(sender),
-          isUser: Value(isUser),
-          swipes: Value(jsonEncode([_convertPlaceholders(msg.text)])),
-          swipeIndex: Value(0),
+    if (chats.isEmpty) {
+      if (genSettings == null) return 0;
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: await freshId(),
+          characterId: Value(characterId),
+          name: const Value('Imported from Backyard AI'),
+          generationSettings: Value(genSettings.toJsonString()),
+          userPersonaId: Value(persona?.id),
+        ),
+      );
+      return 0;
+    }
+    for (var i = 0; i < chats.length; i++) {
+      final chat = chats[i];
+      final sessionId = await freshId();
+      final settings = genSettings == null
+          ? null
+          : _samplerOverrides(chat.modelSettings) ?? genSettings;
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: sessionId,
+          characterId: Value(characterId),
+          name: Value(
+            chat.title ??
+                (chats.length == 1
+                    ? 'Imported from Backyard AI'
+                    : 'Imported from Backyard AI (${i + 1})'),
+          ),
+          generationSettings: Value(settings?.toJsonString()),
+          userPersonaId: Value(persona?.id),
+        ),
+      );
+      await db.insertMessages(
+        byafSessionRows(
+          sessionId: sessionId,
+          messages: chat.messages,
+          characterName: importedCard.name,
+          persona: persona ?? UserPersona(id: '', name: 'User'),
+          firstMessage: chat.firstMessage,
         ),
       );
     }
-
-    // Batch insert all messages
-    await db.insertMessages(msgs);
+    return chats.length;
   }
 
   Future<void> _createPlaceholderPng(String outputPath) async {
