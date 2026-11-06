@@ -310,6 +310,32 @@ void main() {
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
 
+  // The Members step's Starts Away switch is wizard content: it shows in the
+  // fingerprint (so a live pick survives a rebuild), rides the commit pick
+  // through groupMemberExtensions, and a removed member leaves none behind.
+  test('the Starts Away pick is draft content and dies with its member', () {
+    final draft = GroupWizardDraft();
+    addTearDown(draft.dispose);
+    final a = CharacterCard(name: 'Aerin');
+    final b = CharacterCard(name: 'Bo');
+    draft.members.addAll([a, b]);
+    final aId = draft.stableId(a);
+
+    final blank = draft.fingerprint();
+    draft.setStartsAway(aId, true);
+    expect(draft.fingerprint(), isNot(blank), reason: 'a live pick is content');
+    expect(draft.characterStartsAway[aId], isTrue);
+
+    draft.setStartsAway(aId, false);
+    expect(draft.characterStartsAway[aId], isFalse);
+
+    final bId = draft.stableId(b);
+    draft.setStartsAway(bId, true);
+    draft.removeMember(bId);
+    expect(draft.characterStartsAway, isNot(contains(bId)));
+    expect(draft.characterStartsAway[aId], isFalse, reason: 'Aerin keeps hers');
+  });
+
   // The button reads "Generate with Dynamics" exactly when its flag is set.
   testWidgets('the Generate label follows its withDynamics flag', (
     tester,

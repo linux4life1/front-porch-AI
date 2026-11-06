@@ -140,6 +140,12 @@ class GroupMembersStep extends StatelessWidget {
               final c = members[i];
               final id = draft.stableId(c);
               final voice = draft.characterVoices[id] ?? c.ttsVoice ?? '';
+              // Starts Away: the pick lands in the member row; every chat
+              // this group creates seeds their hold from it. Untouched keeps
+              // the card's own switch.
+              final startsAway =
+                  draft.characterStartsAway[id] ??
+                  (c.frontPorchExtensions?.startsAway ?? false);
               // {{char}} / {{user}} resolved, as the library grid shows it.
               final desc = c.formattedDescription;
               return Card(
@@ -154,6 +160,14 @@ class GroupMembersStep extends StatelessWidget {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Tooltip(
+                        message: 'Starts away',
+                        waitDuration: const Duration(milliseconds: 400),
+                        child: Switch(
+                          value: startsAway,
+                          onChanged: (v) => draft.setStartsAway(id, v),
+                        ),
+                      ),
                       SizedBox(
                         width: 200,
                         child: CharacterVoicePicker(

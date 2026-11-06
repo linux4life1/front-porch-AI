@@ -107,6 +107,12 @@ class EditCharacterDraft {
   /// How new chats with this character start Afterglow.
   bool realismAfterglow = true;
 
+  /// How this group member starts in every chat the group creates: Away at
+  /// the door (docs/design/group-initial-presence.md). A 1:1 edit never
+  /// writes it: the row is member-only, but the field rides the shared
+  /// draft's load and save.
+  bool realismStartsAway = false;
+
   /// Structured sex (read/keep — no editor for it on this page; the AI
   /// creators persist it) + the recovery profile the Realism section's
   /// Recovery block authors (recovery overhaul PR 2).
@@ -291,6 +297,7 @@ class EditCharacterDraft {
     realismPassageOfTime,
     realismChaosMode,
     realismAfterglow,
+    realismStartsAway,
     sex,
     recovery.toJson(),
     realismNeedsSim,
@@ -329,6 +336,7 @@ class EditCharacterDraft {
     realismPassageOfTime = ext.passageOfTimeEnabled;
     realismChaosMode = ext.chaosModeEnabled;
     realismAfterglow = ext.afterglowEnabled;
+    realismStartsAway = ext.startsAway;
     sex = ext.sex;
     recovery = ext.recovery;
     if (ext.needsSimChoice == null) {

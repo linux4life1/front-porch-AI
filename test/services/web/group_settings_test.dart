@@ -605,6 +605,48 @@ void main() {
       },
     );
 
+    // Starts Away parity (docs/design/group-initial-presence.md): the web
+    // wizard's touched memberStartsAway pick lands on the member ROW's
+    // extensions the way the desktop committer writes it, and a body the
+    // pick never reached (an old phone) leaves every card's own switch.
+    test('a web-made member starts away when their pick says so', () async {
+      final (_, ext, _) = await made({
+        'name': 'Away at the door',
+        'memberIds': [plainId, carded],
+        'memberStartsAway': {plainId: true, carded: false},
+        'realism': {'enabled': true},
+      });
+      expect(
+        ext[plainId]!.startsAway,
+        isTrue,
+        reason:
+            "Plain's touched pick lands in the row the creation seeder "
+            'reads',
+      );
+      expect(
+        ext[plainId]!.stableId,
+        isNotNull,
+        reason: 'the fresh extensions are theirs, not none',
+      );
+      expect(
+        ext[carded]!.startsAway,
+        isFalse,
+        reason: "Carded's touched pick says stay present here",
+      );
+      expect(
+        ext[carded]!.needsBaselineHunger,
+        50,
+        reason: 'the fold leaves the rest of the card alone',
+      );
+
+      final (_, untouched, _) = await made({
+        'name': 'Old Phone',
+        'memberIds': [plainId, carded],
+      });
+      expect(untouched[plainId]!.startsAway, isFalse);
+      expect(untouched[carded]!.startsAway, isFalse);
+    });
+
     test('every Realism-step field lands on the group and members', () async {
       final member = {
         'affection': 70,
