@@ -21,6 +21,33 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+/// True while the sidebar layout is locked. [SidebarReorderHandle] reads it and
+/// turns every grip — top-level section or nested accordion leaf — into a
+/// dimmed lock icon that starts no drag, so the arrangement cannot move by
+/// accident. One switch for the whole body; the pill that flips it lives in
+/// the pinned chrome above.
+class SidebarReorderLock extends InheritedWidget {
+  final bool locked;
+
+  const SidebarReorderLock({
+    super.key,
+    required this.locked,
+    required super.child,
+  });
+
+  /// The lock state above [context], false outside the sidebar body (the
+  /// standalone tests and any other host).
+  static bool of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<SidebarReorderLock>()
+          ?.locked ??
+      false;
+
+  @override
+  bool updateShouldNotify(SidebarReorderLock oldWidget) =>
+      oldWidget.locked != locked;
+}
+
 /// THE drag grip of the reorderable chat sidebar: a small handle that starts a
 /// drag on its own list item and never toggles the thing it sits on.
 ///
@@ -29,6 +56,9 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// grip does not reach the header's InkWell — the same trick the accordion's
 /// trailing switch/gear uses. Error Book P44: a drag must not act until the
 /// movement is unmistakable; below it, the press is still the click it was.
+///
+/// Under a locked [SidebarReorderLock] it renders an inert lock icon instead:
+/// the list keeps its item keys and order, only the drag start disappears.
 class SidebarReorderHandle extends StatelessWidget {
   /// The item's index in its own reorderable list.
   final int index;
@@ -44,6 +74,16 @@ class SidebarReorderHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (SidebarReorderLock.of(context)) {
+      return Tooltip(
+        message: 'Sidebar layout locked',
+        child: Icon(
+          Icons.lock_outline,
+          size: 16,
+          color: AppColors.textTertiary(context),
+        ),
+      );
+    }
     return ReorderableDragStartListener(
       index: index,
       child: Tooltip(

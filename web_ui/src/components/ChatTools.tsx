@@ -116,7 +116,7 @@ export function ChatTools({
   // The remembered order: read from the host snapshot, kept live across
   // `settings_changed`, and POSTed on a drag. The host merges ids hidden
   // right now back into their stored slots.
-  const { stored, commit } = useSidebarOrder('tools');
+  const { stored, locked, commit } = useSidebarOrder('tools');
   const visible = t
     ? [
         'realism_toggle',
@@ -141,6 +141,7 @@ export function ChatTools({
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
     commit,
+    !locked,
   );
 
   if (!t) return null;
@@ -148,7 +149,7 @@ export function ChatTools({
   const clockRunning = t.time.clockRunning ?? false;
 
   const grip = (id: string) => (
-    <SidebarGrip onDown={(e) => startDrag(e, id)} />
+    <SidebarGrip locked={locked} onDown={(e) => startDrag(e, id)} />
   );
   const section = (id: string) => {
     switch (id) {

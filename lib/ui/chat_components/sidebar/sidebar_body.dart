@@ -212,34 +212,37 @@ class _SidebarBodyState extends State<SidebarBody> {
         ];
         final ordered = ui.sidebarOrderFor(visibleIds);
 
-        return ReorderScrollPump(
-          dragging: _dragging,
-          onWheel: _pumpOnSignal,
-          child: ReorderableListView.builder(
-            scrollController: _scroll,
-            padding: const EdgeInsets.all(12),
-            buildDefaultDragHandles: false,
-            itemCount: ordered.length,
-            onReorderStart: (_) => _dragging.value = true,
-            onReorderEnd: (_) => _dragging.value = false,
-            onReorderItem: (from, to) =>
-                ui.setSidebarOrder(_reorderIds(ordered, from, to)),
-            itemBuilder: (context, i) => WheelPump(
-              // The item key the reorderable list demands, and the wheel
-              // claim inside the item (deeper than the list's own signal
-              // handler) so a tab in hand still scrolls.
-              key: ValueKey('sidebar-section-${ordered[i]}'),
-              pump: ReorderScrollPump.maybeOf(context),
-              child: _section(context, chat, ordered[i], i),
-            ),
-            // The lifted card normally floats in the root Overlay and eats
-            // the wheel hit test, so armed listeners below never see a
-            // signal mid-drag. Let signals pass through the feedback.
-            proxyDecorator: (child, index, animation) => IgnorePointer(
-              child: Material(
-                elevation: 4,
-                shadowColor: Colors.transparent,
-                child: child,
+        return SidebarReorderLock(
+          locked: ui.sidebarLayoutLocked,
+          child: ReorderScrollPump(
+            dragging: _dragging,
+            onWheel: _pumpOnSignal,
+            child: ReorderableListView.builder(
+              scrollController: _scroll,
+              padding: const EdgeInsets.all(12),
+              buildDefaultDragHandles: false,
+              itemCount: ordered.length,
+              onReorderStart: (_) => _dragging.value = true,
+              onReorderEnd: (_) => _dragging.value = false,
+              onReorderItem: (from, to) =>
+                  ui.setSidebarOrder(_reorderIds(ordered, from, to)),
+              itemBuilder: (context, i) => WheelPump(
+                // The item key the reorderable list demands, and the wheel
+                // claim inside the item (deeper than the list's own signal
+                // handler) so a tab in hand still scrolls.
+                key: ValueKey('sidebar-section-${ordered[i]}'),
+                pump: ReorderScrollPump.maybeOf(context),
+                child: _section(context, chat, ordered[i], i),
+              ),
+              // The lifted card normally floats in the root Overlay and eats
+              // the wheel hit test, so armed listeners below never see a
+              // signal mid-drag. Let signals pass through the feedback.
+              proxyDecorator: (child, index, animation) => IgnorePointer(
+                child: Material(
+                  elevation: 4,
+                  shadowColor: Colors.transparent,
+                  child: child,
+                ),
               ),
             ),
           ),

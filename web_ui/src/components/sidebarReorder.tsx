@@ -71,11 +71,18 @@ export function moveItem(list: string[], from: number, to: number): string[] {
   return out;
 }
 
-/** Read the stored order for a surface from the host snapshot. */
-export async function loadSidebarOrder(surface: SidebarSurface): Promise<string[]> {
+/** Read the stored order and layout lock for a surface from the host
+ *  snapshot. One GET answers both, so the lock and the order can never
+ *  disagree about which revision they came from. */
+export async function loadSidebarState(
+  surface: SidebarSurface,
+): Promise<{ order: string[]; locked: boolean }> {
   const snap = await api.get<Record<string, unknown>>('/api/settings');
   const raw = surface === 'insight' ? snap.webSidebarOrder : snap.webSidebarToolsOrder;
-  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
+  return {
+    order: Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [],
+    locked: snap.sidebarLayoutLocked === true,
+  };
 }
 
 /** POST the visible ids in their new sequence; the host merges hidden ids back
@@ -90,9 +97,30 @@ export function resetSidebarLayout(): void {
   void api.post('/api/settings', { resetSidebarLayout: true }).catch(() => {});
 }
 
+/** Lock or unlock the layout on every surface. One switch, like the order. */
+export function saveSidebarLayoutLocked(locked: boolean): void {
+  void api.post('/api/settings', { sidebarLayoutLocked: locked }).catch(() => {});
+}
+
 /** The grip handle: a six-dot button that starts a drag on its own list item
- *  and never acts on the section's own control. */
-export function SidebarGrip({ onDown }: { onDown: (e: PointerEvent<HTMLButtonElement>) => void }) {
+ *  and never acts on the section's own control. Locked, it is an inert lock
+ *  icon — the item keeps its place and only the drag start disappears. */
+export function SidebarGrip({
+  onDown,
+  locked = false,
+}: {
+  onDown: (e: PointerEvent<HTMLButtonElement>) => void;
+  locked?: boolean;
+}) {
+  if (locked) {
+    return (
+      <span className="sidebar-grip locked" aria-label="Sidebar layout locked" title="Sidebar layout locked">
+        <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" aria-hidden>
+          <path d="M12 2a5 5 0 0 0-5 5v3H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z" />
+        </svg>
+      </span>
+    );
+  }
   return (
     <button
       type="button"
@@ -131,20 +159,52 @@ export function SidebarResetPill({ onReset }: { onReset: () => void }) {
   );
 }
 
+/** The lock pill beside Reset: toggled on, no grip starts a drag, so a section
+ *  cannot be moved by accident. The switch is global (every surface). */
+export function SidebarLockPill({
+  locked,
+  onToggle,
+}: {
+  locked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`sidebar-lock-pill${locked ? ' on' : ''}`}
+      aria-pressed={locked}
+      title={
+        locked
+          ? 'Allow dragging the sidebar again'
+          : 'Stop the sidebar from being dragged by accident'
+      }
+      onClick={onToggle}
+    >
+      {locked ? 'Layout locked' : 'Lock layout'}
+    </button>
+  );
+}
+
 /** The remembered order for one surface: read from the host snapshot, kept
  *  live across `settings_changed`, and overtaken reads dropped (P26 — the
  *  revision check is the ticket). `commit` is what a drag saves: the visible
- *  ids in their new sequence, optimistically shown, POSTed to the host. */
+ *  ids in their new sequence, optimistically shown, POSTed to the host.
+ *  `locked` rides the same read; `setLocked` flips it optimistically so both
+ *  surfaces repaint before the POST settles. */
 export function useSidebarOrder(surface: SidebarSurface) {
   const [stored, setStored] = useState<string[]>([]);
+  const [locked, setLockedState] = useState(false);
   useEffect(() => {
     let alive = true;
     let revision = 0;
     const read = () => {
       const ticket = ++revision;
-      loadSidebarOrder(surface)
-        .then((order) => {
-          if (alive && ticket === revision) setStored(order);
+      loadSidebarState(surface)
+        .then((state) => {
+          if (alive && ticket === revision) {
+            setStored(state.order);
+            setLockedState(state.locked);
+          }
         })
         .catch(() => {});
     };
@@ -162,15 +222,21 @@ export function useSidebarOrder(surface: SidebarSurface) {
     setStored(next);
     saveSidebarOrder(surface, next);
   };
-  return { stored, commit };
+  const setLocked = (next: boolean) => {
+    setLockedState(next);
+    saveSidebarLayoutLocked(next);
+  };
+  return { stored, locked, commit, setLocked };
 }
 
 /** The pointer-drag state for one reorderable list: the list holds the pointer
  *  (a moved element can lose its capture), and a section trades places as the
- *  pointer crosses a neighbour's middle. */
+ *  pointer crosses a neighbour's middle. `enabled` false (the layout lock)
+ *  makes every grip start nothing, belt-and-braces beside the inert grips. */
 export function useReorderDrag(
   ordered: string[],
   onReorder: (next: string[]) => void,
+  enabled = true,
 ) {
   const listEl = useRef<HTMLDivElement>(null);
   const itemEls = useRef(new Map<string, HTMLElement>());
@@ -180,6 +246,8 @@ export function useReorderDrag(
   orderedRef.current = ordered;
   const onReorderRef = useRef(onReorder);
   onReorderRef.current = onReorder;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
 
   const middle = (id: string) => {
     const r = itemEls.current.get(id)?.getBoundingClientRect();
@@ -199,7 +267,7 @@ export function useReorderDrag(
     if (to !== from) onReorderRef.current(moveItem(list, from, to));
   };
   const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string) => {
-    if (e.button !== 0) return;
+    if (!enabledRef.current || e.button !== 0) return;
     e.preventDefault();
     listEl.current?.setPointerCapture?.(e.pointerId);
     drag.current = { id, y: e.clientY };

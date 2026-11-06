@@ -558,6 +558,27 @@ mark.find-hit.active {
   color: var(--muted); font-size: 10px; line-height: 1.4; cursor: pointer;
 }
 .sidebar-reset-pill:hover { color: var(--text-strong); }
+/* The layout pills share one row: Reset and the lock switch. They wrap
+   instead of clipping when the insight column is narrow (Error Book: a
+   toolbar must not hide a control off-screen). */
+.sidebar-layout-pills {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  align-self: flex-start;
+}
+/* The lock pill beside Reset: off is neutral, on wears the theme accent so a
+   protected layout reads as protected. */
+.sidebar-lock-pill {
+  padding: 3px 8px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--muted); font-size: 10px; line-height: 1.4; cursor: pointer;
+}
+.sidebar-lock-pill:hover { color: var(--text-strong); }
+.sidebar-lock-pill.on {
+  border-color: var(--accent, var(--text-strong));
+  color: var(--accent, var(--text-strong));
+}
+/* A locked grip is inert: the item keeps its place, the drag start is gone. */
+.sidebar-grip.locked { cursor: default; opacity: 0.7; }
 /* Each reorderable section is its own item, so the flex gap falls between
    items rather than inside one. A held item dims while it travels. */
 .insight-section, .tools-section { position: relative; }

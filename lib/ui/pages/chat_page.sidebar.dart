@@ -194,10 +194,11 @@ class ChatRightSidebar extends StatelessWidget {
             onAvatarsChanged: onAvatarsChanged,
           ),
 
-          // ── Reset the sidebar layout to the shipped default order. Under
-          //    Main Settings, left-aligned: above the portrait the mood ring
-          //    and the clipped pane edge hid it (maintainer, 2026-11-04). ──
-          const _SidebarResetPill(),
+          // ── Sidebar layout controls, pinned under Main Settings and
+          //    left-aligned: reset the shipped order, and lock the layout so
+          //    a section cannot be dragged by accident. Both are global —
+          //    one arrangement for every chat (maintainer, 2026-11-04). ──
+          const _SidebarLayoutPills(),
 
           // ── Group Settings (group only; sits directly under Main Settings,
           //    above the cast roster, so the whole-group controls are found
@@ -326,46 +327,44 @@ class _ParticipantRoster extends StatelessWidget {
   }
 }
 
-/// Small visible pill at the top of the chat sidebar: restore the shipped
-/// section order. Pinned chrome, never a reorderable unit.
-class _SidebarResetPill extends StatelessWidget {
-  const _SidebarResetPill();
+/// The sidebar's layout pills at the top of the chat sidebar: restore the
+/// shipped section order, and lock/unlock the layout. Pinned chrome, never
+/// reorderable units.
+class _SidebarLayoutPills extends StatelessWidget {
+  const _SidebarLayoutPills();
 
   @override
   Widget build(BuildContext context) {
-    final ui = Provider.of<StorageService>(context, listen: false).uiSettings;
+    // Listening: the lock pill repaints the moment the switch flips, and the
+    // body's grips follow through the same notify.
+    final ui = Provider.of<StorageService>(context).uiSettings;
+    final locked = ui.sidebarLayoutLocked;
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: GestureDetector(
-          onTap: () => _confirmReset(context, ui),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerOf(context),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.borderOf(context)),
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _LayoutPill(
+              icon: Icons.restart_alt,
+              label: 'Reset to default',
+              tooltip: 'Restore the shipped sidebar order',
+              onTap: () => _confirmReset(context, ui),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.restart_alt,
-                  size: 13,
-                  color: AppColors.iconSecondary(context),
-                ),
-                const SizedBox(width: 5),
-                Text(
-                  'Reset to default',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary(context),
-                  ),
-                ),
-              ],
+            _LayoutPill(
+              icon: locked ? Icons.lock : Icons.lock_open,
+              label: locked ? 'Layout locked' : 'Lock layout',
+              tooltip: locked
+                  ? 'Allow dragging the sidebar again'
+                  : 'Stop the sidebar from being dragged by accident',
+              active: locked,
+              onTap: () =>
+                  unawaited(ui.setSidebarLayoutLocked(!locked)),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -399,5 +398,58 @@ class _SidebarResetPill extends StatelessWidget {
       ],
     );
     if (yes == true) await ui.resetSidebarLayout();
+  }
+}
+
+/// One small pill in the sidebar's layout row. [active] paints the lock's
+/// "on" state in the theme's accent instead of the neutral surface.
+class _LayoutPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _LayoutPill({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.porchAmberOf(context);
+    final color = active ? accent : AppColors.textSecondary(context);
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: active
+                ? accent.withValues(alpha: 0.14)
+                : AppColors.surfaceContainerOf(context),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active ? accent : AppColors.borderOf(context),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(fontSize: 10, color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -108,8 +108,10 @@ mixin SidebarLayout on SettingsBase {
   final Map<String, List<String>> _sidebarLeafOrder = {};
   List<String> _webSidebarOrder = List.of(_kWebInsightDefault);
   List<String> _webSidebarToolsOrder = List.of(_kWebToolsDefault);
+  bool _sidebarLayoutLocked = false;
 
   void loadSidebarLayout() {
+    _sidebarLayoutLocked = prefs?.getBool(k('sidebar_layout_locked')) ?? false;
     _sidebarOrder = _readList(k('sidebar_order'), _kSidebarOrderDefault);
     for (final container in _kLeafContainers) {
       _sidebarLeafOrder[container] = _readList(
@@ -208,6 +210,11 @@ mixin SidebarLayout on SettingsBase {
   List<String> get webSidebarOrder => List.of(_webSidebarOrder);
   List<String> get webSidebarToolsOrder => List.of(_webSidebarToolsOrder);
 
+  /// True while the user has locked the sidebar layout: every grip renders
+  /// inert so a section cannot be moved by accident. One switch for both
+  /// surfaces, like the order itself.
+  bool get sidebarLayoutLocked => _sidebarLayoutLocked;
+
   Future<void> setSidebarOrder(List<String> visibleOrder) async {
     _sidebarOrder = _merge(_sidebarOrder, visibleOrder);
     await prefs?.setString(k('sidebar_order'), jsonEncode(_sidebarOrder));
@@ -243,7 +250,21 @@ mixin SidebarLayout on SettingsBase {
     notify();
   }
 
+  /// Lock or unlock the layout. Stored as a bool and cleared when unlocked, so
+  /// a fresh install (and the default) is unlocked.
+  Future<void> setSidebarLayoutLocked(bool locked) async {
+    _sidebarLayoutLocked = locked;
+    if (locked) {
+      await prefs?.setBool(k('sidebar_layout_locked'), true);
+    } else {
+      await prefs?.remove(k('sidebar_layout_locked'));
+    }
+    notify();
+  }
+
   /// Restore every surface's shipped default order and forget the stored keys.
+  /// The lock is deliberately left alone: resetting the order must not quietly
+  /// re-open a layout the user asked to protect.
   Future<void> resetSidebarLayout() async {
     _sidebarOrder = List.of(_kSidebarOrderDefault);
     _sidebarLeafOrder.clear();
