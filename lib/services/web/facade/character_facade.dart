@@ -50,8 +50,10 @@ class CharacterFacade {
   final FolderService? _folders;
   final ChatService? _chat;
 
-  /// Persona id → picture, for `portraitPersonaId` (wired by the host).
+  /// Wired by the host: persona id → picture for `portraitPersonaId`, and
+  /// the personas an imported chat history can be written as.
   String? Function(String personaId)? personaPortrait;
+  UserPersonaService? importPersonas;
 
   /// The world library, for the Worlds picker (wired by the host).
   WorldRepository? worlds;
@@ -379,31 +381,30 @@ class CharacterFacade {
     return path == null || path.isEmpty ? null : path;
   }
 
-  /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
-  /// bytes to a temp file and reuses the desktop import path
-  /// ([CharacterRepository.importCharacter]) so parsing/parity is identical.
-  ///
-  /// [collision]:
-  /// - `keepBoth` (default) — insert on name clash (bulk-safe; issue #161)
-  /// - `ask` — if name clashes and no stableId match, return
-  ///   `{status: 'name_collision', name, existing: [...]}` without writing
-  /// - `replace` — update [replaceId] in place (chats kept)
-  ///
-  /// Returns `{id, name}` on success, the collision map for `ask`, or null
-  /// on hard failure.
+  /// Import a web-uploaded card (V2 PNG or .byaf) through the desktop path.
+  /// [collision], [replaceId] and [persona] are the `/api/characters/import`
+  /// query params (see `CharacterRoutes._import`). Returns `{id, name}`, a
+  /// `status` map when the person must choose first, or null on failure.
   Future<Map<String, dynamic>?> importBytes(
     List<int> bytes,
     String filename, {
     String collision = 'keepBoth',
     String? replaceId,
+    String? persona,
   }) async {
-    final repo = _repo;
-    if (repo == null) return null;
+    if (_repo == null) return null;
     return CharacterImporter(
-      repo,
+      _repo,
       _storage,
       _db,
-    ).importBytes(bytes, filename, collision: collision, replaceId: replaceId);
+      personas: importPersonas,
+    ).importBytes(
+      bytes,
+      filename,
+      collision: collision,
+      replaceId: replaceId,
+      persona: persona,
+    );
   }
 
   /// The on-disk mood picture for the active character, or for cast member

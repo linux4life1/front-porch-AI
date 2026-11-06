@@ -29,6 +29,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
+import 'package:front_porch_ai/services/user_persona_service.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -171,6 +172,121 @@ void main() {
       expect(repo.characters.where((c) => c.name == 'Twin'), hasLength(1));
       final looks = await repo.getAvatarImages(first!['id'] as String);
       expect(looks.where((a) => a.isLook), isEmpty);
+    });
+  });
+  group('CharacterFacade.importBytes — .byaf chat persona', () {
+    late AppDatabase db;
+    late StorageService storage;
+    late CharacterRepository repo;
+    late UserPersonaService personas;
+    late CharacterFacade facade;
+    late String rowanId;
+
+    List<int> chatByaf(String name) {
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile.string(
+            'manifest.json',
+            jsonEncode({
+              'characters': ['characters/char1/character.json'],
+              'scenarios': ['scenarios/scenario1.json'],
+            }),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.string(
+            'characters/char1/character.json',
+            jsonEncode({'displayName': name, 'persona': 'A quiet painter.'}),
+          ),
+        )
+        ..addFile(
+          ArchiveFile.string(
+            'scenarios/scenario1.json',
+            jsonEncode({
+              'schemaVersion': 1,
+              'firstMessages': [
+                {'text': 'Hi {user}.'},
+              ],
+              'messages': [
+                {
+                  'type': 'ai',
+                  'outputs': [
+                    {'text': "You worry too much, rowan."},
+                  ],
+                },
+                {'type': 'human', 'text': 'rowan grins.'},
+              ],
+            }),
+          ),
+        );
+      return ZipEncoder().encode(archive);
+    }
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      storage = StorageService();
+      await storage.initialized;
+      repo = CharacterRepository(db, storage);
+      final deadline = DateTime.now().add(const Duration(seconds: 5));
+      await Future<void>.delayed(Duration.zero);
+      while (repo.isLoading) {
+        if (DateTime.now().isAfter(deadline)) fail('repo did not settle');
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      personas = UserPersonaService(db);
+      while (personas.personas.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await personas.createPersona('', 'Sam', '', null);
+      rowanId = await personas.createPersona('', 'Rowan', '', null);
+      facade = CharacterFacade(db, storage, null, null, repo)
+        ..importPersonas = personas;
+    });
+
+    tearDown(() async {
+      personas.dispose();
+      await db.close();
+    });
+
+    test('ask returns persona_pick with the named persona and writes '
+        'nothing', () async {
+      final result = await facade.importBytes(
+        chatByaf('Juniper'),
+        'juniper.byaf',
+        persona: 'ask',
+      );
+      expect(result?['status'], 'persona_pick');
+      expect(result?['recommendedPersonaId'], rowanId);
+      expect(repo.characters.where((c) => c.name == 'Juniper'), isEmpty);
+    });
+
+    test('a picked persona is who the imported chat speaks as', () async {
+      final result = await facade.importBytes(
+        chatByaf('Juniper'),
+        'juniper.byaf',
+        persona: rowanId,
+      );
+      final sessions = await db.getSessionsForCharacter(
+        result!['id'] as String,
+      );
+      expect(sessions.single.userPersonaId, rowanId);
+      final rows = await db.getMessagesForSession(sessions.single.id);
+      expect(rows.first.swipes, contains('Hi Rowan.'));
+      final mine = rows.where((r) => r.isUser).single;
+      expect(mine.sender, 'Rowan');
+    });
+
+    test('an older app that never asks gets the default persona', () async {
+      final result = await facade.importBytes(
+        chatByaf('Juniper'),
+        'juniper.byaf',
+      );
+      final sessions = await db.getSessionsForCharacter(
+        result!['id'] as String,
+      );
+      expect(sessions.single.userPersonaId, personas.defaultPersonaId);
     });
   });
 }

@@ -101,10 +101,11 @@ export function CharactersPage() {
   // this page, so `lib` as a dep re-fires the effect forever while the picker
   // is open (one GET /api/personas per round trip).
   const { loadPersonas } = lib;
+  const importPickOpen = lib.personaPick !== null;
   useEffect(() => {
-    if (dialog?.kind !== 'newChat') return;
+    if (dialog?.kind !== 'newChat' && !importPickOpen) return;
     void loadPersonas().then(setPersonas);
-  }, [dialog?.kind, loadPersonas]);
+  }, [dialog?.kind, importPickOpen, loadPersonas]);
 
   // ── Menu item builders (one CardMenu serves every surface) ───────────────
   const charMenu = (c: LibChar) =>
@@ -502,6 +503,16 @@ export function CharactersPage() {
           onKeepBoth={() => lib.resolveNameCollision('keepBoth')}
           onReplace={(id) => lib.resolveNameCollision('replace', id)}
           onClose={() => lib.resolveNameCollision('cancel')}
+        />
+      )}
+      {lib.personaPick && (
+        <PersonaPickerDialog
+          subject={lib.personaPick.subject}
+          title={lib.personaPick.title}
+          recommendedId={lib.personaPick.recommendedId}
+          personas={personas}
+          onPick={(personaId) => lib.resolvePersonaPick(personaId)}
+          onClose={() => lib.resolvePersonaPick(null)}
         />
       )}
       {dialog?.kind === 'extractGroup' && (
