@@ -972,4 +972,40 @@ void main() {
       );
     });
   });
+
+  group("the card's Starts Away switch, how its group chats start", () {
+    test('a card that says nothing starts present, and nothing is written', () {
+      final ext = FrontPorchExtensions.fromJson({
+        'version': '2.5',
+        'realism_engine': {'enabled': true},
+      });
+      expect(ext.startsAway, isFalse);
+      final engine = ext.toJson()['realism_engine'] as Map<String, dynamic>;
+      expect(engine, isNot(contains('startsAway')));
+    });
+
+    test('away is written, read back, and kept by copyWith', () {
+      final json = FrontPorchExtensions(startsAway: true).toJson();
+      final engine = json['realism_engine'] as Map<String, dynamic>;
+      expect(engine['startsAway'], isTrue);
+      final back = FrontPorchExtensions.fromJson(json);
+      expect(back.startsAway, isTrue);
+      expect(back.copyWith(chaosModeEnabled: true).startsAway, isTrue);
+    });
+
+    test('an explicit false is the default: the key stays unwritten', () {
+      final json = FrontPorchExtensions(startsAway: false).toJson();
+      expect(
+        json['realism_engine'] as Map<String, dynamic>,
+        isNot(contains('startsAway')),
+      );
+      expect(FrontPorchExtensions.fromJson(json).startsAway, isFalse);
+      expect(
+        FrontPorchExtensions(
+          startsAway: true,
+        ).copyWith(startsAway: false).startsAway,
+        isFalse,
+      );
+    });
+  });
 }

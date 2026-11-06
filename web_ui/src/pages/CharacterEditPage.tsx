@@ -447,6 +447,15 @@ export function CharacterEditPage() {
             }
             lockTimeDay={member ? TIME_DAY_LOCK : undefined}
             lockVerification={member ? VERIFICATION_LOCK : undefined}
+            startsAway={
+              member
+                ? {
+                    name: c.name,
+                    value: rv.startsAway,
+                    onChange: (b) => patch({ startsAway: b }),
+                  }
+                : undefined
+            }
             needs={<NeedsFormSection v={rv} set={patch} clockOn={clockOn} />}
           />
 

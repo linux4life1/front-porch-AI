@@ -77,6 +77,8 @@ class GroupSpeakers {
   }
 
   /// At work (and Away when we know they are not in scene). 1:1 never skips.
+  /// A held member (the user's Away, or a chat that seeded "starts away")
+  /// skips whenever their hold is on — Back is the only way back in.
   bool groupSpeakerSkips(CharacterCard card) {
     if (_activeGroup == null) return false;
     final work = workFieldsFor(card);
@@ -86,6 +88,7 @@ class GroupSpeakers {
       clockMinutes: _timeService.clockMinutes,
       weekday: _timeService.clock.weekday,
       workDays: work.workDays,
+      heldAway: _groupRealism[_getCharacterIdFromCard(card)]?.awayHeld ?? false,
       inScene: memberInScene(card),
     );
     return groupTurnSkips(where);
@@ -160,6 +163,7 @@ class GroupSpeakers {
       clockMinutes: _timeService.clockMinutes,
       weekday: _timeService.clock.weekday,
       workDays: work.workDays,
+      heldAway: _groupRealism[_getCharacterIdFromCard(card)]?.awayHeld ?? false,
       inScene: memberInScene(card),
     );
     if (where == PresenceWhere.atWork) {

@@ -168,6 +168,12 @@ class RealismFormSection extends StatelessWidget {
   final String? chaosLockedTooltip;
   final String? verificationLockedTooltip;
 
+  /// How this group member starts in every chat the group CREATES: Away at
+  /// the door (docs/design/group-initial-presence.md). Absent without a
+  /// setter — the member editor is the only one.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
   /// The Director's authority over Needs scores (needs Verification on).
   /// Absent without a setter.
   final bool needsDirectorAuthority;
@@ -223,6 +229,8 @@ class RealismFormSection extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.startsAwayEnabled = false,
+    this.onStartsAwayChanged,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -410,6 +418,8 @@ class RealismFormSection extends StatelessWidget {
             onAfterglowChanged: onAfterglowChanged,
             chaosLockedTooltip: chaosLockedTooltip,
             verificationLockedTooltip: verificationLockedTooltip,
+            startsAwayEnabled: startsAwayEnabled,
+            onStartsAwayChanged: onStartsAwayChanged,
             needsDirectorAuthority: needsDirectorAuthority,
             onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),

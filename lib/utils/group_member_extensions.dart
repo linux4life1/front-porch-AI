@@ -27,10 +27,17 @@ import 'package:front_porch_ai/models/character_card.dart';
 /// A card that ships extensions keeps every field the seed leaves out; a
 /// card without them gets fresh extensions from the seed, or null when
 /// Realism is off for the group.
+///
+/// [startsAway] is the new-group wizard's per-member pick (the Members
+/// step, docs/design/group-initial-presence.md): a picked value overrides
+/// the card's `ext.startsAway` for this member, and null (the picker never
+/// touched it) carries the card's own through — the chat-creation seeder
+/// reads the row's switch when it plants the runtime hold.
 FrontPorchExtensions? groupMemberExtensions(
   CharacterCard source,
   Map<String, dynamic> seed, {
   required bool realismEnabled,
+  bool? startsAway,
 }) {
   final fp = source.frontPorchExtensions;
   if (fp != null) {
@@ -38,6 +45,7 @@ FrontPorchExtensions? groupMemberExtensions(
       // A member joins with their Afterglow default on: the card's says how
       // new 1:1 chats start; this copy's flag is the group's new-chat default.
       afterglowEnabled: true,
+      startsAway: startsAway ?? fp.startsAway,
       enjoysLowHygiene:
           (seed['enjoysLowHygiene'] as bool?) ?? fp.enjoysLowHygiene,
       realismVerificationEnabled:
@@ -82,6 +90,7 @@ FrontPorchExtensions? groupMemberExtensions(
   if (!realismEnabled) return null;
   final memberFp = FrontPorchExtensions(
     enjoysLowHygiene: (seed['enjoysLowHygiene'] as bool?) ?? false,
+    startsAway: startsAway ?? false,
     realismVerificationEnabled: (seed['verificationEnabled'] as bool?) ?? false,
     realismVerificationMaxReprocesses:
         (seed['verificationMaxReprocesses'] as int?) ?? 1,
