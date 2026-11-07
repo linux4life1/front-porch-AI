@@ -211,6 +211,41 @@ extension AppDatabaseChatQueries on AppDatabase {
     return rows.isNotEmpty ? rows.first.read<String?>('theme_overrides') : null;
   }
 
+  /// Save (or clear, with null) the composer draft for a session — the
+  /// half-typed message the user left in the box when they closed the
+  /// chat. Raw SQL like [setThemeOverrides]; the draft rides the session
+  /// row so deleting the chat deletes the draft with it.
+  Future<void> setComposerDraft(String sessionId, String? draft) async {
+    await customUpdate(
+      'UPDATE sessions SET composer_draft = ? WHERE id = ?',
+      variables: [Variable(draft), Variable(sessionId)],
+      updates: {sessions},
+    );
+    await bumpSyncVersion();
+  }
+
+  /// Load the composer draft for a session, or null when there is none
+  /// (including when the session row does not exist yet — a new chat's
+  /// draft lives in prefs until its first message materializes the row).
+  Future<String?> getComposerDraft(String sessionId) async {
+    final rows = await customSelect(
+      'SELECT composer_draft FROM sessions WHERE id = ?',
+      variables: [Variable(sessionId)],
+    ).get();
+    return rows.isNotEmpty ? rows.first.read<String?>('composer_draft') : null;
+  }
+
+  /// Whether a session row exists — the composer draft router: saved
+  /// chats keep their draft in [Sessions.composerDraft], a never-sent
+  /// new chat has no row and its draft rides SharedPreferences by owner.
+  Future<bool> sessionExists(String sessionId) async {
+    final rows = await customSelect(
+      'SELECT 1 FROM sessions WHERE id = ? LIMIT 1',
+      variables: [Variable(sessionId)],
+    ).get();
+    return rows.isNotEmpty;
+  }
+
   /// Get the theme_overrides from the most recent non-deleted session for a
   /// given character or group. Used by startNewChat to inherit the previous
   /// chat's theme when starting a fresh session.

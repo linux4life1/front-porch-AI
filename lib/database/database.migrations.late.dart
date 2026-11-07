@@ -422,6 +422,20 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 65) {
+      // v64→v65: the composer draft — a half-typed message the user left
+      // in the message box when they closed the chat comes back when they
+      // reopen it. NULL for every existing row means "no draft", so
+      // upgrading changes nothing until someone types. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN composer_draft TEXT',
+        );
+        debugPrint('[DB] v65: added sessions.composer_draft');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.
