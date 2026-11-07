@@ -2,6 +2,44 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
+## v1.7.0 — A Porch to Remember
+
+The porch remembers now — your half-typed line, your cast, your sounds, your settings — and the groups grew up doing it.
+
+- ✍️ **A half-typed message survives.** Close the chat, switch characters or restart the app, and the line you never sent is still in the box when you come back. Start a brand-new chat with that character and it inherits the draft. A sent line never haunts the reopen, and deleting the chat deletes its draft with it. Desktop and phone.
+
+- 👥 **Groups start from the card.** A new group's members begin with their character card's bonds, trust, mood and Needs — the values that make them them — not a neutral placeholder everyone resets to. What you set in the wizard lays over the card, and a moved baseline starts its bar there.
+
+- 🧭 **The group wizard, all seven steps, on the phone.** The phone's new-group wizard walks every step the desktop does, openings are written where the group actually meets, and a guest you `/join` brings its own starting place.
+
+- 🗺️ **One world per group, one world per card.** Every group gets its own world with a chosen starting place, character cards carry one world at the place you pick, and a group chat can be the source of a Porch Story.
+
+- 🛠️ **Members you can actually fix.** Edit Character edits a group member in full, desktop and phone. The member card shows what's running for that member, the editor shows the group's switches and sets where each member starts, away included. Edits save to the member, voices and `@Name` find members by id so a namesake can't steal the line, and no member stays the main character after answering.
+
+- 🔐 **Porch Life, one gate.** The Realism Engine has one gate on every chat, and Needs and Afterglow have their chat switches back behind it. Turning Afterglow on asks what to do with your existing chats; turning it off hides Lust and recovery and keeps them.
+
+- 🌙 **Afterglow, member by member.** Each group member carries their own Afterglow switch and their own Recovery block, desktop and phone, and a chat's own Afterglow flag survives saves and carries across.
+
+- 😊 **Mood, on the face.** A character's mood, bond, trust and Needs paint what they own: a ring around the portrait that burns, breathes or jitters by mood tone, a bond glow behind it, and needs bars that throb in their own hue when one is in trouble. The latest reply wears its stamped mood at the full level, and a new Appearance row chooses how far it goes. The phone paints the same.
+
+- 🌇 **The sky follows the story clock.** The Ambient Stage blends its washes by the minute instead of snapping at day boundaries, walks a sun across the day and a moon wearing its phase across the night, brings out stars after sunset and glows the horizon at dawn and dusk. Thick weather only dims them, and it costs no frames when nobody's talking.
+
+- 🔊 **Real field recordings, and yours too.** Scene sounds move from synthesized placeholders to ten looping location recordings with thunder that ducks under speech, and starter worlds arrive with sensible ambience. Your own sounds get a first-class home: a custom-sound library that auditions, assigns and reuses your files across every world without re-uploading.
+
+- 🎡 **The Chance Time wheel spins for real.** The chaos event runs on the stage engine: a pointer that clicks over every peg, bulbs and sparks at wheel speed, a landing shake and a reveal in the event's own key — never festive on a bad one. The phone finally gets the wheel.
+
+- 🎛️ **Generation presets that follow the model.** Save your generation settings as presets and link one to each chat model: switching models applies its preset or that model's recommended samplers, from its own metadata or the provider defaults, with an undo. No more carrying the last model's settings into the next.
+
+- 🖼️ **The Studio keeps what you make.** Every Create and Edit result stays on a Recent shelf with its prompt, style, tab and model — 50 by default, or 200, keep all, or off — and starred pictures are never trimmed. Desktop and phone read the same shelf, and inserting into a chat copies the picture first so trimming can't break a chat.
+
+- 💾 **A backup that's really complete.** Snapshots now hold the library, your settings and your own files — portraits, pictures, galleries, worlds, voices, stories — each stored once and shared between snapshots. A restore brings back custom prompts and everything else, all-or-nothing, desktop and phone; API keys come along only if you say so. Settings save atomically, so a crash can't wipe them.
+
+- 📥 **Backyard AI imports, deeper.** `.byaf` chats arrive whole: every regenerated reply becomes a swipe that opens on the one you last looked at, the opener becomes the first bubble, and the importer asks which persona you were talking as so the lines carry the right name.
+
+- 🗂️ **A sidebar that rearranges — and stays put.** Drag any tab or accordion leaf into the order you want, the wheel still scrolls while a tab is in hand, orders sync to the phone, and a Lock layout pill means nothing moves by accident.
+
+- 🧹 **Smaller fixes.** Journal and Our Story list newest first. Bubbles show the persona that actually sent the line. The phone's `/join` picker lists characters in folders too. A minted place never re-mints a place that already exists. Windows gets an ordinary title bar in Light mode and follows the light/dark switch. Manual Reprocess moved out of the thumb zone on touch screens.
+
 ## v1.6.1 — Cloudy with a Chance of Porch
 
 Worlds got places, the sky got weather, and the clock learned to read.

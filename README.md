@@ -15,16 +15,17 @@
 
 **A local-first AI companion for character chat & roleplay — Windows, macOS, and Linux.** Runs fully offline with local LLMs (KoboldCpp, oMLX, LM Studio, …), driven by a living **Realism Engine** (emotion, trust, needs, memory, pockets) with built-in **TTS and image generation** — and supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them. Open-source (**AGPL-3.0**). Built as a home for people who lost theirs when Backyard AI killed its desktop app.
 
-> ### ⛅ New in 1.6.1 — Cloudy with a Chance of Porch
-> Worlds got places, the sky got weather, and the clock learned to read.
+> ### 🌇 New in 1.7.0 — A Porch to Remember
+> The porch remembers now — your half-typed line, your cast, your sounds, your settings — and the groups grew up doing it.
 >
-> - **Places inside worlds.** Towns, buildings and rooms that share their world's lore and weather, and a scene that moves with the story.
-> - **Seven starter worlds.** Ready-made, with places inside and painted covers.
-> - **World from Wiki, rebuilt.** Pick a depth and a story moment and review every card, or build a world from a character and its chats.
-> - **The Ambient Stage.** The chat takes on the story's weather: rain, snow, fog, lightning and scene sound.
-> - **Time skips read like you meant them.** `/skip 8h` for an exact jump, and a "Did time pass?" question when it's unclear.
+> - **A half-typed message survives.** Close the chat or restart the app and the line you never sent is still in the box when you come back.
+> - **Groups, grown up.** Members start from their character cards, the seven-step wizard runs in full on the phone, every group gets its own world, and members can be edited in full.
+> - **Mood, on the face.** Portraits wear their mood, bond and needs, and the latest reply wears its stamped mood.
+> - **The sky follows the story clock.** A sun by day, a moon with its phase by night, and real field recordings with a custom-sound library.
+> - **Generation presets that follow the model,** and an Image Studio that keeps every result on a Recent shelf.
+> - **A backup that's really complete** — library, settings, portraits and every file you added.
 >
-> Plus a new model downloader and prompts that stay put. The in-app What's New has all nine.
+> The in-app What's New has all seventeen.
 
 ## 🕯️ Why Does This Exist?
 
