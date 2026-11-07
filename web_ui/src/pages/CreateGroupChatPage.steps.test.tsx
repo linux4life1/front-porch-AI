@@ -180,7 +180,9 @@ it("posts each member's Starts Away pick from Members, the card's own included",
   try {
     click('Juniper');
     click('Marlow');
-    // The card seeds load under the picks; Marlow's asks to start Away.
+    // The picks ride beside the voices on the step after the members grid
+    // (the web twin puts them where the desktop's roster rows live).
+    click('Next');
     await act(async () => {});
     expect(
       (container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-m"]')!).checked,
