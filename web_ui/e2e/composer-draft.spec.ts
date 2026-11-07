@@ -21,6 +21,31 @@ const startNewChat = async (request: import('@playwright/test').APIRequestContex
   expect(started.ok(), `start a new chat: ${started.status()}`).toBe(true);
 };
 
+/** Wait until no `fpai.draft.*` key still holds [line]. A send clears
+ *  the box at once, but the storage flush behind it is the debounced
+ *  half; a reopen racing that window seeds the box from pre-send
+ *  storage (seen once on the phone-webkit CI runner: box empty, reopen
+ *  held the sent line, retry passed). Polling the keys turns that race
+ *  into a named wait instead of a confusing box-seed failure. */
+const lineIsFlushed = (page: import('@playwright/test').Page, line: string) =>
+  expect
+    .poll(
+      () =>
+        page.evaluate((needle) => {
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i)!;
+            if (
+              k.startsWith('fpai.draft.') &&
+              localStorage.getItem(k) === needle
+            )
+              return false;
+          }
+          return true;
+        }, line),
+      { message: `the send flushed the draft keys (still holding "${line}")` },
+    )
+    .toBe(true);
+
 test.describe('the composer draft', () => {
   // Each test gets a fresh browser context, so one test's localStorage
   // drafts cannot seed another's box; the host's chat is shared, so
@@ -45,8 +70,10 @@ test.describe('the composer draft', () => {
   test('a sent line is never replayed', async ({ page }) => {
     await openRoute(page, '/chat');
     await expect(box(page)).toBeVisible();
-    await sendLine(page, `draft gone ${test.info().testId}`);
+    const line = `draft gone ${test.info().testId}`;
+    await sendLine(page, line);
     await expect(box(page)).toHaveValue('');
+    await lineIsFlushed(page, line); // the storage flush, not just the box
 
     await openRoute(page, '/library');
     await openRoute(page, '/chat');
