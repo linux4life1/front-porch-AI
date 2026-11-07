@@ -30,6 +30,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/chat_bindings.dart';
+import 'package:front_porch_ai/services/chat/composer_draft_store.dart';
 import 'package:front_porch_ai/services/chat/chat_lifetime.dart';
 import 'package:front_porch_ai/services/chat/chat_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/actions/actions_door.dart';
@@ -37,6 +38,7 @@ import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/transfer/transfer.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.dart';
 import 'package:front_porch_ai/services/chat/doors/edits/edits_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
@@ -215,6 +217,17 @@ class ChatService extends ChangeNotifier {
   /// window cast edits (Away / Back) refuse. Class member so fakes pin it.
   bool get isTurnBusy => turnEngine.isTurnBusy;
   String? get currentSessionId => _session.currentSessionId;
+
+  /// The composer-draft mailbox key: groups answer `group_<id>`, 1:1
+  /// cards answer their stableGroupId (imagePath basename — NOT the dbId
+  /// UUID, the picker's gotcha). Null with no chat. One body, no drift.
+  String? get composerDraftOwnerId {
+    final group = activeGroup;
+    if (group != null) return composerDraftOwnerForGroup(group.id);
+    final card = activeCharacter;
+    if (card == null) return null;
+    return composerDraftOwnerForCharacter(card.stableGroupId);
+  }
 
   /// The user's turn: `sendMessage` and its guard (the one predicate the
   /// composer reads, `sendBusyReason`), the hand-off to [turnEngine], Try

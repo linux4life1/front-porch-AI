@@ -63,6 +63,7 @@ export 'prompt_source_picker.dart';
 
 export 'widgets/cast_roster_chip.dart';
 export 'widgets/chat_image_attachment.dart';
+export 'widgets/composer_draft_keeper.dart';
 export 'widgets/composer_draft_scope.dart';
 export 'widgets/composer_drop_zone.dart';
 export 'widgets/director_panel.dart';

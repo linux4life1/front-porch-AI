@@ -8,6 +8,7 @@ import { CastBar } from '../components/CastBar';
 import { DirectorStrip, ExitUndoBar } from '../components/DirectorStrip';
 import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
+import { composerDraftOwnerKey, composerDraftSessionKey } from '../composerDraft';
 import { ChatInsight } from '../components/ChatInsight';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
 import { ChatThemeSettings } from '../components/ChatThemeSettings';
@@ -92,6 +93,23 @@ export function ChatPage() {
   });
   // Composer draft mirror — powers the lorebook "would trigger next" preview.
   const [draft, setDraft] = useState('');
+  // Draft persistence box (composerDraft.ts): a never-sent chat (no user
+  // line yet — the greeting is her voice) keys by owner so the next new
+  // chat offers the line back; once a message has been sent the draft
+  // rides the session, matching where the desktop stores it on its row.
+  const composerHasUserLine = useMemo(
+    () => (state?.messages ?? []).some((m) => m.isUser),
+    [state?.messages],
+  );
+  const draftBox = useMemo(() => {
+    const owner = state?.groupId ? `group_${state.groupId}` : state?.character?.id;
+    if (!owner) return null;
+    return {
+      sessionKey: composerDraftSessionKey(state?.sessionId ?? owner),
+      ownerKey: composerDraftOwnerKey(owner),
+      fresh: !composerHasUserLine,
+    };
+  }, [state?.sessionId, state?.groupId, state?.character?.id, composerHasUserLine]);
   // Resizable insight sidebar (desktop) — width persists across sessions.
   const [asideWidth, setAsideWidth] = useState<number>(() => {
     const v = typeof localStorage !== 'undefined' ? localStorage.getItem('fpai.asideWidth') : null;
@@ -497,6 +515,7 @@ export function ChatPage() {
           apiReady={state.llmReady !== false}
           apiHint={state.llmHint}
           directing={!!state.director?.directing}
+          draftBox={draftBox}
         />
       </div>
 

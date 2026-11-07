@@ -260,38 +260,52 @@ class ChatSurface extends StatelessWidget {
         // The page skips streamed-text ticks; the transcript takes them.
         Consumer<ChatService>(
           builder: (context, chatService, _) =>
-              // Suggested-action pills fill the message box instead of sending.
-              ComposerDraftScope(
+              // A half-typed message the user leaves behind survives the
+              // close: this watches the box and re-seeds it on reopen.
+              ComposerDraftKeeper(
+                sessionId: chatService.currentSessionId,
+                draftOwner: chatService.composerDraftOwnerId,
+                // The web twin's rule: while the chat holds no user
+                // message, drafts ride the owner mailbox.
+                fresh: !chatService.messages.any((m) => m.isUser),
                 controller: controller,
-                focusNode: focusNode,
-                onSend: (text) => chatService.sendMessage(text),
-                child: ChatMessageList(
-                  key: _transcriptListKey,
-                  moodLook: MoodLook.of(Provider.of<StorageService>(context)),
-                  sessionId: chatService.currentSessionId,
-                  messages: chatService.messages,
-                  controller: scrollController,
-                  window: window,
-                  onNeedOlderHistory: chatService.hasOlderHistory
-                      ? () => chatService.loadOlderHistory()
-                      : null,
-                  replyStreaming: chatService.isGenerating,
-                  followStreamingReplies:
-                      storageService.uiSettings.followStreamingReplies,
-                  resolveSpeaker: (msg) => resolveSpeaker(chatService, msg),
-                  characterFor: (msg) => isGroup && !msg.isUser
-                      ? resolveGroupSpeakerForMessage(
-                          chatService.groupCharacters,
-                          msg,
-                        )
-                      : character,
-                  chatService: chatService,
-                  bubbleKeyOf: bubbleKeyFor,
-                  jumpFlash: jumpFlash,
-                  generatingImage: chatService.isGeneratingChatImage,
-                  externalImagesAllowed: externalImagesAllowed,
-                  onRequestImagePermission: onRequestImagePermission,
-                ),
+                child:
+                    // Suggested-action pills fill the message box instead of sending.
+                    ComposerDraftScope(
+                      controller: controller,
+                      focusNode: focusNode,
+                      onSend: (text) => chatService.sendMessage(text),
+                      child: ChatMessageList(
+                        key: _transcriptListKey,
+                        moodLook: MoodLook.of(
+                          Provider.of<StorageService>(context),
+                        ),
+                        sessionId: chatService.currentSessionId,
+                        messages: chatService.messages,
+                        controller: scrollController,
+                        window: window,
+                        onNeedOlderHistory: chatService.hasOlderHistory
+                            ? () => chatService.loadOlderHistory()
+                            : null,
+                        replyStreaming: chatService.isGenerating,
+                        followStreamingReplies:
+                            storageService.uiSettings.followStreamingReplies,
+                        resolveSpeaker: (msg) =>
+                            resolveSpeaker(chatService, msg),
+                        characterFor: (msg) => isGroup && !msg.isUser
+                            ? resolveGroupSpeakerForMessage(
+                                chatService.groupCharacters,
+                                msg,
+                              )
+                            : character,
+                        chatService: chatService,
+                        bubbleKeyOf: bubbleKeyFor,
+                        jumpFlash: jumpFlash,
+                        generatingImage: chatService.isGeneratingChatImage,
+                        externalImagesAllowed: externalImagesAllowed,
+                        onRequestImagePermission: onRequestImagePermission,
+                      ),
+                    ),
               ),
         ),
       ],

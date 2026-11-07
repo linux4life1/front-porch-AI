@@ -264,6 +264,12 @@ class Sessions extends Table {
   TextColumn get themeOverrides => text().nullable()();
   TextColumn get contextBudgetJson => text().nullable()(); // v44 Context Budget
 
+  /// v65 — a half-typed message the user left in the composer when they
+  /// closed the chat, so reopening it offers the line back. NULL = no
+  /// draft. Raw-SQL access (same pattern as [themeOverrides]); the draft
+  /// is never part of a prompt, only of the message box.
+  TextColumn get composerDraft => text().nullable()();
+
   /// Per-chat Objectives switch (v45). Defaults TRUE because objectives have
   /// always run unconditionally — every existing row must keep behaving
   /// exactly as it did, so the migration's default is the no-op value.

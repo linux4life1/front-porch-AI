@@ -61,6 +61,7 @@
   "clearObjective",
   "clearSuggestions",
   "commitChatLorebookEdit",
+  "composerDraftOwnerId",
   "consumeChanceTimeTrigger",
   "consumeExitUndoOffer",
   "consumeGuestAvatarEvict",

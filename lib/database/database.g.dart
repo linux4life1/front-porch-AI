@@ -2188,6 +2188,17 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _composerDraftMeta = const VerificationMeta(
+    'composerDraft',
+  );
+  @override
+  late final GeneratedColumn<String> composerDraft = GeneratedColumn<String>(
+    'composer_draft',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _objectivesEnabledMeta = const VerificationMeta(
     'objectivesEnabled',
   );
@@ -2320,6 +2331,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     selectedLookAvatarId,
     themeOverrides,
     contextBudgetJson,
+    composerDraft,
     objectivesEnabled,
     groupRealismState,
     createdAt,
@@ -2904,6 +2916,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         ),
       );
     }
+    if (data.containsKey('composer_draft')) {
+      context.handle(
+        _composerDraftMeta,
+        composerDraft.isAcceptableOrUnknown(
+          data['composer_draft']!,
+          _composerDraftMeta,
+        ),
+      );
+    }
     if (data.containsKey('objectives_enabled')) {
       context.handle(
         _objectivesEnabledMeta,
@@ -3217,6 +3238,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}context_budget_json'],
       ),
+      composerDraft: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}composer_draft'],
+      ),
       objectivesEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}objectives_enabled'],
@@ -3385,6 +3410,12 @@ class Session extends DataClass implements Insertable<Session> {
   final String? themeOverrides;
   final String? contextBudgetJson;
 
+  /// v65 — a half-typed message the user left in the composer when they
+  /// closed the chat, so reopening it offers the line back. NULL = no
+  /// draft. Raw-SQL access (same pattern as [themeOverrides]); the draft
+  /// is never part of a prompt, only of the message box.
+  final String? composerDraft;
+
   /// Per-chat Objectives switch (v45). Defaults TRUE because objectives have
   /// always run unconditionally — every existing row must keep behaving
   /// exactly as it did, so the migration's default is the no-op value.
@@ -3468,6 +3499,7 @@ class Session extends DataClass implements Insertable<Session> {
     this.selectedLookAvatarId,
     this.themeOverrides,
     this.contextBudgetJson,
+    this.composerDraft,
     required this.objectivesEnabled,
     required this.groupRealismState,
     required this.createdAt,
@@ -3604,6 +3636,9 @@ class Session extends DataClass implements Insertable<Session> {
     if (!nullToAbsent || contextBudgetJson != null) {
       map['context_budget_json'] = Variable<String>(contextBudgetJson);
     }
+    if (!nullToAbsent || composerDraft != null) {
+      map['composer_draft'] = Variable<String>(composerDraft);
+    }
     map['objectives_enabled'] = Variable<bool>(objectivesEnabled);
     map['group_realism_state'] = Variable<String>(groupRealismState);
     map['created_at'] = Variable<DateTime>(createdAt);
@@ -3736,6 +3771,9 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: contextBudgetJson == null && nullToAbsent
           ? const Value.absent()
           : Value(contextBudgetJson),
+      composerDraft: composerDraft == null && nullToAbsent
+          ? const Value.absent()
+          : Value(composerDraft),
       objectivesEnabled: Value(objectivesEnabled),
       groupRealismState: Value(groupRealismState),
       createdAt: Value(createdAt),
@@ -3851,6 +3889,7 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: serializer.fromJson<String?>(
         json['contextBudgetJson'],
       ),
+      composerDraft: serializer.fromJson<String?>(json['composerDraft']),
       objectivesEnabled: serializer.fromJson<bool>(json['objectivesEnabled']),
       groupRealismState: serializer.fromJson<String>(json['groupRealismState']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -3937,6 +3976,7 @@ class Session extends DataClass implements Insertable<Session> {
       'selectedLookAvatarId': serializer.toJson<String?>(selectedLookAvatarId),
       'themeOverrides': serializer.toJson<String?>(themeOverrides),
       'contextBudgetJson': serializer.toJson<String?>(contextBudgetJson),
+      'composerDraft': serializer.toJson<String?>(composerDraft),
       'objectivesEnabled': serializer.toJson<bool>(objectivesEnabled),
       'groupRealismState': serializer.toJson<String>(groupRealismState),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -4013,6 +4053,7 @@ class Session extends DataClass implements Insertable<Session> {
     Value<String?> selectedLookAvatarId = const Value.absent(),
     Value<String?> themeOverrides = const Value.absent(),
     Value<String?> contextBudgetJson = const Value.absent(),
+    Value<String?> composerDraft = const Value.absent(),
     bool? objectivesEnabled,
     String? groupRealismState,
     DateTime? createdAt,
@@ -4125,6 +4166,9 @@ class Session extends DataClass implements Insertable<Session> {
     contextBudgetJson: contextBudgetJson.present
         ? contextBudgetJson.value
         : this.contextBudgetJson,
+    composerDraft: composerDraft.present
+        ? composerDraft.value
+        : this.composerDraft,
     objectivesEnabled: objectivesEnabled ?? this.objectivesEnabled,
     groupRealismState: groupRealismState ?? this.groupRealismState,
     createdAt: createdAt ?? this.createdAt,
@@ -4316,6 +4360,9 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: data.contextBudgetJson.present
           ? data.contextBudgetJson.value
           : this.contextBudgetJson,
+      composerDraft: data.composerDraft.present
+          ? data.composerDraft.value
+          : this.composerDraft,
       objectivesEnabled: data.objectivesEnabled.present
           ? data.objectivesEnabled.value
           : this.objectivesEnabled,
@@ -4398,6 +4445,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('themeOverrides: $themeOverrides, ')
           ..write('contextBudgetJson: $contextBudgetJson, ')
+          ..write('composerDraft: $composerDraft, ')
           ..write('objectivesEnabled: $objectivesEnabled, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')
@@ -4476,6 +4524,7 @@ class Session extends DataClass implements Insertable<Session> {
     selectedLookAvatarId,
     themeOverrides,
     contextBudgetJson,
+    composerDraft,
     objectivesEnabled,
     groupRealismState,
     createdAt,
@@ -4553,6 +4602,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.selectedLookAvatarId == this.selectedLookAvatarId &&
           other.themeOverrides == this.themeOverrides &&
           other.contextBudgetJson == this.contextBudgetJson &&
+          other.composerDraft == this.composerDraft &&
           other.objectivesEnabled == this.objectivesEnabled &&
           other.groupRealismState == this.groupRealismState &&
           other.createdAt == this.createdAt &&
@@ -4628,6 +4678,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String?> selectedLookAvatarId;
   final Value<String?> themeOverrides;
   final Value<String?> contextBudgetJson;
+  final Value<String?> composerDraft;
   final Value<bool> objectivesEnabled;
   final Value<String> groupRealismState;
   final Value<DateTime> createdAt;
@@ -4702,6 +4753,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.selectedLookAvatarId = const Value.absent(),
     this.themeOverrides = const Value.absent(),
     this.contextBudgetJson = const Value.absent(),
+    this.composerDraft = const Value.absent(),
     this.objectivesEnabled = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4777,6 +4829,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.selectedLookAvatarId = const Value.absent(),
     this.themeOverrides = const Value.absent(),
     this.contextBudgetJson = const Value.absent(),
+    this.composerDraft = const Value.absent(),
     this.objectivesEnabled = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4852,6 +4905,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? selectedLookAvatarId,
     Expression<String>? themeOverrides,
     Expression<String>? contextBudgetJson,
+    Expression<String>? composerDraft,
     Expression<bool>? objectivesEnabled,
     Expression<String>? groupRealismState,
     Expression<DateTime>? createdAt,
@@ -4942,6 +4996,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'selected_look_avatar_id': selectedLookAvatarId,
       if (themeOverrides != null) 'theme_overrides': themeOverrides,
       if (contextBudgetJson != null) 'context_budget_json': contextBudgetJson,
+      if (composerDraft != null) 'composer_draft': composerDraft,
       if (objectivesEnabled != null) 'objectives_enabled': objectivesEnabled,
       if (groupRealismState != null) 'group_realism_state': groupRealismState,
       if (createdAt != null) 'created_at': createdAt,
@@ -5019,6 +5074,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String?>? selectedLookAvatarId,
     Value<String?>? themeOverrides,
     Value<String?>? contextBudgetJson,
+    Value<String?>? composerDraft,
     Value<bool>? objectivesEnabled,
     Value<String>? groupRealismState,
     Value<DateTime>? createdAt,
@@ -5103,6 +5159,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       selectedLookAvatarId: selectedLookAvatarId ?? this.selectedLookAvatarId,
       themeOverrides: themeOverrides ?? this.themeOverrides,
       contextBudgetJson: contextBudgetJson ?? this.contextBudgetJson,
+      composerDraft: composerDraft ?? this.composerDraft,
       objectivesEnabled: objectivesEnabled ?? this.objectivesEnabled,
       groupRealismState: groupRealismState ?? this.groupRealismState,
       createdAt: createdAt ?? this.createdAt,
@@ -5338,6 +5395,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (contextBudgetJson.present) {
       map['context_budget_json'] = Variable<String>(contextBudgetJson.value);
     }
+    if (composerDraft.present) {
+      map['composer_draft'] = Variable<String>(composerDraft.value);
+    }
     if (objectivesEnabled.present) {
       map['objectives_enabled'] = Variable<bool>(objectivesEnabled.value);
     }
@@ -5429,6 +5489,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('themeOverrides: $themeOverrides, ')
           ..write('contextBudgetJson: $contextBudgetJson, ')
+          ..write('composerDraft: $composerDraft, ')
           ..write('objectivesEnabled: $objectivesEnabled, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')

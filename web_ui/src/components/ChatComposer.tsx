@@ -11,6 +11,10 @@ import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
+import {
+  loadComposerDraft,
+  persistComposerDraft,
+} from '../composerDraft';
 
 // Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
 // — the single source of truth for the desktop "type /" helper. Keep in sync if
@@ -73,6 +77,7 @@ export function ChatComposer({
   apiReady = true,
   apiHint,
   directing = false,
+  draftBox,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -96,6 +101,11 @@ export function ChatComposer({
   apiHint?: string | null;
   /** Director Mode: the line is a note to the cast, not the user speaking. */
   directing?: boolean;
+  /** Draft persistence (composerDraft.ts): which storage key the box's
+   *  text belongs to, and whether this chat is a never-sent new one —
+   *  those drafts ride the owner mailbox so the next new chat picks
+   *  them up, as on the desktop. Null with no chat: nothing persists. */
+  draftBox?: { sessionKey: string; ownerKey: string; fresh: boolean } | null;
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = useCallback(
@@ -108,6 +118,73 @@ export function ChatComposer({
     },
     [onDraftChange],
   );
+
+  // Draft persistence — the desktop ComposerDraftKeeper twin. The text
+  // belongs to the key it was typed under: a never-sent new chat rides
+  // the owner mailbox, a chat that has sent a message rides its session
+  // (the same split the desktop store routes by, and the same moment —
+  // the first send — where the desktop row materializes). A chat switch
+  // puts the old line away BEFORE the new draft touches the box, and a
+  // cleared box clears both keys so a sent line never haunts a reopen.
+  // Keystrokes persist on a 500ms pause, as on the desktop.
+  const boxKey = draftBox
+    ? draftBox.fresh
+      ? draftBox.ownerKey
+      : draftBox.sessionKey
+    : null;
+  const activeKeyRef = useRef<string | null>(null);
+  const activeBoxRef = useRef(draftBox ?? null);
+  const lastTextRef = useRef('');
+  const draftTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    const prevKey = activeKeyRef.current;
+    const prevBox = activeBoxRef.current;
+    if (prevBox && prevKey && prevKey !== boxKey) {
+      // The box still carries the OLD chat's line — file it under the
+      // old key before anything new touches it (idempotent if already
+      // saved by the debounce).
+      persistComposerDraft(prevBox, prevKey, lastTextRef.current);
+    }
+    activeKeyRef.current = boxKey;
+    activeBoxRef.current = draftBox ?? null;
+    const stored = boxKey ? loadComposerDraft(boxKey) : '';
+    // Seed from storage only while the box is empty or still carries the
+    // just-filed old line; fresh typing by the user outranks a draft.
+    if (draft === '' || draft === lastTextRef.current) {
+      lastTextRef.current = stored;
+      setDraftState(stored);
+      onDraftChange?.(stored);
+    } else {
+      lastTextRef.current = draft;
+    }
+    // Re-sync on chat identity only — keystrokes are handled below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boxKey]);
+
+  useEffect(() => {
+    lastTextRef.current = draft;
+    if (draftTimer.current) window.clearTimeout(draftTimer.current);
+    draftTimer.current = window.setTimeout(() => {
+      const box = activeBoxRef.current;
+      if (box) persistComposerDraft(box, activeKeyRef.current, draft);
+    }, 500);
+    return () => {
+      if (draftTimer.current) window.clearTimeout(draftTimer.current);
+    };
+  }, [draft]);
+
+  // Leaving the chat (route change, session switch tearing the subtree
+  // down): flush what the debounce has not written yet.
+  useEffect(
+    () => () => {
+      if (draftTimer.current) window.clearTimeout(draftTimer.current);
+      const box = activeBoxRef.current;
+      if (box) persistComposerDraft(box, activeKeyRef.current, lastTextRef.current);
+    },
+    [],
+  );
+
   const [slashDismissed, setSlashDismissed] = useState(false);
 
   // "@" cast autocomplete — the cast-name twin of the slash cheat sheet

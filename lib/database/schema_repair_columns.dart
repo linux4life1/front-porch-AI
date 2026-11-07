@@ -183,6 +183,10 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     // means the row predates the column, and the first load derives it once
     // from the card flag (docs/design/pockets-wardrobe-chat-toggle.md, D1).
     'pockets_enabled INTEGER',
+    // v65 — the composer draft: a half-typed message left in the box when
+    // the chat was closed. Nullable, no default: NULL means no draft,
+    // which is true for every chat older than the column.
+    'composer_draft TEXT',
     // v48 — live Today side-quest row id. Nullable, no default. NULL
     // means this chat has no Today hold, which is true for every row
     // older than the column. Do not guess among secondaries.

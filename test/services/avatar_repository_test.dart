@@ -127,7 +127,11 @@ void main() {
       //      switch. Guarded by test/services/chat/pockets_chat_toggle_test
       //      (the column is law across reopen; NULL derives once) and by
       //      test/database/v14_to_current_upgrade_test (the ladder lands here).
-      expect(db.schemaVersion, 64);
+      // v65: sessions.composer_draft — the half-typed message that survives
+      //      a chat close. Guarded by test/services/composer_draft_store_test
+      //      (save/load routing: row-backed drafts ride the session, a
+      //      never-sent new chat's draft rides prefs by owner).
+      expect(db.schemaVersion, 65);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
