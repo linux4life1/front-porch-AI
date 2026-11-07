@@ -265,6 +265,9 @@ class ChatSurface extends StatelessWidget {
               ComposerDraftKeeper(
                 sessionId: chatService.currentSessionId,
                 draftOwner: chatService.composerDraftOwnerId,
+                // The web twin's rule: while the chat holds no user
+                // message, drafts ride the owner mailbox.
+                fresh: !chatService.messages.any((m) => m.isUser),
                 controller: controller,
                 child:
                     // Suggested-action pills fill the message box instead of sending.

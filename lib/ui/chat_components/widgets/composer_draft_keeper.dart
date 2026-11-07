@@ -22,6 +22,7 @@ class ComposerDraftKeeper extends StatefulWidget {
     super.key,
     required this.sessionId,
     required this.draftOwner,
+    required this.fresh,
     required this.controller,
     required this.child,
   });
@@ -31,6 +32,12 @@ class ComposerDraftKeeper extends StatefulWidget {
   /// [ChatService.composerDraftOwnerId] — the mailbox a never-sent
   /// draft comes home to. Null with no chat: nothing to save or restore.
   final String? draftOwner;
+
+  /// True while the chat holds no user message yet — the web twin's
+  /// rule, mirrored: those drafts ride the owner mailbox even once the
+  /// greeting-save has materialized the row, so closing a new chat and
+  /// starting another still offers the line back.
+  final bool fresh;
 
   /// The page's composer box. Kept across in-page session switches, so
   /// a switch saves the old chat's line before restoring the new one's —
@@ -58,6 +65,7 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
   /// moved on when a session switch is mid-flight).
   String? _keySessionId;
   String? _keyOwner;
+  bool _keyFresh = true;
 
   @override
   void initState() {
@@ -65,6 +73,7 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
     _store = ComposerDraftStore(liveDatabase(context));
     _keySessionId = widget.sessionId;
     _keyOwner = widget.draftOwner;
+    _keyFresh = widget.fresh;
     widget.controller.addListener(_onComposerChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _restore());
   }
@@ -87,6 +96,11 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
       // old key before the new chat's draft touches it.
       _flush();
       _restore();
+    } else if (oldWidget.fresh != widget.fresh) {
+      // The same chat crossed its first send: its draft changes doors.
+      // The send cleared the box, and an empty write clears both homes,
+      // so re-pointing the mirror is all this needs.
+      _keyFresh = widget.fresh;
     }
   }
 
@@ -103,7 +117,12 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
     if (owner == null) return;
     unawaited(
       _store
-          .saveDraft(sessionId: _keySessionId, ownerKey: owner, text: _lastText)
+          .saveDraft(
+            sessionId: _keySessionId,
+            ownerKey: owner,
+            fresh: _keyFresh,
+            text: _lastText,
+          )
           // A draft write that races a database swap (backup restore,
           // storage-root move — every liveDatabase story) loses the
           // draft, not the app. Letting it throw unhandled would crash.
@@ -121,8 +140,10 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
   Future<void> _restore() async {
     final sessionId = widget.sessionId;
     final owner = widget.draftOwner;
+    final fresh = widget.fresh;
     _keySessionId = sessionId;
     _keyOwner = owner;
+    _keyFresh = fresh;
     // The box right now may still carry the previous chat's flushed
     // line; that line, not user input, is ours to clear.
     final carried = _lastText.isNotEmpty && widget.controller.text == _lastText;
@@ -130,7 +151,11 @@ class _ComposerDraftKeeperState extends State<ComposerDraftKeeper> {
     if (owner == null) return;
     final String draft;
     try {
-      draft = await _store.loadDraft(sessionId: sessionId, ownerKey: owner);
+      draft = await _store.loadDraft(
+        sessionId: sessionId,
+        ownerKey: owner,
+        fresh: fresh,
+      );
     } catch (_) {
       // Same story as _persist: a database mid-swap simply has no
       // draft to offer this box right now.

@@ -45,24 +45,53 @@ void main() {
 
   test("a saved chat's draft rides the session row, not prefs", () async {
     await insertSession('1000');
-    await store.saveDraft(sessionId: '1000', ownerKey: owner, text: 'hey —');
+    await store.saveDraft(
+      sessionId: '1000',
+      ownerKey: owner,
+      fresh: false,
+      text: 'hey —',
+    );
     expect(await db.getComposerDraft('1000'), 'hey —');
     expect(prefs.getString(owner), isNull);
-    expect(await store.loadDraft(sessionId: '1000', ownerKey: owner), 'hey —');
+    expect(
+      await store.loadDraft(sessionId: '1000', ownerKey: owner, fresh: false),
+      'hey —',
+    );
   });
 
   test("a never-sent new chat's draft rides prefs by owner", () async {
-    // No session row yet: the first message was never sent.
+    // No user message yet: fresh, whatever the row's state.
     await store.saveDraft(
       sessionId: '2000',
       ownerKey: owner,
+      fresh: true,
       text: 'still typing…',
     );
     expect(prefs.getString(owner), 'still typing…');
     expect(await db.getComposerDraft('2000'), isNull);
     expect(
-      await store.loadDraft(sessionId: '2000', ownerKey: owner),
+      await store.loadDraft(sessionId: '2000', ownerKey: owner, fresh: true),
       'still typing…',
+    );
+  });
+
+  test('a fresh chat WITH a row still rides the mailbox — the greeting '
+      'save must not strand a new chat\u2019s draft', () async {
+    // Desktop reality: opening a card materializes the row (the
+    // greeting is a message), but the chat is still fresh until the
+    // user speaks. Its draft must go where the NEXT new chat looks.
+    await insertSession('2500');
+    await store.saveDraft(
+      sessionId: '2500',
+      ownerKey: owner,
+      fresh: true,
+      text: 'half-written on a materialized chat',
+    );
+    expect(prefs.getString(owner), 'half-written on a materialized chat');
+    expect(await db.getComposerDraft('2500'), isNull);
+    expect(
+      await store.loadDraft(sessionId: '2500', ownerKey: owner, fresh: true),
+      'half-written on a materialized chat',
     );
   });
 
@@ -71,9 +100,19 @@ void main() {
     () async {
       // The materialization race: the draft rode prefs, the send wrote the
       // row underneath the clear, and the save of '' lands on the NEW row.
-      await store.saveDraft(sessionId: '3000', ownerKey: owner, text: 'sent!');
+      await store.saveDraft(
+        sessionId: '3000',
+        ownerKey: owner,
+        fresh: true,
+        text: 'sent!',
+      );
       await insertSession('3000');
-      await store.saveDraft(sessionId: '3000', ownerKey: owner, text: '');
+      await store.saveDraft(
+        sessionId: '3000',
+        ownerKey: owner,
+        fresh: false,
+        text: '',
+      );
       expect(await db.getComposerDraft('3000'), isNull);
       expect(prefs.getString(owner), isNull);
     },
@@ -82,8 +121,16 @@ void main() {
   test('drafts do not cross sessions', () async {
     await insertSession('4000');
     await insertSession('4001');
-    await store.saveDraft(sessionId: '4000', ownerKey: owner, text: 'for A');
-    expect(await store.loadDraft(sessionId: '4001', ownerKey: owner), '');
+    await store.saveDraft(
+      sessionId: '4000',
+      ownerKey: owner,
+      fresh: false,
+      text: 'for A',
+    );
+    expect(
+      await store.loadDraft(sessionId: '4001', ownerKey: owner, fresh: false),
+      '',
+    );
   });
 
   test(
@@ -91,11 +138,14 @@ void main() {
     () async {
       await prefs.setString(owner, 'leftover from a new chat');
       await insertSession('5000');
-      expect(await store.loadDraft(sessionId: '5000', ownerKey: owner), '');
-      // The mailbox survives for the new-chat door: a sessionless read
+      expect(
+        await store.loadDraft(sessionId: '5000', ownerKey: owner, fresh: false),
+        '',
+      );
+      // The mailbox survives for the new-chat door: a fresh read
       // still finds it.
       expect(
-        await store.loadDraft(sessionId: '6000', ownerKey: owner),
+        await store.loadDraft(sessionId: '6000', ownerKey: owner, fresh: true),
         'leftover from a new chat',
       );
     },
@@ -103,14 +153,27 @@ void main() {
 
   test("deleting the chat deletes its draft with it", () async {
     await insertSession('7000');
-    await store.saveDraft(sessionId: '7000', ownerKey: owner, text: 'gone');
+    await store.saveDraft(
+      sessionId: '7000',
+      ownerKey: owner,
+      fresh: false,
+      text: 'gone',
+    );
     await (db.delete(db.sessions)..where((s) => s.id.equals('7000'))).go();
-    expect(await store.loadDraft(sessionId: '7000', ownerKey: owner), '');
+    expect(
+      await store.loadDraft(sessionId: '7000', ownerKey: owner, fresh: false),
+      '',
+    );
   });
 
   test('the no-chat send clears the mailbox without a session id', () async {
     await prefs.setString(owner, 'pending new-chat line');
-    await store.saveDraft(sessionId: null, ownerKey: owner, text: '');
+    await store.saveDraft(
+      sessionId: null,
+      ownerKey: owner,
+      fresh: true,
+      text: '',
+    );
     expect(prefs.getString(owner), isNull);
   });
 

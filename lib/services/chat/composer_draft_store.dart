@@ -48,21 +48,23 @@ class ComposerDraftStore {
   final AppDatabase _db;
 
   /// Persist [text] for the chat identified by [sessionId] + [ownerKey].
+  /// [fresh] means the chat has no user message yet — the same rule the
+  /// web twin reads from its transcript, and the reason it is the door
+  /// and not row-existence alone: opening a card DOES materialize the
+  /// row (the greeting save), so a router that trusted the row alone
+  /// would strand a never-sent new chat's draft in a session the user
+  /// is about to throw away.
   ///
   /// Empty text clears BOTH homes: the row draft and the owner's prefs
-  /// draft. Clearing both is deliberate — right after the first send of
-  /// a new chat the row materializes underneath the save, and a
-  /// clear that only touched the DB would leave the old prefs draft to
-  /// haunt the next new chat. (Consequence: sending in a saved chat of
-  /// the SAME character also drops that character's one pending
-  /// never-sent draft — a per-owner mailbox holds one letter.)
-  ///
-  /// Non-empty text routes by row existence: saved chats write
-  /// [Sessions.composerDraft]; a chat with no row yet writes the owner
-  /// prefs key.
+  /// draft. Clearing both is deliberate — right after the first send the
+  /// draft crosses from mailbox to row, and a clear that only touched
+  /// one home would leave the other to haunt the reopen. (Consequence:
+  /// the per-owner mailbox holds one letter — a new draft replaces a
+  /// still-pending one for the same character.)
   Future<void> saveDraft({
     required String? sessionId,
     required String ownerKey,
+    required bool fresh,
     required String text,
   }) async {
     final prefs = await SharedPreferences.getInstance();
@@ -73,7 +75,7 @@ class ComposerDraftStore {
       await prefs.remove(ownerKey);
       return;
     }
-    if (sessionId != null && await _db.sessionExists(sessionId)) {
+    if (!fresh && sessionId != null && await _db.sessionExists(sessionId)) {
       await _db.setComposerDraft(sessionId, text);
     } else {
       await prefs.setString(ownerKey, text);
@@ -82,16 +84,17 @@ class ComposerDraftStore {
 
   /// The draft to seed the composer with, or '' for none.
   ///
-  /// Strict twin of [saveDraft]'s routing: a session whose row exists
-  /// reads ONLY the row (its own draft, or none); a session with no row
-  /// — the new-chat path — reads ONLY the owner prefs key. So a draft
-  /// left in a saved chat never shows up in a different saved chat, and
-  /// a never-sent draft only ever appears on the new-chat door.
+  /// Strict twin of [saveDraft]'s routing: a chat that has already spoken
+  /// reads ONLY its row; a chat with no user message yet — new, or a
+  /// greeting-only resume — reads ONLY the owner mailbox. So a draft
+  /// left in a spoken chat never shows up in a different chat, and the
+  /// mailbox only ever answers the new-chat door.
   Future<String> loadDraft({
     required String? sessionId,
     required String ownerKey,
+    required bool fresh,
   }) async {
-    if (sessionId != null && await _db.sessionExists(sessionId)) {
+    if (!fresh && sessionId != null && await _db.sessionExists(sessionId)) {
       return await _db.getComposerDraft(sessionId) ?? '';
     }
     final prefs = await SharedPreferences.getInstance();

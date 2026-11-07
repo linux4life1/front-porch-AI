@@ -41,7 +41,11 @@ void main() {
     await db.close();
   });
 
-  Widget host(TextEditingController controller, String? sessionId) {
+  Widget host(
+    TextEditingController controller,
+    String? sessionId, {
+    bool fresh = false,
+  }) {
     return Provider<AppDatabase>.value(
       value: db,
       child: MaterialApp(
@@ -49,6 +53,7 @@ void main() {
           body: ComposerDraftKeeper(
             sessionId: sessionId,
             draftOwner: owner,
+            fresh: fresh,
             controller: controller,
             child: TextField(controller: controller),
           ),
@@ -140,7 +145,7 @@ void main() {
   testWidgets('a never-sent new chat rides the owner mailbox', (tester) async {
     final controller = TextEditingController();
     // '9999' has no row — the first message was never sent.
-    await tester.pumpWidget(host(controller, '9999'));
+    await tester.pumpWidget(host(controller, '9999', fresh: true));
     await tester.enterText(find.byType(TextField), 'a first hello');
     await settle(tester);
     final prefs = await SharedPreferences.getInstance();
@@ -149,8 +154,38 @@ void main() {
 
     // A NEW new chat (different fresh id, same owner) gets it back.
     final reopened = TextEditingController();
-    await tester.pumpWidget(host(reopened, '9998'));
+    await tester.pumpWidget(host(reopened, '9998', fresh: true));
     await settle(tester);
     expect(reopened.text, 'a first hello');
+  });
+
+  testWidgets('a fresh chat with a materialized row still rides the mailbox — '
+      'and the first send moves it without a ghost', (tester) async {
+    // Desktop reality: opening a card saves the greeting, so the row
+    // exists while the chat is still fresh. The keeper must follow the
+    // fresh flag, not the row.
+    await insertSession('3000');
+    final controller = TextEditingController();
+    await tester.pumpWidget(host(controller, '3000', fresh: true));
+    await tester.enterText(find.byType(TextField), 'half a hello');
+    await settle(tester);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(owner), 'half a hello');
+    expect(await db.getComposerDraft('3000'), isNull);
+
+    // The send: the transcript gains a user message (fresh flips to
+    // false in the same session) and the box clears. The clear must
+    // empty the mailbox it actually wrote to.
+    controller.clear();
+    await tester.pumpWidget(host(controller, '3000', fresh: false));
+    await settle(tester);
+    expect(prefs.getString(owner), isNull);
+    expect(await db.getComposerDraft('3000'), isNull);
+
+    // Reopen the now-spoken chat: nothing haunts the box.
+    final reopened = TextEditingController();
+    await tester.pumpWidget(host(reopened, '3000', fresh: false));
+    await settle(tester);
+    expect(reopened.text, isEmpty);
   });
 }
