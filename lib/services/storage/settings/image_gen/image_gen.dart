@@ -20,3 +20,4 @@ export 'comfy_shift_prefs.dart';
 export 'comfy_ui_url_prefs.dart';
 export 'draw_things_grpc_prefs.dart';
 export 'edit_knob_prefs.dart';
+export 'studio_recent_prefs.dart';

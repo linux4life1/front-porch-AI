@@ -216,6 +216,19 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
+
+    // A Light/Dark switch arrives as this broadcast, not as a colorization
+    // change, so without it the title bar keeps the theme it launched with.
+    case WM_SETTINGCHANGE:
+      if (lparam != 0 &&
+          wcscmp(reinterpret_cast<LPCWSTR>(lparam), L"ImmersiveColorSet") ==
+              0) {
+        UpdateTheme(hwnd);
+        // DWM does not repaint a shown caption for the new attribute on its
+        // own.
+        RedrawWindow(hwnd, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE);
+      }
+      break;
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);

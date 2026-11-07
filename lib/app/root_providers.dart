@@ -96,6 +96,7 @@ Widget buildRootWidget(
       storage: storage,
       embeddings: Provider.of<EmbeddingService>(context, listen: false),
       db: liveDb,
+      worlds: Provider.of<WorldRepository>(context, listen: false),
     );
   }
 

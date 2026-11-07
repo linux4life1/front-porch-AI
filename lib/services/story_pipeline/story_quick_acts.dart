@@ -180,6 +180,9 @@ class StoryQuickActs {
 
     final isFirstScene = actIndex == 0 && sceneIndex == 0;
     final pov = project.pov;
+    final world = _ctx.worldFor(project);
+    final settingNow = StoryWorldContext.settingNow(world, scene);
+    final whereBlock = settingNow.isEmpty ? '' : 'Where: $settingNow';
     // Same rolling ban list the Studio writer gets: phrases the model has
     // leaned on in the last few scenes.
     project.autoBannedPhrases = StoryQuality.overusedPhrases(
@@ -241,6 +244,13 @@ class StoryQuickActs {
         }
       }
 
+      final lore = (await _ctx.loreIndex.search(
+        '${scene.title}. ${scene.location}. ${beat.description}',
+        StoryLoreIndex.knownAt(project, actIndex, sceneIndex),
+        limit: 4,
+        preferTags: StoryWorldContext.preferTags(world, scene),
+      )).map((h) => '- ${h.entry.topic}: ${h.entry.detail}').join('\n');
+
       final prompt =
           '''You are a skilled novelist writing one section of a larger scene.
 
@@ -248,8 +258,10 @@ Story: ${project.concept}
 Act ${act.number}: ${act.title} -- ${act.description}
 Scene ${scene.number}: ${scene.title}
 Location: ${scene.location}
+$whereBlock
 $castInfo
 Scene description: ${scene.description}
+${lore.isEmpty ? '' : 'Lore that applies here:\n$lore'}
 ${StoryContext.previousActs(project, actIndex)}
 
 YOUR CURRENT TASK: Write the prose for Beat ${beatIdx + 1} of ${beats.length} in this scene.

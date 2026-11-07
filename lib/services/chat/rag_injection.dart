@@ -18,7 +18,7 @@
 
 /// Pure helpers for the RAG injection block and its per-turn receipt
 /// (story_clock.dart / journal_ops.dart analog: no I/O, no state — the god's
-/// retrieval phase in chat_service_generation_rag.dart is the only caller,
+/// retrieval phase in doors/turn/turn_rag.dart is the only caller,
 /// and the dedicated test suite drives these directly).
 ///
 /// Two jobs, both from the 2026-08-10 memory-systems review:

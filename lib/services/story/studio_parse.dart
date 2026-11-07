@@ -20,6 +20,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/story/story_continuity.dart';
 import 'package:front_porch_ai/services/story/story_lenses.dart';
 import 'package:front_porch_ai/services/story/story_pacing.dart';
+import 'package:front_porch_ai/services/story/story_world_brief.dart';
+import 'package:front_porch_ai/services/story/story_world_context.dart';
 import 'package:front_porch_ai/services/story/story_xml.dart';
 
 /// Turns Studio bible and structure replies into project state. Pure: no
@@ -156,23 +158,17 @@ abstract final class StudioParse {
       );
     }
 
-    final uploads = p.lore.where(
-      (l) => l.relatedTo.any((r) => r.startsWith('file:')),
-    );
-    final lore = [...uploads];
-    for (final entry in StoryXml.all(
-      StoryXml.all(text, 'world_lore', limit: 1).firstOrNull ?? '',
-      'entry',
-    )) {
-      final topic = StoryXml.tag(entry, 'topic');
-      final detail = StoryXml.tag(entry, 'detail');
-      if (topic.isEmpty || detail.isEmpty) continue;
-      if (lore.any((l) => l.topic.toLowerCase() == topic.toLowerCase())) {
-        continue;
-      }
-      lore.add(StoryLoreEntry(topic: topic, detail: detail));
-    }
-    p.lore = lore;
+    // Uploads and the world's book stay; the model's lore is appended.
+    p.lore = mergeParsedLore(p.lore, [
+      for (final entry in StoryXml.all(
+        StoryXml.all(text, 'world_lore', limit: 1).firstOrNull ?? '',
+        'entry',
+      ))
+        StoryLoreEntry(
+          topic: StoryXml.tag(entry, 'topic'),
+          detail: StoryXml.tag(entry, 'detail'),
+        ),
+    ]);
   }
 
   // ── Interview ──────────────────────────────────────────────────────────
@@ -363,6 +359,7 @@ abstract final class StudioParse {
     String text, {
     required int sequence,
     required int max,
+    StoryWorldBrief? world,
   }) {
     for (final c in StoryXml.all(
       StoryXml.all(text, 'new_characters', limit: 1).firstOrNull ?? '',
@@ -389,33 +386,35 @@ abstract final class StudioParse {
       );
       final type = StoryXml.tag(s, 'scene_type').toUpperCase();
       final shift = StoryXml.all(s, 'value_shift', limit: 1).firstOrNull ?? '';
-      out.add(
-        StoryScene(
-          id: newStoryId(),
-          number: out.length + 1,
-          sequence: sequence,
-          title: StoryXml.tag(s, 'title'),
-          description: StoryXml.tag(s, 'description'),
-          location: StoryXml.firstTag(s, const ['setting', 'setting_anchor']),
-          castNames: StoryXml.list(
-            s,
-            'characters_present',
-            'character',
-          ).map((n) => p.castByName(n)?.name ?? n).toSet().toList(),
-          activeThreadIds: _threadIds(s, 'threads_advanced'),
-          tension: tension == 0 ? 1 : tension,
-          valence: (tension == 0 ? 1 : tension) * 5,
-          sceneType: type.contains('REACT') ? 'reaction' : 'action',
-          lens: known.contains(lens) ? lens : StoryLenses.baseline,
-          valueFrom: StoryXml.tag(shift, 'start_state'),
-          valueTo: StoryXml.tag(shift, 'end_state'),
-          objective: StoryXml.tag(s, 'scene_objective'),
-          pov: StoryXml.tag(s, 'pov_character'),
-          commitments: StoryXml.tag(s, 'plot_commitments'),
-          entry: StoryXml.tag(s, 'entrance_conditions'),
-          exit: StoryXml.tag(s, 'exit_conditions'),
-        ),
+      final scene = StoryScene(
+        id: newStoryId(),
+        number: out.length + 1,
+        sequence: sequence,
+        title: StoryXml.tag(s, 'title'),
+        description: StoryXml.tag(s, 'description'),
+        location: StoryXml.firstTag(s, const ['setting', 'setting_anchor']),
+        castNames: StoryXml.list(
+          s,
+          'characters_present',
+          'character',
+        ).map((n) => p.castByName(n)?.name ?? n).toSet().toList(),
+        activeThreadIds: _threadIds(s, 'threads_advanced'),
+        tension: tension == 0 ? 1 : tension,
+        valence: (tension == 0 ? 1 : tension) * 5,
+        sceneType: type.contains('REACT') ? 'reaction' : 'action',
+        lens: known.contains(lens) ? lens : StoryLenses.baseline,
+        valueFrom: StoryXml.tag(shift, 'start_state'),
+        valueTo: StoryXml.tag(shift, 'end_state'),
+        objective: StoryXml.tag(s, 'scene_objective'),
+        pov: StoryXml.tag(s, 'pov_character'),
+        commitments: StoryXml.tag(s, 'plot_commitments'),
+        entry: StoryXml.tag(s, 'entrance_conditions'),
+        exit: StoryXml.tag(s, 'exit_conditions'),
       );
+      if (world != null) {
+        StoryWorldContext.resolvePlace(world, scene, StoryXml.tag(s, 'place'));
+      }
+      out.add(scene);
     }
     return out;
   }

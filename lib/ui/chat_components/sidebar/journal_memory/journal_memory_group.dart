@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../porch_accordion.dart';
+import '../sidebar_reorder.dart';
 import 'growth_panel.dart';
 import 'journal_panel.dart';
 import 'memory_panel.dart';
@@ -56,6 +57,9 @@ class JournalMemoryGroup extends StatefulWidget {
   /// expand and ensureVisible the TITLE, not the expanded body.
   final GlobalKey<PorchAccordionState>? accordionKey;
 
+  /// The reorder grip when this accordion sits in the reorderable body.
+  final Widget? dragHandle;
+
   const JournalMemoryGroup({
     super.key,
     required this.chatService,
@@ -67,6 +71,7 @@ class JournalMemoryGroup extends StatefulWidget {
     required this.initiallyExpanded,
     this.onExpansionChanged,
     this.accordionKey,
+    this.dragHandle,
   });
 
   @override
@@ -91,6 +96,18 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
         'Journal ${storage.memorySettings.journalEnabled ? 'on' : 'off'}'
         '${showMemory ? ' · RAG ${storage.memorySettings.ragEnabled ? 'on' : 'off'}' : ''}';
 
+    final ui = storage.uiSettings;
+    // The leaf ids this accordion can show right now; the stored order
+    // filters to them and appends any it does not know per the default.
+    final visible = <String>[
+      'summary',
+      if (!widget.isLite) 'journal',
+      if (showMemory) 'memory',
+      if (!widget.isLite) 'growth',
+    ];
+    final ordered = ui.sidebarLeafOrderFor('journal_memory', visible);
+    final pump = ReorderScrollPump.maybeOf(context);
+
     return PorchAccordion(
       key: _accordionKey,
       id: 'journal_memory',
@@ -100,37 +117,87 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
       accent: AppColors.journalAccentOf(context),
       initiallyExpanded: widget.initiallyExpanded,
       onExpansionChanged: widget.onExpansionChanged,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SummarySection(chatService: widget.chatService),
-          if (!widget.isLite) ...[
-            const SizedBox(height: 12),
-            JournalPanel(
-              chatService: widget.chatService,
-              characterId: widget.diaryOwnerId,
-              characterName: widget.diaryOwnerName,
-              onJumpToMessage: widget.onJumpToMessage,
+      dragHandle: widget.dragHandle,
+      child: ReorderableListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        buildDefaultDragHandles: false,
+        // The lifted leaf must not eat the wheel hit test (see sidebar_body
+        // for why); signals fall through to the armed pump listeners below.
+        proxyDecorator: (child, index, animation) => IgnorePointer(
+          child: Material(
+            elevation: 2,
+            shadowColor: Colors.transparent,
+            child: child,
+          ),
+        ),
+        itemCount: ordered.length,
+        // The body pumps its wheel scroll for leaf drags too.
+        onReorderStart: (_) => pump?.reportDrag(true),
+        onReorderEnd: (_) => pump?.reportDrag(false),
+        onReorderItem: (from, to) => ui.setSidebarLeafOrder(
+          'journal_memory',
+          _reorderIds(ordered, from, to),
+        ),
+        itemBuilder: (context, i) => WheelPump(
+          // A leaf in hand pumps the body's scroll (see [WheelPump]); the
+          // item key lives here, where the list can see it.
+          key: ValueKey('sidebar-leaf-${ordered[i]}'),
+          pump: pump,
+          child: Padding(
+            // The old Column's 12px gap between leaves, not after the last.
+            padding: EdgeInsets.only(
+              bottom: i == ordered.length - 1 ? 0 : 12,
             ),
-          ],
-          if (showMemory) ...[
-            const SizedBox(height: 12),
-            MemoryPanel(
-              chatService: widget.chatService,
-              onJumpToMessage: widget.onJumpToMessage,
-            ),
-          ],
-          if (!widget.isLite) ...[
-            const SizedBox(height: 12),
-            GrowthPanel(
-              chatService: widget.chatService,
-              characterId: widget.diaryOwnerId,
-              characterName: widget.diaryOwnerName,
-              onJumpToMessage: widget.onJumpToMessage,
-            ),
-          ],
-        ],
+            child: _leaf(context, ordered[i], i),
+          ),
+        ),
       ),
     );
+  }
+
+  /// The leaf widget for [id], with its reorder grip at [index].
+  Widget _leaf(BuildContext context, String id, int index) {
+    final grip = SidebarReorderHandle(index: index);
+    switch (id) {
+      case 'summary':
+        return SummarySection(
+          chatService: widget.chatService,
+          dragHandle: grip,
+        );
+      case 'journal':
+        return JournalPanel(
+          chatService: widget.chatService,
+          characterId: widget.diaryOwnerId,
+          characterName: widget.diaryOwnerName,
+          onJumpToMessage: widget.onJumpToMessage,
+          dragHandle: grip,
+        );
+      case 'memory':
+        return MemoryPanel(
+          chatService: widget.chatService,
+          onJumpToMessage: widget.onJumpToMessage,
+          dragHandle: grip,
+        );
+      case 'growth':
+        return GrowthPanel(
+          chatService: widget.chatService,
+          characterId: widget.diaryOwnerId,
+          characterName: widget.diaryOwnerName,
+          onJumpToMessage: widget.onJumpToMessage,
+          dragHandle: grip,
+        );
+    }
+    return const SizedBox.shrink();
+  }
+
+  /// The ids reordered by a drag: onReorderItem delivers newIndex already
+  /// adjusted for the removal at oldIndex (no manual decrement).
+  List<String> _reorderIds(List<String> ids, int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return ids;
+    final out = List.of(ids);
+    final item = out.removeAt(oldIndex);
+    out.insert(newIndex, item);
+    return out;
   }
 }

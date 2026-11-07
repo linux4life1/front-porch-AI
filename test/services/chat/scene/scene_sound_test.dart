@@ -215,9 +215,12 @@ void main() {
         expect(f.existsSync(), isTrue, reason: f.path);
         total += f.lengthSync();
       }
-      expect(total, lessThan(600 * 1024), reason: 'keep the set small');
+      // 45–60 s field recordings at 56 k mono plus three short thunder
+      // cuts; the cap leaves headroom for a re-cut without letting the
+      // bundle drift into tens of megabytes.
+      expect(total, lessThan(4 * 1024 * 1024), reason: 'keep the set small');
       final licence = File('${dir.path}/LICENSE.md').readAsStringSync();
-      expect(licence, contains('CC0 1.0'));
+      expect(licence, contains('Pixabay Content License'));
       expect(licence, contains('tools/gen_scene_sounds.py'));
       expect(sceneSoundAsset('rain'), 'audio/scene/rain.mp3');
     });
@@ -229,6 +232,16 @@ void main() {
       });
       expect(sceneSoundWire(on: false, volume: 3)['volume'], 1.0);
       expect(sceneSoundWire(on: false, volume: double.nan)['volume'], 0.0);
+      // The layered resolver's loops ride additively; an older PWA ignores
+      // the new keys and plays today's sceneLoopFor choice.
+      expect(
+        sceneSoundWire(on: true, volume: 0.4, base: 'forest', overlay: 'rain'),
+        {'on': true, 'volume': 0.4, 'base': 'forest', 'overlay': 'rain'},
+      );
+      expect(
+        sceneSoundWire(on: true, volume: 0.4, baseUrl: '/audio/user/room.mp3'),
+        {'on': true, 'volume': 0.4, 'baseUrl': '/audio/user/room.mp3'},
+      );
     });
 
     test('the service plays the scene\'s loop and changes with it', () async {
@@ -501,6 +514,123 @@ void main() {
       expect(s.sound.playing, SceneLoop.rain);
     });
   });
+
+  group('layered ambience', () {
+    test('a place loop is the base and the weather overlay rides on top', () {
+      final wet = sceneAmbienceFor(
+        condition: 'rain',
+        daypart: 'night',
+        placePreset: 'forest',
+      );
+      expect(wet.base, const SceneSoundSource.bundled('forest'));
+      expect(wet.overlay, const SceneSoundSource.bundled('rain'));
+
+      final storm = sceneAmbienceFor(
+        condition: 'storm',
+        daypart: 'afternoon',
+        placePreset: 'shore',
+      );
+      expect(storm.base, const SceneSoundSource.bundled('shore'));
+      expect(storm.overlay, const SceneSoundSource.bundled('storm_rain'));
+    });
+
+    test('a place without ambience falls back to the weather-only loop', () {
+      final rain = sceneAmbienceFor(condition: 'rain', daypart: 'night');
+      expect(rain.base, const SceneSoundSource.bundled('rain'));
+      expect(rain.overlay, isNull);
+
+      final clear = sceneAmbienceFor(condition: 'clear', daypart: 'morning');
+      expect(clear.base, const SceneSoundSource.bundled('birds'));
+      expect(clear.overlay, isNull);
+    });
+
+    test(
+      'a place sound replaces the clear-sky birds/crickets at every time',
+      () {
+        final day = sceneAmbienceFor(
+          condition: 'clear',
+          daypart: 'morning',
+          placePreset: 'forest',
+        );
+        expect(day.base, const SceneSoundSource.bundled('forest'));
+        expect(day.overlay, isNull);
+
+        final night = sceneAmbienceFor(
+          condition: 'clear',
+          daypart: 'night',
+          placePreset: 'village',
+        );
+        expect(night.base, const SceneSoundSource.bundled('village'));
+        expect(night.overlay, isNull);
+      },
+    );
+
+    test('a quiet sky plays the place loop alone', () {
+      final cloudy = sceneAmbienceFor(
+        condition: 'overcast',
+        daypart: 'afternoon',
+        placePreset: 'cave',
+      );
+      expect(cloudy.base, const SceneSoundSource.bundled('cave'));
+      expect(cloudy.overlay, isNull);
+    });
+
+    test('a custom user file is the base loop with the weather overlay', () {
+      final custom = sceneAmbienceFor(
+        condition: 'rain',
+        daypart: 'night',
+        customFile: 'my_room.mp3',
+      );
+      expect(custom.base, const SceneSoundSource.device('my_room.mp3'));
+      expect(custom.overlay, const SceneSoundSource.bundled('rain'));
+    });
+
+    test('an unknown preset keeps the weather-only fallback', () {
+      final unknown = sceneAmbienceFor(
+        condition: 'clear',
+        daypart: 'morning',
+        placePreset: 'not-a-place',
+      );
+      expect(unknown.base, const SceneSoundSource.bundled('birds'));
+      expect(unknown.overlay, isNull);
+    });
+  });
+  test(
+    'the service plays a place base and a weather overlay on two players',
+    () async {
+      final base = _FakeOutput();
+      final overlay = _FakeOutput();
+      final clock = _Clock();
+      final sound = SceneSoundService(
+        output: () => base,
+        overlayOutput: () => overlay,
+        timer: clock.once,
+        ticker: clock.every,
+      );
+      final tokens = _scene(WeatherCondition.rain).withAmbience(
+        const SceneSoundSource.bundled('forest'),
+        const SceneSoundSource.bundled('rain'),
+      );
+      sound.update(tokens: tokens, enabled: true, volume: 0.6);
+      await _settle(clock);
+      expect(base.looping, 'audio/scene/forest.mp3');
+      expect(overlay.looping, 'audio/scene/rain.mp3');
+      expect(
+        sound.playing,
+        isNull,
+        reason: 'a place loop is not a weather SceneLoop',
+      );
+
+      sound.speaking = true;
+      await _settle(clock);
+      expect(base.volumes.last, closeTo(0.6 * kSceneDuck, 1e-9));
+      expect(overlay.volumes.last, closeTo(0.6 * kSceneDuck, 1e-9));
+
+      await sound.dispose();
+      expect(base.disposed, isTrue);
+      expect(overlay.disposed, isTrue);
+    },
+  );
 
   test('a loop that will not start is not tried again', () async {
     final out = _ThrowingOutput();

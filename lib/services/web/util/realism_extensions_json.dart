@@ -233,6 +233,7 @@ FrontPorchExtensions frontPorchFromFields(
         ? fields['needsSimEnabled'] as bool
         : b.needsSimChoice,
     pocketsEnabled: asBool('pocketsEnabled', b.pocketsEnabled),
+    afterglowEnabled: asBool('afterglowEnabled', b.afterglowEnabled),
     enjoysLowHygiene: asBool('enjoysLowHygiene', b.enjoysLowHygiene),
     needsPace: (fields['needsPace'] as String?) ?? b.needsPace,
     needsOff: asStrList('needsOff', b.needsOff),
@@ -287,6 +288,7 @@ Map<String, dynamic> frontPorchToJson(
   'realismNeedsDirectorAuthority': e.realismNeedsDirectorAuthority,
   'needsSimEnabled': e.needsSimChoice ?? needsSimWhenSilent,
   'pocketsEnabled': e.pocketsEnabled,
+  'afterglowEnabled': e.afterglowEnabled,
   'enjoysLowHygiene': e.enjoysLowHygiene,
   'needsPace': e.needsPace,
   'needsOff': e.needsOff,

@@ -208,7 +208,7 @@ extension CreatorEngine on CreatorState {
         storyStartTime: realismStoryStartTime,
         characterEmotion: realismEmotion,
         emotionIntensity: realismEmotionIntensity,
-        nsfwCooldownEnabled: realismNsfwCooldown,
+        afterglowEnabled: realismAfterglow,
         chaosModeEnabled: realismChaosMode,
         needsSimEnabled: realismNeedsSim,
         pocketsEnabled: realismPocketsEnabled,

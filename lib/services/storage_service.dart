@@ -30,6 +30,7 @@ import 'package:front_porch_ai/app_version.dart';
 import 'desktop_spell_check_service.dart';
 import 'kobold/kobold_preset_link_repair.dart';
 import 'reasoning_effort_store.dart';
+import 'gen_presets/gen_preset_follower.dart';
 import 'storage/storage.dart';
 
 class StorageService extends ChangeNotifier {
@@ -67,6 +68,12 @@ class StorageService extends ChangeNotifier {
   late final PresetSettings _presetSettings = PresetSettings();
   late final LorebookSettings _lorebookSettings = LorebookSettings();
   late final ToolVerdictSettings _toolVerdictSettings = ToolVerdictSettings();
+  late final GenPresetSettings _genPresets = GenPresetSettings();
+  late final GenPresetFollower _genPresetFollower = GenPresetFollower(
+    generation: _generationSettings,
+    backend: _backendSettings,
+    presets: _genPresets,
+  );
 
   // Directories lifted to directories.dart (Stage 7); thin god owns root state for setRootPath.
   // Getter ensures live values after setRootPath / setCustomModelsPath.
@@ -105,6 +112,7 @@ class StorageService extends ChangeNotifier {
       directories.characterBaseDir(characterName);
 
   Directory get customBackgroundDir => directories.customBackgroundDir;
+  Directory get audioDir => directories.audioDir;
 
   /// Cache directory for downscaled web-UI avatar thumbnails (derived data).
   Directory get webThumbnailCacheDir => directories.webThumbnailCacheDir;
@@ -127,6 +135,11 @@ class StorageService extends ChangeNotifier {
   PresetSettings get presetSettings => _presetSettings;
   LorebookSettings get lorebookSettings => _lorebookSettings;
   ToolVerdictSettings get toolVerdictSettings => _toolVerdictSettings;
+  GenPresetSettings get genPresets => _genPresets;
+
+  /// Loads a model's linked preset or recommended values when the chat
+  /// model changes (issue 686).
+  GenPresetFollower get genPresetFollower => _genPresetFollower;
 
   // God-level (not in a *Settings): spell check language.
   //
@@ -205,6 +218,7 @@ class StorageService extends ChangeNotifier {
       charactersDir,
       groupsDir,
       customBackgroundDir,
+      audioDir,
       toolsDir,
       skillsDir,
     ]) {
@@ -230,6 +244,7 @@ class StorageService extends ChangeNotifier {
     _presetSettings.initializeBase(null, notifyListeners);
     _lorebookSettings.initializeBase(null, notifyListeners);
     _toolVerdictSettings.initializeBase(null, notifyListeners);
+    _genPresets.initializeBase(null, notifyListeners);
     _generationSettings.load();
     _backendSettings.load();
     _appearance.load();
@@ -347,6 +362,7 @@ class StorageService extends ChangeNotifier {
     _presetSettings.initializeBase(_prefs, notifyListeners);
     _lorebookSettings.initializeBase(_prefs, notifyListeners);
     _toolVerdictSettings.initializeBase(_prefs, notifyListeners);
+    _genPresets.initializeBase(_prefs, notifyListeners);
 
     // Nothing between here and the completer may escape. _init is
     // fire-and-forget, so one throw (a corrupt prefs value) would leave
@@ -369,6 +385,7 @@ class StorageService extends ChangeNotifier {
       _presetSettings.load();
       _lorebookSettings.load();
       _toolVerdictSettings.load();
+      _genPresets.load();
       await repairKoboldPresetLinks(_presetSettings, engineDir: binDir.path);
       attachReasoningEffortMenuStore(_prefs);
 
@@ -395,6 +412,14 @@ class StorageService extends ChangeNotifier {
         '[Storage] ⚠ settings load failed ($e) — booting with '
         'defaults for whatever did not load.\n$st',
       );
+    }
+
+    // After every load, so starting the app never counts as a model switch.
+    try {
+      await _genPresetFollower.start();
+      addListener(_genPresetFollower.onSettingsChanged);
+    } catch (e) {
+      debugPrint('[Storage] generation presets will not follow the model: $e');
     }
 
     if (!_initCompleter.isCompleted) _initCompleter.complete();
@@ -435,6 +460,7 @@ class StorageService extends ChangeNotifier {
     await charactersDir.create(recursive: true);
     await groupsDir.create(recursive: true);
     await customBackgroundDir.create(recursive: true);
+    await audioDir.create(recursive: true);
 
     if (oldRoot != null) {
       await repointCustomBackgroundsAfterRootMove(

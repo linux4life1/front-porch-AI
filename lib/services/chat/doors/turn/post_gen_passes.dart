@@ -1,0 +1,410 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/chat_defaults.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/controls_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/chat/llm_lanes.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+
+/// The Realism/Needs post-gen family: the clock, the needs-impact eval and
+/// the fused reply-facts fetch (transport only), climax, pockets, posture
+/// and the withUser glance, each behind its own gate, the restamp and the
+/// phase's one persist, then the fire-and-forget passes. Continue scores
+/// new text only; `asContinuation` keeps `pockets_before`; Continue does not
+/// tick here — the clock helper already owns that.
+class PostGenPasses {
+  PostGenPasses(this._e);
+
+  final TurnEngine _e;
+
+  TurnDeps get _d => _e.deps;
+  ChatSessionState get _session => _d.session;
+  TurnProgress get _p => _e.progress;
+  RealismGraph get _g => _d.doors.graph();
+  SessionStore get _sessions => _d.doors.sessions();
+  ControlsDoor get _controls => _d.doors.controls();
+  CastDoor get _cast => _d.doors.cast();
+  StorageService get _storageService => _d.services.storage;
+  LlmLanes get _lanes => _d.services.lanes;
+  String _getCharacterIdFromCard(CharacterCard card) =>
+      _session.characterIdFor(card);
+
+  GroupChat? get _activeGroup => _session.activeGroup;
+  AfterglowPass get _afterglow => _g.afterglow;
+  AwayPulseState get _awayPulse => _cast.away.state;
+  bool get _clockRunning => _controls.clockRunning;
+  StoryClockWriter get _clockWriter => _g.clockWriter;
+  GrowthDesk get _growthDesk => _g.growthDesk;
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      _cast.guests.isGuestAuthoredMessage(m);
+  NeedsPass get _needsPass => _g.needsPass;
+  PocketsPass get _pocketsPass => _g.pocketsPass;
+  RealismDance get _realismDance => _g.dance;
+  RealismEvals get _realismEvals => _g.evals;
+  RealismJudges get _realismJudges => _g.judges;
+  RealismSnapshot get _realismSnapshot => _g.snapshot;
+  RelationshipService get _relationshipService => _g.relationship;
+  ReplyFacts get _replyFacts => _g.replyFacts;
+  Future<void> _runPostGenNeedsChecks(String responseText) =>
+      _g.restores.runPostGenNeedsChecks(responseText);
+  Future<void> _saveChat({bool replaceAll = false}) =>
+      _sessions.save(replaceAll: replaceAll);
+  TimeService get _timeService => _g.time;
+
+  Future<void> run(GenTurn t, String newPart, String finalResponse) async {
+    // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
+    // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
+    // _needsImpactEvaluator) use the correct _session.activeCharacter (for name, personality/stance
+    // in the consolidated needs impact prompt). The pre-speaker-eval left the *scalars*
+    // (incl. needs vector) loaded for this speaker but restored the _session.activeCharacter pointer
+    // to the prior speaker; the thin delegate relies on the pointer for cbs. We restore the
+    // pointer after the checks (scalars remain correct for the persist below).
+    // Who the pointer is lent to; the loan ends once, inline or in the
+    // finally.
+    CharacterCard? lentTo;
+    // The awaited post-gen critical section: mutates _session.activeCharacter,
+    // the needs scalars and _groupRealism across two awaits
+    // (isPostGenerating has been up since the last token landed).
+    // The try/finally is not decoration: if _runPostGenNeedsChecks
+    // throws, the inline restore below is skipped and the next turn's
+    // save would write to the wrong member.
+    try {
+      await _lanes.openWorkerLane();
+      // The cast's hidden feelings for each other react to what the speaker
+      // just said, Director Mode included: the cast talking among themselves
+      // is the whole scene. Continue skips it: the first half of the reply
+      // was already scored.
+      if (_activeGroup != null &&
+          finalResponse.isNotEmpty &&
+          t.mode != GenerationMode.continue_) {
+        await _e.group.scoreCastFeelings(t.speakingCharacter, finalResponse);
+      }
+      if (_activeGroup != null) {
+        _session.activeCharacter = t.speakingCharacter;
+        lentTo = t.speakingCharacter;
+        final sid = _getCharacterIdFromCard(t.speakingCharacter);
+        if (sid.isNotEmpty) {
+          _realismDance.loadIntoScalars(sid);
+        }
+      }
+
+      // On Continue the SAME family runs on the NEW text only — an
+      // incremental extension of the exchange, not a second scoring of
+      // it. The blanket skip this replaces (2026-08-12) existed because
+      // re-reading the FULL reply applied the first half's deltas a
+      // second time; scoring only the continuation makes a double-apply
+      // impossible by construction while events the user paid a
+      // Continue for — they set the keys down, move to the swing,
+      // finishes the meal — finally reach the bookkeeping. The evals
+      // keep full context either way: each gets recentExchange(), and
+      // the write-back above already put the whole continued reply into
+      // the last message, so the fragment is never read blind.
+      // Arithmetic stays exact: needs_pre_turn_vector + re-computed
+      // chips still equals the live vector (the chip helper measures
+      // live-minus-stamp, so the merge is free), and pockets keeps the
+      // ORIGINAL pre-turn stamp so regen/tail-delete rewind to the true
+      // base (see _pocketsPass.run's asContinuation).
+      // Present-guest Continue sets guestSpeaker before GenTurn, so
+      // this whole block is skipped. Departed-guest Continue refuses
+      // before generating. The empty scoredReply is leftover belt if
+      // a guest-authored tail ever reaches here with guestSpeaker null.
+      final scoredReply = t.mode == GenerationMode.continue_
+          ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
+          : finalResponse;
+      // Clock first, then the time chip, then the needs eval. The reply
+      // was written from the body as it was. A rejected reply does not
+      // keep the tick. The clock is not a flat tax on every Need.
+      if (t.mode == GenerationMode.continue_ || !_clockRunning) {
+        _timeService.clearBodyBeat();
+      }
+      if (_p.postGenAbortRequested) {
+        debugPrint(
+          '[Clock] running=$_clockRunning '
+          'source=${_timeService.clockGateSource} '
+          'porchLife='
+          '${_storageService.realismSettings.passageOfTimeDefault} '
+          'reason=abort',
+        );
+      } else {
+        await _e.postGen.maybeAdvanceStoryClockAfterReply(t);
+        if (_p.postGenAbortRequested) {
+          _clockWriter.abortSlotClockIfThisTurnTicked(
+            () => t.streamTarget,
+            isContinue: t.mode == GenerationMode.continue_,
+          );
+        } else {
+          _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
+          _e.entry.tickRefractoryAfterClock(t);
+        }
+      }
+      if (scoredReply.isNotEmpty && !_p.postGenAbortRequested) {
+        // The needs-impact eval and the fused reply-facts fetch run
+        // CONCURRENTLY (same pattern as the pre-generation 4-eval block,
+        // same stagger so KoboldCpp's FIFO queue sees them in intended
+        // order). They are independent by construction: needs writes the
+        // needs vector; the prefetch only READS stance/emotion/pockets to
+        // build its prompt and parks raw text — the passes that apply it
+        // run after both complete. On a remote backend this makes the
+        // post-gen phase cost the slower of the two calls, not the sum.
+        //
+        // The fused fetch: when two or more of the three bookkeeping
+        // passes below (climax, pockets, posture) are live, ONE call
+        // answers all of them and each pass consumes its slice through
+        // its own unchanged parser. With fewer than two live it is a
+        // no-op and each pass fires its own call exactly as before. See
+        // ReplyFactsEval for the composition rules.
+        try {
+          await Future.wait([
+            _runPostGenNeedsChecks(scoredReply),
+            Future<void>.delayed(
+              kEvalDispatchStagger,
+            ).then((_) => _replyFacts.prefetch(scoredReply)),
+          ]);
+        } catch (e) {
+          if (!_p.postGenAbortRequested) rethrow;
+        }
+        if (_p.postGenAbortRequested) {
+          _replyFacts.raw = null;
+        } else {
+          // Afterglow. Reads the reply that was just written, which is why
+          // it lives here and not on the pre-generation judges. On Continue
+          // it reads only the new text — a climax the first half already
+          // registered is not re-claimed by its aftermath, and one the
+          // continuation adds finally counts.
+          await _afterglow.runClimaxPass(scoredReply);
+          // Pockets & Wardrobe — its own pass; answers to its own switch
+          // and nothing else. asContinuation preserves the message's
+          // original pockets_before stamp (the turn's true pre-state) and
+          // appends receipts instead of replacing them.
+          await _pocketsPass.run(
+            scoredReply,
+            asContinuation: t.mode == GenerationMode.continue_,
+          );
+          // Spatial stance — where this reply LEFT them. Third of the same
+          // family, and it belongs here for the identical reason: a
+          // position the character establishes in their own words cannot be
+          // known by a judge that ran before those words existed. It used
+          // to ride the pre-generation scene-time eval, which is why
+          // characters teleported: the prompt asserted a position derived
+          // from the previous exchange while the reply had already moved
+          // them somewhere else. Maintainer ruling 2026-08-08.
+          //
+          // The result is picked up by the group persist below
+          // (spatialStance rides saveRelationshipScalarsToGroup), by the
+          // snapshot restamp, and by the single persist that closes this
+          // block, so 1:1 and group store it identically.
+          //
+          // AWAITED, and therefore inside the settling window that greys the
+          // composer. That cost was weighed and kept: the value this call
+          // produces is read by the NEXT prompt's "Position:" line, so a
+          // fire-and-forget version would race the user's next send and hand
+          // the reply the position from the exchange before — the exact
+          // teleport the pass was moved here to stop. It would also race the
+          // `_saveChat` below, putting the write back outside any save and
+          // recreating the bug this block was rewritten to fix. Same
+          // reasoning, same phase, same awaiting as its two siblings above.
+          {
+            final fused = _replyFacts.raw;
+            if (fused != null) {
+              // The fused call already asked "where did this reply leave
+              // them" — consume its answer through the ONE posture parser
+              // instead of paying a second call. An absent or unparseable
+              // answer skips, exactly as a failed standalone pass does:
+              // the stance keeps its last value.
+              final posture = SceneTimeEvaluator.parsePosture(fused);
+              if (posture != null) {
+                _relationshipService.setSpatialStance(posture);
+              }
+              debugPrint(
+                '[Realism:Posture] ${_relationshipService.spatialStance} '
+                '(fused reply-facts)',
+              );
+            } else {
+              await _realismEvals.evaluatePhysicalStateCall(postureOnly: true);
+            }
+          }
+          // Glance only. After posture so the judge can read where they
+          // already are. Not fused with posture — that mix is the teleport.
+          await _realismJudges.runWithUserPass(scoredReply);
+          if (_activeGroup != null &&
+              t.guestSpeaker == null &&
+              t.mode == GenerationMode.normal &&
+              !_awayPulse.consumingReturnSpeak &&
+              scoredReply.trim().isNotEmpty) {
+            _awayPulse.presentSpeakerTurns++;
+          }
+          // Consumed — the carrier must never outlive the passes that read
+          // it, or a stale answer could feed the next turn's bookkeeping.
+          _replyFacts.raw = null;
+        }
+      }
+
+      // Restamp after the clock, the wear, and the needs pass.
+      if (!_p.postGenAbortRequested) {
+        // Keep this message's realism_state snapshot TRUTHFUL now that the
+        // post-gen checks have run — needs vector AND the NSFW scalars a
+        // climax just changed. See the helper for the two bugs this
+        // prevents (hygiene snap-back; climax erased by the regen merge).
+        await _realismSnapshot.restampPostGen(t.streamTarget);
+        if (_clockRunning && t.mode != GenerationMode.continue_) {
+          _clockWriter.writeSlotClock(
+            t.streamTarget,
+            kind: SlotClockWrite.tick,
+          );
+        }
+
+        if (lentTo != null) {
+          _e.group.endSpeakerLoan(lentTo);
+          lentTo = null;
+        }
+
+        // For group turns, persist the post-scene + long-gen-decay needs changes (and any
+        // other scalars mutated by the checks) back into _groupRealism for this speaker. This is
+        // what makes sidebar member cards + getNeedsForGroupCharacter() + future loads see the
+        // effects of the just-generated response. (Pre-eval saved the pre-turn state for bond/etc;
+        // this captures the *response* effects on needs.)
+        if (_activeGroup != null &&
+            finalResponse.isNotEmpty &&
+            _session.messages.isNotEmpty) {
+          // The ACTUAL speaker of this turn — not a by-name lookup with a
+          // first-member fallback (duplicate display names would persist the
+          // critical scalar save to the wrong member's _groupRealism entry).
+          final sid = _getCharacterIdFromCard(t.speakingCharacter);
+          if (sid.isNotEmpty) {
+            _realismDance.saveScalarsIntoGroup(sid);
+          }
+        }
+
+        // Per-message needs chips for whoever just spoke. Lives here so
+        // EVERY speaker gets them (group auto-advance, /speak, chime-ins)
+        // — and regens too: a regen replays the turn in normal mode, and
+        // the swipe-merge copies these chips onto the accepted swipe.
+        // The ONE chip source. Continue re-attaches whenever its
+        // incremental pass ran: the helper measures live-vector minus the
+        // message's own needs_pre_turn_vector, so the recomputed chip IS
+        // the merged whole-turn delta — stale first-half chips would
+        // misreport the turn the moment the continuation moved a need.
+        if (t.mode == GenerationMode.normal ||
+            (t.mode == GenerationMode.continue_ && scoredReply.isNotEmpty)) {
+          _needsPass.attachDeltaChipToLastMessage();
+        }
+
+        // ── The post-generation phase's ONE persist ────────────────────
+        // Everything above this line writes to memory only: the needs
+        // vector, the climax/arousal scalars, pockets, the spatial stance,
+        // the restamped `realism_state` snapshot, the per-member
+        // `_groupRealism` entry and the chips. The `_saveChat()` near the
+        // top of this method ran BEFORE all of it — it exists to get the
+        // reply text on disk before four eval round-trips, not to carry
+        // their results.
+        //
+        // Until 2026-08-08 the only save that could follow this block was
+        // the one hidden inside NeedsPass.attachDeltaChipToLastMessage, which
+        // returns on its first line when Needs is off. So on the ordinary
+        // 1:1 path with Needs off NOTHING was written after the passes ran:
+        // the session row, the message snapshot and the group blob all kept
+        // the PREVIOUS turn's spatial stance, and the character teleported
+        // back one exchange on every reload. It also meant a user's answer
+        // to "do I want the Sims needs simulation?" silently decided
+        // whether their position survived — two unrelated features wired
+        // together (docs/design/feature-independence.md).
+        //
+        // Moving the save out of the chip helper and putting it here costs
+        // the same one write per turn it always did, and now it covers
+        // everything the phase produced instead of one feature's slice.
+        // A continuation persists too whenever its incremental pass ran —
+        // the needs/climax/pockets/stance it just wrote would otherwise
+        // ride memory only until some later turn happened to save.
+        if (t.mode != GenerationMode.continue_ || scoredReply.isNotEmpty) {
+          await _saveChat();
+          _d.notify();
+        }
+      } else {
+        _clockWriter.abortSlotClockIfThisTurnTicked(
+          () => t.streamTarget,
+          isContinue: t.mode == GenerationMode.continue_,
+        );
+      }
+    } finally {
+      await _lanes.closeWorkerLane();
+      // The pointer goes back on a throw or an abort too. The settling flag
+      // is cleared in the OUTER finally so guest turns, stale epochs and
+      // earlier errors are covered too.
+      if (lentTo != null) _e.group.endSpeakerLoan(lentTo);
+    }
+
+    // [EvalTraffic]: the turn's secondary-call tally — everything since
+    // the last flush (pre-gen judges, post-gen passes). Printed before
+    // the fire-and-forget passes launch so their spend lands in the next
+    // turn's `background` line instead of muddying this one.
+    final turnTraffic = EvalTraffic.current.flushTurn();
+    if (turnTraffic != null) debugPrint(turnTraffic);
+
+    // Journal maintenance pass if due (fire-and-forget): memory cards +
+    // recap in one call. Card ownership is derived from the window's
+    // message characterIds (immune to the speaker loan
+    // dance above); only the recap voice is best-effort at trigger time
+    // in group non-obs (same caveat the old summary had).
+    // Skip when regen aborted this scoring — do not diary a rejected reply.
+    if (!_p.postGenAbortRequested) {
+      _e.side.maybeRunJournalPass();
+
+      // Growth pass if due (fire-and-forget): ring ops per owner —
+      // members AND 1:1 scene guests who spoke in the window (guest
+      // growth rides this shared pass; there is no per-guest trigger).
+      // Cursor-based like the journal, so it is naturally regen-safe.
+      _growthDesk.maybeRunGrowthPass();
+
+      // Promise/debt ledger (Train B) — fire-and-forget on new turns only.
+      // Keyword gate + open-list gate live inside the service so most
+      // turns cost nothing. Regen/continue never invent commitments.
+      if (t.mode == GenerationMode.normal) {
+        _e.promises.maybeRunPromiseDebtPass();
+      }
+
+      // Dream prefetch: the clock crossed a night during this turn's
+      // post-reply decide, so the dream can be generated NOW and
+      // merely inserted at the next send — see the producer in
+      // the send spine. The kick itself is synchronous (the park
+      // exists before this line returns); only the model call runs in the
+      // background, recording into the next turn's [EvalTraffic]
+      // background line, where background spend belongs.
+      _e.side.maybeKickDreamPrefetch();
+
+      // Embed messages for RAG memory (fire-and-forget)
+      _e.side.maybeEmbedMessages();
+
+      // Periodic evaluations coordinator (Scene Guest cast detection).
+      // NEW-TURN work — only on a normal generation, never on
+      // regen/continue (which replay or extend an existing turn).
+      if (t.mode == GenerationMode.normal) {
+        _e.entry.maybeRunPeriodicEvals();
+      }
+    }
+  }
+}

@@ -39,6 +39,14 @@ const String kSpatialStancePreTurn = 'spatial_stance_pre_turn';
 /// Regen/swipe must put the turn's START back (audit P1.7).
 const String kWithUserPreTurn = 'with_user_pre_turn';
 
+/// Realism as it stood before a USER message was first scored, stamped on
+/// that user message. The scored result rides the reply, so once the reply
+/// is deleted, cancelled, or failed, this is the only record of the turn's
+/// start. Generate reply on a trailing user message rewinds here and
+/// re-scores (#339). 1:1 holds one snapshot; groups key it by speaker id.
+const String kRealismPreTurn = 'realism_pre_turn';
+const String kRealismPreTurnBySpeaker = 'realism_pre_turn_by_speaker';
+
 /// The per-message `realism_state` snapshot: captured before generation and
 /// re-stamped with the post-generation values once the reply's passes ran.
 /// Every rewind (regen, swipe, delete time-travel) restores from it.
@@ -67,7 +75,7 @@ class RealismSnapshot {
   RelationshipService get _relationshipService => _scope.relationship();
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
   late final MoodRegisters _mood = MoodRegisters(_scope);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
 

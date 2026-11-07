@@ -23,6 +23,8 @@ export interface PlaceRowModel {
   onEdit: () => void;
   /** Absent at the depth cap. */
   onNewInside?: () => void;
+  /** Porch Stories: open New Story starting at this place. */
+  onWriteStory?: () => void;
   onMove: () => void;
   onDelete: () => void;
   selected?: boolean;
@@ -108,6 +110,12 @@ function PlaceRow({ row, busy }: { row: PlaceRowModel; busy: boolean }) {
         <button className="icon-btn" title="Edit" onClick={row.onEdit}>
           ✎
         </button>
+        {row.onWriteStory && (
+          <button className="icon-btn" title="Write a story here" aria-label={`Write a story at ${w.name}`}
+            data-testid={`place-write-story-${w.id ?? w.name}`} onClick={row.onWriteStory}>
+            📖
+          </button>
+        )}
         <button className="icon-btn" title="Move to…" disabled={busy} onClick={row.onMove}>
           ⇄
         </button>

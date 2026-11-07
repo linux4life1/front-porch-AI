@@ -18,3 +18,4 @@
 
 export 'continuity_fact_dialogs.dart';
 export 'continuity_ledger.dart';
+export 'lore_world_card.dart';

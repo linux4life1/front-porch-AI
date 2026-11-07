@@ -21,10 +21,12 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
-    show relationshipTierName;
+import 'package:front_porch_ai/services/group_opening_generator.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+
+import 'group_wizard_steps.dart';
 
 /// Everything the Create Group wizard edits: roster, prompts, lore, realism
 /// seeds, and the current step. The page rebuilds on every
@@ -60,13 +62,16 @@ class GroupWizardDraft extends ChangeNotifier {
     },
     characterVoices,
     [for (final e in groupLoreEntries) e.toJson()],
-    worldIds,
+    worldChoice.settingId,
+    worldChoice.loreIds,
     inheritCharacterLorebooks,
     realismEnabled,
     memberRealismSeeds,
     chaosModeEnabled,
     chaosNsfwEnabled,
     needsSimEnabled,
+    afterglowEnabled,
+    pocketsEnabled,
     memberNeedsBaselines,
     globalTimeOfDay,
     globalDayCount,
@@ -74,15 +79,8 @@ class GroupWizardDraft extends ChangeNotifier {
     globalStoryStartTime,
   ], toEncodable: (o) => o.toString());
 
-  int currentStep = 0;
-  // 0 = Members
-  // 1 = Identity
-  // 2 = Opening
-  // 3 = Prompts
-  // 4 = Lore
-  // 5 = Realism
-  // 6 = Group Dynamics (only for groups of 4 or fewer)
-  // 7 = Review
+  /// One of [GroupWizardSteps].
+  int currentStep = GroupWizardSteps.members;
 
   // ── Core State ─────────────────────────────────────────────────────
   final List<CharacterCard> members = [];
@@ -116,12 +114,15 @@ class GroupWizardDraft extends ChangeNotifier {
   final Map<String, TextEditingController> characterSystemPrompts =
       {}; // charId -> prompt
 
-  // Voices (charId -> voiceId or '')
+  /// Members step Voice picks, charId → a voice id, or '' for "Use the global
+  /// voice". A member with no entry keeps the card's own voice.
   final Map<String, String> characterVoices = {};
 
   // Lore & Worlds
   final List<LorebookEntry> groupLoreEntries = [];
-  final List<String> worldIds = [];
+
+  /// Where new chats meet: one Setting and any lore-only worlds.
+  GroupWorldChoice worldChoice = const GroupWorldChoice();
   bool inheritCharacterLorebooks = false;
 
   // Realism / Chaos / Needs (group level + per-member seeds)
@@ -131,6 +132,14 @@ class GroupWizardDraft extends ChangeNotifier {
   bool chaosModeEnabled = false;
   bool chaosNsfwEnabled = false;
   bool needsSimEnabled = true;
+
+  /// How the group's new chats start Afterglow.
+  bool afterglowEnabled = true;
+
+  /// How the group's new chats start Pockets & Wardrobe
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). AND-ed at entry with
+  /// each member's card default.
+  bool pocketsEnabled = true;
 
   // Per-member needs baselines (0-100) — mirrors memberRealismSeeds keys.
   final Map<String, Map<String, int>> memberNeedsBaselines = {};
@@ -189,35 +198,19 @@ class GroupWizardDraft extends ChangeNotifier {
 
   bool get canLeaveMembersStep => members.length >= 2;
 
-  int? effectiveNextStep(int current) {
-    int next = current + 1;
-
-    // Skip Group Dynamics (now step 5) if group is too large
-    if (next == 5 && members.length > 4) {
-      next = 6; // jump to Opening
-    }
-
-    if (next > 7) return null; // beyond Review
-    return next;
-  }
+  int? effectiveNextStep(int current) => GroupWizardSteps.next(current);
 
   void goToStep(int step) => update(() => currentStep = step);
 
-  void goToPreviousStep(int current) {
-    int prev = current - 1;
+  void goToPreviousStep(int current) =>
+      goToStep(GroupWizardSteps.previous(current));
 
-    // If we are coming back from Review and skipped Dynamics, go to Realism instead
-    if (current == 7 && members.length > 4) {
-      prev = 4; // Realism
-    }
-
-    if (prev < 0) prev = 0;
-    goToStep(prev);
-  }
+  void setWorldChoice(GroupWorldChoice choice) =>
+      update(() => worldChoice = choice);
 
   bool canAdvanceFromStep(int step) {
-    if (step == 0) return canLeaveMembersStep;
-    if (step == 6) {
+    if (step == GroupWizardSteps.members) return canLeaveMembersStep;
+    if (step == GroupWizardSteps.opening) {
       return members.length >= 2 && nameController.text.trim().isNotEmpty;
     }
     return true;
@@ -236,22 +229,10 @@ class GroupWizardDraft extends ChangeNotifier {
     if (members.any((m) => stableId(m) == id)) return;
     update(() {
       members.add(card);
-      // Seed a reasonable neutral realism entry if none exists
       if (!memberRealismSeeds.containsKey(id)) {
         memberRealismSeeds[id] = defaultRealismSeedFor(card);
       }
-      if (!memberNeedsBaselines.containsKey(id)) {
-        final s = memberRealismSeeds[id]!;
-        memberNeedsBaselines[id] = {
-          'hunger': s['needsBaselineHunger'] as int? ?? 80,
-          'bladder': s['needsBaselineBladder'] as int? ?? 80,
-          'energy': s['needsBaselineEnergy'] as int? ?? 80,
-          'social': s['needsBaselineSocial'] as int? ?? 80,
-          'fun': s['needsBaselineFun'] as int? ?? 80,
-          'hygiene': s['needsBaselineHygiene'] as int? ?? 80,
-          'comfort': s['needsBaselineComfort'] as int? ?? 80,
-        };
-      }
+      _syncNeedsBaselines(id);
 
       // Initialize empty relationships map for small groups
       if (members.length <= 4) {
@@ -308,12 +289,14 @@ class GroupWizardDraft extends ChangeNotifier {
     });
   }
 
-  // Shared default seed (create + edit parity) lives in group_realism_blobs.dart
-  // as defaultGroupMemberRealismSeed(); the card arg is ignored (the seed is a
-  // neutral constant) but kept so existing call sites read naturally.
+  /// Where [c]'s member starts: their card's bonds, mood and Needs settings
+  /// (see groupMemberSeedFromCard), the same seed the committer lays the
+  /// wizard's edits over.
   Map<String, dynamic> defaultRealismSeedFor(CharacterCard c) =>
-      defaultGroupMemberRealismSeed();
+      groupMemberSeedFromCard(c);
 
+  /// Reset to character defaults: the member's whole seed back to their
+  /// card's, their Group Dynamics row included.
   void seedRealismFromCard(String charId) {
     final card = members.firstWhere(
       (c) => stableId(c) == charId,
@@ -321,25 +304,50 @@ class GroupWizardDraft extends ChangeNotifier {
     );
     update(() {
       memberRealismSeeds[charId] = defaultRealismSeedFor(card);
+      _syncNeedsBaselines(charId);
     });
   }
 
+  /// Neutral and High Bond: each member's card seed with the preset's bonds
+  /// and mood. Long-Term Bond is set to the preset's Short-Term Bond, so the
+  /// slider and the saved seed agree (the web's presets set the same keys).
   void bulkSeedRealism(String mode) {
+    final preset = switch (mode) {
+      'neutral' => const {
+        'affection': 35,
+        'longTermScore': 35,
+        'trust': 40,
+        'emotion': 'neutral',
+        'emotionIntensity': 'mild',
+      },
+      'highBond' => const {
+        'affection': 75,
+        'longTermScore': 75,
+        'trust': 70,
+        'emotion': 'affection',
+        'emotionIntensity': 'moderate',
+      },
+      _ => null,
+    };
+    if (preset == null) return;
     update(() {
       for (final c in members) {
         final id = stableId(c);
-        if (mode == 'neutral') {
-          memberRealismSeeds[id] = defaultRealismSeedFor(c);
-        } else if (mode == 'highBond') {
-          final s = defaultRealismSeedFor(c);
-          s['affection'] = 75;
-          s['trust'] = 70;
-          s['emotion'] = 'affection';
-          s['emotionIntensity'] = 'moderate';
-          memberRealismSeeds[id] = s;
-        }
+        memberRealismSeeds[id] = defaultRealismSeedFor(c)..addAll(preset);
+        _syncNeedsBaselines(id);
       }
     });
+  }
+
+  /// [memberNeedsBaselines] for [id], read back from their seed, which the
+  /// Needs sliders draw from.
+  void _syncNeedsBaselines(String id) {
+    final s = memberRealismSeeds[id] ?? const <String, dynamic>{};
+    memberNeedsBaselines[id] = {
+      for (final need in groupSeedNeeds)
+        need: s[groupSeedBaselineKey(need)] as int? ?? 80,
+      'enjoysLowHygiene': s['enjoysLowHygiene'] == true ? 1 : 0,
+    };
   }
 
   // ── REALISM HELPERS ────────────────────────────────────────────────
@@ -388,63 +396,25 @@ class GroupWizardDraft extends ChangeNotifier {
     update(() => groupLoreEntries.removeAt(index));
   }
 
-  void toggleWorld(String worldId) {
-    update(() {
-      if (worldIds.contains(worldId)) {
-        worldIds.remove(worldId);
-      } else {
-        worldIds.add(worldId);
-      }
-    });
-  }
-
   // ── GENERATION CONTEXT ─────────────────────────────────────────────
 
   /// Builds a rich, explanatory summary of the current hidden inter-character
-  /// relationships (from the Group Dynamics step) to feed into AI generation.
+  /// relationships (Group Dynamics, on the Realism step) to feed into AI generation.
   /// Includes guidance on the -300 to +300 scale so the model actually understands
   /// how to use the data when writing the opening scene.
   String buildDynamicsContextForGeneration() {
-    if (members.length > 4) return '';
-
-    final buffer = StringBuffer();
-    buffer.writeln(
-      'Hidden inter-character dynamics (these are private feelings the characters have toward each other — the player does not know about them):',
+    // Realism off hides Group Dynamics and the committer drops them, so
+    // relationships seeded before the switch went off must not leak here.
+    if (!realismEnabled) return '';
+    return groupDynamicsContext(
+      [for (final m in members) (id: stableId(m), name: m.name)],
+      {
+        for (final m in members)
+          stableId(m):
+              (memberRealismSeeds[stableId(m)]?['relationships'] as Map?)
+                  ?.cast<String, int>() ??
+              const {},
+      },
     );
-    buffer.writeln(
-      'Scale explanation: Values range from -300 (extreme hatred/resentment) to +300 (deep soul-level bond).',
-    );
-    buffer.writeln(
-      'Rough tiers: 80+ = Soulbound / extremely devoted, 50+ = Deep Bond, 20+ = Close, 5+ = Friendly, -4 to +4 = Neutral, -5 to -19 = Uneasy, -20 to -49 = Distant, -50 to -79 = Hostile, -80 and below = Nemesis / intense personal animosity.',
-    );
-    buffer.writeln('');
-
-    for (final source in members) {
-      final sourceId = stableId(source);
-      final seed = memberRealismSeeds[sourceId];
-      final rels = (seed?['relationships'] as Map?)?.cast<String, int>() ?? {};
-      if (rels.isEmpty) continue;
-
-      for (final entry in rels.entries) {
-        final target = members.firstWhere(
-          (m) => stableId(m) == entry.key,
-          orElse: () => source,
-        );
-        if (target == source) continue;
-
-        final value = entry.value;
-        final tier = relationshipTierName(value);
-        buffer.writeln(
-          '- ${source.name} feels ${tier.toLowerCase()} toward ${target.name} (score: $value on -300 to +300 scale)',
-        );
-      }
-    }
-
-    buffer.writeln('');
-    buffer.writeln(
-      'When writing the opening scene, reflect these private feelings naturally through body language, tone, subtext, and how the characters interact with each other. Do not state the scores directly.',
-    );
-
-    return buffer.toString().trim();
   }
 }

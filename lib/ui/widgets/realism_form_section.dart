@@ -110,6 +110,11 @@ class RealismFormSection extends StatelessWidget {
   /// notes, confirmed by the author, never applied silently.
   final bool showChargenSuggestion;
 
+  /// The card's Afterglow switch: how new chats with this character start.
+  /// Character editors only; group editors pass no setter.
+  final bool afterglowEnabled;
+  final ValueChanged<bool>? onAfterglowChanged;
+
   /// Starting Pockets & Wardrobe, as chip text (`sundress (rain-soaked)`).
   /// Same optional-pair convention again — the two group-member editors call
   /// this widget with no identity params at all.
@@ -151,6 +156,23 @@ class RealismFormSection extends StatelessWidget {
   final bool showChaosToggle;
   final bool showTimeAndDay;
   final bool showMasterEnabledToggle;
+
+  /// The starting bonds and emotion. A group member's start lives in the
+  /// group's own seeds (Edit group → Realism), so its editor hides them.
+  final bool showStartingState;
+
+  /// The Afterglow switch's words, for a group member's own switch.
+  final String? afterglowLabel;
+  final String? afterglowSubtitle;
+
+  /// A group member's editor: the group's own lines, read-only, where a 1:1
+  /// card has its switches.
+  final MemberGroupRows? memberRows;
+
+  /// The Director's authority over Needs scores (needs Verification on).
+  /// Absent without a setter.
+  final bool needsDirectorAuthority;
+  final ValueChanged<bool>? onNeedsDirectorAuthorityChanged;
 
   const RealismFormSection({
     super.key,
@@ -200,6 +222,8 @@ class RealismFormSection extends StatelessWidget {
     this.onRecoveryChanged,
     this.sex = '',
     this.showChargenSuggestion = false,
+    this.afterglowEnabled = true,
+    this.onAfterglowChanged,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -218,6 +242,12 @@ class RealismFormSection extends StatelessWidget {
     this.showChaosToggle = true,
     this.showTimeAndDay = true,
     this.showMasterEnabledToggle = true,
+    this.showStartingState = true,
+    this.afterglowLabel,
+    this.afterglowSubtitle,
+    this.memberRows,
+    this.needsDirectorAuthority = false,
+    this.onNeedsDirectorAuthorityChanged,
     this.storyStartDate,
     this.onStoryStartDateChanged,
     this.storyStartTime,
@@ -271,6 +301,7 @@ class RealismFormSection extends StatelessWidget {
         // Time / Chaos / identity chips are Porch Life — they run without
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
+        ?memberRows?.header,
         if (showTimeAndDay) ...[
           RealismSectionHeader(
             Icons.schedule,
@@ -300,42 +331,52 @@ class RealismFormSection extends StatelessWidget {
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
           if (needsFormSection != null) needsFormSection!,
 
+          if (!showStartingState && memberRows?.noStartNote != null) ...[
+            const SizedBox(height: sectionHeaderGap),
+            MemberEditorNote(memberRows!.noStartNote!),
+          ],
           // Relationship Section — one [sectionHeaderGap] above the header.
-          Column(
-            key: relationshipHeaderBlockKey,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: sectionHeaderGap),
-              RealismSectionHeader(
-                Icons.favorite,
-                'Relationship',
-                context.creatorPalette?.amber ?? AppColors.relationshipAccent,
-              ),
-              const SizedBox(height: 12),
-              RealismRelationshipCard(
-                shortTermBond: shortTermBond,
-                onShortTermBondChanged: onShortTermBondChanged,
-                longTermBond: longTermBond,
-                onLongTermBondChanged: onLongTermBondChanged,
-                trustLevel: trustLevel,
-                onTrustLevelChanged: onTrustLevelChanged,
-              ),
-            ],
-          ),
-          const SizedBox(height: sectionHeaderGap),
-          RealismSectionHeader(
-            Icons.mood,
-            'Starting Emotion',
-            context.creatorPalette?.amber ?? AppColors.emotionAccent,
-          ),
-          const SizedBox(height: 12),
-          RealismEmotionCard(
-            emotion: emotion,
-            onEmotionChanged: onEmotionChanged,
-            emotionIntensity: emotionIntensity,
-            onEmotionIntensityChanged: onEmotionIntensityChanged,
-            labelStyle: labelStyle,
-          ),
+          if (showStartingState) ...[
+            Column(
+              key: relationshipHeaderBlockKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: sectionHeaderGap),
+                RealismSectionHeader(
+                  Icons.favorite,
+                  'Relationship',
+                  context.creatorPalette?.amber ?? AppColors.relationshipAccent,
+                ),
+                if (memberRows != null) ...[
+                  const SizedBox(height: 4),
+                  Text(memberRows!.startNote, style: labelStyle),
+                ],
+                const SizedBox(height: 12),
+                RealismRelationshipCard(
+                  shortTermBond: shortTermBond,
+                  onShortTermBondChanged: onShortTermBondChanged,
+                  longTermBond: longTermBond,
+                  onLongTermBondChanged: onLongTermBondChanged,
+                  trustLevel: trustLevel,
+                  onTrustLevelChanged: onTrustLevelChanged,
+                ),
+              ],
+            ),
+            const SizedBox(height: sectionHeaderGap),
+            RealismSectionHeader(
+              Icons.mood,
+              'Starting Emotion',
+              context.creatorPalette?.amber ?? AppColors.emotionAccent,
+            ),
+            const SizedBox(height: 12),
+            RealismEmotionCard(
+              emotion: emotion,
+              onEmotionChanged: onEmotionChanged,
+              emotionIntensity: emotionIntensity,
+              onEmotionIntensityChanged: onEmotionIntensityChanged,
+              labelStyle: labelStyle,
+            ),
+          ],
           const SizedBox(height: 20),
           RealismSectionHeader(
             Icons.tune,
@@ -364,6 +405,14 @@ class RealismFormSection extends StatelessWidget {
             intimateInto: intimateInto ?? const [],
             intimateNotInto: intimateNotInto ?? const [],
             showChargenSuggestion: showChargenSuggestion,
+            afterglowEnabled: afterglowEnabled,
+            onAfterglowChanged: onAfterglowChanged,
+            afterglowLabel: afterglowLabel,
+            afterglowSubtitle: afterglowSubtitle,
+            chaosLine: memberRows?.chaos,
+            afterglowLine: memberRows?.afterglow,
+            needsDirectorAuthority: needsDirectorAuthority,
+            onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),
         ],
         if (showChaosToggle && !enabled) ...[

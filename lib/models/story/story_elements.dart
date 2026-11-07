@@ -307,6 +307,10 @@ class StoryScene {
   /// What actually happened, written by the archivist after the prose.
   String summary;
 
+  /// The Living Worlds place this scene happens in, when the planner named
+  /// one the story's world has; empty when [location] is free text.
+  String placeId;
+
   StoryScene({
     required this.number,
     this.title = '',
@@ -329,6 +333,7 @@ class StoryScene {
     this.entry = '',
     this.exit = '',
     this.summary = '',
+    this.placeId = '',
   }) : causality = causality ?? SceneCausality();
 
   Map<String, dynamic> toJson() => {
@@ -353,6 +358,7 @@ class StoryScene {
     if (entry.isNotEmpty) 'entry': entry,
     if (exit.isNotEmpty) 'exit': exit,
     if (summary.isNotEmpty) 'summary': summary,
+    if (placeId.isNotEmpty) 'place_id': placeId,
   };
 
   factory StoryScene.fromJson(Map<String, dynamic> json) => StoryScene(
@@ -384,6 +390,7 @@ class StoryScene {
     entry: json['entry']?.toString() ?? '',
     exit: json['exit']?.toString() ?? '',
     summary: json['summary']?.toString() ?? '',
+    placeId: json['place_id']?.toString() ?? '',
   );
 }
 

@@ -24,6 +24,7 @@ export 'director_section.dart';
 export 'lore_section.dart';
 export 'relationships_section.dart';
 export 'run_log_section.dart';
+export 'story_world_lookup.dart';
 export 'studio_sidebar.dart';
 export 'studio_buttons.dart';
 export 'studio_cards.dart';

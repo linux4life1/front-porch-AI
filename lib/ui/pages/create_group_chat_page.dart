@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -85,14 +86,27 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     return service;
   }
 
+  /// Where the Setting step put the group, for the generator to write in.
+  String _settingBrief() {
+    final worlds = Provider.of<WorldRepository>(context, listen: false);
+    return groupSettingBrief(
+      _draft.worldChoice,
+      lookup: worlds.worldById,
+      weatherOf: groupWeatherLabels(worlds),
+    );
+  }
+
   Future<void> _generateScenario({String dynamicsContext = ''}) async {
     final service = _readyService();
     if (service == null) return;
+    final settingBrief = _settingBrief();
     _draft.update(() => _draft.isGeneratingScenario = true);
     try {
-      final result = await GroupOpeningGenerator(
-        service,
-      ).scenario(members: _draft.members, dynamicsContext: dynamicsContext);
+      final result = await GroupOpeningGenerator(service).scenario(
+        members: _draft.members,
+        dynamicsContext: dynamicsContext,
+        settingBrief: settingBrief,
+      );
       if (result.isNotEmpty) {
         _draft.scenarioController.text = result;
       }
@@ -106,6 +120,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
   Future<void> _generateFirstMessage({String dynamicsContext = ''}) async {
     final service = _readyService();
     if (service == null) return;
+    final settingBrief = _settingBrief();
     _draft.update(() => _draft.isGeneratingFirst = true);
     try {
       final result = await GroupOpeningGenerator(service).firstMessage(
@@ -113,6 +128,7 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         scenario: _draft.scenarioController.text,
         isDirector: _draft.directorMode,
         dynamicsContext: dynamicsContext,
+        settingBrief: settingBrief,
       );
       if (result.isNotEmpty) {
         _draft.firstMessageController.text = result;
@@ -126,17 +142,34 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
 
   // ── COMMIT ─────────────────────────────────────────────────────────
 
+  /// True from a Create tap until its save ends. A fast double click lands
+  /// its second tap before any rebuild, and must not make a second group.
+  bool _creating = false;
+
   /// Persist the new group and optionally open the chat.
   Future<void> _createGroup({bool enterChat = true}) async {
+    if (_creating) return;
+    _creating = true;
+    try {
+      await _commitGroup(enterChat: enterChat);
+    } catch (e, st) {
+      debugPrint('[CreateGroup] create failed: $e\n$st');
+      _showSnack('Could not create the group: $e');
+    } finally {
+      _creating = false;
+    }
+  }
+
+  Future<void> _commitGroup({required bool enterChat}) async {
     if (_draft.members.length < 2) {
       _showSnack('A group needs at least 2 characters.');
-      _draft.goToStep(0);
+      _draft.goToStep(GroupWizardSteps.members);
       return;
     }
     final name = _draft.nameController.text.trim();
     if (name.isEmpty) {
       _showSnack('Please give the group a name.');
-      _draft.goToStep(1);
+      _draft.goToStep(GroupWizardSteps.identity);
       return;
     }
 
@@ -196,20 +229,25 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
     Widget scroll(Widget child, {double padding = 32}) =>
         SingleChildScrollView(padding: EdgeInsets.all(padding), child: child);
     return switch (d.currentStep) {
-      0 => scroll(GroupMembersStep(draft: d, actions: a), padding: 24),
-      1 => scroll(GroupIdentityStep(draft: d, actions: a)),
-      2 => scroll(GroupPromptsStep(draft: d, actions: a)),
-      3 => scroll(GroupLoreStep(draft: d, actions: a)),
-      4 => scroll(GroupRealismStep(draft: d, actions: a)),
-      5 =>
-        d.members.length <= 4
-            ? scroll(GroupDynamicsStep(draft: d, actions: a))
-            : Center(
-                child: GroupDynamicsDisabledNotice(
-                  memberCount: d.members.length,
-                ),
-              ),
-      6 => scroll(GroupOpeningStep(draft: d, actions: a)),
+      GroupWizardSteps.members => scroll(
+        GroupMembersStep(draft: d, actions: a),
+        padding: 24,
+      ),
+      GroupWizardSteps.identity => scroll(
+        GroupIdentityStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.setting => scroll(
+        GroupSettingStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.opening => scroll(
+        GroupOpeningStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.realism => scroll(
+        GroupRealismStep(draft: d, actions: a),
+      ),
+      GroupWizardSteps.promptsLore => scroll(
+        GroupPromptsLoreStep(draft: d, actions: a),
+      ),
       _ => scroll(GroupReviewStep(draft: d, actions: a)),
     };
   }
@@ -239,11 +277,26 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
               size: 22,
             ),
             const SizedBox(width: 10),
-            const Text('Create Group Chat'),
-            const Spacer(),
-            GroupWizardStepIndicator(
-              currentStep: _draft.currentStep,
-              memberCount: _draft.members.length,
+            const Flexible(
+              child: Text(
+                'Create Group Chat',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 16),
+            // The dots outgrow a narrow window; they scroll instead of
+            // overflowing the bar.
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: GroupWizardStepIndicator(
+                    currentStep: _draft.currentStep,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

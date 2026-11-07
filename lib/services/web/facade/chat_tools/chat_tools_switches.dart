@@ -16,8 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// The plain toggles: engine, needs, one-shot, chaos, passage of time,
 /// Director, wiki base. Each writes the same setting the
@@ -41,6 +43,29 @@ class ChatToolsSwitches {
   Future<void> setNeedsEnabled(bool v) async {
     await _chat.setNeedsSimEnabled(v);
     _notify();
+  }
+
+  /// Live in-chat Pockets & Wardrobe toggle for THIS chat
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). The PWA shows the same
+  /// freeze confirmation the desktop dialog shows before calling with
+  /// false; the setter retains the record and stops every pockets model
+  /// call, so no catch-up happens either side.
+  Future<void> setPocketsEnabled(bool v) async {
+    await _chat.setPocketsEnabled(v);
+    _notify();
+  }
+
+  /// A group member's own Pockets switch in this chat — the web twin of
+  /// the sidebar member-card line, one member at a time. False when [id]
+  /// is not a member, so the route can reject a bad id.
+  Future<bool> setMemberPockets(String id, bool v) async {
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      await _chat.setMemberPocketsEnabled(id, v);
+      _notify();
+      return true;
+    }
+    return false;
   }
 
   /// Legacy bool One-Shot toggle — kept so an older PWA bundle's toggle keeps
@@ -69,6 +94,40 @@ class ChatToolsSwitches {
   Future<void> setChaosNsfw(bool v) async {
     await _chat.setChaosNsfwEnabled(v);
     _notify();
+  }
+
+  /// This chat's own Afterglow switch (1:1 or group).
+  Future<void> setAfterglow(bool v) async {
+    await _chat.setAfterglowEnabled(v);
+    _notify();
+  }
+
+  /// A group member's own Afterglow switch. False when [id] is not a member.
+  Future<bool> setMemberAfterglow(String id, bool v) async {
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      await _chat.setMemberAfterglowEnabled(c, v);
+      _notify();
+      return true;
+    }
+    return false;
+  }
+
+  /// A group member's Recovery block. False when [id] is not a member or
+  /// [fields] is not a Recovery block, so a bare call resets nothing.
+  Future<bool> setMemberRecovery(String id, Object? fields) async {
+    if (fields is! Map) return false;
+    for (final c in _chat.groupCharacters) {
+      if (groupMemberStoreId(c) != id) continue;
+      c.frontPorchExtensions =
+          (c.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+            recovery: RecoveryProfile.fromFields(fields),
+          );
+      await _chat.persistGroupMemberExtensions(memberId: id);
+      _notify();
+      return true;
+    }
+    return false;
   }
 
   Future<void> setPassageOfTime(bool v) async {

@@ -8,10 +8,13 @@ import { CastBar } from '../components/CastBar';
 import { DirectorStrip, ExitUndoBar } from '../components/DirectorStrip';
 import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
+import { composerDraftOwnerKey, composerDraftSessionKey } from '../composerDraft';
 import { ChatInsight } from '../components/ChatInsight';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
 import { ChatThemeSettings } from '../components/ChatThemeSettings';
 import { PromptSourcePickerModal, PromptSourceSettings } from '../components/PromptSource';
+import { ChatGenerationSection } from '../components/genPresets/ChatGenerationSection';
+import { GenPresetChatToast } from '../components/genPresets/GenPresetChatToast';
 import { ProcessingOverlay } from '../components/ProcessingOverlay';
 import { useEvaluationView } from '../components/useEvaluationView';
 import { type Realism } from '../components/chatTypes';
@@ -21,6 +24,9 @@ import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
 import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
 import { SceneBackdrop, parseSceneBackdrop } from './chat/SceneBackdrop';
+import { SceneSkyCanvas, useSceneSky } from './chat/SceneSkyCanvas';
+import { moodLookOf, moodPaintsOf } from '../theme/moodAtmosphere';
+import { usePaintedThemeMode } from '../theme/usePaintedThemeMode';
 import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
@@ -57,6 +63,11 @@ export function ChatPage() {
   } = send;
   // The Ambient Stage's sound: the scene's loop, thunder on the canvas's flashes.
   const sceneSound = useSceneSound(state?.scene);
+  // Generating covers the settling post-gen passes and the stream, so the
+  // stage's pause rule sees the whole reply.
+  const sceneGenerating = !!state?.isGenerating || !!state?.isSettlingTurn || streaming !== '';
+  // The story-clock sky: one player for the two canvases in the view below.
+  const sky = useSceneSky(state?.scene, sceneGenerating);
 
   // Living Time §2: sessions whose welcome-back banner was dismissed (ephemeral).
   const [absenceDismissed, setAbsenceDismissed] = useState<Set<string>>(new Set());
@@ -82,6 +93,23 @@ export function ChatPage() {
   });
   // Composer draft mirror — powers the lorebook "would trigger next" preview.
   const [draft, setDraft] = useState('');
+  // Draft persistence box (composerDraft.ts): a never-sent chat (no user
+  // line yet — the greeting is her voice) keys by owner so the next new
+  // chat offers the line back; once a message has been sent the draft
+  // rides the session, matching where the desktop stores it on its row.
+  const composerHasUserLine = useMemo(
+    () => (state?.messages ?? []).some((m) => m.isUser),
+    [state?.messages],
+  );
+  const draftBox = useMemo(() => {
+    const owner = state?.groupId ? `group_${state.groupId}` : state?.character?.id;
+    if (!owner) return null;
+    return {
+      sessionKey: composerDraftSessionKey(state?.sessionId ?? owner),
+      ownerKey: composerDraftOwnerKey(owner),
+      fresh: !composerHasUserLine,
+    };
+  }, [state?.sessionId, state?.groupId, state?.character?.id, composerHasUserLine]);
   // Resizable insight sidebar (desktop) — width persists across sessions.
   const [asideWidth, setAsideWidth] = useState<number>(() => {
     const v = typeof localStorage !== 'undefined' ? localStorage.getItem('fpai.asideWidth') : null;
@@ -179,6 +207,17 @@ export function ChatPage() {
     () => new Map((state?.cast ?? []).map((c) => [c.id, c])),
     [state?.cast],
   );
+  // Mood on the character: the level, the Drama and the desktop's colours
+  // for the mode this page paints, for the insight panel and the bubbles.
+  const paintedMode = usePaintedThemeMode();
+  const moodLevel = state?.moodOnCharacter;
+  const moodDrama = state?.moodDrama;
+  const moodPaintsWire = state?.moodPaints;
+  const moodLook = useMemo(
+    () => moodLookOf({ moodOnCharacter: moodLevel, moodDrama }),
+    [moodLevel, moodDrama],
+  );
+  const moodPaints = useMemo(() => moodPaintsOf(moodPaintsWire, paintedMode), [moodPaintsWire, paintedMode]);
 
   if (!state || opening || switching || state.isLoadingSession) {
     if (loadError && !opening) {
@@ -221,9 +260,16 @@ export function ChatPage() {
   // host, else the first cast member.
   const focused = cast.find((c) => c.id === focusedId) ?? cast.find((c) => c.isHost) ?? cast[0];
   const title = state.chatTitle || state.character?.name || 'Chat';
-  // Editing targets a real library character — the 1:1 host or a scene guest,
-  // never a group member (denormalized copies aren't web-editable).
+  // Edit opens the library card for the 1:1 host or a scene guest, and the
+  // group's own copy for a group member (the member editor).
   const editId = !state.isGroupMode ? focused?.dbId ?? state.character?.id : undefined;
+  const editPath = state.isGroupMode
+    ? focused?.dbId && state.groupId
+      ? `/groups/${state.groupId}/members/${focused.dbId}/edit`
+      : undefined
+    : editId
+      ? `/edit/${editId}`
+      : undefined;
   // A lite scene guest has no realism of its own. Falling through to
   // `state.realism` here showed the HOST's bond/trust/needs under the
   // guest's name; desktop shows a 'Lite NPC' banner instead.
@@ -233,6 +279,8 @@ export function ChatPage() {
   const insight = realismForPanel ? (
     <ChatInsight
       realism={realismForPanel}
+      moodLook={moodLook}
+      moodPaints={moodPaints}
       focusedIsLiteGuest={focusedIsLiteGuest}
       lorebook={state.lorebook}
       groupLorebookUnreadable={state.groupLorebookUnreadable}
@@ -272,8 +320,11 @@ export function ChatPage() {
       <div className="chat-view">
         {/* The Setting place's picture, under everything else. */}
         <SceneBackdrop backdrop={parseSceneBackdrop(state.sceneBackdrop)} />
+        {/* The story-clock sky under the weather, its sun and moon over it. */}
+        <SceneSkyCanvas player={sky} layer="under" />
         {/* The Ambient Stage's moving weather, behind every other child. */}
-        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} onFlash={sceneSound.onFlash} />
+        <SceneEffectsCanvas scene={state.scene} generating={sceneGenerating} onFlash={sceneSound.onFlash} />
+        <SceneSkyCanvas player={sky} layer="over" />
         <ChatHeader
           title={title}
           focused={focused}
@@ -282,7 +333,7 @@ export function ChatPage() {
           characterId={state.character?.id}
           isPhone={isPhone}
           hasStats={!!insight}
-          onEdit={editId ? () => navigate(`/edit/${editId}`) : undefined}
+          onEdit={editPath ? () => navigate(editPath) : undefined}
           onStats={() => setShowStats(true)}
           onPersona={() => setShowPersona(true)}
           onTheme={() => setShowTheme(true)}
@@ -346,6 +397,7 @@ export function ChatPage() {
           onRetryStopped={() => void regenerate()}
           onDismissStopped={() => void dismissStoppedReply()}
         />
+        <GenPresetChatToast />
         {state.absencePhrase && state.sessionId && !absenceDismissed.has(state.sessionId) && (
           <div className="absence-banner">
             <span className="absence-banner-icon">🕰️</span>
@@ -375,6 +427,9 @@ export function ChatPage() {
               messages={state.messages}
               castById={castById}
               multiCast={multiCast}
+              moodLook={moodLook}
+              moodPaints={moodPaints}
+              liveMood={state.realism ? { emotion: state.realism.emotion, intensity: state.realism.emotionIntensity, held: state.realism.emotionHeld ?? 0 } : null}
               lastIndex={lastIndex}
               busy={state.isGenerating}
               settling={!!state.isSettlingTurn}
@@ -460,6 +515,7 @@ export function ChatPage() {
           apiReady={state.llmReady !== false}
           apiHint={state.llmHint}
           directing={!!state.director?.directing}
+          draftBox={draftBox}
         />
       </div>
 
@@ -539,6 +595,7 @@ export function ChatPage() {
                 onFailed={reportActionFailure}
               />
             )}
+            <ChatGenerationSection />
             <ChatThemeSettings
               overrides={state.themeOverrides ?? null}
               onSave={async (overrides) => {

@@ -17,5 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 export 'chaos_event.dart';
+export 'chance_spin.dart';
 export 'chaos_frequency.dart';
 export 'chaos_pools.dart';

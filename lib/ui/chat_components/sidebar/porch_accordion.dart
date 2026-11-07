@@ -57,6 +57,10 @@ class PorchAccordion extends StatefulWidget {
   /// the accordion.
   final Widget? trailing;
 
+  /// The reorder grip (a [SidebarReorderHandle]) when this accordion sits in a
+  /// reorderable list — wrapped opaque so a grip tap never toggles either.
+  final Widget? dragHandle;
+
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
   final Widget child;
@@ -74,6 +78,7 @@ class PorchAccordion extends StatefulWidget {
     this.subtitle,
     required this.accent,
     this.trailing,
+    this.dragHandle,
     this.initiallyExpanded = false,
     this.onExpansionChanged,
     required this.child,
@@ -147,6 +152,14 @@ class PorchAccordionState extends State<PorchAccordion> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.dragHandle != null)
+                      // Opaque so a grip tap never toggles expansion.
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {},
+                        child: widget.dragHandle!,
+                      ),
+                    const SizedBox(width: 4),
                     AnimatedRotation(
                       turns: _expanded ? 0.25 : 0.0,
                       duration: const Duration(milliseconds: 150),

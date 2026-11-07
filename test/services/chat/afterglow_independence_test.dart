@@ -44,6 +44,8 @@
 //      The full unit and golden suites were GREEN on that version. Nothing
 //      tested when it ran. That is what the second group is for.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -54,6 +56,8 @@ import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
+import 'package:front_porch_ai/services/group_turn_manager.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -297,12 +301,12 @@ void main() {
           isUser: false,
         ),
       ];
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => GroupChat(id: 'g1', name: 'The porch'),
-        groupCharacters: () => [ada, vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera
+          ..groupManager = (GroupTurnManager()
+            ..enterGroup(GroupChat(id: 'g1', name: 'The porch'), [ada, vera])),
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -412,12 +416,12 @@ void main() {
           isUser: false,
         ),
       ];
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => GroupChat(id: 'g1', name: 'The porch'),
-        groupCharacters: () => [ada, vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera
+          ..groupManager = (GroupTurnManager()
+            ..enterGroup(GroupChat(id: 'g1', name: 'The porch'), [ada, vera])),
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -546,12 +550,10 @@ void main() {
               required buildPrompt,
             }) async => '{"is_climax":true,"refractory_turns":$judgeTurns}',
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -723,12 +725,10 @@ void main() {
               return verdict;
             },
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -918,12 +918,10 @@ void main() {
               required buildPrompt,
             }) async => '{"is_climax":true,"refractory_turns":6}',
       );
-      final scope = RealismScope(
-        messages: messages,
-        activeCharacter: () => vera,
-        setActiveCharacter: (_) {},
-        activeGroup: () => null,
-        groupCharacters: () => [vera],
+      final scope = RealismScope.of(
+        session: ChatSessionState()
+          ..messages.addAll(messages)
+          ..activeCharacter = vera,
         observerMode: () => false,
         realismEnabled: () => true,
         needsSimEnabled: () => false,
@@ -1113,5 +1111,86 @@ void main() {
       expect(window(history, speakerId: 'Vera'), isTrue);
       expect(window(history, speakerId: 'Bo'), isFalse);
     });
+  });
+
+  // The standalone judge call (one bookkeeping question live, as in a group
+  // in Director mode with Pockets off) is the pass's only await: a chat
+  // switched off while it is out must not take the climax it answers.
+  test('Afterglow switched off while the climax judge is out: the climax '
+      'lands nothing', () async {
+    var switchedOn = true;
+    final nsfw = NsfwService(
+      getGroupInt: (id, key) => 0,
+      getGroupValue: (id, key) => null,
+      setGroupValue: (id, key, v) {},
+      afterglowOn: () => switchedOn,
+    );
+    nsfw.loadNsfwScalars(arousalLevel: 80, nsfwCooldownEnabled: true);
+    final mara = CharacterCard(name: 'Mara')..dbId = 'mara';
+    final verdict = Completer<String?>();
+    final eval = ClimaxEval(
+      fire: ({required debugLabel, required tools, required buildPrompt}) =>
+          verdict.future,
+    );
+    final messages = [
+      ChatMessage(
+        text: 'she shuddered and went limp',
+        sender: 'Mara',
+        isUser: false,
+      ),
+    ];
+    final scope = RealismScope.of(
+      session: ChatSessionState()
+        ..messages.addAll(messages)
+        ..activeCharacter = mara,
+      observerMode: () => false,
+      realismEnabled: () => true,
+      needsSimEnabled: () => false,
+      realismSettings: () => throw UnimplementedError(),
+      clockRunning: () => false,
+      characterIdFor: (c) => c.dbId ?? '',
+      groups: GroupRealismStore(
+        isGroup: () => false,
+        groupCharacters: () => const [],
+        characterIdFor: (c) => c.dbId ?? '',
+        hostId: () => 'mara',
+        activeCharacter: () => mara,
+        isGenerating: () => false,
+        nextCharacter: () => null,
+        workFieldsFor: (_) => throw UnimplementedError(),
+      ),
+      needs: () => throw UnimplementedError(),
+      relationship: () => throw UnimplementedError(),
+      nsfw: () => nsfw,
+      time: () => throw UnimplementedError(),
+      pending: () => null,
+      setPending: (_) {},
+      emotion: () => '',
+      setEmotion: (_) {},
+      intensity: () => '',
+      setIntensity: (_) {},
+      cause: () => '',
+      setCause: (_) {},
+      heldTurns: () => 0,
+      setHeldTurns: (_) {},
+      saveChat: () async {},
+      notify: () {},
+    );
+    final pass = AfterglowPass(
+      scope,
+      eval,
+      fusedReply: () => null,
+      isGuestAuthoredMessage: (_) => false,
+      resolveGroupSpeakerForMessage: (_) => null,
+    );
+
+    final running = pass.runClimaxPass('she shuddered and went limp');
+    await Future<void>.delayed(Duration.zero);
+    switchedOn = false;
+    verdict.complete('{"is_climax":true,"refractory_turns":2}');
+    await running;
+
+    expect(nsfw.refractory.running, isFalse);
+    expect(messages.single.activeMetadata?['climax_triggered'], isNull);
   });
 }

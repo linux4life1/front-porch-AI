@@ -110,6 +110,14 @@ abstract final class GroupRealismKeys {
   /// strictly session-scoped, so living in the session's own state blob means
   /// it is deleted with the chat by construction rather than by a cleanup job.
   static const pockets = 'pockets';
+
+  /// This member's own Pockets switch in THIS chat
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Absent means the chat
+  /// predates the per-chat switch or was never seeded: readers fall back to
+  /// the card default, and the entry seed writes the derived value once.
+  /// Like [pockets], deliberately absent from [runtime] — only the typed
+  /// accessor may touch it.
+  static const pocketsSwitch = 'pockets_switch';
   static const relationships = 'relationships';
 
   /// Everything the generic bridges ([GroupMemberRealism.valueFor] /
@@ -316,9 +324,21 @@ class GroupMemberRealism {
     }
   }
 
+  /// This member's Pockets switch for this chat. Absent (null) means never
+  /// seeded — the entry seed derives it once from the group default AND the
+  /// card flag, exactly like [nsfwCooldownEnabled] is per-member and
+  /// per-chat. Written false keeps the record; hide, never erase.
+  bool? get pocketsSwitch => _bool(GroupRealismKeys.pocketsSwitch);
+  set pocketsSwitch(bool? v) {
+    if (v == null) {
+      _data.remove(GroupRealismKeys.pocketsSwitch);
+    } else {
+      _data[GroupRealismKeys.pocketsSwitch] = v;
+    }
+  }
+
   Map<String, int>? get needs => _intMap(GroupRealismKeys.needs);
   set needs(Map<String, int>? v) => _data[GroupRealismKeys.needs] = v;
-
   Map<String, double> get needsWearCarry {
     final raw = _data[GroupRealismKeys.needsWearCarry];
     return raw is Map ? wearCarryFrom(raw) : const {};

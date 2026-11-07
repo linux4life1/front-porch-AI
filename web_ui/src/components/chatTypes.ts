@@ -91,6 +91,11 @@ export interface Realism {
    * so those clients keep their current behaviour rather than going blank.
    */
   realismEnabled?: boolean;
+  /** Sent only while Realism is off: false when Porch Life is what stops it. */
+  realismAllowed?: boolean;
+  /** Sent only while Realism is off: the chat's own switch. On (with Porch
+   *  Life allowing it) is a change waiting for the reply to finish. */
+  realismSwitch?: boolean;
   bond: { score: number; tier: string; percent: number };
   longTerm: { score: number; tier: string; percent: number };
   trust: { level: number; tier: string; percent: number };
@@ -104,12 +109,23 @@ export interface Realism {
   emotionHeld?: number;
   moodLine?: string;
   arousal: { level: number; tier: string };
+  /** Afterglow runs in this chat: Porch Life (with 18+) allows it and the
+   *  chat's own switch is on. The Lust line shows only then, as the desktop's
+   *  Lust bar; an older server sends none and the line stays hidden. */
+  lustOn?: boolean;
+  /** The recovery countdown under the Lust line, in the desktop's words
+   *  (this member's own in a group); empty or absent when none runs. */
+  refractoryLabel?: string;
+  /** A group member's own face label: the cache key for their portrait. */
+  expressionLabel?: string;
   fixation: string;
   needsEnabled: boolean;
   needs: Record<string, number>;
   /** The engine's band cutoffs for the bar colours; absent on older servers. */
   needsUrgentAt?: number;
   needsCriticalAt?: number;
+  /** The card's "Enjoys low hygiene": Mood on the character inverts the hygiene bar. */
+  enjoysLowHygiene?: boolean;
 }
 
 export interface LoreEntry {

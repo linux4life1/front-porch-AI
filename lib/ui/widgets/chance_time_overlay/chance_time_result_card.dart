@@ -16,12 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show ChaosCategory;
 import 'package:front_porch_ai/ui/theme/chance_time_palette.dart';
-import 'package:front_porch_ai/ui/widgets/chance_time/chance_time.dart';
 
 /// The reveal animation a landed category plays. The wheel has four; newer
 /// [ChaosCategory] kinds borrow the closest one while keeping their own label.
@@ -62,10 +59,6 @@ class ChanceTimeResultCard extends StatelessWidget {
 
     return Column(
       children: [
-        // ── Reveal splash ───────────────────────────────────────────────
-        _revealSplash(cat, catColor),
-        const SizedBox(height: 6),
-
         // ── Category banner ─────────────────────────────────────────────
         AnimatedBuilder(
           animation: reveal,
@@ -170,86 +163,6 @@ class ChanceTimeResultCard extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _revealSplash(ChanceTimeRevealEffect cat, Color catColor) {
-    return AnimatedBuilder(
-      animation: reveal,
-      builder: (context, _) {
-        final t = reveal.value;
-        return SizedBox(
-          height: 56,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Category-specific background pulse
-              if (cat == ChanceTimeRevealEffect.fortune ||
-                  cat == ChanceTimeRevealEffect.misfortune)
-                Opacity(
-                  opacity: (1 - t).clamp(0.0, 0.6),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: catColor.withValues(alpha: 0.25),
-                    ),
-                  ),
-                ),
-
-              // Fortune: confetti
-              if (cat == ChanceTimeRevealEffect.fortune)
-                Positioned.fill(
-                  child: CustomPaint(painter: ConfettiPainter(progress: t)),
-                ),
-
-              // Chaos: lightning strobe flash
-              if (cat == ChanceTimeRevealEffect.chaos)
-                Opacity(
-                  opacity: (sin(t * pi * 6) * 0.5 + 0.5) * (1 - t),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      color: ChanceTimePalette.gold.withValues(alpha: 0.35),
-                    ),
-                  ),
-                ),
-
-              // Wild card: purple shimmer sweep
-              if (cat == ChanceTimeRevealEffect.wildCard)
-                Positioned(
-                  left: (MediaQuery.of(context).size.width * 1.4 * t) - 60,
-                  child: Container(
-                    width: 60,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.transparent,
-                          ChanceTimePalette.wildCard.withValues(
-                            alpha: 0.5 * (1 - t),
-                          ),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Big bouncing category emoji
-              Transform.scale(
-                scale: t < 0.4
-                    ? (t / 0.4) * 1.2
-                    : 1.2 - ((t - 0.4) / 0.6) * 0.2,
-                child: Text(
-                  (kind ?? ChaosCategory.wildCard).emoji,
-                  style: const TextStyle(fontSize: 36),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
     );
   }
 }

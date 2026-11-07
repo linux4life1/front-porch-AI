@@ -18,6 +18,8 @@
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show NeedsSimulation, moodDisplayLine, visibleNeedsFor;
+import 'package:front_porch_ai/services/avatar_gallery.dart'
+    show expressionsFrom;
 import 'package:front_porch_ai/services/services.dart';
 
 /// Realism-READ leaf for [ChatFacade] (web server). Pure reads of existing
@@ -41,6 +43,14 @@ class ChatRealismRead {
       if (p.id != participantId) continue;
       if (!p.realismEnabled) return {'realismEnabled': false};
       if (p.isHost) return {'realismEnabled': true, ...snapshot()};
+      // A member's stats show while the group chat's Realism runs, as on the
+      // desktop's member card; Porch Life is named when it is what stops it.
+      if (!_chat.realismEnabled) {
+        return {
+          'realismEnabled': false,
+          'realismAllowed': _chat.realismAllowed,
+        };
+      }
       final card = p.card;
       final rel = _chat.relationshipService;
       final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
@@ -48,7 +58,10 @@ class ChatRealismRead {
       final memberMood = _chat.getMoodForGroupCharacter(card);
       final bondScore = _chat.getAffectionForGroupCharacter(card);
       final trustLevel = _chat.getTrustForGroupCharacter(card);
-      final arousalLevel = _chat.getArousalForGroupCharacter(card);
+      // Afterglow off hides this member's Lust and recovery and keeps them:
+      // the feed carries neither until it runs again, as the card shows.
+      final lustOn = _chat.afterglowRunsFor(card);
+      final arousalLevel = lustOn ? _chat.getArousalForGroupCharacter(card) : 0;
       // Per-member tier names + bar percents via the shared relationship/nsfw
       // scale helpers, so a group member's stats read IDENTICALLY to the 1:1 host
       // (no blank tiers / empty bars).
@@ -88,6 +101,20 @@ class ChatRealismRead {
           'level': arousalLevel,
           'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
         },
+        // The Lust line shows while Afterglow runs for this member, as the
+        // desktop's member card does.
+        'lustOn': lustOn,
+        // Their own recovery under it, and their own face's label (the
+        // portrait's cache key), read only while a face can show: a label
+        // read can ask the LLM. Both additive.
+        'refractoryLabel': lustOn
+            ? _chat.getRefractoryForGroupCharacter(card).chip
+            : '',
+        'expressionLabel':
+            _chat.expressionsEnabled &&
+                expressionsFrom(card.avatarImages).isNotEmpty
+            ? (_chat.expressionLabelFor(card) ?? '')
+            : '',
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
         // Gate needs on the SAME flag the host path uses (see snapshot()):
         // getNeedsForGroupCharacter always returns a full vector while group
@@ -101,6 +128,9 @@ class ChatRealismRead {
         // the desktop cannot disagree (needs_bar.dart reads the same two).
         'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
         'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
+        // Mood on the character inverts this member's hygiene bar. Additive.
+        'enjoysLowHygiene':
+            card.frontPorchExtensions?.enjoysLowHygiene ?? false,
       };
     }
     return null;
@@ -118,8 +148,14 @@ class ChatRealismRead {
       // PRESERVES the last numbers rather than zeroing them, so without this
       // flag the web panel had no way to tell a live score from a frozen one —
       // it rendered the full dashboard forever while desktop replaced it with
-      // "Realism Mode is off". Additive and nullable-safe for older clients.
+      // "The Realism Engine is off for this chat". Additive and nullable-safe for older clients.
       'realismEnabled': _chat.realismEnabled,
+      // Additive, sent only while it is off: false when Porch Life is what
+      // stops it, so the panel says where to look (desktop Character State).
+      if (!_chat.realismEnabled) 'realismAllowed': _chat.realismAllowed,
+      // Also only while off: the chat's own switch. On, with Porch Life
+      // allowing it, is a change waiting for the reply to finish.
+      if (!_chat.realismEnabled) 'realismSwitch': _chat.realismChatSwitch,
       'bond': {
         'score': rel.affectionScore,
         'tier': rel.shortTermTierName,
@@ -143,7 +179,16 @@ class ChatRealismRead {
       'emotionCause': _chat.emotionCause,
       'emotionHeld': _chat.emotionHeldTurns,
       'moodLine': _chat.moodLine,
-      'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
+      // Hidden and kept while Afterglow is off: the feed carries none of it.
+      'arousal': nsfw.nsfwCooldownEnabled
+          ? {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName}
+          : {'level': 0, 'tier': nsfw.arousalTierNameForLevel(0)},
+      'lustOn': nsfw.nsfwCooldownEnabled,
+      // The desktop's line under the Lust bar (additive; empty when none).
+      // In a group the live scalars hold whoever was loaded last, so none.
+      'refractoryLabel': nsfw.nsfwCooldownEnabled && !_chat.isGroupMode
+          ? nsfw.refractoryWords.chip
+          : '',
       'fixation': rel.activeFixation,
       // The bars show while Needs run (the gate, not the chat's stored
       // switch): with Realism or either Needs switch off they would sit
@@ -154,6 +199,10 @@ class ChatRealismRead {
           : <String, int>{},
       'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
       'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
+      // Mood on the character inverts the hygiene bar. Additive.
+      'enjoysLowHygiene':
+          _chat.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
+          false,
     };
   }
 }

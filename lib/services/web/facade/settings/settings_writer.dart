@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_sidebar_order.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 
@@ -108,6 +109,18 @@ class SettingsWriter {
     if (sceneVolume is num && sceneVolume.isFinite) {
       await _storage.appearance.setSceneSoundVolume(sceneVolume.toDouble());
     }
+    // Appearance → Mood on the character; only a key this build knows.
+    final mood = body['moodOnCharacter'];
+    if (mood is String && MoodOnCharacter.values.any((v) => v.key == mood)) {
+      await _storage.appearance.setMoodOnCharacter(
+        MoodOnCharacter.fromKey(mood),
+      );
+    }
+    // Drama; the setter holds it to the slider's range.
+    final drama = body['moodDrama'];
+    if (drama is num && drama.isFinite) {
+      await _storage.appearance.setMoodDrama(drama.toDouble());
+    }
     // Bubble Opacity, held to the desktop slider's 0.1..1 range.
     final opacity = body['bubbleOpacity'];
     if (opacity is num && opacity.isFinite) {
@@ -120,6 +133,10 @@ class SettingsWriter {
     if (follow is bool) {
       await _storage.uiSettings.setFollowStreamingReplies(follow);
     }
+
+    // The chat sidebar's remembered order, per surface (split out of this
+    // near-cap file: settings_sidebar_order.dart).
+    await applySidebarOrderWrite(_storage, body);
 
     final realism = body['realism'];
     if (realism is Map) {
@@ -140,6 +157,10 @@ class SettingsWriter {
       final rd = realism['realismDefault'];
       if (rd is bool) {
         await _storage.realismSettings.setRealismDefault(rd);
+      }
+      final allowed = realism['realismAllowed'];
+      if (allowed is bool) {
+        await _storage.realismSettings.setRealismAllowed(allowed);
       }
       final nsfw = realism['nsfwCooldownDefault'];
       if (nsfw is bool) {

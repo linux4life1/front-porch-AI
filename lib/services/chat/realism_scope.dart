@@ -13,6 +13,7 @@ import 'package:front_porch_ai/services/chat/group_realism_store.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
+import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 
@@ -21,12 +22,10 @@ import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
 /// call, and the 1:1 host and a group speaker read the same scalars (the
 /// group dance loads the speaker into them).
 class RealismScope {
-  const RealismScope({
-    required this.messages,
-    required this.activeCharacter,
-    required this.setActiveCharacter,
-    required this.activeGroup,
-    required this.groupCharacters,
+  /// The live scope the Realism graph builds, once, over the chat's one
+  /// [ChatSessionState].
+  const RealismScope.of({
+    required this.session,
     required this.observerMode,
     required this.realismEnabled,
     required this.needsSimEnabled,
@@ -52,15 +51,11 @@ class RealismScope {
     required this.notify,
   });
 
-  /// The chat's in-memory message list (the same list object, not a copy).
-  final List<ChatMessage> messages;
-  final CharacterCard? Function() activeCharacter;
-
-  /// The group dance impersonates a speaker through this, and puts the
-  /// previous character back the same way.
-  final void Function(CharacterCard?) setActiveCharacter;
-  final GroupChat? Function() activeGroup;
-  final List<CharacterCard> Function() groupCharacters;
+  /// The open chat: its messages (the same list object, not a copy), the
+  /// active character and the group. The group dance impersonates a speaker
+  /// by writing `session.activeCharacter`, and puts the previous character
+  /// back the same way.
+  final ChatSessionState session;
   final bool Function() observerMode;
 
   /// The chat's Realism Engine switch.

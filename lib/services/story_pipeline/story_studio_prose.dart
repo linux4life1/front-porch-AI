@@ -39,11 +39,14 @@ class StoryStudioProse {
   /// More banned phrases than this in one beat earns a cleanup call.
   static const _bannedTolerance = 2;
 
+  /// The lore for this beat: the scene's place and its parents first
+  /// (nearest wins, as a chat's inclusion rule), then the best matches.
   Future<String> _loreFor(
     StoryProject project,
     int act,
     int index,
     int beat,
+    StoryWorldBrief world,
   ) async {
     final scene = project.scenes[act]![index];
     final plan = project.beats[StoryProjectShape.sceneKey(act, index)]![beat];
@@ -51,6 +54,7 @@ class StoryStudioProse {
       '${scene.title}. ${scene.location}. ${plan.description}',
       StoryLoreIndex.knownAt(project, act, index),
       limit: 4,
+      preferTags: StoryWorldContext.preferTags(world, scene),
     );
     return hits.map((h) => '- ${h.entry.topic}: ${h.entry.detail}').join('\n');
   }
@@ -84,7 +88,9 @@ class StoryStudioProse {
       final label = project.sceneLabel(act, index);
       final stage = 'Writing $label · beat ${beat + 1}';
       final previousProse = StoryAgent.proseBefore(project, act, index, beat);
-      final lore = await _loreFor(project, act, index, beat);
+      final world = _ctx.worldFor(project);
+      final settingNow = StoryWorldContext.settingNow(world, scenes[index]);
+      final lore = await _loreFor(project, act, index, beat, world);
       final small = project.promptTier == PromptTier.smallLocal;
 
       String writePrompt(String? previous, String? feedback) =>
@@ -95,6 +101,7 @@ class StoryStudioProse {
             beat,
             previousProse: previousProse,
             lore: lore,
+            settingNow: settingNow,
             directive: directive,
             previous: previous,
             feedback: feedback,
@@ -129,6 +136,7 @@ class StoryStudioProse {
             beat,
             previousProse: previousProse,
             prose: text,
+            settingNow: settingNow,
           ),
           maxLength: 1536,
           project: project,

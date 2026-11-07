@@ -147,6 +147,67 @@ void main() {
     await pumpForm();
     expect(find.byType(RecoveryBlock), findsNothing, reason: 'needs 18+');
   });
+
+  testWidgets("the character editors' Afterglow switch: how new chats start "
+      'it, with Recovery only while it is on', (tester) async {
+    final storage = FakeStorageService();
+    addTearDown(storage.dispose);
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final asked = <bool>[];
+
+    Future<void> pumpCard({required bool on}) async {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        ChangeNotifierProvider<StorageService>.value(
+          value: storage,
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: RealismOptionalFeaturesCard(
+                  chaosModeEnabled: false,
+                  onChaosModeChanged: (_) {},
+                  realismVerificationEnabled: false,
+                  onRealismVerificationChanged: (_) {},
+                  realismVerificationMaxReprocesses: 1,
+                  onRealismVerificationMaxReprocessesChanged: null,
+                  realismVerificationStrictness: 3,
+                  onRealismVerificationStrictnessChanged: null,
+                  showChaosToggle: true,
+                  showVerificationToggle: false,
+                  recovery: RecoveryProfile.auto,
+                  onRecoveryChanged: (_) {},
+                  afterglowEnabled: on,
+                  onAfterglowChanged: asked.add,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Finder afterglowSwitch() => find.descendant(
+      of: find
+          .ancestor(of: find.text('Afterglow'), matching: find.byType(Row))
+          .first,
+      matching: find.byType(Switch),
+    );
+
+    await pumpCard(on: true);
+    expect(tester.widget<Switch>(afterglowSwitch()).value, isTrue);
+    expect(find.byType(RecoveryBlock), findsOneWidget);
+    await tester.tap(afterglowSwitch());
+    expect(asked, [false]);
+
+    await pumpCard(on: false);
+    expect(tester.widget<Switch>(afterglowSwitch()).value, isFalse);
+    expect(find.byType(RecoveryBlock), findsNothing);
+
+    await storage.realismSettings.setNsfwCooldownDefault(false);
+    await pumpCard(on: true);
+    expect(find.text('Afterglow'), findsNothing, reason: 'absent, not greyed');
+  });
 }
 
 Widget _wrap(RecoveryProfile recovery) => MaterialApp(

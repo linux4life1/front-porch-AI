@@ -37,7 +37,16 @@ class StorySetupPage extends StatefulWidget {
   final String? projectId;
   final StoryChatSource? fromChat;
 
-  const StorySetupPage({super.key, this.projectId, this.fromChat});
+  /// "Write a story here" from the Worlds library: Idea opens with this
+  /// world already picked.
+  final StoryWorldPick? fromWorld;
+
+  const StorySetupPage({
+    super.key,
+    this.projectId,
+    this.fromChat,
+    this.fromWorld,
+  });
 
   @override
   State<StorySetupPage> createState() => _StorySetupPageState();
@@ -79,6 +88,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
       _draft.loadFrom(
         project,
         Provider.of<CharacterRepository>(context, listen: false),
+        worlds: worldsOrNull(context),
       );
       // A draft resumes where it stopped; a finished story reopens every
       // step.
@@ -88,6 +98,8 @@ class _StorySetupPageState extends State<StorySetupPage> {
     }
     final chat = widget.fromChat;
     if (chat != null) _draft.adoptChat(chat);
+    final world = widget.fromWorld;
+    if (world != null) _draft.world = world;
   }
 
   @override

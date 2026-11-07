@@ -42,6 +42,15 @@ class CharacterCard {
   Lorebook? lorebook;
   List<String> worldNames;
 
+  /// Lore-only worlds for new chats; [worldNames] then holds at most the
+  /// Setting. Null means the card was never split: new chats seed
+  /// [worldNames] the legacy way, where climate picks the Setting.
+  List<String>? loreWorldNames;
+
+  /// Every world the card links, Setting and lore alike. A group member row
+  /// has no lore-only field and feeds Inherit, so it stores this union.
+  List<String> get allWorldNames => [...worldNames, ...?loreWorldNames];
+
   /// Per-character TTS voice assignment.
   ///
   /// This must be a valid voice key for the *currently selected* TTS engine
@@ -54,6 +63,14 @@ class CharacterCard {
   String creatorNotes;
   String characterVersion;
   String? dbId; // UUID primary key (runtime only, not serialized)
+
+  /// A group member's library origin, copied from its row's provenance
+  /// (`GroupMember.originLibraryDbId` / `originStableId`). The
+  /// member's own [dbId] and avatar are named after the member, so these are
+  /// the only link back to the library card. Runtime only, never serialized;
+  /// null on library cards.
+  String? originLibraryDbId;
+  String? originStableId;
   DateTime?
   createdAt; // library "date added" from DB (runtime only, not serialized)
   FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults
@@ -81,6 +98,7 @@ class CharacterCard {
     this.folderId,
     this.lorebook,
     this.worldNames = const [],
+    this.loreWorldNames,
     this.ttsVoice,
     this.frontPorchExtensions,
     this.rawExtensions,
@@ -145,6 +163,7 @@ class CharacterCard {
           ? null
           : encodeCharacterBook(lorebook!),
       'world_names': worldNames,
+      'lore_world_names': ?loreWorldNames,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
       if (creator.isNotEmpty) 'creator': creator,
       if (creatorNotes.isNotEmpty) 'creator_notes': creatorNotes,

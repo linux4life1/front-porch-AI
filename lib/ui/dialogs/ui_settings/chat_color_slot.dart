@@ -128,6 +128,9 @@ CharacterCard cloneCharacterWithExtensions(
         ? Lorebook(entries: List.from(character.lorebook!.entries))
         : null,
     worldNames: List.from(character.worldNames),
+    loreWorldNames: character.loreWorldNames == null
+        ? null
+        : List.from(character.loreWorldNames!),
     ttsVoice: character.ttsVoice,
     frontPorchExtensions: extensions,
     rawExtensions: character.rawExtensions != null
@@ -137,13 +140,19 @@ CharacterCard cloneCharacterWithExtensions(
         ? List.from(character.avatarImages!)
         : null,
   )..dbId = character.dbId;
+  // The roster keeps showing the same default face after the swap.
+  updated.primeAvatarIndex = character.primeAvatarIndex;
+  // A group member's only link back to the library card it was copied from.
+  updated
+    ..originLibraryDbId = character.originLibraryDbId
+    ..originStableId = character.originStableId;
   return updated;
 }
 
 /// Applies [mutate] to [character]'s extensions, saves the clone through
-/// [repo], and returns it for the caller to show.
+/// [persist], and returns it for the caller to show.
 Future<CharacterCard> saveCharacterExtension(
-  CharacterRepository repo,
+  Future<void> Function(CharacterCard) persist,
   CharacterCard character,
   FrontPorchExtensions Function(FrontPorchExtensions) mutate,
 ) async {
@@ -155,6 +164,6 @@ Future<CharacterCard> saveCharacterExtension(
     character,
     updatedExtensions,
   );
-  await repo.updateCharacter(updatedCharacter);
+  await persist(updatedCharacter);
   return updatedCharacter;
 }

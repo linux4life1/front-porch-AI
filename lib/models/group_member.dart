@@ -232,7 +232,7 @@ class GroupMember {
     // turn pick / Away see them and Realism/Needs stay off until promote.
     // Promote is the only path that clears the tier.
 
-    return CharacterCard(
+    final card = CharacterCard(
       // group_members.id — persist paths (persistGroupMemberExtensions) are
       // dbId-gated. Leaving this null made Group Settings ext writes no-op.
       dbId: id,
@@ -260,5 +260,9 @@ class GroupMember {
       avatarImages: null,
       primeAvatarIndex: 1,
     );
+    // Provenance rides on the card: its dbId and avatar are the member's own.
+    card.originLibraryDbId = originLibraryDbId;
+    card.originStableId = originStableId;
+    return card;
   }
 }

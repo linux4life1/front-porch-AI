@@ -43,34 +43,17 @@ class GroupWizardActions {
 // ═══════════════════════════════════════════════════════════════
 
 class GroupWizardStepIndicator extends StatelessWidget {
-  const GroupWizardStepIndicator({
-    super.key,
-    required this.currentStep,
-    required this.memberCount,
-  });
+  const GroupWizardStepIndicator({super.key, required this.currentStep});
 
   final int currentStep;
-  final int memberCount;
 
   @override
   Widget build(BuildContext context) {
-    final labels = [
-      'Members',
-      'Identity',
-      'Prompts',
-      'Lore',
-      'Realism',
-      'Group Dynamics',
-      'Opening',
-      'Review',
-    ];
+    const labels = GroupWizardSteps.labels;
 
     final children = <Widget>[];
     for (int i = 0; i < labels.length; i++) {
-      final isDynamicsStep = (i == 6);
-      final isAvailable = !isDynamicsStep || memberCount <= 4;
-
-      children.add(_stepDot(context, i, labels[i], available: isAvailable));
+      children.add(_stepDot(context, i, labels[i]));
       if (i < labels.length - 1) {
         children.add(_stepLine(context));
       }
@@ -78,20 +61,13 @@ class GroupWizardStepIndicator extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
-  Widget _stepDot(
-    BuildContext context,
-    int step,
-    String label, {
-    bool available = true,
-  }) {
-    final isActive = available && currentStep >= step;
+  Widget _stepDot(BuildContext context, int step, String label) {
+    final isActive = currentStep >= step;
     final isCurrent = currentStep == step;
 
-    final dotColor = !available
-        ? AppColors.surfaceContainerOf(context).withValues(alpha: 0.5)
-        : (isActive
-              ? AppColors.porchAmberOf(context)
-              : AppColors.surfaceContainerOf(context));
+    final dotColor = isActive
+        ? AppColors.porchAmberOf(context)
+        : AppColors.surfaceContainerOf(context);
 
     final borderColor = isCurrent
         ? AppColors.textPrimary(context)
@@ -101,11 +77,9 @@ class GroupWizardStepIndicator extends StatelessWidget {
         ? StatusColors.onFill
         : AppColors.textTertiary(context);
 
-    final labelColor = !available
-        ? AppColors.textTertiary(context).withValues(alpha: 0.6)
-        : (isActive
-              ? AppColors.textSecondary(context)
-              : AppColors.textTertiary(context));
+    final labelColor = isActive
+        ? AppColors.textSecondary(context)
+        : AppColors.textTertiary(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -168,14 +142,7 @@ class GroupWizardNavButtons extends StatelessWidget {
     final effectiveNextStep = draft.effectiveNextStep(currentStep);
     final isLastStep = effectiveNextStep == null;
 
-    String nextText;
-    if (isLastStep) {
-      nextText = 'Create Group';
-    } else if (effectiveNextStep == 6 && draft.members.length > 4) {
-      nextText = 'Skip to Review';
-    } else {
-      nextText = 'Next';
-    }
+    final nextText = isLastStep ? 'Create Group' : 'Next';
 
     final canGoNext = draft.canAdvanceFromStep(currentStep);
 
@@ -202,38 +169,41 @@ class GroupWizardNavButtons extends StatelessWidget {
                 ),
               ),
             if (currentStep > 0) const SizedBox(width: 16),
-            SizedBox(
-              width: 280,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: canGoNext
-                    ? () {
-                        if (currentStep == 0 && !draft.canLeaveMembersStep) {
-                          actions.showSnack(
-                            'A group needs at least 2 characters.',
-                          );
-                          return;
+            // Up to 280 wide; narrower when Back and Next share a phone.
+            Flexible(
+              child: SizedBox(
+                width: 280,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: canGoNext
+                      ? () {
+                          if (currentStep == 0 && !draft.canLeaveMembersStep) {
+                            actions.showSnack(
+                              'A group needs at least 2 characters.',
+                            );
+                            return;
+                          }
+                          if (isLastStep) {
+                            actions
+                                .createGroup(); // defaults to enterChat: true (primary action)
+                          } else {
+                            draft.goToStep(effectiveNextStep);
+                          }
                         }
-                        if (isLastStep) {
-                          actions
-                              .createGroup(); // defaults to enterChat: true (primary action)
-                        } else {
-                          draft.goToStep(effectiveNextStep);
-                        }
-                      }
-                    : null,
-                icon: Icon(
-                  isLastStep ? Icons.check : Icons.arrow_forward,
-                  size: 20,
-                ),
-                label: Text(nextText, style: const TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onAccentOf(context),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      : null,
+                  icon: Icon(
+                    isLastStep ? Icons.check : Icons.arrow_forward,
+                    size: 20,
                   ),
-                  disabledBackgroundColor: AppColors.borderOf(context),
+                  label: Text(nextText, style: const TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    disabledBackgroundColor: AppColors.borderOf(context),
+                  ),
                 ),
               ),
             ),

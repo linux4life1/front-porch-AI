@@ -12,8 +12,16 @@ import { type ObjectiveView } from './ObjectivesPanel';
 export interface ToolsState {
   wikiBaseUrl?: string;
   wikiSavedUrls?: string[];
+  /** Realism runs: Porch Life allows it AND this chat's own switch. */
   realismEnabled: boolean;
+  /** Porch Life allows Realism (additive: absent on an older desktop). */
+  realismAllowed?: boolean;
+  /** This chat's own Realism switch, kept while Porch Life blocks it
+   *  (additive: an older desktop sends only realismEnabled). */
+  realismSwitch?: boolean;
   needsEnabled: boolean;
+  /** Porch Life allows Needs (additive: absent on an older desktop). */
+  needsAllowed?: boolean;
   realismOneShotEval: boolean;
   // Tri-state One-Shot mode (2026-08-10). Optional: absent on an older
   // facade, in which case the legacy bool still tells us on-vs-not.
@@ -79,7 +87,15 @@ export interface ToolsState {
   // or "Refractory: 3 replies" with Passage of Time off), ready-made so the
   // phone cannot word it differently; '' when no refractory is running.
   nsfw: {
+    // The live gate: Porch Life (with 18+) allows Afterglow AND this chat's
+    // own switch is on.
     cooldownEnabled: boolean;
+    // Porch Life (with 18+) allows Afterglow, and this chat's own switch
+    // (additive: absent on an older desktop).
+    afterglowAllowed?: boolean;
+    afterglowSwitch?: boolean;
+    /** In a group, each member's own switch; absent in a 1:1. */
+    members?: { id: string; name: string; afterglow: boolean }[];
     refractoryMinutesRemaining: number;
     refractoryClockRunning: boolean;
     refractoryLabel: string;
@@ -92,6 +108,14 @@ export interface ToolsState {
   // Pockets & Wardrobe (additive, null when the switch is off). set_aside:
   // parked in the scene, still theirs — clothing entries expire at the next
   // story morning server-side, so what arrives here is always current.
+  // v64 (pockets-wardrobe-chat-toggle.md): pocketsSwitch is the focused
+  // participant's OWN stored choice, pocketsAllowed is Porch Life's veto,
+  // pocketsName names them for the turn-off confirmation. All additive —
+  // an older bundle ignores them and keeps the panel-absent-when-off shape.
+  pocketsSwitch?: boolean | null;
+  pocketsAllowed?: boolean;
+  pocketsName?: string | null;
+  pocketsMemberId?: string | null;
   pockets?: {
     worn?: Array<{ name: string; state?: string }>;
     carrying?: Array<{ name: string; state?: string }>;

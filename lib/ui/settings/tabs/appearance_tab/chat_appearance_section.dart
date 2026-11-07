@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'mood_on_character_controls.dart';
 
 /// Reading size, the global chat colors and the chat font, moved here from
 /// General. Colors left unpicked follow the app theme's own defaults.
@@ -67,6 +68,10 @@ class ChatAppearanceSection extends StatelessWidget {
         ),
         const SectionHeader('Chat Appearance'),
         const SizedBox(height: 8),
+        // Mood on the character sits with the bubble colours: it is about
+        // the character, not the weather. Only while the Realism Engine is on.
+        const MoodOnCharacterControls(),
+        const SizedBox(height: 12),
         ColorRow(
           label: 'User Bubble',
           color: storageService.uiSettings.globalUserBubbleColor,

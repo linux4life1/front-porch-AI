@@ -379,6 +379,63 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 62) {
+      // v61→v62: a group's lore-only worlds for new chats, apart from its
+      // Setting in world_ids. NULL for every existing row is right — it
+      // means "never split", and those groups keep seeding new chats the
+      // way they always have. Additive, so a downgrade to v61 keeps reading
+      // groups; the column is ignored.
+      try {
+        await customStatement(
+          'ALTER TABLE groups ADD COLUMN lore_world_ids TEXT',
+        );
+        debugPrint('[DB] v62: added groups.lore_world_ids');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
+    if (from < 63) {
+      // v62→v63: a character's lore-only worlds for new chats, apart from
+      // its Setting in world_names — the group split of v62, for 1:1 cards.
+      // NULL for every existing row means "never split"; those cards keep
+      // seeding new chats the way they always have. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE characters ADD COLUMN lore_world_names TEXT',
+        );
+        debugPrint('[DB] v63: added characters.lore_world_names');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
+    if (from < 64) {
+      // v63→v64: the 1:1 chat's own Pockets & Wardrobe switch
+      // (docs/design/pockets-wardrobe-chat-toggle.md). NULL = predates the
+      // column; the first load derives it once from the card flag (D1) and
+      // persists it. Group switches ride group_realism_state. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN pockets_enabled INTEGER',
+        );
+        debugPrint('[DB] v64: added sessions.pockets_enabled');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
+    if (from < 65) {
+      // v64→v65: the composer draft — a half-typed message the user left
+      // in the message box when they closed the chat comes back when they
+      // reopen it. NULL for every existing row means "no draft", so
+      // upgrading changes nothing until someone types. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN composer_draft TEXT',
+        );
+        debugPrint('[DB] v65: added sessions.composer_draft');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

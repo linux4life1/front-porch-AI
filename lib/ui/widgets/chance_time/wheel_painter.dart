@@ -32,7 +32,7 @@ class WheelPainter extends CustomPainter {
 
   // Fixed fun emojis per slot — visually interesting while spinning,
   // no text that goes upside-down. Event text revealed in result card.
-  static const List<String> _slotEmojis = [
+  static const List<String> slotEmojis = [
     '🎲',
     '⚡',
     '🎯',
@@ -85,7 +85,7 @@ class WheelPainter extends CustomPainter {
       final ex = center.dx + emojiRadius * cos(midAngle);
       final ey = center.dy + emojiRadius * sin(midAngle);
 
-      final emoji = _slotEmojis[i % _slotEmojis.length];
+      final emoji = slotEmojis[i % slotEmojis.length];
       final tp = TextPainter(
         text: TextSpan(
           text: emoji,

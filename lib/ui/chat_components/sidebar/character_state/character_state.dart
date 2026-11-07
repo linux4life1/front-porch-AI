@@ -12,7 +12,9 @@
 
 export 'ambitions_row.dart';
 export 'bond_bars.dart';
+export 'needs_line.dart';
 export 'character_state_group.dart';
+export 'pockets_gate_line.dart';
 export 'pockets_row.dart';
 export 'time_strip.dart';
 export 'presence_word.dart';

@@ -76,7 +76,7 @@ import 'story_when.dart';
 ///    briefly sat in the leading system message, where it re-prefilled the
 ///    entire conversation on every reply, and the number is what did it. The
 ///    block is back after the transcript now (kStateZoneSectionIds, in
-///    chat_service_generation_plan.dart) so a moving byte is cheap here — but
+///    doors/turn/turn_plan.dart) so a moving byte is cheap here — but
 ///    it bought nothing even at that price. These bytes now change only when
 ///    the recap itself is rewritten, which is the floor. The one stamp
 ///    allowed is the story moment the recap was written at ([recapAsOf]):

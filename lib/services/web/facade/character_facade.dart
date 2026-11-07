@@ -44,11 +44,19 @@ class CharacterFacade {
   final AppDatabase _db;
   final StorageService _storage;
   final CharacterRepository? _repo;
+
+  /// The library's cards (none before a repository is injected).
+  List<CharacterCard> get cards => _repo?.characters ?? const [];
   final FolderService? _folders;
   final ChatService? _chat;
 
-  /// Persona id → picture, for `portraitPersonaId` (wired by the host).
+  /// Wired by the host: persona id → picture for `portraitPersonaId`, and
+  /// the personas an imported chat history can be written as.
   String? Function(String personaId)? personaPortrait;
+  UserPersonaService? importPersonas;
+
+  /// The world library, for the Worlds picker (wired by the host).
+  WorldRepository? worlds;
 
   /// List characters with optional search/folder filtering and sort, matching
   /// the legacy `/api/characters` payload.
@@ -169,6 +177,8 @@ class CharacterFacade {
             'avatarVersion': _avatarVersion(c.imagePath, c.id, byDbId),
             'folderId': c.folderId ?? '',
             'messageCount': msgCounts[c.id] ?? 0,
+            // The group Setting picker's "Linked by" hint (additive).
+            'worldNames': decodeJsonList(c.worldNames),
           },
         )
         .toList();
@@ -294,25 +304,23 @@ class CharacterFacade {
         .toList();
   }
 
-  /// Edit an existing character's core text fields. Reuses the desktop save
-  /// path (mutate the in-memory CharacterCard + CharacterRepository.update),
-  /// which re-writes the V2 PNG card and the DB row. Returns false if the
-  /// repository isn't wired or the character isn't found. Only keys present in
-  /// [fields] are changed.
+  /// Edit an existing character's fields through the desktop save path (the
+  /// in-memory card + CharacterRepository.update, which re-writes the PNG and
+  /// the DB row). False if unwired or not found. Only keys present change.
   Future<bool> update(String id, Map<String, dynamic> fields) async {
     final repo = _repo;
     if (repo == null) return false;
     final card = cardByDbId(id);
     if (card == null) return false;
-    final needsBefore = card.frontPorchExtensions?.needsSimChoice;
     applyCharacterFields(
       card,
       fields,
       needsSimDefault: _storage.realismSettings.needsSimDefault,
     );
+    applyCharacterWorlds(card, fields['worlds'], worlds);
+    // A card sets how its new chats start; chats that exist keep their own
+    // switches (the desktop editor's rule).
     await repo.updateCharacter(card);
-    // The desktop editor's rule: a moved Needs switch reaches the chats.
-    await _chat?.followCardNeedsChoice(card, before: needsBefore);
     return true;
   }
 
@@ -373,41 +381,40 @@ class CharacterFacade {
     return path == null || path.isEmpty ? null : path;
   }
 
-  /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
-  /// bytes to a temp file and reuses the desktop import path
-  /// ([CharacterRepository.importCharacter]) so parsing/parity is identical.
-  ///
-  /// [collision]:
-  /// - `keepBoth` (default) — insert on name clash (bulk-safe; issue #161)
-  /// - `ask` — if name clashes and no stableId match, return
-  ///   `{status: 'name_collision', name, existing: [...]}` without writing
-  /// - `replace` — update [replaceId] in place (chats kept)
-  ///
-  /// Returns `{id, name}` on success, the collision map for `ask`, or null
-  /// on hard failure.
+  /// Import a web-uploaded card (V2 PNG or .byaf) through the desktop path.
+  /// [collision], [replaceId] and [persona] are the `/api/characters/import`
+  /// query params (see `CharacterRoutes._import`). Returns `{id, name}`, a
+  /// `status` map when the person must choose first, or null on failure.
   Future<Map<String, dynamic>?> importBytes(
     List<int> bytes,
     String filename, {
     String collision = 'keepBoth',
     String? replaceId,
+    String? persona,
   }) async {
-    final repo = _repo;
-    if (repo == null) return null;
+    if (_repo == null) return null;
     return CharacterImporter(
-      repo,
+      _repo,
       _storage,
       _db,
-    ).importBytes(bytes, filename, collision: collision, replaceId: replaceId);
+      personas: importPersonas,
+    ).importBytes(
+      bytes,
+      filename,
+      collision: collision,
+      replaceId: replaceId,
+      persona: persona,
+    );
   }
 
-  /// Resolve the on-disk avatar file for the active character's *current
-  /// expression* (mood-driven portrait), or null if expressions aren't in use
-  /// or no avatar matches. Reuses [ChatService.resolveExpressionAvatar] — a
-  /// pure read that performs no reclassification, so Realism parity is intact.
-  File? activeExpressionAvatarFile() {
+  /// The on-disk mood picture for the active character, or for cast member
+  /// [participantId] (their own mood); null while Expressions are off.
+  File? activeExpressionAvatarFile({String? participantId}) {
     final chat = _chat;
-    if (chat == null) return null;
-    final activeChar = chat.activeCharacter;
+    if (chat == null || !chat.expressionsEnabled) return null;
+    final activeChar = participantId == null
+        ? chat.activeCharacter
+        : chat.cast.where((p) => p.id == participantId).firstOrNull?.card;
     if (activeChar == null) return null;
     final avatar = chat.resolveExpressionAvatar(activeChar);
     if (avatar == null) return null;
@@ -465,6 +472,7 @@ class CharacterFacade {
         'alternateGreetings': decodeJsonList(c.alternateGreetings),
         'tags': decodeJsonList(c.tags),
         'worldNames': decodeJsonList(c.worldNames),
+        'worlds': ?characterWorldsJson(inMemory, worlds),
         'lorebook': normalizeLorebookJson(c.lorebook),
         'ttsVoice': c.ttsVoice,
         'imagePath': c.imagePath,

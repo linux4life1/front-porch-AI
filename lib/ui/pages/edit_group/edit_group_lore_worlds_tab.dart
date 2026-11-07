@@ -19,9 +19,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Shown on the Lore & Worlds tab when the stored group lorebook can't be read.
@@ -30,9 +31,9 @@ const kEditGroupUnreadableLoreNote =
     'used. New entries you add here can replace it; Save asks first.';
 
 /// Lore & Worlds tab of the group editor: the group lorebook (add/edit/delete
-/// entries), the "inherit character & world lorebooks" toggle, and the Linked
-/// Places (worlds) chip picker. Edits go out through the callbacks; the page
-/// owns the lists.
+/// entries), the "inherit character & world lorebooks" toggle, and where new
+/// chats of the group meet (the shared Setting picker). Edits go out through
+/// the callbacks; the page owns the state.
 class EditGroupLoreWorldsTab extends StatelessWidget {
   const EditGroupLoreWorldsTab({
     super.key,
@@ -40,36 +41,34 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
     required this.loreEntries,
     required this.bookUnreadable,
     required this.inheritCharacterLorebooks,
-    required this.worldIds,
+    required this.worldChoice,
+    required this.weatherOf,
     required this.onAddEntry,
     required this.onReplaceEntry,
     required this.onRemoveEntry,
     required this.onInheritChanged,
-    required this.onLinkWorld,
-    required this.onUnlinkWorld,
+    required this.onWorldChoiceChanged,
+    this.suggestedBy = const {},
+    this.legacyWorldCount = 0,
   });
 
-  /// Every place world (`WorldRepository.placeWorlds`). Chips name what is
-  /// linked; the Link World picker offers only the top-level ones.
+  /// Every world and place (`WorldRepository.placeWorlds`).
   final List<World> allWorlds;
-
-  World? _worldById(String id) {
-    for (final w in allWorlds) {
-      if (w.id == id) return w;
-    }
-    return null;
-  }
 
   final List<LorebookEntry> loreEntries;
   final bool bookUnreadable;
   final bool inheritCharacterLorebooks;
-  final List<String> worldIds;
+  final GroupWorldChoice worldChoice;
+  final String? Function(String id) weatherOf;
+  final Map<String, List<String>> suggestedBy;
+
+  /// Worlds an unsplit group links (see GroupWorldsSection).
+  final int legacyWorldCount;
   final ValueChanged<LorebookEntry> onAddEntry;
   final void Function(int index, LorebookEntry entry) onReplaceEntry;
   final ValueChanged<int> onRemoveEntry;
   final ValueChanged<bool> onInheritChanged;
-  final ValueChanged<String> onLinkWorld;
-  final ValueChanged<String> onUnlinkWorld;
+  final ValueChanged<GroupWorldChoice> onWorldChoiceChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -169,80 +168,13 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
           ),
 
           const SizedBox(height: 20),
-          Text(
-            'Linked Worlds',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Template for new chats of this group (climate + world lore). '
-            'Chats start at each world\'s starred place.',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textTertiary(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              ...worldIds.map((wid) {
-                final w = allWorlds.firstWhere(
-                  (ww) => ww.id == wid || ww.name == wid,
-                  orElse: () => World(
-                    name: wid,
-                    lorebook: Lorebook(entries: const []),
-                  ),
-                );
-                final isMissing = !allWorlds.any(
-                  (ww) => ww.id == wid || ww.name == wid,
-                );
-                return Chip(
-                  label: Text(
-                    isMissing ? '$wid (missing)' : w.name,
-                    style: TextStyle(
-                      color: isMissing ? AppColors.textTertiary(context) : null,
-                    ),
-                  ),
-                  onDeleted: () => onUnlinkWorld(wid),
-                );
-              }),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final chosen = await showDialog<World>(
-                    context: context,
-                    builder: (ctx) => SimpleDialog(
-                      backgroundColor: AppColors.surfaceOf(context),
-                      title: const Text('Link a World'),
-                      children: linkableWorldsOf(allWorlds, _worldById)
-                          .map(
-                            (w) => SimpleDialogOption(
-                              onPressed: () => Navigator.pop(ctx, w),
-                              child: Text(
-                                w.biomeId != null && w.biomeId != 'temperate'
-                                    ? '${w.name} (${w.biomeId})'
-                                    : w.name,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  );
-                  if (chosen != null &&
-                      !worldIds.contains(chosen.id) &&
-                      !worldIds.contains(chosen.name)) {
-                    onLinkWorld(chosen.id);
-                  }
-                },
-                icon: const Icon(Icons.public, size: 18),
-                label: const Text('Link World'),
-              ),
-            ],
+          GroupWorldsSection(
+            value: worldChoice,
+            onChanged: onWorldChoiceChanged,
+            places: allWorlds,
+            weatherOf: weatherOf,
+            suggestedBy: suggestedBy,
+            legacyWorldCount: legacyWorldCount,
           ),
 
           const SizedBox(height: 24),

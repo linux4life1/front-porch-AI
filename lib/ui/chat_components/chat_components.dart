@@ -19,6 +19,7 @@
 // Barrel for chat-specific extracted widgets (opportunistic per policy; high-freq surface for chat_page).
 // Niche ones can be direct imported too.
 
+export 'bubbles/bubble_host.dart';
 export 'bubbles/message_bubble.dart';
 export 'bubbles/selectable_bubble_body.dart';
 export 'bubbles/styled_chat_message.dart';
@@ -30,6 +31,10 @@ export 'sidebar/sidebar_body.dart';
 export 'sidebar/sidebar_tokens.dart';
 export 'sidebar/character_portrait.dart';
 export 'sidebar/chat_main_settings.dart';
+export 'mood/mood_bubble.dart';
+export 'mood/mood_look.dart';
+export 'mood/mood_portrait_frame.dart';
+export 'mood/mood_ring.dart';
 export 'ambient/ambient_stage.dart';
 export 'ambient/ambient_stage_mount.dart';
 export 'ambient/scene_backdrop_layer.dart';
@@ -58,6 +63,7 @@ export 'prompt_source_picker.dart';
 
 export 'widgets/cast_roster_chip.dart';
 export 'widgets/chat_image_attachment.dart';
+export 'widgets/composer_draft_keeper.dart';
 export 'widgets/composer_draft_scope.dart';
 export 'widgets/composer_drop_zone.dart';
 export 'widgets/director_panel.dart';

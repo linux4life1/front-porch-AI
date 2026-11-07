@@ -17,4 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 export 'chance_time_result_card.dart';
+export 'chance_time_host.dart';
+export 'chance_wheel_game.dart';
 export 'chance_time_wheel.dart';

@@ -72,7 +72,7 @@ class RealismRelationshipCard extends StatelessWidget {
             value: longTermBond,
             min: -300,
             max: 300,
-            tierName: _longTermTierName(longTermBond),
+            tierName: startLongTermTierName(longTermBond),
             color: _bondColor(longTermBond),
             onChanged: (v) => onLongTermBondChanged(v.round()),
           ),
@@ -83,7 +83,7 @@ class RealismRelationshipCard extends StatelessWidget {
             value: trustLevel,
             min: -100,
             max: 100,
-            tierName: _trustLevelName(trustLevel),
+            tierName: startTrustTierName(trustLevel),
             color: _trustColor(trustLevel),
             onChanged: (v) => onTrustLevelChanged(v.round()),
           ),
@@ -105,7 +105,9 @@ String _shortTermTierName(int score) {
   return 'Despised';
 }
 
-String _longTermTierName(int score) {
+/// Long-Term Bond's tier word, as the starting sliders and a member's
+/// summary show it.
+String startLongTermTierName(int score) {
   if (score >= 80) return 'Soulbound';
   if (score >= 50) return 'Deep Bond';
   if (score >= 20) return 'Close';
@@ -117,7 +119,8 @@ String _longTermTierName(int score) {
   return 'Nemesis';
 }
 
-String _trustLevelName(int level) {
+/// Trust Level's tier word (see [startLongTermTierName]).
+String startTrustTierName(int level) {
   if (level >= 80) return 'Absolute Trust';
   if (level >= 50) return 'Deep Trust';
   if (level >= 20) return 'Trusting';

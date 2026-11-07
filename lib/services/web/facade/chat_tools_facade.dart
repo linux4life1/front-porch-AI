@@ -33,8 +33,14 @@ class ChatToolsFacade {
     StreamHub? hub, {
     StoryRepository? storyRepo,
     UserPersonaService? personas,
+    ChatWorldRead? chatWorld,
   }) : _ctx = ChatToolsContext(chat, storage, hub) {
-    _scene = ChatToolsScene(_ctx, storyRepo: storyRepo, personas: personas);
+    _scene = ChatToolsScene(
+      _ctx,
+      storyRepo: storyRepo,
+      personas: personas,
+      chatWorld: chatWorld,
+    );
     _snapshot = ChatToolsSnapshot(_ctx, _scene);
     _memory = ChatToolsMemory(_ctx);
     _switches = ChatToolsSwitches(_ctx);
@@ -145,7 +151,9 @@ class ChatToolsFacade {
     required bool faithful,
     required String length,
     required String pov,
-  }) => _scene.toStory(faithful: faithful, length: length, pov: pov);
+    String? lead,
+  }) =>
+      _scene.toStory(faithful: faithful, length: length, pov: pov, lead: lead);
 
   // ── Switches ────────────────────────────────────────────────────────────
   Future<void> setRealismEnabled(bool v) => _switches.setRealismEnabled(v);
@@ -160,6 +168,14 @@ class ChatToolsFacade {
 
   Future<void> setChaosNsfw(bool v) => _switches.setChaosNsfw(v);
 
+  Future<void> setAfterglow(bool v) => _switches.setAfterglow(v);
+  Future<bool> setMemberAfterglow(String id, bool v) =>
+      _switches.setMemberAfterglow(id, v);
+  Future<void> setPocketsEnabled(bool v) => _switches.setPocketsEnabled(v);
+  Future<bool> setMemberPockets(String id, bool v) =>
+      _switches.setMemberPockets(id, v);
+  Future<bool> setMemberRecovery(String id, Object? fields) =>
+      _switches.setMemberRecovery(id, fields);
   Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);
 
   Future<void> setDirectorMode(bool v) => _switches.setDirectorMode(v);

@@ -16,20 +16,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/story_pipeline/story_pipeline.dart';
+import 'package:path/path.dart' as p;
 
 /// The chat history a story is built on: which chats it can start from,
 /// what the UI previews, and the canon block the stages read.
 class StoryChatHistory {
-  StoryChatHistory(this._ctx);
+  StoryChatHistory(this._ctx) : lines = StoryChatLines(_ctx.db);
 
   final StoryPipelineContext _ctx;
+
+  /// The one loader every reader of "the chat history" goes through.
+  final StoryChatLines lines;
 
   AppDatabase get _db => _ctx.db;
 
@@ -41,34 +43,19 @@ class StoryChatHistory {
     }
     final messages = <String>[];
     try {
-      final resolvedIds = await resolveSessionCharacterIds(
-        project.chatHistoryCharacterIds,
+      // Living Time §4: same session scoping as the distiller and the raw
+      // fallback in [context] (one loader — all three are "the chat
+      // history" for a project, and a preview that shows chats the story
+      // will never use is a lie).
+      final sessions = await lines.sessionsFor(
+        project,
+        await resolveSessionCharacterIds(project.chatHistoryCharacterIds),
       );
-      for (final charId in resolvedIds) {
-        final sessions = await _db.getSessionsForCharacter(charId);
-        for (final session in sessions) {
-          // Living Time §4: same session scoping as the distiller and the raw
-          // fallback in [context] (keep in sync — all
-          // three are "the chat history" for a project, and a preview that
-          // shows chats the story will never use is a lie).
-          if (project.chatHistorySessionIds.isNotEmpty &&
-              !project.chatHistorySessionIds.contains(session.id)) {
-            continue;
-          }
-          final msgs = await _db.getMessagesForSession(session.id);
-          for (final msg in msgs) {
-            try {
-              final swipes = jsonDecode(msg.swipes) as List;
-              final text = swipes.isNotEmpty
-                  ? swipes[msg.swipeIndex.clamp(0, swipes.length - 1)]
-                  : '';
-              if (text.toString().trim().isNotEmpty) {
-                messages.add('${msg.sender}: $text');
-              }
-            } catch (_) {}
-          }
-          messages.add('--- (session break) ---');
+      for (final session in sessions) {
+        for (final line in await lines.linesFor(session)) {
+          messages.add(line.text);
         }
+        messages.add('--- (session break) ---');
       }
     } catch (e) {
       debugPrint('[StoryPipeline] Chat preview error: $e');
@@ -129,6 +116,7 @@ class StoryChatHistory {
           'between the user and characters. These events are CANON -- they HAPPENED. The story MUST '
           'be built around this timeline. Each event represents a key plot point, revelation, emotional '
           'beat, or relationship development. The story is a novelization of these events:\n'
+          '${await _groupCastRule(project)}'
           '${project.distilledTimeline}\n';
     }
 
@@ -137,42 +125,27 @@ class StoryChatHistory {
       '[StoryPipeline] No distilled timeline, falling back to raw messages',
     );
     try {
-      final allMessages = <String>[];
-      final resolvedIds = await resolveSessionCharacterIds(
-        project.chatHistoryCharacterIds,
+      final loaded = await lines.load(
+        project,
+        await resolveSessionCharacterIds(project.chatHistoryCharacterIds),
       );
-      for (final charId in resolvedIds) {
-        final sessions = await _db.getSessionsForCharacter(charId);
-        if (sessions.isEmpty) continue;
-        for (final session in sessions) {
-          // Living Time §4: same session scoping as the distiller (keep in
-          // sync — both are "the chat history" for a project).
-          if (project.chatHistorySessionIds.isNotEmpty &&
-              !project.chatHistorySessionIds.contains(session.id)) {
-            continue;
-          }
-          final messages = await _db.getMessagesForSession(session.id);
-          for (final msg in messages) {
-            try {
-              final swipes = jsonDecode(msg.swipes) as List;
-              final text = swipes.isNotEmpty
-                  ? swipes[msg.swipeIndex.clamp(0, swipes.length - 1)]
-                  : '';
-              if (text.toString().trim().isNotEmpty) {
-                allMessages.add('${msg.sender}: $text');
-              }
-            } catch (_) {}
-          }
+      if (loaded.isEmpty) return '';
+      final allMessages = <String>[];
+      String? current;
+      for (final line in loaded.lines) {
+        if (current != null && line.sessionId != current) {
           allMessages.add('---');
         }
+        current = line.sessionId;
+        allMessages.add(line.text);
       }
-
-      if (allMessages.isEmpty) return '';
+      allMessages.add('---');
       final fullHistory = allMessages.join('\n');
       debugPrint(
         '[StoryPipeline] Loaded ${allMessages.length} raw messages as fallback',
       );
       return '\n\n## CANON CHAT HISTORY (raw messages)\n'
+          '${loaded.isGroup ? '${loaded.castSentence()}\n' : ''}'
           'These events are CANON. The story MUST follow them:\n$fullHistory\n';
     } catch (e) {
       debugPrint('[StoryPipeline] Chat history error: $e');
@@ -180,19 +153,38 @@ class StoryChatHistory {
     }
   }
 
-  /// Every 1:1 chat a story can start from, newest first. Chats where the
-  /// user never wrote anything are left out: a greeting alone is no story.
+  /// For a story from a group chat, the cast sentence every stage reads
+  /// above the timeline (docs/design/stories-from-group-chats.md §3): who
+  /// spoke, and that each of them stays themselves. '' for a 1:1 source.
+  Future<String> _groupCastRule(StoryProject project) async {
+    if (project.chatGroupId == null) return '';
+    try {
+      final loaded = await lines.load(project, const []);
+      if (!loaded.isGroup) return '';
+      return '${loaded.castSentence()}\n';
+    } catch (e) {
+      debugPrint('[StoryPipeline] Group cast rule skipped: $e');
+      return '';
+    }
+  }
+
+  /// Every chat a story can start from, newest first: 1:1 chats, and group
+  /// chats with their roster. Chats where the user never wrote anything are
+  /// left out: a greeting alone is no story. A group chat whose group is
+  /// gone is left out with it.
   Future<List<StoryChatSourceRow>> chatSources() async {
     final names = {
       for (final c in await _db.select(_db.characters).get()) c.id: c.name,
     };
+    final groups = {for (final g in await _db.getAllGroups()) g.id: g.name};
     final sessions = await _db.select(_db.sessions).get();
     final mine = sessions
         .where(
           (s) =>
-              s.groupId == null &&
               s.deletedAt == null &&
-              names.containsKey(s.characterId),
+              (s.groupId == null
+                  ? names.containsKey(s.characterId)
+                  : groups.containsKey(s.groupId)),
         )
         .toList();
     final ids = [for (final s in mine) s.id];
@@ -208,9 +200,30 @@ class StoryChatHistory {
         stats[e.key] = (count: e.value.count, userCount: e.value.userCount);
       }
     }
+    // One roster read per group, names only.
+    final rosters = <String, List<StoryChatMember>>{};
     for (final s in mine) {
       final stat = stats[s.id];
       if (stat == null || stat.userCount == 0) continue;
+      final groupId = s.groupId;
+      if (groupId != null) {
+        final members = rosters[groupId] ??= await groupRoster(groupId);
+        if (members.isEmpty) continue;
+        rows.add(
+          StoryChatSourceRow(
+            characterId: members.first.id,
+            characterName: groups[groupId]!,
+            sessionId: s.id,
+            sessionName: s.name ?? '',
+            summary: s.summary ?? '',
+            createdAt: s.createdAt,
+            messageCount: stat.count,
+            groupId: groupId,
+            members: members,
+          ),
+        );
+        continue;
+      }
       rows.add(
         StoryChatSourceRow(
           characterId: s.characterId!,
@@ -225,5 +238,24 @@ class StoryChatHistory {
     }
     rows.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return rows;
+  }
+
+  /// A group's members as story cast, in roster order, cards included; the
+  /// avatar path is the member's file in the group's private folder when
+  /// [groupsDir] is given.
+  Future<List<StoryChatMember>> groupRoster(
+    String groupId, {
+    String? groupsDir,
+  }) async {
+    final rows = await _db.getGroupMembers(groupId);
+    return [
+      for (final row in rows)
+        StoryChatMember.fromGroupMember(
+          GroupMember.fromRow(row),
+          imagePath: groupsDir == null || row.avatarFilename == null
+              ? ''
+              : p.join(groupsDir, groupId, 'avatars', row.avatarFilename!),
+        ),
+    ];
   }
 }

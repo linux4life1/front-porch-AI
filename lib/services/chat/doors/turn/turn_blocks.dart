@@ -1,0 +1,479 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
+import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
+import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
+import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/database/database.dart' show JournalMemoryData;
+
+/// Phase 1 of `_generateResponse`: the system prompt + lorebook + persona +
+/// scenario + examples + Scene-Guest + summary + Journal prompt-section
+/// assembly, written onto the turn record. The body is the one the
+/// generation part held (`x` → `t.x` carrier names, see [GenTurn]); zero
+/// behaviour change.
+class TurnBlocks {
+  TurnBlocks(this._a, this._d);
+
+  final PromptAssembler _a;
+  final PromptDeps _d;
+
+  ChatSessionState get _session => _d.session;
+  StorageService get _storageService => _d.services.storage;
+  SessionStore get _sessions => _d.doors.sessions();
+  RealismGraph get _g => _d.doors.graph();
+  CastDoor get _cast => _d.doors.cast();
+  MediaDoor get _mediaDoor => _d.doors.media();
+  PromptSource get _source => _a.source;
+  PromptBlocks get _blocks => _a.blocks;
+  GroupMemberSettings get _members => _d.doors.entry().members;
+  GroupChat? get _activeGroup => _session.activeGroup;
+  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
+  bool get _observerMode => _d.doors.entry().director.observerMode;
+  bool get _directing => _d.doors.entry().director.directing;
+  bool get _callMode => _d.doors.controls().callMode;
+  bool get _clockRunning => _d.doors.controls().clockRunning;
+  String get _summary => _sessions.summary;
+  int get _summaryLastIndex => _sessions.summaryLastIndex;
+  String get _authorNote => _sessions.authorNote;
+  ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
+  set _lastLoreOverflow(List<String> v) => _a.lastLoreOverflow = v;
+  set _lastLoreTokens(int v) => _a.lastLoreTokens = v;
+  set _lastLoreBudget(int v) => _a.lastLoreBudget = v;
+  String? get _entranceDirective => _cast.entranceDirective;
+  set _entranceDirective(String? v) => _cast.entranceDirective = v;
+  DirectorScene get _directorScene => _cast.directorScene;
+  SceneGuestState get _sceneGuest => _cast.guests.state;
+  AwayPulseState get _awayPulse => _cast.away.state;
+  NeedsPass get _needsPass => _g.needsPass;
+  ToolTransportProbe get _toolProbe => _g.transport.probe;
+  String get _evalBackendIdentity => _g.transport.backendIdentity;
+  LorebookInjector get _lorebookInjector => _g.lore.injector;
+  GrowthDesk get _growthDesk => _g.growthDesk;
+  TimeService get _timeService => _g.time;
+  JournalStore get _journalStore => _g.journalStore;
+  String get _characterEmotion => _g.registers.emotion;
+  RelationshipService get _relationshipService => _g.relationship;
+  BirthdaySync get _birthdaySync => _g.birthdays;
+  JournalInjection get _journalInjection => _g.journalInjection;
+  bool _isLiteTurn(GenTurn t) => _a.isLiteTurn(t);
+  bool _isGuestAuthoredMessage(ChatMessage m) =>
+      _cast.guests.isGuestAuthoredMessage(m);
+  String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
+
+  Future<void> assemble(GenTurn t) async {
+    // Days lived off-screen land before any prompt reads a body.
+    if (t.mode == GenerationMode.normal) _needsPass.landLivedBeatBeforeReply();
+    // ── System prompt selection (Path B clean hierarchy) ──
+    // 1. Group base: the group's own prompt, else Settings' Group system
+    //    prompt, else the built-in one for the mode (`_groupBasePrompt`).
+    // 2. Per-character group override (if set for the speaker in this group) — appended.
+    // 3. Character's normal card system prompt (fallback if no group override for them).
+    // 4. (Later) Per-character Author's Note is injected separately with its own strength.
+    if (_activeGroup != null) {
+      t.systemPrompt = _source.groupBasePrompt;
+    } else {
+      // Every backend now speaks the OpenAI chat protocol (local KoboldCpp
+      // via its /v1/chat/completions door), so the server applies the model's
+      // instruct template — use the chat-style default system prompt.
+      t.systemPrompt = _source.resolveOneToOneBase(t.speakingCharacter);
+    }
+
+    if (_source.amendmentsAllowed) {
+      t.systemPrompt = _storageService.generationSettings
+          .withSystemPromptAddition(t.systemPrompt);
+    }
+    if (_activeGroup != null) {
+      t.systemPrompt = withGroupSceneRules(
+        t.systemPrompt,
+        directing: _directing,
+      );
+    }
+
+    // Per-character group overlay used to append here and churn the system
+    // prefix every speaker. It now rides [t.speakerCardBlock] after history.
+
+    // In call mode, inject voice-specific instructions for natural conversation
+    if (_callMode && _storageService.sttSettings.callSystemPrompt.isNotEmpty) {
+      t.systemPrompt +=
+          '\n\n[Voice Call Mode] ${_storageService.sttSettings.callSystemPrompt}';
+    }
+
+    final forcedLookup =
+        (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
+        (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
+    if (forcedLookup ||
+        (_mediaDoor.lookupsActive &&
+            t.directUserSend &&
+            !t.autonomous &&
+            t.mode != GenerationMode.continue_)) {
+      t.toolRulesBlock += '\n$kSearchCharacterLine\n';
+    }
+    t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    if (shouldAdvertiseUserTools(
+      hasCards: t.userToolCards.isNotEmpty,
+      directUserSend: t.directUserSend,
+      continueMode: t.mode == GenerationMode.continue_,
+      toolsUnsupported: _toolProbe.isXmlOnly(_evalBackendIdentity),
+      autonomousMode: t.autonomous,
+    )) {
+      t.toolRulesBlock += '\n$kUserToolCharacterLine\n';
+    }
+
+    // Lorebook injection: positioned buckets from the injector (group
+    // winners → budget fill → per-position ordering). Pure read — the
+    // scanner already updated trigger state for this turn.
+    final loreInjection = _lorebookInjector.buildInjection(
+      sessionSeed: _session.currentSessionId ?? '',
+      contextSize: _sessionGenSettings.resolveContextSize(_storageService),
+    );
+    _lastLoreOverflow = loreInjection.overflowDropped;
+    _lastLoreTokens = loreInjection.approxTokens;
+    _lastLoreBudget = loreInjection.budgetTokens;
+    debugPrint(
+      '[Lorebook] injected for ${t.speakingCharacter.name}: '
+      '${loreInjection.injected.isEmpty ? 'none' : loreInjection.injected.join(', ')}',
+    );
+    if (loreInjection.overflowDropped.isNotEmpty) {
+      debugPrint(
+        '[Lorebook] ⚠ budget overflow — dropped: '
+        '${loreInjection.overflowDropped.join(', ')}',
+      );
+    }
+    t.loreBefore = loreInjection.beforeChar;
+    t.loreAfter = loreInjection.afterChar;
+    t.loreAnTop = loreInjection.authorNoteTop;
+    t.loreAnBottom = loreInjection.authorNoteBottom;
+    t.loreExTop = loreInjection.examplesTop;
+    t.loreExBottom = loreInjection.examplesBottom;
+    t.loreDepth = loreInjection.depthEntries;
+
+    // Build persona block(s). Group: names-only roster in system (stable
+    // prefix). Speaker costume sits in speakerCardBlock after history.
+    if (_activeGroup != null) {
+      t.personaBlock = buildGroupRosterLine(
+        memberNames: [for (final ch in _groupCharacters) ch.name],
+        userName: t.userName,
+        observerMode: _observerMode,
+        visitorNames: {
+          for (final ch in _groupCharacters)
+            if (ch.isLite) ch.name,
+        },
+      );
+    } else {
+      t.personaBlock =
+          "${t.speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(t.speakingCharacter, t.userName)}";
+    }
+    t.growthBlock = _growthDesk.resolvedGrowthBlock(
+      t.speakingCharacter,
+      t.userName,
+    );
+
+    // User persona — inject user's self-description + learned facts
+    // A directed scene has no user in it: "the human you are talking with"
+    // would overrule kDirectorSceneRules, so the block is left out.
+    t.userPersonaBlock = _directing
+        ? ''
+        : await _blocks.userPersonaBlock(t.userName);
+
+    // Scenario — the group scene is SHARED across the whole cast (one identical
+    // scenario), so a group never uses a per-character EVOLVED scenario (that
+    // drifts the story). Use the group override if set, else the anchor
+    // member's ORIGINAL scenario. A 1:1 still uses its evolved scenario.
+    final String rawScenario;
+    if (_activeGroup != null) {
+      rawScenario = _activeGroup!.scenario.isNotEmpty
+          ? _activeGroup!.scenario
+          : (_groupCharacters.isNotEmpty
+                ? _groupCharacters.first.scenario
+                : '');
+    } else {
+      rawScenario = _growthDesk.effectiveScenario(t.speakingCharacter);
+    }
+    t.scenario = rawScenario;
+    // A Scene Guest drops into the HOST's ongoing scene — it has no scenario
+    // of its own. Blank it here (prompt-only; the shared library card is never
+    // mutated, so a /join'd full character keeps its real scenario for when it
+    // is the host). This also self-heals legacy guests minted with the host's
+    // scenario baked in (the "model thinks the guest IS the host" bug).
+    // A soft GROUP member keeps it: there the scenario is the shared scene.
+    if (_activeGroup == null && _isLiteTurn(t)) t.scenario = '';
+
+    t.suffix = "";
+
+    if (t.mode == GenerationMode.normal) {
+      t.suffix = "\n${t.speakingCharacter.name}:";
+    } else if (t.mode == GenerationMode.impersonate) {
+      t.suffix = "\n${t.userName}:";
+    } else if (t.mode == GenerationMode.continue_) {
+      // Suffix will be set after history is built — see below
+      t.suffix = "";
+    }
+
+    // Build example dialogues block. Group examples ride the speaker card
+    // (built below).
+    if (_activeGroup != null) {
+      t.mesExampleBlock = '';
+    } else if (t.speakingCharacter.mesExample.isNotEmpty) {
+      t.mesExampleBlock = '${t.speakingCharacter.mesExample}\n';
+    }
+
+    // Build post-history instructions block
+    if (_activeGroup == null &&
+        t.speakingCharacter.postHistoryInstructions.isNotEmpty) {
+      t.postHistoryBlock = '${t.speakingCharacter.postHistoryInstructions}\n';
+    }
+
+    if (_source.amendmentsAllowed) {
+      t.postHistoryBlock = _storageService.generationSettings
+          .withPostHistoryAddition(t.postHistoryBlock);
+    }
+
+    // Author's note — placed right before the character speaks for maximum influence
+    if (_authorNote.isNotEmpty) {
+      t.authorNoteBlock = _blocks.authorNoteBlock();
+    }
+
+    // Per-character Author's Note (group mode only): if the current speaker has
+    // a personal note, inject it using the same strength-modulated style.
+    // Falls back gracefully (no-op) if absent. Appended after any group-level note.
+    if (_activeGroup != null) {
+      final charNote = _members.getAuthorNoteForGroupCharacter(
+        t.speakingCharacter,
+      );
+      if (charNote.isNotEmpty) {
+        // Use per-character strength if set, otherwise fall back to group default
+        final s = _members.getAuthorNoteStrengthForGroupCharacter(
+          t.speakingCharacter,
+        );
+        final name = t.speakingCharacter.name;
+        String perCharBlock;
+        if (s <= 3) {
+          perCharBlock =
+              "[Author's Note (gentle suggestion for $name): $charNote]\n";
+        } else if (s <= 7) {
+          perCharBlock = "[Author's Note (for $name): $charNote]\n";
+        } else {
+          perCharBlock =
+              "[Author's Note (IMPORTANT for $name — apply immediately): $charNote]\n";
+        }
+        t.authorNoteBlock += perCharBlock;
+      }
+    }
+
+    // One-shot entrance directive (forked-in character) — hidden, consumed
+    // here so it influences only this generation and never persists.
+    if (_entranceDirective != null) {
+      t.authorNoteBlock += '[${_entranceDirective!}]\n';
+      _entranceDirective = null;
+    }
+
+    // The director's standing goal and this speaker's whisper, while the
+    // user directs (stepping back in hides them; it does not erase them).
+    if (_directing) {
+      t.authorNoteBlock += _directorScene.promptBlock(
+        speakerId: _getCharacterIdFromCard(t.speakingCharacter),
+        speakerName: t.speakingCharacter.name,
+      );
+    }
+
+    // ── Scene Guests (Lite NPCs) prompt injection (1:1 only) ───────────
+    // Guests speak for themselves in their own bubbles, so the primary must
+    // not fully voice/narrate them. A guest turn instead gets a short line
+    // grounding it as a visitor in the host's scene.
+    if (_activeGroup == null) {
+      final hostName = _session.activeCharacter?.name ?? 'the main character';
+      if (t.guestSpeaker != null) {
+        // A guest turn reuses the host's full transcript, so the identity
+        // switch must be unmistakable or the model conflates the guest with
+        // the host (confirmed even on strong API models). Also pin the
+        // latest user line: long adventures + guest RAG/recap made DeepSeek
+        // answer an older "Magus, tell me about the spell" instead of the
+        // line just sent (Discord 2026-08-15).
+        var latestUser = '';
+        var latestHost = '';
+        for (final m in _session.messages.reversed) {
+          if (m.sender == 'System') continue;
+          if (m.isUser) {
+            latestUser = m.promptText.trim();
+            break;
+          }
+          if (latestHost.isEmpty && !_isGuestAuthoredMessage(m)) {
+            latestHost = m.displayText.trim();
+          }
+        }
+        t.authorNoteBlock += buildGuestTurnNote(
+          guestName: t.guestSpeaker!.name,
+          hostName: hostName,
+          userName: t.userName,
+          latestUserText: latestUser,
+          latestHostText: latestHost,
+        );
+      } else if (_sceneGuest.cards.isNotEmpty) {
+        // Host turn with guests present: hard ban on ventriloquising them, or
+        // the host writes the guests' lines too (the "generated both at once"
+        // bug). Acknowledging/reacting is allowed; speaking for them is not.
+        // The handoff sentence targets the cast-detection case: a promoted
+        // guest was detected FROM the host's own narration, so the transcript
+        // above is full of the host voicing them — without an explicit "that
+        // has ended" the many-shot momentum beats the ban (Discord
+        // double-response report, 2026-07-28). The defer clause covers an
+        // addressed guest the sendMessage vocative router didn't catch.
+        final names = _sceneGuest.cards.map((g) => g.name).join(', ');
+        t.authorNoteBlock +=
+            '[Also present in the scene: $names — each is a separate '
+            'character played by another actor, replying in their own '
+            'separate messages. Do NOT write any dialogue, actions, or inner '
+            'thoughts for them — not a single line. If earlier messages '
+            'above included lines spoken by these characters, that has '
+            'ended: from now on they speak only for themselves. Stay '
+            'entirely as $hostName; you may have $hostName notice or react '
+            'to them, but never put words or actions on them. If ${t.userName} '
+            'just addressed one of them, reply only with $hostName\'s own '
+            'brief reaction and leave the answer to that character.]\n';
+      }
+      // One-shot guest departure (armed by /exit) — narrated by the primary
+      // on this turn only, then cleared so it never persists.
+      if (t.guestSpeaker == null && _sceneGuest.pendingDeparture != null) {
+        t.authorNoteBlock +=
+            '[${_sceneGuest.pendingDeparture!} leaves the scene; '
+            'write them exiting naturally.]\n';
+        _sceneGuest.pendingDeparture = null;
+      }
+    }
+
+    if (_activeGroup != null &&
+        _awayPulse.consumingReturnSpeak &&
+        AwayPulse.shouldInjectReturnSpeakHint(
+          forcedByAtMention: _awayPulse.pendingReturnForcedByAt,
+        )) {
+      t.authorNoteBlock +=
+          '${AwayPulse.returnSpeakHint(t.speakingCharacter.name)}\n';
+    }
+
+    // Group: the speaker's card rides after the transcript. This turn's
+    // notes keep the author-note seat near the end, as in 1:1: further up,
+    // some models ignore the Author's Note and the Director goal.
+    if (_activeGroup != null) {
+      t.speakerCardBlock = _blocks.groupSpeakerCard(
+        t.speakingCharacter,
+        userName: t.userName,
+      );
+    }
+
+    // Build summary block if available. Role frame (spec §6): the recap is
+    // the plot spine; the journal carries feelings; RAG carries exact lines.
+    // The text lives in buildRecapBlock (prompt_injection/recap_injection.dart)
+    // — read its doc before changing the wording; the head is what scopes the
+    // recap to the past, and it is the only thing keeping this block from
+    // reading as a competing claim about NOW.
+    //
+    // It takes the recap and nothing else. It used to also take the lag in
+    // messages behind the Journal pass cursor (_summaryLastIndex vs
+    // _session.messages.length) to decide whether to stamp the block "the conversation
+    // has moved on since it was written" — that stamp measured as a NET
+    // NEGATIVE (models quoted it back as the contradiction) and was deleted,
+    // taking the derivation with it.
+    // Guests never journal; a stale host recap is a competing claim about
+    // NOW. Reasoning + RAG already pull them onto old beats (Discord
+    // 2026-08-15); do not also hand them "Where we are". Journal off: the
+    // last pass's `_summary` still sits in the session — hide it, do not
+    // inject it. RAG compose below still runs.
+    t.summaryBlock = recapBlockForTurn(
+      recap: _summary,
+      journalEnabled: _storageService.memorySettings.journalEnabled,
+      // 1:1 Scene Guest (guestSpeaker) OR a soft group member. Same as
+      // `_isLiteTurn` — written out so the journal-off recap pin still
+      // sees guestSpeaker, and a host/full turn still gets the recap.
+      isGuest: t.guestSpeaker != null || t.speakingCharacter.isLite,
+      asOf: _clockRunning
+          ? recapAsOf(
+              messages: _session.messages,
+              cursor: _summaryLastIndex,
+              startDate: _timeService.startDate,
+              currentDay: _timeService.dayCount,
+            )
+          : null,
+    );
+
+    // Cued query for journal cold-resurface AND RAG (not last-3 live lines
+    // alone). Guests skip both. Compose even when the Journal toggle is off
+    // so RAG still searches by feeling / fixation / last words.
+    if (!_isLiteTurn(t) && _session.currentSessionId != null) {
+      final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
+      final cards = speakerId.isEmpty
+          ? const <JournalMemoryData>[]
+          : [
+              for (final c in await _journalStore.cardsFor(
+                _session.currentSessionId!,
+                speakerId,
+              ))
+                cooledForStoryDay(c, _timeService.dayCount),
+            ];
+      // Cover-drop uses THIS-BEAT injected gist only (set after the
+      // journal block builds). The whole cabinet here would eat a
+      // fallen-off fact that shares filler with a cold card.
+      t.journalCoverLines = const [];
+      t.ragHotJournalLine =
+          JournalPhysics.topHotJournalLine(cards, _characterEmotion) ?? '';
+      t.ragQuery = composeRagQuery(
+        emotion: _characterEmotion,
+        fixation: _relationshipService.activeFixation,
+        hotJournalLine: t.ragHotJournalLine,
+        lastWords: lastWordsFromMessages(_session.messages),
+      );
+    }
+
+    // The Journal — the upcoming speaker's pinned + hot memory cards, with
+    // their felt emotions (strictly this chat's cards; guests never
+    // journal). Built HERE, before the fixed-content token count below, so
+    // history budgeting accounts for it (async, unlike the sync builders).
+    // Two-tier memory (living-time-features.md §8): positions the journal
+    // expanded verbatim this turn — RAG retrieval below excludes them so
+    // the exact lines never ride the prompt twice.
+    if (_storageService.memorySettings.journalEnabled &&
+        !_isLiteTurn(t) &&
+        _session.currentSessionId != null) {
+      await _birthdaySync.ensure();
+      final journal = await _journalInjection.buildJournalBlock(
+        characterId: _getCharacterIdFromCard(t.speakingCharacter),
+        characterName: t.speakingCharacter.name,
+        userName: t.userName,
+        // Cued query (emotion + fixation + top hot card + last words),
+        // not the last-3 live lines. promptText still rides lastWords so
+        // photo captions reach cold-resurface the way they reach RAG.
+        queryText: t.ragQuery,
+        lastWords: lastSpokenLineFromMessages(_session.messages),
+        messageCount: _session.messages.length,
+      );
+      t.journalBlock = journal.text;
+      t.expandedJournalPositions = journal.expandedPositions;
+      if (journal.text.isNotEmpty) {
+        t.journalCoverLines = journal.injectedContents;
+      }
+    }
+  }
+}

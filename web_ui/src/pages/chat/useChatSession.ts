@@ -18,6 +18,14 @@ import { useAuth } from '../../auth/AuthContext';
 import { describeChatLoadFailure } from '../chatLoad';
 import { type ChatState } from './chatState';
 import { LiveTokenGate } from './liveTokenGate';
+import { announceSettingsChanged } from '../../components/genPresets/genPresets';
+/** The Chance Time modal's state: the parked event, whether Spin was
+ * pressed, and the event's kind for the wheel's reveal. */
+type ChanceState = { event: string; revealed: boolean; kind?: string; label?: string; emoji?: string };
+
+function chanceKind(from: { kind?: string; label?: string; emoji?: string }) {
+  return { kind: from.kind, label: from.label, emoji: from.emoji };
+}
 
 export function useChatSession() {
   const [searchParams] = useSearchParams();
@@ -34,7 +42,7 @@ export function useChatSession() {
   // Chaos "Chance Time" reveal modal. Opened by the `chance_time` WS event (or a
   // reconnect that finds the engine still parked); `revealed` is the pure-UI
   // flip from the teaser to the event card. Null = no modal.
-  const [chance, setChance] = useState<{ event: string; revealed: boolean } | null>(null);
+  const [chance, setChance] = useState<ChanceState | null>(null);
   // Live image-gen progress (from the `image_progress` WS event): percent
   // (null = indeterminate) + the latest preview frame data URL when the
   // backend streams one. Null = no image generating.
@@ -99,7 +107,7 @@ export function useChatSession() {
     // through the live `chance_time` event while the engine stayed parked.
     // Preserve an already-open modal's reveal state; close it once unparked.
     setChance((c) =>
-      s.chanceTime?.pending ? c ?? { event: s.chanceTime.event ?? '', revealed: false } : null,
+      s.chanceTime?.pending ? c ?? { ...chanceKind(s.chanceTime), event: s.chanceTime.event ?? '', revealed: false } : null,
     );
     setToolsBump((b) => b + 1);
     // Safety net: if the engines are fully idle (and not generating), make sure
@@ -251,7 +259,7 @@ export function useChatSession() {
         // Chaos parked the send waiting for "accept your fate". Pop the reveal
         // modal instantly (desktop shows its own wheel); `pending:false` closes
         // it — e.g. the desktop, or another device, accepted first.
-        setChance(e.pending ? { event: e.data ?? '', revealed: false } : null);
+        setChance(e.pending ? { ...chanceKind(e), event: e.data ?? '', revealed: false } : null);
       } else if (e.event === 'image_progress') {
         // Live image generation: percent + (when the backend streams one) the
         // in-progress preview frame — the picture forms in the card below the
@@ -272,6 +280,8 @@ export function useChatSession() {
         // settings_changed: the tools payload carries the clock switch and
         // the refractory words, both of which follow a setting.
         scheduleRefresh();
+        // A model switch made anywhere: the chat's preset toast reads it.
+        if (e.event === 'settings_changed') announceSettingsChanged();
       } else if (e.event === 'connected') {
         // (Re)connected. The socket may have been down (phone sleep, network
         // blip) while the desktop finished a generation or edited the chat, so

@@ -24,6 +24,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'appearance_settings.dart';
 import 'library_view_prefs.dart';
 import 'settings_base.dart';
+import 'sidebar_layout.dart';
 
 /// UI / theme / chat presentation settings (bubble colors/opacity, fonts,
 /// dark mode, backgrounds, display buffer, effective color helpers). The home
@@ -32,7 +33,7 @@ import 'settings_base.dart';
 /// Lifted from StorageService (Stage 7). Shims preserve getUserBubbleColor etc.
 /// Note: effective *Color / getChatFontFamily take optional CharacterCard for
 /// per-card overrides (frontPorchExtensions) and fall back to globals.
-class UiSettings with SettingsBase, LibraryViewPrefs {
+class UiSettings with SettingsBase, LibraryViewPrefs, SidebarLayout {
   UiSettings([AppearanceSettings? appearance])
     : _appearance = appearance ?? AppearanceSettings();
 
@@ -175,6 +176,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
         prefs?.getDouble(k('buffer_duration_seconds')) ?? 3.0;
 
     loadLibraryViewPrefs();
+    loadSidebarLayout();
 
     for (final id in _sidebarGroupIds) {
       final v = prefs?.getBool(k('sidebar_group_expanded_$id'));

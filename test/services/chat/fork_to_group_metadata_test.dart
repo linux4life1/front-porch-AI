@@ -34,6 +34,7 @@
 // chat_service_group_membership.dart and both expectations go red (image_path
 // null, realism_state null).
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -45,6 +46,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/chat.dart' show Biome;
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart' show parseGroupRealismSeeds;
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -289,8 +291,12 @@ void main() {
         storage.webSearchSettings.wikiUrlForChat(groupSession),
         'https://tea-rooms.example/wiki/',
       );
+      // Changed with the group Setting split: the group's settings for new
+      // chats now come from the chat's own Setting (Tea Rooms, inside
+      // Bletchfield), stored by world id instead of the card's name ref.
+      // Same world, same starting place for a later New chat.
       expect(promoteChat.activeGroup!.worldIds, [
-        'Bletchfield',
+        'town',
       ], reason: 'a later New chat in the group starts in the host\'s world');
     });
 
@@ -317,5 +323,212 @@ void main() {
       );
       expect(promoteChat.chatLoreWorldIds, ['town']);
     });
+  });
+
+  // Local report: after adding someone to a 1:1 with realism on, Edit Group
+  // said realism and needs were off. The fork saved the group's settings for
+  // new chats as an empty '{}', which both the editor and a New Chat read as
+  // off. Proven to fail: drop _saveForkTemplate from forkToGroupChat and the
+  // seed expectations go red; flip inheritCharacterLorebooks back and the
+  // lorebook one does.
+  test(
+    'a fork with realism on saves realism on for the group\'s new chats',
+    () async {
+      await chat.setActiveCharacter(card('Nia', 'char-fork-realism-host'));
+      await chat.setRealismEnabled(true);
+      await chat.setNeedsSimEnabled(true);
+      await chat.addGeneratedImageMessage('/pictures/porch.png', 'a porch');
+      final groups = GroupChatRepository(storage, db);
+
+      final group = await chat.forkToGroupChat([
+        card('Marisol', 'char-fork-realism-guest'),
+      ], groups);
+
+      expect(group, isNotNull);
+      expect(
+        chat.realismEnabled,
+        isTrue,
+        reason: 'the forked chat itself keeps the 1:1\'s realism',
+      );
+      await groups.reload();
+      final saved = groups.getById(group!.id)!;
+      final seeds = parseGroupRealismSeeds(saved.defaultMemberRealismState);
+      expect(
+        seeds,
+        hasLength(2),
+        reason: 'THE BUG: no member seeds, so new chats started realism-off',
+      );
+      expect(
+        seeds.values.every((s) => (s['needs'] as Map?)?.isNotEmpty ?? false),
+        isTrue,
+        reason: 'needs was on in the 1:1, so new chats start with needs on',
+      );
+      expect(
+        saved.inheritCharacterLorebooks,
+        isTrue,
+        reason: 'the host\'s lorebook fired in the 1:1 and must keep firing',
+      );
+    },
+  );
+
+  // A character card split into its Setting and lore-only worlds (the 1:1
+  // world picker). Proven to fail: drop the card's loreWorldNames from
+  // _seedChatWorldsForNewSession (chat_service_session_fork.dart), the
+  // loreWorldIds copy in forkToGroupChat, or allWorldNames in
+  // _createGroupMember, and the matching expectation goes red.
+  group('a character card with its Setting and lore split', () {
+    late WorldRepository worlds;
+    late ChatService splitChat;
+    late CharacterRepository repo;
+    late UserPersonaService personas;
+    late CharacterCard host;
+
+    setUp(() async {
+      repo = CharacterRepository(db, storage);
+      personas = UserPersonaService(db);
+      worlds = WorldRepository(storage, db);
+      splitChat = ChatService(KoboldService(storage), personas, storage, worlds)
+        ..setDatabase(db)
+        ..setCharacterRepository(repo)
+        ..setGroupChatRepository(GroupChatRepository(storage, db));
+      addTearDown(splitChat.dispose);
+
+      for (final w in [
+        model.World(
+          id: 'town',
+          name: 'Bletchfield',
+          lorebook: Lorebook(entries: []),
+          biomeId: 'temperate',
+        )..defaultPlaceId = 'cafe',
+        model.World(
+          id: 'cafe',
+          name: 'Tea Rooms',
+          lorebook: Lorebook(entries: []),
+          parentWorldId: 'town',
+          climateEnabled: false,
+        ),
+        model.World(
+          id: 'myth',
+          name: 'Old Songs',
+          lorebook: Lorebook(entries: []),
+          climateEnabled: false,
+        ),
+      ]) {
+        await worlds.saveWorld(w);
+      }
+      host = CharacterCard(
+        name: 'Nia',
+        description: 'Exists only inside the split-card test.',
+        firstMessage: 'The kettle whistles.',
+        worldNames: ['town'],
+        loreWorldNames: ['myth'],
+      );
+      await repo.addCharacter(host);
+      await splitChat.startFreshChatWith(
+        character: host,
+        personaId: personas.persona.id,
+      );
+    });
+
+    test('a new 1:1 chat meets at the Setting and reads the lore', () async {
+      expect(splitChat.chatPrimaryWorldId, 'cafe');
+      expect(
+        splitChat.chatLoreWorldIds,
+        contains('myth'),
+        reason: 'the card\'s lore-only world must reach the chat',
+      );
+    });
+
+    test('a fork to a group keeps the card\'s lore, in the template and '
+        'in the host\'s member row', () async {
+      // An emptied chat leaves the card as the only source of the template.
+      await splitChat.setChatPlaceSlots(primaryId: null, loreIds: const []);
+      final guest = CharacterCard(
+        name: 'Marisol',
+        description: 'Exists only inside the split-card test.',
+        firstMessage: 'Mind if I sit?',
+      );
+      await repo.addCharacter(guest);
+      final group = await splitChat.forkToGroupChat([
+        guest,
+      ], GroupChatRepository(storage, db));
+
+      expect(group, isNotNull);
+      expect(splitChat.activeGroup!.worldIds, ['town']);
+      expect(
+        splitChat.activeGroup!.loreWorldIds,
+        ['myth'],
+        reason: 'a later New chat in the group reads the card\'s lore too',
+      );
+      final rows = await db.getGroupMembers(splitChat.activeGroup!.id);
+      final hostRow = rows.firstWhere((r) => r.name == 'Nia');
+      expect(
+        (jsonDecode(hostRow.worldNames) as List).cast<String>(),
+        containsAll(['town', 'myth']),
+        reason: 'group Inherit reads the member row, which has no lore field',
+      );
+    });
+  });
+
+  // A group made from a 1:1 (/join --full, /promote, stepping out to
+  // direct) saved every member at the neutral seed for its new chats. Each
+  // member now starts from their card, as New Chat does in the 1:1.
+  test('a fork\'s new chats start each member from their card', () async {
+    await chat.setActiveCharacter(
+      card('Nia', 'char-fork-card-host')
+        ..frontPorchExtensions = FrontPorchExtensions(
+          shortTermBond: 90,
+          longTermBond: 150,
+          trustLevel: -30,
+          characterEmotion: 'wary',
+          emotionIntensity: 'moderate',
+          needsBaselineHunger: 35,
+          needsPace: 'fast',
+        ),
+    );
+    await chat.setRealismEnabled(true);
+    await chat.setNeedsSimEnabled(true);
+    await chat.addGeneratedImageMessage('/pictures/porch.png', 'a porch');
+    final groups = GroupChatRepository(storage, db);
+
+    // Marisol arrives as a guest (/promote's path), so her row is a lite
+    // copy; she starts where her card starts her, as in the wizard.
+    final group = await chat.forkToGroupChat(
+      [card('Marisol', 'char-fork-card-guest')],
+      groups,
+      liteArrivalKeys: {'char-fork-card-guest'},
+    );
+
+    await groups.reload();
+    final saved = groups.getById(group!.id)!;
+    final rows = await db.getGroupMembers(saved.id);
+    final mid = {for (final r in rows) r.name: r.id};
+    final seeds = parseGroupRealismSeeds(saved.defaultMemberRealismState);
+    final nia = seeds[mid['Nia']]!;
+    expect(
+      [
+        nia['affection'],
+        nia['longTermScore'],
+        nia['trust'],
+        nia['emotion'],
+        nia['emotionIntensity'],
+      ],
+      [90, 150, -30, 'wary', 'moderate'],
+      reason: 'THE BUG: new chats started the host at the neutral 35 / 40',
+    );
+    expect(nia['needs'], containsPair('hunger', 35));
+    expect(nia['needsPace'], 'fast');
+    final marisol = seeds[mid['Marisol']]!;
+    expect(
+      [
+        marisol['affection'],
+        marisol['longTermScore'],
+        marisol['trust'],
+        marisol['emotion'],
+      ],
+      [0, 0, 0, 'neutral'],
+      reason: 'a card that says nothing starts where a 1:1 with it does',
+    );
+    expect(marisol['needs'], containsPair('social', 80));
   });
 }

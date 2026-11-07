@@ -26,6 +26,8 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_card/group_member_card.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_look.dart';
+import 'package:front_porch_ai/ui/chat_components/mood/mood_ring.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -56,6 +58,9 @@ class GroupMemberCard extends StatefulWidget {
   final VoidCallback? onRemove;
   final VoidCallback? onOpenObjectives;
 
+  /// Appearance → Mood on the character, resolved by the sidebar body with
+  /// the real storage: the avatar's ring and the needs bars. Off by default.
+  final MoodLook moodLook;
   const GroupMemberCard({
     super.key,
     required this.character,
@@ -69,6 +74,7 @@ class GroupMemberCard extends StatefulWidget {
     this.canRemove = false,
     this.onRemove,
     this.onOpenObjectives,
+    this.moodLook = MoodLook.off,
   });
 
   @override
@@ -93,6 +99,38 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     return Text(
       widget.character.name.isNotEmpty ? widget.character.name[0] : '?',
       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+    );
+  }
+
+  /// The avatar inside its mood ring when Mood on the character is on and
+  /// this member runs Realism; the bare avatar otherwise.
+  Widget _moodRing(
+    BuildContext context,
+    bool isRealism,
+    int affection,
+    int trust,
+    Map<String, int> needs,
+    Widget avatar,
+  ) {
+    if (!widget.moodLook.portraitOn || !isRealism) return avatar;
+    final chat = widget.chatService;
+    final mood = chat.getMoodForGroupCharacter(widget.character);
+    final need = firstNeedInTrouble(
+      needs,
+      enjoysLowHygiene:
+          widget.character.frontPorchExtensions?.enjoysLowHygiene ?? false,
+    );
+    return MoodRing(
+      spec: MoodRingSpec(
+        mood: mood == null
+            ? MoodAtmosphere.none
+            : MoodAtmosphere.of(mood, drama: widget.moodLook.drama),
+        bond: affection,
+        trust: trust,
+        needHue: need == null ? null : RealismColors.needHueOf(context, need),
+      ),
+      animate: !MediaQuery.disableAnimationsOf(context),
+      child: avatar,
     );
   }
 
@@ -158,9 +196,12 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     final trustName = RelationshipService.trustTierLabel(trustTier);
     final trustColor = TierColors.tierColor(context, trustTier);
 
-    // Lust visibility follows the stable per-member group flag (the live
-    // nsfwService scalar is per-speaker-volatile in groups).
-    final lustOn = isRealism && chat.isGroupNsfwEnabled;
+    // Lust shows while Afterglow runs for THIS member: Porch Life, the group
+    // chat's switch and their own (the live scalars hold another speaker).
+    final lustOn = isRealism && chat.afterglowRunsFor(widget.character);
+    final refractory = lustOn
+        ? chat.getRefractoryForGroupCharacter(widget.character)
+        : null;
     // Arousal has its own ±100 ladder (level ÷ 10) and its own vocabulary, and
     // both must be read for THIS member. The tier came from the bond ladder,
     // and the name came from nsfwService.arousalTierName — the LIVE SPEAKER's
@@ -173,27 +214,15 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
         ? AppColors.frostAccentOf(context)
         : AppColors.lustAccentOf(context);
 
-    final ext = widget.character.frontPorchExtensions;
     CharacterRepository? repo;
     try {
       repo = Provider.of<CharacterRepository>(context, listen: false);
     } on ProviderNotFoundException {
       repo = null;
     }
-    final library = MemberOriginResolver.resolve(
-      stampedOriginStableId: null,
-      memberName: widget.character.name,
-      libraryCharacters: repo?.characters ?? const [],
-    );
-    final work = workFieldsForGroupMember(
-      copyOccupation: ext?.occupation ?? '',
-      copyHours: ext?.hours ?? '',
-      copyOccupationBrief: ext?.occupationBrief ?? '',
-      copyWorkDays: ext?.workDays,
-      libraryOccupation: library?.frontPorchExtensions?.occupation,
-      libraryHours: library?.frontPorchExtensions?.hours,
-      libraryOccupationBrief: library?.frontPorchExtensions?.occupationBrief,
-      libraryWorkDays: library?.frontPorchExtensions?.workDays,
+    final work = workFieldsForMember(
+      widget.character,
+      repo?.characters ?? const [],
     );
     final where = derivePresence(
       occupation: work.occupation,
@@ -240,6 +269,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       fixation: fixation,
       fixationLife: fixationLife,
       needs: needs,
+      moodLook: widget.moodLook,
       topNeeds: topNeeds,
       ambitions: ambitions,
       memberObjectives: memberObjectives,
@@ -252,6 +282,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       trustName: trustName,
       trustColor: trustColor,
       lustOn: lustOn,
+      refractory: refractory,
       arousalTier: arousalTier,
       arousalName: arousalName,
       arousalColor: arousalColor,
@@ -300,32 +331,39 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: ringColor,
-                            width: widget.isExpanded ? 2.5 : 2.0,
-                          ),
-                        ),
-                        child: CircleAvatar(
-                          radius: widget.isExpanded ? 18 : 16,
-                          backgroundColor: widget.avatarColor,
-                          // No portrait, or only the flat placeholder a
-                          // character made without one carries: the letter.
-                          child: RealPortrait(
-                            file: _hasAvatarFile ? widget.avatarFile : null,
-                            portrait: (_, file) => ClipOval(
-                              child: Image.file(
-                                file,
-                                width: widget.isExpanded ? 36 : 32,
-                                height: widget.isExpanded ? 36 : 32,
-                                cacheWidth: kPortraitAvatarDecodeWidth,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => _avatarLetter(),
-                              ),
+                      _moodRing(
+                        context,
+                        isRealism,
+                        affection,
+                        trust,
+                        needs,
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: ringColor,
+                              width: widget.isExpanded ? 2.5 : 2.0,
                             ),
-                            noPortrait: (_) => _avatarLetter(),
+                          ),
+                          child: CircleAvatar(
+                            radius: widget.isExpanded ? 18 : 16,
+                            backgroundColor: widget.avatarColor,
+                            // No portrait, or only the flat placeholder a
+                            // character made without one carries: the letter.
+                            child: RealPortrait(
+                              file: _hasAvatarFile ? widget.avatarFile : null,
+                              portrait: (_, file) => ClipOval(
+                                child: Image.file(
+                                  file,
+                                  width: widget.isExpanded ? 36 : 32,
+                                  height: widget.isExpanded ? 36 : 32,
+                                  cacheWidth: kPortraitAvatarDecodeWidth,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => _avatarLetter(),
+                                ),
+                              ),
+                              noPortrait: (_) => _avatarLetter(),
+                            ),
                           ),
                         ),
                       ),
@@ -441,7 +479,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                   ),
                 ),
 
-                if (widget.isExpanded && isRealism && !widget.character.isLite)
+                if (widget.isExpanded && !widget.character.isLite)
                   ...look.expandedChildren(context),
                 if (!widget.isExpanded && !widget.character.isLite)
                   ...look.compactChildren(context),

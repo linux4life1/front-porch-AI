@@ -83,4 +83,14 @@ void main() {
     expect(options.titleBarStyle, TitleBarStyle.normal);
     expect(options.windowButtonVisibility, isTrue);
   });
+
+  test('Windows sets no window background, so no DWM accent policy', () {
+    final win = mainWindowOptions(isMacOS: false, isWindows: true);
+    expect(win.backgroundColor, isNull);
+    expect(win.titleBarStyle, TitleBarStyle.normal);
+    expect(win.windowButtonVisibility, isTrue);
+
+    final linux = mainWindowOptions(isMacOS: false, isWindows: false);
+    expect(linux.backgroundColor, Colors.transparent);
+  });
 }

@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat/existing_chats_offer.dart';
 import 'package:front_porch_ai/services/web/facade/settings_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
@@ -29,6 +30,22 @@ class WebSettingsRoutes {
     : _facade = _deps.settingsFacade! {
     router.get('/api/settings', _get);
     router.post('/api/settings', _post);
+    // The existing-chats question once Porch Life allows a feature: how many
+    // chats have their own switch off, and turning those on.
+    router.get('/api/settings/existing-chats', (shelf.Request r) async {
+      final f = _featureFor(r.url.queryParameters['feature']);
+      if (f == null) return JsonResponse.badRequest('unknown feature');
+      if (_blockedByRealism(f)) return JsonResponse.ok({'count': 0});
+      return JsonResponse.ok({'count': await _offer().countOff(f)});
+    });
+    router.post('/api/settings/existing-chats', (shelf.Request r) async {
+      final body = await RequestBody.readJsonMap(r);
+      final f = _featureFor(body['feature']?.toString());
+      if (f == null) return JsonResponse.badRequest('unknown feature');
+      // Porch Life may have stopped allowing it since the question opened.
+      if (!_allowed(f)) return JsonResponse.ok({'changed': 0});
+      return JsonResponse.ok({'changed': await _offer().turnOn(f)});
+    });
     // Legacy-engine model cleanup (desktop parity: Reclaim Disk Space).
     router.get(
       '/api/legacy-models',
@@ -42,6 +59,31 @@ class WebSettingsRoutes {
   }
 
   final WebServerDeps _deps;
+
+  /// The feature named on the wire, or null for one it does not know.
+  ExistingChatsFeature? _featureFor(String? name) => switch (name) {
+    'afterglow' => ExistingChatsFeature.afterglow,
+    'needs' => ExistingChatsFeature.needs,
+    'realism' => ExistingChatsFeature.realism,
+    _ => null,
+  };
+
+  bool _allowed(ExistingChatsFeature f) =>
+      existingChatsFeatureAllowed(_deps.storage.realismSettings, f);
+
+  /// While Realism is blocked no chat runs Needs or Afterglow, so there is
+  /// nothing to ask about them: an older phone asking gets a count of 0 and
+  /// no dialog, not an error.
+  bool _blockedByRealism(ExistingChatsFeature f) =>
+      f != ExistingChatsFeature.realism &&
+      !_deps.storage.realismSettings.realismAllowed;
+
+  ExistingChatsOffer _offer() => ExistingChatsOffer(
+    _deps.db,
+    _facade.boundChat,
+    cards: _deps.characterFacade?.cards,
+    realism: _deps.storage.realismSettings,
+  );
   final SettingsFacade _facade;
 
   Future<shelf.Response> _get(shelf.Request request) async =>

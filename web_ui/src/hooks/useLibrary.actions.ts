@@ -17,6 +17,9 @@ function download(url: string) {
   a.remove();
 }
 
+/** Thrown out of an upload when the person closes the persona picker. */
+const PICK_CANCELLED = Symbol('persona-pick-cancelled');
+
 export function useLibraryActions(opts: {
   folderId: string | null;
   setFolderId: (id: string | null) => void;
@@ -226,6 +229,28 @@ export function useLibraryActions(opts: {
     [],
   );
 
+  // A Backyard chat is a new chat: like Start new chat, the server asks
+  // (409 persona_pick) which persona the user was, with the one the chat
+  // names most as `recommendedPersonaId`; the page renders the picker.
+  type PersonaPick = { subject: string; title?: string; recommendedId: string | null };
+  const [personaPick, setPersonaPick] = useState<PersonaPick | null>(null);
+  const pickWaiter = useRef<((id: string | null) => void) | null>(null);
+
+  const promptPersonaPick = useCallback((pick: PersonaPick) => {
+    return new Promise<string | null>((resolve) => {
+      pickWaiter.current = (id) => {
+        pickWaiter.current = null;
+        setPersonaPick(null);
+        resolve(id);
+      };
+      setPersonaPick(pick);
+    });
+  }, []);
+
+  const resolvePersonaPick = useCallback((id: string | null) => {
+    pickWaiter.current?.(id);
+  }, []);
+
   const importFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
@@ -238,13 +263,42 @@ export function useLibraryActions(opts: {
       let ok = 0;
       let failed = 0;
       let cancelled = 0;
+      const byafCount = list.filter((f) => /\.byaf$/i.test(f.name)).length;
+      // Asked once per batch, as on the desktop; later files reuse the pick.
+      let personaId: string | null = null;
+      const upload = async (query: string, file: File) => {
+        const url = (persona: string) =>
+          `/api/characters/import?${query}&persona=${encodeURIComponent(persona)}`;
+        try {
+          return await api.upload(url(personaId ?? 'ask'), file);
+        } catch (e) {
+          if (
+            !(e instanceof ApiError) ||
+            e.status !== 409 ||
+            (e.payload.error !== 'persona_pick' && e.payload.status !== 'persona_pick')
+          ) {
+            throw e;
+          }
+          const rec = e.payload.recommendedPersonaId;
+          const picked = await promptPersonaPick({
+            subject: String(e.payload.name ?? file.name),
+            title:
+              byafCount > 1 ? `Import these ${byafCount} Backyard chats as…` : undefined,
+            recommendedId: typeof rec === 'string' ? rec : null,
+          });
+          if (picked === null) throw PICK_CANCELLED;
+          personaId = picked;
+          return await api.upload(url(picked), file);
+        }
+      };
       for (const file of list) {
         try {
           if (single) {
             try {
-              await api.upload('/api/characters/import?collision=ask', file);
+              await upload('collision=ask', file);
               ok++;
             } catch (e) {
+              if (e === PICK_CANCELLED) throw e;
               if (
                 e instanceof ApiError &&
                 e.status === 409 &&
@@ -264,15 +318,12 @@ export function useLibraryActions(opts: {
                   continue;
                 }
                 if (choice === 'keepBoth') {
-                  await api.upload(
-                    '/api/characters/import?collision=keepBoth',
-                    file,
-                  );
+                  await upload('collision=keepBoth', file);
                   ok++;
                 } else {
                   const rid = replaceId || existing[0]?.id || '';
-                  await api.upload(
-                    `/api/characters/import?collision=replace&replaceId=${encodeURIComponent(rid)}`,
+                  await upload(
+                    `collision=replace&replaceId=${encodeURIComponent(rid)}`,
                     file,
                   );
                   ok++;
@@ -282,13 +333,15 @@ export function useLibraryActions(opts: {
               }
             }
           } else {
-            await api.upload(
-              '/api/characters/import?collision=keepBoth',
-              file,
-            );
+            await upload('collision=keepBoth', file);
             ok++;
           }
-        } catch {
+        } catch (e) {
+          // Cancelling the persona picker stops the batch, as on the desktop.
+          if (e === PICK_CANCELLED) {
+            cancelled++;
+            break;
+          }
           failed++;
         }
       }
@@ -302,7 +355,7 @@ export function useLibraryActions(opts: {
         setError('No PNG (V2), .json or .byaf cards found to import.');
       }
     },
-    [reload, promptNameCollision, setError, setImporting],
+    [reload, promptNameCollision, promptPersonaPick, setError, setImporting],
   );
 
   return {
@@ -322,5 +375,7 @@ export function useLibraryActions(opts: {
     importFiles,
     nameCollision,
     resolveNameCollision,
+    personaPick,
+    resolvePersonaPick,
   };
 }

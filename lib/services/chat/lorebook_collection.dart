@@ -159,7 +159,7 @@ List<LoreEntryRef> collectLoreEntryRefs({
           );
         }
       }
-      for (final worldName in ch.worldNames) {
+      for (final worldName in ch.allWorldNames) {
         addWorld(worldName);
       }
     }

@@ -14,7 +14,7 @@ import 'package:front_porch_ai/services/chat/prompt_injection/recap_injection.da
 void main() {
   test('generation blocks gate recap on journalEnabled', () {
     final src = File(
-      'lib/services/chat/chat_service_generation_blocks.dart',
+      'lib/services/chat/doors/turn/turn_blocks.dart',
     ).readAsStringSync();
     final recap = src.indexOf('t.summaryBlock');
     expect(recap, greaterThanOrEqualTo(0));
@@ -35,7 +35,7 @@ void main() {
 
   test('RAG compose stays reachable when Journal is off', () {
     final src = File(
-      'lib/services/chat/chat_service_generation_blocks.dart',
+      'lib/services/chat/doors/turn/turn_blocks.dart',
     ).readAsStringSync();
     final rag = src.indexOf('Compose even when the Journal toggle is off');
     expect(rag, greaterThanOrEqualTo(0));

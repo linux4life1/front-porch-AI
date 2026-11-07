@@ -258,23 +258,29 @@ export interface PickerPersona {
 
 /** Step 2 of "Start new chat": which persona walks into the scene. A fresh
  *  chat must never silently inherit the last one's persona, so this asks
- *  outright (the desktop context menu shows the same step). */
+ *  outright (the desktop context menu shows the same step). A Backyard
+ *  import asks the same way: [recommendedId] badges the persona the chat
+ *  names most, and [title] words a batch. */
 export function PersonaPickerDialog({
   subject,
   personas,
   onPick,
   onClose,
+  title,
+  recommendedId,
 }: {
   subject: string;
   personas: PickerPersona[];
   onPick: (personaId: string) => void;
   onClose: () => void;
+  title?: string;
+  recommendedId?: string | null;
 }) {
   return (
     <div className="drawer-backdrop center" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
-          <span>Start a new chat with {subject} as…</span>
+          <span>{title ?? `Start a new chat with ${subject} as…`}</span>
           <button className="link-btn" onClick={onClose}>
             Close
           </button>
@@ -283,6 +289,9 @@ export function PersonaPickerDialog({
           {personas.map((p) => (
             <button key={p.id} className="move-row" onClick={() => onPick(p.id)}>
               <span aria-hidden>🧑</span> {p.label}
+              {p.id === recommendedId && (
+                <span className="persona-current">Recommended</span>
+              )}
               {p.default && <span className="persona-current">Default</span>}
             </button>
           ))}

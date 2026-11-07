@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -44,12 +45,16 @@ class JournalPanel extends StatefulWidget {
   /// or hosts without a scrollable chat behind the panel).
   final ValueChanged<int>? onJumpToMessage;
 
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const JournalPanel({
     super.key,
     required this.chatService,
     required this.characterId,
     required this.characterName,
     this.onJumpToMessage,
+    this.dragHandle,
   });
 
   @override
@@ -113,10 +118,8 @@ class _JournalPanelState extends State<JournalPanel> {
     if (!storage.memorySettings.journalEnabled) return const SizedBox.shrink();
     final accent = AppColors.journalAccentOf(context);
 
-    // Preview: pinned first (store order), then the freshest unpinned.
-    final pinned = _cards.where((c) => c.pinned);
-    final unpinned = _cards.where((c) => !c.pinned).toList().reversed;
-    final preview = [...pinned, ...unpinned].take(3).toList();
+    // Preview: the top of the diary's own reading order.
+    final preview = JournalReadingOrder.cards(_cards).take(3).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,6 +128,7 @@ class _JournalPanelState extends State<JournalPanel> {
           icon: Icons.menu_book,
           label: 'The Journal',
           accent: accent,
+          dragHandle: widget.dragHandle,
           trailing: Text(
             '${_cards.length}',
             style: TextStyle(

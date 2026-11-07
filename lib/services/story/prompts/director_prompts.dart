@@ -75,7 +75,7 @@ Story and cast:
 Structure:
 - MODIFY_ACT — <act>; details: <title> <act_mandate>.
 - MODIFY_SEQUENCE — <sequence>; details: <title> <dramatic_question> <description>.
-- ADD_SCENE — <sequence>, and optionally the <scene> it goes after; details: <title> <description> <characters> <setting> <scene_type> <narrative_lens> <scene_objective> <plot_commitments>.
+- ADD_SCENE — <sequence>, and optionally the <scene> it goes after; details: <title> <description> <characters> <place> <setting> <scene_type> <narrative_lens> <scene_objective> <plot_commitments>. <place> is a name from <places> when the story has one.
 - MODIFY_SCENE — <scene>; details: any scene field above, plus <instructions> saying how prose already written for it should change.
 - DELETE_SCENE — <scene>.
 - MOVE_SCENE — <scene>; details: <to_position> (its new place inside the same sequence, counting from 1).
@@ -93,6 +93,7 @@ Prose:
     required bool protect,
     DirectorPlan? previousPlan,
     String refinement = '',
+    String places = '',
     String? previous,
     String? feedback,
   }) => StudioContext.join([
@@ -109,6 +110,7 @@ ${protect ? '- PROTECT WRITTEN PROSE is ON. For scenes marked [written], use onl
     ),
     StudioContext.block('available_actions', _actions),
     StudioContext.storyInfo(p),
+    places,
     StudioContext.cast(p, tag: 'cast_list'),
     StudioContext.relationships(p),
     StudioContext.block('story_outline', outline(p)),

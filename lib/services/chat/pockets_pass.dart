@@ -44,9 +44,9 @@ class PocketsPass {
   final int Function() storyDayCount;
   final MemorySettings Function() memorySettings;
 
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
-  List<ChatMessage> get _messages => _scope.messages;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
+  List<ChatMessage> get _messages => _scope.session.messages;
   String? get _currentSessionId => currentSessionId();
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
 

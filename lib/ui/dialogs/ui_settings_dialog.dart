@@ -253,7 +253,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              for (final slot in ChatColorSlot.values)
+              for (final slot in ChatColorSlot.values) ...[
                 ChatColorRow(
                   label: slot.label,
                   color: _themeAwareColor(
@@ -268,6 +268,25 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                   ),
                   onChanged: (color) => _updateChatColor(context, slot, color),
                 ),
+                // A group has no host for your bubbles, so a member's own
+                // user colours are kept but never shown there.
+                if (slot == ChatColorSlot.userText &&
+                    !hasTheme &&
+                    _characterNotifier.value != null &&
+                    isOpenGroupMember(chatService, _characterNotifier.value!))
+                  Padding(
+                    key: const Key('group-user-colours-note'),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'In a group, your bubbles use your own colours from '
+                      'Settings.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary(context),
+                      ),
+                    ),
+                  ),
+              ],
               const SizedBox(height: 20),
 
               // ── Chat Background ─────────────────────────────────────────
@@ -362,12 +381,30 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   ) async {
     final character = _characterNotifier.value;
     if (character == null) return;
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+    final chat = Provider.of<ChatService>(context, listen: false);
+    // A group member saves its extensions to its own row and refreshes the
+    // roster; the library writer matched no row for it, so the change was
+    // gone on reload. Extensions only: the rest of this copy may be older
+    // than the row.
+    final Future<void> Function(CharacterCard) persist;
+    if (isOpenGroupMember(chat, character)) {
+      final db = liveDatabase(context);
+      persist = (card) async {
+        await saveGroupMemberExtensions(db, card);
+        chat.refreshActiveCharacterCard(card);
+      };
+    } else {
+      persist = Provider.of<CharacterRepository>(
+        context,
+        listen: false,
+      ).updateCharacter;
+    }
     final updatedCharacter = await saveCharacterExtension(
-      charRepo,
+      persist,
       character,
       mutate,
     );
+    if (!mounted) return;
     setState(() {
       _characterNotifier.value = updatedCharacter;
     });

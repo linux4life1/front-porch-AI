@@ -30,7 +30,15 @@ import 'lorebook_panel.dart';
 /// opens the wizard (whose "This chat only" destination lands here).
 class ChatLorebookSection extends StatelessWidget {
   final ChatService chatService;
-  const ChatLorebookSection({super.key, required this.chatService});
+
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
+  const ChatLorebookSection({
+    super.key,
+    required this.chatService,
+    this.dragHandle,
+  });
 
   Future<void> _addOrEdit(BuildContext context, {int? index}) async {
     final entries = chatService.chatLorebook.entries;
@@ -61,6 +69,7 @@ class ChatLorebookSection extends StatelessWidget {
           icon: Icons.chat_bubble_outline,
           label: 'This Chat',
           accent: honey,
+          dragHandle: dragHandle,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

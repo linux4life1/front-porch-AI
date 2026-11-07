@@ -24,6 +24,7 @@ import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/inline_chat_image.dart';
+import 'bubble_host.dart';
 import 'live_thought_body.dart';
 import 'live_thinking_timer.dart';
 import 'message_bubble.dart';
@@ -112,7 +113,7 @@ List<Widget> messageBubbleContentChildren(
         isUser: message.isUser,
         externalImagesAllowed: widget.externalImagesAllowed,
         onRequestImagePermission: widget.onRequestImagePermission,
-        character: widget.character ?? widget.chatService?.activeCharacter,
+        character: widget.character ?? bubbleHost(widget.chatService),
         themePreset: theme.preset,
         themeOverrides: theme.overrides,
         find: FindHighlightScope.maybeOf(context)?.leafStateFor(message),

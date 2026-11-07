@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_lore_card.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 
 /// The character editor's Lorebook tab. The page owns the entry list and the
 /// import / export / add / edit / remove actions; this tab only lays them out.
@@ -35,6 +36,9 @@ class EditCharacterLorebookTab extends StatelessWidget {
   /// Called after an entry's enable switch flips it in place.
   final VoidCallback onChanged;
 
+  /// A group member's editor: when the group reads this lorebook.
+  final String? memberNote;
+
   const EditCharacterLorebookTab({
     super.key,
     required this.entries,
@@ -45,6 +49,7 @@ class EditCharacterLorebookTab extends StatelessWidget {
     required this.onEditEntry,
     required this.onRemoveEntry,
     required this.onChanged,
+    this.memberNote,
   });
 
   Widget _heading(BuildContext context) {
@@ -109,6 +114,7 @@ class EditCharacterLorebookTab extends StatelessWidget {
               // them on the next line instead of crushing the heading.
               _heading(context),
               const SizedBox(height: 12),
+              if (memberNote != null) MemberEditorNote(memberNote!),
               Align(
                 alignment: Alignment.centerRight,
                 child: Wrap(

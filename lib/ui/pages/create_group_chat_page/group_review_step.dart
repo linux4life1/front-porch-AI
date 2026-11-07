@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -36,6 +38,7 @@ class GroupReviewStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = draft;
+    final worlds = Provider.of<WorldRepository>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -46,7 +49,7 @@ class GroupReviewStep extends StatelessWidget {
         const SizedBox(height: 12),
 
         // Scenario + First Message moved here (last step) so AI generation
-        // can use the hidden relationships from the Group Dynamics step.
+        // can use the hidden relationships from Group Dynamics on the Realism step.
         Row(
           children: [
             Expanded(
@@ -57,6 +60,7 @@ class GroupReviewStep extends StatelessWidget {
             ),
             generateWithDynamicsButton(
               context,
+              withDynamics: d.buildDynamicsContextForGeneration().isNotEmpty,
               busy: d.isGeneratingScenario,
               onPressed: () async {
                 final dynamics = d.buildDynamicsContextForGeneration();
@@ -83,6 +87,7 @@ class GroupReviewStep extends StatelessWidget {
             ),
             generateWithDynamicsButton(
               context,
+              withDynamics: d.buildDynamicsContextForGeneration().isNotEmpty,
               busy: d.isGeneratingFirst,
               onPressed: () async {
                 final dynamics = d.buildDynamicsContextForGeneration();
@@ -132,7 +137,27 @@ class GroupReviewStep extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '${d.members.length} members • ${d.groupLoreEntries.length} lore entries • ${d.worldIds.length} worlds',
+                '${d.members.length} members • ${d.groupLoreEntries.length} lore entries',
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      groupSettingSummary(
+                        d.worldChoice,
+                        worlds.worldById,
+                        groupWeatherLabels(worlds),
+                      ),
+                      key: const ValueKey('group-review-setting'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => d.goToStep(GroupWizardSteps.setting),
+                    child: const Text('Change'),
+                  ),
+                ],
               ),
               if (d.chaosModeEnabled)
                 Text(

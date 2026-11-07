@@ -1824,3 +1824,700 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
     await setPot(before ?? false);
   }
 });
+
+// Stories set in Worlds (docs/design/stories-in-worlds.md §5): the Idea step
+// picks a world from the library, the card and the rail name it, and the pick
+// is saved with the draft on Next, so the shelf row and the project carry it.
+test('New Story can be set in a world: the Idea card names it and Next saves it', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey World')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories ?? [];
+    for (const s of stories) if (s.title === 'World Journey') await page.request.post(`/api/stories/${s.id}/delete`);
+  };
+  await cleanup();
+  const create = (data: Record<string, unknown>) => page.request.post('/api/worlds', { data: { ...data, create: true } });
+  expect((await create({ name: 'Journey World Town', description: 'A town of honey stone.', climateEnabled: true })).ok()).toBe(true);
+  const townId = (await list()).find((w) => w.name === 'Journey World Town')!.id!;
+  expect((await create({ name: 'Journey World Tea Rooms', description: 'Steam and gossip.', climateEnabled: false, parentWorldId: townId })).ok()).toBe(true);
+  try {
+    await openRoute(page, '/stories/new');
+    await page.getByTestId('story-choose-world').click();
+    const picker = page.getByTestId('story-world-picker');
+    await expect(picker).toContainText('Journey World Tea Rooms');
+    await picker.getByTestId(`story-world-row-${townId}`).click();
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey World Town');
+    await expect(page.getByTestId('story-world-detail')).toContainText('1 place');
+    // The rail is a wide-screen thing (the phone sums up on a later "Ready?" page), so the card is the check.
+
+    await page.getByTestId('story-title').fill('World Journey');
+    await page.getByTestId('story-concept').fill('Tea, gossip and a locked door in the town.');
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+
+    // Next saved the draft: the project carries the world, and the shelf row names it.
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string; worldName?: string }[] }).stories;
+    const saved = stories.find((s) => s.title === 'World Journey');
+    expect(saved?.worldName).toBe('Journey World Town');
+    const project = (await (await page.request.get(`/api/stories/${saved!.id}`)).json()) as { world_id?: string; world_name?: string };
+    expect(project.world_name).toBe('Journey World Town');
+    expect(project.world_id).toBeTruthy();
+    const summary = (await (await page.request.get(`/api/stories/world?place=${encodeURIComponent(project.world_id!)}`)).json()) as { ok: boolean; worldName: string };
+    expect(summary).toMatchObject({ ok: true, worldName: 'Journey World Town' });
+
+    // The shelf names the world on the wide book and on the phone row alike.
+    await openRoute(page, '/stories');
+    await expect(page.getByTestId(`story-book-world-${saved!.id}`)).toContainText('Journey World Town');
+  } finally {
+    await cleanup();
+  }
+});
+
+// "Write a story here" on the Worlds page (docs/design/stories-in-worlds.md §3.4):
+// the world card opens New Story with that world already on the Idea card.
+test('Write a story here on a world card opens New Story set in that world', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey Here')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+  };
+  await cleanup();
+  const made = await page.request.post('/api/worlds', { data: { name: 'Journey Here Harbour', description: 'Salt and rope.', climateEnabled: true, create: true } });
+  expect(made.ok()).toBe(true);
+  const id = (await list()).find((w) => w.name === 'Journey Here Harbour')!.id!;
+  try {
+    await openRoute(page, '/worlds');
+    await page.getByTestId(`world-write-story-${id}`).click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey Here Harbour');
+    await expect(page.getByTestId('story-world-detail')).toContainText('the world at large');
+  } finally {
+    await cleanup();
+  }
+});
+
+// Stories from group chats (docs/design/stories-from-group-chats.md §5): a
+// group chat the user wrote in is offered by New Story's Choose a chat…, and
+// picking it casts the whole roster with the first member as the lead.
+test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
+  let groupId = '';
+  let storyId = '';
+  test.afterEach(async ({ request }) => {
+    if (storyId) {
+      const gone = await request.post(`/api/stories/${storyId}/delete`);
+      expect(gone.ok(), `removing the story this spec made: ${gone.status()}`).toBe(true);
+      storyId = '';
+    }
+    if (groupId) {
+      const gone = await request.post(`/api/groups/${groupId}/delete`);
+      expect(gone.ok(), `removing the group this spec made: ${gone.status()}`).toBe(true);
+      groupId = '';
+    }
+  });
+
+  test('a story starts from a group chat with its roster as the cast', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Story Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    // A chat the user never wrote in is no story: open the group and say one thing.
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who left the porch light on?');
+    await waitIdle(page);
+
+    await openRoute(page, '/stories');
+    await page.getByTestId('story-new').click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    const title = `Crew Story ${test.info().project.name}`;
+    await page.getByTestId('story-title').fill(title);
+    await page.getByTestId('story-choose-chat').click();
+    const picker = page.getByTestId('story-chat-picker');
+    // Search finds the group by a member's name; the row names the group and its roster.
+    await picker.getByTestId('story-chat-search').fill('second guest');
+    const row = picker.locator('button[data-testid^="story-chat-"]', { hasText: name }).first();
+    await expect(row).toContainText('Porch Tester & Second Guest');
+    await expect(row).toContainText('group');
+    await row.click();
+    await expect(picker).toHaveCount(0);
+
+    // The Idea card shows the group, its roster, and the seeded concept.
+    await expect(page.getByTestId('story-chat-name')).toHaveText(name);
+    await expect(page.getByTestId('story-chat-detail')).toContainText('Porch Tester & Second Guest');
+    await expect(page.getByTestId('story-concept')).toHaveValue(/between Porch Tester & Second Guest and /);
+
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+    const cast = page.locator('[data-testid^="story-cast-"]');
+    await expect(cast).toHaveCount(2);
+    await expect(cast.first()).toContainText('Porch Tester');
+    await expect(cast.first()).toContainText('From the group chat');
+    await expect(cast.first().getByRole('button', { name: 'Protagonist', exact: true })).toHaveClass(/\bon\b/);
+    await expect(cast.nth(1)).toContainText('Second Guest');
+    await expect(cast.nth(1).getByRole('button', { name: 'Supporting', exact: true })).toHaveClass(/\bon\b/);
+
+    // The saved story carries the group, every member's card from the group's rows, and the lead.
+    const list = ((await (await request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories;
+    storyId = list.find((s) => s.title === title)!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; chat_group_name?: string; chat_history_character_ids: string[];
+      chat_history_session_ids?: string[]; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.chat_group_name).toBe(name);
+    expect(story.chat_history_character_ids).toHaveLength(2);
+    expect(story.chat_history_session_ids).toHaveLength(1);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Protagonist'],
+      ['Second Guest', 'Supporting'],
+    ]);
+    expect(story.character_card_snapshots[0].description).toBe('Exists only inside the web UI browser E2E.');
+  });
+
+  // Chat tools → Our story in a group chat: the Lead select picks who leads,
+  // and Turn this chat into a story sends it (desktop dialog's Lead row parity).
+  test('the chat tools turn a group chat into a story led by the picked member', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Lead Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who takes the first watch?');
+    await waitIdle(page);
+
+    const before = new Set(
+      ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories.map((s) => s.id),
+    );
+    // The insight column on a wide window; the Stats drawer below 1024px.
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    await panel.locator('summary', { hasText: 'Our story' }).click();
+    const lead = panel.getByTestId('story-lead');
+    await expect(lead.locator('option')).toHaveText(['Porch Tester', 'Second Guest', 'You']);
+    await lead.selectOption({ label: 'Second Guest' });
+    await panel.getByTestId('story-from-chat').click();
+    await expect(panel.getByText(/^Created ".+" — open Stories to run it\.$/)).toBeVisible();
+
+    const after = ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories;
+    storyId = after.find((s) => !before.has(s.id))!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Supporting'],
+      ['Second Guest', 'Protagonist'],
+    ]);
+  });
+});
+
+test(
+  'create a group in a world, at a place that is not the star',
+  { tag: SERIAL },
+  async ({ page }) => {
+    const request = page.request;
+    const list = async () =>
+      ((await (await request.get('/api/worlds')).json()) as {
+        worlds: { id?: string; name: string }[];
+      }).worlds;
+    const groupIds = async () =>
+      ((await (await request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map(
+        (g) => g.id,
+      );
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey Meet '))
+        await request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+    const before = await groupIds();
+    try {
+      // ── A world with a starred place and one more ─────────────────────
+      const root = await request.post('/api/worlds', {
+        data: { name: 'Journey Meet Vale', climateEnabled: true, create: true },
+      });
+      expect(root.ok(), 'create the world').toBe(true);
+      const valeId = (await list()).find((w) => w.name === 'Journey Meet Vale')!.id!;
+      for (const name of ['Journey Meet Mill', 'Journey Meet Bridge']) {
+        const placed = await request.post('/api/worlds', {
+          data: { name, climateEnabled: false, parentWorldId: valeId, create: true },
+        });
+        expect(placed.ok(), `create ${name}`).toBe(true);
+      }
+      const ids = new Map((await list()).map((w) => [w.name, w.id!]));
+      const starred = await request.post('/api/worlds/default-place', {
+        data: { worldId: valeId, placeId: ids.get('Journey Meet Mill') },
+      });
+      expect(starred.ok(), 'star the mill').toBe(true);
+
+      // ── Members, name, then the Setting step ──────────────────────────
+      await openRoute(page, '/create-group');
+      await page.locator('.grp-card', { hasText: 'Porch Tester' }).first().click();
+      await page.locator('.grp-card', { hasText: 'Second Guest' }).first().click();
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await page.getByPlaceholder('Name this group').fill('Journey Meet Group');
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Where does the group meet?')).toBeVisible();
+
+      await page.getByTestId(`group-setting-world-${valeId}`).click();
+      const summary = page.getByTestId('group-setting-summary');
+      await expect(summary).toContainText('New chats start at Journey Meet Mill in Journey Meet Vale.');
+      await page.getByTestId(`group-setting-place-${ids.get('Journey Meet Bridge')}`).click();
+      await expect(summary).toContainText('New chats start at Journey Meet Bridge in Journey Meet Vale.');
+
+      // Changed with the seven-step web wizard: Create moved to Review, so
+      // the journey walks Realism, Opening and Prompts & Lore on the way.
+      // ── Realism, with Group Dynamics inside for a pair ────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Realism Engine for this group')).toBeVisible();
+      await expect(page.getByTestId('group-dynamics')).toBeVisible();
+      // ── Opening: set where the Setting step put the group ──────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByTestId('group-opening-setting')).toContainText(
+        'New chats start at Journey Meet Bridge in Journey Meet Vale.',
+      );
+      await page.getByPlaceholder('The scene opens with...').fill('The bridge sways in the rain.');
+      // ── Prompts & Lore on one page ─────────────────────────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByRole('heading', { name: 'Group System Prompt' })).toBeVisible();
+      await page.getByTestId('group-lore-add').click();
+      await page.getByLabel('Entry content').fill('The bridge was built by the first settlers.');
+      // ── Review names each step's choice ────────────────────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      const review = page.getByTestId('group-review');
+      await expect(review).toContainText('Journey Meet Bridge in Journey Meet Vale');
+      await expect(review).toContainText('Custom first message');
+      await expect(review).toContainText('1 lore entry');
+
+      await page.getByRole('button', { name: /Create & open/ }).click();
+      await expect(page.locator('.chat-view')).toBeVisible();
+
+      // ── The group stored the place itself, so new chats start there ───
+      const made = (await groupIds()).filter((id) => !before.includes(id));
+      expect(made, 'exactly one group was made').toHaveLength(1);
+      const worlds = (await (await request.get(`/api/groups/${made[0]}/worlds`)).json()) as {
+        settingId: string | null;
+        loreIds: string[];
+      };
+      expect(worlds.settingId).toBe(ids.get('Journey Meet Bridge'));
+      expect(worlds.loreIds).toEqual([]);
+    } finally {
+      for (const id of await groupIds()) {
+        if (!before.includes(id)) await request.post(`/api/groups/${id}/delete`);
+      }
+      for (const w of await list()) {
+        if (w.name.startsWith('Journey Meet '))
+          await request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+      }
+    }
+  },
+);
+
+// Group Settings' "Realism for new chats": the switches save the group's
+// settings for new chats, and a group made on the web (not from a 1:1)
+// shows no forked-group notice.
+test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+  const name = `New Chats Crew ${test.info().project.name}`;
+  const created = await request.post('/api/groups', { data: { name, memberIds } });
+  expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+  const groupId = ((await created.json()) as { id: string }).id;
+  const newChats = async () =>
+    (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as {
+      realism: boolean;
+      needs: boolean;
+      forkSource: unknown;
+    };
+  try {
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+
+    // The insight column on a wide window; the Stats drawer below 1024px.
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    await panel.locator('summary', { hasText: 'Group settings' }).click();
+    const section = panel.getByTestId('group-new-chats-section');
+    await expect(section).toContainText('Realism for new chats');
+    await expect(panel.getByTestId('group-fork-notice')).toHaveCount(0);
+    expect(await newChats()).toMatchObject({ realism: true, needs: true, forkSource: null });
+
+    const realism = section.getByRole('checkbox', { name: 'Realism Engine' });
+    const needs = section.getByRole('checkbox', { name: 'Needs' });
+    await expect(realism).toBeChecked();
+    await needs.uncheck();
+    await expect.poll(async () => (await newChats()).needs).toBe(false);
+    await expect(realism).toBeChecked();
+    await realism.uncheck();
+    await expect.poll(async () => (await newChats()).realism).toBe(false);
+    await expect(needs).toBeDisabled();
+    await realism.check();
+    await expect.poll(async () => (await newChats()).realism).toBe(true);
+  } finally {
+    await request.post(`/api/groups/${groupId}/delete`);
+  }
+});
+
+// Backups & restore: a snapshot made from the web holds the settings too,
+// a restore waits for the desktop's next launch behind the password
+// step-up, and cancelling it leaves nothing waiting.
+test('a web snapshot restore waits for the next launch and can be cancelled', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const state = async () =>
+    (await (await request.get('/api/backups')).json()) as {
+      snapshots: { id: string; hasSettings: boolean; hasFiles?: boolean }[];
+      pending: { kind: string; withFiles?: boolean } | null;
+    };
+  try {
+    await openRoute(page, '/backups');
+    await page.getByRole('button', { name: 'Create backup now' }).click();
+    await expect(page.getByText('Backup created.')).toBeVisible();
+    const made = (await state()).snapshots[0];
+    expect(made.hasSettings).toBe(true);
+    // The sandboxed library has character pictures, so the snapshot keeps files too.
+    expect(made.hasFiles).toBe(true);
+
+    const row = page.locator('.backup-list li').first();
+    await expect(row).toContainText('library, settings and files');
+    await row.getByRole('button', { name: 'Restore', exact: true }).click();
+    await expect(row.getByText('Also restore settings and files')).toBeVisible();
+    const go = row.getByRole('button', { name: 'Restore this backup' });
+    await expect(go).toBeDisabled();
+    await row.getByLabel('Web login password').fill(process.env.FPAI_PASSWORD!);
+    await go.click();
+    await expect(page.getByTestId('pending-restore')).toContainText('library, settings and files');
+    expect((await state()).pending?.kind).toBe('snapshot');
+    expect((await state()).pending?.withFiles).toBe(true);
+
+    await page.getByRole('button', { name: 'Cancel restore' }).click();
+    await expect(page.getByTestId('pending-restore')).toHaveCount(0);
+    expect((await state()).pending).toBeNull();
+  } finally {
+    await request.delete('/api/backups/pending');
+  }
+});
+
+// Porch Life's Realism Engine is the permission: off, the chat's own Realism
+// switch greys out at the chat's choice and says where to look; back on, the
+// existing-chats question offers to switch it on where it is off.
+test('Porch Life Realism off greys the chat\'s Realism switch; on again asks about chats that have it off', { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  type S = { realism?: { realismAllowed?: boolean } };
+  type T = { realismEnabled: boolean; realismSwitch?: boolean };
+  const allowedBefore = ((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed ?? true;
+  const setAllowed = (on: boolean) => request.post('/api/settings', { data: { realism: { realismAllowed: on } } });
+  const setOwn = (on: boolean) => request.post('/api/chat/tools/toggle', { data: { name: 'realism', value: on } });
+  await openPorchChat(page);
+  const tools = (await (await request.get('/api/chat/tools')).json()) as T;
+  const ownBefore = tools.realismSwitch ?? tools.realismEnabled;
+  try {
+    // This chat's own switch off, so turning the engine back on has a chat to ask about.
+    expect((await setOwn(false)).ok()).toBe(true);
+    expect((await setAllowed(false)).ok()).toBe(true);
+    await openPorchChat(page);
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    const own = panel.getByRole('checkbox', { name: 'Realism engine', exact: true });
+    await expect(own).toBeDisabled();
+    await expect(own).not.toBeChecked();
+    await expect(panel).toContainText('The Realism Engine is off in Porch Life');
+
+    await openRoute(page, '/settings');
+    const card = page.getByTestId('porch-life-card');
+    const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
+    await expect(engine).not.toBeChecked();
+    await engine.check();
+    const dialog = page.getByRole('dialog', { name: 'Realism is on' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText(/Turn it on in (that chat|those \d+ chats) too/);
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(dialog).toBeHidden();
+    expect(((await (await request.get('/api/settings')).json()) as S).realism?.realismAllowed).toBe(true);
+    const after = (await (await request.get('/api/chat/tools')).json()) as T;
+    expect(after.realismSwitch, 'Done with the switch off changes no chat').toBe(false);
+  } finally {
+    await setAllowed(allowedBefore);
+    await setOwn(ownBefore);
+  }
+});
+
+// New group on the phone: each member's Realism card starts at what their
+// character card says, not the neutral seed (bond 35, trust 40), and the
+// group's first chat starts them there. Two characters are made for this
+// test and go again with the group.
+test('a new group starts each member from their character card', { tag: SERIAL }, async ({ page }) => {
+  const tag = test.info().project.name;
+  const make = async (name: string, realism: Record<string, unknown>) => {
+    const r = await page.request.post('/api/characters/create', { data: { name, firstMessage: 'Evening.', ...realism } });
+    expect(r.ok(), `create ${name}: ${r.status()}`).toBe(true);
+    return String(((await r.json()) as { id: string | number }).id);
+  };
+  const groupIds = async () =>
+    ((await (await page.request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map((g) => g.id);
+  const wary = `Wary ${tag}`;
+  const fond = `Fond ${tag}`;
+  const ids = [
+    await make(wary, { shortTermBond: -150, longTermBond: -120, trustLevel: -60, characterEmotion: 'guarded' }),
+    await make(fond, { shortTermBond: 160, longTermBond: 140, trustLevel: 80, characterEmotion: 'fond' }),
+  ];
+  const before = await groupIds();
+  try {
+    await openRoute(page, '/create-group');
+    const search = page.getByPlaceholder('Search characters…');
+    for (const name of [wary, fond]) {
+      await search.fill(name);
+      await page.locator('.grp-card', { hasText: name }).click();
+    }
+    const next = page.getByRole('button', { name: 'Next →' });
+    while (!(await page.getByText('Realism Engine for this group').isVisible())) await next.click();
+
+    const summary = (id: string) => page.getByTestId(`group-realism-member-${id}`).locator('summary');
+    await expect(summary(ids[0])).toContainText('guarded • Bond -150 / Trust -60');
+    await expect(summary(ids[1])).toContainText('fond • Bond 160 / Trust 80');
+
+    const open = page.getByRole('button', { name: '👥 Create & open' });
+    while (!(await open.isVisible())) await next.click();
+    await open.click();
+    await expect(page).toHaveURL(/\/chat$/);
+    await expect.poll(async () => (await groupIds()).filter((id) => !before.includes(id)).length).toBe(1);
+
+    // What the group saved, read back through the new chat's cast: each
+    // member on their own card's side of neutral, never at 35 / 40.
+    type Cast = { id: string; name: string }[];
+    const cast = async () =>
+      ((await (await page.request.get('/api/chat/state')).json()) as { cast?: Cast }).cast ?? [];
+    await expect.poll(async () => (await cast()).length).toBe(2);
+    const realismOf = async (name: string) => {
+      const member = (await cast()).find((c) => c.name === name)!;
+      const r = await page.request.get(`/api/chat/participant/${encodeURIComponent(member.id)}/realism`);
+      expect(r.ok(), `${name}'s realism: ${r.status()}`).toBe(true);
+      return (await r.json()) as {
+        bond: { score: number };
+        longTerm: { score: number };
+        trust: { level: number };
+        emotion: string;
+      };
+    };
+    const w = await realismOf(wary);
+    expect([w.bond.score < 0, w.longTerm.score < 0, w.trust.level < 0], 'Wary starts guarded').toEqual([
+      true,
+      true,
+      true,
+    ]);
+    const f = await realismOf(fond);
+    expect([f.bond.score > 100, f.longTerm.score > 100, f.trust.level > 40], 'Fond starts close').toEqual([
+      true,
+      true,
+      true,
+    ]);
+  } finally {
+    for (const id of await groupIds()) {
+      if (!before.includes(id)) await page.request.post(`/api/groups/${id}/delete`);
+    }
+    for (const id of ids) await page.request.post(`/api/characters/${id}/delete`);
+  }
+});
+
+// A group member's editor on the phone shows the group's own switches as
+// read-only lines, and where the member starts in the group's new chats
+// saves to the group's seed for them (Long-Term Bond under its own key),
+// never to their card.
+test("a member's start in the group's new chats saves to the group", { tag: SERIAL }, async ({ page }) => {
+  const request = page.request;
+  const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+  const name = `Start Crew ${test.info().project.name}`;
+  const created = await request.post('/api/groups', { data: { name, memberIds } });
+  expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+  const groupId = ((await created.json()) as { id: string }).id;
+  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
+  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
+  type Start = { longTermBond: number; trustLevel: number };
+  const detail = async () =>
+    (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
+      start: Start | null;
+      group: { realism: boolean } | null;
+    };
+  try {
+    const before = (await detail()).start!;
+    expect((await detail()).group?.realism).toBe(true);
+    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
+    await expect(page.getByTestId('group-line-realism')).toContainText("Realism Engine · On for this group's new chats");
+    await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
+
+    const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');
+    await longTerm.focus();
+    await longTerm.press('End');
+    await page.getByRole('button', { name: 'Save character' }).click();
+    await expect.poll(async () => (await detail()).start?.longTermBond).toBe(300);
+    expect((await detail()).start?.trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+  } finally {
+    await request.post(`/api/groups/${groupId}/delete`);
+  }
+});
+
+test('image studio recent shelf keeps its keep choice across navigation', async ({page}) => {
+  const before=await (await page.request.get('/api/image/recent')).json() as {limit:number};
+  try {
+    await openRoute(page,'/images');
+    const shelf=page.getByTestId('studio-recent-shelf');
+    await expect(shelf).toBeVisible();
+    await shelf.getByLabel('How many Recent pictures to keep').selectOption('200');
+    await expect(shelf).toContainText('of 200');
+    await openRoute(page,'/models'); await openRoute(page,'/images');
+    await expect(page.getByTestId('studio-recent-shelf').getByLabel('How many Recent pictures to keep')).toHaveValue('200');
+    expect(((await (await page.request.get('/api/image/recent')).json()) as {limit:number}).limit).toBe(200);
+  } finally {
+    await page.request.post('/api/image/recent/limit',{data:{limit:before.limit}});
+  }
+});
+
+// Generation presets (issue 686): a preset saved on Settings → Generation,
+// linked to the chat model from the chat's model sheet, loads when the chat
+// switches back to that model, with a toast whose Undo puts the values back.
+// The stand-in backend lists one model, so the journey leaves it by the
+// API and comes back to it through the sheet.
+test('save a generation preset, link it, switch model, see it load, and Undo', { tag: SERIAL }, async ({ page }) => {
+  type Snap = {
+    backend: string; remoteApiUrl: string; remoteModelName: string;
+    generation: { temperature: number };
+  };
+  const NAME = `Journey preset ${test.info().project.name}`;
+  const settings = async () => (await (await page.request.get('/api/settings')).json()) as Snap;
+  const presets = async () =>
+    (await (await page.request.get('/api/gen-presets')).json()) as {
+      model: { key: string; label: string } | null;
+      links: Record<string, string>;
+    };
+  const before = await settings();
+  const standInModel = before.remoteModelName;
+  try {
+    await openRoute(page, '/settings');
+    const bar = page.getByTestId('gen-preset-bar');
+    await expect(bar).toContainText('Generation preset');
+    const temp = page
+      .getByTestId('generation-fields')
+      .locator('.slider-field', { hasText: 'Temperature' })
+      .locator('input.slider-val');
+    await temp.fill('1.35');
+    await bar.getByRole('button', { name: 'Save as new…' }).click();
+    await bar.getByLabel('New preset name').fill(NAME);
+    await bar.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByTestId('gen-preset-badge')).toHaveText('Saved');
+    await expect.poll(async () => (await settings()).generation.temperature).toBeCloseTo(1.35, 5);
+
+    // Link it to the chat model from the chat's model sheet.
+    await openPorchChat(page);
+    await page.locator('.model-switch-chip').click();
+    const sheet = page.getByRole('dialog', { name: 'Change model' });
+    await sheet.getByLabel('Generation preset for this model').selectOption(NAME);
+    const key = (await presets()).model!.key;
+    await expect.poll(async () => (await presets()).links[key]).toBe(NAME);
+    await sheet.getByRole('button', { name: 'Close' }).click();
+
+    // Leave for another model and cool the values down.
+    const away = await page.request.post('/api/settings', {
+      data: { remoteModelName: 'journey/elsewhere' },
+    });
+    expect(away.ok(), `switching away: ${away.status()}`).toBe(true);
+    await expect.poll(async () => (await presets()).model?.key).not.toBe(key);
+    const cool = await page.request.post('/api/settings', { data: { generation: { temperature: 0.5 } } });
+    expect(cool.ok()).toBe(true);
+
+    // Back to the linked model through the sheet: the preset loads.
+    await openPorchChat(page);
+    await page.locator('.model-switch-chip').click();
+    await sheet.locator('.model-picker-trigger').click();
+    await sheet.locator('.mp-option', { hasText: standInModel }).first().click();
+    const toast = page.getByTestId('gen-preset-toast');
+    await expect(toast).toContainText(`writes with “${NAME}”`, { timeout: 15_000 });
+    expect((await settings()).generation.temperature).toBeCloseTo(1.35, 5);
+
+    await toast.getByRole('button', { name: 'Undo' }).click();
+    await expect(toast).toHaveCount(0);
+    await expect.poll(async () => (await settings()).generation.temperature).toBeCloseTo(0.5, 5);
+    expect((await settings()).remoteModelName).toBe(standInModel);
+  } finally {
+    await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
+    const back = await page.request.post('/api/settings', {
+      data: {
+        backend: before.backend,
+        remoteApiUrl: before.remoteApiUrl,
+        remoteModelName: before.remoteModelName,
+        generation: { temperature: before.generation.temperature },
+        currentPassword: process.env.FPAI_PASSWORD,
+      },
+    });
+    expect(back.ok(), `restoring the model and values: ${back.status()}`).toBe(true);
+  }
+});
+
+// The chat drawer's per-chat Generation (issue 686): a preset loaded into
+// this chat and a value of its own land in the chat, not the global
+// values, and Follow the model hands them all back.
+test('the chat drawer loads a preset into this chat and follows the model again', { tag: SERIAL }, async ({ page }) => {
+  const NAME = `Chat preset ${test.info().project.name}`;
+  const chatGen = async () =>
+    (await (await page.request.get('/api/chat/generation')).json()) as {
+      genPresetName?: string | null; values?: Record<string, unknown>;
+    };
+  const globalTemp = async () =>
+    ((await (await page.request.get('/api/settings')).json()) as { generation: { temperature: number } })
+      .generation.temperature;
+  const saved = await page.request.post('/api/gen-presets/save', { data: { name: NAME } });
+  expect(saved.ok()).toBe(true);
+  const wasGlobal = await globalTemp();
+  try {
+    await openPorchChat(page);
+    if (test.info().project.name.startsWith('phone')) {
+      await page.getByRole('button', { name: 'More chat options' }).click();
+      await page.getByRole('menuitem', { name: /Theme/ }).click();
+    } else {
+      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
+    }
+    const section = page.getByTestId('chat-generation');
+    await expect(section).toContainText('Generation for this chat');
+    await section.getByLabel('Preset for this chat').selectOption(NAME);
+    await expect.poll(async () => (await chatGen()).genPresetName).toBe(NAME);
+    await expect(section).toContainText(`Using “${NAME}”`);
+
+    const temp = section.locator('.slider-field', { hasText: 'Temperature' }).locator('input.slider-val');
+    await temp.fill('1.6');
+    await expect.poll(async () => (await chatGen()).values?.temperature).toBe(1.6);
+    expect(await globalTemp()).toBeCloseTo(wasGlobal, 5);
+
+    await section.getByLabel('Preset for this chat').selectOption('');
+    await expect.poll(async () => (await chatGen()).values ?? {}).toEqual({});
+    await expect(section).toContainText('Following the model');
+  } finally {
+    await page.request.post('/api/chat/generation/preset', { data: { name: null } });
+    await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
+  }
+});

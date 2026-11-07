@@ -20,14 +20,18 @@ import 'package:front_porch_ai/services/chat/weather_engine.dart';
 /// schema, which is also why the whole feature can be switched off with no
 /// migration and no residue.
 class StandingMood {
-  StandingMood(this._scope, {required this.weather});
+  StandingMood(this._scope, {required this.weather, required this.needsActive});
 
   final RealismScope _scope;
 
   /// Today's story weather, or null when off.
   final DailyWeather? Function() weather;
 
-  bool get _needsSimEnabled => _scope.needsSimEnabled();
+  /// The Needs gate (`NeedsPass.active`), not the chat's stored switch: with
+  /// Realism or Porch Life's Needs off the bars are frozen, and a mood read
+  /// from them would be a day nobody is living.
+  final bool Function() needsActive;
+
   NeedsSimulation get _needsSimulation => _scope.needs();
 
   /// The speaker's standing mood, or neutral when the feature is off.
@@ -44,10 +48,10 @@ class StandingMood {
       return MoodBaseline.neutral;
     }
     return deriveMoodBaseline(
-      // Empty when the simulation is off, and that is correct rather than
+      // Empty when Needs do not run, and that is correct rather than
       // degraded: the clock and the weather still have something to say about
       // their day.
-      needs: _needsSimEnabled ? _needsSimulation.vector : const {},
+      needs: needsActive() ? _needsSimulation.vector : const {},
       timeOfDay: _scope.clockRunning() ? _scope.time().timeOfDay : '',
       weather: weather(),
     );

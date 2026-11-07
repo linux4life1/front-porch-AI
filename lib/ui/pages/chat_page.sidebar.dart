@@ -30,8 +30,10 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
@@ -172,11 +174,17 @@ class ChatRightSidebar extends StatelessWidget {
       ),
       child: Column(
         children: [
-          ChatSidebarPortrait(
+          // Mood on the character: the portrait inside its mood ring.
+          MoodPortraitFrame(
+            chat: chatService,
             character: character,
             isGroup: isGroup,
-            sidebarWidth: sidebarWidth,
-            resolveCharImage: resolveCharImage,
+            child: ChatSidebarPortrait(
+              character: character,
+              isGroup: isGroup,
+              sidebarWidth: sidebarWidth,
+              resolveCharImage: resolveCharImage,
+            ),
           ),
           ChatSidebarMainSettings(
             chatService: chatService,
@@ -185,6 +193,12 @@ class ChatRightSidebar extends StatelessWidget {
             onEditCharacter: (card) => onEditCharacter(card),
             onAvatarsChanged: onAvatarsChanged,
           ),
+
+          // ── Sidebar layout controls, pinned under Main Settings and
+          //    left-aligned: reset the shipped order, and lock the layout so
+          //    a section cannot be dragged by accident. Both are global —
+          //    one arrangement for every chat (maintainer, 2026-11-04). ──
+          const _SidebarLayoutPills(),
 
           // ── Group Settings (group only; sits directly under Main Settings,
           //    above the cast roster, so the whole-group controls are found
@@ -233,54 +247,6 @@ class ChatRightSidebar extends StatelessWidget {
               onJumpToMessage: onJumpToMessage,
               resolveCharImage: resolveCharImage,
               draft: draft,
-              // ── Director: step out to direct, or back in ──
-              header: isGroup || cast.length > 1
-                  ? Consumer<StorageService>(
-                      builder: (context, storage, _) {
-                        final delay = storage.ttsSettings.directorDelay;
-                        chatService.directorDelaySec = delay;
-                        return DirectorPanel(
-                          directing: chatService.observerMode,
-                          busy:
-                              chatService.isGenerating ||
-                              chatService.isNarrating,
-                          delaySeconds: delay,
-                          onStepOut: () =>
-                              unawaited(chatService.sendMessage('/director')),
-                          onStepIn: () => unawaited(
-                            chatService.sendMessage('/director off'),
-                          ),
-                          onDelayChanged: storage.ttsSettings.setDirectorDelay,
-                          tools: DirectorTools(
-                            memberNames: [
-                              for (final c in chatService.groupCharacters)
-                                c.name,
-                            ],
-                            goal: chatService.directorGoal,
-                            whispers: chatService.directorWhisperRows,
-                            turnBudget: storage.ttsSettings.directorTurnBudget,
-                            turnsLeft: chatService.autoChatTurnsLeft,
-                            busy:
-                                chatService.isGenerating ||
-                                chatService.isNarrating,
-                            onCue: (name) => unawaited(
-                              chatService.sendMessage('/speak $name'),
-                            ),
-                            onBeat: (note) =>
-                                unawaited(chatService.sendMessage(note)),
-                            onGoal: (text) =>
-                                unawaited(chatService.setDirectorGoal(text)),
-                            onClearWhisper: (id) => unawaited(
-                              chatService.setDirectorWhisper(id, ''),
-                            ),
-                            onTurnBudget: (n) => unawaited(
-                              storage.ttsSettings.setDirectorTurnBudget(n),
-                            ),
-                          ),
-                        );
-                      },
-                    )
-                  : null,
               onOpenEditFromEnv: () {
                 unawaited(
                   onEditCharacter(character, ensureRelationshipVisible: true),
@@ -356,6 +322,133 @@ class _ParticipantRoster extends StatelessWidget {
                 : null,
           );
         },
+      ),
+    );
+  }
+}
+
+/// The sidebar's layout pills at the top of the chat sidebar: restore the
+/// shipped section order, and lock/unlock the layout. Pinned chrome, never
+/// reorderable units.
+class _SidebarLayoutPills extends StatelessWidget {
+  const _SidebarLayoutPills();
+
+  @override
+  Widget build(BuildContext context) {
+    // Listening: the lock pill repaints the moment the switch flips, and the
+    // body's grips follow through the same notify.
+    final ui = Provider.of<StorageService>(context).uiSettings;
+    final locked = ui.sidebarLayoutLocked;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _LayoutPill(
+              icon: Icons.restart_alt,
+              label: 'Reset to default',
+              tooltip: 'Restore the shipped sidebar order',
+              onTap: () => _confirmReset(context, ui),
+            ),
+            _LayoutPill(
+              icon: locked ? Icons.lock : Icons.lock_open,
+              label: locked ? 'Layout locked' : 'Lock layout',
+              tooltip: locked
+                  ? 'Allow dragging the sidebar again'
+                  : 'Stop the sidebar from being dragged by accident',
+              active: locked,
+              onTap: () =>
+                  unawaited(ui.setSidebarLayoutLocked(!locked)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Reset is global — one lost arrangement is lost for every chat — so the
+  /// pill asks first. Cancel keeps the current order untouched.
+  Future<void> _confirmReset(BuildContext context, UiSettings ui) async {
+    final yes = await showWarmDialog<bool>(
+      context,
+      title: 'Reset sidebar to default?',
+      icon: Icons.restart_alt,
+      accent: AppColors.porchAmberOf(context),
+      content: const WarmDialogText(
+        'Your sidebar order is shared by all chats. Resetting puts every '
+        'section and accordion leaf back in the order the app shipped with, '
+        'and the arrangement you set is lost.',
+      ),
+      // Pop from inside the dialog so the right route closes.
+      actions: [
+        Builder(
+          builder: (ctx) => warmDialogCancel(ctx, label: 'Keep mine', value: false),
+        ),
+        Builder(
+          builder: (ctx) => warmDialogConfirm(
+            ctx,
+            label: 'Reset',
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ],
+    );
+    if (yes == true) await ui.resetSidebarLayout();
+  }
+}
+
+/// One small pill in the sidebar's layout row. [active] paints the lock's
+/// "on" state in the theme's accent instead of the neutral surface.
+class _LayoutPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String tooltip;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _LayoutPill({
+    required this.icon,
+    required this.label,
+    required this.tooltip,
+    required this.onTap,
+    this.active = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.porchAmberOf(context);
+    final color = active ? accent : AppColors.textSecondary(context);
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: active
+                ? accent.withValues(alpha: 0.14)
+                : AppColors.surfaceContainerOf(context),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active ? accent : AppColors.borderOf(context),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 13, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(fontSize: 10, color: color),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

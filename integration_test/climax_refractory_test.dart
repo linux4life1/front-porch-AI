@@ -111,8 +111,8 @@ void main() {
     ).addCharacter(character);
     await chatService.setActiveCharacter(character);
 
-    // The refractory rides the Lust system: Porch Life Afterglow, the one
-    // switch (it seeds 18+ on with it).
+    // The refractory rides the Lust system: Porch Life allows Afterglow (it
+    // seeds 18+ on with it), and the card's switch starts this chat on.
     // ignore: use_build_context_synchronously — ctx is the root element.
     await Provider.of<StorageService>(
       ctx,

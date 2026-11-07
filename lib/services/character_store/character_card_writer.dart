@@ -100,10 +100,12 @@ class CharacterCardWriter {
     // never the worse split-brain of "DB says new name, files under old".
     String? oldNameForMove;
     String? oldImagePath;
+    var inLibrary = false;
     try {
       final existing = await db.getCharacterById(card.dbId!);
       oldNameForMove = existing.name;
       oldImagePath = existing.imagePath;
+      inLibrary = true;
     } catch (_) {
       oldNameForMove = null;
     }
@@ -122,8 +124,11 @@ class CharacterCardWriter {
       );
       // Portrait basename IS the portable id for quests / RAG / Data Bank
       // / Journal / Growth. Changing it without a re-key is the cleanup
-      // wipe the gallery used to trigger on "Replace portrait".
-      if (fromId != toId && fromId.isNotEmpty && toId.isNotEmpty) {
+      // wipe the gallery used to trigger on "Replace portrait". Only for a
+      // card with a library row: with none (a group member's private copy)
+      // there is no old id, and the name fallback would move every row
+      // filed under that bare name onto the member.
+      if (inLibrary && fromId != toId && fromId.isNotEmpty && toId.isNotEmpty) {
         await db.rekeyStableCharacterId(fromId, toId);
       }
     });

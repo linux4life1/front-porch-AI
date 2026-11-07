@@ -197,6 +197,8 @@ class SettingsSnapshot {
         'characterEvolutionEnabled':
             _storage.memorySettings.characterEvolutionEnabled,
         'realismDefault': _storage.realismSettings.realismDefault,
+        // Additive: Porch Life allows the Realism Engine (missing = on).
+        'realismAllowed': _storage.realismSettings.realismAllowed,
         'preferTextEvals': _storage.realismSettings.preferTextEvals,
       },
       // Spell check language. The browser does its own spell checking, so the
@@ -222,9 +224,24 @@ class SettingsSnapshot {
       // chat state's `scene.sound` carries the same pair to the chat page.
       'sceneSound': _storage.appearance.sceneSound,
       'sceneSoundVolume': _storage.appearance.sceneSoundVolume,
+      // Appearance → Mood on the character and its Drama. Additive; the
+      // chat state carries the same pair to the chat page.
+      'moodOnCharacter': _storage.appearance.moodOnCharacter.key,
+      'moodDrama': _storage.appearance.moodDrama,
       // Bubble Opacity as the desktop paints it: the stored value, else the
       // Ambient scene's default. Additive; an older PWA ignores the key.
       'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
+      // The chat sidebar's remembered section order, per surface. Raw stored
+      // lists (hidden ids kept); the web resolves them against its own
+      // vocabulary. Additive: an older PWA ignores them and keeps its fixed
+      // order.
+      'sidebarOrder': _storage.uiSettings.sidebarOrder,
+      'sidebarLeafOrder': _storage.uiSettings.sidebarLeafOrder,
+      'webSidebarOrder': _storage.uiSettings.webSidebarOrder,
+      'webSidebarToolsOrder': _storage.uiSettings.webSidebarToolsOrder,
+      // The layout lock: one switch for both surfaces. Additive; an older
+      // PWA ignores it and stays draggable.
+      'sidebarLayoutLocked': _storage.uiSettings.sidebarLayoutLocked,
       ...readWorkerSettings(_storage, _llm),
     };
   }

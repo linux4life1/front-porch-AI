@@ -22,6 +22,9 @@
 .step-dot.done .step-num { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .step-label { font-size: 0.68rem; white-space: nowrap; }
 .step-dot.current .step-label, .step-dot.done .step-label { color: var(--text); }
+@media (max-width: 480px) {
+  .step-indicator.many .step-dot:not(.current) .step-label { display: none; }
+}
 .wizard-body { display: flex; flex-direction: column; gap: 8px; flex: 1; }
 .wizard-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
 .req { color: var(--danger); }

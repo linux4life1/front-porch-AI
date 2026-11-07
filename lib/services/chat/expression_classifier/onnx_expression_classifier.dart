@@ -49,6 +49,7 @@ class OnnxExpressionClassifier {
 
   ExpressionClassifierService? _service;
   String? _label;
+  ChatMessage? _labelSource;
   String? _cachedForEmotion;
   int _lastMessageCount = 0;
   String? _lastMessageText;
@@ -99,8 +100,13 @@ class OnnxExpressionClassifier {
     _service = service;
   }
 
+  /// The reply the current label was classified from; null while the label
+  /// is a fallback, so it is nobody's own reading.
+  ChatMessage? get labelSource => _label == null ? null : _labelSource;
+
   void reset() {
     _label = null;
+    _labelSource = null;
     _cachedForEmotion = null;
     _lastMessageCount = 0;
     _lastMessageText = null;
@@ -112,6 +118,7 @@ class OnnxExpressionClassifier {
   void invalidateForNewResponse() {
     _cachedForEmotion = null;
     _label = null;
+    _labelSource = null;
     _lastMessageText = null;
   }
 
@@ -142,9 +149,11 @@ class OnnxExpressionClassifier {
 
       // Use last AI message text for classification
       String text = '';
+      ChatMessage? source;
       for (int i = getMessages().length - 1; i >= 0; i--) {
         if (!getMessages()[i].isUser && getMessages()[i].text.isNotEmpty) {
-          text = getMessages()[i].text;
+          source = getMessages()[i];
+          text = source.text;
           break;
         }
       }
@@ -161,6 +170,7 @@ class OnnxExpressionClassifier {
             '[Expression:ONNX] emotion=$emotion -> label=$label (confidence: ${result.confidence})',
           );
           _label = label;
+          _labelSource = source;
           _cachedForEmotion = emotion;
           onNotify();
           return;
@@ -168,6 +178,7 @@ class OnnxExpressionClassifier {
       }
       // Fallback
       _label = 'neutral';
+      _labelSource = null;
       _cachedForEmotion = emotion;
       onNotify();
       // cancel check only reached on fallback path due to early return on valid ONNX result (preserves original try/early-return/fallback placement); finally only clears classifying flag
@@ -178,6 +189,7 @@ class OnnxExpressionClassifier {
     } catch (e) {
       debugPrint('[Expression:ONNX] classification error: $e');
       _label = 'neutral';
+      _labelSource = null;
       _cachedForEmotion = emotion;
       onNotify();
     } finally {

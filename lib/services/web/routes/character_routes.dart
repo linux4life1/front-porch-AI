@@ -90,10 +90,14 @@ class WebCharacterRoutes {
   /// - `collision=ask` — return 409 + existing list when name clashes without
   ///   a stableId match (single-file UI prompt)
   /// - `collision=replace&replaceId=` — update that library card in place
+  /// - `persona=ask` — a .byaf carrying a chat returns 409 `persona_pick`
+  ///   with `recommendedPersonaId` until the client resends with
+  ///   `persona=<id>`; absent (older apps) stamps the default persona
   Future<shelf.Response> _import(shelf.Request request) async {
     final filename = request.url.queryParameters['filename'] ?? 'card.png';
     final collision = request.url.queryParameters['collision'] ?? 'keepBoth';
     final replaceId = request.url.queryParameters['replaceId'];
+    final persona = request.url.queryParameters['persona'];
     final List<int> bytes;
     try {
       bytes = await RequestBody.readBytes(
@@ -109,12 +113,14 @@ class WebCharacterRoutes {
       filename,
       collision: collision,
       replaceId: replaceId,
+      persona: persona,
     );
     if (result == null) {
       return JsonResponse.error(422, 'Could not read that character card');
     }
-    if (result['status'] == 'name_collision') {
-      return JsonResponse.error(409, 'name_collision', extra: result);
+    if (result['status'] == 'name_collision' ||
+        result['status'] == 'persona_pick') {
+      return JsonResponse.error(409, '${result['status']}', extra: result);
     }
     return JsonResponse.ok(result);
   }
@@ -311,11 +317,13 @@ class WebCharacterRoutes {
     );
   }
 
-  /// Serve the active character's current expression portrait (mood-driven).
-  /// Returns 404 when expressions aren't in use so the client falls back to the
-  /// static character avatar.
+  /// Serve the active character's current expression portrait (mood-driven),
+  /// or `?participant=<cast id>`'s own. Returns 404 when expressions aren't in
+  /// use so the client falls back to the static character avatar.
   shelf.Response _expressionAvatar(shelf.Request request) {
-    final file = _facade.activeExpressionAvatarFile();
+    final file = _facade.activeExpressionAvatarFile(
+      participantId: request.url.queryParameters['participant'],
+    );
     if (file == null) return shelf.Response.notFound('No expression avatar');
     return shelf.Response.ok(
       file.readAsBytesSync(),

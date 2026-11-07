@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:front_porch_ai/services/chat/milestone_providers.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -66,8 +66,7 @@ class JournalTimelineTab extends ConsumerWidget {
     final accent = AppColors.porchAmberOf(context);
 
     return entriesAsync.when(
-      loading: () =>
-          Center(child: CircularProgressIndicator(color: accent)),
+      loading: () => Center(child: CircularProgressIndicator(color: accent)),
       error: (e, _) => Center(
         child: Text(
           'Could not load the timeline: $e',
@@ -97,10 +96,10 @@ class JournalTimelineTab extends ConsumerWidget {
           );
         }
         // Group consecutive runs by known story day; day-less entries ride
-        // with their neighbors (position-sorted upstream).
+        // with their neighbors (position-sorted upstream, read newest first).
         final children = <Widget>[];
         int? lastDay;
-        for (final e in entries) {
+        for (final e in JournalReadingOrder.timeline(entries)) {
           if (e.storyDay != null && e.storyDay != lastDay) {
             lastDay = e.storyDay;
             children.add(
@@ -128,10 +127,7 @@ class JournalTimelineTab extends ConsumerWidget {
                     }
                   : null,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

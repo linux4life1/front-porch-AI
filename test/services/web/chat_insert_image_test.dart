@@ -12,12 +12,20 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/image_gen_service.dart';
+import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
+import 'package:front_porch_ai/services/web/auth/auth_service.dart';
+import 'package:front_porch_ai/services/web/facade/character_facade.dart';
+import 'package:front_porch_ai/services/web/host/host.dart';
+import 'package:front_porch_ai/services/web/tunnels/tunnels.dart';
 
 import '../../golden/support/fakes.dart';
 
@@ -107,6 +115,68 @@ void main() {
       expect(await facade.insertImage('   '), isFalse);
       expect(asked, ['']); // trimmed before the resolver sees it
       expect(chat.attached, isEmpty);
+    });
+  });
+
+  // Issue #667: the phone's chat insert is wired through the server assembly.
+  // It must copy a Recent picture into the chat pictures folder, so the
+  // shelf trimming it later never breaks the chat message.
+  group('ChatFacade.insertImage as the server wires it', () {
+    test('a Recent picture inserted from the phone survives a trim', () async {
+      SharedPreferences.setMockInitialValues({});
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.initialized;
+      final root = Directory.systemTemp.createTempSync('fpai_insert_root_');
+      addTearDown(() {
+        if (root.existsSync()) root.deleteSync(recursive: true);
+      });
+      await storage.setRootPath(root.path);
+      await storage.imageGenSettings.setStudioRecentLimit(kStudioRecentOff);
+      final chat = _RecordingChatService();
+      final repo = CharacterRepository(db, storage);
+      final services = WebHostServices()
+        ..chat = chat
+        ..characters = repo
+        ..imageGen = ImageGenService(storage);
+      final assembled = assembleWebServerDeps(
+        services: services,
+        storage: storage,
+        db: db,
+        auth: AuthService(db),
+        streamHub: null,
+        characterFacade: CharacterFacade(db, storage, null, chat, repo),
+        tunnelManager: TunnelManager(0),
+        onClientActive: (_, _) {},
+      );
+
+      final first = await rememberStudioResult(
+        storage,
+        Uint8List.fromList([137, 80, 78, 71, 1]),
+        prompt: 'first',
+        edit: false,
+      );
+      expect(
+        await assembled.deps.chatFacade!.insertImage(
+          first!.name,
+          prompt: 'first',
+        ),
+        isTrue,
+      );
+      final attached = chat.attached.single.$1;
+      expect(p.dirname(attached), p.join(root.path, 'KoboldManager', 'images'));
+
+      // Off keeps only the newest, so this trims the first picture.
+      await rememberStudioResult(
+        storage,
+        Uint8List.fromList([137, 80, 78, 71, 2]),
+        prompt: 'second',
+        edit: false,
+      );
+      expect(File(first.path).existsSync(), isFalse);
+      expect(File(attached).readAsBytesSync(), [137, 80, 78, 71, 1]);
     });
   });
 }

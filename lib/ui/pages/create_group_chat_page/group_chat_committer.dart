@@ -58,6 +58,10 @@ class GroupChatCommitter {
     // + test/utils/group_realism_blobs_test.dart for the reachability proof.
     final charPrompts = <String, String>{};
     final memberIdMap = <String, String>{}; // source stableId → member mid
+    // Source stableId → the member's starting seed: their card's, with what
+    // the wizard set laid over it. The member row and the group's blobs
+    // both read this one map.
+    final seeds = <String, Map<String, dynamic>>{};
 
     // Serialize group lorebook
     final lb = Lorebook(entries: List.from(d.groupLoreEntries));
@@ -99,8 +103,15 @@ class GroupChatCommitter {
       if (promptCtrl != null && promptCtrl.text.trim().isNotEmpty) {
         charPrompts[mid] = promptCtrl.text.trim();
       }
-      final seed = d.memberRealismSeeds[id] ?? d.defaultRealismSeedFor(source);
-      final memberFp = _memberExtensions(source, seed, d.realismEnabled);
+      final seed = seeds[id] = groupMemberStartingSeed(
+        source.frontPorchExtensions,
+        d.memberRealismSeeds[id] ?? const {},
+      );
+      final memberFp = groupMemberExtensions(
+        source,
+        seed,
+        realismEnabled: d.realismEnabled,
+      );
 
       // Insert typed GroupMember row using the database instance.
       await database.insertGroupMember(
@@ -118,13 +129,15 @@ class GroupChatCommitter {
           alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
-          ttsVoice: Value(source.ttsVoice),
+          // The Members step's Voice pick (characterVoices): never written
+          // to the library card.
+          ttsVoice: Value(memberVoiceFromPick(d.characterVoices, id, source)),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())
                 : null,
           ),
-          worldNames: Value(jsonEncode(source.worldNames)),
+          worldNames: Value(jsonEncode(source.allWorldNames)),
           frontPorchExtensions: Value(
             memberFp != null
                 ? jsonEncode(memberFp.toJson())
@@ -154,14 +167,11 @@ class GroupChatCommitter {
     // memberIdMap — so the creator's per-member bond/trust/emotion/needs and
     // intragroup relationships actually take effect in chat.
     if (d.realismEnabled) {
-      final seeds = <String, Map<String, dynamic>>{
-        for (final c in d.members)
-          d.stableId(c):
-              d.memberRealismSeeds[d.stableId(c)] ?? d.defaultRealismSeedFor(c),
-      };
       final blobs = buildGroupRealismBlobs(
         seeds: remapSeedsToMemberIds(seeds, memberIdMap),
         needsEnabled: d.needsSimEnabled,
+        afterglowEnabled: d.afterglowEnabled,
+        pocketsEnabled: d.pocketsEnabled,
         timeOfDay: d.globalTimeOfDay,
         dayCount: d.globalDayCount,
         storyStartDate: d.globalStoryStartDate,
@@ -171,6 +181,11 @@ class GroupChatCommitter {
       );
       defaultMemberJson = blobs.defaultMemberJson;
       baselineJson = blobs.baselineJson;
+    } else if (!d.pocketsEnabled) {
+      // Realism-off but Pockets off too: Pockets needs no Realism, so its
+      // default must still be recorded (a bare '{}' reads pockets ON at
+      // entry — docs/design/pockets-wardrobe-chat-toggle.md).
+      defaultMemberJson = withGroupPockets(defaultMemberJson, false);
     }
 
     final group = GroupChat(
@@ -185,7 +200,8 @@ class GroupChatCommitter {
       greetingSeeds: List.from(d.altGreetingSeeds),
       scenario: d.scenarioController.text.trim(),
       characterSystemPrompts: charPrompts,
-      worldIds: List.from(d.worldIds),
+      worldIds: d.worldChoice.fields.worldIds,
+      loreWorldIds: d.worldChoice.fields.loreWorldIds,
       groupLorebook: groupLoreJson,
       inheritCharacterLorebooks: d.inheritCharacterLorebooks,
       chaosModeEnabled: d.chaosModeEnabled,
@@ -196,98 +212,6 @@ class GroupChatCommitter {
 
     await groupRepo.save(group);
 
-    // Apply voice overrides (same pattern as the old creator)
-    for (final entry in d.characterVoices.entries) {
-      final card = d.members.firstWhere(
-        (c) => d.stableId(c) == entry.key,
-        orElse: () => d.members.first,
-      );
-      if (entry.value.isNotEmpty && entry.value != card.ttsVoice) {
-        card.ttsVoice = entry.value;
-        // Library mutation intentionally skipped during group creation (private GroupMember rows
-        // already captured the voice from source card at duplicate time; avoids subtle "library pollution"
-        // side-effect per "never allow" + safety invariant. User can edit voice on the private group member later).
-        // await repo.updateCharacter(card);  -- removed to prevent library side-effect
-      }
-    }
-
     return group;
-  }
-
-  FrontPorchExtensions? _memberExtensions(
-    CharacterCard source,
-    Map<String, dynamic> seed,
-    bool realismEnabled,
-  ) {
-    final fp = source.frontPorchExtensions;
-    if (fp != null) {
-      return fp.copyWith(
-        enjoysLowHygiene:
-            (seed['enjoysLowHygiene'] as bool?) ?? fp.enjoysLowHygiene,
-        realismVerificationEnabled:
-            (seed['verificationEnabled'] as bool?) ??
-            fp.realismVerificationEnabled,
-        realismVerificationMaxReprocesses:
-            (seed['verificationMaxReprocesses'] as int?) ??
-            fp.realismVerificationMaxReprocesses,
-        realismVerificationStrictness:
-            (seed['verificationStrictness'] as int?) ??
-            fp.realismVerificationStrictness,
-        realismNeedsDirectorAuthority:
-            (seed['needsDirectorAuthority'] as bool?) ??
-            fp.realismNeedsDirectorAuthority,
-        needsPace: (seed['needsPace'] as String?) ?? fp.needsPace,
-        needsOff: seed['needsOff'] is List
-            ? [
-                for (final item in seed['needsOff'] as List)
-                  if (item is String) item,
-              ]
-            : fp.needsOff,
-        // Carry the group-creator's per-member needs baselines, Pace, and
-        // on/off (the seed). Without these blocks, cards that already ship a
-        // FrontPorchExtensions (the common case) silently lost every
-        // adjustment made in the creator at save time.
-        needsBaselineHunger:
-            (seed['needsBaselineHunger'] as int?) ?? fp.needsBaselineHunger,
-        needsBaselineBladder:
-            (seed['needsBaselineBladder'] as int?) ?? fp.needsBaselineBladder,
-        needsBaselineEnergy:
-            (seed['needsBaselineEnergy'] as int?) ?? fp.needsBaselineEnergy,
-        needsBaselineSocial:
-            (seed['needsBaselineSocial'] as int?) ?? fp.needsBaselineSocial,
-        needsBaselineFun:
-            (seed['needsBaselineFun'] as int?) ?? fp.needsBaselineFun,
-        needsBaselineHygiene:
-            (seed['needsBaselineHygiene'] as int?) ?? fp.needsBaselineHygiene,
-        needsBaselineComfort:
-            (seed['needsBaselineComfort'] as int?) ?? fp.needsBaselineComfort,
-      );
-    }
-    if (!realismEnabled) return null;
-    final memberFp = FrontPorchExtensions(
-      enjoysLowHygiene: (seed['enjoysLowHygiene'] as bool?) ?? false,
-      realismVerificationEnabled:
-          (seed['verificationEnabled'] as bool?) ?? false,
-      realismVerificationMaxReprocesses:
-          (seed['verificationMaxReprocesses'] as int?) ?? 1,
-      realismVerificationStrictness:
-          (seed['verificationStrictness'] as int?) ?? 3,
-      realismNeedsDirectorAuthority:
-          (seed['needsDirectorAuthority'] as bool?) ?? false,
-      needsBaselineHunger: (seed['needsBaselineHunger'] as int?) ?? 80,
-      needsBaselineBladder: (seed['needsBaselineBladder'] as int?) ?? 80,
-      needsBaselineEnergy: (seed['needsBaselineEnergy'] as int?) ?? 80,
-      needsBaselineSocial: (seed['needsBaselineSocial'] as int?) ?? 80,
-      needsBaselineFun: (seed['needsBaselineFun'] as int?) ?? 80,
-      needsBaselineHygiene: (seed['needsBaselineHygiene'] as int?) ?? 80,
-      needsBaselineComfort: (seed['needsBaselineComfort'] as int?) ?? 80,
-      needsPace: (seed['needsPace'] as String?) ?? 'normal',
-      needsOff: [
-        for (final item in (seed['needsOff'] as List?) ?? const [])
-          if (item is String) item,
-      ],
-    );
-    memberFp.ensureStableId();
-    return memberFp;
   }
 }

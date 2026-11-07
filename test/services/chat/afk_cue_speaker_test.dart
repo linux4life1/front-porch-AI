@@ -31,7 +31,7 @@ CharacterCard _card(
 void main() {
   test('idle cue is built from the picked speaker', () {
     final src = File(
-      'lib/services/chat/chat_service_idle_autonomous.dart',
+      'lib/services/chat/doors/turn/idle_stage.dart',
     ).readAsStringSync();
     expect(src, contains('_buildAutonomousCue(afkSpeaker)'));
     expect(src, isNot(contains('final charName = _activeCharacter?.name')));

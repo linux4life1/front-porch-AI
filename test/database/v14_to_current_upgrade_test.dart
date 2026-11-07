@@ -140,8 +140,14 @@ void main() {
     // (soft gate, recovery PR 3) and v60 adds sessions.refractory_tail_
     // minutes / refractory_tail_total (warmth tail, recovery PR 4).
     // 2026-10-20: v61 adds worlds.parent_world_id (locations within
-    // worlds, slice 1), so the ladder ends at 61.
-    expect(first['_meta']!['user_version'], 61);
+    // worlds, slice 1). 2026-10-29: v62 adds groups.lore_world_ids (a
+    // group's lore-only worlds apart from its Setting). 2026-10-30: v63
+    // adds characters.lore_world_names (the same split for 1:1 cards).
+    // 2026-11-04: v64 adds sessions.pockets_enabled (the per-chat Pockets
+    // & Wardrobe switch, docs/design/pockets-wardrobe-chat-toggle.md).
+    // 2026-11-07: v65 adds sessions.composer_draft (the half-typed message
+    // left in the box survives a chat close), so the ladder ends at 65.
+    expect(first['_meta']!['user_version'], 65);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -166,7 +172,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 61);
+    expect(second['_meta']!['user_version'], 65);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

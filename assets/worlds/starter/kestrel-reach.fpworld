@@ -105,6 +105,7 @@
       "place_traits": {
         "gravity": "low"
       },
+      "ambience": "forest",
       "meta": {
         "sourceId": "starter-kestrel-reach-dome-town-meridian"
       }
@@ -123,6 +124,7 @@
         "id": "mediterranean",
         "displayName": "Mediterranean"
       },
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-kestrel-reach-the-ring"
       }
@@ -137,6 +139,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "cave",
       "meta": {
         "sourceId": "starter-kestrel-reach-outpost-nine"
       }

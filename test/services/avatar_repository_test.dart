@@ -117,7 +117,21 @@ void main() {
       //      Guarded by the chain / cycle / re-root group in
       //      test/services/world_repository_test.dart and by
       //      test/database/repair_covers_ladder_columns_test.
-      expect(db.schemaVersion, 61);
+      // v62: groups.lore_world_ids — a group's lore-only worlds apart from
+      //      its Setting. Guarded by the Group Setting split group in
+      //      test/services/world_repository_test.dart.
+      // v63: characters.lore_world_names — a character card's lore-only
+      //      worlds apart from its Setting. Guarded by the Character Setting
+      //      split group in test/services/world_repository_test.dart.
+      // v64: sessions.pockets_enabled — the per-chat Pockets & Wardrobe
+      //      switch. Guarded by test/services/chat/pockets_chat_toggle_test
+      //      (the column is law across reopen; NULL derives once) and by
+      //      test/database/v14_to_current_upgrade_test (the ladder lands here).
+      // v65: sessions.composer_draft — the half-typed message that survives
+      //      a chat close. Guarded by test/services/composer_draft_store_test
+      //      (save/load routing: row-backed drafts ride the session, a
+      //      never-sent new chat's draft rides prefs by owner).
+      expect(db.schemaVersion, 65);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

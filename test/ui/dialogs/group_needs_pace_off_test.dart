@@ -7,11 +7,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_storage.dart';
 
 class _NeedsChat extends FakeChatService {
   _NeedsChat(this._group, this._chars);
@@ -89,4 +92,44 @@ void main() {
       expect(member.frontPorchExtensions!.needsOff, contains('bladder'));
     },
   );
+
+  // The SOW decision: Needs greys out with "Off in Porch Life", as the 1:1
+  // Needs line and the phone do. This group chat's switch stayed live.
+  testWidgets("the group chat's Needs switch greys at the chat's own choice "
+      "while Porch Life's Needs is off", (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final chat = _NeedsChat(GroupChat(id: 'g1', name: 'The Stoop'), const []);
+    final storage = FakeStorageService();
+    addTearDown(chat.dispose);
+    addTearDown(storage.dispose);
+    await storage.realismSettings.setNeedsSimDefault(false);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<StorageService>.value(
+        value: storage,
+        child: MaterialApp(
+          home: Scaffold(body: GroupNeedsTab(chatService: chat)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final needs = tester.widget<Switch>(
+      find
+          .descendant(
+            of: find.widgetWithText(Row, 'Needs Simulation'),
+            matching: find.byType(Switch),
+          )
+          .first,
+    );
+    expect(needs.value, chat.needsSimEnabled, reason: "the chat's own choice");
+    expect(needs.onChanged, isNull);
+    expect(
+      find.text(
+        "Off in Porch Life, so no chat runs Needs. This chat's choice is kept.",
+      ),
+      findsOneWidget,
+    );
+  });
 }

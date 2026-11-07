@@ -158,11 +158,20 @@ class CharacterLinkedWorldPurge {
     if (charRepo != null) {
       for (final c in charRepo.characters) {
         final before = c.worldNames.length;
+        final loreBefore = c.loreWorldNames?.length;
         c.worldNames = [
           for (final ref in c.worldNames)
             if (keep(ref)) ref,
         ];
-        if (c.worldNames.length != before) {
+        final lore = c.loreWorldNames;
+        if (lore != null) {
+          c.loreWorldNames = [
+            for (final ref in lore)
+              if (keep(ref)) ref,
+          ];
+        }
+        if (c.worldNames.length != before ||
+            c.loreWorldNames?.length != loreBefore) {
           try {
             await charRepo.updateCharacter(c);
           } catch (e) {
@@ -175,11 +184,20 @@ class CharacterLinkedWorldPurge {
     if (groupRepo != null) {
       for (final g in List.of(groupRepo.groups)) {
         final before = g.worldIds.length;
+        final loreBefore = g.loreWorldIds?.length;
         g.worldIds = [
           for (final ref in g.worldIds)
             if (keep(ref)) ref,
         ];
-        if (g.worldIds.length != before) {
+        final lore = g.loreWorldIds;
+        if (lore != null) {
+          g.loreWorldIds = [
+            for (final ref in lore)
+              if (keep(ref)) ref,
+          ];
+        }
+        if (g.worldIds.length != before ||
+            g.loreWorldIds?.length != loreBefore) {
           try {
             await groupRepo.save(g);
           } catch (e) {

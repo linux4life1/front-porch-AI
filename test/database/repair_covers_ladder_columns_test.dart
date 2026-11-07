@@ -20,10 +20,16 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 
-/// Extracts the `columnsToEnsure` map literal as {table: {column names}}.
+/// Extracts the `kSchemaRepairColumns` map literal as {table: {column names}}.
+/// (Moved out of database.repair.dart into schema_repair_columns.dart with
+/// schema v62, to keep the repair file under the 500-line limit; same list.)
 Map<String, Set<String>> _parseRepairList(String source) {
-  final start = source.indexOf('columnsToEnsure = {');
-  expect(start, greaterThan(0), reason: 'columnsToEnsure literal not found');
+  final start = source.indexOf('kSchemaRepairColumns = {');
+  expect(
+    start,
+    greaterThan(0),
+    reason: 'kSchemaRepairColumns literal not found',
+  );
   var depth = 0;
   var end = start;
   for (var i = source.indexOf('{', start); i < source.length; i++) {
@@ -79,7 +85,7 @@ void main() {
         for (final f in ladderFiles) await f.readAsString(),
       ].join('\n');
       final repairSource = await File(
-        'lib/database/database.repair.dart',
+        'lib/database/schema_repair_columns.dart',
       ).readAsString();
 
       final repaired = _parseRepairList(repairSource);

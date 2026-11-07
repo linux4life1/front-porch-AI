@@ -15,6 +15,8 @@ export interface TreeWorld {
   climateEnabled?: boolean;
   isModelMade?: boolean;
   biomeId?: string | null;
+  /** The climate's own display name (relay-resolved, climate worlds only). */
+  climateName?: string | null;
   atmosphere?: string | null;
   gravity?: string | null;
   entryCount?: number;

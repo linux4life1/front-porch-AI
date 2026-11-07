@@ -61,12 +61,39 @@ class StudioOverview extends StatelessWidget {
         onOpen: () => onOpen(StudioSection.lore),
       ),
     ];
+    final worldLine = storyWorldLine(project, worldsOrNull(context));
     return SingleChildScrollView(
       key: const ValueKey('studio-overview'),
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (worldLine != null) ...[
+            Row(
+              key: const ValueKey('studio-overview-world'),
+              children: [
+                Icon(
+                  Icons.public,
+                  size: 14,
+                  color: StudioColors.honeyOf(context),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    worldLine,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: StudioType.ui(
+                      context,
+                      size: 12.5,
+                      color: StudioColors.mutedOf(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           StudioUpNextCard(
             project: project,
             pipeline: pipeline,

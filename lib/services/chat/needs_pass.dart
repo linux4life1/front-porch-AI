@@ -34,12 +34,19 @@ import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 
 class NeedsPass {
-  NeedsPass(this._scope, {required this.loadIntoScalars});
+  NeedsPass(
+    this._scope, {
+    required this.loadIntoScalars,
+    required this.chatRealism,
+  });
 
   final RealismScope _scope;
 
   /// The group dance's load of a member into the live scalars.
   final void Function(String charId) loadIntoScalars;
+
+  /// This chat's own Realism switch, not the gate [active] reads.
+  final bool Function() chatRealism;
 
   /// The gate every Needs run reads. [_needsActive] keeps its name: the
   /// ratchet pins the one definition here.
@@ -50,10 +57,10 @@ class NeedsPass {
   bool get _clockRunning => _scope.clockRunning();
   NeedsSimulation get _needsSimulation => _scope.needs();
   TimeService get _timeService => _scope.time();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
-  List<ChatMessage> get _messages => _scope.messages;
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
+  List<ChatMessage> get _messages => _scope.session.messages;
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
@@ -82,17 +89,16 @@ class NeedsPass {
       _needsSimEnabled &&
       _scope.realismSettings().needsSimDefault;
 
-  /// The chat's Needs switch at the start of a 1:1 chat, from the card's
-  /// own choice ([FrontPorchExtensions.needsSimChoice]). A card that says
-  /// nothing follows the Porch Life Needs switch, but only in a chat whose
-  /// Realism is on: Needs need Realism, so filling in Needs where it cannot
-  /// run would only flip a stored switch (an old Realism-off chat reopened).
-  /// A card that chose is still vetoed by the Porch Life switch, and its
-  /// explicit false wins (maintainer ruling, 2026-10-10). Reads
-  /// `_realismEnabled`, so callers set Realism first.
-  bool seedNeedsSim(bool? cardChoice) =>
-      (cardChoice ?? _realismEnabled) &&
-      _scope.realismSettings().needsSimDefault;
+  /// The chat's own Needs switch at the start of a 1:1 chat, from the card's
+  /// choice ([FrontPorchExtensions.needsSimChoice]). A card that says nothing
+  /// asks for Needs in a chat whose Realism is on: Needs need Realism, so
+  /// filling in Needs where it cannot run would only flip a stored switch.
+  /// Porch Life is not part of it: it vetoes every chat live through
+  /// [active] (maintainer ruling, 2026-10-10), so a chat started while it is
+  /// off keeps its card's choice for when it comes back on. A silent card
+  /// reads the chat's own Realism switch, not the gate, for the same reason
+  /// (Porch Life's Realism vetoes live too), so callers set Realism first.
+  bool seedNeedsSim(bool? cardChoice) => cardChoice ?? chatRealism();
 
   /// The pre-turn stamp: the body as it is before this reply, with the
   /// carried fraction, on the pending map, so regen and the chip rewind to

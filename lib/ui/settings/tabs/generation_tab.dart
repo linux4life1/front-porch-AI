@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Settings → Generation: reasoning, sampling, output limits, stop
@@ -53,6 +54,7 @@ class _GenerationTabState extends State<GenerationTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const GenerationPresetBar(),
           // ── Reasoning (thinking models — local KoboldCpp & remote) ─────
           const SectionHeader('Thinking'),
           const SizedBox(height: 8),
@@ -68,153 +70,29 @@ class _GenerationTabState extends State<GenerationTab> {
           // ── Generation Parameters ──────────────────────────────────────
           const SectionHeader('Generation Parameters'),
           const SizedBox(height: 8),
-          SliderSetting(
-            label: 'Temperature',
-            value: storage.generationSettings.temperature,
-            min: 0.0,
-            max: 2.0,
-            onChanged: (val) => storage.generationSettings.setTemperature(val),
-            divisions: 20,
-            showInput: true,
-            decimalPlaces: 1,
+          GenerationSamplerSliders(
+            storage: storage,
+            knobs: knobs,
+            accent: accent,
           ),
-          if (knobs.contains(SamplerKnob.minP))
-            SliderSetting(
-              label: 'Min-P',
-              value: storage.generationSettings.minP,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (val) => storage.generationSettings.setMinP(val),
-              divisions: 100,
-              showInput: true,
-              decimalPlaces: 2,
-            ),
-          SliderSetting(
-            label: 'Top-P',
-            value: storage.generationSettings.topP,
-            min: 0.1,
-            max: 1.0,
-            onChanged: (val) => storage.generationSettings.setTopP(val),
-            divisions: 90,
-            showInput: true,
-            decimalPlaces: 2,
-          ),
-          if (knobs.contains(SamplerKnob.topK))
-            SliderSetting(
-              label: 'Top-K',
-              value: storage.generationSettings.topK.toDouble(),
-              min: 0,
-              max: 200,
-              onChanged: (val) =>
-                  storage.generationSettings.setTopK(val.toInt()),
-              divisions: 200,
-              showInput: true,
-              isInteger: true,
-            ),
-          if (knobs.contains(SamplerKnob.repeatPenalty))
-            SliderSetting(
-              label: 'Repeat Penalty',
-              value: storage.generationSettings.repeatPenalty,
-              min: 1.0,
-              max: 3.0,
-              onChanged: (val) =>
-                  storage.generationSettings.setRepeatPenalty(val),
-              divisions: 200,
-              showInput: true,
-              decimalPlaces: 2,
-            ),
-          if (knobs.contains(SamplerKnob.repeatPenaltyTokens))
-            SliderSetting(
-              label: 'Repeat Penalty Tokens',
-              value: storage.generationSettings.repeatPenaltyTokens.toDouble(),
-              min: 0,
-              max: 2048,
-              onChanged: (val) => storage.generationSettings
-                  .setRepeatPenaltyTokens(val.toInt()),
-              divisions: 256,
-              showInput: true,
-              isInteger: true,
-            ),
-          if (knobs.contains(SamplerKnob.xtc)) ...[
-            SliderSetting(
-              label: 'XTC Threshold',
-              value: storage.generationSettings.xtcThreshold,
-              min: 0.0,
-              max: 0.5,
-              onChanged: (val) =>
-                  storage.generationSettings.setXtcThreshold(val),
-              divisions: 50,
-              showInput: true,
-              decimalPlaces: 2,
-            ),
-            SliderSetting(
-              label: 'XTC Probability',
-              value: storage.generationSettings.xtcProbability,
-              min: 0.0,
-              max: 1.0,
-              onChanged: (val) =>
-                  storage.generationSettings.setXtcProbability(val),
-              divisions: 20,
-              showInput: true,
-              decimalPlaces: 2,
-            ),
-          ],
-          if (knobs.contains(SamplerKnob.dry))
-            SliderSetting(
-              label: 'DRY Strength',
-              value: storage.generationSettings.dryMultiplier,
-              min: 0.0,
-              max: 3.0,
-              onChanged: (val) =>
-                  storage.generationSettings.setDryMultiplier(val),
-              divisions: 60,
-              showInput: true,
-              decimalPlaces: 2,
-            ),
-          if (knobs.contains(SamplerKnob.dynamicTemp)) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Text(
-                  'Dynamic Temperature',
-                  style: TextStyle(color: AppColors.textPrimary(context)),
-                ),
-                const Spacer(),
-                Switch(
-                  value: storage.generationSettings.dynamicTempEnabled,
-                  onChanged: (val) =>
-                      storage.generationSettings.setDynamicTempEnabled(val),
-                  activeTrackColor: accent,
-                ),
-              ],
-            ),
-            if (storage.generationSettings.dynamicTempEnabled)
-              SliderSetting(
-                label: 'Dynatemp Range',
-                value: storage.generationSettings.dynamicTempRange,
-                min: 0.0,
-                max: 2.0,
-                onChanged: (val) =>
-                    storage.generationSettings.setDynamicTempRange(val),
-                divisions: 20,
-                showInput: true,
-                decimalPlaces: 1,
-              ),
-          ],
           const SizedBox(height: 24),
 
           // ── Output Limits ──────────────────────────────────────────────
           const SectionHeader('Output Limits'),
           const SizedBox(height: 8),
-          SliderSetting(
-            label: 'Max Output Tokens',
-            value: storage.generationSettings.maxLength.toDouble(),
-            min: 16,
-            max: 16384,
-            onChanged: (val) =>
-                storage.generationSettings.setMaxLength(val.toInt()),
-            showInput: true,
-            isInteger: true,
+          RecommendedSamplersBuilder(
+            storage: storage,
+            builder: (context, rec) => SliderSetting(
+              label: 'Max Output Tokens',
+              value: storage.generationSettings.maxLength.toDouble(),
+              min: 16,
+              max: 16384,
+              onChanged: (val) =>
+                  storage.generationSettings.setMaxLength(val.toInt()),
+              showInput: true,
+              isInteger: true,
+              reset: resetTargetFor(rec, (v) => v.maxLength),
+            ),
           ),
           // Context size — wider range for remote backends.
           PresetContextLock(

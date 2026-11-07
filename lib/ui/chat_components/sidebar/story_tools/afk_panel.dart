@@ -34,7 +34,11 @@ import '../sidebar_tokens.dart';
 /// existing resume/pause so the idle timer arms immediately when appropriate.
 class AfkPanel extends StatefulWidget {
   final ChatService chat;
-  const AfkPanel({super.key, required this.chat});
+
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
+  const AfkPanel({super.key, required this.chat, this.dragHandle});
 
   @override
   State<AfkPanel> createState() => _AfkPanelState();
@@ -63,6 +67,7 @@ class _AfkPanelState extends State<AfkPanel> {
           icon: Icons.bedtime_outlined,
           label: 'Dynamic Responses (AFK)',
           accent: accent,
+          dragHandle: widget.dragHandle,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

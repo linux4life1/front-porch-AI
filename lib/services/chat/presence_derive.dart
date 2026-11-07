@@ -5,6 +5,8 @@
 // hours. Missing workDays is Mon–Fri. Written [] is never at work.
 // With you / Away is last. Never a yes/no switch.
 
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/member_origin_resolver.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 export 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart'
     show PresenceWhere;
@@ -76,6 +78,31 @@ workFieldsForGroupMember({
         ? brief
         : (libraryOccupationBrief ?? '').trim(),
     workDays: copyWorkDays ?? (hrs.isNotEmpty ? null : libraryWorkDays),
+  );
+}
+
+/// [member]'s work fields, the one read behind the member card's "at work"
+/// word, the turn skip, the web cast and the prompt, so they cannot disagree.
+/// The member's own copy first; blank fields fall back to the library card
+/// [MemberOriginResolver.resolveForCard] finds (identity first, a name only
+/// when exactly one library card has it). Two members who share a name, or a
+/// renamed one, are never matched to a library card by name alone.
+({String occupation, String hours, String occupationBrief, List<int>? workDays})
+workFieldsForMember(CharacterCard member, Iterable<CharacterCard> library) {
+  final ext = member.frontPorchExtensions;
+  final origin = MemberOriginResolver.resolveForCard(
+    member,
+    library,
+  )?.frontPorchExtensions;
+  return workFieldsForGroupMember(
+    copyOccupation: ext?.occupation ?? '',
+    copyHours: ext?.hours ?? '',
+    copyOccupationBrief: ext?.occupationBrief ?? '',
+    copyWorkDays: ext?.workDays,
+    libraryOccupation: origin?.occupation,
+    libraryHours: origin?.hours,
+    libraryOccupationBrief: origin?.occupationBrief,
+    libraryWorkDays: origin?.workDays,
   );
 }
 

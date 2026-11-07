@@ -284,6 +284,17 @@ class $CharactersTable extends Characters
     requiredDuringInsert: false,
     defaultValue: const Constant(1),
   );
+  static const VerificationMeta _loreWorldNamesMeta = const VerificationMeta(
+    'loreWorldNames',
+  );
+  @override
+  late final GeneratedColumn<String> loreWorldNames = GeneratedColumn<String>(
+    'lore_world_names',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -310,6 +321,7 @@ class $CharactersTable extends Characters
     updatedAt,
     deletedAt,
     primeAvatarIndex,
+    loreWorldNames,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -501,6 +513,15 @@ class $CharactersTable extends Characters
         ),
       );
     }
+    if (data.containsKey('lore_world_names')) {
+      context.handle(
+        _loreWorldNamesMeta,
+        loreWorldNames.isAcceptableOrUnknown(
+          data['lore_world_names']!,
+          _loreWorldNamesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -606,6 +627,10 @@ class $CharactersTable extends Characters
         DriftSqlType.int,
         data['${effectivePrefix}prime_avatar_index'],
       )!,
+      loreWorldNames: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lore_world_names'],
+      ),
     );
   }
 
@@ -640,6 +665,7 @@ class Character extends DataClass implements Insertable<Character> {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final int primeAvatarIndex;
+  final String? loreWorldNames;
   const Character({
     required this.id,
     required this.name,
@@ -665,6 +691,7 @@ class Character extends DataClass implements Insertable<Character> {
     required this.updatedAt,
     this.deletedAt,
     required this.primeAvatarIndex,
+    this.loreWorldNames,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -705,6 +732,9 @@ class Character extends DataClass implements Insertable<Character> {
       map['deleted_at'] = Variable<DateTime>(deletedAt);
     }
     map['prime_avatar_index'] = Variable<int>(primeAvatarIndex);
+    if (!nullToAbsent || loreWorldNames != null) {
+      map['lore_world_names'] = Variable<String>(loreWorldNames);
+    }
     return map;
   }
 
@@ -744,6 +774,9 @@ class Character extends DataClass implements Insertable<Character> {
           ? const Value.absent()
           : Value(deletedAt),
       primeAvatarIndex: Value(primeAvatarIndex),
+      loreWorldNames: loreWorldNames == null && nullToAbsent
+          ? const Value.absent()
+          : Value(loreWorldNames),
     );
   }
 
@@ -783,6 +816,7 @@ class Character extends DataClass implements Insertable<Character> {
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       primeAvatarIndex: serializer.fromJson<int>(json['primeAvatarIndex']),
+      loreWorldNames: serializer.fromJson<String?>(json['loreWorldNames']),
     );
   }
   @override
@@ -815,6 +849,7 @@ class Character extends DataClass implements Insertable<Character> {
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'primeAvatarIndex': serializer.toJson<int>(primeAvatarIndex),
+      'loreWorldNames': serializer.toJson<String?>(loreWorldNames),
     };
   }
 
@@ -843,6 +878,7 @@ class Character extends DataClass implements Insertable<Character> {
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
     int? primeAvatarIndex,
+    Value<String?> loreWorldNames = const Value.absent(),
   }) => Character(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -869,6 +905,9 @@ class Character extends DataClass implements Insertable<Character> {
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     primeAvatarIndex: primeAvatarIndex ?? this.primeAvatarIndex,
+    loreWorldNames: loreWorldNames.present
+        ? loreWorldNames.value
+        : this.loreWorldNames,
   );
   Character copyWithCompanion(CharactersCompanion data) {
     return Character(
@@ -922,6 +961,9 @@ class Character extends DataClass implements Insertable<Character> {
       primeAvatarIndex: data.primeAvatarIndex.present
           ? data.primeAvatarIndex.value
           : this.primeAvatarIndex,
+      loreWorldNames: data.loreWorldNames.present
+          ? data.loreWorldNames.value
+          : this.loreWorldNames,
     );
   }
 
@@ -951,7 +993,8 @@ class Character extends DataClass implements Insertable<Character> {
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
-          ..write('primeAvatarIndex: $primeAvatarIndex')
+          ..write('primeAvatarIndex: $primeAvatarIndex, ')
+          ..write('loreWorldNames: $loreWorldNames')
           ..write(')'))
         .toString();
   }
@@ -982,6 +1025,7 @@ class Character extends DataClass implements Insertable<Character> {
     updatedAt,
     deletedAt,
     primeAvatarIndex,
+    loreWorldNames,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1010,7 +1054,8 @@ class Character extends DataClass implements Insertable<Character> {
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt &&
-          other.primeAvatarIndex == this.primeAvatarIndex);
+          other.primeAvatarIndex == this.primeAvatarIndex &&
+          other.loreWorldNames == this.loreWorldNames);
 }
 
 class CharactersCompanion extends UpdateCompanion<Character> {
@@ -1038,6 +1083,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
   final Value<int> primeAvatarIndex;
+  final Value<String?> loreWorldNames;
   final Value<int> rowid;
   const CharactersCompanion({
     this.id = const Value.absent(),
@@ -1064,6 +1110,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.primeAvatarIndex = const Value.absent(),
+    this.loreWorldNames = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CharactersCompanion.insert({
@@ -1091,6 +1138,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
     this.primeAvatarIndex = const Value.absent(),
+    this.loreWorldNames = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name);
@@ -1119,6 +1167,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
     Expression<int>? primeAvatarIndex,
+    Expression<String>? loreWorldNames,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1147,6 +1196,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
       if (primeAvatarIndex != null) 'prime_avatar_index': primeAvatarIndex,
+      if (loreWorldNames != null) 'lore_world_names': loreWorldNames,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1176,6 +1226,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
     Value<int>? primeAvatarIndex,
+    Value<String?>? loreWorldNames,
     Value<int>? rowid,
   }) {
     return CharactersCompanion(
@@ -1204,6 +1255,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       primeAvatarIndex: primeAvatarIndex ?? this.primeAvatarIndex,
+      loreWorldNames: loreWorldNames ?? this.loreWorldNames,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1285,6 +1337,9 @@ class CharactersCompanion extends UpdateCompanion<Character> {
     if (primeAvatarIndex.present) {
       map['prime_avatar_index'] = Variable<int>(primeAvatarIndex.value);
     }
+    if (loreWorldNames.present) {
+      map['lore_world_names'] = Variable<String>(loreWorldNames.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1318,6 +1373,7 @@ class CharactersCompanion extends UpdateCompanion<Character> {
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')
           ..write('primeAvatarIndex: $primeAvatarIndex, ')
+          ..write('loreWorldNames: $loreWorldNames, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1991,6 +2047,20 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _pocketsEnabledMeta = const VerificationMeta(
+    'pocketsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> pocketsEnabled = GeneratedColumn<bool>(
+    'pockets_enabled',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("pockets_enabled" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _todayObjectiveIdMeta = const VerificationMeta(
     'todayObjectiveId',
   );
@@ -2118,6 +2188,17 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         type: DriftSqlType.string,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _composerDraftMeta = const VerificationMeta(
+    'composerDraft',
+  );
+  @override
+  late final GeneratedColumn<String> composerDraft = GeneratedColumn<String>(
+    'composer_draft',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _objectivesEnabledMeta = const VerificationMeta(
     'objectivesEnabled',
   );
@@ -2238,6 +2319,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     needsSimEnabled,
     needsVector,
     pockets,
+    pocketsEnabled,
     todayObjectiveId,
     evolvedPersonality,
     evolvedScenario,
@@ -2249,6 +2331,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     selectedLookAvatarId,
     themeOverrides,
     contextBudgetJson,
+    composerDraft,
     objectivesEnabled,
     groupRealismState,
     createdAt,
@@ -2725,6 +2808,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         pockets.isAcceptableOrUnknown(data['pockets']!, _pocketsMeta),
       );
     }
+    if (data.containsKey('pockets_enabled')) {
+      context.handle(
+        _pocketsEnabledMeta,
+        pocketsEnabled.isAcceptableOrUnknown(
+          data['pockets_enabled']!,
+          _pocketsEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('today_objective_id')) {
       context.handle(
         _todayObjectiveIdMeta,
@@ -2821,6 +2913,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         contextBudgetJson.isAcceptableOrUnknown(
           data['context_budget_json']!,
           _contextBudgetJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('composer_draft')) {
+      context.handle(
+        _composerDraftMeta,
+        composerDraft.isAcceptableOrUnknown(
+          data['composer_draft']!,
+          _composerDraftMeta,
         ),
       );
     }
@@ -3089,6 +3190,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}pockets'],
       ),
+      pocketsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}pockets_enabled'],
+      ),
       todayObjectiveId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}today_objective_id'],
@@ -3132,6 +3237,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
       contextBudgetJson: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}context_budget_json'],
+      ),
+      composerDraft: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}composer_draft'],
       ),
       objectivesEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
@@ -3265,6 +3374,16 @@ class Session extends DataClass implements Insertable<Session> {
   /// chat where Pockets is switched off.
   final String? pockets;
 
+  /// v64 — this 1:1 chat's own Pockets & Wardrobe switch
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Before it, the feature
+  /// answered a global Porch Life switch ANDed with a per-character card
+  /// flag, so there was no per-chat control. Nullable, no default: NULL
+  /// means the chat predates the column, and the first load derives it once
+  /// from the card flag (maintainer ruling D1) then persists it. Group chats
+  /// keep their per-member switches inside `group_realism_state` and leave
+  /// this NULL.
+  final bool? pocketsEnabled;
+
   /// v48 — the live Today side-quest row for this chat, or null if none.
   ///
   /// Shape is not enough: a user-typed secondary is also isPrimary false,
@@ -3290,6 +3409,12 @@ class Session extends DataClass implements Insertable<Session> {
   /// get it from the always-on repair before open() returns. Raw-SQL access.
   final String? themeOverrides;
   final String? contextBudgetJson;
+
+  /// v65 — a half-typed message the user left in the composer when they
+  /// closed the chat, so reopening it offers the line back. NULL = no
+  /// draft. Raw-SQL access (same pattern as [themeOverrides]); the draft
+  /// is never part of a prompt, only of the message box.
+  final String? composerDraft;
 
   /// Per-chat Objectives switch (v45). Defaults TRUE because objectives have
   /// always run unconditionally — every existing row must keep behaving
@@ -3362,6 +3487,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.needsSimEnabled,
     this.needsVector,
     this.pockets,
+    this.pocketsEnabled,
     this.todayObjectiveId,
     required this.evolvedPersonality,
     required this.evolvedScenario,
@@ -3373,6 +3499,7 @@ class Session extends DataClass implements Insertable<Session> {
     this.selectedLookAvatarId,
     this.themeOverrides,
     this.contextBudgetJson,
+    this.composerDraft,
     required this.objectivesEnabled,
     required this.groupRealismState,
     required this.createdAt,
@@ -3481,6 +3608,9 @@ class Session extends DataClass implements Insertable<Session> {
     if (!nullToAbsent || pockets != null) {
       map['pockets'] = Variable<String>(pockets);
     }
+    if (!nullToAbsent || pocketsEnabled != null) {
+      map['pockets_enabled'] = Variable<bool>(pocketsEnabled);
+    }
     if (!nullToAbsent || todayObjectiveId != null) {
       map['today_objective_id'] = Variable<String>(todayObjectiveId);
     }
@@ -3505,6 +3635,9 @@ class Session extends DataClass implements Insertable<Session> {
     }
     if (!nullToAbsent || contextBudgetJson != null) {
       map['context_budget_json'] = Variable<String>(contextBudgetJson);
+    }
+    if (!nullToAbsent || composerDraft != null) {
+      map['composer_draft'] = Variable<String>(composerDraft);
     }
     map['objectives_enabled'] = Variable<bool>(objectivesEnabled);
     map['group_realism_state'] = Variable<String>(groupRealismState);
@@ -3612,6 +3745,9 @@ class Session extends DataClass implements Insertable<Session> {
       pockets: pockets == null && nullToAbsent
           ? const Value.absent()
           : Value(pockets),
+      pocketsEnabled: pocketsEnabled == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pocketsEnabled),
       todayObjectiveId: todayObjectiveId == null && nullToAbsent
           ? const Value.absent()
           : Value(todayObjectiveId),
@@ -3635,6 +3771,9 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: contextBudgetJson == null && nullToAbsent
           ? const Value.absent()
           : Value(contextBudgetJson),
+      composerDraft: composerDraft == null && nullToAbsent
+          ? const Value.absent()
+          : Value(composerDraft),
       objectivesEnabled: Value(objectivesEnabled),
       groupRealismState: Value(groupRealismState),
       createdAt: Value(createdAt),
@@ -3726,6 +3865,7 @@ class Session extends DataClass implements Insertable<Session> {
       needsSimEnabled: serializer.fromJson<bool>(json['needsSimEnabled']),
       needsVector: serializer.fromJson<String?>(json['needsVector']),
       pockets: serializer.fromJson<String?>(json['pockets']),
+      pocketsEnabled: serializer.fromJson<bool?>(json['pocketsEnabled']),
       todayObjectiveId: serializer.fromJson<String?>(json['todayObjectiveId']),
       evolvedPersonality: serializer.fromJson<String>(
         json['evolvedPersonality'],
@@ -3749,6 +3889,7 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: serializer.fromJson<String?>(
         json['contextBudgetJson'],
       ),
+      composerDraft: serializer.fromJson<String?>(json['composerDraft']),
       objectivesEnabled: serializer.fromJson<bool>(json['objectivesEnabled']),
       groupRealismState: serializer.fromJson<String>(json['groupRealismState']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -3821,6 +3962,7 @@ class Session extends DataClass implements Insertable<Session> {
       'needsSimEnabled': serializer.toJson<bool>(needsSimEnabled),
       'needsVector': serializer.toJson<String?>(needsVector),
       'pockets': serializer.toJson<String?>(pockets),
+      'pocketsEnabled': serializer.toJson<bool?>(pocketsEnabled),
       'todayObjectiveId': serializer.toJson<String?>(todayObjectiveId),
       'evolvedPersonality': serializer.toJson<String>(evolvedPersonality),
       'evolvedScenario': serializer.toJson<String>(evolvedScenario),
@@ -3834,6 +3976,7 @@ class Session extends DataClass implements Insertable<Session> {
       'selectedLookAvatarId': serializer.toJson<String?>(selectedLookAvatarId),
       'themeOverrides': serializer.toJson<String?>(themeOverrides),
       'contextBudgetJson': serializer.toJson<String?>(contextBudgetJson),
+      'composerDraft': serializer.toJson<String?>(composerDraft),
       'objectivesEnabled': serializer.toJson<bool>(objectivesEnabled),
       'groupRealismState': serializer.toJson<String>(groupRealismState),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -3898,6 +4041,7 @@ class Session extends DataClass implements Insertable<Session> {
     bool? needsSimEnabled,
     Value<String?> needsVector = const Value.absent(),
     Value<String?> pockets = const Value.absent(),
+    Value<bool?> pocketsEnabled = const Value.absent(),
     Value<String?> todayObjectiveId = const Value.absent(),
     String? evolvedPersonality,
     String? evolvedScenario,
@@ -3909,6 +4053,7 @@ class Session extends DataClass implements Insertable<Session> {
     Value<String?> selectedLookAvatarId = const Value.absent(),
     Value<String?> themeOverrides = const Value.absent(),
     Value<String?> contextBudgetJson = const Value.absent(),
+    Value<String?> composerDraft = const Value.absent(),
     bool? objectivesEnabled,
     String? groupRealismState,
     DateTime? createdAt,
@@ -3994,6 +4139,9 @@ class Session extends DataClass implements Insertable<Session> {
     needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
     needsVector: needsVector.present ? needsVector.value : this.needsVector,
     pockets: pockets.present ? pockets.value : this.pockets,
+    pocketsEnabled: pocketsEnabled.present
+        ? pocketsEnabled.value
+        : this.pocketsEnabled,
     todayObjectiveId: todayObjectiveId.present
         ? todayObjectiveId.value
         : this.todayObjectiveId,
@@ -4018,6 +4166,9 @@ class Session extends DataClass implements Insertable<Session> {
     contextBudgetJson: contextBudgetJson.present
         ? contextBudgetJson.value
         : this.contextBudgetJson,
+    composerDraft: composerDraft.present
+        ? composerDraft.value
+        : this.composerDraft,
     objectivesEnabled: objectivesEnabled ?? this.objectivesEnabled,
     groupRealismState: groupRealismState ?? this.groupRealismState,
     createdAt: createdAt ?? this.createdAt,
@@ -4173,6 +4324,9 @@ class Session extends DataClass implements Insertable<Session> {
           ? data.needsVector.value
           : this.needsVector,
       pockets: data.pockets.present ? data.pockets.value : this.pockets,
+      pocketsEnabled: data.pocketsEnabled.present
+          ? data.pocketsEnabled.value
+          : this.pocketsEnabled,
       todayObjectiveId: data.todayObjectiveId.present
           ? data.todayObjectiveId.value
           : this.todayObjectiveId,
@@ -4206,6 +4360,9 @@ class Session extends DataClass implements Insertable<Session> {
       contextBudgetJson: data.contextBudgetJson.present
           ? data.contextBudgetJson.value
           : this.contextBudgetJson,
+      composerDraft: data.composerDraft.present
+          ? data.composerDraft.value
+          : this.composerDraft,
       objectivesEnabled: data.objectivesEnabled.present
           ? data.objectivesEnabled.value
           : this.objectivesEnabled,
@@ -4276,6 +4433,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')
+          ..write('pocketsEnabled: $pocketsEnabled, ')
           ..write('todayObjectiveId: $todayObjectiveId, ')
           ..write('evolvedPersonality: $evolvedPersonality, ')
           ..write('evolvedScenario: $evolvedScenario, ')
@@ -4287,6 +4445,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('themeOverrides: $themeOverrides, ')
           ..write('contextBudgetJson: $contextBudgetJson, ')
+          ..write('composerDraft: $composerDraft, ')
           ..write('objectivesEnabled: $objectivesEnabled, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')
@@ -4353,6 +4512,7 @@ class Session extends DataClass implements Insertable<Session> {
     needsSimEnabled,
     needsVector,
     pockets,
+    pocketsEnabled,
     todayObjectiveId,
     evolvedPersonality,
     evolvedScenario,
@@ -4364,6 +4524,7 @@ class Session extends DataClass implements Insertable<Session> {
     selectedLookAvatarId,
     themeOverrides,
     contextBudgetJson,
+    composerDraft,
     objectivesEnabled,
     groupRealismState,
     createdAt,
@@ -4429,6 +4590,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.needsSimEnabled == this.needsSimEnabled &&
           other.needsVector == this.needsVector &&
           other.pockets == this.pockets &&
+          other.pocketsEnabled == this.pocketsEnabled &&
           other.todayObjectiveId == this.todayObjectiveId &&
           other.evolvedPersonality == this.evolvedPersonality &&
           other.evolvedScenario == this.evolvedScenario &&
@@ -4440,6 +4602,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.selectedLookAvatarId == this.selectedLookAvatarId &&
           other.themeOverrides == this.themeOverrides &&
           other.contextBudgetJson == this.contextBudgetJson &&
+          other.composerDraft == this.composerDraft &&
           other.objectivesEnabled == this.objectivesEnabled &&
           other.groupRealismState == this.groupRealismState &&
           other.createdAt == this.createdAt &&
@@ -4503,6 +4666,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<bool> needsSimEnabled;
   final Value<String?> needsVector;
   final Value<String?> pockets;
+  final Value<bool?> pocketsEnabled;
   final Value<String?> todayObjectiveId;
   final Value<String> evolvedPersonality;
   final Value<String> evolvedScenario;
@@ -4514,6 +4678,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String?> selectedLookAvatarId;
   final Value<String?> themeOverrides;
   final Value<String?> contextBudgetJson;
+  final Value<String?> composerDraft;
   final Value<bool> objectivesEnabled;
   final Value<String> groupRealismState;
   final Value<DateTime> createdAt;
@@ -4576,6 +4741,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
+    this.pocketsEnabled = const Value.absent(),
     this.todayObjectiveId = const Value.absent(),
     this.evolvedPersonality = const Value.absent(),
     this.evolvedScenario = const Value.absent(),
@@ -4587,6 +4753,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.selectedLookAvatarId = const Value.absent(),
     this.themeOverrides = const Value.absent(),
     this.contextBudgetJson = const Value.absent(),
+    this.composerDraft = const Value.absent(),
     this.objectivesEnabled = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4650,6 +4817,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
+    this.pocketsEnabled = const Value.absent(),
     this.todayObjectiveId = const Value.absent(),
     this.evolvedPersonality = const Value.absent(),
     this.evolvedScenario = const Value.absent(),
@@ -4661,6 +4829,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.selectedLookAvatarId = const Value.absent(),
     this.themeOverrides = const Value.absent(),
     this.contextBudgetJson = const Value.absent(),
+    this.composerDraft = const Value.absent(),
     this.objectivesEnabled = const Value.absent(),
     this.groupRealismState = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -4724,6 +4893,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<bool>? needsSimEnabled,
     Expression<String>? needsVector,
     Expression<String>? pockets,
+    Expression<bool>? pocketsEnabled,
     Expression<String>? todayObjectiveId,
     Expression<String>? evolvedPersonality,
     Expression<String>? evolvedScenario,
@@ -4735,6 +4905,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? selectedLookAvatarId,
     Expression<String>? themeOverrides,
     Expression<String>? contextBudgetJson,
+    Expression<String>? composerDraft,
     Expression<bool>? objectivesEnabled,
     Expression<String>? groupRealismState,
     Expression<DateTime>? createdAt,
@@ -4810,6 +4981,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (needsSimEnabled != null) 'needs_sim_enabled': needsSimEnabled,
       if (needsVector != null) 'needs_vector': needsVector,
       if (pockets != null) 'pockets': pockets,
+      if (pocketsEnabled != null) 'pockets_enabled': pocketsEnabled,
       if (todayObjectiveId != null) 'today_objective_id': todayObjectiveId,
       if (evolvedPersonality != null) 'evolved_personality': evolvedPersonality,
       if (evolvedScenario != null) 'evolved_scenario': evolvedScenario,
@@ -4824,6 +4996,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'selected_look_avatar_id': selectedLookAvatarId,
       if (themeOverrides != null) 'theme_overrides': themeOverrides,
       if (contextBudgetJson != null) 'context_budget_json': contextBudgetJson,
+      if (composerDraft != null) 'composer_draft': composerDraft,
       if (objectivesEnabled != null) 'objectives_enabled': objectivesEnabled,
       if (groupRealismState != null) 'group_realism_state': groupRealismState,
       if (createdAt != null) 'created_at': createdAt,
@@ -4889,6 +5062,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<bool>? needsSimEnabled,
     Value<String?>? needsVector,
     Value<String?>? pockets,
+    Value<bool?>? pocketsEnabled,
     Value<String?>? todayObjectiveId,
     Value<String>? evolvedPersonality,
     Value<String>? evolvedScenario,
@@ -4900,6 +5074,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String?>? selectedLookAvatarId,
     Value<String?>? themeOverrides,
     Value<String?>? contextBudgetJson,
+    Value<String?>? composerDraft,
     Value<bool>? objectivesEnabled,
     Value<String>? groupRealismState,
     Value<DateTime>? createdAt,
@@ -4970,6 +5145,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
       needsVector: needsVector ?? this.needsVector,
       pockets: pockets ?? this.pockets,
+      pocketsEnabled: pocketsEnabled ?? this.pocketsEnabled,
       todayObjectiveId: todayObjectiveId ?? this.todayObjectiveId,
       evolvedPersonality: evolvedPersonality ?? this.evolvedPersonality,
       evolvedScenario: evolvedScenario ?? this.evolvedScenario,
@@ -4983,6 +5159,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       selectedLookAvatarId: selectedLookAvatarId ?? this.selectedLookAvatarId,
       themeOverrides: themeOverrides ?? this.themeOverrides,
       contextBudgetJson: contextBudgetJson ?? this.contextBudgetJson,
+      composerDraft: composerDraft ?? this.composerDraft,
       objectivesEnabled: objectivesEnabled ?? this.objectivesEnabled,
       groupRealismState: groupRealismState ?? this.groupRealismState,
       createdAt: createdAt ?? this.createdAt,
@@ -5176,6 +5353,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (pockets.present) {
       map['pockets'] = Variable<String>(pockets.value);
     }
+    if (pocketsEnabled.present) {
+      map['pockets_enabled'] = Variable<bool>(pocketsEnabled.value);
+    }
     if (todayObjectiveId.present) {
       map['today_objective_id'] = Variable<String>(todayObjectiveId.value);
     }
@@ -5214,6 +5394,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (contextBudgetJson.present) {
       map['context_budget_json'] = Variable<String>(contextBudgetJson.value);
+    }
+    if (composerDraft.present) {
+      map['composer_draft'] = Variable<String>(composerDraft.value);
     }
     if (objectivesEnabled.present) {
       map['objectives_enabled'] = Variable<bool>(objectivesEnabled.value);
@@ -5294,6 +5477,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')
+          ..write('pocketsEnabled: $pocketsEnabled, ')
           ..write('todayObjectiveId: $todayObjectiveId, ')
           ..write('evolvedPersonality: $evolvedPersonality, ')
           ..write('evolvedScenario: $evolvedScenario, ')
@@ -5305,6 +5489,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('selectedLookAvatarId: $selectedLookAvatarId, ')
           ..write('themeOverrides: $themeOverrides, ')
           ..write('contextBudgetJson: $contextBudgetJson, ')
+          ..write('composerDraft: $composerDraft, ')
           ..write('objectivesEnabled: $objectivesEnabled, ')
           ..write('groupRealismState: $groupRealismState, ')
           ..write('createdAt: $createdAt, ')
@@ -6258,6 +6443,17 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _loreWorldIdsMeta = const VerificationMeta(
+    'loreWorldIds',
+  );
+  @override
+  late final GeneratedColumn<String> loreWorldIds = GeneratedColumn<String>(
+    'lore_world_ids',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _inheritCharacterLorebooksMeta =
       const VerificationMeta('inheritCharacterLorebooks');
   @override
@@ -6358,6 +6554,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     chaosNsfwEnabled,
     groupLorebook,
     worldIds,
+    loreWorldIds,
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
@@ -6490,6 +6687,15 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         worldIds.isAcceptableOrUnknown(data['world_ids']!, _worldIdsMeta),
       );
     }
+    if (data.containsKey('lore_world_ids')) {
+      context.handle(
+        _loreWorldIdsMeta,
+        loreWorldIds.isAcceptableOrUnknown(
+          data['lore_world_ids']!,
+          _loreWorldIdsMeta,
+        ),
+      );
+    }
     if (data.containsKey('inherit_character_lorebooks')) {
       context.handle(
         _inheritCharacterLorebooksMeta,
@@ -6606,6 +6812,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}world_ids'],
       )!,
+      loreWorldIds: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}lore_world_ids'],
+      ),
       inheritCharacterLorebooks: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}inherit_character_lorebooks'],
@@ -6665,6 +6875,7 @@ class Group extends DataClass implements Insertable<Group> {
   final bool chaosNsfwEnabled;
   final String groupLorebook;
   final String worldIds;
+  final String? loreWorldIds;
   final bool inheritCharacterLorebooks;
 
   /// Immutable creation-time baseline realism/needs seed for this group definition.
@@ -6716,6 +6927,7 @@ class Group extends DataClass implements Insertable<Group> {
     required this.chaosNsfwEnabled,
     required this.groupLorebook,
     required this.worldIds,
+    this.loreWorldIds,
     required this.inheritCharacterLorebooks,
     required this.baselineRealismState,
     required this.characterSystemPrompts,
@@ -6743,6 +6955,9 @@ class Group extends DataClass implements Insertable<Group> {
     map['chaos_nsfw_enabled'] = Variable<bool>(chaosNsfwEnabled);
     map['group_lorebook'] = Variable<String>(groupLorebook);
     map['world_ids'] = Variable<String>(worldIds);
+    if (!nullToAbsent || loreWorldIds != null) {
+      map['lore_world_ids'] = Variable<String>(loreWorldIds);
+    }
     map['inherit_character_lorebooks'] = Variable<bool>(
       inheritCharacterLorebooks,
     );
@@ -6777,6 +6992,9 @@ class Group extends DataClass implements Insertable<Group> {
       chaosNsfwEnabled: Value(chaosNsfwEnabled),
       groupLorebook: Value(groupLorebook),
       worldIds: Value(worldIds),
+      loreWorldIds: loreWorldIds == null && nullToAbsent
+          ? const Value.absent()
+          : Value(loreWorldIds),
       inheritCharacterLorebooks: Value(inheritCharacterLorebooks),
       baselineRealismState: Value(baselineRealismState),
       characterSystemPrompts: Value(characterSystemPrompts),
@@ -6815,6 +7033,7 @@ class Group extends DataClass implements Insertable<Group> {
       chaosNsfwEnabled: serializer.fromJson<bool>(json['chaosNsfwEnabled']),
       groupLorebook: serializer.fromJson<String>(json['groupLorebook']),
       worldIds: serializer.fromJson<String>(json['worldIds']),
+      loreWorldIds: serializer.fromJson<String?>(json['loreWorldIds']),
       inheritCharacterLorebooks: serializer.fromJson<bool>(
         json['inheritCharacterLorebooks'],
       ),
@@ -6850,6 +7069,7 @@ class Group extends DataClass implements Insertable<Group> {
       'chaosNsfwEnabled': serializer.toJson<bool>(chaosNsfwEnabled),
       'groupLorebook': serializer.toJson<String>(groupLorebook),
       'worldIds': serializer.toJson<String>(worldIds),
+      'loreWorldIds': serializer.toJson<String?>(loreWorldIds),
       'inheritCharacterLorebooks': serializer.toJson<bool>(
         inheritCharacterLorebooks,
       ),
@@ -6879,6 +7099,7 @@ class Group extends DataClass implements Insertable<Group> {
     bool? chaosNsfwEnabled,
     String? groupLorebook,
     String? worldIds,
+    Value<String?> loreWorldIds = const Value.absent(),
     bool? inheritCharacterLorebooks,
     String? baselineRealismState,
     String? characterSystemPrompts,
@@ -6902,6 +7123,7 @@ class Group extends DataClass implements Insertable<Group> {
     chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
     groupLorebook: groupLorebook ?? this.groupLorebook,
     worldIds: worldIds ?? this.worldIds,
+    loreWorldIds: loreWorldIds.present ? loreWorldIds.value : this.loreWorldIds,
     inheritCharacterLorebooks:
         inheritCharacterLorebooks ?? this.inheritCharacterLorebooks,
     baselineRealismState: baselineRealismState ?? this.baselineRealismState,
@@ -6946,6 +7168,9 @@ class Group extends DataClass implements Insertable<Group> {
           ? data.groupLorebook.value
           : this.groupLorebook,
       worldIds: data.worldIds.present ? data.worldIds.value : this.worldIds,
+      loreWorldIds: data.loreWorldIds.present
+          ? data.loreWorldIds.value
+          : this.loreWorldIds,
       inheritCharacterLorebooks: data.inheritCharacterLorebooks.present
           ? data.inheritCharacterLorebooks.value
           : this.inheritCharacterLorebooks,
@@ -6979,6 +7204,7 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('groupLorebook: $groupLorebook, ')
           ..write('worldIds: $worldIds, ')
+          ..write('loreWorldIds: $loreWorldIds, ')
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
@@ -7006,6 +7232,7 @@ class Group extends DataClass implements Insertable<Group> {
     chaosNsfwEnabled,
     groupLorebook,
     worldIds,
+    loreWorldIds,
     inheritCharacterLorebooks,
     baselineRealismState,
     characterSystemPrompts,
@@ -7032,6 +7259,7 @@ class Group extends DataClass implements Insertable<Group> {
           other.chaosNsfwEnabled == this.chaosNsfwEnabled &&
           other.groupLorebook == this.groupLorebook &&
           other.worldIds == this.worldIds &&
+          other.loreWorldIds == this.loreWorldIds &&
           other.inheritCharacterLorebooks == this.inheritCharacterLorebooks &&
           other.baselineRealismState == this.baselineRealismState &&
           other.characterSystemPrompts == this.characterSystemPrompts &&
@@ -7056,6 +7284,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<bool> chaosNsfwEnabled;
   final Value<String> groupLorebook;
   final Value<String> worldIds;
+  final Value<String?> loreWorldIds;
   final Value<bool> inheritCharacterLorebooks;
   final Value<String> baselineRealismState;
   final Value<String> characterSystemPrompts;
@@ -7079,6 +7308,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.chaosNsfwEnabled = const Value.absent(),
     this.groupLorebook = const Value.absent(),
     this.worldIds = const Value.absent(),
+    this.loreWorldIds = const Value.absent(),
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
@@ -7103,6 +7333,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.chaosNsfwEnabled = const Value.absent(),
     this.groupLorebook = const Value.absent(),
     this.worldIds = const Value.absent(),
+    this.loreWorldIds = const Value.absent(),
     this.inheritCharacterLorebooks = const Value.absent(),
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
@@ -7128,6 +7359,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<bool>? chaosNsfwEnabled,
     Expression<String>? groupLorebook,
     Expression<String>? worldIds,
+    Expression<String>? loreWorldIds,
     Expression<bool>? inheritCharacterLorebooks,
     Expression<String>? baselineRealismState,
     Expression<String>? characterSystemPrompts,
@@ -7153,6 +7385,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       if (chaosNsfwEnabled != null) 'chaos_nsfw_enabled': chaosNsfwEnabled,
       if (groupLorebook != null) 'group_lorebook': groupLorebook,
       if (worldIds != null) 'world_ids': worldIds,
+      if (loreWorldIds != null) 'lore_world_ids': loreWorldIds,
       if (inheritCharacterLorebooks != null)
         'inherit_character_lorebooks': inheritCharacterLorebooks,
       if (baselineRealismState != null)
@@ -7182,6 +7415,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<bool>? chaosNsfwEnabled,
     Value<String>? groupLorebook,
     Value<String>? worldIds,
+    Value<String?>? loreWorldIds,
     Value<bool>? inheritCharacterLorebooks,
     Value<String>? baselineRealismState,
     Value<String>? characterSystemPrompts,
@@ -7207,6 +7441,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
       groupLorebook: groupLorebook ?? this.groupLorebook,
       worldIds: worldIds ?? this.worldIds,
+      loreWorldIds: loreWorldIds ?? this.loreWorldIds,
       inheritCharacterLorebooks:
           inheritCharacterLorebooks ?? this.inheritCharacterLorebooks,
       baselineRealismState: baselineRealismState ?? this.baselineRealismState,
@@ -7267,6 +7502,9 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     if (worldIds.present) {
       map['world_ids'] = Variable<String>(worldIds.value);
     }
+    if (loreWorldIds.present) {
+      map['lore_world_ids'] = Variable<String>(loreWorldIds.value);
+    }
     if (inheritCharacterLorebooks.present) {
       map['inherit_character_lorebooks'] = Variable<bool>(
         inheritCharacterLorebooks.value,
@@ -7317,6 +7555,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('groupLorebook: $groupLorebook, ')
           ..write('worldIds: $worldIds, ')
+          ..write('loreWorldIds: $loreWorldIds, ')
           ..write('inheritCharacterLorebooks: $inheritCharacterLorebooks, ')
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')

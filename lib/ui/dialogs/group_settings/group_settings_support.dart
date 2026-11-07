@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_setting_tiles.dart';
 
 /// Shared helpers for the Group Settings tab files (extracted from the old
 /// 4,251-line group_settings_dialog.dart god file — these were byte-identical
@@ -77,5 +78,35 @@ void persistGroupMemberPref(
     }
   } catch (_) {
     // Non-fatal
+  }
+}
+
+/// The note at the top of a Group Settings tab whose switches change the
+/// open chat, so it can't be mistaken for the group's settings for new
+/// chats (those are in Edit Group and under Lorebook & Worlds).
+class GroupThisChatNote extends StatelessWidget {
+  const GroupThisChatNote({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const GroupChoiceChip(label: 'This chat'),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "These switches change the chat you're in. New chats of this "
+              'group start from its settings in Edit Group.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

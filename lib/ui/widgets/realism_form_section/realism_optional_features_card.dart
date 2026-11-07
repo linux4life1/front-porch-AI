@@ -25,8 +25,8 @@ import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 import 'realism_form_controls.dart';
 import 'recovery_block.dart';
 
-/// Afterglow recovery, Chaos and Realism Verification (engine on). Afterglow
-/// itself has no switch here: Porch Life is the one gate.
+/// The card's Afterglow switch and its Recovery, Chaos and Realism
+/// Verification (engine on).
 class RealismOptionalFeaturesCard extends StatelessWidget {
   const RealismOptionalFeaturesCard({
     super.key,
@@ -39,6 +39,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     required this.realismVerificationStrictness,
     required this.onRealismVerificationStrictnessChanged,
     required this.showChaosToggle,
+    this.afterglowLabel,
+    this.afterglowSubtitle,
     required this.showVerificationToggle,
     this.recovery,
     this.onRecoveryChanged,
@@ -46,7 +48,23 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.intimateInto = const [],
     this.intimateNotInto = const [],
     this.showChargenSuggestion = false,
+    this.afterglowEnabled = true,
+    this.onAfterglowChanged,
+    this.chaosLine,
+    this.afterglowLine,
+    this.needsDirectorAuthority = false,
+    this.onNeedsDirectorAuthorityChanged,
   });
+
+  /// A group member's editor: the group's Chaos and Afterglow, read-only,
+  /// above the member's own rows.
+  final Widget? chaosLine;
+  final Widget? afterglowLine;
+
+  /// The Director's authority over Needs scores; it acts only with
+  /// Verification on.
+  final bool needsDirectorAuthority;
+  final ValueChanged<bool>? onNeedsDirectorAuthorityChanged;
 
   final bool chaosModeEnabled;
   final ValueChanged<bool> onChaosModeChanged;
@@ -59,11 +77,16 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final bool showChaosToggle;
   final bool showVerificationToggle;
 
+  /// Words for the Afterglow switch when it is a group member's own.
+  final String? afterglowLabel;
+  final String? afterglowSubtitle;
+
   /// Recovery block (recovery overhaul PR 2). Rendered only when a caller
   /// supplies the value + setter (the group editors pass neither: per
   /// ruling, members follow their own cards, and the block would be a lie
-  /// there) and Porch Life Afterglow is on (which needs 18+). With Afterglow
-  /// off the settings stay on the card, hidden.
+  /// there), Porch Life Afterglow is on (which needs 18+) and the card's own
+  /// [afterglowEnabled] is on. Otherwise the settings stay on the card,
+  /// hidden.
   final RecoveryProfile? recovery;
   final ValueChanged<RecoveryProfile>? onRecoveryChanged;
   final String sex;
@@ -71,12 +94,22 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final List<String> intimateNotInto;
   final bool showChargenSuggestion;
 
+  /// How new chats with this character start Afterglow; each chat keeps its
+  /// own switch from then on. Only the character editors pass a setter. The
+  /// row is absent, not greyed, unless Porch Life (with 18+) allows
+  /// Afterglow.
+  final bool afterglowEnabled;
+  final ValueChanged<bool>? onAfterglowChanged;
+
   @override
   Widget build(BuildContext context) {
+    final allowed = afterglowEnabledOf(context);
+    final showSwitch = allowed && onAfterglowChanged != null;
     final showRecovery =
         recovery != null &&
         onRecoveryChanged != null &&
-        afterglowEnabledOf(context);
+        allowed &&
+        afterglowEnabled;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -88,6 +121,30 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
+          ?chaosLine,
+          if (allowed) ?afterglowLine,
+          if (showSwitch) ...[
+            buildRealismToggleRow(
+              icon: Icons.local_fire_department,
+              label: afterglowLabel ?? 'Afterglow',
+              subtitle:
+                  afterglowSubtitle ??
+                  'Lust and recovery in new chats with this character. Chats '
+                      'you already have keep their own switch.',
+              value: afterglowEnabled,
+              onChanged: onAfterglowChanged!,
+              context: context,
+            ),
+            if (showRecovery) const SizedBox(height: 12),
+            if (!showRecovery && (showChaosToggle || showVerificationToggle))
+              Divider(
+                color:
+                    (context.creatorPalette?.line ??
+                            AppColors.borderOf(context))
+                        .withValues(alpha: 0.4),
+                height: 24,
+              ),
+          ],
           if (showRecovery) ...[
             RecoveryBlock(
               recovery: recovery!,
@@ -189,6 +246,20 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         onRealismVerificationStrictnessChanged?.call(d.round())
                   : null,
             ),
+            // It acts only through Verification, so it shows with it on (as
+            // the web editor and Group Settings show it).
+            if (onNeedsDirectorAuthorityChanged != null &&
+                realismVerificationEnabled)
+              buildRealismToggleRow(
+                icon: Icons.gavel,
+                label: 'Director authority (needs)',
+                subtitle:
+                    "The director's corrections to Needs scores are the ones "
+                    'used.',
+                value: needsDirectorAuthority,
+                onChanged: onNeedsDirectorAuthorityChanged!,
+                context: context,
+              ),
           ],
         ],
       ),

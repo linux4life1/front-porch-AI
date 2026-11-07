@@ -12,6 +12,7 @@
     "id": "tropical",
     "displayName": "Tropical"
   },
+  "ambience": "shore",
   "locations": [
     {
       "formatVersion": 1,
@@ -23,6 +24,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "shore",
       "meta": {
         "sourceId": "starter-monsoon-coast-palmreach"
       }
@@ -37,6 +39,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-monsoon-coast-reedbank"
       }
@@ -51,6 +54,7 @@
         "entries": []
       },
       "climate_enabled": false,
+      "ambience": "shore",
       "meta": {
         "sourceId": "starter-monsoon-coast-old-lantern-quay"
       }

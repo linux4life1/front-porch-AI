@@ -57,6 +57,8 @@ describe('the desire stat is called Lust on the phone', () => {
       emotionIntensity: 'mild',
       mood: 'calm',
       arousal: { level: 7, tier: 'Warm' },
+      // The line shows only while Afterglow runs in the chat.
+      lustOn: true,
       fixation: '',
     };
     act(() => {
@@ -82,6 +84,8 @@ describe('the desire stat is called Lust on the phone', () => {
 
   it('in the chat tools NSFW section', () => {
     const t = {
+      // The section shows only while the chat's Realism is on.
+      realismEnabled: true,
       nsfw: {
         cooldownEnabled: true,
         refractoryMinutesRemaining: 0,

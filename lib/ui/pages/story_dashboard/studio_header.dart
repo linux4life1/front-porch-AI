@@ -47,11 +47,13 @@ class StudioHeader extends StatelessWidget {
     final st = storyShelfStatus(project);
     final running = pipeline.isRunning;
     // "Act II · 41,200 / 80,000" gains the unit here; the shelf has no room.
-    final subtitle = running && project.acts.isEmpty
+    final status = running && project.acts.isEmpty
         ? 'Building the bible…'
         : st.status.contains(' / ')
         ? '${st.status} words'
         : st.status;
+    final world = project.worldName.trim();
+    final subtitle = world.isEmpty ? status : '$status · $world';
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
       decoration: BoxDecoration(

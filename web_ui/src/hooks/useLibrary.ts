@@ -306,6 +306,8 @@ export function useLibrary() {
     importFiles,
     nameCollision,
     resolveNameCollision,
+    personaPick,
+    resolvePersonaPick,
   } = useLibraryActions({
     folderId,
     setFolderId,
@@ -370,5 +372,7 @@ export function useLibrary() {
     importFiles,
     nameCollision,
     resolveNameCollision,
+    personaPick,
+    resolvePersonaPick,
   };
 }

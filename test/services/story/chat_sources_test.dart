@@ -162,4 +162,82 @@ void main() {
     );
     expect(filterChatSources(rows, 'dov winter'), isEmpty);
   });
+
+  // Stories from group chats (docs/design/stories-from-group-chats.md §5):
+  // a group chat the user wrote in is listed with its roster, and search
+  // finds it by a member's name.
+  test('a group chat is listed with its group name and roster', () async {
+    final db = AppDatabase.forTesting(sameIsolate: true);
+    addTearDown(db.close);
+    final storage = StorageService();
+    final pipeline = StoryPipelineService(
+      StoryRepository(db),
+      _NoLlm(),
+      MemoryService(EmbeddingService(storage), storage, db),
+      db,
+    );
+    await db.insertCharacter(
+      CharactersCompanion.insert(id: 'c1', name: 'Mira'),
+    );
+    await db.insertGroup(
+      GroupsCompanion.insert(id: 'g-crew', name: 'The Crew'),
+    );
+    for (final (id, name) in [
+      ('m-mira', 'Mira'),
+      ('m-dov', 'Dov'),
+      ('m-ash', 'Ash'),
+    ]) {
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(id: id, groupId: 'g-crew', name: name),
+      );
+    }
+    await _chat(db, 'solo', 'c1', messages: 30, at: DateTime(2026, 1, 1));
+    await _chat(
+      db,
+      'crew',
+      'c1',
+      messages: 40,
+      at: DateTime(2026, 9, 1),
+      groupId: 'g-crew',
+    );
+    // A group chat the user only watched is no story either.
+    await _chat(
+      db,
+      'watched',
+      'c1',
+      messages: 9,
+      at: DateTime(2026, 9, 2),
+      groupId: 'g-crew',
+      userSpeaks: false,
+    );
+
+    final rows = await pipeline.chatSources();
+    expect(rows.map((r) => r.sessionId), ['crew', 'solo']);
+    final crew = rows.first;
+    expect(crew.isGroup, isTrue);
+    expect(crew.groupId, 'g-crew');
+    expect(crew.characterName, 'The Crew');
+    expect(crew.characterId, 'm-mira', reason: 'the first member leads');
+    expect(crew.members.map((m) => m.name), ['Mira', 'Dov', 'Ash']);
+    expect(crew.memberLine, 'Mira, Dov & Ash');
+    expect(crew.messageCount, 40);
+    expect(rows.last.isGroup, isFalse);
+
+    final json = crew.toJson();
+    expect(json['group_id'], 'g-crew');
+    expect(json['group_name'], 'The Crew');
+    expect((json['members'] as List).map((m) => m['id']), [
+      'm-mira',
+      'm-dov',
+      'm-ash',
+    ]);
+    expect(rows.last.toJson().containsKey('group_id'), isFalse);
+
+    expect(filterChatSources(rows, 'dov').single.sessionId, 'crew');
+    expect(filterChatSources(rows, 'crew mira').single.sessionId, 'crew');
+    expect(filterChatSources(rows, 'mira'), hasLength(2));
+
+    final roster = await pipeline.groupRoster('g-crew');
+    expect(roster.map((m) => m.id), ['m-mira', 'm-dov', 'm-ash']);
+  });
 }

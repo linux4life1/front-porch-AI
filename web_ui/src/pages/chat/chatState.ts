@@ -35,6 +35,11 @@ export interface ChatState {
   isGroupMode?: boolean;
   groupId?: string | null;
   realism?: Realism;
+  /** Appearance → Mood on the character, its Drama and the desktop's colours
+   *  for it (theme/moodAtmosphere.ts). Absent from an older desktop. */
+  moodOnCharacter?: string;
+  moodDrama?: number;
+  moodPaints?: unknown;
   lorebook?: LoreEntry[];
   /** The group's stored lorebook could not be read (its entries are unused). */
   groupLorebookUnreadable?: boolean;
@@ -69,7 +74,7 @@ export interface ChatState {
   pendingMint?: { name: string; descriptor: string; settingName?: string } | null;
   // Chaos "Chance Time" park state: while pending, the engine is frozen waiting
   // for the user to accept their fate (event is pre-resolved server-side).
-  chanceTime?: { pending: boolean; event?: string };
+  chanceTime?: { pending: boolean; event?: string; kind?: string; label?: string; emoji?: string };
   // Crafted /image prompt parked for review (review setting on) — the modal
   // resolves it via POST /api/chat/image-review.
   imagePromptReview?: string;

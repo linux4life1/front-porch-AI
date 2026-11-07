@@ -39,6 +39,10 @@ class ResultView extends StatelessWidget {
   /// when there's no character context (persona / group-shot).
   final VoidCallback? onSaveToGallery;
 
+  /// Star or unstar this picture on the Recent shelf; null hides the button.
+  final VoidCallback? onKeep;
+  final bool kept;
+
   const ResultView({
     super.key,
     required this.imageBytes,
@@ -51,6 +55,8 @@ class ResultView extends StatelessWidget {
     required this.onEditRegen,
     this.onSendToChat,
     this.onSaveToGallery,
+    this.onKeep,
+    this.kept = false,
   });
 
   @override
@@ -134,6 +140,21 @@ class ResultView extends StatelessWidget {
                   onPressed: isSaving ? null : onSaveToGallery,
                   icon: const Icon(Icons.photo_library_outlined, size: 16),
                   label: const Text('Save to gallery'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.surfaceContainerOf(context),
+                    foregroundColor: AppColors.textPrimary(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                  ),
+                ),
+              if (onKeep != null)
+                ElevatedButton.icon(
+                  key: const Key('studio-result-keep'),
+                  onPressed: onKeep,
+                  icon: Icon(kept ? Icons.star : Icons.star_border, size: 16),
+                  label: Text(kept ? 'Starred' : 'Star'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.surfaceContainerOf(context),
                     foregroundColor: AppColors.textPrimary(context),

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -109,7 +110,7 @@ class _JournalDialogState extends State<JournalDialog> {
         : await _chat.journalStore.cardsFor(sessionId, _ownerId);
     if (!mounted) return;
     setState(() {
-      _cards = cards;
+      _cards = JournalReadingOrder.cards(cards);
       _loading = false;
     });
   }

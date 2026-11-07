@@ -53,8 +53,9 @@ variables first or Flutter's isolate JSON is corrupted.
 lib/main.dart                 startup shell (legacy main.*.dart parts)
 lib/database/                 Drift shell + parts; no migrations/ directory
 lib/models/  lib/providers/  lib/utils/
-lib/services/chat_service.dart   hub shell: fields and one-line forwarders
-lib/services/chat/               ChatService parts + leaf classes; grep here for behaviour
+lib/services/chat_service.dart   the ChatService shell: constructor, door getters, fake-pinned forwarders
+lib/services/chat/               leaf classes and the door wiring; grep here for behaviour
+lib/services/chat/doors/         one door per domain; a door never holds ChatService
 lib/services/backporch/          The Stoop client
 lib/services/web/                built-in server, facades, /api/stoop relay
 lib/services/world_from_wiki/  story/  image/  grpc/
@@ -65,13 +66,13 @@ test/hygiene/                 the ratchets listed under CI
 docs/design/                  design docs; user docs under docs/ are not rules
 ```
 
-Barrels: if a directory has `<dir>/<dir>.dart`, import it. Never export a
-`chat_service_*.dart` part from `services/chat/chat.dart`. Do not run mass
+Barrels: if a directory has `<dir>/<dir>.dart`, import it. Do not run mass
 import rewrites.
 
-`ChatService` is a `part` library. Members that golden fakes override stay
-on the class as forwarders; new behaviour goes in an existing part or a
-leaf class, never a new part.
+`ChatService` is a single file under 500 lines. Members the golden fakes
+override stay on the class as forwarders; new behaviour goes in the door
+that owns its domain under `lib/services/chat/doors/`, reached by the old
+name through that door's `*_api.dart` bridge the shell exports.
 
 ## What CI enforces
 
@@ -107,9 +108,8 @@ default branch, and `test-integrity.yml` runs the base branch's copy.
 
 Handwritten `lib/` Dart stays under 500 lines, including new files. Get
 under by extracting a real class, widget or plain-Dart helper with explicit
-inputs, never by adding a `part`. The Drift library and the ChatService
-shell keep their existing parts; every other part file is legacy and the
-count only goes down.
+inputs, never by adding a `part`. The Drift library keeps its existing
+parts; every other part file is legacy and the count only goes down.
 
 ## Style
 
@@ -123,6 +123,13 @@ count only goes down.
   `StatusColors`, `InkColors`, `RealismColors`, `ChatColors`, `NavColors`,
   `ModelColors`, `AccentColors` for their domains. A bare palette constant in
   UI code stays Porch under every theme.
+- Every UI element follows the user-selected theme (`lib/ui/theme/themes/`)
+  in light and dark, desktop and web. Chrome and accents read the
+  `AppPalette`-backed helpers (`formAccentOf`, `cardOf`, `borderOf`,
+  `textPrimary`, …); `AppColors.resolve` only flips light/dark and is for
+  semantic hues. The PWA paints only the `var(--…)` tokens
+  `WebThemeTokens` sends, never a literal colour. Check new UI under a
+  non-Porch theme before calling it done.
 - Dialogs open through `showWarmDialog`.
 - Creation wizards follow `create_character_page.dart`: step dots, linear
   `_currentStep`, bottom nav.
@@ -140,18 +147,18 @@ Live product behaviour, each pinned by a test. Do not collapse the cases.
 | Contract | Rule | Where |
 |----------|------|-------|
 | Mouth speech | Closed think-only body lifts and is spoken; an unclosed cut-off stays tagged, display empty | `lib/utils/think_tags.dart` `resolveMouthSpeech` |
-| Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `chat_service_generation_postgen_engine.dart` |
+| Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `doors/turn/turn_stops.dart`, `doors/turn/post_gen.dart` |
 | Pockets | Hide, never erase: `pocketsFor` is null when off; stored records and the save wire are untouched | `pockets_rewind_test` |
-| Objectives | `objectivesActive` is a live AND of the per-chat switch and `realismSettings.objectivesEnabled`, read every turn | `chat_service_accessors.dart` |
+| Objectives | `objectivesActive` is a live AND of the per-chat switch and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
 | Needs | One gate, `NeedsPass.active` = engine AND chat switch AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
 | Clock | Passage of time needs a model call. `_clockRunning` is Porch Life `passageOfTimeDefault` live. Regen rewinds from `story_clock_before`. One-shot must not apply minutes twice | `clock_*_ratchet_test`, `scene_time_evaluator.dart` |
 | Evals | Score the user's message before generation, never the reply. Regen with the same inputs reproduces the same deltas; non-scalar inputs join `captureCadenceAndFeelings` / `restoreFromMessageState` | `regen_feelings_cadence_test` |
 | Eval transport | Native tool call first, then the regex/JSON text floor. No GBNF on the floor. The prefix-sharing judges send the same `kJudgeEvalTools` list | `docs/design/tools-transport.md` |
 | One-shot | Tri-state auto/on/off; when active it matches the multi-call path; local backends stay multi-call in auto | `one_shot_parity_test` |
-| Post-gen passes | Posture, climax, pockets are post-generation; a fused reply-facts call is transport only, each keeps its own gate | `chat_service_generation_postgen_engine.dart` |
+| Post-gen passes | Posture, climax, pockets are post-generation; a fused reply-facts call is transport only, each keeps its own gate | `doors/turn/post_gen_passes.dart` |
 | Chaos | Per-chat switch plus `chaosModeDefault` OR-override; every conversation start path seeds it (`grep seedFromGroupOrExt`) | `chaos_mode_service.dart` |
 | Journal / Growth | Per chat, per character; cards never cross chats; a Journal rewrite rule applies to Growth too | `swipe_buried_journal_test` |
-| Group restore | Keys by message speaker id, never whoever is active after post-gen; `_saveScalarsIntoGroupRealism` persists group state | `chat_service_group_entry.dart` |
+| Group restore | Keys by message speaker id, never whoever is active after post-gen; `RealismDance.saveScalarsIntoGroup` persists group state | `doors/realism/realism_restores.dart` |
 | Living Worlds | Setting slot owns weather and prose; Lore slots add books only; lore enumerates once per world id | `chat_places_primary_lore_test` |
 
 ## Path-complete chat work
@@ -258,6 +265,18 @@ check), `analysis_options.yaml`, `scripts/`, `nightly.yml` (must land on
 - Never amend or rewrite another author's commits.
 - Never `git checkout --`, `git restore`, or `git checkout HEAD --` on a
   file without approval in the current conversation.
+- Every PR body ends with an attribution footer naming the harness and the
+  exact model that made the change, one line, in this shape:
+
+  ```
+  Generated with OpenCode (Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)
+  ```
+
+  The harness is whatever actually drove the work (`OpenCode`, `Pi`,
+  `Claude Code`, `Codex CLI`, …), and the model is the model ID reported
+  by that harness this session — not a family name, not a guess. If the
+  agent truly cannot know its model, write `Generated with <harness>
+  (model unknown)`. Never omit the footer.
 
 ## Reporting
 

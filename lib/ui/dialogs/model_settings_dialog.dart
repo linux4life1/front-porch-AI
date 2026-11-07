@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 
 // Barrel imports
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // Not in barrels (internal or low-frequency)
@@ -278,6 +279,10 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                     backend == BackendType.kobold
                         ? _localSettings()
                         : _remoteSettings(isOmLx: backend == BackendType.omlx),
+                    // The chat model's link, whichever backend serves it.
+                    const ModelGenPresetPicker(
+                      padding: EdgeInsets.only(top: 12, bottom: 12),
+                    ),
                     // Same widget + prefs as Settings → Backend (H0: under
                     // the chat stack, not a twin host/key row above the key).
                     WorkerBackendSection(

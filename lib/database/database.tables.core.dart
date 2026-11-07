@@ -46,6 +46,9 @@ class Characters extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   IntColumn get primeAvatarIndex => integer().withDefault(const Constant(1))();
+  // v63: lore-only worlds for new chats (JSON array). NULL = the card was
+  // never split, so world_names is seeded the legacy way.
+  TextColumn get loreWorldNames => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -214,6 +217,16 @@ class Sessions extends Table {
   /// chat where Pockets is switched off.
   TextColumn get pockets => text().nullable()();
 
+  /// v64 — this 1:1 chat's own Pockets & Wardrobe switch
+  /// (docs/design/pockets-wardrobe-chat-toggle.md). Before it, the feature
+  /// answered a global Porch Life switch ANDed with a per-character card
+  /// flag, so there was no per-chat control. Nullable, no default: NULL
+  /// means the chat predates the column, and the first load derives it once
+  /// from the card flag (maintainer ruling D1) then persists it. Group chats
+  /// keep their per-member switches inside `group_realism_state` and leave
+  /// this NULL.
+  BoolColumn get pocketsEnabled => boolean().nullable()();
+
   /// v48 — the live Today side-quest row for this chat, or null if none.
   ///
   /// Shape is not enough: a user-typed secondary is also isPrimary false,
@@ -250,6 +263,12 @@ class Sessions extends Table {
   /// get it from the always-on repair before open() returns. Raw-SQL access.
   TextColumn get themeOverrides => text().nullable()();
   TextColumn get contextBudgetJson => text().nullable()(); // v44 Context Budget
+
+  /// v65 — a half-typed message the user left in the composer when they
+  /// closed the chat, so reopening it offers the line back. NULL = no
+  /// draft. Raw-SQL access (same pattern as [themeOverrides]); the draft
+  /// is never part of a prompt, only of the message box.
+  TextColumn get composerDraft => text().nullable()();
 
   /// Per-chat Objectives switch (v45). Defaults TRUE because objectives have
   /// always run unconditionally — every existing row must keep behaving
@@ -332,6 +351,9 @@ class Groups extends Table {
   TextColumn get worldIds => text().withDefault(
     const Constant('[]'),
   )(); // JSON array of world IDs for scoping
+  // v62: lore-only worlds for new chats (JSON array). NULL = the group was
+  // never split, so world_ids is seeded the legacy way.
+  TextColumn get loreWorldIds => text().nullable()();
   // New groups do not inherit member lorebooks unless the user turns it on.
   // Libraries created before this keep their own SQL default (the ladder's
   // ADD COLUMN); every app write sets the value explicitly.

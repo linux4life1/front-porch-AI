@@ -84,3 +84,52 @@ describe('Work identity chrome', () => {
     expect(container.textContent).toContain('Weekdays unless you tap others');
   });
 });
+
+// The card's Afterglow switch: how new chats with this character start Lust
+// and recovery. It shows only while Porch Life (with 18+) allows Afterglow,
+// and the Recovery block shows while it is on. Red proof: dropping the row
+// fails the first case.
+describe("RealismFormSection's Afterglow switch", () => {
+  it('shows while Porch Life allows it, sets the card, and hides Recovery when off', () => {
+    const on: RealismValues = { ...REALISM_DEFAULTS, realismEnabled: true };
+    let latest: RealismValues = on;
+    function Card() {
+      const [v, setV] = useState<RealismValues>(on);
+      latest = v;
+      return createElement(RealismFormSection, {
+        v,
+        set: (patch: Partial<RealismValues>) => setV((cur) => ({ ...cur, ...patch })),
+        showIntimate: true,
+        afterglowOn: true,
+      });
+    }
+    act(() => {
+      root.render(createElement(Card));
+    });
+    const row = [...container.querySelectorAll('label')].find((l) =>
+      l.textContent?.startsWith('Afterglow'),
+    );
+    const box = row?.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    expect(box?.checked).toBe(true);
+    expect(container.querySelector('[data-testid="recovery-block"]')).toBeTruthy();
+
+    act(() => box?.click());
+    expect(latest.afterglowEnabled).toBe(false);
+    expect(container.querySelector('[data-testid="recovery-block"]')).toBeNull();
+  });
+
+  it('is absent while Porch Life does not allow Afterglow', () => {
+    act(() => {
+      root.render(
+        createElement(RealismFormSection, {
+          v: { ...REALISM_DEFAULTS, realismEnabled: true },
+          set: () => {},
+          showIntimate: true,
+          afterglowOn: false,
+        }),
+      );
+    });
+    const labels = [...container.querySelectorAll('label')].map((l) => l.textContent ?? '');
+    expect(labels.some((t) => t.startsWith('Afterglow'))).toBe(false);
+  });
+});

@@ -117,7 +117,7 @@ void main() {
       'lib/services/chat/realism_dance.dart',
     ).readAsStringSync();
     final regen = File(
-      'lib/services/chat/chat_service_reprocess.dart',
+      'lib/services/chat/doors/turn/regen_replay.dart',
     ).readAsStringSync();
     final evals = File(
       'lib/services/chat/realism_judges.dart',

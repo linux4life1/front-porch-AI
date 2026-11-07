@@ -196,8 +196,10 @@ class WardrobeChipSection extends StatelessWidget {
                 ),
               ),
               Text(
-                'When off, this character skips inventory tracking even if '
-                'Porch Life has Pockets on. Old cards stay on.',
+                'The starting choice for new chats with this character, '
+                'unless Porch Life has Pockets off. Each chat can then '
+                'change its own switch, and the choice stays in that chat. '
+                'Old cards stay on.',
                 style: TextStyle(
                   color: AppColors.textTertiary(context),
                   fontSize: 11,

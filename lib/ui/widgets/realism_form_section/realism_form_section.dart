@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 export 'realism_emotion_card.dart';
+export 'group_wide_line.dart';
 export 'realism_form_controls.dart';
 export 'realism_master_toggle.dart';
 export 'realism_optional_features_card.dart';

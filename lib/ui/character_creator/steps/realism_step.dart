@@ -143,6 +143,11 @@ class RealismStep extends StatelessWidget {
                   state.realismEmotionIntensity = v;
                   state.notify();
                 },
+                afterglowEnabled: state.realismAfterglow,
+                onAfterglowChanged: (v) {
+                  state.realismAfterglow = v;
+                  state.notify();
+                },
                 recovery: state.realismRecovery,
                 onRecoveryChanged: (v) {
                   state.realismRecovery = v;

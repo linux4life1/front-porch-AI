@@ -76,6 +76,20 @@ class GroupChatRepository extends ChangeNotifier {
           }
         } catch (_) {}
 
+        // Null stays null: the group was never split into Setting + Lore.
+        List<String>? loreList;
+        final rawLore = g.loreWorldIds;
+        if (rawLore != null) {
+          try {
+            final decoded = jsonDecode(rawLore);
+            if (decoded is List) {
+              loreList = decoded.map((e) => e.toString()).toList();
+            }
+          } catch (e) {
+            debugPrint('Group ${g.id}: unreadable lore_world_ids: $e');
+          }
+        }
+
         // Construct GroupChat using *real column values* from the v31 schema additions.
         // Old groups kept the defaults their columns were added with (inherit was
         // added as 1); every app write since sets each value explicitly.
@@ -104,6 +118,7 @@ class GroupChatRepository extends ChangeNotifier {
             chaosNsfwEnabled: g.chaosNsfwEnabled,
             groupLorebook: g.groupLorebook,
             worldIds: worldIdList,
+            loreWorldIds: loreList,
             inheritCharacterLorebooks: g.inheritCharacterLorebooks,
             baselineRealismState: g.baselineRealismState,
           ),
@@ -115,6 +130,9 @@ class GroupChatRepository extends ChangeNotifier {
 
     notifyListeners();
   }
+
+  static String? _loreJson(GroupChat g) =>
+      g.loreWorldIds == null ? null : jsonEncode(g.loreWorldIds);
 
   /// Reload groups from DB (e.g. after cloud sync).
   Future<void> reload() async {
@@ -155,6 +173,7 @@ class GroupChatRepository extends ChangeNotifier {
       chaosNsfwEnabled: Value(group.chaosNsfwEnabled),
       groupLorebook: Value(group.groupLorebook),
       worldIds: Value(jsonEncode(group.worldIds)),
+      loreWorldIds: Value(_loreJson(group)),
       inheritCharacterLorebooks: Value(group.inheritCharacterLorebooks),
       baselineRealismState: Value(group.baselineRealismState),
       // updateGroup now uses partial .write() (so folder_id survives saves);
@@ -187,6 +206,7 @@ class GroupChatRepository extends ChangeNotifier {
           chaosNsfwEnabled: Value(group.chaosNsfwEnabled),
           groupLorebook: Value(group.groupLorebook),
           worldIds: Value(jsonEncode(group.worldIds)),
+          loreWorldIds: Value(_loreJson(group)),
           inheritCharacterLorebooks: Value(group.inheritCharacterLorebooks),
           baselineRealismState: Value(group.baselineRealismState),
         ),

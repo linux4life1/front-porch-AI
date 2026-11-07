@@ -21,6 +21,7 @@
 export 'story_agent.dart';
 export 'story_chat_distiller.dart';
 export 'story_chat_history.dart';
+export 'story_chat_lines.dart';
 export 'story_director_applier.dart';
 export 'story_director_planner.dart';
 export 'story_lanes.dart';

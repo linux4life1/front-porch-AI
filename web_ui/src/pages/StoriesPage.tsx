@@ -134,6 +134,7 @@ export function StoriesPage() {
                   <div className="s-grow">
                     <b className="s-ell" style={{ display: 'block' }}>{s.title}</b>
                     <span className="s-muted s-small" style={{ display: 'block' }}>{s.shelf.status}</span>
+                    {s.worldName && <span className="s-muted s-small s-ell" style={{ display: 'block' }} data-testid={`story-book-world-${s.id}`}>◎ {s.worldName}</span>}
                   </div>
                   <EngineChip s={s} />
                   <MenuButton entries={entries(s)} label="Story actions" />
@@ -157,6 +158,7 @@ export function StoriesPage() {
                   <MenuButton entries={entries(s)} label="Story actions" />
                 </div>
                 <span className="s-muted s-small s-ell">{s.genreLine}</span>
+                {s.worldName && <span className="s-muted s-small s-ell" data-testid={`story-book-world-${s.id}`}>◎ {s.worldName}</span>}
                 <ProgressBar s={s} />
                 <div className="s-row nowrap s-muted s-small">
                   <span className="s-grow s-ell">{s.shelf.status}</span>

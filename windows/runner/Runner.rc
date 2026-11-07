@@ -89,7 +89,7 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.antigravity" "\0"
+            VALUE "CompanyName", "" "\0"
             VALUE "FileDescription", "Front Porch AI" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "front_porch_ai" "\0"

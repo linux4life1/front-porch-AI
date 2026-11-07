@@ -81,7 +81,15 @@ Future<void> exportFpWorldFlow(
   try {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Exported place package to $outputFile')),
+        SnackBar(
+          content: Text(
+            world.customAmbience != null
+                ? 'Exported place package to $outputFile — your own sound '
+                      'file is not portable, so this place falls back to its '
+                      'preset or silence on another machine.'
+                : 'Exported place package to $outputFile',
+          ),
+        ),
       );
     }
   } catch (e) {

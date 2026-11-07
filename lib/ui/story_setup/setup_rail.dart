@@ -98,6 +98,15 @@ class SetupRail extends StatelessWidget {
           '${draft.chatSource!.characterName} · ${draft.chatSource!.faithful ? 'faithful' : 'inspired by'}',
           0,
         ),
+      if (draft.world != null)
+        (
+          'World',
+          [
+            draft.world!.worldName,
+            if (draft.world!.detail.isNotEmpty) draft.world!.detail,
+          ].join(' · '),
+          0,
+        ),
       ('Cast', castNames.isEmpty ? null : castNames.join(', '), 1),
       ('Shape', step >= 2 ? shape : null, 2),
       ('Engine', step >= 3 ? engine : null, 3),

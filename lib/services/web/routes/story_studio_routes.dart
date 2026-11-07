@@ -35,6 +35,8 @@ class WebStoryStudioRoutes {
     router.get('/api/stories/host-models', _hostModels);
     router.post('/api/stories/host-key', _hostKey);
     router.post('/api/stories/quality', _quality);
+    router.get('/api/stories/world', _world);
+    router.post('/api/stories/<id>/world/refresh', _refreshWorld);
     router.post('/api/stories/<id>/stop', _stop);
     router.post('/api/stories/<id>/rename', _rename);
     router.post('/api/stories/<id>/director/action', _directorAction);
@@ -142,6 +144,20 @@ class WebStoryStudioRoutes {
     }
     final ok = await _facade.undoFix(id, a, s, b);
     return ok ? JsonResponse.ok({'status': 'ok'}) : _notFound();
+  }
+
+  /// `?place=<id>` (the place a story starts at) or `?session=<chat id>`
+  /// (that chat's Setting). `ok: false` when there is no such place.
+  Future<shelf.Response> _world(shelf.Request r) async => JsonResponse.ok(
+    await _facade.worldSummary(
+      place: r.url.queryParameters['place'],
+      session: r.url.queryParameters['session'],
+    ),
+  );
+
+  Future<shelf.Response> _refreshWorld(shelf.Request r, String id) async {
+    final result = await _facade.refreshWorld(id);
+    return result == null ? _notFound() : JsonResponse.ok(result);
   }
 
   Future<shelf.Response> _addLore(shelf.Request r, String id) async {

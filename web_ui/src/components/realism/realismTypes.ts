@@ -299,6 +299,11 @@ export interface RealismValues {
    * Missing / null treats as on so old cards keep working.
    */
   pocketsEnabled: boolean;
+  /**
+   * How a new chat with this character starts Afterglow (Lust, climax,
+   * recovery); each chat keeps its own switch from then on. Missing reads on.
+   */
+  afterglowEnabled: boolean;
   // Needs Simulation
   needsSimEnabled: boolean;
   enjoysLowHygiene: boolean;
@@ -377,6 +382,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   // AND-gated with the Porch Life global (default on). A new card that
   // writes false silently vetoes Needs even after the engine is turned on.
   pocketsEnabled: true,
+  afterglowEnabled: true,
   needsSimEnabled: true,
   enjoysLowHygiene: false,
   needsPace: 'normal',

@@ -14,6 +14,7 @@
 @import './styles/composer.css';
 @import './styles/messages.css';
 @import './styles/places.css';
+@import './styles/group-setting.css';
 @import './styles/tools.css';
 @import './styles/wizard.css';
 @import './styles/library-cards.css';
@@ -28,3 +29,5 @@
 @import './styles/calendar.css';
 @import './styles/living-time.css';
 @import './styles/greetings.css';
+@import './styles/backups.css';
+@import './styles/gen-presets.css';

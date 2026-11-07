@@ -104,10 +104,10 @@ class AfterglowPass {
   bool get _clockRunning => _scope.clockRunning();
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
-  List<ChatMessage> get _messages => _scope.messages;
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  List<CharacterCard> get _groupCharacters => _scope.session.groupCharacters;
+  List<ChatMessage> get _messages => _scope.session.messages;
   GroupRealismStore get _groupStore => _scope.groups;
   Map<String, GroupMemberRealism> get _groupRealism => _scope.groups.members;
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
@@ -175,7 +175,8 @@ class AfterglowPass {
         physiology: ClimaxEval.physiologyFor(speaker),
       );
     }
-    if (verdict == null) return;
+    // Afterglow switched off while the judge was out: nothing lands.
+    if (verdict == null || !active) return;
     final turns = verdict.turns;
     final userClimaxed = verdict.userClimaxed;
 
@@ -288,7 +289,7 @@ class AfterglowPass {
   /// spoken their opening afterglow turn. Continue is the same beat: nothing.
   /// [speakerIdOf] is the turn's speaker, or null for a lite (guest or
   /// soft member) beat; [reply] is the turn's stream target. Both are read
-  /// only past the gate, where the old `_GenTurn` reads were.
+  /// only past the gate, where the old `GenTurn` reads were.
   void tickAfterClock(
     GenerationMode mode, {
     required String? Function() speakerIdOf,
@@ -381,6 +382,8 @@ class AfterglowPass {
     RefractoryBody Function(RefractoryBody) step,
   ) {
     if (_activeGroup != null && id.isEmpty) return;
+    // A body switched off keeps its recovery as is: no aging, no receipt.
+    if (!_switchOnFor(id)) return;
     final live = _activeGroup == null || id == loadedId;
     final before = _refractoryBody(id, live: live);
     // The gate is "nothing left to age", not "no lock running": a soft
@@ -447,6 +450,8 @@ class AfterglowPass {
     String? skip,
     String? keepArousalOf,
   }) {
+    // A body switched off is held where it is: no receipt moves it.
+    if (_activeGroup == null && !_nsfwService.chatSwitchOn) return;
     final receipt = refractoryReceipt(raw);
     if (receipt.isEmpty) return;
     final ids = _refractoryBodyIds();
@@ -466,7 +471,7 @@ class AfterglowPass {
       return;
     }
     for (final MapEntry(key: id, value: body) in receipt.entries) {
-      if (id == skip || !ids.contains(id)) continue;
+      if (id == skip || !ids.contains(id) || !_switchOnFor(id)) continue;
       _setRefractoryBody(
         id,
         body,
@@ -475,6 +480,10 @@ class AfterglowPass {
       );
     }
   }
+
+  bool _switchOnFor(String id) => _activeGroup == null
+      ? _nsfwService.chatSwitchOn
+      : _groupStore.afterglowOnFor(id);
 
   /// Whose turn [msg] was: the 1:1 host unless a scene guest wrote it, or the
   /// group member it resolves to.

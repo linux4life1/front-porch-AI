@@ -70,7 +70,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
           personas,
           streamHub,
           groups,
-          resolveSavedImage: imageFacade?.savedImageFile,
+          resolveSavedImage: imageFacade?.chatImageFile,
           llm: llm,
         )
       : null;
@@ -80,6 +80,8 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
   // "Make a Character" from a persona keeps the persona's picture.
   characterFacade.personaPortrait = personaConversionFacade?.portraitPathFor;
+  characterFacade.worlds = worlds;
+  characterFacade.importPersonas = personas;
 
   final characterAuthoringFacade = characters != null
       ? CharacterAuthoringFacade(characters, storage)
@@ -111,12 +113,16 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
 
   final groupFacade = groups != null
-      ? GroupFacade(groups, storage, characters, db, folders)
+      ? GroupFacade(groups, storage, characters, db, folders, worlds)
       : null;
   // A member picture found to be the no-portrait placeholder asks for one
   // library refetch, through the same debounce as the character list.
   groupFacade?.onPlaceholderPortraitsFound =
       characterFacade.onPlaceholderPortraitsFound;
+  if (llm != null) {
+    groupFacade?.opening = GroupDraftOpening(llm, characters, worlds);
+  }
+  groupFacade?.memberEdit = GroupMemberEdit(db, storage, chatService, worlds);
 
   final settingsFacade = llm != null
       ? SettingsFacade(storage, llm, chat: chatService)
@@ -153,7 +159,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
 
   final voiceFacade = (tts != null && stt != null)
-      ? VoiceFacade(tts, stt, storage)
+      ? VoiceFacade(tts, stt, storage, chat: chatService)
       : null;
 
   // Snapshots are rebuilt server-side from authoritative card text + roles, so

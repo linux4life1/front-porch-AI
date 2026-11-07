@@ -21,6 +21,7 @@ library;
 
 export 'settings_backend_names.dart';
 export 'settings_reasoning.dart';
+export 'settings_sidebar_order.dart';
 export 'settings_snapshot.dart';
 export 'settings_theme.dart';
 export 'settings_writer.dart';

@@ -58,7 +58,7 @@ const _kReplyPieces = ['Nothing is being ', 'tracked right now.'];
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('a chat works with Realism Mode off, and the engine stays off', (
+  testWidgets('a chat works with the Realism Engine off, and it stays off', (
     tester,
   ) async {
     try {
@@ -216,7 +216,7 @@ void main() {
     // the block with one honest sentence; this asserts that sentence is what a
     // user actually sees.
     final offNotice = find.textContaining(
-      'Realism Mode is off',
+      'The Realism Engine is off for this chat',
       findRichText: true,
     );
     await d.waitForWidget(offNotice);

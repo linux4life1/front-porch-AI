@@ -188,6 +188,7 @@ class GroupCardExporter {
       groupLorebook: group.groupLorebook,
       worldIds: worldIds,
       worldNames: worldNames,
+      loreWorldIds: group.loreWorldIds,
       inheritCharacterLorebooks: group.inheritCharacterLorebooks,
       baselineRealismState: group.baselineRealismState,
       defaultMemberRealismState: group.defaultMemberRealismState,

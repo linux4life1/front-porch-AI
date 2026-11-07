@@ -55,8 +55,8 @@ bool adultThemesEnabledOf(BuildContext context) {
   }
 }
 
-/// Porch Life Afterglow with 18+ on — the one Afterglow switch. The card
-/// editors show the Recovery block under it; there is no per-card switch.
+/// Whether Porch Life (with 18+ on) allows Afterglow. While it does, the card
+/// editors show the card's Afterglow switch and chats show their own.
 bool afterglowEnabledOf(BuildContext context) {
   try {
     return Provider.of<StorageService>(
@@ -68,11 +68,39 @@ bool afterglowEnabledOf(BuildContext context) {
   }
 }
 
+/// Whether Porch Life allows the Realism Engine (a missing pref reads on). A
+/// chat's own Realism switch only counts while it does; listens, so the
+/// switch repaints when Porch Life changes. No storage in scope (a harness)
+/// reads as allowed, as a fresh install does.
+bool realismAllowedOf(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context).realismSettings.realismAllowed;
+  } catch (e) {
+    debugPrint('[Realism] no storage in scope, reading Porch Life as on: $e');
+    return true;
+  }
+}
+
 bool plannerEnabledOf(BuildContext context) {
   try {
     return Provider.of<StorageService>(context).realismSettings.plannerEnabled;
   } catch (_) {
     return false;
+  }
+}
+
+/// Whether Porch Life allows Pockets & Wardrobe (docs/design/
+/// pockets-wardrobe-chat-toggle.md). Listens, so a vetoed switch repaints
+/// when the global flips. No storage in scope (a bare member-card or dialog
+/// harness) reads as allowed — `realismAllowedOf`'s rule, same reason: a
+/// harness is not a Porch Life veto, and the gate downstream still answers
+/// the real setting wherever tracking actually runs.
+bool pocketsEnabledOf(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context).realismSettings.pocketsEnabled;
+  } catch (e) {
+    debugPrint('[Pockets] no storage in scope, reading Porch Life as on: $e');
+    return true;
   }
 }
 

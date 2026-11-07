@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'scene_gate.dart';
+import 'scene_sky.dart';
 import 'scene_sound.dart';
 import 'scene_tokens.dart';
 
@@ -41,6 +42,15 @@ Map<String, Object>? sceneWireFor(ChatService chat) {
     'sound': sceneSoundWire(
       on: chat.appearance.sceneSound,
       volume: chat.appearance.sceneSoundVolume,
+      base: dark.base?.kind == SceneSoundSourceKind.bundled
+          ? dark.base!.file
+          : null,
+      overlay: dark.overlay?.kind == SceneSoundSourceKind.bundled
+          ? dark.overlay!.file
+          : null,
+      baseUrl: dark.base?.kind == SceneSoundSourceKind.device
+          ? '/api/user/audio/${dark.base!.file}'
+          : null,
     ),
   };
 }
@@ -58,16 +68,40 @@ SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
   final daypart = chat.timeService.timeOfDay;
   final sessionSeed = chat.currentSessionId ?? '';
   final dayCount = chat.timeService.dayCount;
-  return (dark) => SceneGate.resolve(
-    level: appearance.ambientScene,
-    theme: appearance.theme,
-    day: segment?.day,
-    segment: segment,
+  // The sky reads the clock itself: the minute places the sun and the
+  // stars, the date sets the moon's phase.
+  final clock = chat.timeService.clock;
+  final minute = sceneMinuteOf(clock);
+  final moonPhase = moonPhaseFor(clock);
+  // The layered ambience is resolved ONCE here, from the chat's Setting
+  // slot only (never a Lore slot): the same answer the desktop plays and
+  // the web wire sends. A place with no ambience keeps the weather-only
+  // path byte-for-byte.
+  final primaryId = chat.chatPrimaryWorldId;
+  final settingWorld = primaryId == null || primaryId.isEmpty
+      ? null
+      : chat.realism.deps.services.worlds.worldById(primaryId);
+  final ambience = sceneAmbienceFor(
+    condition: segment?.condition.name ?? '',
     daypart: daypart,
-    dark: dark,
-    // currentWeather is null without a session, so '' never paints.
-    sessionSeed: sessionSeed,
-    dayCount: dayCount,
-    pauseWhileGenerating: appearance.pauseEffectsWhileGenerating,
+    placePreset: settingWorld?.ambience,
+    customFile: settingWorld?.customAmbience,
   );
+  return (dark) {
+    final scene = SceneGate.resolve(
+      level: appearance.ambientScene,
+      theme: appearance.theme,
+      day: segment?.day,
+      segment: segment,
+      daypart: daypart,
+      dark: dark,
+      minute: minute,
+      moonPhase: moonPhase,
+      sessionSeed: sessionSeed,
+      dayCount: dayCount,
+      pauseWhileGenerating: appearance.pauseEffectsWhileGenerating,
+    );
+    if (scene == null) return null;
+    return scene.withAmbience(ambience.base, ambience.overlay);
+  };
 }

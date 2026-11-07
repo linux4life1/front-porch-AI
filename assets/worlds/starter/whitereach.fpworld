@@ -78,6 +78,7 @@
         "id": "temperate",
         "displayName": "Temperate"
       },
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-whitereach-hearthford"
       }
@@ -96,6 +97,7 @@
         "id": "mediterranean",
         "displayName": "Mediterranean"
       },
+      "ambience": "cave",
       "meta": {
         "sourceId": "starter-whitereach-thawwater-springs"
       }
@@ -114,6 +116,7 @@
         "id": "continental",
         "displayName": "Continental"
       },
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-whitereach-emberlight"
       }

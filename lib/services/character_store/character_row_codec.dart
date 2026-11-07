@@ -57,6 +57,9 @@ CharactersCompanion characterCompanion(
       card.lorebook != null ? jsonEncode(card.lorebook!.toJson()) : null,
     ),
     worldNames: Value(jsonEncode(card.worldNames)),
+    loreWorldNames: Value(
+      card.loreWorldNames == null ? null : jsonEncode(card.loreWorldNames),
+    ),
   );
 }
 
@@ -85,6 +88,15 @@ CharacterCard characterFromRow(Character c) {
     debugPrint('[CharacterRepo] Unreadable world names on "${c.name}": $e');
   }
 
+  List<String>? loreWorldNames;
+  if (c.loreWorldNames != null) {
+    try {
+      loreWorldNames = List<String>.from(jsonDecode(c.loreWorldNames!));
+    } catch (e) {
+      debugPrint('[CharacterRepo] Unreadable lore worlds on "${c.name}": $e');
+    }
+  }
+
   Lorebook? lorebook;
   if (c.lorebook != null) {
     try {
@@ -109,6 +121,7 @@ CharacterCard characterFromRow(Character c) {
     ttsVoice: c.ttsVoice,
     lorebook: lorebook,
     worldNames: worldNames,
+    loreWorldNames: loreWorldNames,
   );
   // Store DB id for lookups
   card.dbId = c.id;

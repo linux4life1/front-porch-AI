@@ -27,10 +27,12 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/ui/chat_components/ambient/ambient_stage.dart';
 import 'package:front_porch_ai/ui/chat_components/ambient/ambient_stage_game.dart';
+import 'package:front_porch_ai/ui/chat_components/ambient/scene_sky_layer.dart';
 
 SceneTokens _scene(WeatherCondition c) => SceneSim.resolve(
   daypart: 'evening',
@@ -289,5 +291,50 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     expect(tint.isRemoved, isTrue);
     expect(tint.debugHasPicture, isFalse);
+  });
+
+  testWidgets('the sky mounts over the tint and the discs over the sky', (
+    tester,
+  ) async {
+    final game = await _pump(tester, _scene(WeatherCondition.rain));
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    final sky = game.children.whereType<SceneSkyLayer>().single;
+    final discs = game.children.whereType<SceneDiscLayer>().single;
+    expect(tint.priority, lessThan(sky.priority));
+    expect(sky.priority, lessThan(discs.priority));
+    // An evening scene without a clock sits at evening's representative
+    // minute, and the stage shows it.
+    expect(game.tokens.sky?.minute, 1110);
+    expect(game.sky.shown, 1110);
+  });
+
+  testWidgets('a new minute sweeps the sky on an animated stage and snaps '
+      'on a still one', (tester) async {
+    SceneTokens at(int minute) => SceneSim.resolve(
+      daypart: 'evening',
+      condition: WeatherCondition.clear,
+      temp: TempBand.cool,
+      dark: true,
+      level: SceneLevel.effects,
+      minute: minute,
+    );
+    final game = await _pump(tester, at(1110), animated: true);
+    expect(game.sky.shown, 1110);
+    expect(game.paused, isFalse);
+
+    await tester.pumpWidget(_app(at(360), animated: true));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(game.sky.sweeping, isTrue);
+    expect(game.sky.target, 360);
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(game.sky.sweeping, isFalse);
+    expect(game.sky.shown, 360);
+
+    await tester.pumpWidget(_app(at(900), animated: false));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(game.sky.sweeping, isFalse);
+    expect(game.sky.shown, 900);
   });
 }

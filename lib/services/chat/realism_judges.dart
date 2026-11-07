@@ -84,9 +84,9 @@ class RealismJudges {
   bool get _realismEnabled => _scope.realismEnabled();
   bool get _realismEvalCancelled => evalCancelled();
   bool get _oneShotActive => oneShotActive();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  List<ChatMessage> get _messages => _scope.messages;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  List<ChatMessage> get _messages => _scope.session.messages;
   RelationshipService get _relationshipService => _scope.relationship();
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);

@@ -16,65 +16,68 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/database/database.dart' as db;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
+    show MemberGroupView;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Edit one member's card content in the reused single-character editor.
-/// Saves to the group's member row only (never the source library
-/// character), and preserves the member's group state (realism/needs,
-/// avatar) by writing just the content columns. Returns the edited card, or
-/// null when the editor was backed out of.
+/// Edit one member's card in the reused single-character editor, in its
+/// member mode for [groupName]. Saves to the group's member row only (never
+/// the source library character): every column the editor shows, voice,
+/// greeting seeds and the member's own Realism and Needs settings included.
+/// When the group is open in the chat, its copy of the member is replaced
+/// too, so a later save from the chat cannot put the old values back.
+/// [memberGroup] is what it shows of the group (its lines and the member's
+/// start). Returns the edited card, or null when the editor was backed out
+/// of.
 Future<CharacterCard?> editGroupMemberCard(
   BuildContext context,
   CharacterCard member,
-  String memberId,
-) {
+  String memberId, {
+  required String groupName,
+  MemberGroupView? memberGroup,
+}) async {
   // The live database, not the startup snapshot `Provider<AppDatabase>`
   // holds: a backup restore closes that one.
   final database = liveDatabase(context);
-  return Navigator.of(context).push<CharacterCard>(
+  final chat = Provider.of<ChatService>(context, listen: false);
+  final afterglowBefore = member.frontPorchExtensions?.afterglowEnabled ?? true;
+  final edited = await Navigator.of(context).push<CharacterCard>(
     MaterialPageRoute(
       builder: (_) => EditCharacterPage(
         character: member,
-        showRealismTab: false,
+        memberOfGroup: groupName,
+        memberGroup: memberGroup,
         allowAvatarChange: false,
         popWithCardOnSave: true,
         onSaveOverride: (card) async {
-          await database.updateGroupMember(
-            db.GroupMembersCompanion(
-              id: Value(memberId),
-              name: Value(card.name),
-              description: Value(card.description),
-              personality: Value(card.personality),
-              scenario: Value(card.scenario),
-              firstMessage: Value(card.firstMessage),
-              mesExample: Value(card.mesExample),
-              systemPrompt: Value(card.systemPrompt),
-              postHistoryInstructions: Value(card.postHistoryInstructions),
-              alternateGreetings: Value(jsonEncode(card.alternateGreetings)),
-              tags: Value(jsonEncode(card.tags)),
-              lorebook: Value(
-                card.lorebook != null
-                    ? jsonEncode(card.lorebook!.toJson())
-                    : null,
-              ),
-              worldNames: Value(jsonEncode(card.worldNames)),
-            ),
+          final before = liveMemberAfterglow(
+            chat,
+            card..dbId = memberId,
+            afterglowBefore,
           );
+          await saveGroupMemberCard(database, card);
+          if (isOpenGroupMember(chat, card)) {
+            chat.refreshActiveCharacterCard(card);
+            await settleMemberAfterglow(chat, card, before);
+          }
         },
       ),
     ),
   );
+  if (edited != null && context.mounted) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      porchSnackBar(context, '“${edited.name}” updated in this group.'),
+    );
+  }
+  return edited;
 }
 
 /// Details tab of the group editor: group name, system prompt, scenario, and

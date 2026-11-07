@@ -98,8 +98,15 @@ class BondBars extends StatelessWidget {
               'Trust: Paranoia vs absolute faith. Dictates whether the '
               'character questions your motives or readily believes you.',
         ),
-        if (nsfw.nsfwCooldownEnabled) ...[
+        // Porch Life (with 18+) allows Afterglow: the line and this chat's
+        // own switch show; Lust and recovery show while the switch is on.
+        if (afterglowEnabledOf(context)) ...[
           const SizedBox(height: 8),
+          _AfterglowLine(chat: chat, on: nsfw.storedNsfwCooldownEnabled),
+        ],
+        if (nsfw.nsfwCooldownEnabled) ...[
+          // Closer under the Afterglow line; the old gap without it.
+          SizedBox(height: afterglowEnabledOf(context) ? 4 : 8),
           RealismProgressRow(
             label: 'Lust',
             value: nsfw.arousalLevel.clamp(-100, 100),
@@ -117,35 +124,88 @@ class BondBars extends StatelessWidget {
           ),
           if (nsfw.refractoryMinutesRemaining > 0) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                // Rose chip with a thermometer while a soft window runs
-                // (the mockup's 🌡️ "Tender for… · peak K"); the frost-
-                // colored hourglass stays for a hard lock.
-                Icon(
-                  nsfw.refractory.soft
-                      ? Icons.device_thermostat
-                      : Icons.hourglass_bottom,
-                  size: 12,
-                  color: AppColors.lustAccentOf(context),
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  // Same words as the eval prompt and the phone: story
-                  // minutes, or replies while Passage of Time is off.
-                  child: Text(
-                    nsfw.refractoryWords.chip,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.lustAccentOf(context),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            RefractoryLine(
+              chip: nsfw.refractoryWords.chip,
+              soft: nsfw.refractory.soft,
             ),
           ],
         ],
+      ],
+    );
+  }
+}
+
+/// The recovery countdown under a Lust bar: the 1:1 host's, and each group
+/// member's own on their card.
+class RefractoryLine extends StatelessWidget {
+  const RefractoryLine({super.key, required this.chip, required this.soft});
+
+  /// Same words as the eval prompt and the phone: story minutes, or replies
+  /// while Passage of Time is off.
+  final String chip;
+  final bool soft;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        // Rose chip with a thermometer while a soft window runs (the
+        // mockup's 🌡️ "Tender for… · peak K"); the hourglass for a hard lock.
+        Icon(
+          soft ? Icons.device_thermostat : Icons.hourglass_bottom,
+          size: 12,
+          color: AppColors.lustAccentOf(context),
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            chip,
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.lustAccentOf(context),
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// This chat's own Afterglow switch, on the line it controls (no gear).
+class _AfterglowLine extends StatelessWidget {
+  const _AfterglowLine({required this.chat, required this.on});
+
+  final ChatService chat;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.lustAccentOf(context);
+    return Row(
+      children: [
+        Icon(Icons.local_fire_department, size: 14, color: accent),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'Afterglow',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary(context),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 24,
+          child: FittedBox(
+            child: Switch(
+              value: on,
+              activeThumbColor: accent,
+              onChanged: chat.isGenerating ? null : chat.setAfterglowEnabled,
+            ),
+          ),
+        ),
       ],
     );
   }

@@ -42,6 +42,10 @@ class StoryQuickPlanning {
     try {
       final chatContext = await _history.context(project);
       final charContext = StoryContext.characterCards(project);
+      // The world's book is copied in before the model writes a word, so
+      // the bible appends to it instead of inventing the world again.
+      final world = _ctx.worldFor(project);
+      StoryWorldContext.copyLore(project, world);
       final systemPrompt =
           StoryPrompts.storyArchitect(project) +
           (project.faithfulMode ? faithfulArchitectDirective : '');
@@ -50,6 +54,7 @@ class StoryQuickPlanning {
           '''$systemPrompt
 
 Input Concept: ${project.concept}
+${StoryWorldContext.quickWorld(world)}
 $charContext
 $chatContext
 
@@ -102,11 +107,13 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: Chat history is provided above. This is 
         project.cast = [StoryCastMember.fromJson(json['protagonist'])];
       }
 
-      // Add world lore
+      // World lore: uploads and the story's world stay, the model's is
+      // appended; it never replaces what grounds the story.
       if (json['world_lore'] != null) {
-        project.lore = (json['world_lore'] as List)
-            .map((l) => StoryLoreEntry.fromJson(l))
-            .toList();
+        project.lore = mergeParsedLore(
+          project.lore,
+          (json['world_lore'] as List).map((l) => StoryLoreEntry.fromJson(l)),
+        );
       }
 
       await _ctx.repository.saveProject(project);
@@ -186,6 +193,7 @@ Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}''';
           (project.faithfulMode ? faithfulSceneDirective : '');
       final previousContext = StoryContext.previousActs(project, actIndex);
       final chatContext = await _history.context(project);
+      final world = _ctx.worldFor(project);
       final prompt =
           '''$systemPrompt
 
@@ -193,6 +201,7 @@ Story Concept: ${project.concept}
 Themes: ${project.themes}
 Style: ${jsonEncode(project.style.toJson())}
 Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}
+${StoryWorldContext.quickPlaces(world, project)}
 $previousContext
 $chatContext
 ACT $actNum: ${act.title}
@@ -214,9 +223,15 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: The chat history above is CANON. Scenes 
         throw Exception('Failed to parse scenes from AI response');
       }
 
-      project.scenes[actIndex] = (json['scenes'] as List)
+      final scenes = (json['scenes'] as List)
           .map((s) => StoryScene.fromJson(s))
           .toList();
+      // The Quick planner has no <place> tag: its <location> leads with the
+      // place name, which is resolved the same way.
+      for (final scene in scenes) {
+        StoryWorldContext.resolvePlace(world, scene, scene.location);
+      }
+      project.scenes[actIndex] = scenes;
 
       // Add any new characters
       if (json['new_characters'] != null) {

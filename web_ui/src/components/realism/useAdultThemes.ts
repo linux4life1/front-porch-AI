@@ -16,15 +16,20 @@ import { api } from '../../api/client';
 // same as flipping the master switch on desktop.
 //
 // `afterglow` is Porch Life Afterglow, which counts only while 18+ is on
-// (desktop RealismSettings.afterglowEnabled). There is no per-card Afterglow
-// switch: the character's Recovery block shows when this is on.
+// (desktop RealismSettings.afterglowEnabled): the Afterglow switches on
+// characters, groups and chats, and a character's Recovery block, show while
+// it is on.
 export function useAdultFlags(): { adult: boolean; afterglow: boolean } {
   const [flags, setFlags] = useState({ adult: false, afterglow: false });
   useEffect(() => {
     let alive = true;
-    api
-      .get<{ realism?: { adultThemesEnabled?: boolean; nsfwCooldownDefault?: boolean } }>(
-        '/api/settings',
+    // Deferred, so a page whose api has no get (a narrow test double) stays
+    // hidden instead of throwing mid-render.
+    Promise.resolve()
+      .then(() =>
+        api.get<{ realism?: { adultThemesEnabled?: boolean; nsfwCooldownDefault?: boolean } }>(
+          '/api/settings',
+        ),
       )
       .then((s) => {
         if (!alive) return;

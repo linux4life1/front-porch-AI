@@ -17,6 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/world_repository.dart';
 
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -24,11 +27,13 @@ import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart'
 
 import 'create_group_chat_page.dart';
 
-/// "Generate with Dynamics" button shared by the Opening and Review steps.
+/// The Generate button shared by the Opening and Review steps. It says
+/// "with Dynamics" only when Group Dynamics has something to send.
 Widget generateWithDynamicsButton(
   BuildContext context, {
   required bool busy,
   required Future<void> Function() onPressed,
+  bool withDynamics = true,
 }) {
   return TextButton.icon(
     onPressed: onPressed,
@@ -39,7 +44,11 @@ Widget generateWithDynamicsButton(
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         : Icon(Icons.auto_awesome, color: AccentColors.amberOf(context)),
-    label: Text(busy ? 'Generating...' : 'Generate with Dynamics'),
+    label: Text(
+      busy
+          ? 'Generating...'
+          : (withDynamics ? 'Generate with Dynamics' : 'Generate'),
+    ),
   );
 }
 
@@ -68,6 +77,23 @@ class GroupOpeningStep extends StatelessWidget {
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
 
+  /// Where the Setting step put the group; Generate writes the scene there.
+  Widget _settingLine(BuildContext context) {
+    final worlds = Provider.of<WorldRepository>(context);
+    final where = groupSettingSummary(
+      draft.worldChoice,
+      worlds.worldById,
+      groupWeatherLabels(worlds),
+    );
+    return Text(
+      draft.worldChoice.settingId == null
+          ? '$where Generate makes up a place.'
+          : '$where Generate writes the scene there.',
+      key: const ValueKey('group-opening-setting'),
+      style: TextStyle(color: AppColors.textSecondary(context)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -77,6 +103,8 @@ class GroupOpeningStep extends StatelessWidget {
           'Opening Scene',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
+        const SizedBox(height: 6),
+        _settingLine(context),
         const SizedBox(height: 12),
 
         // Dialogue subsection (groups): first message + alternate greetings.
@@ -126,6 +154,9 @@ class GroupOpeningStep extends StatelessWidget {
                   generateWithDynamicsButton(
                     context,
                     busy: draft.isGeneratingFirst,
+                    withDynamics: draft
+                        .buildDynamicsContextForGeneration()
+                        .isNotEmpty,
                     onPressed: () async {
                       final dynamics = draft
                           .buildDynamicsContextForGeneration();
@@ -180,6 +211,9 @@ class GroupOpeningStep extends StatelessWidget {
             generateWithDynamicsButton(
               context,
               busy: draft.isGeneratingScenario,
+              withDynamics: draft
+                  .buildDynamicsContextForGeneration()
+                  .isNotEmpty,
               onPressed: () async {
                 final dynamics = draft.buildDynamicsContextForGeneration();
                 await actions.generateScenario(dynamicsContext: dynamics);
@@ -194,7 +228,11 @@ class GroupOpeningStep extends StatelessWidget {
           decoration: const InputDecoration(hintText: 'The group is...'),
         ),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 6),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.opening,
+        ),
       ],
     );
   }
@@ -205,10 +243,14 @@ class GroupPromptsStep extends StatelessWidget {
     super.key,
     required this.draft,
     required this.actions,
+    this.showNav = true,
   });
 
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
+
+  /// False when the Prompts & Lore step hosts this one.
+  final bool showNav;
 
   @override
   Widget build(BuildContext context) {
@@ -326,7 +368,12 @@ class GroupPromptsStep extends StatelessWidget {
         if (draft.members.isEmpty)
           const Text('Add members first to configure per-character prompts.'),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 2),
+        if (showNav)
+          GroupWizardNavButtons(
+            draft: draft,
+            actions: actions,
+            currentStep: GroupWizardSteps.promptsLore,
+          ),
       ],
     );
   }

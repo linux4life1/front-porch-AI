@@ -148,6 +148,17 @@ export function forgetFactCopy(key: string): ConfirmCopy {
   };
 }
 
+/** Detach the story's world: it stops reading it; the facts already copied stay as story lore. */
+export function detachWorldCopy(worldName: string): ConfirmCopy {
+  const name = worldName.trim() || 'the world';
+  return {
+    title: `Detach ${name}?`,
+    body: 'The story stops reading the world: no setting brief, no places for the planner. The facts already copied stay as story lore.',
+    confirmLabel: 'Detach',
+    destructive: true,
+  };
+}
+
 export function removeLoreCopy(topic: string): ConfirmCopy {
   return {
     title: `Remove “${topic}”?`,

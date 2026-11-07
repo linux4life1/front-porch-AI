@@ -20,6 +20,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/story/story_continuity.dart';
 import 'package:front_porch_ai/services/story/story_lenses.dart';
 import 'package:front_porch_ai/services/story/story_structure.dart';
+import 'package:front_porch_ai/services/story/story_world_brief.dart';
+import 'package:front_porch_ai/services/story/story_world_context.dart';
 import 'package:front_porch_ai/services/story/studio_parse.dart';
 import 'package:front_porch_ai/services/story/studio_parse_prose.dart';
 
@@ -62,7 +64,13 @@ class DirectorOutcome {
 /// synchronous and pure; the pipeline runs the [DirectorOutcome.followUp]
 /// prose work afterwards.
 abstract final class StoryDirectorApply {
-  static DirectorOutcome apply(StoryProject p, DirectorAction a) {
+  /// [world] resolves a `<place>` detail onto the scene when the story is
+  /// set in a world; without one the detail is ignored.
+  static DirectorOutcome apply(
+    StoryProject p,
+    DirectorAction a, {
+    StoryWorldBrief? world,
+  }) {
     final d = a.details;
     switch (a.type) {
       case DirectorActionType.modifyStory:
@@ -201,12 +209,12 @@ abstract final class StoryDirectorApply {
         return const DirectorOutcome.done();
 
       case DirectorActionType.addScene:
-        return _addScene(p, a);
+        return _addScene(p, a, world);
 
       case DirectorActionType.modifyScene:
         final ref = p.findScene(a.sceneId);
         if (ref == null) return const DirectorOutcome.failed('scene not found');
-        _updateScene(p, ref.scene, d);
+        _updateScene(p, ref.scene, d, world);
         final instruction = d['instructions'] ?? '';
         if (instruction.isNotEmpty && p.sceneHasProse(ref.act, ref.index)) {
           return DirectorOutcome.prose(
@@ -298,7 +306,11 @@ abstract final class StoryDirectorApply {
     }
   }
 
-  static DirectorOutcome _addScene(StoryProject p, DirectorAction a) {
+  static DirectorOutcome _addScene(
+    StoryProject p,
+    DirectorAction a,
+    StoryWorldBrief? world,
+  ) {
     final d = a.details;
     final seq = p.sequenceByNumber(a.sequence);
     final act = p.actIndexForSequence(a.sequence);
@@ -318,7 +330,7 @@ abstract final class StoryDirectorApply {
       if (index == -1) index = list.length;
     }
     final scene = StoryScene(number: 0, sequence: a.sequence);
-    _updateScene(p, scene, d);
+    _updateScene(p, scene, d, world);
     if (scene.title.isEmpty) scene.title = a.summary;
     if (scene.tension == 0) {
       scene.tension = 1;
@@ -332,10 +344,14 @@ abstract final class StoryDirectorApply {
     StoryProject p,
     StoryScene s,
     Map<String, String> d,
+    StoryWorldBrief? world,
   ) {
     if (d['title'] != null) s.title = d['title']!;
     if (d['description'] != null) s.description = d['description']!;
     if (d['setting'] != null) s.location = d['setting']!;
+    if (d['place'] != null && world != null) {
+      StoryWorldContext.resolvePlace(world, s, d['place']!);
+    }
     if (d['scene_objective'] != null) s.objective = d['scene_objective']!;
     if (d['plot_commitments'] != null) s.commitments = d['plot_commitments']!;
     if (d['pov_character'] != null) s.pov = d['pov_character']!;

@@ -44,6 +44,11 @@ class ObjectiveProposal {
   final LLMService Function() getLlmService;
 
   final CharacterCard? Function() getActiveCharacter;
+
+  /// The character whose goal it is, when the active character is not:
+  /// a group's goal belongs to its member, and a group has no active
+  /// character between turns. Null, or no answer, falls back to it.
+  final CharacterCard? Function(Objective obj)? ownerCard;
   final GroupChat? Function() getActiveGroup;
   final bool Function() getIsObserverMode;
   final String Function() getUserName;
@@ -94,6 +99,7 @@ class ObjectiveProposal {
     required this.stripThinkBlocks,
     required this.getLlmService,
     required this.getActiveCharacter,
+    this.ownerCard,
     required this.getActiveGroup,
     required this.getIsObserverMode,
     required this.getUserName,
@@ -190,7 +196,7 @@ class ObjectiveProposal {
         return;
       }
 
-      final char = getActiveCharacter();
+      final char = ownerCard?.call(obj) ?? getActiveCharacter();
       final charName = char?.name ?? 'the character';
       final scenario = char?.scenario ?? '';
       final userName = getUserName();

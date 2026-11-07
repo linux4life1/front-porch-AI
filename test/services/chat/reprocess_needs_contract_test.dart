@@ -316,10 +316,9 @@ void main() {
       'card: Bram (Social on) keeps social, Ayla (Social off) does not',
       () async {
         final (a, b) = await h.groupWithTwoReplies();
-        // Ayla is the group's _activeCharacter here (Social off), so a filter
-        // that read _activeCharacter instead of the speaker card would strip
-        // social from Bram's reprocess chip.
-        expect(h.chat.activeCharacter?.name, 'Ayla');
+        // A group has no active character between turns; each chip must come
+        // from its own speaker's card, Social off for Ayla and on for Bram.
+        expect(h.chat.activeCharacter, isNull);
         await h.chat.manualReprocessNeeds(b, 'critique for Bram');
         expect(
           _chipKeys(h.chat.messages[b]),

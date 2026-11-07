@@ -6,6 +6,7 @@
 
 export 'auth_routes.dart';
 export 'backend_routes.dart';
+export 'backup_routes.dart';
 export 'character_routes.dart';
 export 'chargen_routes.dart';
 export 'chat_overlay_routes.dart';
@@ -15,6 +16,7 @@ export 'token_alts_routes.dart';
 export 'chat_package_routes.dart';
 export 'chat_routes.dart';
 export 'chat_tools_routes.dart';
+export 'gen_preset_routes.dart';
 export 'group_routes.dart';
 export 'persona_convert_routes.dart';
 export 'porch_routes.dart';
@@ -36,4 +38,5 @@ export 'kobold_chat_template_routes.dart';
 export 'civitai_routes.dart';
 export 'expression_pack_routes.dart';
 export 'image_desk_routes.dart';
+export 'image_recent_routes.dart';
 export 'image_batch_routes.dart';

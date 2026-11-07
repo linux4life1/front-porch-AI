@@ -33,7 +33,15 @@ export function CharacterPicker({
   const [full, setFull] = useState(initialFull);
 
   useEffect(() => {
-    api.get<PickChar[]>('/api/characters?sort=name').then(setChars).catch(() => {});
+    // scope=allCharacters: the default (currentFolder) is the home grid's
+    // view — with no folder id that means UNFOLDERED characters only, so
+    // anyone filed in a subfolder vanished from the join pool even though
+    // `/join <name>` resolves them fine. The picker shows every eligible
+    // character; the search box above filters the full list client-side.
+    api
+      .get<PickChar[]>('/api/characters?sort=name&scope=allCharacters')
+      .then(setChars)
+      .catch(() => {});
   }, []);
 
   const filtered = useMemo(() => {

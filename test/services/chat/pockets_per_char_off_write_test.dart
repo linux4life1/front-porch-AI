@@ -30,6 +30,12 @@ import 'package:front_porch_ai/services/chat/chat.dart'
     show Pockets, PocketItem;
 import '../../helpers/chat_db_teardown.dart';
 
+/// Reveal the stored kit the way the product does NOW
+/// (docs/design/pockets-wardrobe-chat-toggle.md): the per-chat switch, not
+/// the card flag. The flag stopped being runtime law in v64 — it seeds.
+Future<void> revealKit(ChatService chat, String id) =>
+    chat.setMemberPocketsEnabled(id, true);
+
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -147,13 +153,13 @@ void main() {
 
   String idOf(String name) => chat.characterIdFor(member(name));
 
-  /// Turn the live card flag on so [pocketsFor] reveals the stored kit.
-  void reveal(CharacterCard c) {
-    c.frontPorchExtensions!.pocketsEnabled = true;
-  }
+  /// Reveal a member's hidden kit through the runtime switch (v64: the
+  /// card flag only seeds; the bag switch is law).
+  Future<void> reveal(CharacterCard c) =>
+      revealKit(chat, chat.characterIdFor(c));
 
-  Pockets? revealedKit(String name) {
-    reveal(member(name));
+  Future<Pockets?> revealedKit(String name) async {
+    await reveal(member(name));
     return chat.pocketsFor(idOf(name));
   }
 
@@ -211,7 +217,7 @@ void main() {
         isNull,
         reason: 'still hidden after the hand-off',
       );
-      final bea = revealedKit('Bea');
+      final bea = await revealedKit('Bea');
       expect(
         bea?.carrying.map((i) => i.name),
         contains('lucky coin'),
@@ -258,7 +264,7 @@ void main() {
       }
 
       await chat.forkFromMessage(chat.messages.length - 1);
-      chat.activeCharacter!.frontPorchExtensions!.pocketsEnabled = true;
+      await chat.setPocketsEnabled(true);
       expect(
         chat.pocketsFor(id)?.carrying.map((i) => i.name),
         contains('lucky coin'),
@@ -296,7 +302,7 @@ void main() {
 
       await chat.forkFromMessage(chat.messages.length - 1);
 
-      final bea = revealedKit('Bea');
+      final bea = await revealedKit('Bea');
       expect(
         bea?.carrying.map((i) => i.name),
         contains('lucky coin'),
@@ -346,7 +352,7 @@ void main() {
     chat.deleteMessage(parkedIndex);
     await drainUntil(() => !chat.isGenerating && !chat.isSettlingTurn);
 
-    final bea = revealedKit('Bea');
+    final bea = await revealedKit('Bea');
     expect(
       bea?.carrying.map((i) => i.name),
       contains('lucky coin'),
@@ -386,7 +392,7 @@ void main() {
     final outcome = await chat.importChatPackage(bytes!);
     expect(outcome.fullRestore, isTrue);
 
-    chat.activeCharacter!.frontPorchExtensions!.pocketsEnabled = true;
+    await chat.setPocketsEnabled(true);
     expect(
       chat.pocketsFor(id)?.carrying.map((i) => i.name),
       contains('suitcase keys'),

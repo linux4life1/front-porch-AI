@@ -183,12 +183,12 @@ void main() {
 
     test('send fires the check; Continue and Regen do not', () {
       expect(
-        File('lib/services/chat/chat_service_send.dart').readAsStringSync(),
+        File('lib/services/chat/doors/turn/send_turn.dart').readAsStringSync(),
         contains('_maybeCheckTaskCompletionSync'),
       );
       for (final path in [
-        'lib/services/chat/chat_service_generation.dart',
-        'lib/services/chat/chat_service_generation_postgen.dart',
+        'lib/services/chat/doors/turn/turn_engine.dart',
+        'lib/services/chat/doors/turn/post_gen.dart',
       ]) {
         final f = File(path);
         if (!f.existsSync()) continue;
@@ -202,7 +202,7 @@ void main() {
 
     test('Today stale wiring uses abandoned, never the done win path', () {
       final src = File(
-        'lib/services/chat/chat_service_wiring_evals_judges.dart',
+        'lib/services/chat/doors/realism/judge_wiring.dart',
       ).readAsStringSync();
       expect(src, contains('onObjectiveStale'));
       expect(src, contains('PlannerTodayFate.abandoned'));

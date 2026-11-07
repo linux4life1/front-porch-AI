@@ -41,14 +41,14 @@
     "ambientScene": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dart": "lib/ui/settings/tabs/appearance_tab/background_weather_section.dart",
       "dartMarker": "Ambient scene",
       "webMarker": "Ambient scene"
     },
     "pauseEffectsWhileGenerating": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dart": "lib/ui/settings/tabs/appearance_tab/background_weather_section.dart",
       "dartMarker": "Pause effects while generating",
       "webMarker": "Pause effects while generating"
     },
@@ -65,6 +65,20 @@
       "dart": "lib/ui/settings/tabs/appearance_tab/scene_sound_controls.dart",
       "dartMarker": "Scene sound volume",
       "webMarker": "Scene sound volume"
+    },
+    "moodOnCharacter": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/mood_on_character_controls.dart",
+      "dartMarker": "Mood on the character",
+      "webMarker": "Mood on the character"
+    },
+    "moodDrama": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/mood_on_character_controls.dart",
+      "dartMarker": "Drama",
+      "webMarker": "Drama"
     },
     "chatColors": {
       "section": "general",
@@ -114,6 +128,30 @@
       "dart": "lib/ui/settings/tabs/general_tab.dart",
       "dartMarker": "Porch Life",
       "webMarker": "Porch Life"
+    },
+    "realismAllowed": {
+      "section": "porch-life",
+      "dart": "lib/ui/settings/tabs/porch_life_engine_card.dart",
+      "dartMarker": "setRealismAllowed",
+      "webMarker": "Porch Life"
+    },
+    "realismDefault": {
+      "section": "porch-life",
+      "dart": "lib/ui/settings/tabs/porch_life_engine_card.dart",
+      "dartMarker": "Start every new chat with Realism",
+      "webMarker": "Porch Life"
+    },
+    "generationPreset": {
+      "section": "generation",
+      "dart": "lib/ui/settings/widgets/generation_preset_bar.dart",
+      "dartMarker": "Generation preset",
+      "webMarker": "Generation preset"
+    },
+    "generationPresetLink": {
+      "section": "generation",
+      "dart": "lib/ui/settings/widgets/generation_preset_bar.dart",
+      "dartMarker": "Use this preset whenever",
+      "webMarker": "Use this preset whenever"
     },
     "generationParameters": {
       "section": "generation",

@@ -46,6 +46,7 @@ class StoryDirectorPlanner {
       final previousPlan = refinement.trim().isEmpty
           ? null
           : project.directorPlan;
+      final places = StoryWorldContext.places(_ctx.worldFor(project));
       final text = await _agent.run(
         project,
         stage: 'Director',
@@ -60,6 +61,7 @@ class StoryDirectorPlanner {
           protect: protectWrittenProse,
           previousPlan: previousPlan,
           refinement: refinement,
+          places: places,
           previous: previous,
           feedback: feedback,
         ),

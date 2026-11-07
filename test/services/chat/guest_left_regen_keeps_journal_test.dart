@@ -147,4 +147,23 @@ void main() {
       ], reason: 'the refused bubble is still on screen; its cites must stay');
     },
   );
+
+  test('an @ of a guest who is not the routed speaker still chimes her in, '
+      'on send and on the host regen', () async {
+    // @Flora routes the turn to the host; @Riley leaves the shown line
+    // ("dinner?") but must still count as naming her for the chime-in.
+    await chat.sendMessage('@Flora and @Riley, dinner?');
+    await settle();
+    final user = chat.messages.lastWhere((m) => m.isUser);
+    expect(user.text, 'dinner?');
+    expect(chat.messages.last.sender, 'Riley', reason: 'named, so she chimes');
+
+    await chat.regenerateMainCharacter();
+    await settle();
+    expect(
+      chat.messages.last.sender,
+      'Riley',
+      reason: 'the host regen re-runs the chime with the typed line',
+    );
+  });
 }

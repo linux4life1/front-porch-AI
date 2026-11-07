@@ -185,7 +185,7 @@ void main() {
 
   test('lite-glance log is wired after the glance pass', () {
     final src = File(
-      'lib/services/chat/chat_service_generation_postgen_engine.dart',
+      'lib/services/chat/doors/turn/post_gen_group.dart',
     ).readAsStringSync();
     final pass = src.indexOf(
       'await _realismJudges.runWithUserPass(scoredReply)',

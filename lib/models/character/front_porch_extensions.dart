@@ -73,6 +73,12 @@ class FrontPorchExtensions {
   /// so old cards keep running when the global is on. Explicit false disables
   /// this character only.
   bool pocketsEnabled;
+
+  /// How a new 1:1 chat with this character starts its Afterglow (Lust,
+  /// climax, recovery). Read once, when the chat is made: each chat then
+  /// keeps its own switch. Missing JSON reads **on**; Porch Life Afterglow
+  /// and 18+ themes still decide whether any of it runs.
+  bool afterglowEnabled;
   bool
   enjoysLowHygiene; // when true, low hygiene is desirable (inverted behavior for filthy/musky characters)
 
@@ -236,6 +242,7 @@ class FrontPorchExtensions {
     this.chaosModeEnabled = false,
     bool? needsSimEnabled,
     this.pocketsEnabled = true,
+    this.afterglowEnabled = true,
     this.enjoysLowHygiene = false,
     // Never mutated in place — always replaced wholesale (copyWith/editor),
     // so the const default is safe.
@@ -322,6 +329,7 @@ class FrontPorchExtensions {
     bool? chaosModeEnabled,
     bool? needsSimEnabled,
     bool? pocketsEnabled,
+    bool? afterglowEnabled,
     bool? enjoysLowHygiene,
     List<String>? ambitions,
     List<String>? planLines,
@@ -385,6 +393,7 @@ class FrontPorchExtensions {
       chaosModeEnabled: chaosModeEnabled ?? this.chaosModeEnabled,
       needsSimEnabled: needsSimEnabled ?? needsSimChoice,
       pocketsEnabled: pocketsEnabled ?? this.pocketsEnabled,
+      afterglowEnabled: afterglowEnabled ?? this.afterglowEnabled,
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
       planLines: planLines ?? this.planLines,

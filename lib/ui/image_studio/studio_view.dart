@@ -28,7 +28,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'studio_widgets.dart';
 
 /// Presentational shell for the Image Studio: the dialog frame, header, subject
-/// picker, style/reference/prompt canvas, generate/result/history, and the
+/// picker, style/reference/prompt canvas, generate/result/Recent shelf, and the
 /// collapsible settings panel. All state + handlers live in the `ImageStudio`
 /// coordinator; this widget is pure layout driven by the passed values and
 /// callbacks (extracted to keep the coordinator under the 500-line cap).
@@ -50,7 +50,7 @@ class StudioView extends StatelessWidget {
     this.crafting = false,
     required this.saving,
     required this.isBusy,
-    required this.history,
+    required this.recentShelf,
     required this.onClose,
     required this.onSelectSubject,
     required this.onPickReference,
@@ -65,7 +65,8 @@ class StudioView extends StatelessWidget {
     required this.onEditRegen,
     required this.onSendToChat,
     this.onSaveToGallery,
-    required this.onRestore,
+    this.onKeep,
+    this.kept = false,
     this.modeTabs,
     this.editBody,
     this.showEdit = false,
@@ -94,7 +95,9 @@ class StudioView extends StatelessWidget {
   final bool crafting;
   final bool saving;
   final bool isBusy;
-  final List<({String prompt, Uint8List bytes, String style})> history;
+
+  /// The Recent shelf under the result (pictures kept across sessions).
+  final Widget recentShelf;
 
   final VoidCallback onClose;
   final ValueChanged<ImageGenMode> onSelectSubject;
@@ -115,8 +118,10 @@ class StudioView extends StatelessWidget {
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
   final VoidCallback? onSaveToGallery;
-  final ValueChanged<({String prompt, Uint8List bytes, String style})>
-  onRestore;
+
+  /// Star the shown result on the Recent shelf; null hides the button.
+  final VoidCallback? onKeep;
+  final bool kept;
 
   /// The Create | Edit tab bar, rendered under the header (null = no tabs).
   final Widget? modeTabs;
@@ -247,9 +252,8 @@ class StudioView extends StatelessWidget {
     );
   }
 
-  Widget? _result(BuildContext context) {
+  Widget _result(BuildContext context) {
     final showImage = currentImageBytes != null && error.isEmpty;
-    if (!showImage && history.isEmpty) return null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -268,13 +272,13 @@ class StudioView extends StatelessWidget {
                   onEditRegen: onEditRegen,
                   onSendToChat: onSendToChat,
                   onSaveToGallery: onSaveToGallery,
+                  onKeep: onKeep,
+                  kept: kept,
                 )
               : const SizedBox.shrink(),
         ),
-        if (history.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          GenerationHistory(entries: history, onRestore: onRestore),
-        ],
+        const SizedBox(height: 16),
+        recentShelf,
       ],
     );
   }

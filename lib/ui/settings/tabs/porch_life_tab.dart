@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 
 import 'porch_life_defaults_note.dart';
 import 'porch_life_engine_card.dart';
@@ -74,8 +75,9 @@ class PorchLifeTab extends StatelessWidget {
 
     // The engine gates everything in "needs Realism" rows; passage of time
     // additionally gates weather and dreams, and weather gates the °F display.
-    // Porch Life Passage of Time is the only live clock gate.
-    final engineOn = storage.realismSettings.realismDefault;
+    // Porch Life Passage of Time is the only live clock gate. The engine row
+    // is the permission, not the "start new chats with it" default.
+    final engineOn = storage.realismSettings.realismAllowed;
     final timeOn = storage.realismSettings.passageOfTimeDefault;
     final weatherOn = storage.realismSettings.weatherEnabled;
     final journalOn = storage.memorySettings.journalEnabled;
@@ -417,9 +419,17 @@ class PorchLifeTab extends StatelessWidget {
                     'run without it. Uses one short extra AI request per reply '
                     'to notice a climax, so it costs a little more on a paid '
                     'API. Multiorgasmic characters feel a tenderness window '
-                    'instead of a lock.',
+                    'instead of a lock. Off: no chat tracks Lust, and the '
+                    'Afterglow switches on characters and chats are hidden. '
+                    'Each chat keeps its own choice for when you turn this '
+                    'back on.',
                 value: storage.realismSettings.nsfwCooldownDefault,
-                onChanged: storage.realismSettings.setNsfwCooldownDefault,
+                onChanged: (v) async {
+                  final was = storage.realismSettings.afterglowEnabled;
+                  await storage.realismSettings.setNsfwCooldownDefault(v);
+                  if (!context.mounted) return;
+                  await offerAfterglowInExistingChats(context, wasAllowed: was);
+                },
               ),
               FeatureRow(
                 icon: Icons.favorite,

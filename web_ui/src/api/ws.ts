@@ -64,6 +64,11 @@ export type WsEvent = {
   // `chance_time` event (chaos): whether a Chance Time is now parked awaiting the
   // user's "accept your fate". `data` carries the pre-resolved event text.
   pending?: boolean;
+  // With `pending`, the event's kind for the wheel's reveal (additive):
+  // a ChaosCategory name, its label and emoji.
+  kind?: string;
+  label?: string;
+  emoji?: string;
   // `image_progress` event: the latest in-progress preview frame (data URL)
   // when the image backend streams one; `progress`/`generating` above carry
   // the percent and lifecycle.

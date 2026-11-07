@@ -65,7 +65,12 @@ interface WorldDetail {
   parentWorldId?: string | null;
   /** The starred place (relay-resolved), for "Where chats start". */
   defaultPlaceId?: string | null;
+  /** The layered scene ambience preset (bundled loop id) and options. */
+  ambience?: string | null;
+  customAmbience?: string | null;
+  ambienceOptions?: { id: string; label: string; description: string }[];
 }
+
 
 interface ParentCandidate {
   id: string;
@@ -87,6 +92,12 @@ type EditState = {
   gravity: string;
   biome: BiomeDraft | null;
   parentWorldId: string | null;
+  /** Scene ambience: independent of climate, editable for roots and places. */
+  ambienceEnabled: boolean;
+  ambience: string | null;
+  customAmbience: string | null;
+  /** Copied from the fetched world: the presets the picker lists. */
+  ambienceOptions?: { id: string; label: string; description: string }[];
 } & StartingPlaceDraft | null;
 
 function download(url: string) {
@@ -275,6 +286,10 @@ export function WorldsPage() {
         gravity: d.gravity ?? 'earth',
         biome: d.biome ?? null,
         parentWorldId: d.parentWorldId ?? null,
+        ambienceEnabled: d.ambience != null || d.customAmbience != null,
+        ambience: d.ambience ?? null,
+        customAmbience: d.customAmbience ?? null,
+        ambienceOptions: d.ambienceOptions,
         startingPlaceId: d.defaultPlaceId ?? null,
         startingPlaceName: '',
         startingPlaceDescription: '',
@@ -330,6 +345,10 @@ export function WorldsPage() {
         entries: edit.entries,
         atmosphere: edit.atmosphere,
         gravity: edit.gravity,
+        // Scene ambience rides the same upsert discipline: absent keys keep
+        // the row's value, an explicit null clears it.
+        ambience: edit.ambienceEnabled ? edit.ambience : null,
+        customAmbience: edit.ambienceEnabled ? edit.customAmbience : null,
         // Always sent: the relay keeps the row's parent only for absent
         // keys, and this form knows the truth either way — a cleared
         // Part of must detach, not silently keep yesterday's parent.
@@ -337,6 +356,61 @@ export function WorldsPage() {
         startingPlace: edit.parentWorldId == null ? startingPlacePayload(edit) : undefined,
       }),
     );
+  };
+  const uploadCustomAmbience = async (file: File | null) => {
+    if (!edit || !file) return;
+    const bytes = await file.arrayBuffer();
+    const res = await fetch(
+      `/api/worlds/audio?name=${encodeURIComponent(file.name)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: bytes,
+      },
+    );
+    const json = await res.json();
+    if (json.name) {
+      setEdit({
+        ...edit,
+        customAmbience: json.name,
+        ambienceEnabled: true,
+        ambience: null,
+      });
+      void refreshAudioLibrary();
+    } else {
+      setError(json.error ?? 'Could not upload that sound.');
+    }
+  };
+
+  // Stored-sound library: everything this server already has, so a sound
+  // uploaded once is reusable by every later world or place. The dialog
+  // caps its height and scrolls — the list must never eat the viewport.
+  const [audioLib, setAudioLib] = useState(false);
+  const [audioList, setAudioList] = useState<
+    { name: string; bytes: number; modifiedMs: number }[] | null
+  >(null);
+  const refreshAudioLibrary = async () => {
+    try {
+      const res = await fetch('/api/user/audio');
+      const json = await res.json();
+      setAudioList(json.sounds ?? []);
+    } catch {
+      setAudioList([]);
+    }
+  };
+  const openAudioLibrary = () => {
+    setAudioLib(true);
+    void refreshAudioLibrary();
+  };
+  const assignStoredSound = (name: string) => {
+    if (!edit) return;
+    setEdit({
+      ...edit,
+      ambienceEnabled: true,
+      customAmbience: name,
+      ambience: null,
+    });
+    setAudioLib(false);
   };
 
   const onCoverFile = (file: File | null) => {
@@ -392,6 +466,9 @@ export function WorldsPage() {
     gravity: 'earth',
     biome: null,
     parentWorldId,
+    ambienceEnabled: false,
+    ambience: null,
+    customAmbience: null,
     startingPlaceId: null,
     startingPlaceName: '',
     startingPlaceDescription: '',
@@ -885,6 +962,7 @@ export function WorldsPage() {
             onEdit: () => beginEdit(w.name),
             // Town › building › room: a room takes no place inside it.
             onNewInside: depth < 2 ? addInside(key) : undefined,
+            onWriteStory: w.id ? () => navigate('/stories/new', { state: { fromWorld: w.id } }) : undefined,
             onMove: () => void beginMove([key]),
             onDelete: () => remove(w),
             selected: selected.has(key),
@@ -934,6 +1012,10 @@ export function WorldsPage() {
                           }
                     }
                     onEdit={() => beginEdit(w.name)}
+                    // A world starts its story at its starred place, like a chat.
+                    onWriteStory={summary.id
+                      ? () => navigate('/stories/new', { state: { fromWorld: summary.defaultPlaceId ?? summary.id } })
+                      : undefined}
                     onExport={() =>
                       download(`/api/worlds/${encodeURIComponent(w.name)}/export`)
                     }
@@ -1209,6 +1291,140 @@ export function WorldsPage() {
               }
             />
           </label>
+
+          {/* Scene ambience — independent of climate, visible for every world. */}
+          <label className="tool-toggle">
+            <span>Scene ambience</span>
+            <input
+              type="checkbox"
+              checked={edit.ambienceEnabled}
+              onChange={(e) =>
+                setEdit({
+                  ...edit,
+                  ambienceEnabled: e.target.checked,
+                  ambience: e.target.checked && edit.ambience == null && edit.customAmbience == null
+                    ? (edit.ambienceOptions?.[0]?.id ?? 'forest')
+                    : edit.ambience,
+                })
+              }
+            />
+          </label>
+          <p className="muted small">
+            Ambient background sound plays in chats set here — the place&apos;s
+            own loop, with the weather layered over it.
+          </p>
+          {edit.ambienceEnabled && (
+            <div className="wsg-ambience">
+              <label>
+                Ambience
+                <select
+                  value={
+                    edit.customAmbience != null
+                      ? 'custom'
+                      : (edit.ambience ?? edit.ambienceOptions?.[0]?.id ?? 'forest')
+                  }
+                  onChange={(e) => {
+                    if (e.target.value === 'custom') {
+                      // The drawer, not a value: nothing changes until a
+                      // sound inside it is picked.
+                      openAudioLibrary();
+                      return;
+                    }
+                    setEdit({ ...edit, ambience: e.target.value, customAmbience: null });
+                  }}
+                >
+                  {(edit.ambienceOptions ?? []).map((o) => (
+                    <option key={o.id} value={o.id}>{o.label}</option>
+                  ))}
+                  <option value="custom">
+                    {edit.customAmbience != null
+                      ? `Custom sound — ${edit.customAmbience}`
+                      : 'Custom sound…'}
+                  </option>
+                </select>
+              </label>
+              {audioLib && (
+                <div className="wsg-audio-panel" role="group" aria-label="Your sounds">
+                  <div className="wsg-audio-head">
+                    <span className="wsg-audio-title">Your sounds</span>
+                    <label className="wsg-audio-import">
+                      From a file…
+                      <input
+                        type="file"
+                        accept=".mp3"
+                        onChange={(e) => {
+                          void uploadCustomAmbience(e.target.files?.[0] ?? null);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <div className="wsg-audio-list">
+                    {audioList == null && (
+                      <p className="muted small">Loading…</p>
+                    )}
+                    {audioList != null && audioList.length === 0 && (
+                      <p className="muted small">
+                        Nothing stored yet. “From a file…” picks an MP3 once;
+                        after that it lives here for every world.
+                      </p>
+                    )}
+                    {(audioList ?? []).map((s) => {
+                      const selected = edit.customAmbience === s.name;
+                      return (
+                        <div
+                          key={s.name}
+                          className={`wsg-audio-row${selected ? ' selected' : ''}`}
+                          onClick={() => assignStoredSound(s.name)}
+                        >
+                          <button
+                            type="button"
+                            className="wsg-audio-play"
+                            aria-label={`Audition ${s.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              new Audio(
+                                `/api/user/audio/${encodeURIComponent(s.name)}`,
+                              ).play();
+                            }}
+                          >
+                            ▶
+                          </button>
+                          <span className="wsg-audio-name" title={s.name}>
+                            {s.name}
+                          </span>
+                          <span className="muted small">
+                            {(s.bytes / (1024 * 1024)).toFixed(1)} MB
+                          </span>
+                          {selected && (
+                            <span className="wsg-audio-check" aria-label="In use">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    className="ghost wsg-audio-done"
+                    onClick={() => setAudioLib(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+              <div className="climate-feel-card">
+                <strong>What it sounds like</strong>
+                <p>
+                  {edit.customAmbience != null
+                    ? `Your own sound — ${edit.customAmbience}. Weather still layers over it.`
+                    : (edit.ambienceOptions?.find((o) => o.id === (edit.ambience ?? edit.ambienceOptions?.[0]?.id ?? 'forest'))?.description ??
+                      'The room you are in plays this loop at every time of day; rain, storm, snow or fog adds its weather loop on top.')}
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="row-actions" style={{ marginTop: 8 }}>
             <ImportCharacterLoreButton

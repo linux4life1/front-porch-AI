@@ -11,6 +11,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/chat/at_mention_text.dart';
 import 'package:front_porch_ai/services/chat/scene_guest_director.dart';
 
 CharacterCard _guest(String name, {String description = ''}) => CharacterCard(
@@ -70,6 +72,21 @@ void main() {
       await build().runChimeIns(userText: 'hi Mara', primaryResponse: '');
       expect(spoke, isEmpty);
       expect(gatePrompts, isEmpty); // heuristic never even runs
+    });
+
+    test('an @-named guest speaks off the typed line; the gate never sees '
+        'an @', () async {
+      guests = [_guest('Juno'), _guest('Ivo')];
+      gateReplies = {'Ivo': '{"speak": false}'};
+      await build().runChimeIns(
+        userText: 'dinner?',
+        typedText: '@Host and @Juno, dinner?',
+        primaryResponse: 'Sure.',
+      );
+      expect(spoke, ['Juno'], reason: 'named in the typed line');
+      expect(gatePrompts, hasLength(1), reason: 'only Ivo went to the gate');
+      expect(gatePrompts.single, contains('User just said: "dinner?"'));
+      expect(gatePrompts.single, isNot(contains('@')));
     });
 
     test('no-op when no guests are present', () async {
@@ -450,6 +467,68 @@ void main() {
         },
       );
       expect(spoke, ['Ann'], reason: 'Bob must not speak after context invalid');
+    });
+  });
+
+  group('AtMentionText.clean (the line the transcript shows)', () {
+    final roster = [_guest('Mara Vance'), _guest('Sam'), _guest('Evelyn')];
+    String clean(String t) => AtMentionText.clean(t, roster: roster);
+
+    test('an @ opening or closing the line goes, end punctuation stays', () {
+      expect(clean('@Mara what do you think?'), 'what do you think?');
+      expect(clean('@Mara, what do you think?'), 'what do you think?');
+      expect(clean('@Mara Vance - what now'), 'what now');
+      expect(clean('what do you think, @Mara?'), 'what do you think?');
+      expect(clean('what do you think @mara'), 'what do you think');
+    });
+
+    test('an @ mid-sentence goes too, and the sentence still reads', () {
+      expect(clean('Hey @Mara, how are you?'), 'Hey, how are you?');
+      expect(clean('So tell me, @Sam, how was it?'), 'So tell me, how was it?');
+      expect(clean('tell @Sam hi from me'), 'tell hi from me');
+      expect(clean('@Mara and @Sam, dinner?'), 'dinner?');
+      expect(clean('ask @Mara, @Sam or @Evelyn now'), 'ask now');
+    });
+
+    test('only the gaps are tidied, never the rest of the line', () {
+      expect(clean('wait ... what , @Sam ?'), 'wait ... what?');
+      expect(clean('line one\n@Sam line two'), 'line one\nline two');
+    });
+
+    test('a line that is only mentions comes back empty', () {
+      expect(clean('@Mara'), '');
+      expect(clean('  @Sam!  '), '');
+      expect(AtMentionText.bareAddress('@Sam', roster: roster)?.name, 'Sam');
+      expect(AtMentionText.bareAddress('@Sam hi', roster: roster), isNull);
+    });
+
+    test('routing reads the typed line, photo marker kept', () {
+      ChatMessage line(String shown, String typed, {bool photo = false}) =>
+          ChatMessage(
+            text: shown,
+            sender: 'You',
+            isUser: true,
+            metadata: {
+              kAtMentionRawTextMeta: typed,
+              if (photo) 'is_user_image': true,
+            },
+          );
+      expect(AtMentionText.routingText(line('look', '@Sam look')), '@Sam look');
+      expect(
+        AtMentionText.routingText(line('look', '@Sam look', photo: true)),
+        '@Sam look [shared a photo]',
+      );
+      expect(
+        AtMentionText.routingText(line('', '@Sam', photo: true)),
+        '@Sam [shared a photo]',
+      );
+    });
+
+    test('an @ that names nobody here is left exactly as typed', () {
+      expect(clean('mail me@evelyn.com'), 'mail me@evelyn.com');
+      expect(clean('ask @Mara-Lynn'), 'ask @Mara-Lynn');
+      expect(clean('ping @Nobody now'), 'ping @Nobody now');
+      expect(AtMentionText.clean('@Sam hi', roster: const []), '@Sam hi');
     });
   });
 }

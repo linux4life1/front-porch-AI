@@ -33,6 +33,7 @@ class WebChatToolsRoutes {
     router.post('/api/chat/tools/settings', _settings);
     router.post('/api/chat/tools/wiki', _wiki);
     router.post('/api/chat/tools/toggle', _toggle);
+    router.post('/api/chat/tools/member-recovery', _memberRecovery);
     router.post('/api/chat/tools/time', _time);
     router.get('/api/chat/tools/calendar', _calendar);
     router.get('/api/chat/tools/timeline', _timeline);
@@ -136,12 +137,30 @@ class WebChatToolsRoutes {
         await _facade.setRealismEnabled(value);
       case 'needs':
         await _facade.setNeedsEnabled(value);
+      case 'pockets':
+        await _facade.setPocketsEnabled(value);
+      // A group member's own Pockets switch in this chat: also needs the
+      // member's id (the memberAfterglow shape).
+      case 'memberPockets':
+        final id = body['id'];
+        if (id is! String || !await _facade.setMemberPockets(id, value)) {
+          return JsonResponse.badRequest('a group member id is required');
+        }
       case 'oneShotEval':
         await _facade.setOneShotEval(value);
       case 'chaos':
         await _facade.setChaosEnabled(value);
       case 'chaosNsfw':
         await _facade.setChaosNsfw(value);
+      // The name it had before October, so an older phone's switch works.
+      case 'nsfwCooldown':
+        await _facade.setAfterglow(value);
+      // A group member's own Afterglow switch: also needs the member's id.
+      case 'memberAfterglow':
+        final id = body['id'];
+        if (id is! String || !await _facade.setMemberAfterglow(id, value)) {
+          return JsonResponse.badRequest('a group member id is required');
+        }
       case 'passageOfTime':
         await _facade.setPassageOfTime(value);
       case 'summaryPaused':
@@ -230,12 +249,16 @@ class WebChatToolsRoutes {
   }
 
   /// Living Time §4: create the pre-configured "this chat as a story" project.
+  /// In a group, optional `lead`: a member id or `persona`; absent means the
+  /// first member (docs/design/stories-from-group-chats.md §1).
   Future<shelf.Response> _toStory(shelf.Request request) async {
     final body = await _json(request);
+    final lead = body['lead']?.toString().trim() ?? '';
     final result = await _facade.toStory(
       faithful: body['faithful'] as bool? ?? true,
       length: body['length'] as String? ?? 'Novella',
       pov: body['pov'] as String? ?? 'Third Person Limited',
+      lead: lead.isEmpty ? null : lead,
     );
     return result.containsKey('error')
         ? JsonResponse.badRequest(result['error'] as String)
@@ -448,6 +471,19 @@ class WebChatToolsRoutes {
             : null,
       ),
     );
+  }
+
+  /// A group member's Recovery block: {id, recovery}.
+  Future<shelf.Response> _memberRecovery(shelf.Request request) async {
+    final body = await _json(request);
+    final id = body['id'];
+    if (id is! String ||
+        !await _facade.setMemberRecovery(id, body['recovery'])) {
+      return JsonResponse.badRequest(
+        'a group member id and a recovery are required',
+      );
+    }
+    return JsonResponse.ok(_snapshot(request));
   }
 
   Future<Map<String, dynamic>> _json(shelf.Request request) async {

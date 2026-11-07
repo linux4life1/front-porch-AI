@@ -83,113 +83,63 @@ void main() {
     });
   });
 
-  group('longTermBondFromSeeds', () {
-    test('takes the engine seed when the baseline blob cannot answer', () {
-      // Exactly the shape getBaselineSeedForGroupCharacter returns: six keys,
-      // none of them longTermScore.
-      const baseline = {
-        'affection': 50,
-        'trust': 40,
-        'emotion': 'neutral',
-        'emotionIntensity': 'moderate',
-        'timeOfDay': 'morning',
-        'dayCount': 1,
-      };
-
-      expect(
-        longTermBondFromSeeds(
-          baselineSeed: baseline,
-          perCharSeed: const {'affection': 50, 'longTermScore': 250},
-        ),
-        250,
-        reason:
-            'reloading 50 here is the data-loss bug: the next slider drag '
-            'writes the displayed value back over the stored 250',
-      );
+  // The new-group wizard and Edit group used to save Long-Term Bond into
+  // trust. These are what their sliders now show and write.
+  group('bondSlidersFromMemberSeed', () {
+    test('Long-Term Bond reads longTermScore and Trust Level reads trust', () {
+      final b = bondSlidersFromMemberSeed({
+        'affection': 70,
+        'longTermScore': 250,
+        'trust': 60,
+      });
+      expect((b.shortTerm, b.longTerm, b.trust), (70, 250, 60));
     });
 
-    test(
-      'recovers a value a previous build stored under the card-ext name',
-      () {
-        expect(
-          longTermBondFromSeeds(
-            perCharSeed: const {'affection': 50, 'longTermBond': 180},
-          ),
-          180,
-        );
-      },
-    );
-
-    test('prefers the baseline blob when it does carry the key', () {
-      expect(
-        longTermBondFromSeeds(
-          baselineSeed: const {'longTermScore': 120},
-          perCharSeed: const {'longTermScore': 90, 'longTermBond': 70},
-        ),
-        120,
-      );
+    test('an unset Long-Term Bond follows Short-Term Bond, as the engine '
+        'does', () {
+      final b = bondSlidersFromMemberSeed({'affection': -200, 'trust': 40});
+      expect((b.longTerm, b.trust), (-200, 40));
     });
 
-    test('null when nothing was ever authored (caller falls back to bond)', () {
-      expect(
-        longTermBondFromSeeds(
-          baselineSeed: const {'affection': 35, 'trust': 40},
-          perCharSeed: const {'affection': 35, 'trust': 40},
-        ),
-        isNull,
-      );
-      expect(longTermBondFromSeeds(), isNull);
+    test('only a trust past ±100 with no longTermScore reads as the '
+        'mix-up', () {
+      expect(bondSlidersFromMemberSeed({'trust': 100}).trust, 100);
+      expect(bondSlidersFromMemberSeed({'trust': 101}).longTerm, 101);
+      final both = bondSlidersFromMemberSeed({
+        'longTermScore': 20,
+        'trust': 250,
+      });
+      expect((both.longTerm, both.trust), (20, 100));
     });
 
-    test('a non-numeric value reads as absent rather than throwing', () {
-      expect(
-        longTermBondFromSeeds(perCharSeed: const {'longTermScore': 'oops'}),
-        isNull,
-      );
+    test('a seed the old editors left with Long-Term Bond in trust shows it '
+        'as Long-Term Bond and the neutral trust', () {
+      final b = bondSlidersFromMemberSeed({'affection': 35, 'trust': 250});
+      expect((b.longTerm, b.trust), (250, 50));
     });
   });
 
-  group('bondBaselineFromSeeds', () {
-    test('the three sliders load from the three engine keys', () {
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: const {'affection': 200, 'trust': -60},
-        perCharSeed: const {'longTermScore': 250},
-      );
-      expect(bond.shortTerm, 200);
-      expect(bond.longTerm, 250);
-      expect(bond.trust, -60);
+  group('bondSliderEdit', () {
+    test('each slider writes its own key and nothing else', () {
+      final seed = {'affection': 35, 'trust': 40};
+      expect(bondSliderEdit(seed, shortTerm: 90), {'affection': 90});
+      expect(bondSliderEdit(seed, longTerm: 250), {'longTermScore': 250});
+      expect(bondSliderEdit(seed, trust: -50), {'trust': -50});
     });
 
-    test('long-term falls back to bond when nothing was authored', () {
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: const {'affection': 35, 'trust': 40},
-      );
-      expect(bond.longTerm, 35);
-      expect(bond.trust, 40);
-    });
-
-    test(
-      'a bond number stranded in trust is moved back, not shown as trust',
-      () {
-        // A group edited by the pre-fix editor, which saved Long-Term Bond INTO
-        // 'trust'. Unrepaired, 300 reaches a Slider declared min -100 / max 100
-        // and takes the whole dialog down.
-        final bond = bondBaselineFromSeeds(
-          baselineSeed: const {'affection': 120, 'trust': 300},
-        );
-        expect(bond.longTerm, 300);
-        expect(bond.trust, 50, reason: 'no real trust value exists to recover');
-      },
-    );
-
-    test('everything is clamped to its slider range', () {
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: const {'affection': 9999, 'trust': -90},
-        perCharSeed: const {'longTermScore': -9999},
-      );
-      expect(bond.shortTerm, 300);
-      expect(bond.longTerm, -300);
-      expect(bond.trust, -90);
+    test('on a seed with Long-Term Bond in trust, a move writes all three as '
+        'shown', () {
+      final seed = {'affection': 35, 'trust': 250};
+      expect(bondSliderEdit(seed, trust: -50), {
+        'affection': 35,
+        'longTermScore': 250,
+        'trust': -50,
+      });
+      expect(bondSliderEdit(seed, longTerm: 100), {
+        'affection': 35,
+        'longTermScore': 100,
+        'trust': 50,
+      });
     });
   });
 }

@@ -62,6 +62,7 @@ export function WorldCard({
   onEdit,
   onExport,
   onDelete,
+  onWriteStory,
   hasWeatherToInherit = true,
   onNewInside,
   selected,
@@ -73,6 +74,8 @@ export function WorldCard({
   onEdit: () => void;
   onExport: () => void;
   onDelete: () => void;
+  /** Porch Stories: open New Story set in this world (docs/design/stories-in-worlds.md §3.4). */
+  onWriteStory?: () => void;
   hasWeatherToInherit?: boolean;
   onNewInside?: () => void;
   selected?: boolean;
@@ -159,6 +162,12 @@ export function WorldCard({
           <button className="icon-btn" title="Edit" onClick={onEdit}>
             ✎
           </button>
+          {onWriteStory && (
+            <button className="icon-btn" title="Write a story here" aria-label={`Write a story in ${world.name}`}
+              data-testid={`world-write-story-${world.id ?? world.name}`} onClick={onWriteStory}>
+              📖
+            </button>
+          )}
           {/* Export writes the whole world with every place inside it. */}
           <button className="icon-btn" title="Export .fpworld" onClick={onExport}>
             ⬇

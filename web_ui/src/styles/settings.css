@@ -88,6 +88,8 @@
   margin-left: auto; font-size: 0.7rem; padding: 1px 6px; border-radius: 4px;
   background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
 }
+/* Two badges on one row: only the first is pushed right. */
+.persona-current + .persona-current { margin-left: 6px; }
 
 /* Folder-aware picker (FolderCharacterPicker): folder tiles + breadcrumb. */
 .grp-card.picker-folder .grp-initial { background: transparent; font-size: 2rem; }

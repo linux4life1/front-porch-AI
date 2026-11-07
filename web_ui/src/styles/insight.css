@@ -65,6 +65,8 @@
 }
 .btn-revert { background: color-mix(in srgb, var(--wash) 6%, transparent); color: var(--muted); border-color: var(--border); }
 .btn-reprocess:hover, .btn-revert:hover { filter: brightness(1.15); }
+/* Touch: the same pills sized as a chip at the end of the top chip row. */
+.chip.chip-action { font-size: 0.68rem; padding: 2px 8px; line-height: inherit; font-family: inherit; }
 /* Centered modal variant of the drawer backdrop (Reprocess critique dialog). */
 .drawer-backdrop.center { align-items: center; justify-content: center; }
 .modal {
@@ -280,3 +282,68 @@
 .bubble.user { align-self: flex-end; background: color-mix(in srgb, var(--chat-user-bubble) calc(var(--chat-bubble-alpha, 1) * 100%), transparent); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
 .bubble.ai { align-self: flex-start; background: color-mix(in srgb, var(--chat-ai-bubble) calc(var(--chat-bubble-alpha, 1) * 100%), transparent); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
 .bubble.streaming { opacity: 0.85; }
+
+/* ── Mood on the character (theme/moodAtmosphere.ts) ─────────────────────
+   The portrait's ring, halo and need rim, and a needs bar in trouble. Every
+   colour is a custom property the chat state set (the desktop's own hues);
+   nothing here names one. Nothing paints on the stage: the weather owns it. */
+@property --mood-angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.mood-portrait { position: relative; align-self: center; }
+.mood-portrait.on::before,
+.mood-portrait.on::after { content: ''; position: absolute; border-radius: calc(var(--radius) + 6px); pointer-events: none; }
+/* The bond halo behind everything: warm or chilled, wider the stronger the bond. */
+.mood-portrait.on::before {
+  inset: calc(-6px - 20px * var(--mood-halo-share, 0));
+  z-index: 0;
+  box-shadow: 0 0 calc(10px + 24px * var(--mood-halo-share, 0)) calc(2px + 10px * var(--mood-halo-share, 0))
+    color-mix(in srgb, var(--mood-halo) calc(25% + 45% * var(--mood-halo-share, 0)), transparent);
+}
+/* The ring: a rotating sweep in the tone, its weight from trust, a glow by strength. */
+.mood-portrait.on::after {
+  inset: calc(-2px - var(--mood-ring-w, 3px));
+  z-index: 0;
+  padding: var(--mood-ring-w, 3px);
+  background: conic-gradient(from var(--mood-angle), var(--mood-hue), color-mix(in srgb, var(--mood-hue) 35%, white) 25%, var(--mood-hue) 50%, color-mix(in srgb, var(--mood-hue) 25%, transparent) 75%, var(--mood-hue));
+  /* theme-keep: an alpha mask cut into the ring, never a colour on screen */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  /* theme-keep: alpha mask */
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: calc(0.3 + var(--mood-a, 0) * 1.2);
+  box-shadow: 0 0 calc(10px + 36px * var(--mood-a, 0)) calc(2px + 8px * var(--mood-a, 0)) color-mix(in srgb, var(--mood-hue) calc(var(--mood-a, 0) * 90%), transparent);
+  animation: mood-turn 3s linear infinite;
+}
+.mood-portrait > * { position: relative; z-index: 1; }
+/* A need in trouble: a rim in its hue, breathing. */
+.mood-portrait.on.need > *:first-child { outline: 2px solid var(--mood-need); outline-offset: 9px; animation: mood-breathe 4s ease-in-out infinite; border-radius: var(--radius); }
+/* Each tone moves its own way. */
+.mood-portrait.tone-sour::after { animation: mood-turn 3s linear infinite, mood-heat 0.9s ease-in-out infinite; }
+.mood-portrait.tone-low::after { animation: mood-turn 3s linear infinite, mood-slow 5s ease-in-out infinite; }
+.mood-portrait.tone-anxious::after { animation: mood-turn 3s linear infinite, mood-jitter 0.22s linear infinite; }
+.mood-portrait.tone-lifted::after { animation: mood-turn 3s linear infinite, mood-bounce 1.6s ease-in-out infinite; }
+.mood-portrait.tone-warm::after { animation: mood-turn 3s linear infinite, mood-heartbeat 1.4s ease-in-out infinite; }
+.mood-portrait.tone-charged::after { animation: mood-turn 3s linear infinite, mood-crackle 0.5s steps(3) infinite; }
+@keyframes mood-turn { to { --mood-angle: 360deg; } }
+@keyframes mood-heat { 0%, 100% { transform: scale(1); filter: brightness(1); } 50% { transform: scale(1.03); filter: brightness(1.25); } }
+@keyframes mood-slow { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(0.7); transform: scale(0.985); } }
+@keyframes mood-jitter { 0% { transform: translate(0, 0); } 25% { transform: translate(1.5px, -1px); } 50% { transform: translate(-1px, 1.5px); } 75% { transform: translate(1px, 1px); } 100% { transform: translate(0, 0); } }
+@keyframes mood-bounce { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.06) rotate(2deg); } }
+@keyframes mood-heartbeat { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.06); } 28% { transform: scale(1); } 42% { transform: scale(1.05); } 60% { transform: scale(1); } }
+@keyframes mood-crackle { 0% { filter: brightness(1); } 33% { filter: brightness(1.5); } 66% { filter: brightness(0.9); } 100% { filter: brightness(1.2); } }
+@keyframes mood-breathe { 0%, 100% { outline-color: var(--mood-need); } 50% { outline-color: color-mix(in srgb, var(--mood-need) 45%, transparent); } }
+/* A needs bar in trouble throbs in its own hue; critical hammers twice as fast. */
+.stat.need-low { padding: 3px 6px; margin: 0 -6px; border-radius: 6px; background: color-mix(in srgb, var(--need-hue) 14%, transparent); animation: need-row-throb 1.2s ease-in-out infinite; }
+.stat.need-low .stat-track { overflow: visible; position: relative; }
+.stat.need-low .stat-fill { box-shadow: 0 0 12px 2px var(--need-hue); animation: need-throb 1.2s ease-in-out infinite; }
+.stat.need-critical, .stat.need-critical .stat-fill { animation-duration: 0.5s; }
+.need-badge { position: absolute; right: -4px; top: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--need-hue); color: var(--bg); font-size: 11px; font-weight: 900; line-height: 16px; text-align: center; }
+@keyframes need-throb { 0%, 100% { filter: brightness(1); box-shadow: 0 0 10px 1px var(--need-hue); } 50% { filter: brightness(1.7); box-shadow: 0 0 22px 5px var(--need-hue); } }
+@keyframes need-row-throb { 0%, 100% { background: color-mix(in srgb, var(--need-hue) 10%, transparent); } 50% { background: color-mix(in srgb, var(--need-hue) 32%, transparent); } }
+/* Appearance: the weather and the mood each in their own subgroup. */
+.settings-subgroup { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.subgroup-head { margin: 0; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
+.info-tip { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border); font-size: 11px; color: var(--muted); cursor: help; }
+@media (prefers-reduced-motion: reduce) {
+  .mood-portrait.on::after, .mood-portrait.on.need > *:first-child, .stat.need-low, .stat.need-low .stat-fill { animation: none !important; }
+}

@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
+import 'package:front_porch_ai/utils/group_member_card_seed.dart';
 
 /// Canonical (de)serialization for a group's per-member realism/needs/dynamics
 /// seeds ↔ the two GroupChat blobs (`defaultMemberRealismState`,
@@ -25,8 +26,9 @@ import 'package:front_porch_ai/utils/character_id.dart';
 ///   where the full seed carries `affection`/`trust`/`emotion`/`emotionIntensity`,
 ///   the `needs` map, the `relationships` map (intragroup feelings, targetId→int),
 ///   and the per-need baseline / Pace / on-off fields.
-/// - `baselineRealismState` = `{ memberId: {affection, trust, emotion,
-///   emotionIntensity, timeOfDay, dayCount} }` — scalars only (no needs/relationships).
+/// - `baselineRealismState` = `{ memberId: {affection, longTermScore (when
+///   set), trust, emotion, emotionIntensity, timeOfDay, dayCount} }` — scalars
+///   only (no needs/relationships).
 class GroupRealismBlobs {
   /// JSON for `GroupChat.defaultMemberRealismState`.
   final String defaultMemberJson;
@@ -59,6 +61,8 @@ GroupRealismBlobs buildGroupRealismBlobs({
   String? storyStartTime,
   List<String> alternateGreetings = const [],
   List<GreetingRealismSeed?> greetingSeeds = const [],
+  bool afterglowEnabled = true,
+  bool pocketsEnabled = true,
 }) {
   final defaultMember = <String, dynamic>{
     'perChar': <String, dynamic>{},
@@ -67,6 +71,11 @@ GroupRealismBlobs buildGroupRealismBlobs({
     'storyStartDate': ?storyStartDate,
     'storyStartTime': ?storyStartTime,
     ..._groupOpeningAltsFragment(alternateGreetings, greetingSeeds),
+    // Missing reads on, so a group left on writes nothing new.
+    if (!afterglowEnabled) kGroupAfterglowKey: false,
+    // Same missing-reads-on shape for Pockets' new-chat default
+    // (docs/design/pockets-wardrobe-chat-toggle.md).
+    if (!pocketsEnabled) kGroupPocketsKey: false,
   };
   final baseline = <String, dynamic>{};
 
@@ -76,8 +85,11 @@ GroupRealismBlobs buildGroupRealismBlobs({
       seed = Map<String, dynamic>.from(seed)..remove('needs');
     }
     (defaultMember['perChar'] as Map)[id] = seed;
+    final longTerm = (seed['longTermScore'] as num?)?.toInt();
     baseline[id] = {
       'affection': (seed['affection'] as num?)?.toInt() ?? 35,
+      // Unset, Long-Term Bond follows affection on a member's first entry.
+      'longTermScore': ?longTerm,
       'trust': (seed['trust'] as num?)?.toInt() ?? 40,
       'emotion': (seed['emotion'] as String?) ?? 'neutral',
       'emotionIntensity': (seed['emotionIntensity'] as String?) ?? 'mild',
@@ -92,9 +104,10 @@ GroupRealismBlobs buildGroupRealismBlobs({
   );
 }
 
-/// The neutral-but-alive starting seed for a group member's realism/needs. Shared
-/// by the group creator (initial per-member seed) and the post-creation group
-/// editor so both produce an identical default — one contract, no divergence.
+/// The neutral-but-alive starting seed for a group member's realism/needs:
+/// what a new group gives a member whose card says nothing (see
+/// groupMemberSeedFromCard), and what the post-creation group editor gives
+/// a member with no seed.
 /// The `relationships` map is filled in the Group Dynamics step for small groups.
 Map<String, dynamic> defaultGroupMemberRealismSeed() => {
   'affection': 35,
@@ -238,6 +251,30 @@ parseGroupTimeSeed(String defaultMemberJson, String baselineJson) {
   );
 }
 
+/// A group chat's Afterglow switch, kept as a top-level key of a group
+/// realism blob: a chat's own value in its session blob, and the group's
+/// choice for new chats in its definition (`defaultMemberRealismState`),
+/// which a new chat reads until it saves its own. Missing reads on, so groups
+/// and chats from before the switch keep Afterglow wherever Porch Life
+/// allows it.
+const kGroupAfterglowKey = 'afterglow';
+
+/// The Afterglow switch held in [blobJson] (see [kGroupAfterglowKey]).
+bool groupAfterglowIn(String? blobJson) =>
+    _decodeGroupBlob(blobJson ?? '')[kGroupAfterglowKey] != false;
+
+/// [definitionJson] with the group's Afterglow for new chats set to [on]. A
+/// definition with no member Realism seeds stays as it is: its new chats
+/// start without Realism, so Afterglow has nothing to switch, and the rest
+/// of the app reads such a blob as "no Realism seeds".
+String withGroupAfterglow(String definitionJson, bool on) {
+  if (parseGroupRealismSeeds(definitionJson).isEmpty) return definitionJson;
+  return jsonEncode({
+    ..._decodeGroupBlob(definitionJson),
+    kGroupAfterglowKey: on,
+  });
+}
+
 Map<String, dynamic> _decodeGroupBlob(String json) {
   if (json.isEmpty || json == '{}') return <String, dynamic>{};
   try {
@@ -248,6 +285,29 @@ Map<String, dynamic> _decodeGroupBlob(String json) {
   } catch (_) {
     return <String, dynamic>{};
   }
+}
+
+/// The group's Pockets & Wardrobe default for its NEW chats
+/// (docs/design/pockets-wardrobe-chat-toggle.md). At entry it is AND-ed with
+/// each member's card default to seed that member's per-chat switch: group
+/// ON + Ben OFF ⇒ Ben starts off, everyone else on. Missing reads on, like
+/// the card flag and Afterglow's group switch. Unlike
+/// [withGroupAfterglow] this writes even onto a seedless blob: Pockets needs
+/// no Realism, so a Realism-less group's default is real and storable.
+const kGroupPocketsKey = 'pockets_enabled';
+
+bool groupPocketsIn(String? blobJson) =>
+    _decodeGroupBlob(blobJson ?? '')[kGroupPocketsKey] != false;
+
+/// [definitionJson] with the group's Pockets default for new chats set to
+/// [on].
+String withGroupPockets(String definitionJson, bool on) {
+  final decoded = _decodeGroupBlob(definitionJson);
+  if (!on) {
+    return jsonEncode({...decoded, kGroupPocketsKey: false});
+  }
+  decoded.remove(kGroupPocketsKey);
+  return decoded.isEmpty ? '{}' : jsonEncode(decoded);
 }
 
 Map<String, dynamic> _groupOpeningAltsFragment(
@@ -344,4 +404,82 @@ String withGroupOpeningAlts(
   map.remove('greetingSeeds');
   map.addAll(_groupOpeningAltsFragment(alternateGreetings, greetingSeeds));
   return jsonEncode(map);
+}
+
+/// Whether a group's settings for new chats have Realism and Needs on, read
+/// the way the desktop realism editor reads them: realism is on when any
+/// member has a seed, Needs when a seed carries a needs map.
+({bool realismOn, bool needsOn}) groupTemplateRealismOf(
+  String defaultMemberJson,
+) {
+  final seeds = parseGroupRealismSeeds(defaultMemberJson);
+  return (
+    realismOn: seeds.isNotEmpty,
+    needsOn:
+        seeds.isEmpty ||
+        seeds.values.any(
+          (s) => s['needs'] is Map && (s['needs'] as Map).isNotEmpty,
+        ),
+  );
+}
+
+/// The blobs a group stores once Realism and Needs for new chats are
+/// switched to [realismOn] / [needsOn], as the desktop realism editor writes
+/// them. Off keeps only the alternate greetings. On keeps every stored seed
+/// and scene time, and gives each of [memberIds] that has none the seed
+/// their card starts them at (groupMemberStartingSeed, from [memberCards]:
+/// member id → their row's extensions), as a new group does. When Needs
+/// comes on, a seed without needs gets that card's starting bars.
+GroupRealismBlobs switchGroupTemplateRealism({
+  required String defaultMemberJson,
+  required String baselineJson,
+  required Iterable<String> memberIds,
+  Map<String, FrontPorchExtensions?> memberCards = const {},
+  required bool realismOn,
+  required bool needsOn,
+}) {
+  final alts = parseGroupAlternateGreetings(defaultMemberJson);
+  final altSeeds = parseGroupGreetingSeeds(defaultMemberJson);
+  if (!realismOn) {
+    return GroupRealismBlobs(
+      defaultMemberJson: withGroupOpeningAlts(
+        '{}',
+        alternateGreetings: alts,
+        greetingSeeds: altSeeds,
+      ),
+      baselineJson: '{}',
+    );
+  }
+  final seeds = <String, Map<String, dynamic>>{
+    for (final e in parseGroupRealismSeeds(defaultMemberJson).entries)
+      e.key: Map<String, dynamic>.from(e.value),
+  };
+  // A member whose card the caller did not pass gets the neutral seed.
+  Map<String, dynamic> first(String id) => memberCards.containsKey(id)
+      ? groupMemberStartingSeed(memberCards[id])
+      : defaultGroupMemberRealismSeed();
+  for (final id in memberIds) {
+    seeds.putIfAbsent(id, () => first(id));
+  }
+  if (needsOn) {
+    for (final e in seeds.entries) {
+      final s = e.value;
+      if (s['needs'] is! Map || (s['needs'] as Map).isEmpty) {
+        s['needs'] = first(e.key)['needs'];
+      }
+    }
+  }
+  final time = parseGroupTimeSeed(defaultMemberJson, baselineJson);
+  return buildGroupRealismBlobs(
+    afterglowEnabled: groupAfterglowIn(defaultMemberJson),
+    pocketsEnabled: groupPocketsIn(defaultMemberJson),
+    seeds: seeds,
+    needsEnabled: needsOn,
+    timeOfDay: time?.timeOfDay ?? 'morning',
+    dayCount: time?.dayCount ?? 1,
+    storyStartDate: time?.storyStartDate,
+    storyStartTime: time?.storyStartTime,
+    alternateGreetings: alts,
+    greetingSeeds: altSeeds,
+  );
 }

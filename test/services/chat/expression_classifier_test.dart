@@ -393,4 +393,206 @@ void main() {
       },
     );
   });
+
+  // A group member's face follows their own mood, not the live scalar the
+  // owner swaps per speaker, and reading it never moves the live label.
+  group("labelForEmotion (a group member's own mood)", () {
+    test('maps the word as the live label does, manual override first', () {
+      final svc = createTestExpression(characterEmotion: 'happy');
+      expect(svc.labelForEmotion('sad'), 'sadness');
+      expect(svc.labelForEmotion('Joy'), 'joy');
+      expect(svc.labelForEmotion(''), 'neutral');
+      svc.setManualExpression('fear');
+      expect(svc.labelForEmotion('sad'), 'fear');
+    });
+
+    test('an unmapped word is re-classified for the member and leaves the '
+        "live label's cache alone", () async {
+      final notifies = <String>[];
+      final svc = createTestExpression(
+        characterEmotion: 'happy',
+        notifies: notifies,
+      );
+      expect(svc.currentExpressionLabel, 'joy');
+
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(notifies, isNotEmpty, reason: 'the re-classify answered');
+      expect(
+        svc.currentExpressionLabel,
+        'joy',
+        reason: "the member's answer does not land on the live label",
+      );
+    });
+
+    test('resolveExpressionAvatarFor wears the label it is given', () {
+      final svc = createTestExpression(characterEmotion: 'happy');
+      final card = CharacterCard(
+        name: 'm',
+        personality: '',
+        scenario: '',
+        avatarImages: [
+          for (final (i, label) in ['neutral', 'joy', 'sadness'].indexed)
+            AvatarImage(
+              id: label,
+              label: label,
+              displayOrder: i,
+              characterId: 'm',
+              filename: '$label.png',
+              createdAt: DateTime.utc(2026),
+            ),
+        ],
+      );
+      expect(svc.resolveExpressionAvatar(card)?.id, 'joy');
+      expect(
+        svc.resolveExpressionAvatarFor(card, labelOf: () => 'sadness')?.id,
+        'sadness',
+      );
+    });
+
+    // A label read can ask the LLM, so nothing reads one for a character
+    // with no face to wear it.
+    test('a character with no expression images never reads its label, so '
+        'nothing asks the LLM', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(reclassPrompts: prompts);
+      final bare = CharacterCard(name: 'b', personality: '', scenario: '');
+      expect(
+        svc.resolveExpressionAvatarFor(
+          bare,
+          labelOf: () => svc.labelForEmotion('wibbly'),
+        ),
+        isNull,
+      );
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty);
+
+      final faced = CharacterCard(
+        name: 'f',
+        personality: '',
+        scenario: '',
+        avatarImages: [
+          AvatarImage(
+            id: 'n',
+            label: 'neutral',
+            displayOrder: 0,
+            characterId: 'f',
+            filename: 'n.png',
+            createdAt: DateTime.utc(2026),
+          ),
+        ],
+      );
+      svc.resolveExpressionAvatarFor(
+        faced,
+        labelOf: () => svc.labelForEmotion('wibbly'),
+      );
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'with a face, the read asks');
+    });
+
+    test('in ONNX mode a member word maps or reads neutral, with no LLM '
+        'call, as 1:1 ONNX does', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(
+        storageMode: 'onnx',
+        reclassPrompts: prompts,
+      );
+      expect(svc.labelForEmotion('sad'), 'sadness');
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty);
+    });
+
+    test('a skipped re-classify is asked again on a later read, and a word '
+        'is asked once while in flight', () async {
+      final prompts = <String>[];
+      final svc = createTestExpression(
+        isEvaluatingRealism: true,
+        reclassPrompts: prompts,
+      );
+      expect(svc.labelForEmotion('wibbly'), 'neutral');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, isEmpty, reason: 'skipped while Realism evaluates');
+
+      svc.setIsEvaluatingRealism(false);
+      svc.labelForEmotion('wibbly');
+      svc.labelForEmotion('wibbly');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'asked again, once');
+      svc.labelForEmotion('wibbly');
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(prompts, hasLength(1), reason: 'an answered word is kept');
+    });
+
+    // A call that comes back with no usable label (a word outside the list,
+    // a 429, a timeout) is not retried on every rebuild: the sidebar and the
+    // phone read this per notify and per poll.
+    for (final (name, llm) in [
+      (
+        'a word outside the list',
+        _CountingLlm(reply: '{"label": "nostalgia"}'),
+      ),
+      ('an error', _CountingLlm(throws: true)),
+    ]) {
+      test('a model call that returns $name is made once, however often '
+          'the word is read', () async {
+        final svc = ExpressionService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsEvaluatingRealism: () => false,
+          getStorageService: () => _FakeStorageForExpression(mode: 'llm'),
+          getLlmServiceForReclass: () => llm,
+          getIsGenerating: () => false,
+          getCharacterEmotion: () => 'happy',
+          getMessages: () => const [],
+          getIsThinkingModelForReclass: () => false,
+          getRealismEvalCancelled: () => false,
+          setRealismEvalCancelled: (_) {},
+          setIsEvaluatingRealism: (_) {},
+          onHandleRealismEvalCancelledDuringOnnx: () async {},
+        );
+        for (var i = 0; i < 4; i++) {
+          svc.labelForEmotion('wibbly');
+          await Future.delayed(const Duration(milliseconds: 20));
+        }
+        expect(llm.calls, 1);
+      });
+    }
+
+    test(
+      'a fresh chat forgets a word in flight, so it can be asked there',
+      () async {
+        final prompts = <String>[];
+        final svc = createTestExpression(reclassPrompts: prompts);
+        svc.labelForEmotion('wibbly');
+        svc.resetForFreshChat();
+        svc.labelForEmotion('wibbly');
+        await Future.delayed(const Duration(milliseconds: 20));
+        expect(prompts, hasLength(2));
+      },
+    );
+  });
+}
+
+/// A side-lane model that counts its calls and answers with [reply], or
+/// fails like a rate-limited API when [throws].
+class _CountingLlm implements LLMService {
+  _CountingLlm({this.reply = '', this.throws = false});
+
+  final String reply;
+  final bool throws;
+  int calls = 0;
+
+  @override
+  bool get isReady => true;
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    calls++;
+    if (throws) throw Exception('429 Too Many Requests');
+    yield reply;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

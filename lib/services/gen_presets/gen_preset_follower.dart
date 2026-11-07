@@ -1,0 +1,237 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/services/gen_presets/chat_model_id.dart';
+import 'package:front_porch_ai/services/gen_presets/recommended_samplers.dart';
+import 'package:front_porch_ai/services/gen_presets/sampler_values.dart';
+import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
+import 'package:front_porch_ai/services/storage/settings/gen_preset_settings.dart';
+import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
+
+/// What a model switch did to the Generation values, for a toast with Undo.
+@immutable
+class GenPresetNotice {
+  const GenPresetNotice(this.id, this.message);
+  final int id;
+  final String message;
+
+  Map<String, Object> toJson() => {'id': id, 'message': message};
+}
+
+/// Watches which model chat replies come from. When it changes, the model's
+/// linked preset loads, or else its recommended values; either way the
+/// previous values can be put back with [undo].
+///
+/// Every switch path (Settings, the chat's Model Settings, a .kcpps that
+/// names its model, the web Models page and model chip) ends in the backend
+/// settings this reads, so following those settings covers them all.
+/// A chat's own Chat Settings values sit on top and are never touched.
+class GenPresetFollower {
+  GenPresetFollower({
+    required this.generation,
+    required this.backend,
+    required this.presets,
+    this.lookup = recommendedSamplersFor,
+    this.now = DateTime.now,
+    this.settle = settleDelay,
+    this.timer = Timer.new,
+  });
+
+  final GenerationSettings generation;
+  final BackendSettings backend;
+  final GenPresetSettings presets;
+  final Future<RecommendedSamplers> Function(ChatModelId) lookup;
+  final DateTime Function() now;
+
+  /// How long the chat model must stay put before it counts as a switch.
+  final Duration settle;
+  final Timer Function(Duration, void Function()) timer;
+
+  /// A model name typed into a field changes the model on every keystroke;
+  /// only the name the user stops on is a switch, so a prefix that happens
+  /// to match a linked model or a family never loads anything.
+  static const settleDelay = Duration(milliseconds: 800);
+
+  /// The preset that keeps a user's own tuning when the first switch would
+  /// overwrite it and nothing was ever saved.
+  static const keptPresetName = 'My settings';
+
+  /// Switches this close together are one move (changing host, then
+  /// model), so Undo goes back to before the first of them.
+  static const chainWindow = Duration(seconds: 5);
+
+  ChatModelId _model = ChatModelId.none;
+  ChatModelId _pending = ChatModelId.none;
+  Timer? _settleTimer;
+  int _seq = 0;
+  int _noticeSeq = 0;
+  bool _applying = false;
+  SamplerValues? _undoValues;
+  String? _undoSlot;
+  DateTime? _noticeAt;
+
+  /// The current chat model's recommended samplers.
+  final recommended = ValueNotifier<RecommendedSamplers>(
+    RecommendedSamplers.unknown,
+  );
+
+  /// The last switch's notice, until it is undone or replaced.
+  final notice = ValueNotifier<GenPresetNotice?>(null);
+
+  ChatModelId get model => _model;
+
+  /// Seeds the current model without applying anything: starting the app is
+  /// not a switch. Returns once its recommended values are known.
+  Future<void> start() async {
+    _model = ChatModelId.of(backend);
+    _pending = _model;
+    await _refreshRecommended(_model, ++_seq);
+  }
+
+  /// Call on every settings change; cheap when the model is the same.
+  void onSettingsChanged() {
+    if (_applying) return;
+    final next = ChatModelId.of(backend);
+    if (next == _pending) return;
+    _pending = next;
+    _settleTimer?.cancel();
+    _settleTimer = null;
+    if (next == _model) return; // typed back to where it started
+    _settleTimer = timer(settle, () {
+      _settleTimer = null;
+      if (_pending != next || next == _model) return;
+      _model = next;
+      unawaited(switched(next));
+    });
+  }
+
+  /// Applies [next]'s preset or recommended values. Public for tests.
+  @visibleForTesting
+  Future<void> switched(ChatModelId next) async {
+    final seq = ++_seq;
+    if (next.isEmpty) {
+      recommended.value = RecommendedSamplers.unknown;
+      return;
+    }
+    final rec = await _refreshRecommended(next, seq);
+    if (rec == null) return; // a newer switch took over
+    final before = SamplerValues.capture(generation, backend);
+    final beforeSlot = presets.slot;
+    final slotValues = beforeSlot == null ? null : presets.presets[beforeSlot];
+    final hadEdits = slotValues != null && !slotValues.matchedBy(before);
+    final linked = presets.linkedPreset(next.key);
+    String message;
+    var kept = false;
+    _applying = true;
+    try {
+      if (linked != null) {
+        await presets.presets[linked]!.applyTo(generation, backend);
+        await presets.setSlot(linked);
+        message = '${next.label} writes with “$linked”.';
+      } else if (!rec.isEmpty && !rec.values.matchedBy(before)) {
+        kept = await _keepFirstTuning(before);
+        await rec.values.applyTo(generation, backend);
+        await presets.setSlot(null);
+        message = 'Loaded ${next.label}\'s settings, ${rec.sourceWords}.';
+      } else {
+        return;
+      }
+    } finally {
+      _applying = false;
+    }
+    if (hadEdits) message += ' Your unsaved changes were set aside.';
+    if (kept) message += ' Your old values are saved as “$keptPresetName”.';
+    final at = now();
+    final last = _noticeAt;
+    final chained =
+        notice.value != null &&
+        last != null &&
+        at.difference(last) < chainWindow;
+    if (!chained) {
+      _undoValues = before;
+      _undoSlot = beforeSlot;
+    }
+    _noticeAt = at;
+    notice.value = GenPresetNotice(++_noticeSeq, message);
+  }
+
+  /// Puts back the values from before notice [id]'s switch. False when that
+  /// notice is no longer the latest.
+  Future<bool> undo(int id) async {
+    final values = _undoValues;
+    if (notice.value?.id != id || values == null) return false;
+    _applying = true;
+    try {
+      await values.applyTo(generation, backend);
+      await presets.setSlot(_undoSlot);
+    } finally {
+      _applying = false;
+    }
+    _undoValues = null;
+    notice.value = null;
+    return true;
+  }
+
+  /// Looks the current model up again, for a remote model whose provider
+  /// list arrived after the switch.
+  Future<void> refreshRecommended() async {
+    final model = _model;
+    RecommendedSamplers rec;
+    try {
+      rec = await lookup(model);
+    } catch (e) {
+      debugPrint('[GenPresets] recommended lookup failed: $e');
+      return;
+    }
+    if (model == _model) recommended.value = rec;
+  }
+
+  /// Saves values tuned before presets existed, once, so the first switch
+  /// that overwrites them leaves something to load back after the toast.
+  Future<bool> _keepFirstTuning(SamplerValues before) async {
+    if (presets.keptFirstTuning || presets.presets.isNotEmpty) return false;
+    if (SamplerValues.appDefaults.matchedBy(before)) return false;
+    await presets.savePreset(keptPresetName, before);
+    await presets.markKeptFirstTuning();
+    return true;
+  }
+
+  void dismissNotice(int id) {
+    if (notice.value?.id == id) notice.value = null;
+  }
+
+  Future<RecommendedSamplers?> _refreshRecommended(
+    ChatModelId model,
+    int seq,
+  ) async {
+    RecommendedSamplers rec;
+    try {
+      rec = await lookup(model);
+    } catch (e) {
+      debugPrint('[GenPresets] recommended lookup failed: $e');
+      rec = RecommendedSamplers.unknown;
+    }
+    if (seq != _seq) return null;
+    recommended.value = rec;
+    return rec;
+  }
+}

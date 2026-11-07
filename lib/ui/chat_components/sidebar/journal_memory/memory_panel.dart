@@ -42,10 +42,14 @@ class MemoryPanel extends StatefulWidget {
   /// receipt line can seek the transcript to the message it quoted.
   final ValueChanged<int>? onJumpToMessage;
 
+  /// The reorder grip when this leaf sits in the reorderable accordion body.
+  final Widget? dragHandle;
+
   const MemoryPanel({
     super.key,
     required this.chatService,
     this.onJumpToMessage,
+    this.dragHandle,
   });
 
   @override
@@ -119,6 +123,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
           icon: Icons.psychology,
           label: 'Memory (RAG)',
           accent: accent,
+          dragHandle: widget.dragHandle,
           trailing: SizedBox(
             height: 28,
             child: FittedBox(

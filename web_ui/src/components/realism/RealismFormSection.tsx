@@ -10,29 +10,20 @@
 
 import { Slider, ToggleRow, SelectRow } from './controls';
 import { ChipList } from './ChipList';
+import { RecoveryBlock } from './RecoveryBlock';
+import {
+  type GroupLines,
+  type MemberStart,
+  GroupLine,
+  RelationshipFields,
+  groupLineTexts,
+} from './memberGroup';
 import {
   type RealismValues,
-  RECOVERY_MAX_MINUTES,
-  RECOVERY_MIN_MINUTES,
-  RECOVERY_PRESETS,
   chipsToInventory,
   inventoryToChips,
-  INTENSITY_OPTIONS,
   TIME_OPTIONS,
-  longTermTier,
-  recoveryClockOffHint,
-  PCD_OPTIONS,
-  recoveryFromPreset,
-  recoveryPresetKey,
-  recoveryResolvesLine,
-  recoverySoftGateHint,
-  recoverySuggestionLine,
-  recoveryWithMinutes,
-  recoveryWithPcdMood,
-  shortTermTier,
-  suggestRecoveryPresetKey,
   titleCase,
-  trustTier,
 } from './realismTypes';
 import {
   DEFAULT_END_MIN,
@@ -54,20 +45,65 @@ export function RealismFormSection({
   showIntimate = false,
   afterglowOn = false,
   showChargenSuggestion = false,
+  member,
+  group,
+  start,
+  setStart,
+  hiddenNote,
+  noStartNote,
 }: {
   v: RealismValues;
   set: Patch;
   /// The install's 18+ master switch, mirroring desktop: the intimate pair is
   /// absent (not disabled) unless the user opted into 18+ themes.
   showIntimate?: boolean;
-  /// Porch Life Afterglow, live (useAdultFlags). Shows the Recovery block.
+  /// Porch Life Afterglow, live (useAdultFlags). Shows the card's Afterglow
+  /// switch, and the Recovery block while that switch is on.
   afterglowOn?: boolean;
   /// The create wizard only: suggests a recovery preset from the authored
   /// intimacy notes, confirmed by the author, never applied silently.
   showChargenSuggestion?: boolean;
+  /// A group member's editor: the member's name. Their own settings are
+  /// switches; the group's (Realism, time and day, Chaos, Afterglow) show as
+  /// read-only lines from [group].
+  member?: string;
+  /// The member's group, read-only (absent from an older app).
+  group?: GroupLines | null;
+  /// Where the member starts in new chats of the group: the group's seed for
+  /// them. Absent when the group's new chats start without Realism.
+  start?: MemberStart | null;
+  setStart?: (start: MemberStart) => void;
+  /// Why the member's Realism, Needs and Afterglow are hidden (a lite member,
+  /// or Realism not allowed in Porch Life); their settings are kept.
+  hiddenNote?: string;
+  /** Said in the start's place when the group's new chats start without
+   *  Realism, and where that is set. */
+  noStartNote?: string;
 }) {
+  const engineOn = member !== undefined ? !hiddenNote : v.realismEnabled;
+  const lines = group ? groupLineTexts(group) : null;
   return (
     <div className="realism-section">
+      {member !== undefined && (
+        <p className="muted small" data-testid="member-own-settings-note">
+          These are {member}&apos;s own settings in this group. A read-only line is the
+          group&apos;s own, set for everyone in it.
+        </p>
+      )}
+      {member !== undefined && lines && (
+        <>
+          <GroupLine line={lines.realism} testId="group-line-realism" />
+          <GroupLine line={lines.time} testId="group-line-time" />
+          {hiddenNote && <GroupLine line={lines.chaos} testId="group-line-chaos" />}
+        </>
+      )}
+      {member !== undefined && hiddenNote && (
+        <p className="card muted small" data-testid="member-hidden-note">
+          {hiddenNote}
+        </p>
+      )}
+      {member === undefined && (
+      <>
       <ToggleRow
         label="Enable Realism Engine"
         hint={
@@ -114,65 +150,65 @@ export function RealismFormSection({
             value={v.passageOfTimeEnabled}
             onChange={(b) => set({ passageOfTimeEnabled: b })}
           />
+      </>
+      )}
 
-          {v.realismEnabled && (
+          {engineOn && (
           <>
-          {/* ── Relationship ── */}
-          <h4 className="realism-head">Relationship</h4>
-          <div className="card realism-card">
-            <Slider
-              label="Short-term bond"
-              min={-300}
-              max={300}
-              value={v.shortTermBond}
-              badge={`${shortTermTier(v.shortTermBond)} (${v.shortTermBond})`}
-              onChange={(n) => set({ shortTermBond: n })}
+          {/* ── Relationship + Starting emotion: the card's own in a 1:1
+              editor; in a member's, the group's seed for them. ── */}
+          {member === undefined && <RelationshipFields v={v} set={set} />}
+          {member !== undefined && start && setStart && (
+            <RelationshipFields
+              v={start}
+              set={(p) => setStart({ ...start, ...p })}
+              note={`Where ${member} starts in this group's new chats.`}
             />
-            <Slider
-              label="Long-term bond"
-              min={-300}
-              max={300}
-              value={v.longTermBond}
-              badge={`${longTermTier(v.longTermBond)} (${v.longTermBond})`}
-              onChange={(n) => set({ longTermBond: n })}
-            />
-            <Slider
-              label="Trust level"
-              min={-100}
-              max={100}
-              value={v.trustLevel}
-              badge={`${trustTier(v.trustLevel)} (${v.trustLevel})`}
-              onChange={(n) => set({ trustLevel: n })}
-            />
-          </div>
-
-          {/* ── Starting emotion ── */}
-          <h4 className="realism-head">Starting emotion</h4>
-          <div className="realism-grid-2">
-            <label className="realism-field">
-              <span>Emotion</span>
-              <input
-                value={v.characterEmotion}
-                placeholder="e.g. curious, guarded, amused"
-                onChange={(e) => set({ characterEmotion: e.target.value })}
-              />
-            </label>
-            <SelectRow
-              label="Intensity"
-              value={v.emotionIntensity}
-              options={INTENSITY_OPTIONS.map((i) => ({ value: i, label: titleCase(i) }))}
-              onChange={(s) => set({ emotionIntensity: s })}
-            />
-          </div>
+          )}
+          {member !== undefined && !start && noStartNote && (
+            <p className="muted small" data-testid="member-no-start-note">
+              {noStartNote}
+            </p>
+          )}
 
           {/* ── Optional features ── */}
           <h4 className="realism-head">Optional features</h4>
           <div className="card realism-card">
-            {/* Recovery block (recovery overhaul PR 2) — only when Porch Life
-                Afterglow is on (it counts only with 18+ on). No per-card
-                Afterglow switch: Porch Life is the one gate. */}
+            {member !== undefined && lines && (
+              <>
+                <GroupLine line={lines.chaos} testId="group-line-chaos" />
+                {showIntimate && afterglowOn && (
+                  <GroupLine line={lines.afterglow} testId="group-line-afterglow" />
+                )}
+              </>
+            )}
+            {/* The card's Afterglow switch: how new chats with this character
+                start. Absent, not greyed, unless Porch Life (with 18+) allows
+                Afterglow. Its Recovery block shows while the switch is on
+                (desktop RealismOptionalFeaturesCard). */}
             {showIntimate && afterglowOn && (
-              <RecoveryBlock v={v} set={set} showChargenSuggestion={showChargenSuggestion} />
+              <>
+                <ToggleRow
+                  label={member !== undefined ? `Afterglow for ${member}` : 'Afterglow'}
+                  hint={
+                    member !== undefined
+                      ? `Track ${member}'s Lust and recovery in this group. The group's Afterglow has to be on too.`
+                      : 'Lust and recovery in new chats with this character. Chats you already have keep their own switch.'
+                  }
+                  value={v.afterglowEnabled !== false}
+                  onChange={(b) => set({ afterglowEnabled: b })}
+                />
+                {v.afterglowEnabled !== false && (
+                  <RecoveryBlock
+                    recovery={v.recovery}
+                    sex={v.sex}
+                    intimateInto={v.intimateInto}
+                    intimateNotInto={v.intimateNotInto}
+                    onChange={(recovery) => set({ recovery })}
+                    showChargenSuggestion={showChargenSuggestion}
+                  />
+                )}
+              </>
             )}
             <ToggleRow
               label="Realism verification (Director/Verifier)"
@@ -264,7 +300,7 @@ export function RealismFormSection({
           <div className="card realism-card" data-testid="character-pockets-panel">
             <ToggleRow
               label="Pockets & Wardrobe"
-              hint="When off, this character skips inventory tracking even if Porch Life has Pockets on. Old cards stay on."
+              hint="The starting choice for new chats with this character, unless Porch Life has Pockets off. Each chat can then change its own switch, and the choice stays in that chat. Old cards stay on."
               value={v.pocketsEnabled}
               onChange={(b) => set({ pocketsEnabled: b })}
             />
@@ -446,90 +482,6 @@ function BirthdayFields({ v, set }: { v: RealismValues; set: Patch }) {
         <button className="link-btn" type="button" onClick={() => set({ birthday: '' })}>
           Clear
         </button>
-      )}
-    </div>
-  );
-}
-
-/** Slider position when the card fixes no length: the middle named value,
- *  so the slider reads as "where Custom would start", not as a 0 that
- *  contradicts the judge-decides label. (Mirror of RecoveryBlock
- *  .neutralSliderMinutes on desktop.) */
-const NEUTRAL_RECOVERY_MINUTES = 90;
-
-function RecoveryBlock({
-  v,
-  set,
-  showChargenSuggestion,
-}: {
-  v: RealismValues;
-  set: Patch;
-  showChargenSuggestion: boolean;
-}) {
-  const r = v.recovery ?? { recoveryMode: 'auto' as const, recoveryMinutes: null };
-  const presetKey = recoveryPresetKey(r);
-  // The soft gate has no length (decision 4) — its slider parked at a
-  // misleading 90 and dragging it flipped the card to a hard lock.
-  // Maintainer ruling 2026-10-18: hide it for 'none' (mirror of desktop
-  // RecoveryBlock); a plain-English line takes its place.
-  const softGate = presetKey === 'none';
-  const sliderValue = r.recoveryMinutes ?? NEUTRAL_RECOVERY_MINUTES;
-  const suggestion =
-    showChargenSuggestion && presetKey === 'auto'
-      ? recoverySuggestionLine(suggestRecoveryPresetKey(v.intimateInto ?? [], v.intimateNotInto ?? []))
-      : null;
-  return (
-    <div className="recovery-block" data-testid="recovery-block">
-      <span className="recovery-head">Recovery after intimacy</span>
-      <p className="muted small">How this character comes down after climax.</p>
-      <SelectRow
-        label="Recovery preset"
-        value={presetKey}
-        options={RECOVERY_PRESETS.map((p) => ({ value: p.key, label: p.label }))}
-        onChange={(key) =>
-          set({
-            recovery:
-              key === 'custom'
-                ? recoveryWithMinutes(r, sliderValue)
-                : recoveryFromPreset(key, r.pcdMood ?? 'off'),
-          })
-        }
-      />
-      {!softGate && (
-        <Slider
-          label="Recovery minutes"
-          min={RECOVERY_MIN_MINUTES}
-          max={RECOVERY_MAX_MINUTES}
-          value={sliderValue}
-          badge={`${sliderValue} min`}
-          onChange={(n) => set({ recovery: recoveryWithMinutes(r, n) })}
-        />
-      )}
-      <small className="muted" data-testid="recovery-clock-off-hint">
-        {softGate ? recoverySoftGateHint() : recoveryClockOffHint(r.recoveryMinutes)}
-      </small>
-      <small className="muted" data-testid="recovery-resolves-line">
-        {recoveryResolvesLine(r, v.sex ?? '')}
-      </small>
-      {/* PR 8: the grey-drift dial. Opt-in by law — Off ships and Off is
-          what every pre-PR-8 card reads (mirror of desktop RecoveryBlock). */}
-      <div data-testid="recovery-pcd-row">
-        <SelectRow
-          label="Grey drift after"
-          value={r.pcdMood ?? 'off'}
-          options={PCD_OPTIONS.map((o) => ({ value: o.key, label: o.label }))}
-          onChange={(mood) => set({ recovery: recoveryWithPcdMood(r, mood) })}
-        />
-        <small className="muted">
-          A hollow, misty mood some people feel minutes to an hour after
-          intimacy — real, brief, and not about their partner. How often it
-          visits after a climax.
-        </small>
-      </div>
-      {suggestion && (
-        <small className="recovery-suggestion" data-testid="recovery-suggestion">
-          {suggestion}
-        </small>
       )}
     </div>
   );

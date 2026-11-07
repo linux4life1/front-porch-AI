@@ -128,18 +128,20 @@ void main() {
     await settle();
   }
 
-  // 2026-10-24, found on a fresh install: a chat opened before Porch Life
-  // Afterglow was on stored "off", and only the per-chat NSFW Enhancements
-  // toggle (now removed) could flip it, so turning Afterglow on did nothing.
-  // Porch Life Afterglow, with 18+ on, is the one live gate.
-  test('a chat stored with Afterglow off obeys Porch Life turned on later; '
+  // Three layers: Porch Life (with 18+) allows Afterglow, and each chat's own
+  // switch decides. The 2026-10-24 report (a chat stored "off" that nothing
+  // could flip) is answered by that switch being back on the sidebar and the
+  // phone, and by new chats taking theirs from the card.
+  test("Porch Life allows Afterglow and the chat's own switch decides; "
       'Porch Life off or 18+ off turns it off', () async {
-    nsfw().seedFromV2OrExt(nsfwCooldownEnabled: false);
+    await chat.setAfterglowEnabled(false);
     expect(
       nsfw().nsfwCooldownEnabled,
-      isTrue,
-      reason: 'the stored per-chat "off" must not outvote Porch Life',
+      isFalse,
+      reason: 'the chat is switched off',
     );
+    await chat.setAfterglowEnabled(true);
+    expect(nsfw().nsfwCooldownEnabled, isTrue);
     llm.refractoryTurns = 5;
     await send('The wave crests and breaks over us both.', climax: true);
     expect(nsfw().refractoryMinutesRemaining, 75, reason: 'the climax landed');

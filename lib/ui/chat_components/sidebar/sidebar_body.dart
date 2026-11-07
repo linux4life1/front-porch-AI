@@ -16,21 +16,26 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import '../mood/mood_look.dart';
+import '../widgets/director_panel.dart';
+import '../widgets/director_tools.dart';
 import 'character_state/character_state.dart';
 import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
+import 'sidebar_member_card.dart';
+import 'sidebar_reorder.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/story_tools.dart';
 import '../widgets/chat_turn_builder.dart';
@@ -46,6 +51,12 @@ import 'wiki_panel.dart';
 /// Composition-only: page-level concerns (chance-time overlay, avatar file
 /// resolution) arrive as callbacks; accordion expansion is persisted via
 /// StorageService.uiSettings.
+///
+/// Reorderable: every top-level section is dragged by its grip handle and the
+/// order is persisted globally (sidebarOrderFor / setSidebarOrder). The
+/// Director panel is built here as the first item rather than passed in, so it
+/// reorders like every other section. Accordion leaves reorder inside their own
+/// accordion (sidebarLeafOrderFor / setSidebarLeafOrder).
 class SidebarBody extends StatefulWidget {
   final ChatService chatService;
   final ChatParticipant focused;
@@ -63,10 +74,6 @@ class SidebarBody extends StatefulWidget {
   /// OPEN_SECTION=edit: ChatPage opens the in-chat Edit Character dialog.
   final VoidCallback? onOpenEditFromEnv;
 
-  /// Scrolls first, above every section (the Director panel): tall content
-  /// here scrolls with the sidebar instead of squeezing it.
-  final Widget? header;
-
   const SidebarBody({
     super.key,
     required this.chatService,
@@ -76,7 +83,6 @@ class SidebarBody extends StatefulWidget {
     required this.resolveCharImage,
     this.draft,
     this.onOpenEditFromEnv,
-    this.header,
   });
 
   @override
@@ -95,6 +101,27 @@ class _SidebarBodyState extends State<SidebarBody> {
   final _objectivesKey = GlobalKey<PorchAccordionState>();
   final _objectivesHeaderKey = GlobalKey();
   final _timeStripKey = GlobalKey();
+
+  /// The wheel pump: while a tab is picked up (in this list or a nested
+  /// accordion list), wheel signals scroll this list by hand — a reorderable
+  /// list freezes its own scroll for the drag, which leaves mouse users
+  /// unable to carry a bottom tab to the top of a long sidebar.
+  final _scroll = ScrollController();
+  final _dragging = ValueNotifier<bool>(false);
+
+  void _pumpOnSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent || !_dragging.value) return;
+    final dy = event.scrollDelta.dy;
+    if (dy == 0 || !_scroll.hasClients) return;
+    _scroll.position.correctBy(dy);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _dragging.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -155,229 +182,241 @@ class _SidebarBodyState extends State<SidebarBody> {
         // must repaint the panels (each old section listened individually).
         final storage = Provider.of<StorageService>(context);
         final ui = storage.uiSettings;
-        final character = widget.focused.card;
         final isGroup = chat.isGroupMode;
         final isLite = widget.focused.isLite;
 
-        return ListView(
-          padding: const EdgeInsets.all(12),
-          children: [
-            ?widget.header,
-            OneShotEvalRow(chat: chat),
-            // Tool-calling capability of the current model, always visible —
-            // users shouldn't have to guess why evals silently run in text
-            // mode (and it retests itself on model/backend switches).
-            ToolCallingPill(chatService: chat),
-            if (isLite) const _LiteNpcBanner(),
-            // Author's Note leads the sidebar as its own card (it was the
-            // always-first section in the old design; burying it inside
-            // Story Tools made it hard to find — user feedback).
-            PorchAccordion(
-              id: 'author_note',
-              emoji: '📝',
-              title: "Author's Note",
-              subtitle: chat.authorNote.trim().isEmpty
-                  ? null
-                  : 'active · strength ${chat.authorNoteStrength}',
-              accent: AppColors.porchAmberOf(context),
-              initiallyExpanded: ui.sidebarGroupExpanded(
-                'author_note',
-                fallback: true,
+        final showDirector = isGroup || chat.cast.length > 1;
+        final showCharacterState = characterStateAccordionVisible(
+          isLite: isLite,
+          isGroup: isGroup,
+        );
+        final showObjectives =
+            !isGroup &&
+            !isLite &&
+            (chat.objectivesActive ||
+                OpenSectionEnv.name == OpenSectionEnv.objectives);
+
+        // The ids this chat can show right now; the stored order filters to
+        // them and appends any it does not know per the default order.
+        final visibleIds = <String>[
+          if (showDirector) 'director',
+          'one_shot_eval',
+          'tool_calling_pill',
+          if (isLite) 'lite_banner',
+          'author_note',
+          'wiki',
+          if (showCharacterState) 'character_state',
+          'journal_memory',
+          if (showObjectives) 'objectives',
+          'story_tools',
+        ];
+        final ordered = ui.sidebarOrderFor(visibleIds);
+
+        return SidebarReorderLock(
+          locked: ui.sidebarLayoutLocked,
+          child: ReorderScrollPump(
+            dragging: _dragging,
+            onWheel: _pumpOnSignal,
+            child: ReorderableListView.builder(
+              scrollController: _scroll,
+              padding: const EdgeInsets.all(12),
+              buildDefaultDragHandles: false,
+              itemCount: ordered.length,
+              onReorderStart: (_) => _dragging.value = true,
+              onReorderEnd: (_) => _dragging.value = false,
+              onReorderItem: (from, to) =>
+                  ui.setSidebarOrder(_reorderIds(ordered, from, to)),
+              itemBuilder: (context, i) => WheelPump(
+                // The item key the reorderable list demands, and the wheel
+                // claim inside the item (deeper than the list's own signal
+                // handler) so a tab in hand still scrolls.
+                key: ValueKey('sidebar-section-${ordered[i]}'),
+                pump: ReorderScrollPump.maybeOf(context),
+                child: _section(context, chat, ordered[i], i),
               ),
-              onExpansionChanged: (v) =>
-                  ui.setSidebarGroupExpanded('author_note', v),
-              child: AuthorNoteSection(chatService: chat),
-            ),
-            WikiPanel(
-              chatService: chat,
-              initiallyExpanded: ui.sidebarGroupExpanded(
-                'wiki',
-                fallback: true,
-              ),
-              onExpansionChanged: (v) => ui.setSidebarGroupExpanded('wiki', v),
-            ),
-            if (characterStateAccordionVisible(
-              isLite: isLite,
-              isGroup: isGroup,
-            ))
-              CharacterStateGroup(
-                key: _characterStateKey,
-                chat: chat,
-                isGroup: isGroup,
-                groupMemberCard: isGroup
-                    ? _buildFocusedMemberCard(context, chat)
-                    : null,
-                initiallyExpanded: ui.sidebarGroupExpanded(
-                  'character_state',
-                  fallback: true,
+              // The lifted card normally floats in the root Overlay and eats
+              // the wheel hit test, so armed listeners below never see a
+              // signal mid-drag. Let signals pass through the feedback.
+              proxyDecorator: (child, index, animation) => IgnorePointer(
+                child: Material(
+                  elevation: 4,
+                  shadowColor: Colors.transparent,
+                  child: child,
                 ),
-                onExpansionChanged: (v) =>
-                    ui.setSidebarGroupExpanded('character_state', v),
-                timeStripKey: _timeStripKey,
               ),
-            JournalMemoryGroup(
-              accordionKey: _journalAccordionKey,
-              chatService: chat,
-              isGroup: isGroup,
-              isLite: isLite,
-              // The diary follows the focused participant (per-member in
-              // groups; ChatParticipant.id is the cards' stable key).
-              diaryOwnerId: widget.focused.id,
-              diaryOwnerName: widget.focused.name,
-              onJumpToMessage: widget.onJumpToMessage,
-              initiallyExpanded: ui.sidebarGroupExpanded(
-                'journal_memory',
-                fallback: false,
-              ),
-              onExpansionChanged: (v) =>
-                  ui.setSidebarGroupExpanded('journal_memory', v),
             ),
-            // Objectives: own leaf, collapsed by default — runs in the
-            // background; expand when the user wants to steer the story.
-            // 1:1 full chats only (same gate as the old Story Tools embed).
-            // Switched off (v45) ⇒ the panel is GONE, not disabled, except
-            // OPEN_SECTION=objectives still builds it so UIC can photograph
-            // the title when Flora boots with objectivesActive false.
-            if (!isGroup &&
-                !isLite &&
-                (chat.objectivesActive ||
-                    OpenSectionEnv.name == OpenSectionEnv.objectives))
-              PorchAccordion(
-                key: _objectivesKey,
-                headerKey: _objectivesHeaderKey,
-                id: 'objectives',
-                emoji: '🎯',
-                title: 'Objectives',
-                subtitle: () {
-                  final goal = chat.primaryObjective?.objective.trim() ?? '';
-                  return goal.isNotEmpty ? goal : 'auto · expand to steer';
-                }(),
-                accent: AppColors.porchHoneyOf(context),
-                initiallyExpanded: ui.sidebarGroupExpanded(
-                  'objectives',
-                  fallback: false,
-                ),
-                onExpansionChanged: (v) =>
-                    ui.setSidebarGroupExpanded('objectives', v),
-                child: ObjectivePanel(chatService: chat),
-              ),
-            StoryToolsGroup(
-              draft: widget.draft,
-              chatService: chat,
-              isGroup: isGroup,
-              isLite: isLite,
-              character: character,
-              onSpinRequested: widget.onSpinRequested,
-              initiallyExpanded: ui.sidebarGroupExpanded(
-                'story_tools',
-                fallback: false,
-              ),
-              onExpansionChanged: (v) =>
-                  ui.setSidebarGroupExpanded('story_tools', v),
-            ),
-          ],
+          ),
         );
       },
     );
   }
 
-  /// The focused member's rich card (moved verbatim from chat_page's group
-  /// branch — remove/objectives/avatar behavior unchanged).
-  Widget _buildFocusedMemberCard(BuildContext context, ChatService chat) {
-    final focused = widget.focused;
-    final character = focused.card;
-    final cast = chat.cast;
-    final idx = cast.indexWhere((p) => p.id == focused.id);
-    // Two or more members, or three while directing (one left would end
-    // Director Mode); removing the second-to-last otherwise collapses the
-    // group back to a 1:1.
-    final canRemove = chat.canRemoveCastMember && !chat.isGenerating;
-    return GroupMemberCard(
-      character: character,
-      chatService: chat,
-      avatarColor: groupCharacterColor(idx < 0 ? 0 : idx),
-      isNextSpeaker: chat.nextCharacter?.name == character.name,
-      isExpanded: true,
-      onTap: chat.isGenerating ? () {} : () => chat.setNextCharacter(character),
-      avatarFile: character.imagePath != null && character.imagePath!.isNotEmpty
-          ? widget.resolveCharImage(character.imagePath!)
-          : null,
-      ringCount: chat.growthRingCountFor(character),
-      canRemove: canRemove,
-      onRemove: canRemove
-          ? () async {
-              final groupRepo = Provider.of<GroupChatRepository>(
-                context,
-                listen: false,
-              );
-              await chat.removeCharacterFromGroup(character, groupRepo);
-            }
-          : null,
-      onOpenObjectives: () {
-        showDialog(
-          context: context,
-          builder: (_) => GroupObjectivesDialog(
-            chatService: chat,
-            groupCharacters: chat.groupCharacters,
-            initialCharacter: character,
-          ),
+  /// The section widget for [id], with its reorder grip at [index]. Built by
+  /// the item builder so every section carries the grip its own list item
+  /// needs (the listener reads that list's state from its context).
+  Widget _section(
+    BuildContext context,
+    ChatService chat,
+    String id,
+    int index,
+  ) {
+    final storage = Provider.of<StorageService>(context);
+    final ui = storage.uiSettings;
+    final isGroup = chat.isGroupMode;
+    final isLite = widget.focused.isLite;
+    final grip = SidebarReorderHandle(index: index);
+    switch (id) {
+      case 'director':
+        return Consumer<StorageService>(
+          builder: (context, storage, _) {
+            final delay = storage.ttsSettings.directorDelay;
+            chat.directorDelaySec = delay;
+            return DirectorPanel(
+              directing: chat.observerMode,
+              busy: chat.isGenerating || chat.isNarrating,
+              delaySeconds: delay,
+              onStepOut: () => unawaited(chat.sendMessage('/director')),
+              onStepIn: () => unawaited(chat.sendMessage('/director off')),
+              onDelayChanged: storage.ttsSettings.setDirectorDelay,
+              dragHandle: grip,
+              tools: DirectorTools(
+                memberNames: [for (final c in chat.groupCharacters) c.name],
+                goal: chat.directorGoal,
+                whispers: chat.directorWhisperRows,
+                turnBudget: storage.ttsSettings.directorTurnBudget,
+                turnsLeft: chat.autoChatTurnsLeft,
+                busy: chat.isGenerating || chat.isNarrating,
+                onCue: (name) => unawaited(chat.sendMessage('/speak $name')),
+                onBeat: (note) => unawaited(chat.sendMessage(note)),
+                onGoal: (text) => unawaited(chat.setDirectorGoal(text)),
+                onClearWhisper: (id) =>
+                    unawaited(chat.setDirectorWhisper(id, '')),
+                onTurnBudget: (n) =>
+                    unawaited(storage.ttsSettings.setDirectorTurnBudget(n)),
+              ),
+            );
+          },
         );
-      },
-    );
+      case 'one_shot_eval':
+        return OneShotEvalRow(chat: chat, dragHandle: grip);
+      case 'tool_calling_pill':
+        return ToolCallingPill(chatService: chat, dragHandle: grip);
+      case 'lite_banner':
+        return LiteNpcBanner(dragHandle: grip);
+      case 'author_note':
+        return PorchAccordion(
+          id: 'author_note',
+          emoji: '📝',
+          title: "Author's Note",
+          subtitle: chat.authorNote.trim().isEmpty
+              ? null
+              : 'active · strength ${chat.authorNoteStrength}',
+          accent: AppColors.porchAmberOf(context),
+          initiallyExpanded: ui.sidebarGroupExpanded(
+            'author_note',
+            fallback: true,
+          ),
+          onExpansionChanged: (v) =>
+              ui.setSidebarGroupExpanded('author_note', v),
+          dragHandle: grip,
+          child: AuthorNoteSection(chatService: chat),
+        );
+      case 'wiki':
+        return WikiPanel(
+          chatService: chat,
+          initiallyExpanded: ui.sidebarGroupExpanded('wiki', fallback: true),
+          onExpansionChanged: (v) => ui.setSidebarGroupExpanded('wiki', v),
+          dragHandle: grip,
+        );
+      case 'character_state':
+        return CharacterStateGroup(
+          key: _characterStateKey,
+          chat: chat,
+          isGroup: isGroup,
+          moodLook: MoodLook.of(storage),
+          groupMemberCard: isGroup
+              ? buildFocusedMemberCard(
+                  context: context,
+                  focused: widget.focused,
+                  chat: chat,
+                  moodLook: MoodLook.of(storage),
+                  resolveCharImage: widget.resolveCharImage,
+                )
+              : null,
+          initiallyExpanded: ui.sidebarGroupExpanded(
+            'character_state',
+            fallback: true,
+          ),
+          onExpansionChanged: (v) =>
+              ui.setSidebarGroupExpanded('character_state', v),
+          dragHandle: grip,
+          timeStripKey: _timeStripKey,
+        );
+      case 'journal_memory':
+        return JournalMemoryGroup(
+          accordionKey: _journalAccordionKey,
+          chatService: chat,
+          isGroup: isGroup,
+          isLite: isLite,
+          diaryOwnerId: widget.focused.id,
+          diaryOwnerName: widget.focused.name,
+          onJumpToMessage: widget.onJumpToMessage,
+          initiallyExpanded: ui.sidebarGroupExpanded(
+            'journal_memory',
+            fallback: false,
+          ),
+          onExpansionChanged: (v) =>
+              ui.setSidebarGroupExpanded('journal_memory', v),
+          dragHandle: grip,
+        );
+      case 'objectives':
+        return PorchAccordion(
+          key: _objectivesKey,
+          headerKey: _objectivesHeaderKey,
+          id: 'objectives',
+          emoji: '🎯',
+          title: 'Objectives',
+          subtitle: () {
+            final goal = chat.primaryObjective?.objective.trim() ?? '';
+            return goal.isNotEmpty ? goal : 'auto · expand to steer';
+          }(),
+          accent: AppColors.porchHoneyOf(context),
+          initiallyExpanded: ui.sidebarGroupExpanded(
+            'objectives',
+            fallback: false,
+          ),
+          onExpansionChanged: (v) =>
+              ui.setSidebarGroupExpanded('objectives', v),
+          dragHandle: grip,
+          child: ObjectivePanel(chatService: chat),
+        );
+      case 'story_tools':
+        return StoryToolsGroup(
+          draft: widget.draft,
+          chatService: chat,
+          isGroup: isGroup,
+          isLite: isLite,
+          character: widget.focused.card,
+          onSpinRequested: widget.onSpinRequested,
+          initiallyExpanded: ui.sidebarGroupExpanded(
+            'story_tools',
+            fallback: false,
+          ),
+          onExpansionChanged: (v) =>
+              ui.setSidebarGroupExpanded('story_tools', v),
+          dragHandle: grip,
+        );
+    }
+    return const SizedBox.shrink();
   }
-}
 
-/// Status-only banner for a focused lite guest. Promote lives on the
-/// cast avatar strip — do not add a second control here.
-class _LiteNpcBanner extends StatelessWidget {
-  const _LiteNpcBanner();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      margin: const EdgeInsets.only(bottom: SidebarTokens.sectionGap),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
-        borderRadius: BorderRadius.circular(SidebarTokens.wellRadius),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.visibility_off,
-            size: 16,
-            color: AppColors.iconSecondary(context),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Lite NPC — no realism or needs tracking for this guest.',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: AppColors.porchAmberOf(context).withValues(alpha: 0.18),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              'GUEST',
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
-                color: AppColors.porchAmberOf(context),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  /// The ids reordered by a drag: onReorderItem delivers newIndex already
+  /// adjusted for the removal at oldIndex (no manual decrement).
+  List<String> _reorderIds(List<String> ids, int oldIndex, int newIndex) {
+    if (oldIndex == newIndex) return ids;
+    final out = List.of(ids);
+    final item = out.removeAt(oldIndex);
+    out.insert(newIndex, item);
+    return out;
   }
 }

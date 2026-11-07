@@ -19,7 +19,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -159,6 +158,7 @@ Future<void> extractHomeGroupCharacters(
   // Real members from decoupled table + private avatars (extends this existing method; "Separate to my library" now functional).
   final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
   final storage = Provider.of<StorageService>(context, listen: false);
+  final folders = Provider.of<FolderService>(context, listen: false);
   final members = await groupRepo.getMembersForGroup(group.id);
 
   if (members.isEmpty) {
@@ -170,29 +170,12 @@ Future<void> extractHomeGroupCharacters(
     return;
   }
 
-  int extracted = 0;
-  for (final m in members) {
-    try {
-      final resolvedPath = m.avatarFilename != null
-          ? path.join(
-              storage.groupsDir.path,
-              group.id,
-              'avatars',
-              m.avatarFilename!,
-            )
-          : null;
-      if (resolvedPath == null || !await File(resolvedPath).exists()) {
-        continue;
-      }
-      final card = m.toCharacterCard(resolvedImagePath: resolvedPath);
-      await charRepo.duplicateCharacter(
-        card,
-      ); // library copy is the intended "Separate to my library" action
-      extracted++;
-    } catch (e) {
-      debugPrint('Failed to extract ${m.name}: $e');
-    }
-  }
+  final extracted = await GroupMemberExtractor(
+    groupRepo,
+    storage,
+    charRepo,
+    folders,
+  ).extract(group.id);
 
   if (context.mounted) {
     final msg = extracted == 1

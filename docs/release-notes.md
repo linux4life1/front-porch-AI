@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.6.1, "Cloudy with a Chance of Porch".**
+**The current stable release is v1.7.0, "A Porch to Remember".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,7 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.7.0 — A Porch to Remember](#v170--a-porch-to-remember)
 - [v1.6.1 — Cloudy with a Chance of Porch](#v161--cloudy-with-a-chance-of-porch)
 - [v1.6.0 — Fifty Shades of Porch](#v160--fifty-shades-of-porch)
 - [v1.5.0 — Revenge of the Kobold](#v150--revenge-of-the-kobold)
@@ -36,9 +37,45 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.7.0 — A Porch to Remember
+
+**Released:** v1.7.0 — current stable
+
+The porch remembers now — your half-typed line, your sound, your cast, your settings — and the groups grew up doing it.
+
+- ✍️ **A half-typed message survives** — close the chat, switch characters or restart the app and the line you never sent is still in the box when you come back. A brand-new chat with that character inherits it, a sent line never haunts the reopen, and deleting the chat deletes the draft with it. Desktop and phone.
+
+- 👥 **Groups, grown up** — a new group starts every member from their character card — the card's bonds, trust, mood and Needs, not a neutral placeholder — and the seven-step wizard walks all seven steps on the phone too. Openings are written where the group meets, every group has its own world with a chosen starting place, a group chat can be the source of a Porch Story, and character cards carry one world at the place you pick.
+
+- 🛠️ **Members you can actually fix** — Edit Character edits a group member in full, desktop and phone; the member card shows what's running for that member; the editor shows the group's switches and sets where each member starts, away included. Edits save to the member, voices and `@Name` find members by id so a namesake can't steal the line, and no member stays the main character after answering.
+
+- 🔐 **Porch Life, one gate** — the Realism Engine has one gate on every chat, and Needs and Afterglow have their chat switches back behind it. Turning Afterglow on asks what to do with your existing chats; turning it off hides Lust and recovery and keeps them. Each group member carries their own Afterglow switch and Recovery block, desktop and phone.
+
+- 😊 **Mood, on the face** — a character's mood, bond, trust and Needs paint what they own: a ring around the portrait that burns, breathes or jitters by mood tone, a bond glow behind it, and needs bars that throb in their own hue when one is in trouble. The latest reply wears its stamped mood at the full level, and a new Appearance row chooses how far it goes. The phone paints the same.
+
+- 🌇 **The sky follows the story clock** — the Ambient Stage blends its washes by the minute instead of snapping at day boundaries, walks a sun across the day and a moon wearing its phase across the night, brings out stars after sunset and glows the horizon at dawn and dusk. Thick weather only dims them. It costs no frames when nobody's talking.
+
+- 🔊 **Real field recordings** — scene sounds move from synthesized placeholders to ten looping location recordings with thunder that ducks under speech, and starter worlds arrive with sensible ambience. Your own sounds get a first-class home: a custom-sound library that auditions, assigns and reuses your files across every world without re-uploading.
+
+- 🎡 **The Chance Time wheel spins for real** — the chaos event runs on the stage engine: a pointer that clicks over every peg, bulbs and sparks at wheel speed, a landing shake and a reveal in the event's own key — never festive on a bad one. The phone finally gets the wheel.
+
+- 🎛️ **Generation presets that follow the model** — save your generation settings as presets and link one to each chat model: switching models applies its preset or that model's recommended samplers, from its own metadata or the provider defaults, with an undo. No more carrying the last model's settings into the next.
+
+- 🖼️ **The Studio keeps what you make** — every Create and Edit result stays on a Recent shelf with its prompt, style, tab and model — 50 by default, or 200, keep all, or off — and starred pictures are never trimmed. Desktop and phone read the same shelf, and inserting into a chat copies first so trimming can't break a chat.
+
+- 💾 **A backup that's really complete** — snapshots now hold the library, your settings and your own files — portraits, pictures, galleries, worlds, voices, stories — each stored once and shared between snapshots. A restore brings back custom prompts and everything else, all-or-nothing, desktop and phone; API keys come along only if you say so. Settings save atomically, so a crash can't wipe them.
+
+- 📥 **Backyard AI imports, deeper** — `.byaf` chats arrive whole: every regenerated reply becomes a swipe that opens on the one you last looked at, the opener becomes the first bubble, and the importer asks which persona you were talking as so the lines carry the right name.
+
+- 🗂️ **A sidebar that rearranges — and stays put** — drag any tab or accordion leaf into the order you want, the wheel still scrolls while a tab is in hand, orders sync to the phone, and a Lock layout pill means nothing moves by accident.
+
+- 🧹 **Smaller fixes** — Journal and Our Story list newest first; bubbles show the persona that actually sent the line; the phone's `/join` picker lists characters in folders too; a minted place never re-mints a place that already exists; Windows gets an ordinary title bar in Light mode and follows the light/dark switch; Manual Reprocess moved out of the thumb zone; and full backups stopped double-writing files.
+
+---
+
 ## v1.6.1 — Cloudy with a Chance of Porch
 
-**Released:** v1.6.1 — current stable
+**Released:** v1.6.1
 
 Worlds got places, the sky got weather, and the clock learned to read.
 

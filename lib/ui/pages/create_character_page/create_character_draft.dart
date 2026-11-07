@@ -58,6 +58,7 @@ class CreateCharacterDraft {
     realismEmotionIntensity,
     realismNsfwCooldown,
     realismChaosMode,
+    realismAfterglow,
     realismNeedsSim,
     realismPocketsEnabled,
     realismEnjoysLowHygiene,
@@ -142,6 +143,9 @@ class CreateCharacterDraft {
   String realismEmotionIntensity = 'mild';
   bool realismNsfwCooldown = false;
   bool realismChaosMode = false;
+
+  /// How new chats with this character start Afterglow.
+  bool realismAfterglow = true;
   // AND-gated at chat start (card && Porch Life global). Default true so
   // a new card does not silently veto Needs — the form used to hide this
   // toggle unless the engine was on, so every manual create baked false.
@@ -288,6 +292,7 @@ class CreateCharacterDraft {
     realismEmotionIntensity = 'mild';
     realismNsfwCooldown = false;
     realismChaosMode = false;
+    realismAfterglow = true;
     realismNeedsSim = true;
     realismPocketsEnabled = true;
     realismEnjoysLowHygiene = false;

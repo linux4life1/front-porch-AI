@@ -80,9 +80,9 @@ class RealismDance {
   bool get _realismEnabled => _scope.realismEnabled();
   bool get _realismEvalCancelled => evalCancelled();
   bool get _observerMode => _scope.observerMode();
-  GroupChat? get _activeGroup => _scope.activeGroup();
-  CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  set _activeCharacter(CharacterCard? c) => _scope.setActiveCharacter(c);
+  GroupChat? get _activeGroup => _scope.session.activeGroup;
+  CharacterCard? get _activeCharacter => _scope.session.activeCharacter;
+  set _activeCharacter(CharacterCard? c) => _scope.session.activeCharacter = c;
   List<Objective> get _activeObjectives => objectives();
   set _activeObjectives(List<Objective> v) => setObjectives(v);
   String get _realismEvalStreamText => streamText();
@@ -356,8 +356,15 @@ class RealismDance {
 
       _saveChat();
     } finally {
-      // Always restore previous context and clear busy state
-      _activeCharacter = previousActiveCharacter;
+      // Always restore previous context and clear busy state. A group has
+      // no active character between turns: its loan ends at null, and only
+      // while the pointer still names [speaker] (a pass it overlapped may
+      // have left a member there, and the next turn may own it now).
+      if (_activeGroup == null) {
+        _activeCharacter = previousActiveCharacter;
+      } else if (stillLentTo(_activeCharacter, speaker)) {
+        _activeCharacter = null;
+      }
       _activeObjectives = previousObjectives;
       _evalChunkTimer?.cancel();
       _evalChunkTimer = null;
@@ -409,3 +416,11 @@ class RealismDance {
     }
   }
 }
+
+/// Whether [held] is still the active character a group pass lent to
+/// [speaker]: the same card, or a refreshed copy of the same member (an
+/// edit saved mid-turn re-points the loan).
+bool stillLentTo(CharacterCard? held, CharacterCard speaker) =>
+    held != null &&
+    (identical(held, speaker) ||
+        (speaker.dbId != null && held.dbId == speaker.dbId));

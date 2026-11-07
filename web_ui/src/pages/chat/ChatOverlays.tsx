@@ -53,7 +53,7 @@ export function ChatOverlays(props: {
   onSubmitReprocess: (critique: string, onlyNeeds: string[]) => Promise<void>;
   onSubmitReprocessFeelings: () => Promise<void>;
   onCloseReprocess: () => void;
-  chance: { event: string; revealed: boolean } | null;
+  chance: { event: string; revealed: boolean; kind?: string; label?: string; emoji?: string } | null;
   onReveal: () => void;
   onAccept: () => void | Promise<void>;
   imagePromptReview?: string;
@@ -148,6 +148,9 @@ export function ChatOverlays(props: {
           event={chance.event}
           revealed={chance.revealed}
           onReveal={onReveal}
+          kind={chance.kind}
+          label={chance.label}
+          emoji={chance.emoji}
           onAccept={onAccept}
         />
       )}

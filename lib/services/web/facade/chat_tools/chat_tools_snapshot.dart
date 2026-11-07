@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 
 /// The chat tools sidebar snapshot (focus-scoped), read straight off the
 /// live chat and storage the desktop sidebar reads.
@@ -45,14 +46,71 @@ class ChatToolsSnapshot {
     );
     final weather = _chat.currentWeather;
     final focused = _ctx.focusedParticipant(participantId);
-    final focusedCard = focused?.card ?? _chat.activeCharacter;
-    final focusedIsMember =
-        focused != null && !focused.isHost && focused.realismEnabled;
+    // Unfocused, the panel speaks for the host or the first member, as the
+    // phone's header does; a group has no active character.
+    final owner = _ctx.growthOwner(participantId);
+    final focusedCard = owner?.card ?? _chat.activeCharacter;
+    final ownerIsLite = owner?.isLite ?? false;
+    // In a group the Afterglow block speaks for the panel owner, focused or
+    // not, off their own entry: the live scalars hold whoever was loaded
+    // last. A scene guest carries none of it.
+    final ownerMember =
+        _chat.isGroupMode && owner != null && owner.realismEnabled
+        ? owner.card
+        : null;
+    // Afterglow off hides Lust and recovery and keeps them: the block then
+    // carries neither, as the desktop shows neither.
+    final afterglowRuns = _chat.isGroupMode
+        ? ownerMember != null && _chat.afterglowRunsFor(ownerMember)
+        : nsfw.nsfwCooldownEnabled;
+    final memberArousal = ownerMember == null || !afterglowRuns
+        ? 0
+        : _chat.getArousalForGroupCharacter(ownerMember);
+    final memberRefractory = ownerMember == null || !afterglowRuns
+        ? null
+        : _chat.getRefractoryForGroupCharacter(ownerMember);
+    final shownArousal = !afterglowRuns
+        ? 0
+        : _chat.isGroupMode
+        ? memberArousal
+        : nsfw.arousalLevel;
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
+      // Whether Realism runs: Porch Life allows it AND this chat's switch.
       'realismEnabled': _chat.realismEnabled,
+      // Additive: Porch Life allows Realism, and this chat's own switch,
+      // which the phone shows (greyed at its choice while Porch Life
+      // blocks Realism).
+      'realismAllowed': rs.realismAllowed,
+      'realismSwitch': _chat.realismChatSwitch,
       'needsEnabled': _chat.needsSimEnabled,
+      // Porch Life allows Needs: while it does not, the phone greys this
+      // chat's switch, as the desktop's Needs line does (additive).
+      'needsAllowed': rs.needsSimDefault,
+      // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the focused
+      // participant's OWN stored Pockets switch (1:1 chat choice / member
+      // bag choice — never the live gate, so a Porch Life veto greys the
+      // checkbox at the chat's choice, not at off), whether Porch Life
+      // allows the feature, and their name for the turn-off confirmation.
+      // A guest focus sends none of the three: the panel keeps its
+      // guest-absent shape. Additive: an older bundle ignores them.
+      'pocketsSwitch': focusedCard == null || _ctx.isGuestFocus(focused)
+          ? null
+          : _chat.pocketsSwitchFor(_chat.characterIdFor(focusedCard)),
+      'pocketsAllowed': rs.pocketsEnabled,
+      'pocketsName': focusedCard == null || _ctx.isGuestFocus(focused)
+          ? null
+          : focusedCard.name,
+      // Set only for a group focus: the PWA then routes the switch at
+      // `memberPockets` with this id, one member at a time (the
+      // memberAfterglow shape). Absent/null = 1:1 → `pockets`.
+      'pocketsMemberId':
+          focusedCard == null ||
+              !_chat.isGroupMode ||
+              _ctx.isGuestFocus(focused)
+          ? null
+          : groupMemberStoreId(focusedCard),
       'realismOneShotEval': rs.realismOneShotEval,
       'realismOneShotMode': rs.oneShotMode.name,
       'focusedId': focused?.id,
@@ -98,30 +156,49 @@ class ChatToolsSnapshot {
         'cooldownTurns': chaos.cooldownTurns,
       },
       'nsfw': {
-        // Porch Life Afterglow (18+ on), live: the one gate, no chat toggle.
-        'cooldownEnabled': nsfw.nsfwCooldownEnabled,
+        // The live gate: Porch Life (with 18+) allows Afterglow AND this
+        // chat's own switch is on. The phone shows the switch while Porch
+        // Life allows it, and Lust and recovery while the gate is on.
+        // In a group, for the panel owner (their own switch counts).
+        'cooldownEnabled': afterglowRuns,
+        'afterglowAllowed': rs.afterglowEnabled,
+        'afterglowSwitch': _chat.afterglowChatSwitch,
+        // In a group, each member's own switch (additive).
+        if (_chat.isGroupMode)
+          'members': [
+            for (final c in _chat.groupCharacters)
+              {
+                'id': groupMemberStoreId(c),
+                'name': c.name,
+                'afterglow': c.frontPorchExtensions?.afterglowEnabled ?? true,
+              },
+          ],
         // The desktop chip's own words, ready-made, so the phone cannot
         // drift from them (story minutes, or replies with the clock off).
-        'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,
+        // In a group, the panel owner's own body (focused or not), as on
+        // their card; never the live scalars, which hold another speaker.
+        'refractoryMinutesRemaining': !afterglowRuns
+            ? 0
+            : _chat.isGroupMode
+            ? memberRefractory?.minutes ?? 0
+            : nsfw.refractoryMinutesRemaining,
         'refractoryClockRunning': nsfw.clockRunning,
-        'refractoryLabel': nsfw.refractoryWords.chip,
-        // Arousal is per-character: scope to the focused member in a group;
-        // the host scalar otherwise. (Tier name is only derivable for the host
-        // scalar, so members show the raw level.)
-        'arousalLevel': focusedIsMember
-            ? _chat.getArousalForGroupCharacter(focusedCard!)
-            : nsfw.arousalLevel,
-        'arousalTier': focusedIsMember ? '' : nsfw.arousalTierName,
+        'refractoryLabel': !afterglowRuns
+            ? ''
+            : _chat.isGroupMode
+            ? memberRefractory?.chip ?? ''
+            : nsfw.refractoryWords.chip,
+        // Arousal is per-character: the owner's own in a group, named on the
+        // same ladder the desktop member card uses; the host scalar in 1:1.
+        'arousalLevel': shownArousal,
+        'arousalTier': nsfw.arousalTierNameForLevel(shownArousal),
       },
       // Ambitions (Living Time §6) for the focused participant — additive;
       // same ChatService.ambitionsFor merge the desktop sidebar reads.
       // Objectives off ⇒ empty, matching the desktop sidebar row: quest
       // completion is the only thing that moves progress, so the web would
       // otherwise show a stage word frozen for the life of the chat.
-      'ambitions':
-          focusedCard == null ||
-              (focused?.isLite ?? false) ||
-              !_chat.objectivesActive
+      'ambitions': focusedCard == null || ownerIsLite || !_chat.objectivesActive
           ? const []
           : () {
               // The quest climbing each ambition (v46) — the same
@@ -230,9 +307,7 @@ class ChatToolsSnapshot {
       // Objectives are per-character; scope to the focused participant (lite
       // guests have none). getObjectivesForGroupCharacter returns the global
       // list in 1:1, so this is correct in both modes.
-      'objectives': _objectivesBlock(
-        (focused?.isLite ?? false) ? null : focusedCard,
-      ),
+      'objectives': _objectivesBlock(ownerIsLite ? null : focusedCard),
       // Group-only settings (turn order / director / prompts), gated below.
       'group': _groupBlock(),
     };
@@ -290,6 +365,18 @@ class ChatToolsSnapshot {
               'id': p.id,
               'name': p.name,
               'prompt': g.characterSystemPrompts[p.id] ?? '',
+              // The member's Recovery block, shown while Afterglow runs for
+              // them, as on their card in Group Settings (additive).
+              if (!p.isSceneGuest) ...{
+                // The member's row id, for their editor (additive).
+                'dbId': p.card.dbId,
+                'afterglowRuns': _chat.afterglowRunsFor(p.card),
+                'recovery':
+                    (p.card.frontPorchExtensions?.recovery ??
+                            RecoveryProfile.auto)
+                        .toFields(),
+                'sex': p.card.frontPorchExtensions?.sex ?? '',
+              },
             },
           )
           .toList(),

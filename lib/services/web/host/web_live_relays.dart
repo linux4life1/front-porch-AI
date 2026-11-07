@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart'
     show PendingSkip;
 import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/web/facade/chat/chance_time_wire.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
 import 'package:front_porch_ai/services/web/host/web_host_services.dart';
@@ -168,6 +169,7 @@ class WebLiveRelays {
                     'event': 'chance_time',
                     'pending': true,
                     'data': ?chatService.webChanceTimeDisplay,
+                    ...chanceTimeKindWire(chatService),
                   }
                 : {'event': 'chance_time', 'pending': false},
           );
@@ -415,6 +417,7 @@ class WebLiveRelays {
           'theme': webThemeWire(_storage.appearance),
           // Additive: the bubbles' opacity follows the Ambient scene default.
           'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
+          ..._storage.uiSettings.sidebarWireFields, // live sidebar orders
         });
       });
     }

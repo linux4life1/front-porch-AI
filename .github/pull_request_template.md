@@ -79,3 +79,12 @@ Source and license: <!-- e.g. "kokoro-multi-lang-v1_0, Apache-2.0" -->
 
 <!-- Required for UI changes. Before/after if you're changing something existing.
 Include light AND dark mode if you touched colours. -->
+
+## Attribution
+
+<!-- Required footer, last thing in the body: the harness that drove the
+work and the exact model ID it reported this session. Replace the example
+and delete the comment. Humans may write their editor or omit the model.
+See CLAUDE.md "Git". -->
+
+Generated with OpenCode (Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)

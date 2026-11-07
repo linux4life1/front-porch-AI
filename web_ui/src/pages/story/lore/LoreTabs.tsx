@@ -6,13 +6,14 @@
 // sequence). Web twins of lore_section.dart's _continuityTab / _loreTab /
 // _soFarTab.
 
-import type { StoryProject } from '../../../storyTypes';
+import type { StoryLoreEntry, StoryProject } from '../../../storyTypes';
 import { MenuButton } from '../setup/primitives';
 import { Chip } from '../StudioShell';
 import { EmptyState } from '../world/EmptyState';
 import { DocumentIcon } from '../world/WorldIcons';
 import { isRetired } from './continuity';
 import { factRows, factWhen, fileRefs, FILE_PREFIX, loreFrom, soFarBlocks } from './loreShape';
+import { isWorldLore, placeRefs } from '../setup/worldPick';
 
 export function FactsTab({ p, onEdit, onRetire, onForget }: {
   p: StoryProject;
@@ -54,7 +55,28 @@ export function FactsTab({ p, onEdit, onRetire, onForget }: {
   );
 }
 
-export function LoreTab({ p, onRemove }: { p: StoryProject; onRemove: (index: number) => void }) {
+/** The chips that say where a lore entry came from: a file, the story's world, and the place inside it. Twin of loreSourceChips. */
+export function LoreSourceChips({ p, entry, placeNames }: {
+  p: StoryProject;
+  entry: StoryLoreEntry;
+  /** Place id → name, from the relay's world summary; a place not in it (the root) gets no chip. */
+  placeNames: Record<string, string>;
+}) {
+  const worldName = p.world_name?.trim() || 'the world';
+  return (
+    <>
+      {fileRefs(entry).map((r) => <Chip key={r}><DocumentIcon />{r.slice(FILE_PREFIX.length)}</Chip>)}
+      {isWorldLore(entry) && <Chip tone="honey">from {worldName}</Chip>}
+      {isWorldLore(entry) && placeRefs(entry).map((id) => placeNames[id] && <Chip key={id}>{placeNames[id]}</Chip>)}
+    </>
+  );
+}
+
+export function LoreTab({ p, onRemove, placeNames = {} }: {
+  p: StoryProject;
+  onRemove: (index: number) => void;
+  placeNames?: Record<string, string>;
+}) {
   if (p.lore.length === 0) {
     return <EmptyState testid="lore-empty-lore" title="No lore yet" detail="Add a file, or let the story bible create some." />;
   }
@@ -67,7 +89,7 @@ export function LoreTab({ p, onRemove }: { p: StoryProject; onRemove: (index: nu
             <div className="s-grow s-col" style={{ gap: 2 }}>
               <div className="s-row" style={{ gap: '4px 8px' }}>
                 <span className="s-bold s-body">{l.topic}</span>
-                {fileRefs(l).map((r) => <Chip key={r}><DocumentIcon />{r.slice(FILE_PREFIX.length)}</Chip>)}
+                <LoreSourceChips p={p} entry={l} placeNames={placeNames} />
                 {from && <span className="s-mono">{from}</span>}
               </div>
               <span className="s-muted s-body">{l.detail}</span>

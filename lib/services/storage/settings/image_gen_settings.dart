@@ -26,6 +26,7 @@ import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
 export 'image_gen/comfy_ui_url_prefs.dart' show kDefaultComfyUiUrl;
+export 'image_gen/studio_recent_prefs.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
 ///
@@ -37,7 +38,8 @@ class ImageGenSettings
         ComfyUiUrlPrefs,
         ComfyShiftPrefs,
         DrawThingsGrpcPrefs,
-        ImageGenEditKnobPrefs {
+        ImageGenEditKnobPrefs,
+        StudioRecentPrefs {
   // Default ON since 2026-07: the feature is opt-out. Enabling only shows the
   // ✨ toolbar button and the /image command — nothing generates until a
   // backend is actually configured, so there is no overhead for users who
@@ -407,6 +409,7 @@ class ImageGenSettings
 
     loadDrawThingsGrpcPrefs();
     loadEditKnobPrefs();
+    loadStudioRecentPrefs();
 
     _comfyEditWorkflowId =
         prefs?.getString(k('comfy_edit_workflow_id')) ?? 'qwen_image_edit';

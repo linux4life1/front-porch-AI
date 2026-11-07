@@ -266,6 +266,9 @@ class CharacterImporter {
           ? Lorebook(entries: List.from(card.lorebook!.entries))
           : null,
       worldNames: List.from(card.worldNames),
+      loreWorldNames: card.loreWorldNames == null
+          ? null
+          : List.from(card.loreWorldNames!),
       // Deep copy realism extensions (not just reference copy)
       frontPorchExtensions: card.frontPorchExtensions != null
           ? card.frontPorchExtensions!.copyWith()

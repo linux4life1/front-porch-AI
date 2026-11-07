@@ -9,7 +9,7 @@
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -197,5 +197,55 @@ describe('wide chat header', () => {
     expect(headerButtons()).toEqual(expect.arrayContaining(['✎', 'Persona', 'Theme', 'Conversations ▾']));
     tap([...header().querySelectorAll('button')].find((b) => b.textContent === 'Theme'));
     expect(container.querySelector('.settings-drawer')?.textContent).toContain('Chat theme');
+  });
+});
+
+// In a group, Edit opens the focused member's editor: the group's own copy
+// of the character, never the library card (that route had no Edit at all).
+function MemberEditorStandIn() {
+  const { groupId, memberId } = useParams();
+  return createElement('div', { className: 'member-editor-stand-in' }, `${groupId}/${memberId}`);
+}
+
+describe('chat header in a group', () => {
+  it("Edit character opens the focused member's editor", async () => {
+    const before = { ...chatState };
+    Object.assign(chatState, {
+      isGroupMode: true,
+      groupId: 'g1',
+      character: { name: 'Mara', id: 'lib-mara' },
+      cast: [{ id: 'm1', dbId: 'mem-mara', name: 'Mara', isHost: false, realismEnabled: true }],
+    });
+    try {
+      (window as { innerWidth: number }).innerWidth = 1280;
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      root = createRoot(container);
+      act(() => {
+        root.render(
+          createElement(
+            MemoryRouter,
+            { initialEntries: ['/chat'] },
+            createElement(
+              Routes,
+              null,
+              createElement(Route, { path: '/chat', element: createElement(ChatPage) }),
+              createElement(Route, {
+                path: '/groups/:groupId/members/:memberId/edit',
+                element: createElement(MemberEditorStandIn),
+              }),
+            ),
+          ),
+        );
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      tap(header().querySelector('button[title="Edit character"]'));
+      expect(container.querySelector('.member-editor-stand-in')?.textContent).toBe('g1/mem-mara');
+    } finally {
+      for (const k of Object.keys(chatState)) delete (chatState as Record<string, unknown>)[k];
+      Object.assign(chatState, before);
+    }
   });
 });

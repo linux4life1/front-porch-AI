@@ -79,7 +79,7 @@ void main() {
       expect(storage.realismSettings.needsSimDefault, isTrue);
       expect(chat.needsSimEnabled, isTrue);
 
-      await tapRow('Realism Engine');
+      await tapRow('Start every new chat with Realism');
       expect(storage.realismSettings.realismDefault, isTrue);
       expect(chat.realismEnabled, isTrue, reason: 'fake is unchanged');
 

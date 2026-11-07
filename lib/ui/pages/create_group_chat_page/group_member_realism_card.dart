@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 
@@ -49,6 +50,7 @@ class GroupMemberRealismCard extends StatelessWidget {
     final id = draft.stableId(c);
     final seed = draft.memberRealismSeeds[id] ?? draft.defaultRealismSeedFor(c);
     final baselines = draft.memberNeedsBaselines;
+    final bonds = bondSlidersFromMemberSeed(seed);
     void update(Map<String, dynamic> values) =>
         draft.updateMemberRealism(id, values);
     return Card(
@@ -72,12 +74,15 @@ class GroupMemberRealismCard extends StatelessWidget {
               onTimeOfDayChanged: (v) => update({'timeOfDay': v}),
               dayCount: (seed['dayCount'] as num?)?.toInt() ?? 1,
               onDayCountChanged: (v) => update({'dayCount': v}),
-              shortTermBond: (seed['affection'] as num?)?.toInt() ?? 35,
-              onShortTermBondChanged: (v) => update({'affection': v}),
-              longTermBond: (seed['trust'] as num?)?.toInt() ?? 40,
-              onLongTermBondChanged: (v) => update({'trust': v}),
-              trustLevel: (seed['trust'] as num?)?.toInt() ?? 40,
-              onTrustLevelChanged: (v) => update({'trust': v}),
+              shortTermBond: bonds.shortTerm,
+              onShortTermBondChanged: (v) =>
+                  update(bondSliderEdit(seed, shortTerm: v)),
+              longTermBond: bonds.longTerm,
+              onLongTermBondChanged: (v) =>
+                  update(bondSliderEdit(seed, longTerm: v)),
+              trustLevel: bonds.trust,
+              onTrustLevelChanged: (v) =>
+                  update(bondSliderEdit(seed, trust: v)),
               emotion: (seed['emotion'] as String?) ?? 'neutral',
               onEmotionChanged: (v) => update({'emotion': v}),
               emotionIntensity: (seed['emotionIntensity'] as String?) ?? 'mild',

@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 
@@ -37,12 +38,40 @@ class EditCharacterCardWriter {
 
   const EditCharacterCardWriter({required this.character, required this.draft});
 
-  /// Worlds linked in THIS edit (not present when the editor opened).
-  List<String> get addedWorlds => draft.selectedWorldNames
-      .where((w) => !draft.initialWorldNames.contains(w))
-      .toList();
+  /// The world fields Save writes; an untouched choice keeps them as stored.
+  ({List<String> worldIds, List<String>? loreWorldIds}) get worldFields =>
+      groupWorldFieldsToSave(
+        storedWorldIds: draft.initialWorldNames,
+        storedLoreWorldIds: draft.initialLoreWorldNames,
+        chosen: draft.worldChoice,
+        asLoaded: draft.worldsAsLoaded,
+      );
 
-  void writeFields({required bool showRealismTab}) {
+  /// Worlds linked in THIS edit (not present when the editor opened), in
+  /// their roles. [lore] is null for a card that stays unsplit.
+  ({List<String> setting, List<String>? lore}) get addedWorlds {
+    final before = {
+      ...draft.initialWorldNames,
+      ...?draft.initialLoreWorldNames,
+      ?draft.worldsAsLoaded.settingId,
+      ...draft.worldsAsLoaded.loreIds,
+    };
+    final f = worldFields;
+    return (
+      setting: [
+        for (final r in f.worldIds)
+          if (!before.contains(r)) r,
+      ],
+      lore: f.loreWorldIds == null
+          ? null
+          : [
+              for (final r in f.loreWorldIds!)
+                if (!before.contains(r)) r,
+            ],
+    );
+  }
+
+  void writeFields() {
     final d = draft;
     character.name = d.nameController.text;
     character.description = d.descriptionController.text;
@@ -61,12 +90,12 @@ class EditCharacterCardWriter {
     // follows the global Settings voice again (null, not '', so
     // the card round-trip omits the field entirely).
     character.ttsVoice = d.ttsVoice.isEmpty ? null : d.ttsVoice;
-    character.worldNames = d.selectedWorldNames;
+    final worlds = worldFields;
+    character.worldNames = worlds.worldIds;
+    character.loreWorldNames = worlds.loreWorldIds;
 
     // Always persist extensions — even when realism is disabled — so that
-    // configured-but-disabled values survive the PNG round-trip. Skipped when
-    // the Realism section is hidden (group member): the member's existing
-    // realism/needs ext is group state and must be preserved untouched.
+    // configured-but-disabled values survive the PNG round-trip.
     // The identity chips — Ambitions, Likes & Dislikes, the 18+ pair and
     // Pockets & Wardrobe kit — live OUTSIDE the realism section. The
     // per-character Pockets switch on that panel sets
@@ -102,12 +131,11 @@ class EditCharacterCardWriter {
     final hasGreetingSeeds = compactGreetingSeeds(
       d.altGreetingSeeds,
     ).isNotEmpty;
-    if (showRealismTab &&
-        (d.realismEnabled ||
-            d.realismSettingsModified ||
-            hasIdentityContent ||
-            hasGreetingSeeds ||
-            character.frontPorchExtensions != null)) {
+    if (d.realismEnabled ||
+        d.realismSettingsModified ||
+        hasIdentityContent ||
+        hasGreetingSeeds ||
+        character.frontPorchExtensions != null) {
       debugPrint(
         '[_saveCharacter] Saving realism: enabled=${d.realismEnabled}, modified=${d.realismSettingsModified}',
       );
@@ -133,6 +161,7 @@ class EditCharacterCardWriter {
       nsfwCooldownEnabled: d.realismNsfwCooldown,
       passageOfTimeEnabled: d.realismPassageOfTime,
       chaosModeEnabled: d.realismChaosMode,
+      afterglowEnabled: d.realismAfterglow,
       // Null keeps a silent card silent (copyWith keeps the base's null)
       // unless the switch moved off the Porch Life value it showed.
       needsSimEnabled: d.realismNeedsSim == d.needsSimShownForSilent

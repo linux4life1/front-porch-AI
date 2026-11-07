@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/one_shot_mode.dart';
+import 'package:front_porch_ai/services/storage/settings/realism/realism_allowed_setting.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/realism_prefs_snapshot.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/time_skip_bridge_setting.dart';
 
@@ -30,10 +31,9 @@ export 'package:front_porch_ai/services/storage/settings/realism/realism_import_
 
 /// Realism Engine + Needs simulation + related defaults (oneShot, banned
 /// phrases, per-char enjoys hygiene is in CharacterCard / group member
-/// JSON, not here).
-///
-/// Lifted Stage 7.
-class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
+/// JSON, not here). [realismAllowed] is the Porch Life permission.
+class RealismSettings
+    with SettingsBase, TimeSkipBridgeSetting, RealismAllowedSetting {
   bool _realismDefault = false;
   bool _nsfwCooldownDefault = false;
   bool _passageOfTimeDefault = true;
@@ -241,9 +241,9 @@ class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
   /// stays true even if Afterglow is enabled later in the same session.
   bool get adultThemesEnabled => _adultThemesExplicit ?? _nsfwCooldownDefault;
 
-  /// The one live Afterglow gate (arousal, the Lust bar, climax, refractory):
-  /// the Porch Life switch, and only while 18+ themes are on. There is no
-  /// per-chat or per-card switch any more; the stored flags only seed.
+  /// Whether Porch Life allows Afterglow (arousal, the Lust bar, climax,
+  /// refractory): its switch, and only while 18+ themes are on. Within it each
+  /// chat's own switch decides, and a card's switch seeds new chats.
   bool get afterglowEnabled => adultThemesEnabled && _nsfwCooldownDefault;
 
   /// One-Shot Eval mode. [OneShotMode.auto] (the default) fuses the judges

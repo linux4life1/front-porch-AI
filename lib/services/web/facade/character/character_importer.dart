@@ -27,11 +27,19 @@ import 'package:front_porch_ai/services/services.dart';
 /// Imports an uploaded character card (V2 PNG, JSON or .byaf) through the
 /// desktop import path, with the web's name-collision policy.
 class CharacterImporter {
-  CharacterImporter(this._repo, this._storage, this._db);
+  CharacterImporter(
+    this._repo,
+    this._storage,
+    this._db, {
+    UserPersonaService? personas,
+  }) : _personas = personas;
 
   final CharacterRepository _repo;
   final StorageService _storage;
   final AppDatabase _db;
+
+  /// Who an imported chat's user lines can be stamped as.
+  final UserPersonaService? _personas;
 
   /// See [CharacterFacade.importBytes].
   Future<Map<String, dynamic>?> importBytes(
@@ -39,6 +47,7 @@ class CharacterImporter {
     String filename, {
     String collision = 'keepBoth',
     String? replaceId,
+    String? persona,
   }) async {
     final repo = _repo;
     final ext = p.extension(filename).isNotEmpty
@@ -59,6 +68,7 @@ class CharacterImporter {
           filename,
           collision: collision,
           replaceId: replaceId,
+          persona: persona,
         );
       }
 
@@ -131,6 +141,7 @@ class CharacterImporter {
     String filename, {
     required String collision,
     String? replaceId,
+    String? persona,
   }) async {
     final repo = _repo;
     final byaf = ByafService();
@@ -174,6 +185,30 @@ class CharacterImporter {
         }
       }
 
+      // An imported chat is a new chat: a client that can ask (`ask`) is
+      // told to, with the persona the chat names most; an older one gets
+      // the default.
+      final personas = _personas;
+      UserPersona? speaker;
+      if (personas != null && preview.messages.isNotEmpty) {
+        if (persona == 'ask') {
+          deleteByafTempImages(preview.galleryImagePaths);
+          return {
+            'status': 'persona_pick',
+            'name': name,
+            'recommendedPersonaId': recommendByafPersonaId(
+              preview.messages,
+              personas.personas,
+              defaultId: personas.defaultPersonaId,
+            ),
+          };
+        }
+        speaker = personas.personas.firstWhere(
+          (p) => p.id == persona,
+          orElse: () => personas.defaultPersona,
+        );
+      }
+
       final pngPath = await byaf.saveCharacterPng(
         peeked,
         charactersDirPath: _storage.charactersDir.path,
@@ -198,18 +233,20 @@ class CharacterImporter {
         importGalleryImages: true,
         replaceExistingLooks: forceReplace != null || stableMatch != null,
       );
-      await byaf.importSession(
+      final chats = await byaf.importSession(
         _db,
         preview,
         imported,
         includeMessages: true,
         genSettings: byaf.toGenerationSettings(preview),
+        persona: speaker,
       );
       return {
         'id': imported.dbId,
         'name': imported.name,
         if (forceReplace != null) 'replaced': true,
         'looksImported': looksImported,
+        'chats': chats,
       };
     } catch (_) {
       if (preview != null) deleteByafTempImages(preview.galleryImagePaths);

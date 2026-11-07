@@ -71,6 +71,7 @@
     "id": "mediterranean",
     "displayName": "Mediterranean"
   },
+  "ambience": "forest",
   "locations": [
     {
       "formatVersion": 1,
@@ -102,6 +103,7 @@
         ]
       },
       "climate_enabled": false,
+      "ambience": "forest",
       "meta": {
         "sourceId": "starter-greenhollow-the-conservatory"
       }
@@ -136,6 +138,7 @@
         ]
       },
       "climate_enabled": false,
+      "ambience": "village",
       "meta": {
         "sourceId": "starter-greenhollow-the-kitchens"
       }
@@ -160,6 +163,7 @@
         ]
       },
       "climate_enabled": false,
+      "ambience": "forest",
       "meta": {
         "sourceId": "starter-greenhollow-the-old-orchard"
       }

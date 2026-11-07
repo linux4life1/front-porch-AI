@@ -38,26 +38,26 @@ Map<String, int> visibleNeeds(Map<String, int> vector, List<String> off) {
 
 /// Whether a loaded session should run Needs (sidebar bars + scene eval).
 ///
-/// `sessions.needs_sim_enabled` defaults FALSE and is AND-ed with the card
-/// and Porch Life only when a chat is first seeded. A lived-in 1:1 that
-/// never flipped the column (no saved vector) still promotes ON when those
-/// two ask for Needs.
+/// `sessions.needs_sim_enabled` defaults FALSE and is the chat's own switch,
+/// seeded from the card; Porch Life applies live through the gate. A row
+/// saved before chats recorded their choice (off, no vector at all) promotes
+/// ON when its card asks for Needs.
 ///
-/// The chat-gear switch sticks both ways. An explicit ON stays ON. An
+/// The chat's own switch sticks both ways. An explicit ON stays ON. An
 /// explicit OFF keeps its saved vector (hide ≠ erase) and must not look
 /// like a never-seeded row — false + a vector stays OFF. Groups keep the
 /// stored flag; their on/off is derived from member seeds.
 bool needsSimAfterHydrate({
   required bool sessionEnabled,
   required bool cardEnabled,
-  required bool globalDefault,
   required bool hasSavedVector,
   required bool isGroup,
 }) {
   if (sessionEnabled) return true;
   if (hasSavedVector) return false;
   if (isGroup) return false;
-  return cardEnabled && globalDefault;
+  // Porch Life applies live, through the gate; the stored switch is the card's.
+  return cardEnabled;
 }
 
 /// Two thirds, one, or four thirds. Applied only to negative numbers.

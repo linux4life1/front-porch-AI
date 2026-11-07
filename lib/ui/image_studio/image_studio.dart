@@ -21,6 +21,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
@@ -133,8 +134,7 @@ class _ImageStudioState extends State<ImageStudio> {
   /// backends; remote APIs ignore it (the picker hides itself there).
   Uint8List? _referenceImageBytes;
 
-  // History: session-local thumbnails + restoreable prompt/bytes.
-  final List<({String prompt, Uint8List bytes, String style})> _history = [];
+  final _recent = StudioRecentLink();
 
   late final ImagePromptBuilder _builder;
   StorageService? _storage;
@@ -154,6 +154,7 @@ class _ImageStudioState extends State<ImageStudio> {
   @override
   void dispose() {
     _storage?.removeListener(_followStyleSettings);
+    _recent.dispose();
     super.dispose();
   }
 
@@ -210,21 +211,15 @@ class _ImageStudioState extends State<ImageStudio> {
       referenceImage: _referenceImageBytes, // img2img on local backends
     );
     if (!mounted) return;
+    final bytes = result.bytes;
     setState(() {
       _isGenerating = false;
-      final bytes = _currentImageBytes = result.bytes;
-      if (bytes == null) {
-        _error = result.error;
-      } else {
-        _lastStudioImage = bytes;
-        _history.insert(0, (
-          prompt: prompt,
-          bytes: bytes,
-          style: _selectedStyle,
-        ));
-        if (_history.length > 8) _history.removeLast();
-      }
+      _currentImageBytes = bytes;
+      _lastStudioImage = bytes ?? _lastStudioImage;
+      if (bytes == null) _error = result.error;
     });
+    if (bytes == null) return;
+    await _recent.remember(context, bytes, prompt, onChanged: _refresh);
   }
 
   Future<void> _pickReferenceImage() async {
@@ -250,6 +245,8 @@ class _ImageStudioState extends State<ImageStudio> {
   });
 
   void _setSaving(bool saving) => setState(() => _saving = saving);
+
+  void _refresh() => mounted ? setState(() {}) : null;
 
   Future<void> _save() async {
     final bytes = _currentImageBytes;
@@ -290,31 +287,13 @@ class _ImageStudioState extends State<ImageStudio> {
     );
   }
 
-  void _restoreFromHistory(
-    ({String prompt, Uint8List bytes, String style}) entry,
-  ) {
-    setState(() {
-      _editablePrompt = entry.prompt;
-      _selectedStyle = restorableStyle(entry.style, _selectedStyle);
-      _currentImageBytes = entry.bytes;
-      _error = '';
-    });
-  }
-
-  /// The "Send to chat" action, or null when not launched from a conversation.
-  VoidCallback? get _sendToChat {
-    if (widget.onSendToChat == null) return null;
-    return () async {
-      final bytes = _currentImageBytes;
-      if (bytes == null) return;
-      await sendStudioImageToChat(
-        context,
-        widget.onSendToChat!,
-        bytes,
-        _editablePrompt.trim(),
-      );
-    };
-  }
+  void _restoreRecent(StudioRecentEntry entry, Uint8List bytes) => setState(() {
+    _editablePrompt = entry.prompt;
+    _selectedStyle = restorableStyle(entry.style, _selectedStyle);
+    _currentImageBytes = bytes;
+    _recent.shown = entry;
+    _error = '';
+  });
 
   /// A refusal is stale once the desk's graph or model file has changed.
   void _dropStaleError() {
@@ -429,7 +408,18 @@ class _ImageStudioState extends State<ImageStudio> {
         crafting: _isCrafting,
         saving: _saving,
         isBusy: _isBusy || genBusy,
-        history: _history,
+        recentShelf: StudioRecentShelf(
+          onRestore: _restoreRecent,
+          selectedName: _recent.shown?.name,
+          onEditPicture: (bytes) => setState(() {
+            _studioTab = 1;
+            _recent.editPicture.value = bytes;
+          }),
+        ),
+        onKeep: _recent.shown == null
+            ? null
+            : () => _recent.toggleKeep(context, _refresh),
+        kept: _recent.shown?.kept ?? false,
         onClose: _closeStudio,
         onSelectSubject: _selectSubject,
         onPickReference: _pickReferenceImage,
@@ -442,9 +432,15 @@ class _ImageStudioState extends State<ImageStudio> {
         onAccept: _accept,
         onVariations: _variations,
         onEditRegen: _editAndRegen,
-        onSendToChat: _sendToChat,
+        onSendToChat: widget.onSendToChat == null
+            ? null
+            : () => sendStudioImageToChat(
+                context,
+                widget.onSendToChat!,
+                _currentImageBytes,
+                _editablePrompt.trim(),
+              ),
         onSaveToGallery: _canSaveToGallery ? _saveToGallery : null,
-        onRestore: _restoreFromHistory,
         showEdit: _studioTab == 1,
         workspaceIndex: _studioTab,
         draftBusy: _isBusy,
@@ -490,6 +486,7 @@ class _ImageStudioState extends State<ImageStudio> {
           // Pre-load the current portrait as the edit source (the user can still
           // swap in an unrelated photo via "Add photo").
           initialSourcePath: widget.characterImagePath,
+          incomingPicture: _recent.editPicture,
         ),
       ),
     );

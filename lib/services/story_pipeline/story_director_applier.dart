@@ -45,10 +45,15 @@ class StoryDirectorApplier {
 
       final touched = <String>{};
       var applied = 0;
+      final world = _ctx.worldFor(project);
       for (final action in todo) {
         _ctx.setStatus('Director', 'Applying: ${action.summary}');
         try {
-          final outcome = StoryDirectorApply.apply(project, action);
+          final outcome = StoryDirectorApply.apply(
+            project,
+            action,
+            world: world,
+          );
           if (outcome.error != null) {
             action.result = 'failed: ${outcome.error}';
           } else {

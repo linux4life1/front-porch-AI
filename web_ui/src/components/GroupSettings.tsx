@@ -9,9 +9,14 @@
 // turn-director (unrelated to the realism Director/Verifier).
 
 import { useEffect, useState } from 'react';
+import { Link, useInRouterContext } from 'react-router-dom';
 import { api } from '../api/client';
 import { describeActionFailure } from '../pages/chat/chatActionError';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
+import { GroupMemberRecoverySection, type MemberRecoveryRow } from './groupSetting/GroupMemberRecoverySection';
+import { GroupNewChatsSection } from './groupSetting/GroupNewChatsSection';
+import { GroupWorldsSection } from './groupSetting/GroupWorldsSection';
+import { memberSummaryDetail, parseMemberStart } from './realism/memberGroup';
 import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
 
 export interface GroupBlock {
@@ -23,7 +28,7 @@ export interface GroupBlock {
   firstMessage: string;
   alternateGreetings?: string[];
   greetingSeeds?: (GreetingSeed | null)[];
-  members: { id: string; name: string; prompt: string }[];
+  members: ({ id: string; name: string; prompt: string; dbId?: string } & MemberRecoveryRow)[];
 }
 
 export function GroupSettings({
@@ -40,6 +45,8 @@ export function GroupSettings({
   /** Porch Life's Passage of Time, for the greetings' clock-off line. */
   clockOn: boolean;
 }) {
+  // The member editor is a page; a host without routing shows no link.
+  const inRouter = useInRouterContext();
   const [systemPrompt, setSystemPrompt] = useState(group.systemPrompt);
   const [scenario, setScenario] = useState(group.scenario);
   const [firstMessage, setFirstMessage] = useState(group.firstMessage);
@@ -56,6 +63,41 @@ export function GroupSettings({
     setSeeds(group.greetingSeeds ?? []);
     setPrompts(Object.fromEntries(group.members.map((m) => [m.id, m.prompt])));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
+
+  // Bumped when the forked-group notice sets where new chats meet, so the
+  // worlds section reloads what was saved.
+  const [worldsGen, setWorldsGen] = useState(0);
+
+  // Each member's line (desktop GroupMemberSummaryRow): where they start in
+  // new chats of the group and their own Afterglow. Their editor (the Edit
+  // link) holds every setting of theirs. An older app has no such route.
+  const [summaries, setSummaries] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let live = true;
+    // Started inside a promise so any failure, even a synchronous one, lands
+    // in the catch below and the rest of Group Settings keeps working.
+    Promise.resolve()
+      .then(() => api.get<{ members?: unknown[] }>(`/api/groups/${groupId}/member-summaries`))
+      .then((r) => {
+        if (!live) return;
+        const out: Record<string, string> = {};
+        for (const m of r?.members ?? []) {
+          if (typeof m !== 'object' || m === null) continue;
+          const row = m as Record<string, unknown>;
+          if (typeof row.id !== 'string') continue;
+          out[row.id] = memberSummaryDetail(
+            parseMemberStart(row.start),
+            typeof row.afterglow === 'boolean' ? row.afterglow : null,
+            row.lite === true,
+          );
+        }
+        setSummaries(out);
+      })
+      .catch((e) => console.warn('[group] member summaries failed', e));
+    return () => {
+      live = false;
+    };
   }, [groupId]);
 
   // Each field saves on blur. A failed save used to vanish silently; the
@@ -130,9 +172,27 @@ export function GroupSettings({
             save({ alternateGreetings: paired.greetings, greetingSeeds: paired.seeds });
           }}
         />
+        <GroupNewChatsSection groupId={groupId} onWorldsChanged={() => setWorldsGen((n) => n + 1)} />
+        <GroupWorldsSection key={worldsGen} groupId={groupId} />
         <h4 className="section-label">Per-member prompt overrides</h4>
         {group.members.map((m) => (
-          <label key={m.id}>
+          <div key={m.id}>
+          {/* Members with a row id only: a scene guest is no member, and a
+              legacy member without one has no row to edit. */}
+          {m.dbId && summaries[m.dbId] && (
+            <p className="muted small" data-testid={`member-summary-${m.dbId}`}>
+              {m.name} · {summaries[m.dbId]}
+            </p>
+          )}
+          {inRouter && m.dbId && (
+            <Link
+              to={`/groups/${groupId}/members/${m.dbId}/edit`}
+              data-testid={`edit-member-${m.dbId}`}
+            >
+              Edit {m.name}
+            </Link>
+          )}
+          <label>
             {m.name}
             <textarea
               rows={2}
@@ -142,7 +202,9 @@ export function GroupSettings({
               placeholder="Extra instructions just for this member…"
             />
           </label>
+          </div>
         ))}
+        <GroupMemberRecoverySection key={groupId} members={group.members} />
       </div>
     </details>
   );

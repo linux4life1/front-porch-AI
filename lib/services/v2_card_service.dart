@@ -323,6 +323,11 @@ class V2CardService {
         tags: strList(data['tags'] ?? jsonMap['tags']),
         lorebook: lorebook,
         worldNames: strList(data['world_names'] ?? jsonMap['world_names']),
+        loreWorldNames: switch (data['lore_world_names'] ??
+            jsonMap['lore_world_names']) {
+          final List<dynamic> l => strList(l),
+          _ => null,
+        },
         ttsVoice: voice is String ? voice : null,
         creator: text(data['creator'] ?? jsonMap['creator']),
         creatorNotes: text(data['creator_notes'] ?? jsonMap['creator_notes']),

@@ -14,6 +14,7 @@ import {
   reasoningEffortTitle,
 } from '../utils/reasoningEffort';
 import { spellCheckLabel, sortedByLabel } from '../spellCheckLabels';
+import { resetFor, type Recommended, type SamplerKey } from './genPresets/genPresets';
 
 export interface SanitizerRule {
   id: number;
@@ -99,6 +100,7 @@ export function SliderField({
   max,
   onChange,
   disabled,
+  reset,
 }: {
   label: string;
   value: number;
@@ -107,11 +109,20 @@ export function SliderField({
   max: number;
   onChange: (v: number) => void;
   disabled?: boolean;
+  /** A ↺ beside the value (generation presets); its title says to what. */
+  reset?: { title: string; onReset: () => void };
 }) {
   return (
     <div className="slider-field">
       <div className="slider-head">
         <span>{label}</span>
+        <span className="slider-head-right">
+        {reset && (
+          <button type="button" className="slider-reset" title={reset.title}
+            aria-label={`${label}: ${reset.title}`} onClick={reset.onReset}>
+            ↺
+          </button>
+        )}
         <input
           type="number"
           className="slider-val"
@@ -125,6 +136,7 @@ export function SliderField({
             if (Number.isFinite(n)) onChange(n);
           }}
         />
+        </span>
       </div>
       <input
         type="range"
@@ -156,6 +168,7 @@ export function GenerationSettingsFields({
   reasoningEfforts,
   reasoningLocalSupport,
   samplerKnobs,
+  recommended,
   patch,
   patchGen,
 }: {
@@ -178,6 +191,8 @@ export function GenerationSettingsFields({
   reasoningLocalSupport?: string;
   /** What this backend's requests carry; absent on an older host. */
   samplerKnobs?: string[];
+  /** The chat model's recommended values, for each slider's ↺. */
+  recommended?: Recommended;
   patch: (p: Record<string, unknown>) => void;
   patchGen: (p: Partial<GenSettings>) => void;
 }) {
@@ -185,45 +200,60 @@ export function GenerationSettingsFields({
   const replyFills = replyFillsContextWarning(contextSize, g.maxLength);
   // Only what this backend's requests carry; a hidden value is kept.
   const shown = (knob: SamplerKnob) => samplerKnobShown(knob, backend, samplerKnobs);
+  // ↺ only while the value differs from the model's recommended one.
+  const rs = (key: SamplerKey & keyof GenSettings) => {
+    const r = resetFor(recommended, key, g[key]);
+    return r && { title: r.title, onReset: () => patchGen({ [key]: r.value }) };
+  };
   return (
     <section className="card" data-testid="generation-fields">
       <h3>Generation</h3>
       <SliderField label="Temperature" value={g.temperature} min={0} max={2} step={0.05}
-        onChange={(v) => patchGen({ temperature: v })} />
+        reset={rs('temperature')}
+          onChange={(v) => patchGen({ temperature: v })} />
       {shown('minP') && (
         <SliderField label="Min-P" value={g.minP} min={0} max={1} step={0.01}
+          reset={rs('minP')}
           onChange={(v) => patchGen({ minP: v })} />
       )}
       {g.topP !== undefined && (
         <SliderField label="Top-P" value={g.topP} min={0.1} max={1} step={0.01}
+          reset={rs('topP')}
           onChange={(v) => patchGen({ topP: v })} />
       )}
       {g.topK !== undefined && shown('topK') && (
         <SliderField label="Top-K" value={g.topK} min={0} max={200} step={1}
+          reset={rs('topK')}
           onChange={(v) => patchGen({ topK: Math.round(v) })} />
       )}
       {shown('repeatPenalty') && (
         <SliderField label="Repeat penalty" value={g.repeatPenalty} min={1} max={3} step={0.01}
+          reset={rs('repeatPenalty')}
           onChange={(v) => patchGen({ repeatPenalty: v })} />
       )}
       {shown('repeatPenaltyTokens') && (
         <SliderField label="Rep pen tokens" value={g.repeatPenaltyTokens} min={0} max={2048} step={8}
+          reset={rs('repeatPenaltyTokens')}
           onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
       )}
       {shown('xtc') && (
         <>
           <SliderField label="XTC threshold" value={g.xtcThreshold} min={0} max={0.5} step={0.01}
-            onChange={(v) => patchGen({ xtcThreshold: v })} />
+            reset={rs('xtcThreshold')}
+          onChange={(v) => patchGen({ xtcThreshold: v })} />
           <SliderField label="XTC probability" value={g.xtcProbability} min={0} max={1} step={0.05}
-            onChange={(v) => patchGen({ xtcProbability: v })} />
+            reset={rs('xtcProbability')}
+          onChange={(v) => patchGen({ xtcProbability: v })} />
         </>
       )}
       {g.dryMultiplier !== undefined && shown('dry') && (
         <SliderField label="DRY strength" value={g.dryMultiplier} min={0} max={3} step={0.05}
+          reset={rs('dryMultiplier')}
           onChange={(v) => patchGen({ dryMultiplier: v })} />
       )}
       <SliderField label="Max output tokens" value={g.maxLength} min={16} max={16384} step={16}
-        onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
+        reset={rs('maxLength')}
+          onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
       <SliderField label="Context size" value={contextSize} min={512} max={500000} step={512}
         disabled={contextLocked}
         onChange={(v) => patch({ contextSize: Math.round(v) })} />
@@ -246,6 +276,7 @@ export function GenerationSettingsFields({
       )}
       {shown('dynamicTemp') && g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
         <SliderField label="Dynatemp range" value={g.dynamicTempRange} min={0} max={2} step={0.1}
+          reset={rs('dynamicTempRange')}
           onChange={(v) => patchGen({ dynamicTempRange: v })} />
       )}
       {spellCheckLanguage !== undefined && (

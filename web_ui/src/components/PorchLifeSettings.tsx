@@ -28,9 +28,12 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { ExistingChatsOffer, type OfferFeature } from './ExistingChatsOffer';
 import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 interface PorchLifeState {
+  /** Porch Life allows the Realism Engine (absent on an older desktop: on). */
+  realismAllowed: boolean;
   realismDefault: boolean;
   nsfwCooldownDefault: boolean;
   needsSimDefault: boolean;
@@ -68,6 +71,7 @@ interface PorchLifeState {
 // older host build hasn't started returning yet still renders something sane
 // rather than a false "off".
 const DEFAULTS: PorchLifeState = {
+  realismAllowed: true,
   realismDefault: false,
   nsfwCooldownDefault: false,
   needsSimDefault: true,
@@ -379,6 +383,9 @@ function SearchKeyRow({
 export function PorchLifeSettings() {
   const [st, setSt] = useState<PorchLifeState | null>(null);
   const [error, setError] = useState('');
+  // The existing-chats question, asked once Realism, Afterglow or Needs
+  // becomes allowed (Needs and Afterglow only while Realism is).
+  const [offer, setOffer] = useState<OfferFeature | null>(null);
 
   useEffect(() => {
     void api
@@ -391,15 +398,27 @@ export function PorchLifeSettings() {
 
   const set = <K extends keyof PorchLifeState>(key: K, value: PorchLifeState[K]) => {
     const prev = st;
-    setSt({ ...st, [key]: value });
+    const next = { ...st, [key]: value };
+    setSt(next);
     setError('');
-    api.post('/api/settings', { realism: { [key]: value } }).catch((e) => {
-      setSt(prev);
-      setError(e instanceof ApiError ? e.message : 'Could not save that change');
-    });
+    // Afterglow is allowed by Porch Life with 18+ on (desktop afterglowEnabled).
+    const allowed = (s: PorchLifeState) => s.adultThemesEnabled && s.nsfwCooldownDefault;
+    api
+      .post('/api/settings', { realism: { [key]: value } })
+      .then(() => {
+        const realism = next.realismAllowed;
+        if (!prev.realismAllowed && realism) setOffer('realism');
+        else if (realism && !allowed(prev) && allowed(next)) setOffer('afterglow');
+        else if (realism && !prev.needsSimDefault && next.needsSimDefault) setOffer('needs');
+      })
+      .catch((e) => {
+        setSt(prev);
+        setError(e instanceof ApiError ? e.message : 'Could not save that change');
+      });
   };
 
-  const engineOn = st.realismDefault;
+  // The engine row is the permission; "start new chats with it" sits under it.
+  const engineOn = st.realismAllowed;
   const timeOn = st.passageOfTimeDefault;
   const weatherOn = st.weatherEnabled;
   const journalOn = st.journalEnabled;
@@ -415,6 +434,7 @@ export function PorchLifeSettings() {
 
   return (
     <section className="card pl-section" data-testid="porch-life-card">
+      {offer && <ExistingChatsOffer key={offer} feature={offer} onClose={() => setOffer(null)} />}
       <h3>Porch Life</h3>
       <p className="muted small pl-intro">
         Everything that makes a character feel like they live somewhere. Each switch says plainly what it needs — many need nothing at all.
@@ -439,10 +459,23 @@ export function PorchLifeSettings() {
           icon="🎭"
           label="Realism Engine"
           need="core"
-          blurb="Bond and trust, moods that carry between turns, physical state — how the character feels about what you just did. Needs, the story clock and desire all read from it; the rest of Porch Life runs with or without it, and every row says which it is."
+          blurb="Allows bond and trust, moods that carry between turns, physical state — how the character feels about what you just did. Needs and desire read from it; the rest of Porch Life runs with or without it, and every row says which it is. Off: no chat runs the engine, and Needs and Afterglow stop with it. Each chat keeps its own choice for when you turn this back on."
           value={engineOn}
-          onChange={(v) => set('realismDefault', v)}
-        />
+          onChange={(v) => set('realismAllowed', v)}
+        >
+          <label className="tool-toggle">
+            <span>Start every new chat with Realism</span>
+            <input
+              type="checkbox"
+              aria-label="Start every new chat with Realism"
+              checked={st.realismDefault}
+              onChange={(e) => set('realismDefault', e.target.checked)}
+            />
+          </label>
+          <p className="muted small">
+            Even when the character&apos;s card doesn&apos;t turn it on, such as an imported card. Chats you already have keep their own switch.
+          </p>
+        </FeatureRow>
         <FeatureRow
           icon="❤️"
           label="Needs"
@@ -715,7 +748,7 @@ export function PorchLifeSettings() {
             need="needs"
             dependsOn="Realism's arousal"
             satisfied={engineOn}
-            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API. Multiorgasmic characters feel a tenderness window instead of a lock."
+            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API. Multiorgasmic characters feel a tenderness window instead of a lock. Off: no chat tracks Lust, and the Afterglow switches on characters and chats are hidden. Each chat keeps its own choice for when you turn this back on."
             value={st.nsfwCooldownDefault}
             onChange={(v) => set('nsfwCooldownDefault', v)}
           />

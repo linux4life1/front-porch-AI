@@ -40,7 +40,7 @@ class ChatToolsObjectives {
     await _chat.setObjective(
       goal,
       isPrimary: isPrimary,
-      targetCharacter: _ctx.focusedParticipant(participantId)?.card,
+      targetCharacter: _ctx.growthOwner(participantId)?.card,
     );
     _notify();
   }

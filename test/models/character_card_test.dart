@@ -13,6 +13,7 @@ import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/services/group_card_service.dart';
 import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/web/util/realism_extensions_json.dart';
 import 'package:image/image.dart' as img;
 
 void main() {
@@ -938,5 +939,37 @@ void main() {
         if (await tmp.exists()) await tmp.delete();
       },
     );
+  });
+
+  group("the card's Afterglow switch, how its new chats start", () {
+    test('a card that says nothing starts them on, and on is not written', () {
+      final ext = FrontPorchExtensions.fromJson({
+        'version': '2.5',
+        'realism_engine': {'enabled': true},
+      });
+      expect(ext.afterglowEnabled, isTrue);
+      final engine = ext.toJson()['realism_engine'] as Map<String, dynamic>;
+      expect(engine, isNot(contains('afterglow_enabled')));
+    });
+
+    test('off is written, read back, and kept by copyWith', () {
+      final json = FrontPorchExtensions(afterglowEnabled: false).toJson();
+      final engine = json['realism_engine'] as Map<String, dynamic>;
+      expect(engine['afterglow_enabled'], isFalse);
+      final back = FrontPorchExtensions.fromJson(json);
+      expect(back.afterglowEnabled, isFalse);
+      expect(back.copyWith(chaosModeEnabled: true).afterglowEnabled, isFalse);
+    });
+
+    test("the phone's form sends and gets it", () {
+      final off = frontPorchFromFields({'afterglowEnabled': false});
+      expect(off.afterglowEnabled, isFalse);
+      expect(frontPorchToJson(off)['afterglowEnabled'], isFalse);
+      expect(
+        frontPorchFromFields(const {}, base: off).afterglowEnabled,
+        isFalse,
+        reason: 'a save that leaves it out keeps it',
+      );
+    });
   });
 }

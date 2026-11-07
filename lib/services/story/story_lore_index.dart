@@ -89,10 +89,17 @@ class StoryLoreIndex {
   }
 
   /// The [limit] best entries from [candidates] for [query], best first.
+  ///
+  /// [preferTags] are `related_to` tags ranked nearest first (the scene's
+  /// place, then its parents). Entries carrying one come first, nearest
+  /// place first, skipping the floor — they are about where the scene is —
+  /// but take at most half the slots, so the search still finds what the
+  /// beat is about.
   Future<List<LoreHit>> search(
     String query,
     Iterable<StoryLoreEntry> candidates, {
     int limit = 5,
+    List<String> preferTags = const [],
   }) async {
     final entries = candidates.toList();
     if (entries.isEmpty || query.trim().isEmpty) return const [];
@@ -109,7 +116,28 @@ class StoryLoreIndex {
     }
     hits.sort((a, b) => b.score.compareTo(a.score));
     final floor = queryVector != null ? 0.3 : 0.15;
-    return hits.where((h) => h.score >= floor).take(limit).toList();
+
+    int rank(LoreHit h) {
+      var best = -1;
+      for (final tag in h.entry.relatedTo) {
+        final i = preferTags.indexOf(tag);
+        if (i >= 0 && (best == -1 || i < best)) best = i;
+      }
+      return best;
+    }
+
+    final placed = preferTags.isEmpty
+        ? const <LoreHit>[]
+        : (hits.where((h) => rank(h) >= 0).toList()..sort((a, b) {
+                final r = rank(a).compareTo(rank(b));
+                return r != 0 ? r : b.score.compareTo(a.score);
+              }))
+              .take((limit + 1) ~/ 2)
+              .toList();
+    final rest = hits
+        .where((h) => h.score >= floor && !placed.contains(h))
+        .take(limit - placed.length);
+    return [...placed, ...rest];
   }
 
   /// Cut an uploaded document into lore entries on paragraph boundaries.
