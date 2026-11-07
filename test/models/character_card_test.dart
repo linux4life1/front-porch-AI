@@ -981,13 +981,13 @@ void main() {
       });
       expect(ext.startsAway, isFalse);
       final engine = ext.toJson()['realism_engine'] as Map<String, dynamic>;
-      expect(engine, isNot(contains('startsAway')));
+      expect(engine, isNot(contains('starts_away')));
     });
 
     test('away is written, read back, and kept by copyWith', () {
       final json = FrontPorchExtensions(startsAway: true).toJson();
       final engine = json['realism_engine'] as Map<String, dynamic>;
-      expect(engine['startsAway'], isTrue);
+      expect(engine['starts_away'], isTrue);
       final back = FrontPorchExtensions.fromJson(json);
       expect(back.startsAway, isTrue);
       expect(back.copyWith(chaosModeEnabled: true).startsAway, isTrue);
@@ -997,7 +997,7 @@ void main() {
       final json = FrontPorchExtensions(startsAway: false).toJson();
       expect(
         json['realism_engine'] as Map<String, dynamic>,
-        isNot(contains('startsAway')),
+        isNot(contains('starts_away')),
       );
       expect(FrontPorchExtensions.fromJson(json).startsAway, isFalse);
       expect(

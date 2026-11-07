@@ -195,7 +195,7 @@ void main() {
     if (ext is! Map<String, dynamic>) return null;
     final engine = ext['realism_engine'];
     return engine is Map<String, dynamic>
-        ? engine['startsAway'] as bool?
+        ? engine['starts_away'] as bool?
         : null;
   }
 
