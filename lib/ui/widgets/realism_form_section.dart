@@ -165,6 +165,12 @@ class RealismFormSection extends StatelessWidget {
   final String? afterglowLabel;
   final String? afterglowSubtitle;
 
+  /// How this group member starts in every chat the group CREATES: Away at
+  /// the door (docs/design/group-initial-presence.md). Absent without a
+  /// setter — the member editor is the only one.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
   /// A group member's editor: the group's own lines, read-only, where a 1:1
   /// card has its switches.
   final MemberGroupRows? memberRows;
@@ -224,6 +230,8 @@ class RealismFormSection extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.startsAwayEnabled = false,
+    this.onStartsAwayChanged,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -409,6 +417,8 @@ class RealismFormSection extends StatelessWidget {
             onAfterglowChanged: onAfterglowChanged,
             afterglowLabel: afterglowLabel,
             afterglowSubtitle: afterglowSubtitle,
+            startsAwayEnabled: startsAwayEnabled,
+            onStartsAwayChanged: onStartsAwayChanged,
             chaosLine: memberRows?.chaos,
             afterglowLine: memberRows?.afterglow,
             needsDirectorAuthority: needsDirectorAuthority,

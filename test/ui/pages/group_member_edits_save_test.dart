@@ -490,6 +490,37 @@ void main() {
     });
   });
 
+  testWidgets('the member editor saves their Starts Away switch, which '
+      'seeds every chat this group creates', (tester) async {
+    await tester.runAsync(() async {
+      await pumpAfterglowHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member()..frontPorchExtensions = FrontPorchExtensions(),
+          _memberId,
+          groupName: 'Pair',
+        ),
+      );
+
+      tester.widget<Switch>(afterglowSwitch('Starts away')).onChanged!(true);
+      await tester.pump();
+      await save(tester);
+
+      final row = await memberRow();
+      final ext = rowExtensions(row);
+      expect(
+        ext?.startsAway,
+        isTrue,
+        reason:
+            'the switch reached her row: the seeder reads it at '
+            'chat creation',
+      );
+      expect(ext?.afterglowEnabled, isTrue, reason: 'the row saved untouched');
+    });
+  });
+
   testWidgets("the chat sidebar's member Edit sets a changed Afterglow "
       'through the chat, which clears her Lust', (tester) async {
     await tester.runAsync(() async {

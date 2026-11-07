@@ -50,6 +50,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.startsAwayEnabled = false,
+    this.onStartsAwayChanged,
     this.chaosLine,
     this.afterglowLine,
     this.needsDirectorAuthority = false,
@@ -101,6 +103,15 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final bool afterglowEnabled;
   final ValueChanged<bool>? onAfterglowChanged;
 
+  /// How this group member starts in every chat the group CREATES: Away at
+  /// the door, before any turn runs (docs/design/group-initial-presence.md).
+  /// Only the member editor passes a setter — the hold is a group fact, so
+  /// the row is absent for a 1:1 card (the wizard's Members step picks it
+  /// there too). Only the member's Back at the door lifts it, and a chat
+  /// you reopen keeps its own.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
   @override
   Widget build(BuildContext context) {
     final allowed = afterglowEnabledOf(context);
@@ -135,6 +146,14 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               onChanged: onAfterglowChanged!,
               context: context,
             ),
+            // Starts away (docs/design/group-initial-presence.md) rides just
+            // below the member's own Afterglow: a door fact, not an 18+
+            // feature, so it shows even when Porch Life keeps the row above
+            // hidden.
+            if (onStartsAwayChanged != null) ...[
+              const SizedBox(height: 12),
+              startsAwayRow(context),
+            ],
             if (showRecovery) const SizedBox(height: 12),
             if (!showRecovery && (showChaosToggle || showVerificationToggle))
               Divider(
@@ -145,6 +164,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                 height: 24,
               ),
           ],
+          if (!allowed && onStartsAwayChanged != null) startsAwayRow(context),
           if (showRecovery) ...[
             RecoveryBlock(
               recovery: recovery!,
@@ -265,4 +285,18 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
     );
   }
+
+  /// The row the member editor sets Starts Away with — both placements
+  /// (beside Afterglow, and alone when Porch Life hides that row) share it.
+  Widget startsAwayRow(BuildContext context) => buildRealismToggleRow(
+    icon: Icons.pause_circle_outline,
+    label: 'Starts away',
+    subtitle:
+        'Every chat you make with this group starts them Away, before any '
+        'turn runs. Only Back at the door brings them in — a chat you '
+        'reopen keeps its own.',
+    value: startsAwayEnabled,
+    onChanged: onStartsAwayChanged!,
+    context: context,
+  );
 }

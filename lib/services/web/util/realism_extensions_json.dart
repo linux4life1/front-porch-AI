@@ -234,6 +234,9 @@ FrontPorchExtensions frontPorchFromFields(
         : b.needsSimChoice,
     pocketsEnabled: asBool('pocketsEnabled', b.pocketsEnabled),
     afterglowEnabled: asBool('afterglowEnabled', b.afterglowEnabled),
+    // Starts Away (docs/design/group-initial-presence.md): an absent key
+    // keeps the base, so a member row that says nothing starts present.
+    startsAway: asBool('startsAway', b.startsAway),
     enjoysLowHygiene: asBool('enjoysLowHygiene', b.enjoysLowHygiene),
     needsPace: (fields['needsPace'] as String?) ?? b.needsPace,
     needsOff: asStrList('needsOff', b.needsOff),
@@ -289,6 +292,7 @@ Map<String, dynamic> frontPorchToJson(
   'needsSimEnabled': e.needsSimChoice ?? needsSimWhenSilent,
   'pocketsEnabled': e.pocketsEnabled,
   'afterglowEnabled': e.afterglowEnabled,
+  'startsAway': e.startsAway,
   'enjoysLowHygiene': e.enjoysLowHygiene,
   'needsPace': e.needsPace,
   'needsOff': e.needsOff,

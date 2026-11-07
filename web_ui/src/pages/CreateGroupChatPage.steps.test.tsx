@@ -165,6 +165,55 @@ it("posts each member's Voice from Details, the global voice included", async ()
   }
 });
 
+// Starts Away parity with the desktop Members step (docs/design/
+// group-initial-presence.md): an untouched pick shows the card's own switch,
+// a touched one rides the create body whether it says Away or present, and
+// a card that never finishes loading keeps the member present.
+it("posts each member's Starts Away pick from Members, the card's own included", async () => {
+  const { api } = await import('../api/client');
+  const original = api.get;
+  const spy = vi.spyOn(api, 'get').mockImplementation(async (path: string) =>
+    path === '/api/characters/m/detail'
+      ? { realism: { startsAway: true } }
+      : original(path),
+  );
+  try {
+    click('Juniper');
+    click('Marlow');
+    // The card seeds load under the picks; Marlow's asks to start Away.
+    await act(async () => {});
+    expect(
+      (container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-m"]')!).checked,
+      "Marlow's card says Away, so her untouched pick reads checked",
+    ).toBe(true);
+    expect(
+      (container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-j"]')!).checked,
+      'Juniper stays present',
+    ).toBe(false);
+
+    // Separate steps: each click hands the next one the fresh picks, the
+    // way clicking them in turn does.
+    await act(async () => {
+      container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-j"]')!.click();
+    });
+    await act(async () => {
+      container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-m"]')!.click();
+    });
+
+    while (!text().includes('Create & open')) click('Next');
+    await act(async () => {
+      button('Create & open').click();
+    });
+    const create = posts.find((p) => p.path === '/api/groups');
+    expect((create?.body as { memberStartsAway?: unknown }).memberStartsAway).toEqual({
+      j: true,
+      m: false,
+    });
+  } finally {
+    spy.mockRestore();
+  }
+});
+
 /// The Realism step drew every member at the neutral seed and Create posted
 // that seed for each, over their cards. It now reads each picked card,
 // posts only what the wizard changed, and keeps a member closed until

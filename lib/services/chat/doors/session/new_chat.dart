@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 import 'session_store.dart';
+import '../entry/group_member_starts_away.dart';
 
 /// A fresh chat for the open cast: the departing chat flushed, the live
 /// scalars re-seeded from the card (1:1) or the group's member baselines,
@@ -262,6 +263,15 @@ class NewChatOpener {
             _activeGroup!.defaultMemberRealismState,
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
           await _h.rekeyGroupStores();
+          // Starts Away (docs/design/group-initial-presence.md): a new chat
+          // is a chat creation too, so the card's switch seeds the runtime
+          // hold again — only in the CHAT the member starts in, never over
+          // a restore, and outside every realism gate like fresh entry.
+          seedMemberStartsAway(
+            _groupCharacters,
+            _scope.groups,
+            idOf: _h.characterIdFor,
+          );
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (doors/entry/group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off
