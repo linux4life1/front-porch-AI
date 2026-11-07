@@ -98,6 +98,16 @@ lifecycle.
 - **R5 (D6 — consume at create).** The seed is read at chat creation and
   consumed there. Mid-chat member add, member move or editor edits do not
   re-run it; they shape the *next* created chat.
+- **R6 (engine independence).** Starts Away seeds **with or without the
+  Realism Engine**: the field rides the member extensions whose
+  `realism_` names are history, not a dependency (`frontPorchExtensions`
+  carries door facts too — Pockets, Afterglow — and the derivation's hold
+  answers from the presence verdict, never from an engine flag). No
+  creation path may gate the seed on Realism: a touched wizard pick lands
+  in the member row even when the group's new chats run without the
+  engine, and it lands carrying nothing else — the row's Realism seed
+  still reads as a plain card's, so the engine coming on later starts
+  that member exactly as if the pick had never been touched.
 
 ## Data model
 

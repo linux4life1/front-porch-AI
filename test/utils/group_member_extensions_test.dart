@@ -62,14 +62,34 @@ void main() {
       expect(off?.startsAway, isFalse);
     });
 
-    test('Realism off and no extensions: still null, the old contract', () {
-      final off = groupMemberExtensions(
+    test('Realism off and no extensions: the touched pick still seeds, the '
+        'untouched stays null', () {
+      // Starts Away is a door fact, not a Realism Engine feature — the
+      // class it rides in is named `realism_engine` by history, not by
+      // dependency. A touched pick survives a group whose new chats run
+      // without the engine, because the creation seeder reads it there
+      // exactly the same way.
+      final touched = groupMemberExtensions(
         CharacterCard(name: 'Alice'),
         const {},
         realismEnabled: false,
         startsAway: true,
       );
-      expect(off, isNull);
+      expect(touched?.startsAway, isTrue);
+      expect(touched?.stableId, isNotEmpty);
+      // It carries the pick alone: its seed reads as a plain card's, so
+      // Realism for new chats coming on later starts them alike.
+      expect(
+        groupMemberStartingSeed(touched),
+        groupMemberStartingSeed(null),
+        reason: 'a door fact carries no Realism seed',
+      );
+      final untouched = groupMemberExtensions(
+        CharacterCard(name: 'Alice'),
+        const {},
+        realismEnabled: false,
+      );
+      expect(untouched, isNull, reason: 'the pick never landed, old contract');
     });
   });
 }

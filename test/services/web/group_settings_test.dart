@@ -647,6 +647,38 @@ void main() {
       expect(untouched[carded]!.startsAway, isFalse);
     });
 
+    // The maintainer's ruling: Starts Away is a door fact, not a Realism
+    // Engine feature — the box it rides in (`realism_engine`) is history,
+    // not a dependency. A group whose new chats run without the engine
+    // still plants the hold, so the touched pick lands even here.
+    test('a member starts away even when the group runs no Realism', () async {
+      final (_, ext, _) = await made({
+        'name': 'Away, engine off',
+        'memberIds': [plainId, carded],
+        'memberStartsAway': {plainId: true, carded: false},
+        'realism': {'enabled': false},
+      });
+      expect(
+        ext[plainId]!.startsAway,
+        isTrue,
+        reason: 'the pick lands without the engine, the seeder reads it',
+      );
+      expect(ext[plainId]!.stableId, isNotNull);
+      expect(
+        ext[carded]!.startsAway,
+        isFalse,
+        reason: "Carded's touched false keeps them present here too",
+      );
+      // The engine-off extensions carry the pick alone: their seed reads as
+      // a plain card's, so Realism for new chats coming on later starts
+      // them exactly as if the pick had never been touched.
+      expect(
+        groupMemberStartingSeed(ext[plainId]),
+        groupMemberStartingSeed(null),
+        reason: 'a door fact carries no Realism seed',
+      );
+    });
+
     test('every Realism-step field lands on the group and members', () async {
       final member = {
         'affection': 70,
