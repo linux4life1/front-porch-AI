@@ -103,7 +103,7 @@ FrontPorchExtensions decodeFrontPorchExtensions(
     afterglowEnabled: realism['afterglow_enabled'] as bool? ?? true,
     // Tri-state like Afterglow's inverse: written only when the card asks to
     // start Away, so a key-less card (and a pre-feature one) starts present.
-    startsAway: realism['startsAway'] as bool? ?? false,
+    startsAway: realism['starts_away'] as bool? ?? false,
     enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
     ambitions: _phrases(realism['ambitions']),
     planLines: _phrases(realism['plan_lines']),
@@ -205,8 +205,8 @@ Map<String, dynamic> encodeFrontPorchExtensions(FrontPorchExtensions e) {
       if (!e.afterglowEnabled) 'afterglow_enabled': false,
       // Starts Away (docs/design/group-initial-presence.md): written only
       // when true, so a card that says nothing — and any pre-feature card —
-      // stays byte-identical (camelCase like occupationBrief/workDays).
-      if (e.startsAway) 'startsAway': true,
+      // stays byte-identical (snake_case like the rest of the object).
+      if (e.startsAway) 'starts_away': true,
       'enjoys_low_hygiene': e.enjoysLowHygiene,
       'ambitions': e.ambitions,
       'plan_lines': e.planLines,
