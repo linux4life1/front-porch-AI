@@ -815,6 +815,9 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
   @override
   bool? withUserForGroupCharacter(CharacterCard character) => null;
+
+  @override
+  bool awayHeldForGroupCharacter(CharacterCard character) => false;
   @override
   bool get isTurnBusy => false;
 
