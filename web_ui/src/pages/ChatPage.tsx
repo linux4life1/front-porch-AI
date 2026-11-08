@@ -10,6 +10,7 @@ import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
 import { composerDraftOwnerKey, composerDraftSessionKey } from '../composerDraft';
 import { ChatInsight } from '../components/ChatInsight';
+import { ChatSidebar } from '../components/ChatSidebar';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
 import { ContextBudgetModal } from '../components/ContextBudgetModal';
 import { StoryToolsModal } from './chat/StoryToolsModal';
@@ -336,6 +337,80 @@ export function ChatPage() {
     />
   ) : null;
 
+  // Wide layout (PR 1a): the cast bar and the Director strip leave the
+  // space above the transcript and live in the sidebar cards, as the
+  // desktop window arranges them. Same elements, same props — phone and
+  // tablet still render them above the transcript.
+  const castBar = (
+    <CastBar
+      cast={cast}
+      focusedId={focusedId}
+      busy={state.isGenerating}
+      settling={!!state.isSettlingTurn}
+      guestStatus={state.guestActivity?.status ?? null}
+      guestIsError={state.guestActivity?.isError ?? false}
+      pendingDetection={state.pendingDetection ?? null}
+      onFocus={focusParticipant}
+      onAdd={() => setShowPicker(true)}
+      onCommand={sendMessage}
+      onSetAway={(id, away) => {
+        api
+          .post('/api/chat/cast/away', { id, away })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
+      }}
+      canRemoveMember={state.director?.canRemoveMember ?? true}
+    />
+  );
+  const director = state.director && (state.isGroupMode || cast.length > 1) ? (
+    <DirectorStrip
+      director={state.director}
+      busy={state.isGenerating}
+      onCommand={sendMessage}
+      memberNames={cast.map((c) => c.name)}
+      onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
+      onPauseAutoPlay={() =>
+        postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')
+      }
+      onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
+      onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
+      onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}
+      onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
+    />
+  ) : null;
+  const wideAside = realismForPanel ? (
+    <ChatSidebar
+      realism={realismForPanel}
+      moodLook={moodLook}
+      moodPaints={moodPaints}
+      focusedIsLiteGuest={focusedIsLiteGuest}
+      lorebook={state.lorebook}
+      groupLorebookUnreadable={state.groupLorebookUnreadable}
+      loreTokens={state.loreTokens}
+      loreBudget={state.loreBudget}
+      loreOverflow={state.loreOverflow}
+      draft={draft}
+      authorNote={state.authorNote ?? ''}
+      authorNoteDepth={state.authorNoteDepth ?? 4}
+      onSaveAuthorNote={saveAuthorNote}
+      characterId={focused?.dbId ?? state.character?.id ?? ''}
+      expressionLabel={state.expressionLabel}
+      isGroup={state.isGroupMode ?? false}
+      focusedIsHost={focused?.isHost ?? !state.isGroupMode}
+      focusedAvatarUrl={focused?.avatarUrl}
+      focusedPlaceholderPortrait={focused?.placeholderPortrait}
+      toolsKey={toolsBump}
+      focusedId={focusedId}
+      groupId={state.groupId ?? null}
+      onCommand={sendMessage}
+      toolSupport={state.toolSupport}
+      castBar={castBar}
+      director={director}
+      onEditCharacter={editPath ? () => navigate(editPath) : undefined}
+      onChatSettings={() => setShowTheme(true)}
+    />
+  ) : null;
+
   // Slice 7: hide a mint the author already answered locally until the
   // server flag actually clears or a DIFFERENT name arrives (a failed
   // POST must not reopen the modal on every poll — review #607).
@@ -380,41 +455,8 @@ export function ChatPage() {
           onConversations={openSessions}
         />
 
-        <CastBar
-          cast={cast}
-          focusedId={focusedId}
-          busy={state.isGenerating}
-          settling={!!state.isSettlingTurn}
-          guestStatus={state.guestActivity?.status ?? null}
-          guestIsError={state.guestActivity?.isError ?? false}
-          pendingDetection={state.pendingDetection ?? null}
-          onFocus={focusParticipant}
-          onAdd={() => setShowPicker(true)}
-          onCommand={sendMessage}
-          onSetAway={(id, away) => {
-            api
-              .post('/api/chat/cast/away', { id, away })
-              .then(() => refresh())
-              .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
-          }}
-          canRemoveMember={state.director?.canRemoveMember ?? true}
-        />
-        {state.director && (state.isGroupMode || cast.length > 1) && (
-          <DirectorStrip
-            director={state.director}
-            busy={state.isGenerating}
-            onCommand={sendMessage}
-            memberNames={cast.map((c) => c.name)}
-            onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
-            onPauseAutoPlay={() =>
-              postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')
-            }
-            onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
-            onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
-            onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}
-            onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
-          />
-        )}
+        {!isDesktop && castBar}
+        {!isDesktop && director}
         <ExitUndoBar
           undo={state.exitUndo ?? null}
           onUndo={() => {
@@ -594,10 +636,10 @@ export function ChatPage() {
       {/* Persistent insight column — desktop only. The 1024px here is the same
           line `.chat-aside`'s media query draws; below it the column is
           display:none, and a hidden mount still ran every sidebar fetch. */}
-      {isDesktop && showAside && insight && (
+      {isDesktop && showAside && wideAside && (
         <aside className="chat-aside" style={{ width: asideWidth }}>
           <div className="aside-resizer" onMouseDown={startAsideResize} title="Drag to resize" />
-          {insight}
+          {wideAside}
         </aside>
       )}
 

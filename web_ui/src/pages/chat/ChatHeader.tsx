@@ -127,9 +127,9 @@ export function ChatHeader({
 
   // Desktop mirrors the window: Back, the cast stack (or the portrait),
   // the name with its group line, and the sidebar toggle at the end.
-  // The action buttons stay for now — their destinations (composer icon
-  // row + sidebar Main Settings) land in a later commit, and dropping them
-  // here would orphan Edit/Model/Theme/Conversations on desktop.
+  // The action buttons have all reached their destinations (PR 1a):
+  // Persona + Conversations sit in the composer's icon row, Edit, Model
+  // Settings and Chat settings in the sidebar's Main Settings menu.
   if (isDesktop) {
     return (
       <div className="chat-header chat-header-desktop">
@@ -156,22 +156,6 @@ export function ChatHeader({
             <span className="chat-title">{title}</span>
             {isGroupMode && groupLine && <span className="chat-header-sub">{groupLine}</span>}
           </span>
-        </div>
-        <div className="chat-header-actions">
-          <ChatModelSwitcher />
-          {onEdit && (
-            <button className="link-btn" title="Edit character" onClick={onEdit}>
-              ✎
-            </button>
-          )}
-          {stats}
-          <button className="link-btn" title="Who you are in this chat" onClick={onPersona}>
-            Persona
-          </button>
-          <button className="link-btn" onClick={onTheme}>
-            Theme
-          </button>
-          {conversations}
         </div>
         <button
           className="chat-sidebar-toggle"

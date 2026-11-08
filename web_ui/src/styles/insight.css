@@ -347,3 +347,15 @@
 @media (prefers-reduced-motion: reduce) {
   .mood-portrait.on::after, .mood-portrait.on.need > *:first-child, .stat.need-low, .stat.need-low .stat-fill { animation: none !important; }
 }
+
+/* ── Desktop sidebar (PR 1a) ────────────────────────────────────────────
+   Wide (≥1024) renders ChatSidebar: portrait, Main Settings, pills, then
+   the cast/Director/tool cards. Phone/tablet keep the flat ChatInsight
+   above untouched. */
+.sidebar-main-settings { width: 100%; margin-top: 10px; }
+/* The wide header has no chip; Main Settings → Model Settings opens this
+   same sheet, so only the sheet shows and the chip does not. */
+.model-sheet-host { display: contents; }
+.model-sheet-host .model-switch-chip { display: none; }
+.wide-card { min-width: 0; }
+.wide-card .insight-section { margin-top: 6px; }
