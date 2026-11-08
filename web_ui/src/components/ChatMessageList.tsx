@@ -7,8 +7,7 @@
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';
-import {
+import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
   holdTranscriptAfterPrepend,
@@ -21,7 +20,7 @@ import { applyTranscriptSpan, revealOlderSpan, revealAroundSpan, type Transcript
 import { useFindSurface, markRanges } from './chatSearch';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
-import { MessageActions } from './MessageActions';
+import { MessageActions, BubbleActions, ReplyActions } from './MessageActions';
 import { type CastMember } from './CastBar';
 import { type Message } from './chatTypes';
 import { canonicalizeReasoning } from '../utils/reasoningMarkers';
@@ -164,6 +163,10 @@ type TranscriptProps = {
   moodPaints?: MoodPaints | null;
   /** The 1:1 host's live mood, so a bubble whose stamp still matches it paints at full loudness. */
   liveMood?: { emotion: string; intensity: string; held: number } | null;
+  /** ≥1024: rows are laid out like the desktop window — avatar column,
+   *  name + actions inside the bubble's top row, reply controls under the
+   *  bubble (PR 1a). Phone/tablet keep the hover row. */
+  isDesktop?: boolean;
 };
 
 // Memoized separately from the live streaming tail: token/processing WS
@@ -197,6 +200,7 @@ const TranscriptRows = memo(function TranscriptRows({
   moodLook,
   moodPaints,
   liveMood,
+  isDesktop,
 }: TranscriptProps) {
   // The latest reply, which wears its mood at the full level.
   const moodTarget = moodLook?.level === 'all' && moodPaints
@@ -244,6 +248,113 @@ const TranscriptRows = memo(function TranscriptRows({
             <div key={m.rowKey ?? m.index} className="msg-row">
               <div className="dream-banner">
                 🌙 <em>{m.sender} dreamt: {m.text}</em>
+              </div>
+            </div>
+          );
+        }
+        const speakerName = speaker?.name ?? m.sender;
+        // Desktop (≥1024) window layout (PR 1a): avatar column with the
+        // number under it, name + tools inside the bubble's top row,
+        // thought and chips inside the bubble, reply controls under the
+        // bubble. Every class the phone path exposes (msg-row, bubble,
+        // msg-speaker, msg-number, thinking, msg-actions) is kept, so the
+        // shared journeys selectors work on both layouts.
+        if (isDesktop) {
+          return (
+            <div key={m.rowKey ?? m.index} data-msg-index={m.index} className="msg-row msg-row-desktop">
+              <div className="msg-avatar-col">
+                <span className="msg-avatar" aria-hidden>
+                  {speakerName.charAt(0).toUpperCase()}
+                </span>
+                <span className={m.isUser ? 'msg-number user' : 'msg-number'}>
+                  #{(m.position ?? m.index) + 1}
+                </span>
+              </div>
+              <div className="msg-main">
+                <div
+                  className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
+                  style={moodOf(m).style}
+                >
+                  <div className={`msg-actions bubble-actions${m.isUser ? ' user' : ''}`}>
+                    <span className="msg-speaker">{markSpeaker(m, speakerName)}</span>
+                    {m.isNarration ? (
+                      // A narrator beat offers Delete only, as on the desktop.
+                      <button
+                        className="icon-btn"
+                        title="Delete"
+                        disabled={busy && m.index === lastIndex}
+                        onClick={() => onDelete(m.index)}
+                      >
+                        🗑
+                      </button>
+                    ) : (
+                      <BubbleActions
+                        m={m}
+                        isLast={m.index === lastIndex}
+                        busy={busy}
+                        canSpeak={canSpeak}
+                        onFork={() => onFork(m.index)}
+                        onEdit={() => onBeginEdit(m)}
+                        onDelete={() => onDelete(m.index)}
+                      />
+                    )}
+                  </div>
+                  {isDirectorNote && (
+                    <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
+                  )}
+                  {m.hasThinking && m.thinkingContent && (
+                    <details className="thinking">
+                      <summary>💭 Thoughts</summary>
+                      <div className="thinking-body">{m.thinkingContent}</div>
+                    </details>
+                  )}
+                  {m.image && (
+                    <img
+                      className="chat-image"
+                      src={`/api/image/saved/${encodeURIComponent(m.image)}`}
+                      alt={m.imagePrompt || 'generated image'}
+                      title={m.imagePrompt}
+                      loading="lazy"
+                      onLoad={onChatImageLoad}
+                    />
+                  )}
+                  {m.text ? (
+                    <MessageContent text={m.text} find={find} msgIndex={m.index} />
+                  ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
+                    <span className="muted small">
+                      💭 Only thoughts this turn — Continue or Regenerate for a
+                      spoken reply.
+                    </span>
+                  ) : null}
+                  {!m.isUser && m.chips && (
+                    <ChipsRow
+                      chips={m.chips}
+                      isLast={m.index === lastIndex}
+                      busy={busy || !!settling}
+                      onReprocess={() => onReprocess(m.index)}
+                      onRevert={() => onRevert(m.index)}
+                    />
+                  )}
+                </div>
+                <div className={`msg-actions reply-actions${m.isUser ? ' user' : ''}`}>
+                  {!m.isNarration && (
+                    <ReplyActions
+                      m={m}
+                      isLast={m.index === lastIndex}
+                      busy={busy}
+                      greetCount={greetCount}
+                      greetingIndex={greetingIndex}
+                      userHasReplied={userHasReplied}
+                      onSwipe={onSwipe}
+                      onRegenerate={onRegenerate}
+                      lookupWeb={lookupWeb}
+                      lookupWiki={lookupWiki}
+                      onContinue={onContinue}
+                      onVariantPicked={onVariantPicked}
+                      onActionFailed={onActionFailed}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           );

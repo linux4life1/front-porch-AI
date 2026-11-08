@@ -181,3 +181,34 @@
 }
 [data-layout="phone"] .msg-edit-body-area { min-height: 140px; }
 
+
+/* ── Desktop (≥1024) message rows (PR 1a) ───────────────────────────────
+   The window's layout: avatar column with the number under it, the bubble
+   stretched beside it, tools inside the bubble's top row (always shown —
+   nothing is hover-hidden on wide), reply controls right-aligned under the
+   newest reply. Phone and tablet keep the hover row above untouched. */
+.msg-row-desktop { flex-direction: row; align-items: flex-start; gap: 10px; }
+.msg-avatar-col {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex-shrink: 0; padding-top: 2px; width: 40px;
+}
+.msg-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.85rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent);
+}
+.msg-row-desktop .msg-number { margin: 0; align-self: center; }
+.msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.msg-row-desktop .bubble { align-self: stretch; max-width: none; }
+.msg-row-desktop .msg-actions { opacity: 1; }
+.msg-row-desktop .msg-actions.user { align-self: stretch; }
+.bubble-actions { width: 100%; gap: 3px; margin: 0 0 4px; }
+.bubble-actions .msg-speaker {
+  position: static; background: none; padding: 0; margin: 0 0 0 2px;
+  font-size: 0.78rem;
+}
+.bubble-actions .icon-btn { margin-left: auto; }
+.bubble-actions .icon-btn + .icon-btn { margin-left: 0; }
+.reply-actions { justify-content: flex-end; margin: 2px 0 0; }
+.reply-actions:empty { display: none; }

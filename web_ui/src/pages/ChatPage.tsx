@@ -467,6 +467,7 @@ export function ChatPage() {
               messages={state.messages}
               castById={castById}
               multiCast={multiCast}
+              isDesktop={isDesktop}
               moodLook={moodLook}
               moodPaints={moodPaints}
               liveMood={state.realism ? { emotion: state.realism.emotion, intensity: state.realism.emotionIntensity, held: state.realism.emotionHeld ?? 0 } : null}
