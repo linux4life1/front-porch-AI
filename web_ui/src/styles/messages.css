@@ -200,7 +200,11 @@
 }
 .msg-row-desktop .msg-number { margin: 0; align-self: center; }
 .msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
-.msg-row-desktop .bubble { align-self: stretch; max-width: none; }
+/* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
+   classes, so the wide override needs four to win. */
+.msg-row.msg-row-desktop .bubble,
+.msg-row.msg-row-desktop .bubble.ai,
+.msg-row.msg-row-desktop .bubble.user { align-self: stretch; max-width: none; }
 .msg-row-desktop .msg-actions { opacity: 1; }
 .msg-row-desktop .msg-actions.user { align-self: stretch; }
 .bubble-actions { width: 100%; gap: 3px; margin: 0 0 4px; }
