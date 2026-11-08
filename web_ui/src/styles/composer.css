@@ -169,3 +169,26 @@
 .conv-preview { font-weight: 600; word-break: break-word; }
 .conv-meta { font-size: 0.72rem; color: var(--muted); }
 
+/* Desktop (≥1024) composer: the tools leave the input line and sit in an
+   icon row under the box, as the desktop window draws them (PR 1a). The
+   box keeps the full first line; the row wraps beneath it. */
+.chat-input-desktop { flex-wrap: wrap; }
+.chat-input-desktop .composer-area { flex: 1 1 100%; }
+.composer-icon-row {
+  flex: 1 1 100%; display: flex; align-items: center;
+  justify-content: space-between; gap: 8px; margin-top: 8px;
+}
+.composer-icons-left, .composer-icons-right { display: flex; align-items: center; gap: 8px; }
+.composer-persona-btn {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; font-size: 0.95rem; cursor: pointer;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+.composer-persona-btn:hover { border-color: var(--accent); }
+.composer-next-btn { color: var(--accent); font-size: 1.15rem; }
+.composer-send-btn { min-width: 42px; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
