@@ -32,6 +32,9 @@
   --text-strong: rgba(255, 255, 255, 0.87);
   /* Colors.amberAccent: the AI creator's sparkle, as on the desktop AppBar. */
   --sparkle: #ffd740;
+  /* Colors.purpleAccent: the director's Next-character control, purple on
+     the desktop on purpose (theme-keep — it must not read as Play). */
+  --director-next: #e040fb;
   /* Desktop AppColors.userBubble is still blue — chat bubbles are their own
      system, deliberately unchanged by the warm-porch chrome restyle. */
   --user-bubble: #3b82f6;

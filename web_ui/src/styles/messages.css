@@ -210,5 +210,15 @@
 }
 .bubble-actions .icon-btn { margin-left: auto; }
 .bubble-actions .icon-btn + .icon-btn { margin-left: 0; }
+/* Newest-reply controls sit INSIDE the bubble, bottom-right, as the window
+   draws them (regenerate, continue, ‹ n/m ›, pick version). */
+.msg-row-desktop .bubble .reply-actions {
+  justify-content: flex-end; margin: 8px 0 -2px; opacity: 1;
+}
 .reply-actions { justify-content: flex-end; margin: 2px 0 0; }
 .reply-actions:empty { display: none; }
+/* Full-width transcript (PR 1a pass 4): the window fills the chat area —
+   the tablet reading-width cap (wizard.css @768) is lifted on wide, and
+   short transcripts anchor above the composer instead of floating at top. */
+.chat-messages > .msg-row-desktop { max-width: none; margin-left: 0; margin-right: 0; }
+.chat-messages > .msg-row-desktop:first-child { margin-top: auto; }

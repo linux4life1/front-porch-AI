@@ -20,6 +20,10 @@ import { ContextBudgetModal } from './ContextBudgetModal';
 import { TokenAlternativesModal } from './TokenAlternativesModal';
 import { SpeakButton } from './VoiceControls';
 import { VariantPickerModal } from './VariantPickerModal';
+import {
+  IconChevronLeft, IconChevronRight, IconContinue, IconEdit, IconFork, IconInspect, IconList,
+  IconRegenerate, IconShuffle, IconSpeaker, IconTrash,
+} from './chatLineIcons';
 
 /** The greet-vs-variant-vs-fresh-swipe rules, shared by both surfaces. */
 function swipeFacts(
@@ -323,19 +327,19 @@ export function BubbleActions({
   return (
     <>
       {canSpeak && !m.isUser && m.sender !== 'System' && m.text.trim() !== '' && (
-        <SpeakButton text={m.text} messageIndex={m.index} />
+        <SpeakButton text={m.text} messageIndex={m.index} icon={<IconSpeaker />} />
       )}
       {!m.isUser && m.hasContext && (
-        <button className="icon-btn" title="Inspect prompt" onClick={() => setInspecting(true)}>📊</button>
+        <button className="icon-btn" title="Inspect prompt" onClick={() => setInspecting(true)}><IconInspect /></button>
       )}
       {!m.isUser && m.hasTokenAlts && (
-        <button className="icon-btn" title="Other words" onClick={() => setOtherWords(true)}>🔀</button>
+        <button className="icon-btn" title="Other words" onClick={() => setOtherWords(true)}><IconShuffle /></button>
       )}
+      <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}><IconEdit /></button>
       {m.sender !== 'System' && (
-        <button className="icon-btn" title="Fork from here" disabled={busy} onClick={onFork}>⑂</button>
+        <button className="icon-btn" title="Fork from here" disabled={busy} onClick={onFork}><IconFork /></button>
       )}
-      <button className="icon-btn" title="Edit" disabled={busy} onClick={onEdit}>✎</button>
-      <button className="icon-btn" title="Delete" disabled={busy && isLast} onClick={onDelete}>🗑</button>
+      <button className="icon-btn" title="Delete" disabled={busy && isLast} onClick={onDelete}><IconTrash /></button>
       {inspecting && (
         <ContextBudgetModal messageIndex={m.index} onClose={() => setInspecting(false)} />
       )}
@@ -428,15 +432,29 @@ export function ReplyActions({
   };
   return (
     <>
+      {/* The window's order inside the bubble's bottom-right: regenerate,
+          continue, then the swipe pair, then the version picker. */}
+      {!m.isUser && !isImage && isLast && m.index !== 0 && (
+        <>
+          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={openCritique}><IconRegenerate /></button>
+          <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}><IconContinue /></button>
+        </>
+      )}
+      {!m.isUser && !isImage && isLast && m.index === 0 && (
+        <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}><IconContinue /></button>
+      )}
+      {m.isUser && isLast && (
+        <button className="icon-btn" title="Generate reply" disabled={busy} onClick={() => onRegenerate()}><IconRegenerate /></button>
+      )}
       {canSwipe && (
         <span className="swipe">
           <button className="icon-btn" title="Previous" disabled={busy}
-            onClick={() => isGreet ? cycleGreet(-1) : onSwipe(m.index, -1)}>◀</button>
+            onClick={() => isGreet ? cycleGreet(-1) : onSwipe(m.index, -1)}><IconChevronLeft /></button>
           <span className="swipe-count">
             {isGreet ? `${greetingIndex + 1}/${greetCount}` : `${idx}/${Math.max(count, idx)}`}
           </span>
           <button className="icon-btn" title={isGreet ? 'Next greet' : 'Next / new swipe'} disabled={busy}
-            onClick={() => isGreet ? cycleGreet(1) : onSwipe(m.index, 1)}>▶</button>
+            onClick={() => isGreet ? cycleGreet(1) : onSwipe(m.index, 1)}><IconChevronRight /></button>
         </span>
       )}
       {showPicker && (
@@ -446,20 +464,8 @@ export function ReplyActions({
           disabled={busy}
           onClick={() => setPicker(true)}
         >
-          ☰
+          <IconList />
         </button>
-      )}
-      {!m.isUser && !isImage && isLast && m.index !== 0 && (
-        <>
-          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={openCritique}>⟳</button>
-          <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}>⏩</button>
-        </>
-      )}
-      {!m.isUser && !isImage && isLast && m.index === 0 && (
-        <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}>⏩</button>
-      )}
-      {m.isUser && isLast && (
-        <button className="icon-btn" title="Generate reply" disabled={busy} onClick={() => onRegenerate()}>⟳</button>
       )}
       {picker && (
         <VariantPickerModal

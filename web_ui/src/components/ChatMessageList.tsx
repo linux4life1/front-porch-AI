@@ -25,6 +25,7 @@ import { type CastMember } from './CastBar';
 import { type Message } from './chatTypes';
 import { canonicalizeReasoning } from '../utils/reasoningMarkers';
 import { DIRECTOR_CHARACTER_ID } from './DirectorStrip';
+import { IconTrash } from './chatLineIcons';
 
 /// Truthful generation status (desktop status-bar parity): live prompt-reading
 /// counts from the managed local backend + which background pass holds the
@@ -285,7 +286,7 @@ const TranscriptRows = memo(function TranscriptRows({
                         disabled={busy && m.index === lastIndex}
                         onClick={() => onDelete(m.index)}
                       >
-                        🗑
+                        <IconTrash />
                       </button>
                     ) : (
                       <BubbleActions
@@ -335,25 +336,25 @@ const TranscriptRows = memo(function TranscriptRows({
                       onRevert={() => onRevert(m.index)}
                     />
                   )}
-                </div>
-                <div className={`msg-actions reply-actions${m.isUser ? ' user' : ''}`}>
-                  {!m.isNarration && (
-                    <ReplyActions
-                      m={m}
-                      isLast={m.index === lastIndex}
-                      busy={busy}
-                      greetCount={greetCount}
-                      greetingIndex={greetingIndex}
-                      userHasReplied={userHasReplied}
-                      onSwipe={onSwipe}
-                      onRegenerate={onRegenerate}
-                      lookupWeb={lookupWeb}
-                      lookupWiki={lookupWiki}
-                      onContinue={onContinue}
-                      onVariantPicked={onVariantPicked}
-                      onActionFailed={onActionFailed}
-                    />
-                  )}
+                  <div className={`msg-actions reply-actions${m.isUser ? ' user' : ''}`}>
+                    {!m.isNarration && (
+                      <ReplyActions
+                        m={m}
+                        isLast={m.index === lastIndex}
+                        busy={busy}
+                        greetCount={greetCount}
+                        greetingIndex={greetingIndex}
+                        userHasReplied={userHasReplied}
+                        onSwipe={onSwipe}
+                        onRegenerate={onRegenerate}
+                        lookupWeb={lookupWeb}
+                        lookupWiki={lookupWiki}
+                        onContinue={onContinue}
+                        onVariantPicked={onVariantPicked}
+                        onActionFailed={onActionFailed}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

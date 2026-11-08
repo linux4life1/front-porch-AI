@@ -9,6 +9,9 @@
 
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
+import {
+  IconFolder, IconImage, IconMic, IconNextTurn, IconSend, IconSparkle, IconUser,
+} from './chatLineIcons';
 import { CardMenu, type MenuState } from './library/CardMenu';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
@@ -496,7 +499,7 @@ export function ChatComposer({
                 title="Who you are in this chat"
                 onClick={onPersona}
               >
-                👤
+                <IconUser />
               </button>
             )}
             {folderItems && folderItems.length > 0 && (
@@ -529,7 +532,7 @@ export function ChatComposer({
                     );
                   }}
                 >
-                  📁
+                  <IconFolder />
                 </button>
                 {folderMenu && <CardMenu menu={folderMenu} onClose={() => setFolderMenu(null)} />}
               </>
@@ -542,7 +545,7 @@ export function ChatComposer({
               disabled={isGenerating || photoBusy}
               onClick={() => photoInputRef.current?.click()}
             >
-              🖼
+              <IconImage />
             </button>
           </div>
           <div className="composer-icons-right">
@@ -555,12 +558,13 @@ export function ChatComposer({
                 disabled={isGenerating}
                 onClick={() => onImpersonate(draft)}
               >
-                ✦
+                <IconSparkle />
               </button>
             )}
             {canMic && (
               <MicButton
                 disabled={isGenerating}
+                icon={<IconMic />}
                 onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
               />
             )}
@@ -573,7 +577,7 @@ export function ChatComposer({
                 disabled={isGenerating}
                 onClick={onNextTurn}
               >
-                ⏭
+                <IconNextTurn />
               </button>
             )}
             {isGenerating ? (
@@ -585,7 +589,7 @@ export function ChatComposer({
                 onClick={send}
                 disabled={photoBusy || (!draft.trim() && !photo)}
               >
-                ➤<span className="visually-hidden">Send</span>
+                <IconSend /><span className="visually-hidden">Send</span>
               </button>
             )}
           </div>

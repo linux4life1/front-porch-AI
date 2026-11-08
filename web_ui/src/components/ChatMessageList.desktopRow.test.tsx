@@ -3,9 +3,10 @@
 //
 // Desktop (≥1024) message row layout (PR 1a): the avatar column carries the
 // initial and the number, the bubble's top row carries the speaker's name and
-// the per-message tools (speak / inspect / other words / fork / edit / delete),
-// and the reply controls (regenerate / continue / swipe) sit in their own row
-// under the bubble. The phone hover row must not have these desktop containers.
+// the per-message tools (speak / inspect / other words / edit / fork / delete),
+// and the newest reply's controls sit inside the bubble at its bottom-right
+// (regenerate / continue / ‹ n/m › / pick version, pass 4). The phone hover
+// row must not have these desktop containers.
 // Guards the isDesktop branch — every other list test renders at phone width.
 
 import { act } from 'react-dom/test-utils';
@@ -74,7 +75,7 @@ afterEach(() => {
 });
 
 describe('desktop message row', () => {
-  it('puts the initial + number in a left column, name + tools in the bubble, reply controls under it', () => {
+  it('puts the initial + number in a left column, name + tools in the bubble top row, reply controls inside the bubble', () => {
     renderList([userLine, reply], true);
     const rows = container.querySelectorAll('.msg-row-desktop');
     expect(rows).toHaveLength(2);
@@ -93,13 +94,29 @@ describe('desktop message row', () => {
     expect(top.querySelector('button[title="Edit"]')).not.toBeNull();
     expect(top.querySelector('button[title="Delete"]')).not.toBeNull();
 
-    // The newest reply's controls sit in their own row under the bubble, not
-    // inside it.
+    // The newest reply's controls sit INSIDE the bubble at its bottom-right
+    // (pass 4), ordered regenerate → continue → swipe → pick version.
     const under = row.querySelector('.msg-actions.reply-actions') as HTMLElement;
     expect(under).not.toBeNull();
-    expect(bubble.contains(under)).toBe(false);
-    expect(under.querySelector('button[title="Regenerate"]')).not.toBeNull();
-    expect(under.querySelector('button[title="Continue"]')).not.toBeNull();
+    expect(bubble.contains(under)).toBe(true);
+    const titles = [...under.querySelectorAll('button')].map((b) => b.getAttribute('title'));
+    expect(titles.indexOf('Regenerate')).toBeLessThan(titles.indexOf('Continue'));
+    expect(titles.indexOf('Continue')).toBeLessThan(titles.indexOf('Next / new swipe'));
+  });
+
+  it('shows every reply variant control in the window order', () => {
+    // Swipe arrows sit with the controls on any row that has variants and
+    // on the newest reply in the window's order (regenerate, continue,
+    // ‹ n/m ›, pick version).
+    const withSwipes: Message = { ...reply, swipeCount: 3, swipeIndex: 0 };
+    renderList([userLine, withSwipes], true);
+    const row = container.querySelectorAll('.msg-row-desktop')[1] as HTMLElement;
+    const under = row.querySelector('.reply-actions') as HTMLElement;
+    const titles = [...under.querySelectorAll('button')].map((b) => b.getAttribute('title'));
+    expect(titles).toEqual(expect.arrayContaining([
+      'Regenerate', 'Continue', 'Previous', 'Next / new swipe', 'Select variant',
+    ]));
+    expect(titles.indexOf('Next / new swipe')).toBeLessThan(titles.indexOf('Select variant'));
   });
 
   it('shows both containers even without hovering (no hover-hide on wide)', () => {

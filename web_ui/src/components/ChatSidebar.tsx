@@ -210,6 +210,8 @@ export function ChatSidebar({
 
   // ── Author's note (same controls and copy as ChatInsight) ────────────
   const [note, setNote] = useState(authorNote);
+  // The window keeps Character State open; a wide card starts open too.
+  const [stateOpen, setStateOpen] = useState(true);
   useEffect(() => setNote(authorNote), [authorNote]);
   const [strength, setStrength] = useState(authorNoteDepth);
   useEffect(() => setStrength(authorNoteDepth), [authorNoteDepth]);
@@ -298,7 +300,7 @@ export function ChatSidebar({
     !locked,
   );
   const grip = (id: string) => (
-    <SidebarGrip locked={locked} onDown={(e) => startDrag(e, id)} />
+    <SidebarGrip wide locked={locked} onDown={(e) => startDrag(e, id)} />
   );
 
   const openSettingsMenu = () => {
@@ -339,7 +341,7 @@ export function ChatSidebar({
       case 'director':
         return director ? (
           <details className="tool-section">
-            <summary>🎬 Director</summary>
+            <summary><span className="card-chev" aria-hidden>❯</span>🎬 Director</summary>
             <div className="tool-body">{director}</div>
           </details>
         ) : null;
@@ -350,7 +352,8 @@ export function ChatSidebar({
       case 'author_note':
         return (
           <details className="tool-section">
-            <summary>📝 Author's Note <span className="card-sub">strength {strength}</span></summary>
+            <summary><span className="card-chev" aria-hidden>❯</span>📝 Author's Note{' '}
+              <span className="card-sub">strength {strength}</span></summary>
             <div className="tool-body">
               <textarea
                 className="note-input"
@@ -379,7 +382,7 @@ export function ChatSidebar({
       case 'wiki':
         return t ? (
           <details className="tool-section">
-            <summary>📖 Wiki{' '}
+            <summary><span className="card-chev" aria-hidden>❯</span>📖 Wiki{' '}
               <span className="card-sub">{t.wikiBaseUrl ? 'on' : 'off'}</span>
             </summary>
             <div className="tool-body">
@@ -389,8 +392,12 @@ export function ChatSidebar({
         ) : null;
       case 'character_state':
         return (
-          <details className="tool-section">
-            <summary>🎭 Character State{' '}
+          <details
+            className="tool-section"
+            open={stateOpen}
+            onToggle={(e) => setStateOpen(e.currentTarget.open)}
+          >
+            <summary><span className="card-chev" aria-hidden>❯</span>🎭 Character State{' '}
               <span className="card-sub">
                 {[
                   focusedName,
@@ -603,7 +610,7 @@ export function ChatSidebar({
       case 'journal_memory':
         return t ? (
           <details className="tool-section">
-            <summary>📖 Journal &amp; Memory{' '}
+            <summary><span className="card-chev" aria-hidden>❯</span>📖 Journal &amp; Memory{' '}
               <span className="card-sub">
                 {[
                   t.memory.journalEnabled ? 'recap' : '',
@@ -637,7 +644,7 @@ export function ChatSidebar({
       case 'objectives':
         return t ? (
           <details className="tool-section">
-            <summary>🎯 Objectives{' '}
+            <summary><span className="card-chev" aria-hidden>❯</span>🎯 Objectives{' '}
               <span className="card-sub">
                 {[
                   focusedName,
@@ -653,7 +660,7 @@ export function ChatSidebar({
       case 'story_tools':
         return (
           <details className="tool-section">
-            <summary>🎲 Story Tools{' '}
+            <summary><span className="card-chev" aria-hidden>❯</span>🎲 Story Tools{' '}
               <span className="card-sub">
                 {[
                   t?.chaos?.enabled ? 'chaos' : '',

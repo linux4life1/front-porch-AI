@@ -376,6 +376,24 @@
 .msg-row-desktop .msg-actions { align-self: stretch; }
 /* Cast pills in the wide sidebar wrap to the column's width — the window
    stacks its cast list; the phone's horizontal scroll (above the
-   transcript) never sits inside .chat-aside and keeps its rule. */
-.chat-aside .cast-bar { border-bottom: none; background: none; padding: 4px 2px; }
+   transcript) never sits inside .chat-aside and keeps its rule. The role
+   strip hides so every chip's Away / speak / remove stay fully visible
+   in the column at 1024 and 1440. */
+.chat-aside .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
 .chat-aside .cast-row { flex-wrap: wrap; overflow-x: visible; }
+.chat-aside .cast-chip { max-width: 100%; }
+.chat-aside .cast-role { display: none; }
+/* Card headers carry the window's padlock + chevron (pass 4): the grip
+   sits inside the header's left edge instead of floating above the card. */
+.chat-aside .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.chat-aside .tool-section > summary { padding-left: 32px; }
+.chat-aside .one-shot-row { padding-left: 32px; }
+.chat-aside .tool-pill { padding-left: 32px; }
+.card-chev {
+  display: inline-block; margin: 0 6px 0 2px; color: var(--muted);
+  font-size: 0.7rem; transition: transform 0.12s;
+}
+.chat-aside details[open] > summary > .card-chev { transform: rotate(90deg); }
+/* The 1:1 portrait fills the column like the group's. */
+.chat-aside .portrait-swiper { max-width: none; }
+.chat-aside .portrait-wrap img.portrait { max-width: none; width: 100%; }

@@ -6,14 +6,23 @@
 // the client and uploads to the server for transcription. The mic is gated on a
 // secure context — getUserMedia is unavailable over plain-LAN http.
 
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
 import { trackVoice } from './voiceActivity';
 
 /** 🔊 Synthesize a message and play it on this device. [messageIndex] lets
  *  the host speak it in the voice of whoever said that line (in a group,
  *  the member the message is stamped with, never a same-named one). */
-export function SpeakButton({ text, messageIndex }: { text: string; messageIndex?: number }) {
+export function SpeakButton({
+  text,
+  messageIndex,
+  icon,
+}: {
+  text: string;
+  messageIndex?: number;
+  /** Additive (wide chat, PR 1a): a line icon instead of the 🔊 emoji. */
+  icon?: ReactNode;
+}) {
   const [busy, setBusy] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -38,7 +47,7 @@ export function SpeakButton({ text, messageIndex }: { text: string; messageIndex
 
   return (
     <button className="icon-btn" title="Speak" aria-label="Speak this message" disabled={busy} onClick={speak}>
-      {busy ? '…' : '🔊'}
+      {busy ? '…' : (icon ?? '🔊')}
     </button>
   );
 }
@@ -169,9 +178,12 @@ function encodeWavPcm16(samples: Float32Array, rate: number): Blob {
 export function MicButton({
   onText,
   disabled,
+  icon,
 }: {
   onText: (text: string) => void;
   disabled?: boolean;
+  /** Additive (wide chat, PR 1a): a line icon instead of the 🎤 emoji. */
+  icon?: ReactNode;
 }) {
   const [recording, setRecording] = useState(false);
   const [working, setWorking] = useState(false);
@@ -217,7 +229,7 @@ export function MicButton({
       disabled={disabled || working}
       onClick={recording ? stop : start}
     >
-      {working ? '…' : recording ? '⏺' : '🎤'}
+      {working ? '…' : recording ? '⏺' : (icon ?? '🎤')}
     </button>
   );
 }

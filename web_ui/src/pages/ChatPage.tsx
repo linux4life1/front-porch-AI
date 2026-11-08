@@ -404,7 +404,7 @@ export function ChatPage() {
       groupId={state.groupId ?? null}
       onCommand={sendMessage}
       toolSupport={state.toolSupport}
-      castBar={castBar}
+      castBar={state.isGroupMode || cast.length > 1 ? castBar : undefined}
       focusedName={state.isGroupMode && cast.length > 1 ? focused?.name : undefined}
       portraitName={focused?.name ?? title}
       director={director}

@@ -172,7 +172,14 @@
 /* Desktop (≥1024) composer: the tools leave the input line and sit in an
    icon row under the box, as the desktop window draws them (PR 1a). The
    box keeps the full first line; the row wraps beneath it. */
-.chat-input-desktop { flex-wrap: wrap; }
+.chat-input-desktop { flex-wrap: wrap; max-width: none; }
+/* The window's composer is a plain line, not an outlined box: lift the
+   tablet reading-width cap and keep the focus ring a subtle token tint. */
+.chat-input.chat-input-desktop { max-width: none; }
+.chat-input-desktop .composer-input:focus-visible {
+  outline: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  outline-offset: 1px;
+}
 .chat-input-desktop .composer-area { flex: 1 1 100%; }
 .composer-icon-row {
   flex: 1 1 100%; display: flex; align-items: center;
@@ -185,7 +192,7 @@
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
 }
 .composer-persona-btn:hover { border-color: var(--accent); }
-.composer-next-btn { color: var(--accent); font-size: 1.15rem; }
+.composer-next-btn { color: var(--director-next); display: inline-flex; align-items: center; }
 .composer-send-btn { min-width: 42px; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
