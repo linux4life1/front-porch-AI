@@ -416,7 +416,8 @@ export function ChatSidebar({
             open={stateOpen}
             onToggle={(e) => setStateOpen(e.currentTarget.open)}
           >
-            <summary><span className="card-chev" aria-hidden>❯</span>🎭 Character State{' '}
+            <summary><span className="card-chev" aria-hidden>❯</span>
+              <span className="card-title">🎭 Character State</span>{' '}
               <span className="card-sub">
                 {[
                   focusedName,
@@ -475,7 +476,7 @@ export function ChatSidebar({
                     percent={realism.trust.percent}
                     tone={realism.trust.level < 0 ? 'danger' : ''}
                   />
-                  {t && (t.nsfw.afterglowAllowed || t.nsfw.cooldownEnabled) && (
+                  {t && t.realismEnabled && (t.nsfw.afterglowAllowed || t.nsfw.cooldownEnabled) && (
                     <>
                       {t.nsfw.afterglowAllowed && (
                         <label className="state-line">

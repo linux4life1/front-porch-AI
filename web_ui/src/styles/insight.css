@@ -403,6 +403,7 @@
    Afterglow/Lust, fixation, Needs and its bars, ambitions, Pockets, then
    one compact time line — the desktop sidebar's order. */
 .chat-aside .state-card > summary { display: flex; align-items: center; gap: 2px; }
+.chat-aside .state-card > summary .card-title { flex: none; white-space: nowrap; }
 .chat-aside .state-card > summary .card-sub {
   flex: 1 1 auto; min-width: 0; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
