@@ -405,6 +405,8 @@ export function ChatPage() {
       onCommand={sendMessage}
       toolSupport={state.toolSupport}
       castBar={castBar}
+      focusedName={state.isGroupMode && cast.length > 1 ? focused?.name : undefined}
+      portraitName={focused?.name ?? title}
       director={director}
       onEditCharacter={editPath ? () => navigate(editPath) : undefined}
       onChatSettings={() => setShowTheme(true)}

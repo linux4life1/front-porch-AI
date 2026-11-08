@@ -352,10 +352,25 @@
    Wide (≥1024) renders ChatSidebar: portrait, Main Settings, pills, then
    the cast/Director/tool cards. Phone/tablet keep the flat ChatInsight
    above untouched. */
-.sidebar-main-settings { width: 100%; margin-top: 10px; }
+.sidebar-main-settings {
+  width: 100%; margin-top: 10px; background: none; border: none; cursor: pointer;
+  color: var(--text); font-weight: 600; font-size: 0.95rem; padding: 8px;
+}
 /* The wide header has no chip; Main Settings → Model Settings opens this
    same sheet, so only the sheet shows and the chip does not. */
 .model-sheet-host { display: contents; }
 .model-sheet-host .model-switch-chip { display: none; }
 .wide-card { min-width: 0; }
 .wide-card .insight-section { margin-top: 6px; }
+/* Grey card subtitle in the collapsed summary line (target's card titles
+   carry a one-line state summary). */
+.card-sub { font-weight: 400; font-size: 0.72rem; color: var(--muted); margin-left: 6px; }
+/* No-portrait square: the window's initial tile, sized like a real portrait. */
+.portrait-initial {
+  width: 100%; aspect-ratio: 1 / 1; min-height: 180px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 4rem; font-weight: 700;
+  background: var(--surface-2); color: var(--text);
+}
+/* Wide reply rows keep the shared .msg-actions base, whose align-self was
+   written for the phone column; stretch so right-alignment reaches. */
+.msg-row-desktop .msg-actions { align-self: stretch; }

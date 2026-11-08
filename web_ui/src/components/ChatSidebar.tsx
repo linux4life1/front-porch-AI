@@ -19,7 +19,6 @@ import {
   resolveOrder,
   resetSidebarLayout,
   useReorderDrag,
-  useSidebarOrder,
 } from './sidebarReorder';
 import { OneShotEvalControl } from './OneShotEvalControl';
 import { ToolCallingPill, type ToolSupport } from './ToolCallingPill';
@@ -103,6 +102,8 @@ export function ChatSidebar({
   draft,
   toolSupport,
   castBar,
+  focusedName,
+  portraitName,
   director,
   onEditCharacter,
   onChatSettings,
@@ -133,6 +134,12 @@ export function ChatSidebar({
   toolSupport?: ToolSupport;
   /** The CastBar element the page assembled (moved here on wide, PR 1a). */
   castBar?: ReactNode;
+  /** Director as the card's subtitle prefix, as the group target shows
+   *  ("Vivian · Warming · Trusting · Evening"); absent in a plain 1:1. */
+  focusedName?: string;
+  /** Name for the portrait's initial square — what the window draws when
+   *  the character has no real portrait. */
+  portraitName?: string;
   /** The DirectorStrip element, same move. */
   director?: ReactNode;
   /** Absent when there is no library character to edit. */
@@ -233,12 +240,58 @@ export function ChatSidebar({
   const [modelSheetSignal, setModelSheetSignal] = useState(0);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
 
-  // ── Reorder (surface 'insight': the wide column IS the insight panel) ─
-  const { stored, locked, commit, setLocked } = useSidebarOrder('insight');
+  // ── Reorder (wide owns its own card order) ────────────────────────────
+  // The host 'insight' surface still carries the OLD flat-panel ids, and
+  // POSTing the wide order there would drag the phone drawer's order with
+  // it. So the wide column persists its arrangement locally; the pills keep
+  // the same names and Reset still clears the host surfaces it shares.
+  const ORDER_KEY = 'fpai.wi…Order';
+  const LOCK_KEY = 'fpai.wi…cked';
+  const [storedWide, setStoredWide] = useState<string[]>(() => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(ORDER_KEY) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      return Array.isArray(parsed) ? parsed.filter((x) => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+  const [locked, setLockedState] = useState<boolean>(() => {
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem(LOCK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const commit = (ids: string[]) => {
+    setStoredWide(ids);
+    try {
+      localStorage.setItem(ORDER_KEY, JSON.stringify(ids));
+    } catch {
+      /* private mode — the order just won't survive a reload */
+    }
+  };
+  const setLocked = (v: boolean) => {
+    setLockedState(v);
+    try {
+      localStorage.setItem(LOCK_KEY, v ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
+  };
+  const wideReset = () => {
+    commit([]);
+    try {
+      localStorage.removeItem(ORDER_KEY);
+    } catch {
+      /* ignore */
+    }
+    resetSidebarLayout();
+  };
   const visible = WIDE_DEFAULTS.filter((id) =>
     id === 'cast' ? !!castBar : id === 'director' ? !!director : true,
   );
-  const ordered = resolveOrder(stored, visible, WIDE_DEFAULTS);
+  const ordered = resolveOrder(storedWide, visible, WIDE_DEFAULTS);
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
     commit,
@@ -284,7 +337,12 @@ export function ChatSidebar({
       case 'cast':
         return castBar;
       case 'director':
-        return director;
+        return director ? (
+          <details className="tool-section">
+            <summary>🎬 Director</summary>
+            <div className="tool-body">{director}</div>
+          </details>
+        ) : null;
       case 'one_shot_eval':
         return <OneShotEvalControl reloadKey={toolsKey} />;
       case 'tool_calling_pill':
@@ -292,7 +350,7 @@ export function ChatSidebar({
       case 'author_note':
         return (
           <details className="tool-section">
-            <summary>📝 Author's Note</summary>
+            <summary>📝 Author's Note <span className="card-sub">strength {strength}</span></summary>
             <div className="tool-body">
               <textarea
                 className="note-input"
@@ -321,7 +379,9 @@ export function ChatSidebar({
       case 'wiki':
         return t ? (
           <details className="tool-section">
-            <summary>📖 Wiki</summary>
+            <summary>📖 Wiki{' '}
+              <span className="card-sub">{t.wikiBaseUrl ? 'on' : 'off'}</span>
+            </summary>
             <div className="tool-body">
               <ChatToolsWiki t={t} q={q} apply={apply} />
             </div>
@@ -330,7 +390,16 @@ export function ChatSidebar({
       case 'character_state':
         return (
           <details className="tool-section">
-            <summary>🎭 Character State</summary>
+            <summary>🎭 Character State{' '}
+              <span className="card-sub">
+                {[
+                  focusedName,
+                  realism.bond.tier,
+                  realism.trust.tier,
+                  t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </summary>
             <div className="tool-body">
               {t && (
                 <>
@@ -534,7 +603,14 @@ export function ChatSidebar({
       case 'journal_memory':
         return t ? (
           <details className="tool-section">
-            <summary>📖 Journal &amp; Memory</summary>
+            <summary>📖 Journal &amp; Memory{' '}
+              <span className="card-sub">
+                {[
+                  t.memory.journalEnabled ? 'recap' : '',
+                  t.memory.ragEnabled ? 'RAG on' : '',
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </summary>
             <div className="tool-body">
               <ChatToolsRecap t={t} q={q} apply={apply} toggle={toggle} reloadKey={toolsKey} />
               <ChatToolsMemory
@@ -559,11 +635,34 @@ export function ChatSidebar({
           </details>
         ) : null;
       case 'objectives':
-        return t ? <ChatToolsObjectives t={t} q={q} apply={apply} /> : null;
+        return t ? (
+          <details className="tool-section">
+            <summary>🎯 Objectives{' '}
+              <span className="card-sub">
+                {[
+                  focusedName,
+                  `${(t.objectives.primary ? 1 : 0) + t.objectives.secondary.length} open`,
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </summary>
+            <div className="tool-body">
+              <ChatToolsObjectives t={t} q={q} apply={apply} />
+            </div>
+          </details>
+        ) : null;
       case 'story_tools':
         return (
           <details className="tool-section">
-            <summary>🎲 Story Tools</summary>
+            <summary>🎲 Story Tools{' '}
+              <span className="card-sub">
+                {[
+                  t?.chaos?.enabled ? 'chaos' : '',
+                  t?.time.presence ?? '',
+                  'places',
+                  'lore',
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </summary>
             <div className="tool-body">
               {t && <ChatToolsChaos t={t} toggle={toggle} />}
               <ChatPlacesSection reloadKey={toolsKey} />
@@ -653,8 +752,13 @@ export function ChatSidebar({
                 primary={`/api/chat/expression-avatar?participant=${encodeURIComponent(focusedId)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
                 fallback={focusedPlaceholderPortrait ? undefined : focusedAvatarUrl}
                 mood={realism.mood || realism.emotion}
+                initial={focusedName ?? portraitName}
               />
-            ) : null
+            ) : (
+              <div className="portrait-initial" aria-hidden>
+                {(focusedName ?? portraitName ?? '?').charAt(0).toUpperCase()}
+              </div>
+            )
           ) : focusedIsHost ? (
             <LookSwiper
               characterId={characterId}
@@ -663,18 +767,25 @@ export function ChatSidebar({
                 focusedPlaceholderPortrait ? undefined : `/api/characters/${characterId}/avatar`
               }
               mood={realism.mood || realism.emotion}
+              initial={portraitName ?? focusedName}
             />
-          ) : focusedAvatarUrl && !focusedPlaceholderPortrait ? (
+          ) : focusedAvatarUrl ? (
             <LookSwiper
               characterId={characterId}
               basePrimary={focusedAvatarUrl}
               mood={realism.mood || realism.emotion}
+              initial={portraitName ?? focusedName}
             />
-          ) : null}
+          ) : (
+            // No picture anywhere for this participant: the window's square.
+            <div className="portrait-initial" aria-hidden>
+              {(portraitName ?? focusedName ?? '?').charAt(0).toUpperCase()}
+            </div>
+          )}
         </div>
         <button
           ref={settingsBtnRef}
-          className="primary small sidebar-main-settings"
+          className="sidebar-main-settings"
           aria-haspopup="menu"
           aria-expanded={settingsMenu !== null}
           onClick={() => (settingsMenu ? setSettingsMenu(null) : openSettingsMenu())}
@@ -684,7 +795,7 @@ export function ChatSidebar({
         {settingsMenu && <CardMenu menu={settingsMenu} onClose={() => setSettingsMenu(null)} />}
       </div>
       <div className="sidebar-layout-pills">
-        <SidebarResetPill onReset={resetSidebarLayout} />
+        <SidebarResetPill onReset={wideReset} />
         <SidebarLockPill locked={locked} onToggle={() => setLocked(!locked)} />
       </div>
       {ordered.map((id) => (
