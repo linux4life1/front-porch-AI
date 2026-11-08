@@ -201,10 +201,12 @@
 .msg-row-desktop .msg-number { margin: 0; align-self: center; }
 .msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 /* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
-   classes, so the wide override needs four to win. */
+   classes and the side-pref rule (chat.css) at five, so the wide
+   override needs four/five to win — every bubble fills the column like
+   the window's. */
 .msg-row.msg-row-desktop .bubble,
-.msg-row.msg-row-desktop .bubble.ai,
-.msg-row.msg-row-desktop .bubble.user { align-self: stretch; max-width: none; }
+.msg-row.msg-row-desktop .bubble.ai { align-self: stretch; max-width: none; }
+:root .msg-row.msg-row-desktop .bubble.user { align-self: stretch; max-width: none; }
 .msg-row-desktop .msg-actions { opacity: 1; }
 .msg-row-desktop .msg-actions.user { align-self: stretch; }
 .bubble-actions { width: 100%; gap: 3px; margin: 0 0 4px; }
@@ -227,6 +229,9 @@
    The rows live inside .chat-messages' content wrapper, so that wrapper —
    not the rows — is the capped flex item. */
 @media (min-width: 1024px) {
-  .chat-messages > div { max-width: none; width: 100%; margin: 0; }
+  .chat-messages > div {
+    max-width: none; width: 100%; margin: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
   .chat-messages > div:first-child { margin-top: auto; }
 }

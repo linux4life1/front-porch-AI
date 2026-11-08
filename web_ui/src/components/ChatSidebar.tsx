@@ -35,8 +35,9 @@ import { StoryCalendarModal } from './StoryCalendarModal';
 import {
   ChatToolsMemory, ChatToolsRecap, ChatToolsWiki,
 } from './ChatToolsMemory';
-import { ChatToolsChaos, ChatToolsNsfw, ChatToolsPockets } from './ChatToolsRealism';
-import { ChatToolsAmbitions, ChatToolsObjectives } from './ChatToolsObjectives';
+import { ChatToolsChaos } from './ChatToolsRealism';
+import { PocketAddRow } from './PocketAddRow';
+import { ChatToolsObjectives } from './ChatToolsObjectives';
 import { type ToolsState } from './ChatToolsShared';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
@@ -60,6 +61,19 @@ const TIME_DOTS: [string, string][] = [
   ['evening', 'E'],
   ['night', 'N'],
 ];
+
+/** Each need's own hue, as the window paints it — the tokens the desktop
+ *  resolves per mode (WebThemeTokens._realism). Unknown keys fall back to
+ *  the level tone. */
+const NEED_TOKENS: Record<string, string> = {
+  hunger: 'var(--need-hunger)',
+  bladder: 'var(--need-bladder)',
+  energy: 'var(--need-energy)',
+  social: 'var(--need-social)',
+  fun: 'var(--need-fun)',
+  hygiene: 'var(--need-hygiene)',
+  comfort: 'var(--need-comfort)',
+};
 
 /** The reorderable cards' shipped default, after the static portrait +
  *  Main Settings + pills header. Matches the target's card order. */
@@ -183,6 +197,11 @@ export function ChatSidebar({
   const pocketAdd = (section: string, name: string, gift: boolean, correction = false) =>
     apply(api.post<ToolsState>(`/api/chat/tools/pocket-add${q}`, { section, name, gift, correction }));
   const clockRunning = t?.time.clockRunning ?? false;
+  // The Pockets line's stored switch (the chat's own choice; Porch Life's
+  // veto greys it without changing it) and its "name (state)" item label.
+  const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
+  const pocketLabel = (i: { name: string; state?: string }) =>
+    i.state ? `${i.name} (${i.state})` : i.name;
 
   // ── Portrait mood (same computation as ChatInsight) ──────────────────
   const moodOn =
@@ -393,7 +412,7 @@ export function ChatSidebar({
       case 'character_state':
         return (
           <details
-            className="tool-section"
+            className="tool-section state-card"
             open={stateOpen}
             onToggle={(e) => setStateOpen(e.currentTarget.open)}
           >
@@ -406,27 +425,31 @@ export function ChatSidebar({
                   t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
                 ].filter(Boolean).join(' · ')}
               </span>
-            </summary>
-            <div className="tool-body">
+              {/* The window keeps the Realism engine switch in the header.
+                  Stopping the click/key keeps it from toggling the card. */}
               {t && (
-                <>
-                  <label className="tool-toggle">
-                    <span>Realism engine</span>
-                    <input
-                      type="checkbox"
-                      aria-label="Realism engine"
-                      checked={t.realismSwitch ?? t.realismEnabled}
-                      disabled={t.realismAllowed === false}
-                      onChange={(e) => toggle('realism', e.target.checked)}
-                    />
-                  </label>
-                  {t.realismAllowed === false && (
-                    <p className="muted small">
-                      The Realism Engine is off in Porch Life, so no chat runs it. This
-                      chat&apos;s own choice is kept.
-                    </p>
-                  )}
-                </>
+                <span
+                  className="card-switch"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    aria-label="Realism engine"
+                    checked={t.realismSwitch ?? t.realismEnabled}
+                    disabled={t.realismAllowed === false}
+                    onChange={(e) => toggle('realism', e.target.checked)}
+                  />
+                </span>
+              )}
+            </summary>
+            <div className="tool-body state-body">
+              {t?.realismAllowed === false && (
+                <p className="muted small">
+                  The Realism Engine is off in Porch Life, so no chat runs it. This
+                  chat&apos;s own choice is kept.
+                </p>
               )}
               {focusedIsLiteGuest ? (
                 <p className="muted realism-off">
@@ -434,11 +457,8 @@ export function ChatSidebar({
                 </p>
               ) : (
                 <>
-                  {realism.fixation && (
-                    <div className="stat-fixation">
-                      <span className="fixation-label">Current fixation</span> {realism.fixation}
-                    </div>
-                  )}
+                  {/* The window's order: bonds, Afterglow/Lust, fixation,
+                      Needs and its bars, ambitions, Pockets, time. */}
                   <StatBar
                     label="Short-Term Bond"
                     value={`${realism.bond.tier} · ${realism.bond.score}`}
@@ -455,153 +475,287 @@ export function ChatSidebar({
                     percent={realism.trust.percent}
                     tone={realism.trust.level < 0 ? 'danger' : ''}
                   />
-                  {realism.lustOn === true && (
-                    <div className="stat-line">
-                      <span>Lust</span>
-                      <span className="muted">
-                        {realism.arousal.tier} · {realism.arousal.level}
-                      </span>
-                    </div>
-                  )}
-                  {realism.lustOn === true && realism.refractoryLabel && (
-                    <div className="stat-line">
-                      <span className="muted">{realism.refractoryLabel}</span>
-                    </div>
-                  )}
-                  {t && (
+                  {t && (t.nsfw.afterglowAllowed || t.nsfw.cooldownEnabled) && (
                     <>
-                      <ChatToolsNsfw t={t} toggle={toggle} />
-                      {t.needsEnabled && (
-                        <label className="tool-toggle">
-                          <span>Needs</span>
+                      {t.nsfw.afterglowAllowed && (
+                        <label className="state-line">
+                          <span>💗 Afterglow</span>
                           <input
                             type="checkbox"
-                            aria-label="Needs"
-                            checked={t.needsEnabled}
-                            disabled={t.needsAllowed === false}
-                            onChange={(e) => toggle('needs', e.target.checked)}
+                            role="switch"
+                            aria-label="Afterglow"
+                            className="state-switch"
+                            checked={t.nsfw.afterglowSwitch ?? t.nsfw.cooldownEnabled}
+                            onChange={(e) => toggle('nsfwCooldown', e.target.checked)}
                           />
                         </label>
                       )}
-                      {t.needsEnabled && t.needsAllowed === false && (
+                      {t.nsfw.cooldownEnabled && (
+                        <StatBar
+                          label={`Lust: ${t.nsfw.arousalTier}`}
+                          value={`${t.nsfw.arousalLevel}/100`}
+                          percent={Math.abs(t.nsfw.arousalLevel) / 100}
+                          className="lust-bar"
+                        />
+                      )}
+                      {t.nsfw.cooldownEnabled && t.nsfw.refractoryMinutesRemaining > 0 && (
+                        <div className="stat-line">
+                          <span className="muted">{t.nsfw.refractoryLabel}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {realism.fixation && (
+                    <div className="stat-fixation">
+                      <span className="fixation-label">Fixation</span> {realism.fixation}
+                    </div>
+                  )}
+                  {t?.needsEnabled && (
+                    <>
+                      <label className="state-line">
+                        <span>💗 Needs</span>
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label="Needs"
+                          className="state-switch"
+                          checked={t.needsEnabled}
+                          disabled={t.needsAllowed === false}
+                          onChange={(e) => toggle('needs', e.target.checked)}
+                        />
+                      </label>
+                      {t.needsAllowed === false && (
                         <p className="muted small">
                           Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.
                         </p>
                       )}
-                      <ChatToolsAmbitions t={t} />
-                      <ChatToolsPockets
-                        t={t}
-                        toggle={toggle}
-                        pocketRemove={pocketRemove}
-                        pocketAdd={pocketAdd}
-                      />
+                      {realism.needsEnabled &&
+                        Object.entries(realism.needs).map(([k, v]) => (
+                          <NeedBar
+                            key={k}
+                            label={NEED_LABELS[k] ?? k}
+                            value={v}
+                            urgentAt={realism.needsUrgentAt}
+                            criticalAt={realism.needsCriticalAt}
+                            trouble={moodOn ? needTrouble(k, v, enjoysLowHygiene) : undefined}
+                            hue={moodOn ? moodPaints!.needs[k] : undefined}
+                            fill={NEED_TOKENS[k]}
+                          />
+                        ))}
                     </>
                   )}
-                </>
-              )}
-              {realism.needsEnabled && Object.keys(realism.needs).length > 0 && (
-                <>
-                  <h4 className="section-label">Needs</h4>
-                  {Object.entries(realism.needs).map(([k, v]) => (
-                    <NeedBar
-                      key={k}
-                      label={NEED_LABELS[k] ?? k}
-                      value={v}
-                      urgentAt={realism.needsUrgentAt}
-                      criticalAt={realism.needsCriticalAt}
-                      trouble={moodOn ? needTrouble(k, v, enjoysLowHygiene) : undefined}
-                      hue={moodOn ? moodPaints!.needs[k] : undefined}
-                    />
-                  ))}
-                </>
-              )}
-              {t && (
-                <>
-                  <div className="stat-line">
-                    <span>
-                      {t.time.date ?? t.time.weekday}, day {t.time.dayCount}
-                    </span>
-                    <span className="muted">
-                      {t.time.timeOfDay.replace(/_/g, ' ')}
-                      {t.time.clock ? ` · ${t.time.clock}` : ''}
-                    </span>
-                  </div>
-                  {t.time.presence && (
-                    <div className="stat-line">
-                      <span>{t.time.presence}</span>
+                  {t && (t.ambitions?.length ?? 0) > 0 && (
+                    <div className="state-ambitions">
+                      {t.ambitions!.map((a, i) => (
+                        <div key={i} className="ambition-row" title={`${a.text} — ${a.stage}`}>
+                          <div className="ambition-line">
+                            <span className="ambition-pct">{Math.round(a.progress)}%</span>
+                            <span>{a.text}</span>
+                            <em className="ambition-stage">{a.stage}</em>
+                          </div>
+                          <div className="ambition-bar">
+                            <div
+                              className="ambition-bar-fill"
+                              style={{ width: `${Math.min(100, Math.max(0, a.progress))}%` }}
+                            />
+                          </div>
+                          {a.step?.trim() && <div className="ambition-step">↳ {a.step.trim()}</div>}
+                        </div>
+                      ))}
                     </div>
                   )}
-                  {t.time.todaySentence && (
-                    <div className="stat-line">
-                      <span className="muted" style={{ fontStyle: 'italic' }}>
-                        {t.time.todaySentence}
-                      </span>
-                      <button
-                        className="link-btn"
-                        onClick={() =>
-                          apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { abandonToday: true }))
-                        }
-                      >
-                        Clear today
-                      </button>
-                    </div>
-                  )}
-                  {t.time.weather && (
-                    <div className="stat-line">
-                      <span
-                        title={
-                          `${t.time.weather.label} · ${t.time.weather.season}` +
-                          (t.time.weather.dayLabel ? `\nToday: ${t.time.weather.dayLabel}` : '') +
-                          (t.time.weather.tomorrow
-                            ? `\nTomorrow: ${t.time.weather.tomorrow.emoji} ${t.time.weather.tomorrow.label}`
-                            : '')
-                        }
-                      >
-                        {t.time.weather.emoji} {t.time.weather.label}
-                        {t.time.weather.tomorrow &&
-                          t.time.weather.tomorrow.condition !== t.time.weather.condition && (
-                            <span className="muted"> → {t.time.weather.tomorrow.emoji}</span>
+                  {t && (t.pockets || typeof t.pocketsSwitch === 'boolean') && (
+                    <div className="state-pockets">
+                      <label className="state-line">
+                        <span>🎒 Pockets &amp; Wardrobe</span>
+                        <input
+                          type="checkbox"
+                          role="switch"
+                          aria-label="Pockets &amp; Wardrobe"
+                          className="state-switch"
+                          checked={pocketsOn}
+                          disabled={t.pocketsAllowed === false}
+                          onChange={(e) => {
+                            const on = e.target.checked;
+                            if (!on) {
+                              const who = (t.pocketsName ?? 'your character').trim() || 'your character';
+                              const ok = window.confirm(
+                                `Turn off Pockets & Wardrobe for ${who}? There is no catch-up ` +
+                                  'mechanic implemented. If you turn this off, their current ' +
+                                  'inventory and wardrobe will be retained but no longer ' +
+                                  'tracked — changes in the chat will not be reflected when you ' +
+                                  'turn it back on. Are you sure you want to do this?',
+                              );
+                              if (!ok) return;
+                            }
+                            toggle(
+                              t.pocketsMemberId ? 'memberPockets' : 'pockets',
+                              on,
+                              t.pocketsMemberId ? { id: t.pocketsMemberId } : undefined,
+                            );
+                          }}
+                        />
+                      </label>
+                      {t.pocketsAllowed === false && (
+                        <div className="muted small">
+                          Off in Porch Life, so no chat tracks pockets. This chat&apos;s choice is kept.
+                        </div>
+                      )}
+                      {t.pocketsAllowed !== false && !pocketsOn && (
+                        <div className="muted small">
+                          {(t.pocketsName ?? 'your character').trim() || 'Your character'}&apos;s
+                          inventory is retained, not tracked. Turn it back on to follow the
+                          story again.
+                        </div>
+                      )}
+                      {t.pockets && pocketsOn && (
+                        <>
+                          <div className="muted small side-quest-label">Wearing</div>
+                          <div className="pocket-items">
+                            {(t.pockets.worn ?? []).length === 0 ? (
+                              <span className="pocket-empty">Put clothes on</span>
+                            ) : (
+                              (t.pockets.worn ?? []).map((i, n) => (
+                                <span className="pocket-item" key={`w${n}`}>
+                                  {pocketLabel(i)}
+                                  <button
+                                    className="pocket-x"
+                                    title="Remove from the record"
+                                    onClick={() => pocketRemove('worn', n)}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                          {(t.pockets.carrying ?? []).length > 0 && (
+                            <>
+                              <div className="muted small side-quest-label">Carrying</div>
+                              <div className="pocket-items">
+                                {(t.pockets.carrying ?? []).map((i, n) => (
+                                  <span className="pocket-item" key={`c${n}`}>
+                                    {pocketLabel(i)}
+                                    <button
+                                      className="pocket-x"
+                                      title="Remove from the record"
+                                      onClick={() => pocketRemove('carrying', n)}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            </>
                           )}
-                      </span>
-                      <span className="muted">{t.time.weather.season}</span>
+                          {(t.pockets.set_aside ?? []).length > 0 && (
+                            <>
+                              <div className="muted small side-quest-label">Set aside</div>
+                              <div className="pocket-items">
+                                {(t.pockets.set_aside ?? []).map((i, n) => (
+                                  <span className="pocket-item pocket-item-aside" key={`s${n}`}>
+                                    {pocketLabel(i)}
+                                    <button
+                                      className="pocket-x"
+                                      title="Remove from the record"
+                                      onClick={() => pocketRemove('set_aside', n)}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                          <PocketAddRow onAdd={pocketAdd} />
+                        </>
+                      )}
                     </div>
                   )}
-                  {t.time.storyClock && (
-                    <button className="link-btn story-cal-open" onClick={() => setShowCalendar(true)}>
-                      📅 Story Calendar
-                    </button>
-                  )}
-                  <div className="time-dots">
-                    {TIME_DOTS.map(([period, dot]) => (
-                      <div
-                        key={period}
-                        className={`time-dot${t.time.timeOfDay === period ? ' active' : ''}`}
-                      >
-                        <span className="time-dot-mark" />
-                        <span className="time-dot-label">{dot}</span>
+                  {t && (
+                    <div className="state-time">
+                      {t.time.presence && (
+                        <div className="stat-line"><span>{t.time.presence}</span></div>
+                      )}
+                      {t.time.todaySentence && (
+                        <div className="stat-line">
+                          <span className="muted" style={{ fontStyle: 'italic' }}>
+                            {t.time.todaySentence}
+                          </span>
+                          <button
+                            className="link-btn"
+                            onClick={() =>
+                              apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { abandonToday: true }))
+                            }
+                          >
+                            Clear today
+                          </button>
+                        </div>
+                      )}
+                      {t.time.weather && (
+                        <div className="stat-line">
+                          <span
+                            title={
+                              `${t.time.weather.label} · ${t.time.weather.season}` +
+                              (t.time.weather.dayLabel ? `\nToday: ${t.time.weather.dayLabel}` : '') +
+                              (t.time.weather.tomorrow
+                                ? `\nTomorrow: ${t.time.weather.tomorrow.emoji} ${t.time.weather.tomorrow.label}`
+                                : '')
+                            }
+                          >
+                            {t.time.weather.emoji} {t.time.weather.label}
+                            {t.time.weather.tomorrow &&
+                              t.time.weather.tomorrow.condition !== t.time.weather.condition && (
+                                <span className="muted"> → {t.time.weather.tomorrow.emoji}</span>
+                              )}
+                          </span>
+                          <span className="muted">{t.time.weather.season}</span>
+                        </div>
+                      )}
+                      <div className="state-time-line">
+                        <span className="state-time-when">
+                          {t.time.weekday} · {t.time.timeOfDay.replace(/_/g, ' ')}
+                          {t.time.clock ? ` · ${t.time.clock}` : ''}
+                        </span>
+                        {t.time.storyClock && (
+                          <button className="link-btn story-cal-open" onClick={() => setShowCalendar(true)}>
+                            📅 Story Calendar
+                          </button>
+                        )}
+                        <span className="state-time-nudges">
+                          <button
+                            disabled={!clockRunning}
+                            title={clockRunning ? 'Back 30 minutes' : 'Story clock is paused'}
+                            onClick={() =>
+                              apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: -1 }))
+                            }
+                          >
+                            ◀ Earlier
+                          </button>
+                          <button
+                            disabled={!clockRunning}
+                            title={clockRunning ? 'Forward 30 minutes' : 'Story clock is paused'}
+                            onClick={() =>
+                              apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))
+                            }
+                          >
+                            Later ▶
+                          </button>
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="tool-row">
-                    <button
-                      disabled={!clockRunning}
-                      title={clockRunning ? 'Back 30 minutes' : 'Story clock is paused'}
-                      onClick={() =>
-                        apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: -1 }))
-                      }
-                    >
-                      ◀ Earlier
-                    </button>
-                    <button
-                      disabled={!clockRunning}
-                      title={clockRunning ? 'Forward 30 minutes' : 'Story clock is paused'}
-                      onClick={() =>
-                        apply(api.post<ToolsState>(`/api/chat/tools/time${q}`, { delta: 1 }))
-                      }
-                    >
-                      Later ▶
-                    </button>
-                  </div>
+                      <div className="time-dots">
+                        {TIME_DOTS.map(([period, dot]) => (
+                          <div
+                            key={period}
+                            className={`time-dot${t.time.timeOfDay === period ? ' active' : ''}`}
+                          >
+                            <span className="time-dot-mark" />
+                            <span className="time-dot-label">{dot}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

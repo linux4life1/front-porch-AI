@@ -12,11 +12,12 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let isGroupChat = false;
+let needsOn = false;
 
 function toolsState() {
   return {
     realismEnabled: true,
-    needsEnabled: false,
+    needsEnabled: needsOn,
     realismOneShotEval: false,
     memory: {
       ragEnabled: true,
@@ -117,6 +118,7 @@ const menuLabels = () =>
 
 beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  needsOn = false;
   localStorage.clear();
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -149,6 +151,24 @@ describe('wide sidebar cards', () => {
     expect(menuLabels().some((l) => l.includes('Model Settings'))).toBe(true);
     expect(menuLabels().some((l) => l.includes('Edit Character'))).toBe(false);
     expect(menuLabels().some((l) => l.includes('Group Settings'))).toBe(false);
+  });
+
+  it('Character State carries the Realism engine switch in its header (pass 5)', async () => {
+    needsOn = true;
+    await render(false);
+    const summary = container.querySelector('.state-card > summary') as HTMLElement | null;
+    expect(summary).not.toBeNull();
+    const header = summary!.querySelector('input[aria-label="Realism engine"]');
+    expect(header).not.toBeNull();
+    // The switch lives in the header, not in the body, and never toggles the
+    // card (its click is stopped there).
+    expect(container.querySelector('.state-card > .tool-body input[aria-label="Realism engine"]')).toBeNull();
+    // The window's body order: bonds first, then the Needs line, then time.
+    const body = container.querySelector('.state-card > .tool-body') as HTMLElement;
+    const text = body.textContent ?? '';
+    expect(text.indexOf('Short-Term Bond')).toBeLessThan(text.indexOf('Needs'));
+    expect(body.querySelector('.state-time-line')).not.toBeNull();
+    expect(body.querySelector('.state-pockets, .state-ambitions, .state-line')).not.toBeNull();
   });
 
   it('a group gets the cast pills and Group Settings…', async () => {

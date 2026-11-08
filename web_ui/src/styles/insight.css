@@ -397,3 +397,46 @@
 /* The 1:1 portrait fills the column like the group's. */
 .chat-aside .portrait-swiper { max-width: none; }
 .chat-aside .portrait-wrap img.portrait { max-width: none; width: 100%; }
+
+/* ── Character State, the window's arrangement (pass 5) ─────────────────
+   The Realism engine switch rides the card header; the body reads bonds,
+   Afterglow/Lust, fixation, Needs and its bars, ambitions, Pockets, then
+   one compact time line — the desktop sidebar's order. */
+.chat-aside .state-card > summary { display: flex; align-items: center; gap: 2px; }
+.chat-aside .state-card > summary .card-sub {
+  flex: 1 1 auto; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.card-switch { display: inline-flex; align-items: center; margin-left: 6px; flex: none; }
+/* Pill switches, the desktop's shape: a themed track with a white thumb.
+   appearance:none makes the checkbox drawable; the thumb is a gradient dot
+   because form controls take no pseudo-elements. */
+.card-switch input, .state-switch {
+  appearance: none; -webkit-appearance: none; margin: 0;
+  width: 30px; height: 16px; border-radius: 999px; border: none;
+  background-color: var(--border);
+  background-image: radial-gradient(circle 6px at 8px 50%, var(--image-ink) 0 100%, transparent 0);
+  background-repeat: no-repeat; cursor: pointer; flex: none;
+  transition: background-color 0.15s;
+}
+.card-switch input:checked, .state-switch:checked {
+  background-color: var(--porch-terracotta);
+  background-image: radial-gradient(circle 6px at 22px 50%, var(--image-ink) 0 100%, transparent 0);
+}
+.card-switch input:disabled, .state-switch:disabled { opacity: 0.5; cursor: default; }
+/* One control line inside the card: label left, switch right. */
+.state-line {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; font-size: 0.85rem; padding: 2px 0;
+}
+.state-line > span:first-child { font-weight: 600; }
+.state-body { gap: 6px; }
+.lust-bar .stat-fill { background: var(--lust-up); }
+.state-time-line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: 0.82rem; margin-top: 2px;
+}
+.state-time-when { color: var(--muted); }
+.state-time-nudges { display: inline-flex; gap: 6px; }
+.state-time-nudges button { white-space: nowrap; }
+.ambition-pct { color: var(--muted); font-size: 0.78rem; margin-right: 6px; }

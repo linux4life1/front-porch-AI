@@ -188,11 +188,16 @@
 .composer-icons-left, .composer-icons-right { display: flex; align-items: center; gap: 8px; }
 .composer-persona-btn {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-  display: grid; place-items: center; font-size: 0.95rem; cursor: pointer;
+  display: grid; place-items: center; padding: 0; cursor: pointer;
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
 }
+.composer-persona-btn svg { width: 18px; height: 18px; }
 .composer-persona-btn:hover { border-color: var(--accent); }
-.composer-next-btn { color: var(--director-next); display: inline-flex; align-items: center; }
+/* The director's Next is purple on the desktop on purpose (theme-keep,
+   Colors.purpleAccent) — the closest token the desktop sends is the
+   purple "fun" need hue. `.icon-btn` outranks a bare class, hence both. */
+.icon-btn.composer-next-btn { color: var(--need-fun); display: inline-flex; align-items: center; }
+.icon-btn.composer-next-btn:hover:not(:disabled) { color: var(--need-fun); filter: brightness(1.15); }
 .composer-send-btn { min-width: 42px; }
 .visually-hidden {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
