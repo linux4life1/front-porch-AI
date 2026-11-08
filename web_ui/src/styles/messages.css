@@ -218,7 +218,11 @@
 .reply-actions { justify-content: flex-end; margin: 2px 0 0; }
 .reply-actions:empty { display: none; }
 /* Full-width transcript (PR 1a pass 4): the window fills the chat area —
-   the tablet reading-width cap (wizard.css @768) is lifted on wide, and
-   short transcripts anchor above the composer instead of floating at top. */
-.chat-messages > .msg-row-desktop { max-width: none; margin-left: 0; margin-right: 0; }
-.chat-messages > .msg-row-desktop:first-child { margin-top: auto; }
+   the tablet reading-width cap (wizard.css @768) is lifted on wide and a
+   short transcript anchors above the composer instead of floating at top.
+   The rows live inside .chat-messages' content wrapper, so that wrapper —
+   not the rows — is the capped flex item. */
+@media (min-width: 1024px) {
+  .chat-messages > div { max-width: none; width: 100%; margin: 0; }
+  .chat-messages > div:first-child { margin-top: auto; }
+}
