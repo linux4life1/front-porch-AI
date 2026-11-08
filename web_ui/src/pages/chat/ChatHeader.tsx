@@ -97,6 +97,7 @@ export function ChatHeader({
     ) : focused ? (
       focused.isHost ? (
         // A mood picture still shows; the flat no-portrait colour does not.
+        // Wide, the window's initial circle replaces it when nothing loads.
         <SmartImg
           primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
           fallback={
@@ -105,11 +106,13 @@ export function ChatHeader({
               : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
           }
           className="chat-header-avatar"
+          initial={isDesktop ? focused.name : undefined}
         />
       ) : (
         <SmartImg
           primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
           className="chat-header-avatar"
+          initial={isDesktop ? focused.name : undefined}
         />
       )
     ) : null;

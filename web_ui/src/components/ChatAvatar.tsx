@@ -34,10 +34,28 @@ function useFallbackSrc(primary: string, fallback?: string) {
   return { src, gone: failed || !src, ref, onError };
 }
 
-/** A bare <img> for the small chat-header avatar. */
-export function SmartImg({ primary, fallback, className }: { primary: string; fallback?: string; className: string }) {
+/** A bare <img> for the small chat-header avatar. `initial` (additive, wide
+ *  header only) draws an initial circle where every source failed — the window
+ *  shows one for a portrait-less chat; phone/tablet never pass it and hide. */
+export function SmartImg({
+  primary,
+  fallback,
+  className,
+  initial,
+}: {
+  primary: string;
+  fallback?: string;
+  className: string;
+  initial?: string;
+}) {
   const { src, gone, ref, onError } = useFallbackSrc(primary, fallback);
-  if (gone) return null;
+  if (gone) {
+    return initial ? (
+      <span className={`${className} initials`} aria-hidden>
+        {initial.charAt(0).toUpperCase()}
+      </span>
+    ) : null;
+  }
   return <img ref={ref} className={className} src={src} alt="" onError={onError} />;
 }
 

@@ -374,3 +374,8 @@
 /* Wide reply rows keep the shared .msg-actions base, whose align-self was
    written for the phone column; stretch so right-alignment reaches. */
 .msg-row-desktop .msg-actions { align-self: stretch; }
+/* Cast pills in the wide sidebar wrap to the column's width — the window
+   stacks its cast list; the phone's horizontal scroll (above the
+   transcript) never sits inside .chat-aside and keeps its rule. */
+.chat-aside .cast-bar { border-bottom: none; background: none; padding: 4px 2px; }
+.chat-aside .cast-row { flex-wrap: wrap; overflow-x: visible; }

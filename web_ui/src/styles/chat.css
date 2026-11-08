@@ -170,6 +170,13 @@
   background: var(--surface-2); flex-shrink: 0;
 }
 .chat-header-avatar.group { display: grid; place-items: center; font-size: 1rem; }
+/* Wide 1:1 header with no picture to show: the window's initial circle
+   (PR 1a). Phone/tablet never get this class — they keep hiding. */
+.chat-header-avatar.initials {
+  display: grid; place-items: center; font-weight: 700; font-size: 1rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent);
+}
 /* Desktop (≥1024) header — the window's: Back, cast stack or portrait,
    the name with its group line, and the sidebar toggle at the far right.
    Everything else left the header (PR 1a); tablet and phone keep the rows
