@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useLayout } from '../hooks/useBreakpoint';
@@ -25,6 +25,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { setAuthenticated } = useAuth();
   const { wide, bp } = useLayout();
   const navigate = useNavigate();
+  const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Single source of truth for form factor: write it to the document root so CSS
@@ -71,6 +72,19 @@ export function Layout({ children }: { children: ReactNode }) {
       <button className="side-logout link-btn" onClick={logout}>Log out</button>
     </div>
   );
+
+  // ── Desktop chat: the desktop chat window ──
+  // At ≥1024 px the chat is the Flutter desktop's window: no side rail, full
+  // width, and the header's back arrow owns leaving it (one-chat-ux.md PR 1).
+  // Phone and tablet keep the rail / drawer exactly as today — PR 1b does
+  // those widths.
+  if (bp === 'desktop' && location.pathname.startsWith('/chat')) {
+    return (
+      <div className="app-shell cols">
+        <main className="app-main">{children}</main>
+      </div>
+    );
+  }
 
   // ── Desktop / tablet: persistent Dart-style side rail ──
   if (wide) {
