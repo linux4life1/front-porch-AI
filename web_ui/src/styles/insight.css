@@ -403,11 +403,13 @@
    Afterglow/Lust, fixation, Needs and its bars, ambitions, Pockets, then
    one compact time line — the desktop sidebar's order. */
 .chat-aside .state-card > summary { display: flex; align-items: center; gap: 2px; }
-.chat-aside .state-card > summary .card-title { flex: none; white-space: nowrap; }
-.chat-aside .state-card > summary .card-sub {
-  flex: 1 1 auto; min-width: 0; overflow: hidden;
-  text-overflow: ellipsis; white-space: nowrap;
+/* Title over its grey subtitle, like the window: the subtitle takes a line of
+   its own and wraps rather than being cut off beside the switch. */
+.chat-aside .state-card > summary .card-head-text {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
 }
+.chat-aside .state-card > summary .card-title { white-space: nowrap; }
+.chat-aside .state-card > summary .card-sub { white-space: normal; line-height: 1.25; }
 .card-switch { display: inline-flex; align-items: center; margin-left: 6px; flex: none; }
 /* Pill switches, the desktop's shape: a themed track with a white thumb.
    appearance:none makes the checkbox drawable; the thumb is a gradient dot
@@ -421,7 +423,8 @@
   transition: background-color 0.15s;
 }
 .card-switch input:checked, .state-switch:checked {
-  background-color: var(--porch-terracotta);
+  /* The theme's accent (Plum paints it pink), not a fixed Porch hue. */
+  background-color: var(--accent);
   background-image: radial-gradient(circle 6px at 22px 50%, var(--image-ink) 0 100%, transparent 0);
 }
 .card-switch input:disabled, .state-switch:disabled { opacity: 0.5; cursor: default; }

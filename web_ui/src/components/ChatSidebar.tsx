@@ -417,14 +417,16 @@ export function ChatSidebar({
             onToggle={(e) => setStateOpen(e.currentTarget.open)}
           >
             <summary><span className="card-chev" aria-hidden>❯</span>
-              <span className="card-title">🎭 Character State</span>{' '}
-              <span className="card-sub">
-                {[
-                  focusedName,
-                  realism.bond.tier,
-                  realism.trust.tier,
-                  t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
-                ].filter(Boolean).join(' · ')}
+              <span className="card-head-text">
+                <span className="card-title">🎭 Character State</span>{' '}
+                <span className="card-sub">
+                  {[
+                    focusedName,
+                    realism.bond.tier,
+                    realism.trust.tier,
+                    t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
+                  ].filter(Boolean).join(' · ')}
+                </span>
               </span>
               {/* The window keeps the Realism engine switch in the header.
                   Stopping the click/key keeps it from toggling the card. */}
@@ -475,6 +477,8 @@ export function ChatSidebar({
                     value={`${realism.trust.tier} · ${realism.trust.level}`}
                     percent={realism.trust.percent}
                     tone={realism.trust.level < 0 ? 'danger' : ''}
+                    // The window paints Trust amber (trustAccentOf).
+                    fill={realism.trust.level < 0 ? undefined : 'var(--accent-amber)'}
                   />
                   {t && t.realismEnabled && (t.nsfw.afterglowAllowed || t.nsfw.cooldownEnabled) && (
                     <>
