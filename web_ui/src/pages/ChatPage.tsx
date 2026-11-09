@@ -10,7 +10,10 @@ import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
 import { composerDraftOwnerKey, composerDraftSessionKey } from '../composerDraft';
 import { ChatInsight } from '../components/ChatInsight';
+import { ChatSidebar } from '../components/ChatSidebar';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
+import { ContextBudgetModal } from '../components/ContextBudgetModal';
+import { StoryToolsModal } from './chat/StoryToolsModal';
 import { ChatThemeSettings } from '../components/ChatThemeSettings';
 import { PromptSourcePickerModal, PromptSourceSettings } from '../components/PromptSource';
 import { ChatGenerationSection } from '../components/genPresets/ChatGenerationSection';
@@ -20,6 +23,7 @@ import { useEvaluationView } from '../components/useEvaluationView';
 import { type Realism } from '../components/chatTypes';
 import { useLayout } from '../hooks/useBreakpoint';
 import { ChatHeader } from './chat/ChatHeader';
+import { useGroupTurnOrder, turnOrderLabel } from './chat/useGroupTurnOrder';
 import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
 import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
@@ -116,6 +120,28 @@ export function ChatPage() {
     const n = v ? parseInt(v, 10) : NaN;
     return Number.isFinite(n) ? Math.min(560, Math.max(260, n)) : 320;
   });
+  // Desktop sidebar shown (header toggle). The choice persists like the
+  // width does; the phone/tablet Stats drawer never reads it.
+  const [showAside, setShowAside] = useState<boolean>(
+    () => typeof localStorage === 'undefined' || localStorage.getItem('fpai.asideHidden') !== '1',
+  );
+  const toggleAside = () => {
+    setShowAside((v) => {
+      try { localStorage.setItem('fpai.asideHidden', v ? '1' : '0'); } catch { /* ignore */ }
+      return !v;
+    });
+  };
+  // Second desktop header line for groups: the turn order comes from the
+  // tools snapshot (the chat state does not carry it).
+  const groupTurnOrder = useGroupTurnOrder(
+    isDesktop && (state?.isGroupMode ?? false),
+    toolsBump,
+  );
+  const leaveChat = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate('/');
+  };
   const [importNotice, setImportNotice] = useState('');
   // Slice 7: the mint proposal answered-but-unseen after a failed
   // request (see onAnswerPlaceMint). Cleared when the flag empties.
@@ -131,6 +157,10 @@ export function ChatPage() {
   const [showTheme, setShowTheme] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
+  // Desktop composer folder modals (PR 1a): the Chat Management menu's
+  // Context budget and Turn Into a Story, same screens ChatTools opens.
+  const [showBudget, setShowBudget] = useState(false);
+  const [showStory, setShowStory] = useState(false);
   // Unified-cast UI: which participant the sidebar is scoped to, the add-picker,
   // and the focused participant's realism (null = use the default host snapshot).
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -307,6 +337,82 @@ export function ChatPage() {
     />
   ) : null;
 
+  // Wide layout (PR 1a): the cast bar and the Director strip leave the
+  // space above the transcript and live in the sidebar cards, as the
+  // desktop window arranges them. Same elements, same props — phone and
+  // tablet still render them above the transcript.
+  const castBar = (
+    <CastBar
+      cast={cast}
+      focusedId={focusedId}
+      busy={state.isGenerating}
+      settling={!!state.isSettlingTurn}
+      guestStatus={state.guestActivity?.status ?? null}
+      guestIsError={state.guestActivity?.isError ?? false}
+      pendingDetection={state.pendingDetection ?? null}
+      onFocus={focusParticipant}
+      onAdd={() => setShowPicker(true)}
+      onCommand={sendMessage}
+      onSetAway={(id, away) => {
+        api
+          .post('/api/chat/cast/away', { id, away })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
+      }}
+      canRemoveMember={state.director?.canRemoveMember ?? true}
+    />
+  );
+  const director = state.director && (state.isGroupMode || cast.length > 1) ? (
+    <DirectorStrip
+      director={state.director}
+      busy={state.isGenerating}
+      onCommand={sendMessage}
+      memberNames={cast.map((c) => c.name)}
+      onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
+      onPauseAutoPlay={() =>
+        postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')
+      }
+      onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
+      onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
+      onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}
+      onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
+    />
+  ) : null;
+  const wideAside = realismForPanel ? (
+    <ChatSidebar
+      realism={realismForPanel}
+      moodLook={moodLook}
+      moodPaints={moodPaints}
+      focusedIsLiteGuest={focusedIsLiteGuest}
+      lorebook={state.lorebook}
+      groupLorebookUnreadable={state.groupLorebookUnreadable}
+      loreTokens={state.loreTokens}
+      loreBudget={state.loreBudget}
+      loreOverflow={state.loreOverflow}
+      draft={draft}
+      authorNote={state.authorNote ?? ''}
+      authorNoteDepth={state.authorNoteDepth ?? 4}
+      onSaveAuthorNote={saveAuthorNote}
+      characterId={focused?.dbId ?? state.character?.id ?? ''}
+      expressionLabel={state.expressionLabel}
+      isGroup={state.isGroupMode ?? false}
+      focusedIsHost={focused?.isHost ?? !state.isGroupMode}
+      focusedAvatarUrl={focused?.avatarUrl}
+      focusedPlaceholderPortrait={focused?.placeholderPortrait}
+      toolsKey={toolsBump}
+      focusedId={focusedId}
+      groupId={state.groupId ?? null}
+      onCommand={sendMessage}
+      toolSupport={state.toolSupport}
+      castBar={state.isGroupMode || cast.length > 1 ? castBar : undefined}
+      focusedName={state.isGroupMode && cast.length > 1 ? focused?.name : undefined}
+      portraitName={focused?.name ?? title}
+      director={director}
+      onEditCharacter={editPath ? () => navigate(editPath) : undefined}
+      onChatSettings={() => setShowTheme(true)}
+    />
+  ) : null;
+
   // Slice 7: hide a mint the author already answered locally until the
   // server flag actually clears or a DIFFERENT name arrives (a failed
   // POST must not reopen the modal on every poll — review #607).
@@ -332,7 +438,18 @@ export function ChatPage() {
           expressionLabel={state.expressionLabel}
           characterId={state.character?.id}
           isPhone={isPhone}
+          isDesktop={isDesktop}
           hasStats={!!insight}
+          cast={cast}
+          groupLine={
+            state?.isGroupMode
+              ? `${cast.length} character${cast.length === 1 ? '' : 's'}${
+                  groupTurnOrder ? ` • ${turnOrderLabel(groupTurnOrder)}` : ''
+                }`
+              : undefined
+          }
+          onBack={leaveChat}
+          onToggleSidebar={toggleAside}
           onEdit={editPath ? () => navigate(editPath) : undefined}
           onStats={() => setShowStats(true)}
           onPersona={() => setShowPersona(true)}
@@ -340,41 +457,8 @@ export function ChatPage() {
           onConversations={openSessions}
         />
 
-        <CastBar
-          cast={cast}
-          focusedId={focusedId}
-          busy={state.isGenerating}
-          settling={!!state.isSettlingTurn}
-          guestStatus={state.guestActivity?.status ?? null}
-          guestIsError={state.guestActivity?.isError ?? false}
-          pendingDetection={state.pendingDetection ?? null}
-          onFocus={focusParticipant}
-          onAdd={() => setShowPicker(true)}
-          onCommand={sendMessage}
-          onSetAway={(id, away) => {
-            api
-              .post('/api/chat/cast/away', { id, away })
-              .then(() => refresh())
-              .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
-          }}
-          canRemoveMember={state.director?.canRemoveMember ?? true}
-        />
-        {state.director && (state.isGroupMode || cast.length > 1) && (
-          <DirectorStrip
-            director={state.director}
-            busy={state.isGenerating}
-            onCommand={sendMessage}
-            memberNames={cast.map((c) => c.name)}
-            onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
-            onPauseAutoPlay={() =>
-              postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')
-            }
-            onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
-            onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
-            onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}
-            onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
-          />
-        )}
+        {!isDesktop && castBar}
+        {!isDesktop && director}
         <ExitUndoBar
           undo={state.exitUndo ?? null}
           onUndo={() => {
@@ -427,6 +511,7 @@ export function ChatPage() {
               messages={state.messages}
               castById={castById}
               multiCast={multiCast}
+              isDesktop={isDesktop}
               moodLook={moodLook}
               moodPaints={moodPaints}
               liveMood={state.realism ? { emotion: state.realism.emotion, intensity: state.realism.emotionIntensity, held: state.realism.emotionHeld ?? 0 } : null}
@@ -516,16 +601,47 @@ export function ChatPage() {
           apiHint={state.llmHint}
           directing={!!state.director?.directing}
           draftBox={draftBox}
+          isDesktop={isDesktop}
+          onPersona={() => setShowPersona(true)}
+          folderItems={
+            isDesktop
+              ? [
+                  {
+                    label: 'Conversations ▾',
+                    className: 'conversations-btn',
+                    onClick: openSessions,
+                  },
+                  {
+                    label: '📊 Context budget — what the model was sent',
+                    className: 'budget-link',
+                    onClick: () => setShowBudget(true),
+                  },
+                  {
+                    label: 'Turn Into a Story',
+                    onClick: () => setShowStory(true),
+                  },
+                ]
+              : undefined
+          }
+          nextName={state.isGroupMode ? cast.find((c) => c.isNext)?.name : undefined}
+          onNextTurn={
+            state.isGroupMode
+              ? () =>
+                  api
+                    .post('/api/chat/host-turn', {})
+                    .catch((e) => reportActionFailure('advance the turn', e))
+              : undefined
+          }
         />
       </div>
 
       {/* Persistent insight column — desktop only. The 1024px here is the same
           line `.chat-aside`'s media query draws; below it the column is
           display:none, and a hidden mount still ran every sidebar fetch. */}
-      {isDesktop && insight && (
+      {isDesktop && showAside && wideAside && (
         <aside className="chat-aside" style={{ width: asideWidth }}>
           <div className="aside-resizer" onMouseDown={startAsideResize} title="Drag to resize" />
-          {insight}
+          {wideAside}
         </aside>
       )}
 
@@ -578,6 +694,16 @@ export function ChatPage() {
             setImportNotice(message);
             void refresh();
           }}
+        />
+      )}
+
+      {showBudget && <ContextBudgetModal onClose={() => setShowBudget(false)} />}
+      {showStory && (
+        <StoryToolsModal
+          onClose={() => setShowStory(false)}
+          focusedId={focusedId}
+          reloadKey={toolsBump}
+          roster={cast.filter((c) => c.dbId).map((c) => ({ name: c.name, dbId: c.dbId }))}
         />
       )}
 

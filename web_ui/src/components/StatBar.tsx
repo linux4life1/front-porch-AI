@@ -10,12 +10,14 @@ import type { NeedTrouble } from '../theme/moodAtmosphere';
 
 /** A labelled stat bar. `percent` is 0-1 or 0-100: anything at or under 1 is
  *  read as a fraction. */
-export function StatBar({ label, value, percent, tone, className, style, badge }: {
+export function StatBar({ label, value, percent, tone, className, style, badge, fill }: {
   label: string; value: string; percent: number; tone?: string;
   /** Extra classes and custom properties on the stat (Mood on the character). */
   className?: string; style?: CSSProperties;
   /** A badge at the bar's end, for a need in trouble. */
   badge?: string;
+  /** Paint the fill with this CSS colour (the wide card's per-need hues). */
+  fill?: string;
 }) {
   const pct = Math.max(0, Math.min(100, percent <= 1 ? percent * 100 : percent));
   return (
@@ -25,7 +27,10 @@ export function StatBar({ label, value, percent, tone, className, style, badge }
         <span className="muted">{value}</span>
       </div>
       <div className="stat-track">
-        <div className={`stat-fill ${tone ?? ''}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`stat-fill ${tone ?? ''}`}
+          style={{ width: `${pct}%`, ...(fill ? { background: fill } : {}) }}
+        />
         {badge && <span className="need-badge" aria-hidden="true">{badge}</span>}
       </div>
     </div>
@@ -42,6 +47,7 @@ export function NeedBar({
   criticalAt,
   trouble,
   hue,
+  fill,
 }: {
   label: string;
   value: number;
@@ -50,6 +56,8 @@ export function NeedBar({
   criticalAt?: number;
   trouble?: NeedTrouble;
   hue?: string;
+  /** Paint the bar with this CSS colour always (not just when in trouble). */
+  fill?: string;
 }) {
   const low = !!trouble?.low;
   const classes = low
@@ -62,6 +70,7 @@ export function NeedBar({
       percent={value / 100}
       tone={needTone(value, urgentAt, criticalAt)}
       className={classes}
+      fill={fill}
       style={low && hue ? ({ '--need-hue': hue } as CSSProperties) : undefined}
       badge={low ? (trouble?.inverted ? '↕' : '!') : undefined}
     />

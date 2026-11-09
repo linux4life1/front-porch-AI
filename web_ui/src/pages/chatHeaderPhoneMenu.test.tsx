@@ -191,11 +191,20 @@ describe('phone header turned wide and back', () => {
 });
 
 describe('wide chat header', () => {
-  it('keeps every button in the row and has no ⋯', async () => {
+  it('keeps every button reachable and has no ⋯', async () => {
     await render(1280);
     expect(header().querySelector('button[aria-haspopup="menu"]')).toBeNull();
-    expect(headerButtons()).toEqual(expect.arrayContaining(['✎', 'Persona', 'Theme', 'Conversations ▾']));
-    tap([...header().querySelectorAll('button')].find((b) => b.textContent === 'Theme'));
+    // PR 1a moved the row at wide: Persona sits in the composer icon row,
+    // Conversations ▾ behind the folder, and Chat settings behind Main
+    // Settings. Lookups follow; the checks are the ones above's.
+    expect(
+      container.querySelector('.composer-icon-row button[aria-label="Persona"]'),
+    ).not.toBeNull();
+    tap(container.querySelector('.chat-mgmt-btn'));
+    expect(menuItems().some((b) => b.textContent?.includes('Conversations ▾'))).toBe(true);
+    tap(container.querySelector('.chat-mgmt-btn')); // close the folder
+    tap(container.querySelector('.sidebar-main-settings'));
+    tap(menuItems().find((b) => b.textContent?.includes('Chat Settings')));
     expect(container.querySelector('.settings-drawer')?.textContent).toContain('Chat theme');
   });
 });
@@ -241,7 +250,10 @@ describe('chat header in a group', () => {
       await act(async () => {
         await Promise.resolve();
       });
-      tap(header().querySelector('button[title="Edit character"]'));
+      // PR 1a: at wide, Edit lives behind the sidebar's Main Settings menu
+      // (one extra click); the editor it opens is the check that stays.
+      tap(container.querySelector('.sidebar-main-settings'));
+      tap(menuItems().find((b) => b.textContent?.includes('Edit Character')));
       expect(container.querySelector('.member-editor-stand-in')?.textContent).toBe('g1/mem-mara');
     } finally {
       for (const k of Object.keys(chatState)) delete (chatState as Record<string, unknown>)[k];

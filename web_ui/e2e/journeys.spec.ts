@@ -120,6 +120,36 @@ async function send(page: Page, text: string) {
   await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 }
 
+/** Wide (≥1024) puts Conversations, Chat Settings, Model Settings, Group
+ *  Settings and Turn Into a Story in the composer's Chat Management folder
+ *  and Main Settings, as the desktop window does (one-chat-ux PR 1a). The
+ *  phone keeps them in the header and its More menu. */
+const isWide = () => !test.info().project.name.startsWith('phone');
+
+async function openConversations(page: Page) {
+  if (isWide()) await page.locator('.chat-mgmt-btn').click();
+  await page.locator('.conversations-btn').click();
+}
+
+async function openChatSettings(page: Page) {
+  if (isWide()) {
+    await page.locator('.sidebar-main-settings').click();
+    await page.getByRole('menuitem', { name: /Chat Settings/ }).click();
+  } else {
+    await page.getByRole('button', { name: 'More chat options' }).click();
+    await page.getByRole('menuitem', { name: /Theme/ }).click();
+  }
+}
+
+async function openModelSheet(page: Page) {
+  if (isWide()) {
+    await page.locator('.sidebar-main-settings').click();
+    await page.getByRole('menuitem', { name: /Model Settings/ }).click();
+  } else {
+    await page.locator('.model-switch-chip').click();
+  }
+}
+
 test.describe('signing in', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -140,7 +170,7 @@ test.describe('signing in', () => {
 test.describe.serial('a conversation', { tag: SERIAL }, () => {
   test('open a character, start a fresh chat, and get a reply', async ({ page }) => {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     await expect(rows(page)).toHaveCount(1); // just the greeting
@@ -269,12 +299,12 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
 
   test('switch to a new chat and back again', async ({ page }) => {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     await expect(rows(page)).toHaveCount(1);
 
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.locator('.conv-item:not(.active)').filter({ hasText: /msgs/ }).first().click();
     await waitIdle(page);
     await expect(rows(page).filter({ hasText: 'I sit on the porch swing instead.' })).toHaveCount(1);
@@ -775,12 +805,7 @@ test('a new chat with a prompted card asks which system prompt it sends', { tag:
     await expect.poll(async () => (await source())?.source).toBe('user');
     expect((await source())?.picker).toBeUndefined();
 
-    if (test.info().project.name.startsWith('phone')) {
-      await page.getByRole('button', { name: 'More chat options' }).click();
-      await page.getByRole('menuitem', { name: /Theme/ }).click();
-    } else {
-      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
-    }
+    await openChatSettings(page);
     const drawer = page.locator('.settings-drawer');
     await expect(drawer.getByRole('radio', { name: 'My prompt' })).toHaveAttribute('aria-checked', 'true');
     await drawer.getByRole('radio', { name: 'Card only' }).click();
@@ -795,7 +820,7 @@ test('a new chat with a prompted card asks which system prompt it sends', { tag:
 
 test('the chat model sheet lists models you can tap, and offers providers', async ({ page }) => {
   await openPorchChat(page);
-  await page.locator('.model-switch-chip').click();
+  await openModelSheet(page);
   const sheet = page.getByRole('dialog', { name: 'Change model' });
   await expect(sheet.locator('.model-switch-provider select')).toBeVisible();
   await sheet.locator('.model-picker-trigger').click();
@@ -1089,22 +1114,41 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
     const box = page.locator('textarea.composer-input');
+    // Wide: the Director lives in the sidebar card, which starts closed and
+    // only mounts once a guest has joined, so it is opened after the join.
+    const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+    const openDirector = async () => {
+      if (!wide) return;
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
+      await expect(card).toBeVisible();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
+    };
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
     // The join settles after the send returns; stepping out before it lands
     // is refused as a busy turn.
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
+    await openDirector();
     await expect(strip).toContainText('You’re in the scene');
 
     // Stepping out turns the 1:1 with a guest into a group, then directs it.
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
     await expect(box).toHaveAttribute('placeholder', 'Direct the scene…');
     const undo = page.locator('.undo-bar');
@@ -1114,8 +1158,7 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect(strip).toContainText('You’re in the scene');
     await expect(rows(page)).toHaveCount(before - 1); // the goodbye is gone
 
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await stepOut();
     await expect(undo).toContainText('You stepped out to direct'); // offered again
     // The auto-chat delay saves on the host when the slider is let go.
     const delay = strip.getByLabel('Auto-chat delay in seconds');
@@ -1148,16 +1191,35 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
+    // Wide: the Director lives in the sidebar card, which starts closed and
+    // only mounts once a guest has joined, so it is opened after the join.
+    const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+    const openDirector = async () => {
+      if (!wide) return;
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
+      await expect(card).toBeVisible();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
+    };
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await openDirector();
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
 
     const directorState = async () =>
@@ -1220,16 +1282,35 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
+    // Wide: the Director lives in the sidebar card, which starts closed and
+    // only mounts once a guest has joined, so it is opened after the join.
+    const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+    const openDirector = async () => {
+      if (!wide) return;
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
+      await expect(card).toBeVisible();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
+    };
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await openDirector();
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
 
     type Director = { delaySeconds?: number | null; turnBudget?: number; turnsLeft?: number | null };
@@ -1791,7 +1872,7 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
   expect((await setPot(true)).ok()).toBe(true);
   try {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     const clock = await page.request.post('/api/chat/tools/time', {
@@ -2004,13 +2085,18 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     const before = new Set(
       ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories.map((s) => s.id),
     );
-    // The insight column on a wide window; the Stats drawer below 1024px.
-    let panel = page.locator('.chat-aside');
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
+    // Wide: the composer's Chat Management folder opens Turn Into a Story in
+    // its own sheet. Below 1024px: the Stats drawer's Our story section.
+    let panel: Locator;
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await page.locator('.chat-mgmt-btn').click();
+      await page.getByRole('menuitem', { name: /Turn Into a Story/ }).click();
+      panel = page.getByRole('dialog', { name: 'Turn Into a Story' });
+    } else {
       await page.locator('.stats-btn').first().click();
       panel = page.locator('.stats-drawer');
+      await panel.locator('summary', { hasText: 'Our story' }).click();
     }
-    await panel.locator('summary', { hasText: 'Our story' }).click();
     const lead = panel.getByTestId('story-lead');
     await expect(lead.locator('option')).toHaveText(['Porch Tester', 'Second Guest', 'You']);
     await lead.selectOption({ label: 'Second Guest' });
@@ -2153,13 +2239,20 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
 
-    // The insight column on a wide window; the Stats drawer below 1024px.
-    let panel = page.locator('.chat-aside');
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
+    // Wide: Main Settings → Group Settings… opens the same settings in a
+    // sheet. Below 1024px: the Stats drawer's Group settings section.
+    let panel: Locator;
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      await page.locator('.sidebar-main-settings').click();
+      await page.getByRole('menuitem', { name: /Group Settings/ }).click();
+      panel = page.locator('.settings-drawer');
+      // The same section the phone drawer expands.
+      await panel.locator('summary', { hasText: 'Group settings' }).click();
+    } else {
       await page.locator('.stats-btn').first().click();
       panel = page.locator('.stats-drawer');
+      await panel.locator('summary', { hasText: 'Group settings' }).click();
     }
-    await panel.locator('summary', { hasText: 'Group settings' }).click();
     const section = panel.getByTestId('group-new-chats-section');
     await expect(section).toContainText('Realism for new chats');
     await expect(panel.getByTestId('group-fork-notice')).toHaveCount(0);
@@ -2435,7 +2528,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
 
     // Link it to the chat model from the chat's model sheet.
     await openPorchChat(page);
-    await page.locator('.model-switch-chip').click();
+    await openModelSheet(page);
     const sheet = page.getByRole('dialog', { name: 'Change model' });
     await sheet.getByLabel('Generation preset for this model').selectOption(NAME);
     const key = (await presets()).model!.key;
@@ -2453,7 +2546,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
 
     // Back to the linked model through the sheet: the preset loads.
     await openPorchChat(page);
-    await page.locator('.model-switch-chip').click();
+    await openModelSheet(page);
     await sheet.locator('.model-picker-trigger').click();
     await sheet.locator('.mp-option', { hasText: standInModel }).first().click();
     const toast = page.getByTestId('gen-preset-toast');
@@ -2496,12 +2589,7 @@ test('the chat drawer loads a preset into this chat and follows the model again'
   const wasGlobal = await globalTemp();
   try {
     await openPorchChat(page);
-    if (test.info().project.name.startsWith('phone')) {
-      await page.getByRole('button', { name: 'More chat options' }).click();
-      await page.getByRole('menuitem', { name: /Theme/ }).click();
-    } else {
-      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
-    }
+    await openChatSettings(page);
     const section = page.getByTestId('chat-generation');
     await expect(section).toContainText('Generation for this chat');
     await section.getByLabel('Preset for this chat').selectOption(NAME);

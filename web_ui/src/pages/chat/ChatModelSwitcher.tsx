@@ -365,9 +365,15 @@ function ModelSwitchSheet({
   );
 }
 
-export function ChatModelSwitcher() {
+export function ChatModelSwitcher({ openSignal }: { openSignal?: number } = {}) {
   const [settings, setSettings] = useState<ChatModelSnapshot | null>(null);
   const [open, setOpen] = useState(false);
+
+  // The wide sidebar has no room for the chip (PR 1a): a Main Settings
+  // menu item bumps `openSignal` to open this same `Change model` sheet.
+  useEffect(() => {
+    if (openSignal && openSignal > 0) setOpen(true);
+  }, [openSignal]);
 
   useEffect(() => {
     let cancelled = false;

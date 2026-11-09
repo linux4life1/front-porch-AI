@@ -9,6 +9,10 @@
 
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
+import {
+  IconFolder, IconImage, IconMic, IconNextTurn, IconSend, IconSparkle, IconUser,
+} from './chatLineIcons';
+import { CardMenu, type MenuState } from './library/CardMenu';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
 import {
@@ -78,6 +82,11 @@ export function ChatComposer({
   apiHint,
   directing = false,
   draftBox,
+  isDesktop = false,
+  onPersona,
+  folderItems,
+  nextName,
+  onNextTurn,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -106,6 +115,19 @@ export function ChatComposer({
    *  those drafts ride the owner mailbox so the next new chat picks
    *  them up, as on the desktop. Null with no chat: nothing persists. */
   draftBox?: { sessionKey: string; ownerKey: string; fresh: boolean } | null;
+  /** The ≥1024 layout: the tools move from the input line to an icon row
+   *  under the box, as the desktop composer draws it (PR 1a). */
+  isDesktop?: boolean;
+  /** Round persona button at the row's left end (desktop; opens the same
+   *  `Speak as…` modal the header button did). */
+  onPersona?: () => void;
+  /** Chat Management folder menu, desktop row (Conversations, budget…).
+   *  `className` carries any class the control already had (e.g.
+   *  `conversations-btn`) so journeys keep finding it. */
+  folderItems?: { label: string; className?: string; onClick: () => void }[];
+  /** Group next-up speaker; the purple Next button's tooltip (desktop). */
+  nextName?: string;
+  onNextTurn?: () => void;
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = useCallback(
@@ -186,6 +208,9 @@ export function ChatComposer({
   );
 
   const [slashDismissed, setSlashDismissed] = useState(false);
+  // Desktop composer folder menu (Chat Management).
+  const [folderMenu, setFolderMenu] = useState<MenuState | null>(null);
+  const folderRef = useRef<HTMLButtonElement>(null);
 
   // "@" cast autocomplete — the cast-name twin of the slash cheat sheet
   // (same panel styles). Tracks the caret so a token being typed mid-draft
@@ -329,7 +354,7 @@ export function ChatComposer({
         {apiHint}
       </div>
     )}
-    <div className="chat-input">
+    <div className={isDesktop ? 'chat-input chat-input-desktop' : 'chat-input'}>
       <input
         ref={photoInputRef}
         type="file"
@@ -460,44 +485,157 @@ export function ChatComposer({
           rows={1}
         />
       </div>
-      <button
-        type="button"
-        className="icon-btn"
-        title="Attach photo"
-        aria-label="Attach photo"
-        disabled={isGenerating || photoBusy}
-        onClick={() => photoInputRef.current?.click()}
-      >
-        🖼
-      </button>
-      {onImpersonate && (
-        <button
-          type="button"
-          className="icon-btn impersonate-btn"
-          title="Impersonate (AI writes your message)"
-          aria-label="Impersonate"
-          disabled={isGenerating}
-          onClick={() => onImpersonate(draft)}
-        >
-          ✦
-        </button>
-      )}
-      {canMic && (
-        <MicButton
-          disabled={isGenerating}
-          onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
-        />
-      )}
-      {isGenerating ? (
-        <button className="primary" onClick={onStop}>Stop</button>
+      {isDesktop ? (
+        /* Desktop (≥1024): the tools sit in an icon row UNDER the box, as
+           the desktop window draws them — persona, Chat Management, attach
+           on the left; impersonate, mic, Next, send on the right. */
+        <div className="composer-icon-row">
+          <div className="composer-icons-left">
+            {onPersona && (
+              <button
+                type="button"
+                className="composer-persona-btn"
+                aria-label="Persona"
+                title="Who you are in this chat"
+                onClick={onPersona}
+              >
+                <IconUser />
+              </button>
+            )}
+            {folderItems && folderItems.length > 0 && (
+              <>
+                <button
+                  ref={folderRef}
+                  type="button"
+                  className="icon-btn chat-mgmt-btn"
+                  aria-label="Chat Management"
+                  title="Chat Management"
+                  aria-haspopup="menu"
+                  aria-expanded={folderMenu !== null}
+                  onClick={() => {
+                    const r = folderRef.current?.getBoundingClientRect();
+                    setFolderMenu(
+                      folderMenu
+                        ? null
+                        : {
+                            x: r?.left ?? 8,
+                            y: (r?.top ?? 40) - folderItems.length * 38 - 8,
+                            items: folderItems.map((f) => ({
+                              label: f.label,
+                              className: f.className,
+                              onClick: () => {
+                                setFolderMenu(null);
+                                f.onClick();
+                              },
+                            })),
+                          },
+                    );
+                  }}
+                >
+                  <IconFolder />
+                </button>
+                {folderMenu && <CardMenu menu={folderMenu} onClose={() => setFolderMenu(null)} />}
+              </>
+            )}
+            <button
+              type="button"
+              className="icon-btn"
+              title="Attach photo"
+              aria-label="Attach photo"
+              disabled={isGenerating || photoBusy}
+              onClick={() => photoInputRef.current?.click()}
+            >
+              <IconImage />
+            </button>
+          </div>
+          <div className="composer-icons-right">
+            {onImpersonate && (
+              <button
+                type="button"
+                className="icon-btn impersonate-btn"
+                title="Impersonate (AI writes your message)"
+                aria-label="Impersonate"
+                disabled={isGenerating}
+                onClick={() => onImpersonate(draft)}
+              >
+                <IconSparkle />
+              </button>
+            )}
+            {canMic && (
+              <MicButton
+                disabled={isGenerating}
+                icon={<IconMic />}
+                onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+              />
+            )}
+            {onNextTurn && (
+              <button
+                type="button"
+                className="icon-btn composer-next-btn"
+                aria-label="Next character"
+                title={nextName ? `Next: ${nextName}` : 'Trigger next character'}
+                disabled={isGenerating}
+                onClick={onNextTurn}
+              >
+                <IconNextTurn />
+              </button>
+            )}
+            {isGenerating ? (
+              <button className="primary" onClick={onStop}>Stop</button>
+            ) : (
+              <button
+                className="primary composer-send-btn"
+                aria-label="Send"
+                onClick={send}
+                disabled={photoBusy || (!draft.trim() && !photo)}
+              >
+                <IconSend /><span className="visually-hidden">Send</span>
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
-        <button
-          className="primary"
-          onClick={send}
-          disabled={photoBusy || (!draft.trim() && !photo)}
-        >
-          Send
-        </button>
+        <>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Attach photo"
+            aria-label="Attach photo"
+            disabled={isGenerating || photoBusy}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            🖼
+          </button>
+          {onImpersonate && (
+            <button
+              type="button"
+              className="icon-btn impersonate-btn"
+              title="Impersonate (AI writes your message)"
+              aria-label="Impersonate"
+              disabled={isGenerating}
+              onClick={() => onImpersonate(draft)}
+            >
+              ✦
+            </button>
+          )}
+          {canMic && (
+            <MicButton
+              disabled={isGenerating}
+              onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+            />
+          )}
+          {isGenerating ? (
+            <button className="primary" onClick={onStop}>Stop</button>
+          ) : (
+            <button
+              className="primary"
+              onClick={send}
+              disabled={photoBusy || (!draft.trim() && !photo)}
+            >
+              Send
+            </button>
+          )}
+        </>
       )}
     </div>
     </div>

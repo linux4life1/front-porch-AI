@@ -181,3 +181,57 @@
 }
 [data-layout="phone"] .msg-edit-body-area { min-height: 140px; }
 
+
+/* ── Desktop (≥1024) message rows (PR 1a) ───────────────────────────────
+   The window's layout: avatar column with the number under it, the bubble
+   stretched beside it, tools inside the bubble's top row (always shown —
+   nothing is hover-hidden on wide), reply controls right-aligned under the
+   newest reply. Phone and tablet keep the hover row above untouched. */
+.msg-row-desktop { flex-direction: row; align-items: flex-start; gap: 10px; }
+.msg-avatar-col {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  flex-shrink: 0; padding-top: 2px; width: 40px;
+}
+.msg-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.85rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent);
+}
+.msg-row-desktop .msg-number { margin: 0; align-self: center; }
+.msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+/* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
+   classes and the side-pref rule (chat.css) at five, so the wide
+   override needs four/five to win — every bubble fills the column like
+   the window's. */
+.msg-row.msg-row-desktop .bubble,
+.msg-row.msg-row-desktop .bubble.ai { align-self: stretch; max-width: none; }
+:root .msg-row.msg-row-desktop .bubble.user { align-self: stretch; max-width: none; }
+.msg-row-desktop .msg-actions { opacity: 1; }
+.msg-row-desktop .msg-actions.user { align-self: stretch; }
+.bubble-actions { width: 100%; gap: 3px; margin: 0 0 4px; }
+.bubble-actions .msg-speaker {
+  position: static; background: none; padding: 0; margin: 0 0 0 2px;
+  font-size: 0.78rem;
+}
+.bubble-actions .icon-btn { margin-left: auto; }
+.bubble-actions .icon-btn + .icon-btn { margin-left: 0; }
+/* Newest-reply controls sit INSIDE the bubble, bottom-right, as the window
+   draws them (regenerate, continue, ‹ n/m ›, pick version). */
+.msg-row-desktop .bubble .reply-actions {
+  justify-content: flex-end; margin: 8px 0 -2px; opacity: 1;
+}
+.reply-actions { justify-content: flex-end; margin: 2px 0 0; }
+.reply-actions:empty { display: none; }
+/* Full-width transcript (PR 1a pass 4): the window fills the chat area —
+   the tablet reading-width cap (wizard.css @768) is lifted on wide and a
+   short transcript anchors above the composer instead of floating at top.
+   The rows live inside .chat-messages' content wrapper, so that wrapper —
+   not the rows — is the capped flex item. */
+@media (min-width: 1024px) {
+  .chat-messages > div {
+    max-width: none; width: 100%; margin: 0;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .chat-messages > div:first-child { margin-top: auto; }
+}

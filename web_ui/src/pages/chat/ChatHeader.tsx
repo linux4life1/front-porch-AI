@@ -1,10 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat page's top bar: avatar, chat name, model chip and the chat's
-// buttons. Wide screens show every button in a row. A phone keeps one line:
-// model chip, Stats, Conversations and a ⋯ menu holding Edit, Persona and
-// Theme (the library's own popover menu, so it looks and closes the same way).
+// The chat page's top bar. Desktop (≥1024) matches the desktop window:
+// Back, the cast's stacked avatars (or the one chat's portrait), the chat's
+// name with its group line, and a sidebar toggle at the far right — the
+// model, Persona, Theme, Conversations, Edit and Stats leave the header for
+// the composer row and the sidebar (PR 1a). A tablet keeps the wide row of
+// buttons it has always had. A phone keeps one line: model chip, Stats,
+// Conversations and a ⋯ menu holding Edit, Persona and Theme (the library's
+// own popover menu, so it looks and closes the same way).
 
 import { useEffect, useRef, useState } from 'react';
 import { SmartImg } from '../../components/ChatAvatar';
@@ -15,6 +19,9 @@ import { ChatModelSwitcher } from './ChatModelSwitcher';
 /** Menu width in CardMenu; the menu's right edge lines up with the ⋯ button. */
 const MENU_WIDTH = 210;
 
+/** Stack at most this many member circles, as the desktop window does. */
+const STACK_MAX = 6;
+
 export function ChatHeader({
   title,
   focused,
@@ -22,7 +29,12 @@ export function ChatHeader({
   expressionLabel,
   characterId,
   isPhone,
+  isDesktop,
   hasStats,
+  cast,
+  groupLine,
+  onBack,
+  onToggleSidebar,
   onEdit,
   onStats,
   onPersona,
@@ -35,7 +47,15 @@ export function ChatHeader({
   expressionLabel: string | undefined;
   characterId: string | undefined;
   isPhone: boolean;
+  /** The ≥1024 layout: full-width chat, desktop header, sidebar toggle. */
+  isDesktop: boolean;
   hasStats: boolean;
+  /** The cast, for the group header's stacked avatars (desktop only). */
+  cast: CastMember[];
+  /** Second header line for groups, e.g. `4 characters • Round Robin`. */
+  groupLine: string | undefined;
+  onBack: () => void;
+  onToggleSidebar: () => void;
   /** Absent when there is no library character to edit (a group). */
   onEdit: (() => void) | undefined;
   onStats: () => void;
@@ -67,6 +87,36 @@ export function ChatHeader({
     setMenu({ x: (r?.right ?? window.innerWidth) - MENU_WIDTH, y: (r?.bottom ?? 0) + 4, items });
   };
 
+  const avatar =
+    focused && isGroupMode ? (
+      // Groups have no single avatar and member images don't resolve in
+      // the cast — show a group glyph rather than a broken image.
+      <span className="chat-header-avatar group" aria-hidden>
+        👥
+      </span>
+    ) : focused ? (
+      focused.isHost ? (
+        // A mood picture still shows; the flat no-portrait colour does not.
+        // Wide, the window's initial circle replaces it when nothing loads.
+        <SmartImg
+          primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
+          fallback={
+            focused.placeholderPortrait
+              ? undefined
+              : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
+          }
+          className="chat-header-avatar"
+          initial={isDesktop ? focused.name : undefined}
+        />
+      ) : (
+        <SmartImg
+          primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
+          className="chat-header-avatar"
+          initial={isDesktop ? focused.name : undefined}
+        />
+      )
+    ) : null;
+
   const stats = hasStats && (
     <button className="link-btn stats-btn" onClick={onStats}>
       Stats ▾
@@ -78,33 +128,54 @@ export function ChatHeader({
     </button>
   );
 
+  // Desktop mirrors the window: Back, the cast stack (or the portrait),
+  // the name with its group line, and the sidebar toggle at the end.
+  // The action buttons have all reached their destinations (PR 1a):
+  // Persona + Conversations sit in the composer's icon row, Edit, Model
+  // Settings and Chat settings in the sidebar's Main Settings menu.
+  if (isDesktop) {
+    return (
+      <div className="chat-header chat-header-desktop">
+        <button className="chat-back-btn" aria-label="Back" title="Back" onClick={onBack}>
+          ←
+        </button>
+        <div className="chat-header-id">
+          {isGroupMode ? (
+            <span className="chat-header-stack" aria-hidden>
+              {cast.slice(0, STACK_MAX).map((m) =>
+                m.hasAvatar && !m.placeholderPortrait && m.avatarUrl ? (
+                  <img key={m.id} className="chat-stack-avatar" src={m.avatarUrl} alt="" />
+                ) : (
+                  <span key={m.id} className="chat-stack-avatar initials">
+                    {m.name.charAt(0).toUpperCase()}
+                  </span>
+                ),
+              )}
+            </span>
+          ) : (
+            avatar
+          )}
+          <span className="chat-header-titles">
+            <span className="chat-title">{title}</span>
+            {isGroupMode && groupLine && <span className="chat-header-sub">{groupLine}</span>}
+          </span>
+        </div>
+        <button
+          className="chat-sidebar-toggle"
+          aria-label="Toggle sidebar"
+          title="Toggle sidebar"
+          onClick={onToggleSidebar}
+        >
+          ❯|
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="chat-header">
       <div className="chat-header-id">
-        {focused &&
-          (isGroupMode ? (
-            // Groups have no single avatar and member images don't resolve in
-            // the cast — show a group glyph rather than a broken image.
-            <span className="chat-header-avatar group" aria-hidden>
-              👥
-            </span>
-          ) : focused.isHost ? (
-            // A mood picture still shows; the flat no-portrait colour does not.
-            <SmartImg
-              primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
-              fallback={
-                focused.placeholderPortrait
-                  ? undefined
-                  : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
-              }
-              className="chat-header-avatar"
-            />
-          ) : (
-            <SmartImg
-              primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
-              className="chat-header-avatar"
-            />
-          ))}
+        {avatar}
         <span className="chat-title">{title}</span>
       </div>
       {isPhone ? (

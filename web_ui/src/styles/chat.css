@@ -170,6 +170,41 @@
   background: var(--surface-2); flex-shrink: 0;
 }
 .chat-header-avatar.group { display: grid; place-items: center; font-size: 1rem; }
+/* Wide 1:1 header with no picture to show: the window's initial circle
+   (PR 1a). Phone/tablet never get this class — they keep hiding. */
+.chat-header-avatar.initials {
+  display: grid; place-items: center; font-weight: 700; font-size: 1rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent);
+}
+/* Desktop (≥1024) header — the window's: Back, cast stack or portrait,
+   the name with its group line, and the sidebar toggle at the far right.
+   Everything else left the header (PR 1a); tablet and phone keep the rows
+   above untouched. */
+.chat-header-desktop { flex-wrap: nowrap; gap: 12px; }
+.chat-back-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--text); font-size: 1.25rem; line-height: 1; padding: 6px 8px;
+}
+.chat-back-btn:hover { color: var(--accent); }
+.chat-header-stack { display: flex; flex-shrink: 0; }
+.chat-stack-avatar {
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.9rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent); border: 2px solid var(--bg); flex-shrink: 0;
+}
+.chat-stack-avatar + .chat-stack-avatar { margin-left: -8px; }
+.chat-header-titles {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto;
+}
+.chat-header-titles .chat-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-header-sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-sidebar-toggle {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--text); font-size: 1rem; padding: 6px 8px;
+}
+.chat-sidebar-toggle:hover { color: var(--accent); }
 /* Phone: one line, nothing off-screen. ChatHeader puts Edit, Persona and
    Theme in a ⋯ menu; the chip and the buttons join the header's own row
    (display: contents). Short of room, the model chip gives way first, down
