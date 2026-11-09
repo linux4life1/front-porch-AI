@@ -1124,9 +1124,13 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     const wide = (page.viewportSize()?.width ?? 0) >= 1024;
     const openDirector = async () => {
       if (!wide) return;
-      const card = page.locator('.chat-aside details', { hasText: 'Director' }).first();
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
       await expect(card).toBeVisible();
-      await card.locator('summary').click();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
     // The host refuses a step-out while the join's turn is still settling
@@ -1202,9 +1206,13 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     const wide = (page.viewportSize()?.width ?? 0) >= 1024;
     const openDirector = async () => {
       if (!wide) return;
-      const card = page.locator('.chat-aside details', { hasText: 'Director' }).first();
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
       await expect(card).toBeVisible();
-      await card.locator('summary').click();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
     // The host refuses a step-out while the join's turn is still settling
@@ -1295,9 +1303,13 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     const wide = (page.viewportSize()?.width ?? 0) >= 1024;
     const openDirector = async () => {
       if (!wide) return;
-      const card = page.locator('.chat-aside details', { hasText: 'Director' }).first();
+      const card = page.locator('.chat-aside details', { hasText: '🎬 Director' }).first();
       await expect(card).toBeVisible();
-      await card.locator('summary').click();
+      // Clicking a summary toggles: only open a closed card.
+      if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
+        await card.locator('summary').click();
+      }
+      await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
     // The host refuses a step-out while the join's turn is still settling
@@ -2252,6 +2264,8 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
       await page.locator('.sidebar-main-settings').click();
       await page.getByRole('menuitem', { name: /Group Settings/ }).click();
       panel = page.locator('.settings-drawer');
+      // The same section the phone drawer expands.
+      await panel.locator('summary', { hasText: 'Group settings' }).click();
     } else {
       await page.locator('.stats-btn').first().click();
       panel = page.locator('.stats-drawer');
