@@ -25,8 +25,12 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Settings → Generation: reasoning, sampling, output limits, stop
-/// sequences, and (local backends only) banned phrases.
+/// Settings → Generation: organized into 4 distinct functional categories:
+/// 1. Preset & Reasoning (model intelligence, presets, and thinking effort)
+/// 2. Generation Parameters (dual-column studio rack with danger zones)
+/// 3. Output Limits (context window size & max output token reserve)
+/// 4. Output Pipeline & Diagnostics (stops, banned phrases, sanitizer,
+///    and advanced Model transport & display buffer options).
 class GenerationTab extends StatefulWidget {
   const GenerationTab({super.key, required this.bannedPhrasesController});
 
@@ -54,8 +58,8 @@ class _GenerationTabState extends State<GenerationTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Category 1: Preset & Reasoning ─────────────────────────────
           const GenerationPresetBar(),
-          // ── Reasoning (thinking models — local KoboldCpp & remote) ─────
           const SectionHeader('Thinking'),
           const SizedBox(height: 8),
           ThinkingSettingsBlock(
@@ -65,19 +69,19 @@ class _GenerationTabState extends State<GenerationTab> {
             onEffortChanged: storage.backendSettings.setReasoningEffort,
             modelId: storage.backendSettings.remoteModelName,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // ── Generation Parameters ──────────────────────────────────────
+          // ── Category 2: Generation Parameters (Studio Console) ─────────
           const SectionHeader('Generation Parameters'),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           GenerationSamplerSliders(
             storage: storage,
             knobs: knobs,
             accent: accent,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // ── Output Limits ──────────────────────────────────────────────
+          // ── Category 3: Output Limits & Context Budgets ────────────────
           const SectionHeader('Output Limits'),
           const SizedBox(height: 8),
           RecommendedSamplersBuilder(
@@ -85,8 +89,8 @@ class _GenerationTabState extends State<GenerationTab> {
             builder: (context, rec) => SliderSetting(
               label: 'Max Output Tokens',
               value: storage.generationSettings.maxLength.toDouble(),
-              min: 16,
-              max: 16384,
+              min: 64,
+              max: 8192,
               onChanged: (val) =>
                   storage.generationSettings.setMaxLength(val.toInt()),
               showInput: true,
@@ -116,89 +120,9 @@ class _GenerationTabState extends State<GenerationTab> {
             contextSize: storage.backendSettings.contextSize,
             maxOutput: storage.generationSettings.maxLength,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
 
-          // ── Model transport ────────────────────────────────────────────
-          const SectionHeader('Model transport'),
-          const SizedBox(height: 8),
-          Text(
-            'How the engine evaluations (Realism, Journal, Growth Rings) '
-            'talk to the model.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                'Native tool calling',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: !storage.realismSettings.preferTextEvals,
-                onChanged: (val) =>
-                    storage.realismSettings.setPreferTextEvals(!val),
-                activeTrackColor: accent,
-              ),
-            ],
-          ),
-          Text(
-            'When on, Realism, Journal and Growth use native tool calls if '
-            'this model supports them — cleaner structured results, and on '
-            'the common local templates no slower than the JSON floor. When '
-            'off, every eval uses the JSON/XML floor even if the model can '
-            'speak tools. The sidebar pill still shows whether the model '
-            'can. Default on.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // ── Display Output ─────────────────────────────────────────────
-          const SectionHeader('Display Output'),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                'Smooth Output Buffer',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: storage.uiSettings.displayBufferEnabled,
-                onChanged: (val) =>
-                    storage.uiSettings.setDisplayBufferEnabled(val),
-                activeTrackColor: accent,
-              ),
-            ],
-          ),
-          if (storage.uiSettings.displayBufferEnabled) ...[
-            SliderSetting(
-              label: 'Target Display Speed (t/s)',
-              value: storage.uiSettings.targetDisplayTps,
-              min: 5.0,
-              max: 60.0,
-              onChanged: (val) => storage.uiSettings.setTargetDisplayTps(val),
-              divisions: 55,
-            ),
-            SliderSetting(
-              label: 'Buffer Duration (seconds)',
-              value: storage.uiSettings.bufferDurationSeconds,
-              min: 1.0,
-              max: 10.0,
-              onChanged: (val) =>
-                  storage.uiSettings.setBufferDurationSeconds(val),
-              divisions: 9,
-            ),
-          ],
-          const SizedBox(height: 24),
-
-          // ── Stop Sequences ─────────────────────────────────────────────
+          // ── Category 4: Output Pipeline & Diagnostics ──────────────────
           const SectionHeader('Stop Sequences'),
           const SizedBox(height: 8),
           StopSequenceList(
@@ -206,22 +130,22 @@ class _GenerationTabState extends State<GenerationTab> {
             onSequencesChanged: (newList) =>
                 storage.generationSettings.setStopSequences(newList),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // ── Banned Phrases (KoboldCpp only) ────────────────────────────
+          // Banned Phrases (KoboldCpp only)
           if (knobs.contains(SamplerKnob.bannedPhrases)) ...[
             const SectionHeader('Banned Phrases'),
+            const SizedBox(height: 8),
             BannedPhrasesEditor(
               controller: widget.bannedPhrasesController,
               onChanged: (phrases) =>
                   storage.realismSettings.setBannedPhrases(phrases),
               phraseCount: storage.realismSettings.bannedPhrases.length,
             ),
+            const SizedBox(height: 20),
           ],
 
-          const SizedBox(height: 24),
-
-          // ── Output Sanitizer ───────────────────────────────────────────
+          // Output Sanitizer
           const SectionHeader('Output Sanitizer'),
           const SizedBox(height: 4),
           Text(
@@ -276,9 +200,6 @@ class _GenerationTabState extends State<GenerationTab> {
                 Switch(
                   value: storage.generationSettings.sanitiseExistingHistory,
                   onChanged: (val) async {
-                    // Enabling is a destructive, global commitment (every
-                    // chat opened while ON gets its saved AI messages
-                    // rewritten on its next save) — confirm before arming.
                     if (val) {
                       final confirmed = await showWarmDialog<bool>(
                         context,
@@ -326,7 +247,13 @@ class _GenerationTabState extends State<GenerationTab> {
                   storage.generationSettings.setOutputSanitizerRules(newRules),
             ),
           ],
+          const SizedBox(height: 20),
 
+          // ── Model transport & Display Output (Advanced Engine Options) ─
+          GenerationAdvancedSection(
+            storage: storage,
+            accent: accent,
+          ),
           const SizedBox(height: 32),
         ],
       ),

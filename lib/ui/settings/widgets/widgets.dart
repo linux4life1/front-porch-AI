@@ -38,3 +38,6 @@ export 'group_system_prompt_field.dart';
 export 'prompt_slot_card.dart';
 export 'generation_sampler_sliders.dart';
 export 'generation_preset_bar.dart';
+export 'generation_advanced_section.dart';
+export 'studio_slider_track_shape.dart';
+export 'studio_slider_card.dart';

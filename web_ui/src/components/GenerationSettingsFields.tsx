@@ -101,6 +101,9 @@ export function SliderField({
   onChange,
   disabled,
   reset,
+  defaultVal,
+  dangerMin,
+  dangerMax,
 }: {
   label: string;
   value: number;
@@ -111,7 +114,34 @@ export function SliderField({
   disabled?: boolean;
   /** A ↺ beside the value (generation presets); its title says to what. */
   reset?: { title: string; onReset: () => void };
+  defaultVal?: number;
+  dangerMin?: number;
+  dangerMax?: number;
 }) {
+  const dMaxPct =
+    dangerMax !== undefined
+      ? Math.max(0, Math.min(100, ((dangerMax - min) / (max - min)) * 100))
+      : undefined;
+  const dMinPct =
+    dangerMin !== undefined
+      ? Math.max(0, Math.min(100, ((dangerMin - min) / (max - min)) * 100))
+      : undefined;
+
+  let trackGradient: string | undefined;
+  const dangerColor = 'color-mix(in srgb, var(--danger) 35%, transparent)';
+  if (dMaxPct !== undefined && dMinPct !== undefined) {
+    trackGradient = `linear-gradient(to right, ${dangerColor} 0%, ${dangerColor} ${dMinPct}%, var(--border) ${dMinPct}%, var(--border) ${dMaxPct}%, ${dangerColor} ${dMaxPct}%, ${dangerColor} 100%)`;
+  } else if (dMaxPct !== undefined) {
+    trackGradient = `linear-gradient(to right, var(--border) 0%, var(--border) ${dMaxPct}%, ${dangerColor} ${dMaxPct}%, ${dangerColor} 100%)`;
+  } else if (dMinPct !== undefined) {
+    trackGradient = `linear-gradient(to right, ${dangerColor} 0%, ${dangerColor} ${dMinPct}%, var(--border) ${dMinPct}%, var(--border) 100%)`;
+  }
+
+  const defaultPct =
+    defaultVal !== undefined
+      ? Math.max(0, Math.min(100, ((defaultVal - min) / (max - min)) * 100))
+      : undefined;
+
   return (
     <div className="slider-field">
       <div className="slider-head">
@@ -138,15 +168,25 @@ export function SliderField({
         />
         </span>
       </div>
-      <input
-        type="range"
-        value={value}
-        step={step}
-        min={min}
-        max={max}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
+      <div className="slider-track-wrap">
+        <input
+          type="range"
+          value={value}
+          step={step}
+          min={min}
+          max={max}
+          disabled={disabled}
+          style={trackGradient ? { background: trackGradient } : undefined}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        {defaultPct !== undefined && (
+          <span
+            className="slider-default-pip"
+            style={{ left: `${defaultPct}%` }}
+            aria-hidden="true"
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -208,99 +248,8 @@ export function GenerationSettingsFields({
   return (
     <section className="card" data-testid="generation-fields">
       <h3>Generation</h3>
-      <SliderField label="Temperature" value={g.temperature} min={0} max={2} step={0.05}
-        reset={rs('temperature')}
-          onChange={(v) => patchGen({ temperature: v })} />
-      {shown('minP') && (
-        <SliderField label="Min-P" value={g.minP} min={0} max={1} step={0.01}
-          reset={rs('minP')}
-          onChange={(v) => patchGen({ minP: v })} />
-      )}
-      {g.topP !== undefined && (
-        <SliderField label="Top-P" value={g.topP} min={0.1} max={1} step={0.01}
-          reset={rs('topP')}
-          onChange={(v) => patchGen({ topP: v })} />
-      )}
-      {g.topK !== undefined && shown('topK') && (
-        <SliderField label="Top-K" value={g.topK} min={0} max={200} step={1}
-          reset={rs('topK')}
-          onChange={(v) => patchGen({ topK: Math.round(v) })} />
-      )}
-      {shown('repeatPenalty') && (
-        <SliderField label="Repeat penalty" value={g.repeatPenalty} min={1} max={3} step={0.01}
-          reset={rs('repeatPenalty')}
-          onChange={(v) => patchGen({ repeatPenalty: v })} />
-      )}
-      {shown('repeatPenaltyTokens') && (
-        <SliderField label="Rep pen tokens" value={g.repeatPenaltyTokens} min={0} max={2048} step={8}
-          reset={rs('repeatPenaltyTokens')}
-          onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
-      )}
-      {shown('xtc') && (
-        <>
-          <SliderField label="XTC threshold" value={g.xtcThreshold} min={0} max={0.5} step={0.01}
-            reset={rs('xtcThreshold')}
-          onChange={(v) => patchGen({ xtcThreshold: v })} />
-          <SliderField label="XTC probability" value={g.xtcProbability} min={0} max={1} step={0.05}
-            reset={rs('xtcProbability')}
-          onChange={(v) => patchGen({ xtcProbability: v })} />
-        </>
-      )}
-      {g.dryMultiplier !== undefined && shown('dry') && (
-        <SliderField label="DRY strength" value={g.dryMultiplier} min={0} max={3} step={0.05}
-          reset={rs('dryMultiplier')}
-          onChange={(v) => patchGen({ dryMultiplier: v })} />
-      )}
-      <SliderField label="Max output tokens" value={g.maxLength} min={16} max={16384} step={16}
-        reset={rs('maxLength')}
-          onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
-      <SliderField label="Context size" value={contextSize} min={512} max={500000} step={512}
-        disabled={contextLocked}
-        onChange={(v) => patch({ contextSize: Math.round(v) })} />
-      {contextLocked && <p className="muted small">{CONTEXT_LOCKED}</p>}
-      {contextSize > 0 && contextSize < contextFloor && (
-        <div className="cpu-warn" data-testid="context-floor-warning">{CONTEXT_FLOOR_WORDS}</div>
-      )}
-      {replyFills && (
-        <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
-      )}
-      {shown('dynamicTemp') && (
-        <label className="row-label">
-          <span>Dynamic temperature</span>
-          <input
-            type="checkbox"
-            checked={g.dynamicTempEnabled}
-            onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
-          />
-        </label>
-      )}
-      {shown('dynamicTemp') && g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
-        <SliderField label="Dynatemp range" value={g.dynamicTempRange} min={0} max={2} step={0.1}
-          reset={rs('dynamicTempRange')}
-          onChange={(v) => patchGen({ dynamicTempRange: v })} />
-      )}
-      {spellCheckLanguage !== undefined && (
-        <label>
-          Spell check language
-          <select
-            value={spellCheckLanguage}
-            onChange={(e) => patch({ spellCheckLanguage: e.target.value })}
-          >
-            <option value="off">Off</option>
-            {sortedByLabel([
-              ...(spellCheckLanguages ?? []),
-              ...(spellCheckLanguage !== 'off' ? [spellCheckLanguage] : []),
-            ]).map((tag) => (
-              <option key={tag} value={tag}>{spellCheckLabel(tag)}</option>
-            ))}
-          </select>
-          <p className="muted small">
-            The language you write in — not your device&apos;s language. If your phone or
-            computer is set to one language but you chat with characters in another,
-            set this to the one you chat in.
-          </p>
-        </label>
-      )}
+
+      {/* ── Category 1: Thinking / Model Reasoning ── */}
       <label className="row-label">
         <span>Request thinking</span>
         <input
@@ -380,33 +329,269 @@ export function GenerationSettingsFields({
           The chips then show this model&apos;s real levels.
         </p>
       )}
-      <label className="row-label">
-        <span>Provide periodic responses when user is AFK?</span>
-        <input
-          type="checkbox"
-          checked={g.dynamicResponses}
-          onChange={(e) => patchGen({ dynamicResponses: e.target.checked })}
+
+      {/* ── Category 2: Generation Parameters (Studio Console) ── */}
+      <h4 style={{ marginTop: 24, marginBottom: 8 }}>Generation Parameters</h4>
+      <div className="studio-sampler-grid">
+        <div className="studio-col">
+          <div className="studio-column-heading">Creativity & Probability</div>
+          <div className="studio-slider-card">
+            <SliderField
+              label="Temperature"
+              value={g.temperature}
+              min={0}
+              max={1.6}
+              step={0.05}
+              defaultVal={0.70}
+              dangerMax={1.25}
+              reset={rs('temperature')}
+              onChange={(v) => patchGen({ temperature: v })}
+            />
+          </div>
+          {shown('minP') && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="Min-P"
+                value={g.minP}
+                min={0}
+                max={0.25}
+                step={0.01}
+                defaultVal={0.10}
+                dangerMax={0.15}
+                reset={rs('minP')}
+                onChange={(v) => patchGen({ minP: v })}
+              />
+            </div>
+          )}
+          {g.topP !== undefined && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="Top-P"
+                value={g.topP}
+                min={0.50}
+                max={1.0}
+                step={0.01}
+                defaultVal={0.90}
+                dangerMin={0.65}
+                reset={rs('topP')}
+                onChange={(v) => patchGen({ topP: v })}
+              />
+            </div>
+          )}
+          {g.topK !== undefined && shown('topK') && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="Top-K"
+                value={g.topK}
+                min={0}
+                max={100}
+                step={1}
+                defaultVal={0}
+                dangerMax={75}
+                reset={rs('topK')}
+                onChange={(v) => patchGen({ topK: Math.round(v) })}
+              />
+            </div>
+          )}
+          {shown('dynamicTemp') && (
+            <div className="studio-slider-card">
+              <label className="row-label" style={{ margin: 0 }}>
+                <span>Dynamic temperature</span>
+                <input
+                  type="checkbox"
+                  checked={g.dynamicTempEnabled}
+                  onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
+                />
+              </label>
+              {g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
+                <div style={{ marginTop: 8 }}>
+                  <SliderField
+                    label="Dynatemp range"
+                    value={g.dynamicTempRange}
+                    min={0}
+                    max={1.0}
+                    step={0.05}
+                    defaultVal={0.50}
+                    dangerMax={0.70}
+                    reset={rs('dynamicTempRange')}
+                    onChange={(v) => patchGen({ dynamicTempRange: v })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="studio-col">
+          <div className="studio-column-heading">Flow & Anti-Repetition</div>
+          {g.dryMultiplier !== undefined && shown('dry') && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="DRY strength"
+                value={g.dryMultiplier}
+                min={0}
+                max={1.6}
+                step={0.05}
+                defaultVal={0}
+                dangerMax={1.20}
+                reset={rs('dryMultiplier')}
+                onChange={(v) => patchGen({ dryMultiplier: v })}
+              />
+            </div>
+          )}
+          {shown('repeatPenalty') && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="Repeat penalty"
+                value={g.repeatPenalty}
+                min={1.0}
+                max={1.35}
+                step={0.01}
+                defaultVal={1.10}
+                dangerMax={1.20}
+                reset={rs('repeatPenalty')}
+                onChange={(v) => patchGen({ repeatPenalty: v })}
+              />
+            </div>
+          )}
+          {shown('repeatPenaltyTokens') && (
+            <div className="studio-slider-card">
+              <SliderField
+                label="Rep pen tokens"
+                value={g.repeatPenaltyTokens}
+                min={0}
+                max={2048}
+                step={64}
+                defaultVal={1024}
+                dangerMin={128}
+                reset={rs('repeatPenaltyTokens')}
+                onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })}
+              />
+            </div>
+          )}
+          {shown('xtc') && (
+            <>
+              <div className="studio-slider-card">
+                <SliderField
+                  label="XTC threshold"
+                  value={g.xtcThreshold}
+                  min={0}
+                  max={0.30}
+                  step={0.01}
+                  defaultVal={0.10}
+                  dangerMax={0.20}
+                  reset={rs('xtcThreshold')}
+                  onChange={(v) => patchGen({ xtcThreshold: v })}
+                />
+              </div>
+              <div className="studio-slider-card">
+                <SliderField
+                  label="XTC probability"
+                  value={g.xtcProbability}
+                  min={0}
+                  max={1.0}
+                  step={0.05}
+                  defaultVal={0}
+                  dangerMax={0.60}
+                  reset={rs('xtcProbability')}
+                  onChange={(v) => patchGen({ xtcProbability: v })}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── Category 3: Output Limits & Context Budgets ── */}
+      <h4 style={{ marginTop: 24, marginBottom: 8 }}>Output Limits</h4>
+      <div className="studio-slider-card">
+        <SliderField
+          label="Max output tokens"
+          value={g.maxLength}
+          min={64}
+          max={8192}
+          step={32}
+          defaultVal={2048}
+          dangerMin={128}
+          reset={rs('maxLength')}
+          onChange={(v) => patchGen({ maxLength: Math.round(v) })}
         />
-      </label>
-      {g.dynamicResponses && (
-        <>
-          <SliderField label="Idle timeout (s)" value={g.dynamicResponseInterval} min={30} max={300} step={10}
-            onChange={(v) => patchGen({ dynamicResponseInterval: Math.round(v) })} />
-          <label className="field">
-            <span>Story time per away scene</span>
-            <select
-              value={g.dynamicResponsePacePeriods ?? 1}
-              onChange={(e) =>
-                patchGen({ dynamicResponsePacePeriods: Number(e.target.value) })
-              }
-            >
-              <option value={1}>a few hours</option>
-              <option value={3}>half the day</option>
-              <option value={6}>a full day</option>
-            </select>
-          </label>
-        </>
+      </div>
+      <div className="studio-slider-card">
+        <SliderField
+          label="Context size"
+          value={contextSize}
+          min={512}
+          max={500000}
+          step={512}
+          disabled={contextLocked}
+          onChange={(v) => patch({ contextSize: Math.round(v) })}
+        />
+      </div>
+      {contextLocked && <p className="muted small">{CONTEXT_LOCKED}</p>}
+      {contextSize > 0 && contextSize < contextFloor && (
+        <div className="cpu-warn" data-testid="context-floor-warning">{CONTEXT_FLOOR_WORDS}</div>
       )}
+      {replyFills && (
+        <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
+      )}
+
+      {/* ── Category 4: Output Pipeline & Controls ── */}
+      {spellCheckLanguage !== undefined && (
+        <div style={{ marginTop: 16 }}>
+          <label>
+            Spell check language
+            <select
+              value={spellCheckLanguage}
+              onChange={(e) => patch({ spellCheckLanguage: e.target.value })}
+            >
+              <option value="off">Off</option>
+              {sortedByLabel([
+                ...(spellCheckLanguages ?? []),
+                ...(spellCheckLanguage !== 'off' ? [spellCheckLanguage] : []),
+              ]).map((tag) => (
+                <option key={tag} value={tag}>{spellCheckLabel(tag)}</option>
+              ))}
+            </select>
+            <p className="muted small">
+              The language you write in — not your device&apos;s language. If your phone or
+              computer is set to one language but you chat with characters in another,
+              set this to the one you chat in.
+            </p>
+          </label>
+        </div>
+      )}
+
+      <div style={{ marginTop: 16 }}>
+        <label className="row-label">
+          <span>Provide periodic responses when user is AFK?</span>
+          <input
+            type="checkbox"
+            checked={g.dynamicResponses}
+            onChange={(e) => patchGen({ dynamicResponses: e.target.checked })}
+          />
+        </label>
+        {g.dynamicResponses && (
+          <>
+            <SliderField label="Idle timeout (s)" value={g.dynamicResponseInterval} min={30} max={300} step={10}
+              onChange={(v) => patchGen({ dynamicResponseInterval: Math.round(v) })} />
+            <label className="field">
+              <span>Story time per away scene</span>
+              <select
+                value={g.dynamicResponsePacePeriods ?? 1}
+                onChange={(e) =>
+                  patchGen({ dynamicResponsePacePeriods: Number(e.target.value) })
+                }
+              >
+                <option value={1}>a few hours</option>
+                <option value={3}>half the day</option>
+                <option value={6}>a full day</option>
+              </select>
+            </label>
+          </>
+        )}
+      </div>
+
       {g.stopSequences && (
         <StringListEditor
           title="Stop sequences"
@@ -416,25 +601,29 @@ export function GenerationSettingsFields({
           placeholder="e.g. \nUser:"
         />
       )}
+
       {shown('bannedPhrases') && bannedPhrases !== undefined && (
-        <label>
-          Banned phrases
-          <textarea
-            rows={4}
-            value={bannedPhrases.join('\n')}
-            onChange={(e) =>
-              patch({
-                bannedPhrases: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
-              })
-            }
-            placeholder="One phrase per line"
-          />
-          <p className="muted small">KoboldCpp only — the model will not emit these strings.</p>
-        </label>
+        <div style={{ marginTop: 16 }}>
+          <label>
+            Banned phrases
+            <textarea
+              rows={4}
+              value={bannedPhrases.join('\n')}
+              onChange={(e) =>
+                patch({
+                  bannedPhrases: e.target.value.split('\n').map((s) => s.trim()).filter(Boolean),
+                })
+              }
+              placeholder="One phrase per line"
+            />
+            <p className="muted small">KoboldCpp only — the model will not emit these strings.</p>
+          </label>
+        </div>
       )}
+
       {g.outputSanitizerEnabled !== undefined && (
         <>
-          <h4 style={{ marginTop: 16, marginBottom: 4 }}>Output Sanitizer</h4>
+          <h4 style={{ marginTop: 20, marginBottom: 4 }}>Output Sanitizer</h4>
           <p className="muted small">
             Replace specific character sequences in model output before saving
             to chat history (e.g. em dash → &quot; - &quot;).

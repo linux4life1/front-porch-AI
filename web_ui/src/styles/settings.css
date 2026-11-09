@@ -48,17 +48,64 @@
 .img-host-chips .chip-toggle { flex: 1; min-width: 7rem; }
 .img-host-chips .chip-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ── Generation sampler sliders (desktop-style: label + value box, slider) ─ */
+/* ── Generation sampler sliders (desktop-style: studio console) ─ */
 .slider-field { margin: 14px 0; }
 .slider-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 6px; color: var(--text); font-size: 0.85rem;
 }
-.slider-val { width: 96px; text-align: right; padding: 4px 8px; font-size: 0.85rem; }
+.slider-val {
+  width: 80px; text-align: right; padding: 4px 8px; font-size: 0.85rem;
+  font-variant-numeric: tabular-nums; font-family: inherit; font-weight: 600;
+}
+.slider-track-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
 .slider-field input[type='range'] {
-  width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
+  width: 100%; height: 6px; accent-color: var(--accent); cursor: pointer; padding: 0;
+  border-radius: 3px; background: var(--border); border: none;
 }
 .slider-field input:disabled { opacity: 0.45; cursor: not-allowed; }
+.slider-default-pip {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 12px;
+  background-color: var(--muted);
+  opacity: 0.75;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+.studio-sampler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+  margin-bottom: 16px;
+}
+.studio-column-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.studio-slider-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 8px);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.studio-slider-card .slider-field {
+  margin: 0;
+}
 
 /* ── Group creation member picker ──────────────────────────────────────── */
 .grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
