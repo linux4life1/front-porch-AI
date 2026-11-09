@@ -177,10 +177,10 @@
   background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
   color: var(--on-accent);
 }
-/* Desktop (≥1024) header — the window's: Back, cast stack or portrait,
-   the name with its group line, and the sidebar toggle at the far right.
-   Everything else left the header (PR 1a); tablet and phone keep the rows
-   above untouched. */
+/* The chat header is the desktop window's at every width (PR 1a wide, PR 1b
+   phone and tablet): Back, cast stack or portrait, the name with its group
+   line, and the sidebar toggle at the far right. Everything else left the
+   header for the composer row and the sidebar. */
 .chat-header-desktop { flex-wrap: nowrap; gap: 12px; }
 .chat-back-btn {
   flex-shrink: 0; background: none; border: none; cursor: pointer;
@@ -205,20 +205,39 @@
   color: var(--text); font-size: 1rem; padding: 6px 8px;
 }
 .chat-sidebar-toggle:hover { color: var(--accent); }
-/* Phone: one line, nothing off-screen. ChatHeader puts Edit, Persona and
-   Theme in a ⋯ menu; the chip and the buttons join the header's own row
-   (display: contents). Short of room, the model chip gives way first, down
-   to a stub; only then does the name ellipsize. The huge shrink weight is
-   what orders them: beside it the name's share is under a layout unit. */
-[data-layout="phone"] .chat-header { flex-wrap: nowrap; column-gap: 2px; padding: 8px 12px; }
-[data-layout="phone"] .chat-header-id { flex: 0 1 auto; min-width: 56px; gap: 8px; margin-right: auto; padding-right: 4px; }
-[data-layout="phone"] .chat-header-avatar { width: 28px; height: 28px; }
-[data-layout="phone"] .chat-header-actions { display: contents; }
-[data-layout="phone"] .chat-header .model-switch-chip { flex: 0 100000 auto; min-width: 2.75rem; }
-[data-layout="phone"] .chat-header .link-btn {
-  flex: 0 0 auto; padding: 4px 5px; white-space: nowrap; font-size: 0.875rem;
+
+/* ── Sidebar below 1024 (PR 1b) ────────────────────────────────────────
+   The same ChatSidebar card tree as the wide column, in an overlay. A phone
+   gets it full screen; a tablet gets a 380px panel from the right over a
+   dimmed chat. It mounts on the first open and then hides with
+   `visibility:hidden`, so the card tree keeps its scroll position and its
+   loaded snapshot while leaving the tab and accessibility trees. */
+.chat-sidebar-backdrop { z-index: 45; align-items: stretch; }
+.chat-sidebar-backdrop.closed { visibility: hidden; pointer-events: none; }
+.chat-sidebar-drawer {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  background: var(--surface); border-left: 1px solid var(--border);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.35);
+  padding-top: env(safe-area-inset-top);
 }
-[data-layout="phone"] .chat-header .chat-header-more { font-size: 1.15rem; line-height: 1; }
+.chat-sidebar-drawer.slide { width: 380px; max-width: 92%; }
+.chat-sidebar-drawer.full {
+  width: 100%; max-width: none; border-left: none; box-shadow: none;
+}
+.chat-sidebar-drawer-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex: none;
+}
+.chat-sidebar-drawer-title {
+  font-weight: 700; font-size: 1.05rem; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-sidebar-close { font-size: 1.1rem; padding: 8px 10px; }
+.chat-sidebar-drawer-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+}
 
 /* In-chat model chip. The sheet reuses the #330 phone pattern (messages.css
    message editor): visual-viewport box, safe-area padding, never 100dvh. */
@@ -256,7 +275,6 @@ a.model-switch-settings {
   padding: 10px 14px; border-radius: 10px; background: var(--accent);
   color: var(--on-accent); font-weight: 600; text-decoration: none; text-align: center;
 }
-[data-layout="phone"] .model-switch-chip { max-width: 8.5rem; }
 [data-layout="phone"] .drawer-backdrop.model-switch-overlay {
   top: var(--fp-vv-top, 0px);
   left: var(--fp-vv-left, 0px);
@@ -294,10 +312,9 @@ a.model-switch-settings {
   background: color-mix(in srgb, var(--image-scrim) 78%, transparent); color: var(--image-ink);
   text-transform: capitalize;
 }
-/* Phone: no expression portrait (too much for the small screen — the mood still
-   shows in the Mood stat row), and the Chat insight drawer goes full-screen. */
-[data-layout="phone"] .portrait-wrap { display: none; }
-[data-layout="phone"] .stats-drawer { width: 100%; max-width: none; }
+/* Phone: the Chat insight drawer goes full screen (PR 1b renders the same
+   ChatSidebar tree there; the old flat panel's portrait hiding is gone). */
+[data-layout="phone"] .chat-sidebar-drawer.full { width: 100%; max-width: none; }
 /* Look swiper: chevrons over the sidebar portrait to flip between uploaded looks */
 .portrait-swiper { position: relative; align-self: center; width: 100%; max-width: 240px; }
 .portrait-chevron {
@@ -314,7 +331,6 @@ a.model-switch-settings {
   font-size: 0.64rem; padding: 1px 8px; border-radius: 999px;
   background: color-mix(in srgb, var(--image-scrim) 60%, transparent); color: var(--image-ink);
 }
-[data-layout="phone"] .portrait-swiper { display: none; }
 
 /* ── Unified cast bar ─────────────────────────────────────────── */
 .cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }

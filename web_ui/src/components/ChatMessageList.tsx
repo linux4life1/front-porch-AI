@@ -164,9 +164,10 @@ type TranscriptProps = {
   moodPaints?: MoodPaints | null;
   /** The 1:1 host's live mood, so a bubble whose stamp still matches it paints at full loudness. */
   liveMood?: { emotion: string; intensity: string; held: number } | null;
-  /** ≥1024: rows are laid out like the desktop window — avatar column,
-   *  name + actions inside the bubble's top row, reply controls under the
-   *  bubble (PR 1a). Phone/tablet keep the hover row. */
+  /** The desktop window's row layout: avatar column, name + actions inside
+   *  the bubble's top row, reply controls under the bubble. Every width
+   *  renders it (PR 1a wide, PR 1b phone and tablet); the flat hover row
+   *  below is the legacy path its unit tests still exercise. */
   isDesktop?: boolean;
 };
 

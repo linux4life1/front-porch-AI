@@ -348,10 +348,9 @@
   .mood-portrait.on::after, .mood-portrait.on.need > *:first-child, .stat.need-low, .stat.need-low .stat-fill { animation: none !important; }
 }
 
-/* ── Desktop sidebar (PR 1a) ────────────────────────────────────────────
-   Wide (≥1024) renders ChatSidebar: portrait, Main Settings, pills, then
-   the cast/Director/tool cards. Phone/tablet keep the flat ChatInsight
-   above untouched. */
+/* ── Chat sidebar (PR 1a wide, PR 1b phone and tablet) ──────────────────
+   ChatSidebar renders the portrait, Main Settings, pills, then the
+   cast/Director/tool cards at every width; only its container changes. */
 .sidebar-main-settings {
   width: 100%; margin-top: 10px; background: none; border: none; cursor: pointer;
   color: var(--text); font-weight: 600; font-size: 0.95rem; padding: 8px;
@@ -374,42 +373,40 @@
 /* Wide reply rows keep the shared .msg-actions base, whose align-self was
    written for the phone column; stretch so right-alignment reaches. */
 .msg-row-desktop .msg-actions { align-self: stretch; }
-/* Cast pills in the wide sidebar wrap to the column's width — the window
-   stacks its cast list; the phone's horizontal scroll (above the
-   transcript) never sits inside .chat-aside and keeps its rule. The role
-   strip hides so every chip's Away / speak / remove stay fully visible
-   in the column at 1024 and 1440. */
-.chat-aside .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
-.chat-aside .cast-row { flex-wrap: wrap; overflow-x: visible; }
-.chat-aside .cast-chip { max-width: 100%; }
-.chat-aside .cast-role { display: none; }
+/* Cast pills in the sidebar wrap to its width — the window stacks its cast
+   list. The role strip hides so every chip's Away / speak / remove stay
+   fully visible in the column at 1024 and 1440, and in the drawer below. */
+.chat-sidebar .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
+.chat-sidebar .cast-row { flex-wrap: wrap; overflow-x: visible; }
+.chat-sidebar .cast-chip { max-width: 100%; }
+.chat-sidebar .cast-role { display: none; }
 /* Card headers carry the window's padlock + chevron (pass 4): the grip
    sits inside the header's left edge instead of floating above the card. */
-.chat-aside .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
-.chat-aside .tool-section > summary { padding-left: 32px; }
-.chat-aside .one-shot-row { padding-left: 32px; }
-.chat-aside .tool-pill { padding-left: 32px; }
+.chat-sidebar .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.chat-sidebar .tool-section > summary { padding-left: 32px; }
+.chat-sidebar .one-shot-row { padding-left: 32px; }
+.chat-sidebar .tool-pill { padding-left: 32px; }
 .card-chev {
   display: inline-block; margin: 0 6px 0 2px; color: var(--muted);
   font-size: 0.7rem; transition: transform 0.12s;
 }
-.chat-aside details[open] > summary > .card-chev { transform: rotate(90deg); }
+.chat-sidebar details[open] > summary > .card-chev { transform: rotate(90deg); }
 /* The 1:1 portrait fills the column like the group's. */
-.chat-aside .portrait-swiper { max-width: none; }
-.chat-aside .portrait-wrap img.portrait { max-width: none; width: 100%; }
+.chat-sidebar .portrait-swiper { max-width: none; }
+.chat-sidebar .portrait-wrap img.portrait { max-width: none; width: 100%; }
 
 /* ── Character State, the window's arrangement (pass 5) ─────────────────
    The Realism engine switch rides the card header; the body reads bonds,
    Afterglow/Lust, fixation, Needs and its bars, ambitions, Pockets, then
    one compact time line — the desktop sidebar's order. */
-.chat-aside .state-card > summary { display: flex; align-items: center; gap: 2px; }
+.chat-sidebar .state-card > summary { display: flex; align-items: center; gap: 2px; }
 /* Title over its grey subtitle, like the window: the subtitle takes a line of
    its own and wraps rather than being cut off beside the switch. */
-.chat-aside .state-card > summary .card-head-text {
+.chat-sidebar .state-card > summary .card-head-text {
   flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
 }
-.chat-aside .state-card > summary .card-title { white-space: nowrap; }
-.chat-aside .state-card > summary .card-sub { white-space: normal; line-height: 1.25; }
+.chat-sidebar .state-card > summary .card-title { white-space: nowrap; }
+.chat-sidebar .state-card > summary .card-sub { white-space: normal; line-height: 1.25; }
 .card-switch { display: inline-flex; align-items: center; margin-left: 6px; flex: none; }
 /* Pill switches, the desktop's shape: a themed track with a white thumb.
    appearance:none makes the checkbox drawable; the thumb is a gradient dot
@@ -446,8 +443,8 @@
 .ambition-pct { color: var(--muted); font-size: 0.78rem; margin-right: 6px; }
 /* Cards are content-sized in the wide column: a flex child must never
    shrink below its content, or two cards land on one spot. */
-.chat-aside .realism-panel > .wide-card { flex: none; }
+.chat-sidebar .realism-panel > .wide-card { flex: none; }
 /* A closed card's body takes no layout space at all. Chromium keeps a box
    for the content of a closed <details>, so its controls sat under the next
    card and the sweep hit-tested them as covered (2026-11-09). */
-.chat-aside details:not([open]) > .tool-body { display: none; }
+.chat-sidebar details:not([open]) > .tool-body { display: none; }

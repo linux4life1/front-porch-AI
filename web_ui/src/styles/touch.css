@@ -1,0 +1,76 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Touch targets (PR 1b). On a touch screen every button, pill, summary row
+   and switch gets a tap area of at least 44x44 CSS px; the drawn glyph may
+   stay small (the sketch keeps the cast chips and chips their size). A
+   mouse (`pointer: fine`) keeps today's sizes, so a desktop browser does not
+   change. Imported last so these paddings win over the surface rules.
+*/
+
+@media (pointer: coarse) {
+  /* Icon buttons: the box grows, the glyph stays. */
+  .icon-btn,
+  .chat-back-btn,
+  .chat-sidebar-toggle,
+  .chat-sidebar-close,
+  .msg-actions .icon-btn,
+  .bubble-actions .icon-btn,
+  .reply-actions .icon-btn,
+  .reply-actions button,
+  .swipe button,
+  .cast-actions button,
+  .cast-add,
+  .cast-controls button,
+  .composer-icon-row button,
+  .composer-persona-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* Text pills and text buttons. */
+  .sidebar-main-settings,
+  .sidebar-reset-pill,
+  .sidebar-lock-pill,
+  .sidebar-grip,
+  .cast-chip-main,
+  .state-time-nudges button,
+  .tool-pill,
+  .one-shot-row button,
+  .link-btn {
+    min-height: 44px;
+  }
+  .sidebar-reset-pill,
+  .sidebar-lock-pill,
+  .tool-pill,
+  .cast-chip-main,
+  .state-time-nudges button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* A card's header row is a full-width tap target. */
+  .insight-section summary,
+  .tool-section summary {
+    min-height: 44px;
+  }
+  /* Switches: the label around the input owns the 44px box; the drawn track
+     keeps the window's size. */
+  .card-switch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .state-line {
+    min-height: 44px;
+  }
+  /* The composer's send button is the one primary action: keep its shape,
+     widen the box. */
+  .chat-input-desktop .composer-send-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

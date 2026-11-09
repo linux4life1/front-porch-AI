@@ -242,10 +242,19 @@ export function useSidebarOrder(surface: SidebarSurface) {
   return { stored, locked, commit, setLocked };
 }
 
+/** How long a finger must stay put before a card starts dragging (PR 1b). */
+const TOUCH_HOLD_MS = 400;
+/** How far a finger may drift during that hold before it counts as a scroll. */
+const TOUCH_MOVE_PX = 8;
+
 /** The pointer-drag state for one reorderable list: the list holds the pointer
  *  (a moved element can lose its capture), and a section trades places as the
  *  pointer crosses a neighbour's middle. `enabled` false (the layout lock)
- *  makes every grip start nothing, belt-and-braces beside the inert grips. */
+ *  makes every grip start nothing, belt-and-braces beside the inert grips.
+ *
+ *  A mouse or pen drags at once. A finger has to rest on the grip for
+ *  `TOUCH_HOLD_MS` without drifting more than `TOUCH_MOVE_PX`: moving sooner
+ *  is a scroll of the sidebar, not a reorder (PR 1b). */
 export function useReorderDrag(
   ordered: string[],
   onReorder: (next: string[]) => void,
@@ -255,12 +264,35 @@ export function useReorderDrag(
   const itemEls = useRef(new Map<string, HTMLElement>());
   const [dragId, setDragId] = useState<string | null>(null);
   const drag = useRef<{ id: string | null; y: number }>({ id: null, y: 0 });
+  const pending = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    pointerId: number;
+    timer: number;
+  } | null>(null);
   const orderedRef = useRef(ordered);
   orderedRef.current = ordered;
   const onReorderRef = useRef(onReorder);
   onReorderRef.current = onReorder;
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
+
+  const clearPending = () => {
+    if (pending.current) window.clearTimeout(pending.current.timer);
+    pending.current = null;
+  };
+  // A started touch drag owns the gesture: stop the sidebar from scrolling
+  // under the finger. (Before the hold the listener is absent, so an early
+  // move scrolls as usual.)
+  useEffect(() => {
+    const el = listEl.current;
+    if (!el || dragId === null) return;
+    const stop = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener('touchmove', stop, { passive: false });
+    return () => el.removeEventListener('touchmove', stop);
+  }, [dragId]);
+  useEffect(() => () => clearPending(), []);
 
   const middle = (id: string) => {
     const r = itemEls.current.get(id)?.getBoundingClientRect();
@@ -281,18 +313,48 @@ export function useReorderDrag(
   };
   const startDrag = (e: PointerEvent<HTMLButtonElement>, id: string) => {
     if (!enabledRef.current || e.button !== 0) return;
+    if (e.pointerType === 'touch') {
+      // No preventDefault here: an early move must scroll the sidebar.
+      clearPending();
+      pending.current = {
+        id,
+        x: e.clientX,
+        y: e.clientY,
+        pointerId: e.pointerId,
+        timer: window.setTimeout(() => {
+          const p = pending.current;
+          if (!p) return;
+          pending.current = null;
+          listEl.current?.setPointerCapture?.(p.pointerId);
+          drag.current = { id: p.id, y: p.y };
+          setDragId(p.id);
+        }, TOUCH_HOLD_MS),
+      };
+      return;
+    }
     e.preventDefault();
     listEl.current?.setPointerCapture?.(e.pointerId);
     drag.current = { id, y: e.clientY };
     setDragId(id);
   };
   const dragMove = (e: PointerEvent<HTMLDivElement>) => {
+    const p = pending.current;
+    if (p) {
+      if (
+        Math.abs(e.clientX - p.x) > TOUCH_MOVE_PX ||
+        Math.abs(e.clientY - p.y) > TOUCH_MOVE_PX
+      ) {
+        clearPending(); // the finger is scrolling, not holding
+      }
+      return;
+    }
     const d = drag.current;
     if (d.id === null) return;
     d.y = e.clientY;
     reorderAt(e.clientY);
   };
   const endDrag = () => {
+    clearPending();
     drag.current = { id: null, y: 0 };
     setDragId(null);
   };
