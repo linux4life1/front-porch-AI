@@ -9,8 +9,11 @@
 .msg-row .bubble.user { align-self: flex-end; }
 .msg-row .bubble.ai { align-self: flex-start; }
 /* Realism (row 1) + Needs (row 2) chips sit in their own block under a reply.
- * Each row wraps independently so Realism never bleeds into the Needs line. */
-.chips-block { display: flex; flex-direction: column; gap: 3px; align-self: flex-start; max-width: 85%; margin: 4px 0 2px; }
+ * Each row wraps independently so Realism never bleeds into the Needs line.
+ * Inside the bubble the block may use the bubble's full width (the sketch's
+ * phone rows put four chips on a line); 1a's 85% cap was for the old chips
+ * outside the bubble and wrapped the last chip on a phone. */
+.chips-block { display: flex; flex-direction: column; gap: 3px; align-self: flex-start; max-width: 100%; margin: 4px 0 2px; }
 .chips-row { display: flex; flex-wrap: wrap; gap: 4px; }
 /* One line per chip: a long label (a Pockets receipt) ends in an ellipsis
  * inside the bubble's width, the ⓘ stays visible, and a tap shows it whole. */

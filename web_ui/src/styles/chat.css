@@ -205,6 +205,12 @@
   color: var(--text); font-size: 1rem; padding: 6px 8px;
 }
 .chat-sidebar-toggle:hover { color: var(--accent); }
+/* Phone: a compact header (the sketch's 54px bar) with the same 44px tap
+   areas; the avatars step down so the group line fits without an ellipsis. */
+[data-layout="phone"] .chat-header { padding: 4px 12px; }
+[data-layout="phone"] .chat-header-avatar,
+[data-layout="phone"] .chat-stack-avatar { width: 28px; height: 28px; }
+[data-layout="phone"] .chat-header-sub { font-size: 0.72rem; }
 
 /* ── Sidebar below 1024 (PR 1b) ────────────────────────────────────────
    The same ChatSidebar card tree as the wide column, in an overlay. A phone

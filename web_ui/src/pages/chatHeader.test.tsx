@@ -151,6 +151,13 @@ describe('phone chat header', () => {
     expect(close).not.toBeNull();
     tap(close);
     expect(container.querySelector('.chat-sidebar-backdrop')?.getAttribute('aria-hidden')).toBe('true');
+
+    // Reopening keeps the card tree's scroll position.
+    const body = drawer.querySelector('.chat-sidebar-drawer-body') as HTMLElement;
+    body.scrollTop = 140;
+    openSidebar();
+    expect(container.querySelector('.chat-sidebar-drawer-body')).toBe(body);
+    expect((container.querySelector('.chat-sidebar-drawer-body') as HTMLElement).scrollTop).toBe(140);
   });
 
   it('the group header stacks the cast and carries the group line', async () => {
