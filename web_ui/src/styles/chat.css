@@ -238,6 +238,12 @@
   -webkit-overflow-scrolling: touch;
   padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
 }
+/* The drawer's portrait is the window's tile, cut to a landscape banner so
+   the cards below stay in reach (the sketch's phone/tablet board); the wide
+   column keeps its square. */
+.chat-sidebar-drawer .portrait-wrap img.portrait,
+.chat-sidebar-drawer .portrait-swiper img.portrait { aspect-ratio: 16 / 9; }
+.chat-sidebar-drawer .portrait-initial { aspect-ratio: 16 / 9; min-height: 0; }
 
 /* In-chat model chip. The sheet reuses the #330 phone pattern (messages.css
    message editor): visual-viewport box, safe-area padding, never 100dvh. */

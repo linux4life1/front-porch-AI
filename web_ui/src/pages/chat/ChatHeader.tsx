@@ -100,7 +100,21 @@ export function ChatHeader({
         title="Toggle sidebar"
         onClick={onToggleSidebar}
       >
-        ❯|
+        {/* The window's panel icon: a rectangle with the sidebar column. */}
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M15 4v16" />
+        </svg>
       </button>
     </div>
   );
