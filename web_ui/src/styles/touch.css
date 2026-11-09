@@ -50,6 +50,11 @@
     align-items: center;
     justify-content: center;
   }
+  /* Menus and drawer heads are tap targets too. */
+  .card-menu-item,
+  .drawer-head button {
+    min-height: 44px;
+  }
   /* A card's header row is a full-width tap target. */
   .insight-section summary,
   .tool-section summary {

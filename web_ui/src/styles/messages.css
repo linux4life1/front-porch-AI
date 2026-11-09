@@ -188,6 +188,13 @@
    nothing is hover-hidden on wide), reply controls right-aligned under the
    newest reply. Phone and tablet keep the hover row above untouched. */
 .msg-row-desktop { flex-direction: row; align-items: flex-start; gap: 10px; }
+/* Below 1024 the sketch's avatar column is narrower (26px circle, 8px
+   gap), which also gives the phone bubble the width its chip rows need. */
+@media (max-width: 1023px) {
+  .msg-row-desktop { gap: 8px; }
+  .msg-avatar-col { width: 30px; }
+  .msg-avatar { width: 26px; height: 26px; }
+}
 .msg-avatar-col {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   flex-shrink: 0; padding-top: 2px; width: 40px;
