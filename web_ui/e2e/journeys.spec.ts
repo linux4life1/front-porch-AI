@@ -146,7 +146,7 @@ async function openModelSheet(page: Page) {
     await page.locator('.sidebar-main-settings').click();
     await page.getByRole('menuitem', { name: /Model Settings/ }).click();
   } else {
-    await openModelSheet(page);
+    await page.locator('.model-switch-chip').click();
   }
 }
 
