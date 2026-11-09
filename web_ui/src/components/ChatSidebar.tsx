@@ -438,7 +438,6 @@ export function ChatSidebar({
                 >
                   <input
                     type="checkbox"
-                    role="switch"
                     aria-label="Realism engine"
                     checked={t.realismSwitch ?? t.realismEnabled}
                     disabled={t.realismAllowed === false}
@@ -487,8 +486,7 @@ export function ChatSidebar({
                           <span>💗 Afterglow</span>
                           <input
                             type="checkbox"
-                            role="switch"
-                            aria-label="Afterglow"
+                                    aria-label="Afterglow"
                             className="state-switch"
                             checked={t.nsfw.afterglowSwitch ?? t.nsfw.cooldownEnabled}
                             onChange={(e) => toggle('nsfwCooldown', e.target.checked)}
@@ -521,8 +519,7 @@ export function ChatSidebar({
                         <span>💗 Needs</span>
                         <input
                           type="checkbox"
-                          role="switch"
-                          aria-label="Needs"
+                                aria-label="Needs"
                           className="state-switch"
                           checked={t.needsEnabled}
                           disabled={t.needsAllowed === false}
@@ -575,8 +572,7 @@ export function ChatSidebar({
                         <span>🎒 Pockets &amp; Wardrobe</span>
                         <input
                           type="checkbox"
-                          role="switch"
-                          aria-label="Pockets &amp; Wardrobe"
+                                aria-label="Pockets &amp; Wardrobe"
                           className="state-switch"
                           checked={pocketsOn}
                           disabled={t.pocketsAllowed === false}
@@ -970,8 +966,10 @@ export function ChatSidebar({
         </div>
       ))}
       {/* Model Settings opens today's Change model sheet through the same
-          component the header chip used; the chip itself is hidden on wide. */}
-      <div className="model-sheet-host" aria-hidden>
+          component the header chip used; the chip itself is hidden on wide
+          by CSS. The host carries no aria-hidden: the sheet it opens is a
+          dialog and must stay in the accessibility tree. */}
+      <div className="model-sheet-host">
         <ChatModelSwitcher openSignal={modelSheetSignal} />
       </div>
       {showGroupSettings && t?.group && groupId && (

@@ -444,3 +444,10 @@
 .state-time-nudges { display: inline-flex; gap: 6px; }
 .state-time-nudges button { white-space: nowrap; }
 .ambition-pct { color: var(--muted); font-size: 0.78rem; margin-right: 6px; }
+/* Cards are content-sized in the wide column: a flex child must never
+   shrink below its content, or two cards land on one spot. */
+.chat-aside .realism-panel > .wide-card { flex: none; }
+/* A closed card's body takes no layout space at all. Chromium keeps a box
+   for the content of a closed <details>, so its controls sat under the next
+   card and the sweep hit-tested them as covered (2026-11-09). */
+.chat-aside details:not([open]) > .tool-body { display: none; }
