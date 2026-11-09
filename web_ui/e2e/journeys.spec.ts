@@ -1133,17 +1133,11 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
-    // The host refuses a step-out while the join's turn is still settling
-    // (the comment above); a refused click leaves the strip in the scene, so
-    // it is retried once the turn has landed.
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
     const stepOut = async () => {
       await strip.getByRole('button', { name: 'Step out to direct' }).click();
       await waitIdle(page);
-      if (((await strip.textContent()) ?? '').includes('You’re in the scene')) {
-        await page.waitForTimeout(1500);
-        await strip.getByRole('button', { name: 'Step out to direct' }).click();
-        await waitIdle(page);
-      }
     };
     await sendLine(page, '/join Porch Tester');
     // The join settles after the send returns; stepping out before it lands
@@ -1215,17 +1209,11 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
-    // The host refuses a step-out while the join's turn is still settling
-    // (the comment above); a refused click leaves the strip in the scene, so
-    // it is retried once the turn has landed.
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
     const stepOut = async () => {
       await strip.getByRole('button', { name: 'Step out to direct' }).click();
       await waitIdle(page);
-      if (((await strip.textContent()) ?? '').includes('You’re in the scene')) {
-        await page.waitForTimeout(1500);
-        await strip.getByRole('button', { name: 'Step out to direct' }).click();
-        await waitIdle(page);
-      }
     };
     await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
@@ -1312,17 +1300,11 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       await expect(card.locator('.director-strip')).toBeVisible();
     };
     const strip = page.locator('.director-strip');
-    // The host refuses a step-out while the join's turn is still settling
-    // (the comment above); a refused click leaves the strip in the scene, so
-    // it is retried once the turn has landed.
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
     const stepOut = async () => {
       await strip.getByRole('button', { name: 'Step out to direct' }).click();
       await waitIdle(page);
-      if (((await strip.textContent()) ?? '').includes('You’re in the scene')) {
-        await page.waitForTimeout(1500);
-        await strip.getByRole('button', { name: 'Step out to direct' }).click();
-        await waitIdle(page);
-      }
     };
     await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
