@@ -151,7 +151,7 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
                         style: TextStyle(
                           color: AppColors.textPrimary(context),
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 14,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

@@ -6,6 +6,7 @@
 // PromptSettingsCard under General (prompt-picker SOW Phase 2).
 // Desktop Generation parity (audit P2.12).
 
+import { useState } from 'react';
 import {
   reasoningEffortBlurb,
   reasoningEffortChipsFor,
@@ -118,6 +119,7 @@ export function SliderField({
   dangerMin?: number;
   dangerMax?: number;
 }) {
+  const valPct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   const dMaxPct =
     dangerMax !== undefined
       ? Math.max(0, Math.min(100, ((dangerMax - min) / (max - min)) * 100))
@@ -127,14 +129,29 @@ export function SliderField({
       ? Math.max(0, Math.min(100, ((dangerMin - min) / (max - min)) * 100))
       : undefined;
 
-  let trackGradient: string | undefined;
-  const dangerColor = 'color-mix(in srgb, var(--danger) 35%, transparent)';
-  if (dMaxPct !== undefined && dMinPct !== undefined) {
-    trackGradient = `linear-gradient(to right, ${dangerColor} 0%, ${dangerColor} ${dMinPct}%, var(--border) ${dMinPct}%, var(--border) ${dMaxPct}%, ${dangerColor} ${dMaxPct}%, ${dangerColor} 100%)`;
-  } else if (dMaxPct !== undefined) {
-    trackGradient = `linear-gradient(to right, var(--border) 0%, var(--border) ${dMaxPct}%, ${dangerColor} ${dMaxPct}%, ${dangerColor} 100%)`;
+  let trackGradient: string;
+  const dangerInactive = 'color-mix(in srgb, var(--danger) 35%, transparent)';
+  const dangerActive = 'var(--danger)';
+
+  if (dMaxPct !== undefined) {
+    if (valPct <= dMaxPct) {
+      // Thumb is in safe range: solid accent to thumb, neutral to danger boundary, danger inactive to end
+      trackGradient = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${valPct}%, var(--border) ${valPct}%, var(--border) ${dMaxPct}%, ${dangerInactive} ${dMaxPct}%, ${dangerInactive} 100%)`;
+    } else {
+      // Thumb is in upper danger zone: accent up to dMaxPct, danger active to thumb, danger inactive to end
+      trackGradient = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${dMaxPct}%, ${dangerActive} ${dMaxPct}%, ${dangerActive} ${valPct}%, ${dangerInactive} ${valPct}%, ${dangerInactive} 100%)`;
+    }
   } else if (dMinPct !== undefined) {
-    trackGradient = `linear-gradient(to right, ${dangerColor} 0%, ${dangerColor} ${dMinPct}%, var(--border) ${dMinPct}%, var(--border) 100%)`;
+    if (valPct >= dMinPct) {
+      // Thumb is in safe range (above dangerMin): danger inactive to dMinPct, accent to thumb, neutral to end
+      trackGradient = `linear-gradient(to right, ${dangerInactive} 0%, ${dangerInactive} ${dMinPct}%, var(--accent) ${dMinPct}%, var(--accent) ${valPct}%, var(--border) ${valPct}%, var(--border) 100%)`;
+    } else {
+      // Thumb is in lower danger zone: danger active to thumb, danger inactive to dMinPct, neutral to end
+      trackGradient = `linear-gradient(to right, ${dangerActive} 0%, ${dangerActive} ${valPct}%, ${dangerInactive} ${valPct}%, ${dangerInactive} ${dMinPct}%, var(--border) ${dMinPct}%, var(--border) 100%)`;
+    }
+  } else {
+    // Normal slider without danger zones: solid accent to thumb, neutral to end
+    trackGradient = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${valPct}%, var(--border) ${valPct}%, var(--border) 100%)`;
   }
 
   const defaultPct =
@@ -690,38 +707,71 @@ function StringListEditor({
   onChange: (next: string[]) => void;
   placeholder: string;
 }) {
+  const [newVal, setNewVal] = useState('');
+
+  const handleAdd = () => {
+    const trimmed = newVal.trim();
+    if (trimmed && !values.includes(trimmed)) {
+      onChange([...values, trimmed]);
+      setNewVal('');
+    }
+  };
+
   return (
-    <div style={{ marginTop: 12 }}>
+    <div className="stop-sequence-editor" style={{ marginTop: 16 }}>
       <h4 style={{ margin: '0 0 4px' }}>{title}</h4>
-      <p className="muted small">{hint}</p>
-      {values.map((s, i) => (
-        <div key={i} className="tool-row" style={{ gap: 6, marginBottom: 6 }}>
+      <p className="muted small" style={{ marginBottom: 8 }}>{hint}</p>
+
+      <div className="stop-sequence-box">
+        {/* Add Input Row shifted ABOVE listed stop sequences */}
+        <div className="stop-sequence-input-row">
           <input
-            style={{ flex: 1 }}
-            value={s}
+            className="stop-sequence-input"
+            value={newVal}
             placeholder={placeholder}
-            onChange={(e) => {
-              const next = [...values];
-              next[i] = e.target.value;
-              onChange(next);
+            onChange={(e) => setNewVal(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAdd();
+              }
             }}
           />
           <button
-            className="icon-btn"
-            title="Remove"
-            onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+            type="button"
+            className="icon-btn stop-sequence-add-btn"
+            title="Add sequence"
+            onClick={handleAdd}
           >
-            🗑
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
+            </svg>
           </button>
         </div>
-      ))}
-      <button
-        className="small"
-        type="button"
-        onClick={() => onChange([...values, ''])}
-      >
-        Add
-      </button>
+
+        {/* Listed Sequences below the input with red circle remove button */}
+        {values.length > 0 && (
+          <div className="stop-sequence-list">
+            {values.map((s, i) => (
+              <div key={i} className="stop-sequence-item">
+                <span className="stop-sequence-text">{s.replace(/\n/g, '\\n')}</span>
+                <button
+                  type="button"
+                  className="icon-btn circle-remove-btn"
+                  title="Remove stop sequence"
+                  onClick={() => onChange(values.filter((_, idx) => idx !== i))}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -733,53 +783,185 @@ function SanitizerRulesEditor({
   rules: SanitizerRule[];
   onChange: (rules: SanitizerRule[]) => void;
 }) {
+  const [findInput, setFindInput] = useState('');
+  const [replaceInput, setReplaceInput] = useState('');
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
   const nextId = () => rules.reduce((m, r) => Math.max(m, r.id), -1) + 1;
-  const patch = (i: number, p: Partial<SanitizerRule>) => {
-    onChange(rules.map((r, idx) => (idx === i ? { ...r, ...p } : r)));
+
+  const handleAdd = () => {
+    if (!findInput) return;
+    if (rules.some((r) => r.find === findInput && r.replace === replaceInput)) return;
+    onChange([
+      ...rules,
+      {
+        id: nextId(),
+        find: findInput,
+        replace: replaceInput,
+        stop_after_match: false,
+      },
+    ]);
+    setFindInput('');
+    setReplaceInput('');
   };
+
+  const handleToggleStop = (idx: number) => {
+    onChange(
+      rules.map((r, i) =>
+        i === idx ? { ...r, stop_after_match: !r.stop_after_match } : r,
+      ),
+    );
+  };
+
+  const handleRemove = (idx: number) => {
+    onChange(rules.filter((_, i) => i !== idx));
+  };
+
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    setDraggedIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(idx));
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIdx !== idx) {
+      setDragOverIdx(idx);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === targetIdx) {
+      setDraggedIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+    const next = [...rules];
+    const [moved] = next.splice(draggedIdx, 1);
+    next.splice(targetIdx, 0, moved);
+    onChange(next);
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+  };
+
   return (
-    <div className="sanitizer-rules" style={{ marginTop: 8 }}>
-      {rules.map((r, i) => (
-        <div key={r.id} className="tool-row" style={{ gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+    <div className="sanitizer-rule-editor" style={{ marginTop: 12 }}>
+      <div className="sanitizer-box">
+        {/* 1. Find / Replace input row matching original desktop */}
+        <div className="sanitizer-input-row">
           <input
-            style={{ flex: 1, minWidth: 80 }}
-            placeholder="Find"
-            value={r.find}
-            onChange={(e) => patch(i, { find: e.target.value })}
+            className="sanitizer-find-input"
+            placeholder="Find..."
+            value={findInput}
+            onChange={(e) => setFindInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAdd();
+            }}
           />
-          <span className="muted small">→</span>
+          <div className="sanitizer-input-divider" />
           <input
-            style={{ flex: 1, minWidth: 80 }}
-            placeholder="Replace"
-            value={r.replace}
-            onChange={(e) => patch(i, { replace: e.target.value })}
+            className="sanitizer-replace-input"
+            placeholder="Replace..."
+            value={replaceInput}
+            onChange={(e) => setReplaceInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleAdd();
+            }}
           />
-          <label className="muted small" title="Stop applying later rules after this one changes the text">
-            <input
-              type="checkbox"
-              checked={!!r.stop_after_match}
-              onChange={(e) => patch(i, { stop_after_match: e.target.checked })}
-            />{' '}
-            stop
-          </label>
           <button
-            className="icon-btn"
-            title="Remove rule"
-            onClick={() => onChange(rules.filter((_, idx) => idx !== i))}
+            type="button"
+            className="icon-btn sanitizer-add-btn"
+            title="Add replacement rule"
+            onClick={handleAdd}
           >
-            🗑
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z" />
+            </svg>
           </button>
         </div>
-      ))}
-      <button
-        className="small"
-        type="button"
-        onClick={() =>
-          onChange([...rules, { id: nextId(), find: '', replace: '', stop_after_match: false }])
-        }
-      >
-        Add rule
-      </button>
+
+        {/* 2. Reorderable Rules List with full HTML5 Drag & Drop */}
+        <div className="sanitizer-rules-list">
+          {rules.length === 0 ? (
+            <div className="sanitizer-empty">No rules configured</div>
+          ) : (
+            rules.map((rule, idx) => {
+              const isDragging = draggedIdx === idx;
+              const isDragOver = dragOverIdx === idx;
+              return (
+                <div
+                  key={rule.id}
+                  className={`sanitizer-rule-row${isDragging ? ' dragging' : ''}${isDragOver ? ' drag-over' : ''}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragLeave={() => {
+                    if (dragOverIdx === idx) setDragOverIdx(null);
+                  }}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                >
+                  {/* Drag Handle */}
+                  <span className="sanitizer-drag-handle" title="Drag to reorder">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="4" y1="9" x2="20" y2="9" />
+                      <line x1="4" y1="15" x2="20" y2="15" />
+                    </svg>
+                  </span>
+
+                  {/* Stop After Match Toggle (stop_circle) */}
+                  <button
+                    type="button"
+                    className={`icon-btn stop-circle-btn${rule.stop_after_match ? ' on' : ''}`}
+                    title={rule.stop_after_match ? 'Stop after match (on)' : 'Stop after match (off)'}
+                    onClick={() => handleToggleStop(idx)}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill={rule.stop_after_match ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="10" />
+                      <rect x="9" y="9" width="6" height="6" fill={rule.stop_after_match ? 'var(--card)' : 'currentColor'} />
+                    </svg>
+                  </button>
+
+                  {/* Rule Rich Text: Find (bold) → Replace */}
+                  <div className="sanitizer-rule-text">
+                    <strong>{rule.find}</strong>
+                    <span className="muted"> → </span>
+                    <span>{rule.replace}</span>
+                  </div>
+
+                  {/* Remove Rule (remove_circle_outline) */}
+                  <button
+                    type="button"
+                    className="icon-btn circle-remove-btn"
+                    title="Remove rule"
+                    onClick={() => handleRemove(idx)}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* 3. Rules Count Summary */}
+        <div className="sanitizer-summary">
+          <span>{rules.length === 0 ? 'No rules configured' : `${rules.length} rule${rules.length === 1 ? '' : 's'}`}</span>
+          {rules.length > 0 && <span className="muted">Rules execute in top-to-bottom order</span>}
+        </div>
+      </div>
     </div>
   );
 }
