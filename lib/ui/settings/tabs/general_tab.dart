@@ -28,14 +28,6 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 /// 2. Chat Behavior & Display (message alignment, follow streaming)
 /// 3. Default Prompts & Instructions (1:1 fallback, group, global additions)
 /// 4. About & License (app version, AGPL-3.0 notice, repo links)
-///
-/// Pinned Parity Markers (docs/design/settings-parity-manifest.json):
-/// - "My messages on the right" -> ChatBehaviorSection
-/// - "Follow streaming replies" -> ChatBehaviorSection
-/// - "SpellCheckLanguageRow" -> AppSystemSection
-/// - "Fallback system prompt" -> PromptsSection
-/// - "Porch Life" -> AppSystemSection (18+ themes switch)
-/// - "About & License" -> AboutLicenseCard
 class GeneralTab extends StatelessWidget {
   const GeneralTab({super.key, required this.systemPromptController});
 

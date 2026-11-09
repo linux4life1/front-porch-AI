@@ -21,7 +21,7 @@ class GlobalPromptAdditions extends StatelessWidget {
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save prompt addition: ')),
+        SnackBar(content: Text('Could not save prompt addition: $error')),
       );
     }
   }

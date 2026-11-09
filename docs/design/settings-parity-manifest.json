@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "Web Settings ↔ desktop Settings parity map (prompt-picker SOW Phase 2).",
+    "Web Settings \u2194 desktop Settings parity map (prompt-picker SOW Phase 2).",
     "Each control names where it lives on each surface: `section`/`group` are",
     "the web_ui SettingsPage containers (data-section / data-testid), `dart` +",
     "`dartMarker` pin the desktop home (file + a string that must appear in it),",
@@ -8,19 +8,26 @@
     "test/hygiene/settings_parity_manifest_test.dart (Dart side) and",
     "web_ui/src/pages/SettingsPage.parity.test.tsx (web side + section order)."
   ],
-  "sections": ["general", "porch-life", "generation", "voice-media", "backend", "advanced"],
+  "sections": [
+    "general",
+    "porch-life",
+    "generation",
+    "voice-media",
+    "backend",
+    "advanced"
+  ],
   "controls": {
     "userMessagesOnRight": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/chat_behavior_section.dart",
       "dartMarker": "My messages on the right",
       "webMarker": "My messages on the right"
     },
     "followStreamingReplies": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/chat_behavior_section.dart",
       "dartMarker": "Follow streaming replies",
       "webMarker": "Follow streaming replies"
     },
@@ -89,13 +96,13 @@
     },
     "spellCheckLanguage": {
       "section": "generation",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/app_system_section.dart",
       "dartMarker": "SpellCheckLanguageRow",
       "webMarker": "Spell check language"
     },
     "systemPrompt": {
       "section": "general",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/prompts_section.dart",
       "dartMarker": "Fallback system prompt",
       "webMarker": "Fallback system prompt"
     },
@@ -125,7 +132,7 @@
     },
     "porchLife": {
       "section": "porch-life",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/app_system_section.dart",
       "dartMarker": "Porch Life",
       "webMarker": "Porch Life"
     },

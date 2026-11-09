@@ -125,11 +125,49 @@ class _SpellCheckLanguageRowState extends State<SpellCheckLanguageRow> {
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 460;
+        final dropdown = _loading
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : StyledDropdown<String>(
+                width: isNarrow ? constraints.maxWidth : 220,
+                value: storage.spellCheckLanguage,
+                items: [
+                  const DropdownMenuItem(
+                    value: kSpellCheckOff,
+                    child: Text('Off'),
+                  ),
+                  for (final tag in _languages)
+                    DropdownMenuItem(
+                      value: tag,
+                      child: Text(spellCheckLanguageLabel(tag)),
+                    ),
+                  // Linux only — see _addDictionaryFile for why this cannot
+                  // exist on macOS or Windows.
+                  if (Platform.isLinux)
+                    const DropdownMenuItem(
+                      value: _kAddDictionary,
+                      child: Text('Load a dictionary file…'),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  if (value == _kAddDictionary) {
+                    _addDictionaryFile();
+                    return;
+                  }
+                  storage.setSpellCheckLanguage(value);
+                },
+              );
+
+        if (isNarrow) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -151,49 +189,48 @@ class _SpellCheckLanguageRowState extends State<SpellCheckLanguageRow> {
                     height: 1.45,
                   ),
                 ),
+                const SizedBox(height: 8),
+                dropdown,
               ],
             ),
-          ),
-          const SizedBox(width: 12),
-          if (_loading)
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else
-            StyledDropdown<String>(
-              width: 220,
-              value: storage.spellCheckLanguage,
-              items: [
-                const DropdownMenuItem(
-                  value: kSpellCheckOff,
-                  child: Text('Off'),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Spell Check Language',
+                      style: TextStyle(
+                        color: AppColors.textPrimary(context),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'The language you write in — not your system language. '
+                      'Set this to the language you chat with characters in.',
+                      style: TextStyle(
+                        color: AppColors.textSecondary(context),
+                        fontSize: 12,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
                 ),
-                for (final tag in _languages)
-                  DropdownMenuItem(
-                    value: tag,
-                    child: Text(spellCheckLanguageLabel(tag)),
-                  ),
-                // Linux only — see _addDictionaryFile for why this cannot
-                // exist on macOS or Windows.
-                if (Platform.isLinux)
-                  const DropdownMenuItem(
-                    value: _kAddDictionary,
-                    child: Text('Load a dictionary file…'),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                if (value == _kAddDictionary) {
-                  _addDictionaryFile();
-                  return;
-                }
-                storage.setSpellCheckLanguage(value);
-              },
-            ),
-        ],
-      ),
+              ),
+              const SizedBox(width: 12),
+              dropdown,
+            ],
+          ),
+        );
+      },
     );
   }
 }

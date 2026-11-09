@@ -38,30 +38,30 @@ class PromptsSection extends StatelessWidget {
       children: [
         const SectionHeader('Default Prompts & Instructions'),
         const SizedBox(height: 6),
-        Wrap(
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 6,
-          runSpacing: 4,
-          children: [
-            Text(
-              'Base instructions for chats without their own prompt. Both fields support',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary(context),
-                height: 1.45,
-              ),
+        Text.rich(
+          TextSpan(
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+              height: 1.45,
             ),
-            const _MacroChip('{{char}}'),
-            Text(
-              'and',
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondary(context),
-                height: 1.45,
+            children: const [
+              TextSpan(
+                text:
+                    'Base instructions for chats without their own prompt. Both fields support ',
               ),
-            ),
-            const _MacroChip('{{user}}'),
-          ],
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: _MacroChip('{{char}}'),
+              ),
+              TextSpan(text: ' and '),
+              WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: _MacroChip('{{user}}'),
+              ),
+              TextSpan(text: ' macros.'),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         PromptSlotCard(
