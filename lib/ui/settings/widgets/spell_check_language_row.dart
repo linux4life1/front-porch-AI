@@ -138,6 +138,7 @@ class _SpellCheckLanguageRowState extends State<SpellCheckLanguageRow> {
                   style: TextStyle(
                     color: AppColors.textPrimary(context),
                     fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -145,8 +146,9 @@ class _SpellCheckLanguageRowState extends State<SpellCheckLanguageRow> {
                   'The language you write in — not your system language. '
                   'Set this to the language you chat with characters in.',
                   style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 11,
+                    color: AppColors.textSecondary(context),
+                    fontSize: 12,
+                    height: 1.45,
                   ),
                 ),
               ],
