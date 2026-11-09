@@ -8,7 +8,7 @@
 // in the pool, so no Save reaches them. The pool writes at once; the slot's
 // text and pick go with Save settings, like every field on this page.
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 
 export interface SavedPrompt { name: string; content: string }
@@ -58,6 +58,7 @@ export function PromptSlot({
   const [error, setError] = useState('');
   const [undo, setUndo] = useState<{ text: string; name: string | null; label: string } | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const shown = blankIsBuiltIn && !text.trim() ? builtIns[0]?.text ?? '' : text;
   const store = (t: string) =>
@@ -92,8 +93,27 @@ export function PromptSlot({
     onChange(store(b.text), null);
   };
 
+  const insertMacro = (macro: string) => {
+    const el = textareaRef.current;
+    if (!el) {
+      setUndo(null);
+      onChange(store(shown + (shown ? ' ' : '') + macro), name ?? null);
+      return;
+    }
+    const start = el.selectionStart ?? shown.length;
+    const end = el.selectionEnd ?? shown.length;
+    const next = shown.slice(0, start) + macro + shown.slice(end);
+    setUndo(null);
+    onChange(store(next), name ?? null);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + macro.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
   return (
-    <div className="prompt-additions prompt-slot" data-testid={testId}>
+    <section className="card prompt-additions prompt-slot prompt-slot-card" data-testid={testId}>
       <div className="prompt-slot-head">
         <h4>{title}</h4>
         <span className={`prompt-slot-badge${status.kind === 'saved' ? ' strong' : ''}`}
@@ -110,9 +130,34 @@ export function PromptSlot({
           {pool.map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}
         </select>
       </label>
+      <div className="macro-badges-row">
+        <span className="macro-label">Available macros:</span>
+        <button
+          type="button"
+          className="macro-chip"
+          title="Inserts character name at runtime"
+          onClick={() => insertMacro('{{char}}')}
+        >
+          <code>&#123;&#123;char&#125;&#125;</code>
+          <span className="macro-desc">Character</span>
+        </button>
+        <button
+          type="button"
+          className="macro-chip"
+          title="Inserts user persona name at runtime"
+          onClick={() => insertMacro('{{user}}')}
+        >
+          <code>&#123;&#123;user&#125;&#125;</code>
+          <span className="macro-desc">User</span>
+        </button>
+      </div>
       <label>{label}
-        <textarea rows={6} value={shown}
-          onChange={(e) => { setUndo(null); onChange(store(e.target.value), name ?? null); }} />
+        <textarea
+          ref={textareaRef}
+          rows={6}
+          value={shown}
+          onChange={(e) => { setUndo(null); onChange(store(e.target.value), name ?? null); }}
+        />
       </label>
       <div className="prompt-slot-actions">
         {status.kind === 'saved' && status.edited && (
@@ -170,6 +215,6 @@ export function PromptSlot({
         </p>
       )}
       {error && <p className="error small" role="alert">{error}</p>}
-    </div>
+    </section>
   );
 }

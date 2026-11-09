@@ -32,21 +32,25 @@ export function FollowStreamingSettings() {
   };
 
   return (
-    <section className="card" data-testid="follow-streaming-card">
-      <h3>Follow streaming replies</h3>
-      <p className="reading-blurb">
-        Keep the chat pinned to the newest words while a reply is writing, as
-        long as you are at the bottom. Scroll up to stop.
-      </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={on}
-          onChange={(e) => commit(e.target.checked)}
-          aria-label="Follow streaming replies"
-        />
-        {' '}Follow streaming replies
-      </label>
+    <section className="card setting-toggle-card" data-testid="follow-streaming-card">
+      <div className="setting-toggle-header">
+        <div className="setting-toggle-info">
+          <h3>Follow streaming replies</h3>
+          <p className="reading-blurb">
+            Keep the chat pinned to the newest words while a reply is writing, as
+            long as you are at the bottom. Scroll up to stop.
+          </p>
+        </div>
+        <label className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={(e) => commit(e.target.checked)}
+            aria-label="Follow streaming replies"
+          />
+          <span className="toggle-slider" />
+        </label>
+      </div>
     </section>
   );
 }
