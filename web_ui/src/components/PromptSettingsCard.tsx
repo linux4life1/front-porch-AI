@@ -91,7 +91,7 @@ function GlobalPromptAdditionsCard({
             title="Inserts character name at runtime"
             onClick={() => insertSystemMacro('{{char}}')}
           >
-            <code>&#123;&#123;char&#125;&#125;</code>
+            <code>{ '{{char}}' }</code>
             <span className="macro-desc">Character</span>
           </button>
           <button
@@ -100,7 +100,7 @@ function GlobalPromptAdditionsCard({
             title="Inserts user persona name at runtime"
             onClick={() => insertSystemMacro('{{user}}')}
           >
-            <code>&#123;&#123;user&#125;&#125;</code>
+            <code>{ '{{user}}' }</code>
             <span className="macro-desc">User</span>
           </button>
         </div>
@@ -127,7 +127,7 @@ function GlobalPromptAdditionsCard({
             title="Inserts character name at runtime"
             onClick={() => insertPostMacro('{{char}}')}
           >
-            <code>&#123;&#123;char&#125;&#125;</code>
+            <code>{ '{{char}}' }</code>
             <span className="macro-desc">Character</span>
           </button>
           <button
@@ -136,7 +136,7 @@ function GlobalPromptAdditionsCard({
             title="Inserts user persona name at runtime"
             onClick={() => insertPostMacro('{{user}}')}
           >
-            <code>&#123;&#123;user&#125;&#125;</code>
+            <code>{ '{{user}}' }</code>
             <span className="macro-desc">User</span>
           </button>
         </div>

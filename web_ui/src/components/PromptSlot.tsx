@@ -138,7 +138,7 @@ export function PromptSlot({
           title="Inserts character name at runtime"
           onClick={() => insertMacro('{{char}}')}
         >
-          <code>&#123;&#123;char&#125;&#125;</code>
+          <code>{ '{{char}}' }</code>
           <span className="macro-desc">Character</span>
         </button>
         <button
@@ -147,7 +147,7 @@ export function PromptSlot({
           title="Inserts user persona name at runtime"
           onClick={() => insertMacro('{{user}}')}
         >
-          <code>&#123;&#123;user&#125;&#125;</code>
+          <code>{ '{{user}}' }</code>
           <span className="macro-desc">User</span>
         </button>
       </div>
