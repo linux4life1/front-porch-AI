@@ -43,15 +43,29 @@ class AccentPickerRow extends StatelessWidget {
         : appearance.accentAdjusted
         ? 'Custom accent, adjusted for readability'
         : 'Custom accent';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const AppearanceCaption('Accent'),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppearanceCaption('Accent'),
+            const SizedBox(width: 8),
+            Text(
+              '• $note',
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
         Wrap(
-          spacing: 0,
-          runSpacing: 0,
+          spacing: 2,
+          runSpacing: 2,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _Swatch(
@@ -83,14 +97,6 @@ class AccentPickerRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          note,
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-          ),
         ),
       ],
     );
@@ -124,27 +130,27 @@ class _Swatch extends StatelessWidget {
         excludeSemantics: true,
         child: InkResponse(
           onTap: onTap,
-          radius: 20,
+          radius: 18,
           child: SizedBox(
-            width: 40,
-            height: 40,
+            width: 36,
+            height: 36,
             child: Center(
               child: Container(
-                width: 30,
-                height: 30,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: selected
-                        ? AppColors.textPrimary(context)
+                        ? AppColors.porchAmberOf(context)
                         : AppColors.borderOf(context),
                     width: selected ? 2.5 : 1,
                   ),
                 ),
                 child: icon == null
                     ? null
-                    : Icon(icon, size: 15, color: inkOn(color)),
+                    : Icon(icon, size: 14, color: inkOn(color)),
               ),
             ),
           ),

@@ -29,7 +29,7 @@ import 'chat_appearance_section.dart';
 import 'theme_card_grid.dart';
 
 /// Settings → Appearance: the app theme, light/dark/system mode, accent, UI
-/// font and corners, then the chat's own colors and reading size.
+/// font and corners, then the chat's own colors, font, and reading size.
 class AppearanceTab extends StatelessWidget {
   const AppearanceTab({super.key});
 
@@ -42,6 +42,7 @@ class AppearanceTab extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Section 1: App Shell & Theme ─────────────────────────────
             const SectionHeader('Theme'),
             const SizedBox(height: 12),
             const ThemeCardGrid(),
@@ -81,16 +82,19 @@ class AppearanceTab extends StatelessWidget {
             OutlinedButton.icon(
               key: const ValueKey('appearance-reset'),
               onPressed: appearance.resetCustomisations,
-              // A narrow pane gives the words the icon's room.
               icon: constraints.maxWidth < 360
                   ? null
                   : const Icon(Icons.restart_alt, size: 18),
               label: const Text('Reset accent, font and corners'),
             ),
-            // The weather's own section, only while Story Weather is on.
-            const BackgroundWeatherSection(),
+
             const SizedBox(height: 28),
+
+            // ── Section 2: Chat Appearance (Typography, Palette, Mood) ────
             const ChatAppearanceSection(),
+
+            // ── Section 3: Background Weather (Story Weather Gated) ───────
+            const BackgroundWeatherSection(),
           ],
         ),
       ),
