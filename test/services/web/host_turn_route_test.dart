@@ -71,14 +71,16 @@ void main() {
     ),
   );
 
-  test('POST /api/chat/host-turn with no group open is 409, not a speak',
-      () async {
-    final router = await bootChat();
-    final res = await postTurn(router);
-    expect(res.statusCode, 409);
-    final body = jsonDecode(await res.readAsString());
-    // Refused with a reason; the chat was never sent a /speak that could
-    // target the assistant and fail it.
-    expect(body['error'], contains('group'));
-  });
+  test(
+    'POST /api/chat/host-turn with no group open is 409, not a speak',
+    () async {
+      final router = await bootChat();
+      final res = await postTurn(router);
+      expect(res.statusCode, 409);
+      final body = jsonDecode(await res.readAsString());
+      // Refused with a reason; the chat was never sent a /speak that could
+      // target the assistant and fail it.
+      expect(body['error'], contains('group'));
+    },
+  );
 }
