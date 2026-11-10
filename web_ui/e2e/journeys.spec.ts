@@ -1193,7 +1193,9 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     };
     await sendLine(page, '/join Porch Tester');
     // The join settles after the send returns; stepping out before it lands
-    // is refused as a busy turn.
+    // is refused as a busy turn. The cast banner lives in the sidebar, so
+    // below 1024 the drawer is opened to read it (PR 1b).
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await openDirectorCard(page);
@@ -1260,6 +1262,8 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       await waitIdle(page);
     };
     await sendLine(page, '/join Porch Tester');
+    // The cast banner lives in the sidebar; below 1024 it is in the drawer.
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await openDirectorCard(page);
@@ -1338,6 +1342,8 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       await waitIdle(page);
     };
     await sendLine(page, '/join Porch Tester');
+    // The cast banner lives in the sidebar; below 1024 it is in the drawer.
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await openDirectorCard(page);
