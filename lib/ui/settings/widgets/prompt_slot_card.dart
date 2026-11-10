@@ -26,7 +26,6 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'package:front_porch_ai/ui/theme/app_corners.dart';
-import 'section_header.dart';
 
 /// One Settings prompt slot over the shared pool of saved prompts: a badge
 /// saying where the text came from, Load a saved prompt, the box, then Save

@@ -64,19 +64,26 @@ class SettingsGroupCard extends StatelessWidget {
       content = children;
     }
 
-    return Container(
-      width: double.infinity,
-      margin: margin,
-      padding: padding,
-      decoration: BoxDecoration(
+    return Padding(
+      padding: margin ?? EdgeInsets.zero,
+      child: Material(
         color: AppColors.cardOf(context),
-        borderRadius: borderRadius,
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: content,
+        shape: RoundedRectangleBorder(
+          borderRadius: borderRadius,
+          side: BorderSide(color: borderColor),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: padding,
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: content,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -5,7 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/ui/settings/tabs/general_tab/app_system_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/general_tab/porch_life_pointer_card.dart';
 
 class _FakeStorage extends ChangeNotifier implements StorageService {
   _FakeStorage() {
@@ -23,7 +25,7 @@ class _FakeStorage extends ChangeNotifier implements StorageService {
 }
 
 void main() {
-  testWidgets('AppSystemSection renders updates, spellcheck, and 18+ themes', (tester) async {
+  testWidgets('AppSystemSection renders updates, spellcheck, 18+ themes, and Porch Life signpost', (tester) async {
     final storage = _FakeStorage();
     await tester.pumpWidget(
       ChangeNotifierProvider<StorageService>.value(
@@ -41,5 +43,7 @@ void main() {
     expect(find.text('Application & System'), findsOneWidget);
     expect(find.text('Spell Check Language'), findsOneWidget);
     expect(find.text('18+ themes'), findsOneWidget);
+    expect(find.byType(PorchLifePointerCard), findsOneWidget);
+    expect(find.textContaining('Porch Life tab now'), findsOneWidget);
   });
 }

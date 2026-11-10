@@ -1,6 +1,6 @@
 {
   "$comment": [
-    "Web Settings \u2194 desktop Settings parity map (prompt-picker SOW Phase 2).",
+    "Web Settings ↔ desktop Settings parity map (prompt-picker SOW Phase 2).",
     "Each control names where it lives on each surface: `section`/`group` are",
     "the web_ui SettingsPage containers (data-section / data-testid), `dart` +",
     "`dartMarker` pin the desktop home (file + a string that must appear in it),",
@@ -8,14 +8,7 @@
     "test/hygiene/settings_parity_manifest_test.dart (Dart side) and",
     "web_ui/src/pages/SettingsPage.parity.test.tsx (web side + section order)."
   ],
-  "sections": [
-    "general",
-    "porch-life",
-    "generation",
-    "voice-media",
-    "backend",
-    "advanced"
-  ],
+  "sections": ["general", "porch-life", "generation", "voice-media", "backend", "advanced"],
   "controls": {
     "userMessagesOnRight": {
       "section": "general",
@@ -132,7 +125,7 @@
     },
     "porchLife": {
       "section": "porch-life",
-      "dart": "lib/ui/settings/tabs/general_tab/app_system_section.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/porch_life_pointer_card.dart",
       "dartMarker": "Porch Life",
       "webMarker": "Porch Life"
     },

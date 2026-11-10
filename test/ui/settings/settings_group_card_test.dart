@@ -46,4 +46,25 @@ void main() {
     expect(find.text('Item B'), findsOneWidget);
     expect(find.byType(Divider), findsNothing);
   });
+
+  testWidgets('SettingsGroupCard supports SwitchListTile without Material assertions', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsGroupCard(
+            children: [
+              SwitchListTile(
+                value: true,
+                onChanged: (_) {},
+                title: const Text('Test Switch'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Test Switch'), findsOneWidget);
+  });
 }

@@ -24,6 +24,7 @@ import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'porch_life_pointer_card.dart';
 
 /// Settings → General → Application & System.
 ///
@@ -138,8 +139,8 @@ class AppSystemSection extends StatelessWidget {
               ),
             ],
             const SpellCheckLanguageRow(),
-            // Porch Life parity marker: The 18+ master switch lives here rather
-            // than in the Porch Life tab so users can re-enable adult features.
+            // The 18+ master switch lives here rather than in the Porch Life
+            // tab so users can re-enable adult features after disabling them.
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
@@ -171,6 +172,8 @@ class AppSystemSection extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        const PorchLifePointerCard(),
       ],
     );
   }
