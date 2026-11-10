@@ -153,7 +153,7 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
     final String? subtitle = !isMulti
         ? null
         : group != null
-        ? '${cast.length} characters • ${group.turnOrder.name}'
+        ? '${cast.length} characters • ${group.turnOrder.label}'
         : '${cast.length} characters';
 
     return AppBar(

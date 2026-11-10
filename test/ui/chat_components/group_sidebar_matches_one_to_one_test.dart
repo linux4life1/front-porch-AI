@@ -24,6 +24,8 @@ import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tool
 import 'package:front_porch_ai/ui/pages/chat_page.call_button.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.main_settings_items.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar.dart';
+import 'package:front_porch_ai/ui/pages/chat_page_sidebar_host.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show RelationshipTiers;
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -346,5 +348,44 @@ void main() {
       tester.widget<IconButton>(find.byType(IconButton)).onPressed,
       isNull,
     );
+  });
+
+  testWidgets('Group Dynamics rows read like the bond bars: the next-tier '
+      'target is the denominator', (tester) async {
+    await tester.runAsync(() => boot(members: 3));
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await pumpSidebar(tester);
+
+    // Ana toward Bea is 150; the bar fills within its tier, so the number
+    // beside it is that tier's target, never the +/-300 ceiling.
+    final row = tester.widget<RealismProgressRow>(dynamicsRow('Bea'));
+    expect(row.value, 150);
+    expect(row.maxValue, RelationshipTiers.bondScaleTarget(150));
+    expect(row.maxValue, isNot(300));
+  });
+
+  testWidgets('the group header names the turn order in words', (tester) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            appBar: ChatPageAppBar(
+              chatService: chat,
+              coverFor: (_, _) => null,
+              sidebarOpen: false,
+              onToggleSidebar: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('2 characters • Round Robin'), findsOneWidget);
+    expect(find.textContaining('roundRobin'), findsNothing);
   });
 }

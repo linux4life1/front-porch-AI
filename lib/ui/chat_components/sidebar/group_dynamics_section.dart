@@ -108,6 +108,7 @@ class GroupDynamicsSection extends StatelessWidget {
                       tierName: f.tierName,
                       color: TierColors.tierColor(context, f.tier),
                       icon: f.score < 0 ? Icons.heart_broken : Icons.favorite,
+                      maxValue: f.target,
                       progress: f.progress,
                       tooltip:
                           '${member.name} toward ${f.name}. Moves as they '

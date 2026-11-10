@@ -27,6 +27,10 @@ typedef GroupFeeling = ({
   int score,
   int tier,
   String tierName,
+
+  /// The next-tier target the bar fills toward (the denominator the bond
+  /// bars show), not the +/-300 ceiling.
+  int target,
   double progress,
 });
 
@@ -75,6 +79,7 @@ class GroupDynamics {
         score: score,
         tier: tier,
         tierName: RelationshipTiers.bondTierLabel(tier),
+        target: RelationshipTiers.bondScaleTarget(score.abs()),
         progress: RelationshipTiers.bondScalePercent(score),
       ));
     }

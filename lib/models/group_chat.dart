@@ -27,6 +27,15 @@ enum TurnOrder {
   random,
 }
 
+/// The words a person reads for a turn order (the group editor and the home
+/// card use the same two).
+extension TurnOrderLabel on TurnOrder {
+  String get label => switch (this) {
+    TurnOrder.roundRobin => 'Round Robin',
+    TurnOrder.random => 'Random',
+  };
+}
+
 /// A lightweight wrapper representing a multi-character conversation.
 ///
 /// After the clean-break decoupling (2026-05), group membership is no longer

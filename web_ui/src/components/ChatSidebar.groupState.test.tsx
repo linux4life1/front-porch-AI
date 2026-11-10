@@ -153,4 +153,13 @@ describe('Character State in a group', () => {
     await render(on);
     expect(container.querySelector('input[aria-label="Needs"]')).not.toBeNull();
   });
+
+  it('the Realism switch is not in a group\'s header (it is the chat\'s, not a member\'s)', async () => {
+    await render(on);
+    expect(container.querySelector('input[aria-label="Realism engine"]')).toBeNull();
+
+    inGroup = false;
+    await render(on);
+    expect(container.querySelector('.state-card > summary input[aria-label="Realism engine"]')).not.toBeNull();
+  });
 });

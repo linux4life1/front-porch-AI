@@ -440,9 +440,11 @@ export function ChatSidebar({
                   ].filter(Boolean).join(' · ')}
                 </span>
               </span>
-              {/* The window keeps the Realism engine switch in the header.
+              {/* The window keeps the Realism engine switch in the header of a 1:1; in a
+                  group it is not shown until the per-member switches land (the
+                  chat-level one is not a member's).
                   Stopping the click/key keeps it from toggling the card. */}
-              {t && (
+              {t && !isGroup && (
                 <label
                   className="card-switch"
                   onClick={(e) => e.stopPropagation()}
