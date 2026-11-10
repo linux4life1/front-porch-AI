@@ -9,6 +9,7 @@
 
 import { useRef } from 'react';
 import { PromptSlot, type BuiltInPrompt, type SavedPrompt } from './PromptSlot';
+import { insertPromptMacro } from './macroInsert';
 
 function GlobalPromptAdditionsCard({
   additionalSystemPrompt,
@@ -23,48 +24,14 @@ function GlobalPromptAdditionsCard({
   const postRef = useRef<HTMLTextAreaElement>(null);
 
   const insertSystemMacro = (macro: string) => {
-    const el = sysRef.current;
-    if (!el) {
-      patch({
-        additionalSystemPrompt:
-          additionalSystemPrompt + (additionalSystemPrompt ? ' ' : '') + macro,
-      });
-      return;
-    }
-    const start = el.selectionStart ?? additionalSystemPrompt.length;
-    const end = el.selectionEnd ?? additionalSystemPrompt.length;
-    const next =
-      additionalSystemPrompt.slice(0, start) + macro + additionalSystemPrompt.slice(end);
-    patch({ additionalSystemPrompt: next });
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + macro.length;
-      el.setSelectionRange(pos, pos);
+    insertPromptMacro(sysRef.current, additionalSystemPrompt, macro, (next) => {
+      patch({ additionalSystemPrompt: next });
     });
   };
 
   const insertPostMacro = (macro: string) => {
-    const el = postRef.current;
-    if (!el) {
-      patch({
-        additionalPostHistoryInstructions:
-          additionalPostHistoryInstructions +
-          (additionalPostHistoryInstructions ? ' ' : '') +
-          macro,
-      });
-      return;
-    }
-    const start = el.selectionStart ?? additionalPostHistoryInstructions.length;
-    const end = el.selectionEnd ?? additionalPostHistoryInstructions.length;
-    const next =
-      additionalPostHistoryInstructions.slice(0, start) +
-      macro +
-      additionalPostHistoryInstructions.slice(end);
-    patch({ additionalPostHistoryInstructions: next });
-    requestAnimationFrame(() => {
-      el.focus();
-      const pos = start + macro.length;
-      el.setSelectionRange(pos, pos);
+    insertPromptMacro(postRef.current, additionalPostHistoryInstructions, macro, (next) => {
+      patch({ additionalPostHistoryInstructions: next });
     });
   };
 
