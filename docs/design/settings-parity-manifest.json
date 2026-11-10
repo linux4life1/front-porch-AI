@@ -13,14 +13,14 @@
     "userMessagesOnRight": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab/chat_behavior_section.dart",
+      "dart": "lib/ui/settings/tabs/general_tab.dart",
       "dartMarker": "My messages on the right",
       "webMarker": "My messages on the right"
     },
     "followStreamingReplies": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab/chat_behavior_section.dart",
+      "dart": "lib/ui/settings/tabs/general_tab.dart",
       "dartMarker": "Follow streaming replies",
       "webMarker": "Follow streaming replies"
     },
