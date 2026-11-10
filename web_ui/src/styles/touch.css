@@ -93,6 +93,11 @@
     transform: translateY(-50%);
     background: transparent;
   }
+  /* The header's hit area paints last; keep the switch above it so a tap on
+     the switch toggles the engine, not the card. */
+  .card-switch {
+    z-index: 1;
+  }
 
   /* Menu rows are a vertical list: growing the row is the only hit area that
      does not overlap its neighbour. Menus are transient, not chat layout. */
