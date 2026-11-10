@@ -82,6 +82,17 @@
   .card-kebab {
     position: absolute;
   }
+  /* A centred 44px area would poke past the card's right edge, grow the
+     card's scrollWidth and let it scroll 6px sideways (which clips the
+     .lib-open button). Anchor the area inside the card instead. */
+  .card-kebab::after {
+    left: auto;
+    top: 0;
+    right: 0;
+    transform: none;
+    width: 44px;
+    height: 44px;
+  }
 
   /* A card's header row is already wide; the hit area adds height only. The
      row itself keeps its mouse height so the padlock stays on the title line. */
