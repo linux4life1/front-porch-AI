@@ -91,16 +91,42 @@ class _GroupObjectivesPanelState extends State<GroupObjectivesPanel> {
     _load();
   }
 
+  /// Bumped by every read; only the newest may paint, so a slow read for the
+  /// member tapped before cannot land over the member shown now. (Not an
+  /// identity check on the card: a parent rebuild may hand over a new
+  /// instance for the same member.)
+  int _loadSeq = 0;
+
   Future<void> _load() async {
-    final member = widget.member;
-    final list = await _chat.getActiveObjectivesFor(member);
-    // A slower read for the member tapped before must not paint over the
-    // member shown now.
-    if (!mounted || !identical(member, widget.member)) return;
+    final token = ++_loadSeq;
+    List<Objective> list = const [];
+    try {
+      list = await _chat.getActiveObjectivesFor(widget.member);
+    } catch (e) {
+      // Show the empty state rather than spin forever.
+      debugPrint(
+        '[GroupObjectivesPanel] could not read ${widget.member.name}\'s '
+        'objectives: $e',
+      );
+    }
+    if (!mounted || token != _loadSeq) return;
     setState(() {
       _objectives = list;
       _loading = false;
     });
+  }
+
+  /// Runs a goal edit, then re-reads. A failed edit is logged and the panel
+  /// re-reads what is really stored.
+  Future<void> _edit(String what, Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (e) {
+      debugPrint(
+        '[GroupObjectivesPanel] $what failed for ${widget.member.name}: $e',
+      );
+    }
+    await _load();
   }
 
   Objective? get _primary =>
@@ -116,22 +142,32 @@ class _GroupObjectivesPanelState extends State<GroupObjectivesPanel> {
       hint: 'Goal description',
     );
     if (goal == null || !mounted) return;
-    await _chat.setObjective(
-      goal,
-      isPrimary: isPrimary,
-      targetCharacter: widget.member,
+    await _edit(
+      'adding a goal',
+      () => _chat.setObjective(
+        goal,
+        isPrimary: isPrimary,
+        targetCharacter: widget.member,
+      ),
     );
-    await _load();
   }
 
   Future<void> _regenerateTasks(Objective obj) async {
     setState(() => _generatingTasks = true);
-    await _chat.generateObjectiveTasks(
-      obj,
-      taskCount: _generation.taskCount,
-      nsfw: _generation.nsfw,
-    );
-    if (mounted) setState(() => _generatingTasks = false);
+    try {
+      await _chat.generateObjectiveTasks(
+        obj,
+        taskCount: _generation.taskCount,
+        nsfw: _generation.nsfw,
+      );
+    } catch (e) {
+      debugPrint(
+        '[GroupObjectivesPanel] generating tasks failed for '
+        '${widget.member.name}: $e',
+      );
+    } finally {
+      if (mounted) setState(() => _generatingTasks = false);
+    }
     await _load();
   }
 
@@ -140,24 +176,15 @@ class _GroupObjectivesPanelState extends State<GroupObjectivesPanel> {
     objective: obj,
     isPrimary: isPrimary,
     generatingTasks: _generatingTasks,
-    onDelete: () async {
-      await _chat.clearObjective(obj);
-      await _load();
-    },
-    onToggleTask: (i) async {
-      await _chat.toggleTask(obj, i);
-      await _load();
-    },
-    onEditTask: (i, text) async {
-      await _chat.updateTask(obj, i, text);
-      await _load();
-    },
+    onDelete: () => _edit('removing a goal', () => _chat.clearObjective(obj)),
+    onToggleTask: (i) =>
+        _edit('toggling a task', () => _chat.toggleTask(obj, i)),
+    onEditTask: (i, text) =>
+        _edit('editing a task', () => _chat.updateTask(obj, i, text)),
     onRegenerateTasks: () => _regenerateTasks(obj),
-    onPromote: () async {
-      // In place: keeps the id and task progress.
-      await _chat.promoteObjective(obj);
-      await _load();
-    },
+    // In place: keeps the id and task progress.
+    onPromote: () =>
+        _edit('promoting a goal', () => _chat.promoteObjective(obj)),
   );
 
   @override
