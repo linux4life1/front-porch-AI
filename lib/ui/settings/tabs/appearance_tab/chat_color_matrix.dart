@@ -21,7 +21,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
-import 'package:front_porch_ai/ui/theme/accent_fit.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// A compact, paired matrix for configuring chat bubble and text colors.
@@ -422,7 +421,7 @@ class _ContrastBadge extends StatelessWidget {
         : '${ratio.toStringAsFixed(1)}:1 Low';
     final fg = isGood
         ? AppColors.textSecondary(context)
-        : AppColors.warningOf(context);
+        : AppColors.alertRedOf(context);
 
     return Text(
       text,
