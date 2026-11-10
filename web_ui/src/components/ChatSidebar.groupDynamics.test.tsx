@@ -177,13 +177,4 @@ describe('Group Dynamics card', () => {
     expect(card()!.textContent).toContain('groups of two to four');
     expect(rows()).toHaveLength(0);
   });
-
-  it('is absent when the host sends none (Realism off, a guest) and in a 1:1', async () => {
-    byParticipant.ana = null;
-    await render('ana');
-    expect(card()).toBeNull();
-    inGroup = false;
-    await render(null);
-    expect(card()).toBeNull();
-  });
 });

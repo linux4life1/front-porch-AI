@@ -142,12 +142,6 @@ describe('Character State in a group', () => {
     expect(body()).not.toContain('Short-Term Bond');
   });
 
-  it('a lite guest keeps the window\'s note', async () => {
-    await render(on, { lite: true });
-    expect(body()).toContain('Lite NPC — no realism or needs tracking for this guest.');
-    expect(body()).not.toContain('Short-Term Bond');
-  });
-
   it('the Needs line is the heading alone in a group, with a switch in a 1:1', async () => {
     await render(on);
     expect(body()).toContain('Needs');

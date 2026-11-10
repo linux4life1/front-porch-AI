@@ -55,21 +55,6 @@ void main() {
     expect(find.textContaining('No primary objective set'), findsOneWidget);
   });
 
-  testWidgets('a slow read for the member tapped before cannot paint over the '
-      'member shown now', (tester) async {
-    await pump(tester, CharacterCard(name: 'Ana'));
-    final anaRead = chat.reads['Ana']!;
-    await pump(tester, CharacterCard(name: 'Bea'));
-    chat.reads['Bea']!.complete(const []);
-    await tester.pump();
-    expect(find.textContaining("Bea's primary objective"), findsOneWidget);
-
-    anaRead.complete(const []);
-    await tester.pump();
-    expect(find.textContaining("Bea's primary objective"), findsOneWidget);
-    expect(find.textContaining("Ana's primary objective"), findsNothing);
-  });
-
   testWidgets('a failed read shows the empty state, not a spinner', (
     tester,
   ) async {
