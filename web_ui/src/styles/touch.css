@@ -75,6 +75,13 @@
     border: 0;
     border-radius: 0;
   }
+  /* The library card's kebab is already absolutely positioned at the card's
+     corner; `position: relative` would put it in the flow and clip it. The
+     pseudo-element still anchors to it (an absolutely positioned control is
+     its own containing block). */
+  .card-kebab {
+    position: absolute;
+  }
 
   /* A card's header row is already wide; the hit area adds height only. The
      row itself keeps its mouse height so the padlock stays on the title line. */
