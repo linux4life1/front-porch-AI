@@ -415,7 +415,10 @@ export function ChatSidebar({
           </details>
         ) : null;
       case 'character_state':
+        // Group Dynamics rides under Character State, as on the window: it
+        // moves with it, so it always sits directly below.
         return (
+          <>
           <details
             className="tool-section state-card"
             open={stateOpen}
@@ -766,6 +769,36 @@ export function ChatSidebar({
               )}
             </div>
           </details>
+          {t?.groupDynamics && (
+            <details className="tool-section group-dynamics" open>
+              <summary><span className="card-chev" aria-hidden>❯</span>🫂 Group Dynamics{' '}
+                <span className="card-sub">{t.groupDynamics.member}</span>
+              </summary>
+              <div className="tool-body">
+                {t.groupDynamics.tracked ? (
+                  <>
+                    <p className="muted small">
+                      How {t.groupDynamics.member} feels about the others. Read-only.
+                    </p>
+                    {t.groupDynamics.feelings.map((f) => (
+                      <StatBar
+                        key={f.id}
+                        label={f.name}
+                        value={`${f.tier} · ${f.score}`}
+                        percent={f.percent}
+                        tone={f.score < 0 ? 'danger' : ''}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <p className="muted small">
+                    Feelings between characters are tracked in groups of two to four characters.
+                  </p>
+                )}
+              </div>
+            </details>
+          )}
+          </>
         );
       case 'journal_memory':
         return t ? (

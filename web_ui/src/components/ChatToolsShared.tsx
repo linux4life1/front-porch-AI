@@ -176,6 +176,15 @@ export interface ToolsState {
   };
   focusedId?: string | null;
   group?: GroupBlock | null;
+  /** Group Dynamics (read-only): the focused member's feelings toward each
+   *  other member. Null/absent outside a group, with Realism off, or for a
+   *  scene guest (additive: absent on an older desktop). */
+  groupDynamics?: {
+    member: string;
+    /** False when the group is outside 2 to 4 full members. */
+    tracked: boolean;
+    feelings: Array<{ id: string; name: string; score: number; tier: string; percent: number }>;
+  } | null;
 }
 
 export type ToolsApply = (p: Promise<unknown>) => void;

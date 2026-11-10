@@ -310,6 +310,43 @@ class ChatToolsSnapshot {
       'objectives': _objectivesBlock(ownerIsLite ? null : focusedCard),
       // Group-only settings (turn order / director / prompts), gated below.
       'group': _groupBlock(),
+      // Group Dynamics (read-only): the panel owner's feelings toward each
+      // other member. Null outside a group, while Realism is off, and for a
+      // scene guest, so the card is absent there. Additive.
+      'groupDynamics': _groupDynamicsBlock(owner),
+    };
+  }
+
+  /// The Group Dynamics card's data for [owner], off the same read the
+  /// desktop sidebar section uses ([GroupDynamics.of]).
+  Map<String, dynamic>? _groupDynamicsBlock(ChatParticipant? owner) {
+    if (!_chat.isGroupMode ||
+        !_chat.realismEnabled ||
+        owner == null ||
+        owner.isLite) {
+      return null;
+    }
+    final dynamics = GroupDynamics.of(
+      focused: owner.card,
+      roster: _chat.groupCharacters,
+      relationships:
+          _chat.getRealismStateForGroupCharacter(owner.card)?['relationships']
+              as Map<String, dynamic>?,
+      idOf: _chat.characterIdFor,
+    );
+    return {
+      'member': owner.name,
+      'tracked': dynamics.tracked,
+      'feelings': [
+        for (final f in dynamics.feelings)
+          {
+            'id': f.memberId,
+            'name': f.name,
+            'score': f.score,
+            'tier': f.tierName,
+            'percent': f.progress,
+          },
+      ],
     };
   }
 
