@@ -205,8 +205,15 @@
   background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
   color: var(--on-accent);
 }
+/* The number sits centred under its avatar for every speaker. The user-side
+   rule in chat.css (`:root:not([data-user-side="right"]) .msg-number.user`)
+   is more specific than a plain row selector, so the user's number repeats
+   that prefix to win in the desktop row. */
 .msg-row-desktop .msg-number,
-.msg-row-desktop .msg-number.user { margin: 0; align-self: center; }
+.msg-row-desktop .msg-number.user,
+:root:not([data-user-side="right"]) .msg-row-desktop .msg-number.user {
+  margin: 0; align-self: center;
+}
 .msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 /* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
    classes and the side-pref rule (chat.css) at five, so the wide
@@ -238,9 +245,9 @@
    .chat-messages' content wrapper, so that wrapper — not the rows — is the
    flex item that takes the free space. */
 @media (min-width: 1024px) {
-  .chat-messages > div {
-    max-width: none; width: 100%; margin: 0;
-    display: flex; flex-direction: column; gap: 14px;
-  }
+  .chat-messages > div { max-width: none; width: 100%; margin: 0; }
 }
+/* Row spacing and the bottom anchor hold at every width; only the lifted
+   reading cap above is wide-only, so a tablet keeps its 820 px column. */
+.chat-messages > div { display: flex; flex-direction: column; gap: 14px; }
 .chat-messages > div:first-child { margin-top: auto; }
