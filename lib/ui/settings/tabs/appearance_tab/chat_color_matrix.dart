@@ -41,9 +41,6 @@ class ChatColorMatrix extends StatelessWidget {
     final dialogue = ui.globalDialogueColor;
     final action = ui.globalActionColor;
 
-    final userRatio = contrastRatio(userFg, userBg);
-    final aiRatio = contrastRatio(aiFg, aiBg);
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 540;
@@ -70,20 +67,14 @@ class ChatColorMatrix extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'USER MESSAGE',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: AppColors.textSecondary(context),
-                              ),
-                            ),
-                            _ContrastBadge(ratio: userRatio),
-                          ],
+                        Text(
+                          'USER MESSAGE',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: AppColors.textSecondary(context),
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -134,20 +125,14 @@ class ChatColorMatrix extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'CHARACTER MESSAGE',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: AppColors.textSecondary(context),
-                              ),
-                            ),
-                            _ContrastBadge(ratio: aiRatio),
-                          ],
+                        Text(
+                          'CHARACTER MESSAGE',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: AppColors.textSecondary(context),
+                          ),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -230,43 +215,48 @@ class _ColorChip extends StatelessWidget {
     final corners = AppCorners.of(context);
     return Tooltip(
       message: 'Change $label',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: corners.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            borderRadius: corners.circular(8),
-            border: Border.all(
-              color: AppColors.borderOf(context),
-              width: 1,
+      child: Semantics(
+        button: true,
+        label: 'Change $label color',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: corners.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerOf(context),
+              borderRadius: corners.circular(8),
+              border: Border.all(
+                color: AppColors.borderOf(context),
+                width: 1,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.borderOf(context),
-                    width: 0.8,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: AppColors.borderOf(context),
+                      width: 0.8,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textPrimary(context),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textPrimary(context),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -293,52 +283,57 @@ class _PairedInkChip extends StatelessWidget {
     final corners = AppCorners.of(context);
     return Tooltip(
       message: 'Change $label',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: corners.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            borderRadius: corners.circular(8),
-            border: Border.all(
-              color: AppColors.borderOf(context),
-              width: 1,
+      child: Semantics(
+        button: true,
+        label: 'Change $label color',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: corners.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerOf(context),
+              borderRadius: corners.circular(8),
+              border: Border.all(
+                color: AppColors.borderOf(context),
+                width: 1,
+              ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 22,
-                height: 18,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.borderOf(context),
-                    width: 0.8,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 22,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(
+                      color: AppColors.borderOf(context),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Text(
+                    'Aa',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: inkColor,
+                    ),
                   ),
                 ),
-                child: Text(
-                  'Aa',
+                const SizedBox(width: 6),
+                Text(
+                  label,
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: inkColor,
+                    fontSize: 12,
+                    color: AppColors.textPrimary(context),
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textPrimary(context),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -367,68 +362,47 @@ class _RoleTextChip extends StatelessWidget {
     final corners = AppCorners.of(context);
     return Tooltip(
       message: 'Change $label color',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: corners.circular(8),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            borderRadius: corners.circular(8),
-            border: Border.all(
-              color: AppColors.borderOf(context),
-              width: 1,
+      child: Semantics(
+        button: true,
+        label: 'Change $label color',
+        excludeSemantics: true,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: corners.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerOf(context),
+              borderRadius: corners.circular(8),
+              border: Border.all(
+                color: AppColors.borderOf(context),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  sample,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary(context),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                sample,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
-                  color: color,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary(context),
-                ),
-              ),
-            ],
-          ),
         ),
-      ),
-    );
-  }
-}
-
-class _ContrastBadge extends StatelessWidget {
-  const _ContrastBadge({required this.ratio});
-
-  final double ratio;
-
-  @override
-  Widget build(BuildContext context) {
-    final isGood = ratio >= 4.5;
-    final text = isGood
-        ? '${ratio.toStringAsFixed(1)}:1 AA'
-        : '${ratio.toStringAsFixed(1)}:1 Low';
-    final fg = isGood
-        ? AppColors.textSecondary(context)
-        : AppColors.alertRedOf(context);
-
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
-        color: fg,
       ),
     );
   }

@@ -20,10 +20,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/bubbles/styled_chat_message.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// A compact, live WYSIWYG micro-chat preview displaying a two-turn exchange
-/// using the current chat bubble colors, text colors, typeface, and text scale.
+/// using the real message renderer, chat bubble colors, typeface, and text scale.
 class ChatCapsulePreview extends StatelessWidget {
   const ChatCapsulePreview({
     super.key,
@@ -41,17 +42,11 @@ class ChatCapsulePreview extends StatelessWidget {
     final corners = AppCorners.of(context);
 
     final userBg = uiSettings.globalUserBubbleColor;
-    final userFg = uiSettings.globalUserTextColor;
     final aiBg = uiSettings.globalAiBubbleColor;
-    final aiFg = uiSettings.globalAiTextColor;
-    final dialogue = uiSettings.globalDialogueColor;
-    final action = uiSettings.globalActionColor;
 
     final fontFamily = uiSettings.globalChatFontFamily.isNotEmpty
         ? uiSettings.globalChatFontFamily
         : null;
-
-    final baseSize = (12.5 * uiSettings.textScale).clamp(11.0, 16.0);
 
     return Container(
       width: double.infinity,
@@ -107,39 +102,25 @@ class ChatCapsulePreview extends StatelessWidget {
                     width: 0.8,
                   ),
                 ),
-                child: InkWell(
-                  onTap: onTapAiBubble,
-                  borderRadius: corners.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          color: aiFg,
-                          fontFamily: fontFamily,
-                          fontSize: baseSize,
-                          height: 1.35,
+                child: Tooltip(
+                  message: 'Customize Character bubble color',
+                  child: Semantics(
+                    button: true,
+                    label: 'Customize Character bubble color',
+                    excludeSemantics: true,
+                    child: InkWell(
+                      onTap: onTapAiBubble,
+                      borderRadius: corners.circular(10),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
                         ),
-                        children: [
-                          TextSpan(
-                            text: '"I found the notes," ',
-                            style: TextStyle(
-                              color: dialogue,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          TextSpan(
-                            text: '*she smiles*, ',
-                            style: TextStyle(
-                              color: action,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const TextSpan(text: 'right where you left them.'),
-                        ],
+                        child: StyledChatMessage(
+                          text:
+                              '"I found the notes," *she smiles*, right where you left them.',
+                          isUser: false,
+                        ),
                       ),
                     ),
                   ),
@@ -162,21 +143,24 @@ class ChatCapsulePreview extends StatelessWidget {
                     width: 0.8,
                   ),
                 ),
-                child: InkWell(
-                  onTap: onTapUserBubble,
-                  borderRadius: corners.circular(10),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Text(
-                      'Perfect. Let\'s get to work.',
-                      style: TextStyle(
-                        color: userFg,
-                        fontFamily: fontFamily,
-                        fontSize: baseSize,
-                        height: 1.35,
+                child: Tooltip(
+                  message: 'Customize User bubble color',
+                  child: Semantics(
+                    button: true,
+                    label: 'Customize User bubble color',
+                    excludeSemantics: true,
+                    child: InkWell(
+                      onTap: onTapUserBubble,
+                      borderRadius: corners.circular(10),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: StyledChatMessage(
+                          text: 'Perfect. Let\'s get to work.',
+                          isUser: true,
+                        ),
                       ),
                     ),
                   ),

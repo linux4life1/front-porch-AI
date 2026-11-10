@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'chat_capsule_preview.dart';
@@ -85,27 +86,30 @@ class ChatAppearanceSection extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Reading Size',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary(context),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reading Size',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary(context),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Scales chat bubbles and transcript text',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary(context),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Scales chat bubbles and transcript text',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary(context),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -124,7 +128,7 @@ class ChatAppearanceSection extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.porchAmberOf(context),
+                        color: AppColors.formAccentOf(context),
                       ),
                     ),
                   ),
@@ -146,53 +150,59 @@ class ChatAppearanceSection extends StatelessWidget {
                 color: AppColors.borderOf(context).withValues(alpha: 0.5),
               ),
               const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Chat Font',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary(context),
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
-                    child: DropdownButton<String>(
-                      key: const ValueKey('appearance-chat-font'),
-                      value: _chatFonts.any(
-                        (f) => f.$2 == ui.globalChatFontFamily,
-                      )
-                          ? ui.globalChatFontFamily
-                          : '',
-                      isExpanded: true,
-                      focusColor: Colors.transparent,
-                      dropdownColor: AppColors.cardOf(context),
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      'Chat Font',
                       style: TextStyle(
-                        color: AppColors.textPrimary(context),
                         fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary(context),
                       ),
-                      underline: const SizedBox.shrink(),
-                      items: _chatFonts.map((font) {
-                        return DropdownMenuItem<String>(
-                          value: font.$2,
-                          child: Text(
-                            font.$1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: font.$2.isEmpty ? null : font.$2,
-                              color: AppColors.textPrimary(context),
-                              fontSize: 13,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) =>
-                          ui.setGlobalChatFontFamily(value ?? ''),
                     ),
-                  ),
-                ],
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: DropdownButton<String>(
+                        key: const ValueKey('appearance-chat-font'),
+                        value: _chatFonts.any(
+                          (f) => f.$2 == ui.globalChatFontFamily,
+                        )
+                            ? ui.globalChatFontFamily
+                            : '',
+                        isExpanded: true,
+                        focusColor: Colors.transparent,
+                        dropdownColor: AppColors.cardOf(context),
+                        style: TextStyle(
+                          color: AppColors.textPrimary(context),
+                          fontSize: 13,
+                        ),
+                        underline: const SizedBox.shrink(),
+                        items: _chatFonts.map((font) {
+                          return DropdownMenuItem<String>(
+                            value: font.$2,
+                            child: Text(
+                              font.$1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: font.$2.isEmpty ? null : font.$2,
+                                color: AppColors.textPrimary(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) =>
+                            ui.setGlobalChatFontFamily(value ?? ''),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -201,7 +211,18 @@ class ChatAppearanceSection extends StatelessWidget {
         const SizedBox(height: 16),
 
         // ── Live WYSIWYG Capsule Preview ─────────────────────────────────
-        const ChatCapsulePreview(),
+        ChatCapsulePreview(
+          onTapAiBubble: () => showColorPicker(
+            context,
+            ui.globalAiBubbleColor,
+            ui.setGlobalAiBubbleColor,
+          ),
+          onTapUserBubble: () => showColorPicker(
+            context,
+            ui.globalUserBubbleColor,
+            ui.setGlobalUserBubbleColor,
+          ),
+        ),
 
         const SizedBox(height: 12),
 

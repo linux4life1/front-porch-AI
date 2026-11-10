@@ -40,10 +40,10 @@ export function ChatColorsSettings() {
       <div className="chat-messages color-preview" aria-label="Live chat color preview">
         <div className="preview-label">Live Preview</div>
         <div className="bubble ai">
-          <MessageContent text={'"Took you long enough," *they smirk* — **finally** here.'} />
+          <MessageContent text={'"I found the notes," *she smiles*, right where you left them.'} />
         </div>
         <div className="bubble user">
-          <MessageContent text={'"I got held up," *I shrug* and sit down.'} />
+          <MessageContent text="Perfect. Let's get to work." />
         </div>
       </div>
 

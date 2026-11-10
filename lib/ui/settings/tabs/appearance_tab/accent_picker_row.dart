@@ -64,8 +64,8 @@ class AccentPickerRow extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Wrap(
-          spacing: 2,
-          runSpacing: 2,
+          spacing: 0,
+          runSpacing: 0,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _Swatch(
@@ -130,27 +130,27 @@ class _Swatch extends StatelessWidget {
         excludeSemantics: true,
         child: InkResponse(
           onTap: onTap,
-          radius: 18,
+          radius: 20,
           child: SizedBox(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             child: Center(
               child: Container(
-                width: 28,
-                height: 28,
+                width: 30,
+                height: 30,
                 decoration: BoxDecoration(
                   color: color,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: selected
-                        ? AppColors.porchAmberOf(context)
+                        ? AppColors.textPrimary(context)
                         : AppColors.borderOf(context),
                     width: selected ? 2.5 : 1,
                   ),
                 ),
                 child: icon == null
                     ? null
-                    : Icon(icon, size: 14, color: inkOn(color)),
+                    : Icon(icon, size: 15, color: inkOn(color)),
               ),
             ),
           ),
