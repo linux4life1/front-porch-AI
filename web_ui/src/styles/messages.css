@@ -205,7 +205,8 @@
   background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
   color: var(--on-accent);
 }
-.msg-row-desktop .msg-number { margin: 0; align-self: center; }
+.msg-row-desktop .msg-number,
+.msg-row-desktop .msg-number.user { margin: 0; align-self: center; }
 .msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 /* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
    classes and the side-pref rule (chat.css) at five, so the wide
@@ -231,14 +232,15 @@
 .reply-actions { justify-content: flex-end; margin: 2px 0 0; }
 .reply-actions:empty { display: none; }
 /* Full-width transcript (PR 1a pass 4): the window fills the chat area —
-   the tablet reading-width cap (wizard.css @768) is lifted on wide and a
-   short transcript anchors above the composer instead of floating at top.
-   The rows live inside .chat-messages' content wrapper, so that wrapper —
-   not the rows — is the capped flex item. */
+   the tablet reading-width cap (wizard.css @768) is lifted on wide. A short
+   transcript anchors above the composer instead of floating at the top, at
+   every width (PR 1b: phone and tablet too). The rows live inside
+   .chat-messages' content wrapper, so that wrapper — not the rows — is the
+   flex item that takes the free space. */
 @media (min-width: 1024px) {
   .chat-messages > div {
     max-width: none; width: 100%; margin: 0;
     display: flex; flex-direction: column; gap: 14px;
   }
-  .chat-messages > div:first-child { margin-top: auto; }
 }
+.chat-messages > div:first-child { margin-top: auto; }

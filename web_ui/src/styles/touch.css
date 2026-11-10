@@ -1,35 +1,33 @@
 /* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
 /*
-   Touch targets (PR 1b). On a touch screen every button, pill, summary row
-   and switch gets a tap area of at least 44x44 CSS px; the drawn glyph may
-   stay small (the sketch keeps the cast chips and chips their size). A
-   mouse (`pointer: fine`) keeps today's sizes, so a desktop browser does not
-   change. Imported last so these paddings win over the surface rules.
+   Touch targets (PR 1b). On a touch screen every control gets a tap area of
+   at least 44x44 CSS px, but the control itself is DRAWN exactly as it is
+   with a mouse: a transparent ::after carries the extra area, so pills,
+   switches, chips and the drawer's Close keep their mouse size and their
+   rows keep the same height and alignment. A mouse (`pointer: fine`) is
+   unchanged. Imported last so the hit areas win over the surface rules.
+
+   Why not min-width/min-height on the control: that drew the target (Reset
+   and Lock became square boxes, the cast Away pill grew and pushed the +
+   onto its own line, One-Shot's pills became circles, the bubble's top row
+   split the sender name from its icons, and each card's padlock dropped
+   below its title). The hit area is invisible now.
 */
 
 @media (pointer: coarse) {
-  /* Icon buttons: the box grows, the glyph stays. */
+  /* One transparent hit area per control, centred on the control. */
   .icon-btn,
   .chat-back-btn,
   .chat-sidebar-toggle,
   .chat-sidebar-close,
-  .msg-actions .icon-btn,
-  .bubble-actions .icon-btn,
-  .reply-actions .icon-btn,
-  .reply-actions button,
-  .swipe button,
   .cast-actions button,
   .cast-add,
   .cast-controls button,
   .composer-icon-row button,
-  .composer-persona-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
-  }
-  /* Text pills and text buttons. */
+  .composer-persona-btn,
+  .composer-send-btn,
+  .swipe button,
+  .reply-actions button,
   .sidebar-main-settings,
   .sidebar-reset-pill,
   .sidebar-lock-pill,
@@ -38,44 +36,67 @@
   .state-time-nudges button,
   .tool-pill,
   .one-shot-row button,
-  .link-btn {
-    min-height: 44px;
+  .link-btn,
+  .drawer-head button,
+  .card-switch {
+    position: relative;
   }
-  .sidebar-reset-pill,
-  .sidebar-lock-pill,
-  .tool-pill,
-  .cast-chip-main,
-  .state-time-nudges button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .icon-btn::after,
+  .chat-back-btn::after,
+  .chat-sidebar-toggle::after,
+  .chat-sidebar-close::after,
+  .cast-actions button::after,
+  .cast-add::after,
+  .cast-controls button::after,
+  .composer-icon-row button::after,
+  .composer-persona-btn::after,
+  .composer-send-btn::after,
+  .swipe button::after,
+  .reply-actions button::after,
+  .sidebar-main-settings::after,
+  .sidebar-reset-pill::after,
+  .sidebar-lock-pill::after,
+  .sidebar-grip::after,
+  .cast-chip-main::after,
+  .state-time-nudges button::after,
+  .tool-pill::after,
+  .one-shot-row button::after,
+  .link-btn::after,
+  .drawer-head button::after,
+  .card-switch::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
   }
-  /* Menus and drawer heads are tap targets too. */
-  .card-menu-item,
-  .drawer-head button {
-    min-height: 44px;
-  }
-  /* A card's header row is a full-width tap target. */
+
+  /* A card's header row is already wide; the hit area adds height only. The
+     row itself keeps its mouse height so the padlock stays on the title line. */
   .insight-section summary,
   .tool-section summary {
-    min-height: 44px;
+    position: relative;
   }
-  /* Switches: the label around the input owns the 44px box; the drawn track
-     keeps the window's size. */
-  .card-switch {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 44px;
-    min-height: 44px;
+  .insight-section summary::after,
+  .tool-section summary::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: max(100%, 44px);
+    transform: translateY(-50%);
+    background: transparent;
   }
-  .state-line {
-    min-height: 44px;
-  }
-  /* The composer's send button is the one primary action: keep its shape,
-     widen the box. */
-  .chat-input-desktop .composer-send-btn {
-    min-width: 44px;
+
+  /* Menu rows are a vertical list: growing the row is the only hit area that
+     does not overlap its neighbour. Menus are transient, not chat layout. */
+  .card-menu-item {
     min-height: 44px;
   }
 }
