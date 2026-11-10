@@ -315,6 +315,65 @@
   font-size: 0.75rem;
   color: var(--muted);
 }
+.sanitizer-rule-inputs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sanitizer-inline-input {
+  flex: 1;
+  min-width: 60px;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text);
+}
+.sanitizer-inline-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.reorder-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  line-height: 1;
+  border-radius: 3px;
+}
+.reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.reorder-btn:not(:disabled):hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.sanitizer-warn-text {
+  color: var(--danger);
+  font-size: 0.78rem;
+  margin: 4px 12px 0;
+}
+.stop-sequence-inline-input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono, monospace);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px);
+  color: var(--text);
+}
+.stop-sequence-inline-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
 
 /* ── Group creation member picker ──────────────────────────────────────── */
 .grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }

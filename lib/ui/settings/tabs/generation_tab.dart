@@ -86,34 +86,38 @@ class _GenerationTabState extends State<GenerationTab> {
           const SizedBox(height: 8),
           RecommendedSamplersBuilder(
             storage: storage,
-            builder: (context, rec) => SliderSetting(
+            builder: (context, rec) => StudioSliderCard(
               label: 'Max Output Tokens',
               value: storage.generationSettings.maxLength.toDouble(),
               min: 64,
-              max: 8192,
-              onChanged: (val) =>
-                  storage.generationSettings.setMaxLength(val.toInt()),
-              showInput: true,
+              max: 65536,
+              defaultVal: 2048,
+              dangerMin: 128,
+              divisions: (65536 - 64) ~/ 64,
               isInteger: true,
               reset: resetTargetFor(rec, (v) => v.maxLength),
+              onChanged: (val) =>
+                  storage.generationSettings.setMaxLength(val.toInt()),
+              tooltip:
+                  'Maximum tokens generated in a single reply. 2,048 is standard; higher values allow deep reasoning chains.',
             ),
           ),
+          const SizedBox(height: 10),
           // Context size — wider range for remote backends.
           PresetContextLock(
             locked: storage.backendSettings.presetOwnsContext,
-            child: SliderSetting(
+            child: StudioSliderCard(
               label: 'Context Size',
-              value: storage.backendSettings.contextSize.toDouble().clamp(
-                512,
-                isRemote ? 500000.0 : 131072.0,
-              ),
+              value: storage.backendSettings.contextSize.toDouble(),
               min: 512,
               max: isRemote ? 500000.0 : 131072.0,
+              defaultVal: 16384,
+              divisions: isRemote ? null : ((131072 - 512) ~/ 512),
+              isInteger: true,
               onChanged: (val) =>
                   storage.backendSettings.setContextSize(val.toInt()),
-              divisions: isRemote ? null : ((131072 - 512) ~/ 512),
-              showInput: true,
-              isInteger: true,
+              tooltip:
+                  'Total working memory buffer for character, chat history, and system instructions.',
             ),
           ),
           ContextSizeWarnings(

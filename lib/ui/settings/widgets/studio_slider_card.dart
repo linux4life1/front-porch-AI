@@ -10,6 +10,8 @@ import 'studio_slider_track_shape.dart';
 /// Compact studio parameter card for Generation settings:
 /// Displays label, tooltip, reset button, tabular numeric input, and custom
 /// slider with danger zone styling and a graphical default pip.
+/// Decouples visual slider bounds from user-typed input, preventing clamping
+/// or truncation of extreme, preset, or legacy values.
 class StudioSliderCard extends StatefulWidget {
   const StudioSliderCard({
     super.key,
@@ -70,7 +72,9 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.value != widget.value) {
       _formattedValue = _format(widget.value);
-      _controller.text = _formattedValue;
+      if (!_focusNode.hasFocus) {
+        _controller.text = _formattedValue;
+      }
     }
   }
 
@@ -90,6 +94,9 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
 
   void _commitValue() {
     final text = _controller.text.trim();
+    if (text == _formattedValue) {
+      return;
+    }
     if (text.isEmpty) {
       _controller.text = _formattedValue;
       return;
@@ -97,13 +104,15 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
     final num? parsed = widget.isInteger
         ? int.tryParse(text)
         : double.tryParse(text);
-    if (parsed == null) {
+    if (parsed == null || parsed < 0) {
       _controller.text = _formattedValue;
       return;
     }
-    final double clamped = parsed.toDouble().clamp(widget.min, widget.max);
-    widget.onChanged(clamped);
-    _formattedValue = _format(clamped);
+    final double nextVal = parsed.toDouble();
+    if ((nextVal - widget.value).abs() > 1e-7) {
+      widget.onChanged(nextVal);
+    }
+    _formattedValue = _format(nextVal);
     _controller.text = _formattedValue;
   }
 
@@ -125,6 +134,14 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
     final resetButton = _buildResetButton();
     final clampedSliderValue =
         (_dragValue ?? widget.value).clamp(widget.min, widget.max);
+
+    final bool inUpperDanger = (widget.dangerMax != null &&
+            (_dragValue ?? widget.value) > widget.dangerMax!) ||
+        (_dragValue ?? widget.value) > widget.max;
+    final bool inLowerDanger = (widget.dangerMin != null &&
+            (_dragValue ?? widget.value) < widget.dangerMin!) ||
+        (_dragValue ?? widget.value) < widget.min;
+    final bool inDanger = inUpperDanger || inLowerDanger;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -158,6 +175,7 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
                     ),
                     if (widget.tooltip != null)
                       Tooltip(
+                        triggerMode: TooltipTriggerMode.tap,
                         message: widget.tooltip!,
                         child: Padding(
                           padding: const EdgeInsets.only(left: 4),
@@ -235,14 +253,22 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
                 defaultVal: widget.defaultVal,
                 dangerMin: widget.dangerMin,
                 dangerMax: widget.dangerMax,
-                context: context,
+                dangerActiveColor: AppColors.negativeAccentOf(context),
+                dangerInactiveColor:
+                    AppColors.negativeAccentOf(context).withValues(alpha: 0.35),
+                pipColor:
+                    AppColors.textSecondary(context).withValues(alpha: 0.75),
               ),
               trackHeight: 4,
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.5),
               overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-              activeTrackColor: AppColors.formAccentOf(context),
+              activeTrackColor: inDanger
+                  ? AppColors.negativeAccentOf(context)
+                  : AppColors.formAccentOf(context),
               inactiveTrackColor: AppColors.hairlineOf(context, 0.15),
-              thumbColor: AppColors.formAccentOf(context),
+              thumbColor: inDanger
+                  ? AppColors.negativeAccentOf(context)
+                  : AppColors.formAccentOf(context),
             ),
             child: Slider(
               value: clampedSliderValue,
@@ -255,7 +281,9 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
               },
               onChangeEnd: (v) {
                 widget.onChanged(v);
-                _dragValue = null;
+                _formattedValue = _format(v);
+                _controller.text = _formattedValue;
+                setState(() => _dragValue = null);
               },
             ),
           ),

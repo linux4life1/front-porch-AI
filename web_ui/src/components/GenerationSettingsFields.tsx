@@ -175,8 +175,7 @@ export function SliderField({
           className="slider-val"
           value={value}
           step={step}
-          min={min}
-          max={max}
+          min={0}
           disabled={disabled}
           onChange={(e) => {
             const n = Number(e.target.value);
@@ -188,7 +187,7 @@ export function SliderField({
       <div className="slider-track-wrap">
         <input
           type="range"
-          value={value}
+          value={Math.max(min, Math.min(max, value))}
           step={step}
           min={min}
           max={max}
@@ -357,10 +356,10 @@ export function GenerationSettingsFields({
               label="Temperature"
               value={g.temperature}
               min={0}
-              max={1.6}
+              max={2.0}
               step={0.05}
               defaultVal={0.70}
-              dangerMax={1.25}
+              dangerMax={1.60}
               reset={rs('temperature')}
               onChange={(v) => patchGen({ temperature: v })}
             />
@@ -404,7 +403,7 @@ export function GenerationSettingsFields({
                 max={100}
                 step={1}
                 defaultVal={0}
-                dangerMax={75}
+                dangerMax={80}
                 reset={rs('topK')}
                 onChange={(v) => patchGen({ topK: Math.round(v) })}
               />
@@ -426,10 +425,10 @@ export function GenerationSettingsFields({
                     label="Dynatemp range"
                     value={g.dynamicTempRange}
                     min={0}
-                    max={1.0}
+                    max={2.0}
                     step={0.05}
-                    defaultVal={0.50}
-                    dangerMax={0.70}
+                    defaultVal={0.70}
+                    dangerMax={1.60}
                     reset={rs('dynamicTempRange')}
                     onChange={(v) => patchGen({ dynamicTempRange: v })}
                   />
@@ -478,7 +477,7 @@ export function GenerationSettingsFields({
                 value={g.repeatPenaltyTokens}
                 min={0}
                 max={2048}
-                step={64}
+                step={8}
                 defaultVal={1024}
                 dangerMin={128}
                 reset={rs('repeatPenaltyTokens')}
@@ -493,10 +492,10 @@ export function GenerationSettingsFields({
                   label="XTC threshold"
                   value={g.xtcThreshold}
                   min={0}
-                  max={0.30}
+                  max={1.00}
                   step={0.01}
                   defaultVal={0.10}
-                  dangerMax={0.20}
+                  dangerMax={0.80}
                   reset={rs('xtcThreshold')}
                   onChange={(v) => patchGen({ xtcThreshold: v })}
                 />
@@ -526,8 +525,8 @@ export function GenerationSettingsFields({
           label="Max output tokens"
           value={g.maxLength}
           min={64}
-          max={8192}
-          step={32}
+          max={65536}
+          step={64}
           defaultVal={2048}
           dangerMin={128}
           reset={rs('maxLength')}
@@ -710,11 +709,16 @@ function StringListEditor({
   const [newVal, setNewVal] = useState('');
 
   const handleAdd = () => {
-    const trimmed = newVal.trim();
-    if (trimmed && !values.includes(trimmed)) {
-      onChange([...values, trimmed]);
+    if (newVal.length > 0 && !values.includes(newVal)) {
+      onChange([...values, newVal]);
       setNewVal('');
     }
+  };
+
+  const handleItemChange = (idx: number, text: string) => {
+    const next = [...values];
+    next[idx] = text;
+    onChange(next);
   };
 
   return (
@@ -749,12 +753,17 @@ function StringListEditor({
           </button>
         </div>
 
-        {/* Listed Sequences below the input with red circle remove button */}
+        {/* Listed Sequences below the input with inline editable inputs and red circle remove button */}
         {values.length > 0 && (
           <div className="stop-sequence-list">
             {values.map((s, i) => (
               <div key={i} className="stop-sequence-item">
-                <span className="stop-sequence-text">{s.replace(/\n/g, '\\n')}</span>
+                <input
+                  className="stop-sequence-inline-input"
+                  value={s}
+                  placeholder={placeholder}
+                  onChange={(e) => handleItemChange(i, e.target.value)}
+                />
                 <button
                   type="button"
                   className="icon-btn circle-remove-btn"
@@ -785,6 +794,7 @@ function SanitizerRulesEditor({
 }) {
   const [findInput, setFindInput] = useState('');
   const [replaceInput, setReplaceInput] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
@@ -792,7 +802,11 @@ function SanitizerRulesEditor({
 
   const handleAdd = () => {
     if (!findInput) return;
-    if (rules.some((r) => r.find === findInput && r.replace === replaceInput)) return;
+    if (rules.some((r) => r.find === findInput && r.replace === replaceInput)) {
+      setDuplicateWarning(true);
+      return;
+    }
+    setDuplicateWarning(false);
     onChange([
       ...rules,
       {
@@ -812,6 +826,19 @@ function SanitizerRulesEditor({
         i === idx ? { ...r, stop_after_match: !r.stop_after_match } : r,
       ),
     );
+  };
+
+  const handleRuleChange = (idx: number, patch: Partial<SanitizerRule>) => {
+    onChange(rules.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+  };
+
+  const handleMove = (idx: number, delta: number) => {
+    const targetIdx = idx + delta;
+    if (targetIdx < 0 || targetIdx >= rules.length) return;
+    const next = [...rules];
+    const [moved] = next.splice(idx, 1);
+    next.splice(targetIdx, 0, moved);
+    onChange(next);
   };
 
   const handleRemove = (idx: number) => {
@@ -861,7 +888,10 @@ function SanitizerRulesEditor({
             className="sanitizer-find-input"
             placeholder="Find..."
             value={findInput}
-            onChange={(e) => setFindInput(e.target.value)}
+            onChange={(e) => {
+              if (duplicateWarning) setDuplicateWarning(false);
+              setFindInput(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleAdd();
             }}
@@ -871,7 +901,10 @@ function SanitizerRulesEditor({
             className="sanitizer-replace-input"
             placeholder="Replace..."
             value={replaceInput}
-            onChange={(e) => setReplaceInput(e.target.value)}
+            onChange={(e) => {
+              if (duplicateWarning) setDuplicateWarning(false);
+              setReplaceInput(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleAdd();
             }}
@@ -887,8 +920,11 @@ function SanitizerRulesEditor({
             </svg>
           </button>
         </div>
+        {duplicateWarning && (
+          <p className="sanitizer-warn-text">Rule already exists</p>
+        )}
 
-        {/* 2. Reorderable Rules List with full HTML5 Drag & Drop */}
+        {/* 2. Reorderable Rules List with full HTML5 Drag & Drop and touch reorder buttons */}
         <div className="sanitizer-rules-list">
           {rules.length === 0 ? (
             <div className="sanitizer-empty">No rules configured</div>
@@ -909,13 +945,35 @@ function SanitizerRulesEditor({
                   onDrop={(e) => handleDrop(e, idx)}
                   onDragEnd={handleDragEnd}
                 >
-                  {/* Drag Handle */}
+                  {/* Drag Handle (desktop) */}
                   <span className="sanitizer-drag-handle" title="Drag to reorder">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <line x1="4" y1="9" x2="20" y2="9" />
                       <line x1="4" y1="15" x2="20" y2="15" />
                     </svg>
                   </span>
+
+                  {/* Touch Up/Down buttons (mobile Safari/Chrome fallback) */}
+                  <button
+                    type="button"
+                    className="reorder-btn"
+                    title="Move up"
+                    disabled={idx === 0}
+                    onClick={() => handleMove(idx, -1)}
+                    aria-label="Move rule up"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    className="reorder-btn"
+                    title="Move down"
+                    disabled={idx === rules.length - 1}
+                    onClick={() => handleMove(idx, 1)}
+                    aria-label="Move rule down"
+                  >
+                    ▼
+                  </button>
 
                   {/* Stop After Match Toggle (stop_circle) */}
                   <button
@@ -930,11 +988,21 @@ function SanitizerRulesEditor({
                     </svg>
                   </button>
 
-                  {/* Rule Rich Text: Find (bold) → Replace */}
-                  <div className="sanitizer-rule-text">
-                    <strong>{rule.find}</strong>
-                    <span className="muted"> → </span>
-                    <span>{rule.replace}</span>
+                  {/* Inline Editable Inputs: Find → Replace */}
+                  <div className="sanitizer-rule-inputs">
+                    <input
+                      className="sanitizer-inline-input"
+                      value={rule.find}
+                      placeholder="Find"
+                      onChange={(e) => handleRuleChange(idx, { find: e.target.value })}
+                    />
+                    <span className="muted" style={{ margin: '0 4px' }}>→</span>
+                    <input
+                      className="sanitizer-inline-input"
+                      value={rule.replace}
+                      placeholder="Replace"
+                      onChange={(e) => handleRuleChange(idx, { replace: e.target.value })}
+                    />
                   </div>
 
                   {/* Remove Rule (remove_circle_outline) */}
