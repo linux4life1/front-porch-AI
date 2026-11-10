@@ -217,9 +217,15 @@
    gets it full screen; a tablet gets a 380px panel from the right over a
    dimmed chat. It mounts on the first open and then hides with
    `visibility:hidden`, so the card tree keeps its scroll position and its
-   loaded snapshot while leaving the tab and accessibility trees. */
-.chat-sidebar-backdrop { z-index: 45; align-items: stretch; }
-.chat-sidebar-backdrop.closed { visibility: hidden; pointer-events: none; }
+   loaded snapshot while leaving the tab and accessibility trees. The closed
+   host drops the `.drawer-backdrop` class so the sweep's overlay probe does
+   not count a hidden drawer as an open dialog. */
+.chat-sidebar-host {
+  position: fixed; inset: 0; z-index: 45; display: flex;
+  justify-content: flex-end; align-items: stretch;
+  background: color-mix(in srgb, var(--scrim-ink) 50%, transparent);
+}
+.chat-sidebar-host.closed { visibility: hidden; pointer-events: none; }
 .chat-sidebar-drawer {
   display: flex; flex-direction: column; height: 100%; min-height: 0;
   background: var(--surface); border-left: 1px solid var(--border);

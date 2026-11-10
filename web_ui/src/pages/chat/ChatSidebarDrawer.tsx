@@ -40,7 +40,7 @@ export function ChatSidebarDrawer({
   if (!mounted) return null;
   return (
     <div
-      className={`drawer-backdrop chat-sidebar-backdrop ${mode}${open ? '' : ' closed'}`}
+      className={`chat-sidebar-host chat-sidebar-backdrop ${mode}${open ? ' drawer-backdrop' : ' closed'}`}
       aria-hidden={open ? undefined : true}
       onClick={open ? onClose : undefined}
     >
