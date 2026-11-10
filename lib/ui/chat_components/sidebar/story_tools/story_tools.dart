@@ -28,6 +28,7 @@ export 'afk_panel.dart';
 export 'author_note_section.dart';
 export 'chaos_panel.dart';
 export 'chat_places_panel.dart';
+export 'group_objectives_panel.dart';
 export 'lorebook_chat_book.dart';
 export 'lorebook_panel.dart';
 export 'objective_add_goal.dart';

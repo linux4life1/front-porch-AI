@@ -18,10 +18,12 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'bond_reads.dart';
 
 /// The 1:1 relationship bars — Short-Term Bond, Long-Term Bond, Trust, and
 /// (when NSFW enhancements are on) Lust — all rendered through the ONE shared
@@ -36,13 +38,21 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 class BondBars extends StatelessWidget {
   final ChatService chat;
 
-  const BondBars({super.key, required this.chat});
+  /// A group member to read instead of the chat's live scalars (which hold
+  /// whoever spoke last in a group). Null = the 1:1 host. A member's Lust
+  /// shows while Afterglow runs for them; this line carries no Afterglow
+  /// switch (the per-member switch is a later change).
+  final CharacterCard? member;
+
+  const BondBars({super.key, required this.chat, this.member});
 
   @override
   Widget build(BuildContext context) {
-    final rel = chat.relationshipService;
-    final nsfw = chat.nsfwService;
-    final arousalTier = nsfw.arousalTier;
+    final member = this.member;
+    final reads = member == null
+        ? BondReads.host(chat)
+        : BondReads.member(chat, member);
+    final arousalTier = reads.lustTier;
 
     final lustColor = arousalTier >= 6
         ? AppColors.lustDeepOf(context)
@@ -55,13 +65,13 @@ class BondBars extends StatelessWidget {
       children: [
         RealismProgressRow(
           label: 'Short-Term Bond',
-          value: rel.affectionScore,
-          tier: rel.relationshipTier,
-          tierName: rel.shortTermTierName,
-          color: TierColors.tierColor(context, rel.relationshipTier),
-          icon: rel.relationshipTier < 0 ? Icons.heart_broken : Icons.favorite,
-          maxValue: rel.shortTermProgressTarget,
-          progress: rel.shortTermProgressPercent,
+          value: reads.shortTerm.score,
+          tier: reads.shortTerm.tier,
+          tierName: reads.shortTerm.tierName,
+          color: TierColors.tierColor(context, reads.shortTerm.tier),
+          icon: reads.shortTerm.tier < 0 ? Icons.heart_broken : Icons.favorite,
+          maxValue: reads.shortTerm.target,
+          progress: reads.shortTerm.progress,
           tooltip:
               'Short-term Dynamic: The immediate "tension in the room" or how '
               'they feel about you right now. Evolves quickly based on recent '
@@ -70,15 +80,15 @@ class BondBars extends StatelessWidget {
         const SizedBox(height: 8),
         RealismProgressRow(
           label: 'Long-Term Bond',
-          value: rel.longTermScore,
-          tier: rel.longTermTier,
-          tierName: rel.longTermTierName,
-          color: TierColors.tierColor(context, rel.longTermTier),
-          icon: rel.longTermTier < 0
+          value: reads.longTerm.score,
+          tier: reads.longTerm.tier,
+          tierName: reads.longTerm.tierName,
+          color: TierColors.tierColor(context, reads.longTerm.tier),
+          icon: reads.longTerm.tier < 0
               ? Icons.heart_broken_sharp
               : Icons.monitor_heart,
-          maxValue: rel.longTermProgressTarget,
-          progress: rel.longTermProgressPercent,
+          maxValue: reads.longTerm.target,
+          progress: reads.longTerm.progress,
           tooltip:
               'Long-term Relationship: Your deep, overarching history '
               'together. Evolves slowly and sets the foundation for your '
@@ -87,31 +97,36 @@ class BondBars extends StatelessWidget {
         const SizedBox(height: 8),
         RealismProgressRow(
           label: 'Trust',
-          value: rel.trustLevel,
-          tier: rel.trustTier,
-          tierName: rel.trustTierName,
+          value: reads.trust.score,
+          tier: reads.trust.tier,
+          tierName: reads.trust.tierName,
           color: AppColors.trustAccentOf(context),
-          icon: rel.trustLevel < 0 ? Icons.vpn_key_off : Icons.vpn_key,
-          maxValue: rel.trustProgressTarget,
-          progress: rel.trustProgressPercent,
+          icon: reads.trust.score < 0 ? Icons.vpn_key_off : Icons.vpn_key,
+          maxValue: reads.trust.target,
+          progress: reads.trust.progress,
           tooltip:
               'Trust: Paranoia vs absolute faith. Dictates whether the '
               'character questions your motives or readily believes you.',
         ),
         // Porch Life (with 18+) allows Afterglow: the line and this chat's
         // own switch show; Lust and recovery show while the switch is on.
-        if (afterglowEnabledOf(context)) ...[
+        if (member == null && afterglowEnabledOf(context)) ...[
           const SizedBox(height: 8),
-          _AfterglowLine(chat: chat, on: nsfw.storedNsfwCooldownEnabled),
+          _AfterglowLine(
+            chat: chat,
+            on: chat.nsfwService.storedNsfwCooldownEnabled,
+          ),
         ],
-        if (nsfw.nsfwCooldownEnabled) ...[
+        if (reads.lustOn) ...[
           // Closer under the Afterglow line; the old gap without it.
-          SizedBox(height: afterglowEnabledOf(context) ? 4 : 8),
+          SizedBox(
+            height: member == null && afterglowEnabledOf(context) ? 4 : 8,
+          ),
           RealismProgressRow(
             label: 'Lust',
-            value: nsfw.arousalLevel.clamp(-100, 100),
+            value: reads.lustLevel,
             tier: arousalTier,
-            tierName: nsfw.arousalTierName,
+            tierName: reads.lustTierName,
             color: lustColor,
             icon: arousalTier >= 6
                 ? Icons.local_fire_department
@@ -119,14 +134,14 @@ class BondBars extends StatelessWidget {
                 ? Icons.ac_unit
                 : Icons.favorite_border,
             maxValue: 100,
-            progress: (nsfw.arousalLevel.abs() / 100).clamp(0.0, 1.0),
+            progress: (reads.lustLevel.abs() / 100).clamp(0.0, 1.0),
             tooltip: 'Arousal: Physical/sexual tension level.',
           ),
-          if (nsfw.refractoryMinutesRemaining > 0) ...[
+          if (reads.refractoryChip.isNotEmpty) ...[
             const SizedBox(height: 4),
             RefractoryLine(
-              chip: nsfw.refractoryWords.chip,
-              soft: nsfw.refractory.soft,
+              chip: reads.refractoryChip,
+              soft: reads.refractorySoft,
             ),
           ],
         ],

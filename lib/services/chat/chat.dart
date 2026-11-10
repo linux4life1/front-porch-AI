@@ -42,6 +42,7 @@ export 'lookup_force.dart';
 export 'growth_physics.dart';
 export 'growth_prompt.dart';
 export 'growth_review.dart';
+export 'group_dynamics.dart';
 export 'group_lite.dart';
 export 'group_member_realism.dart';
 export 'group_speaker_resolution.dart';
