@@ -9,7 +9,6 @@ import { DirectorStrip, ExitUndoBar } from '../components/DirectorStrip';
 import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
 import { composerDraftOwnerKey, composerDraftSessionKey } from '../composerDraft';
-import { ChatInsight } from '../components/ChatInsight';
 import { ChatSidebar } from '../components/ChatSidebar';
 import { ConversationsDrawer } from '../components/ConversationsDrawer';
 import { ContextBudgetModal } from '../components/ContextBudgetModal';
@@ -23,6 +22,8 @@ import { useEvaluationView } from '../components/useEvaluationView';
 import { type Realism } from '../components/chatTypes';
 import { useLayout } from '../hooks/useBreakpoint';
 import { ChatHeader } from './chat/ChatHeader';
+import { ChatSidebarDrawer } from './chat/ChatSidebarDrawer';
+import { ChatModelSwitcher } from './chat/ChatModelSwitcher';
 import { useGroupTurnOrder, turnOrderLabel } from './chat/useGroupTurnOrder';
 import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
@@ -42,11 +43,10 @@ import { useUserMessageSide } from '../userMessageSide';
 
 export function ChatPage() {
   const navigate = useNavigate();
-  // The insight column is desktop-only (CSS hides it below 1024px) and the
-  // Stats drawer is its phone/tablet stand-in — mount whichever one is on
-  // screen. `display:none` does not unmount, so rendering both meant every
-  // chat refresh fired the sidebar's GETs (tools / journal / growth / places)
-  // for a panel nobody could see, twice over with the drawer open.
+  // The sidebar is the desktop column at ≥1024 and the same card tree in a
+  // drawer below that (PR 1b). Mount whichever one is on screen; a hidden
+  // mount would still run every sidebar fetch (tools / journal / growth /
+  // places).
   const { isDesktop, isPhone } = useLayout();
   const followStreamingReplies = useFollowStreamingReplies();
   const evaluationView = useEvaluationView();
@@ -121,7 +121,7 @@ export function ChatPage() {
     return Number.isFinite(n) ? Math.min(560, Math.max(260, n)) : 320;
   });
   // Desktop sidebar shown (header toggle). The choice persists like the
-  // width does; the phone/tablet Stats drawer never reads it.
+  // width does. Below 1024 the same button opens the drawer instead.
   const [showAside, setShowAside] = useState<boolean>(
     () => typeof localStorage === 'undefined' || localStorage.getItem('fpai.asideHidden') !== '1',
   );
@@ -131,10 +131,14 @@ export function ChatPage() {
       return !v;
     });
   };
-  // Second desktop header line for groups: the turn order comes from the
-  // tools snapshot (the chat state does not carry it).
+  const toggleSidebar = () => {
+    if (isDesktop) toggleAside();
+    else setShowSidebar((v) => !v);
+  };
+  // Second header line for groups: the turn order comes from the tools
+  // snapshot (the chat state does not carry it). Every width shows it.
   const groupTurnOrder = useGroupTurnOrder(
-    isDesktop && (state?.isGroupMode ?? false),
+    state?.isGroupMode ?? false,
     toolsBump,
   );
   const leaveChat = () => {
@@ -153,7 +157,11 @@ export function ChatPage() {
   useEffect(() => {
     if (!state?.pendingMint && dismissedMint) setDismissedMint('');
   }, [state?.pendingMint, dismissedMint]);
-  const [showStats, setShowStats] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
+  // Main Settings → Model Settings opens the page-level Change model sheet.
+  // It lives outside the sidebar so closing the phone/tablet drawer cannot
+  // hide it (a fixed overlay inside a visibility:hidden ancestor is hidden).
+  const [modelSheetSignal, setModelSheetSignal] = useState(0);
   const [showTheme, setShowTheme] = useState(false);
   const [showPersona, setShowPersona] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -200,12 +208,12 @@ export function ChatPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (editTarget) return; // MessageEditModal handles Escape
-      if (showStats) setShowStats(false);
+      if (showSidebar) setShowSidebar(false);
       else if (showSessions) setShowSessions(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editTarget, showStats, showSessions, setShowSessions]);
+  }, [editTarget, showSidebar, showSessions, setShowSessions]);
 
   // Drag the insight sidebar's left edge to resize it (clamped 260–560px),
   // persisting the chosen width. Dragging left widens (handle is on the left).
@@ -306,41 +314,10 @@ export function ChatPage() {
   const focusedMember = focusedId ? cast.find((c) => c.id === focusedId) : undefined;
   const focusedIsLiteGuest = !!focusedMember?.isLite;
   const realismForPanel = focusRealism ?? state.realism;
-  const insight = realismForPanel ? (
-    <ChatInsight
-      realism={realismForPanel}
-      moodLook={moodLook}
-      moodPaints={moodPaints}
-      focusedIsLiteGuest={focusedIsLiteGuest}
-      lorebook={state.lorebook}
-      groupLorebookUnreadable={state.groupLorebookUnreadable}
-      loreTokens={state.loreTokens}
-      loreBudget={state.loreBudget}
-      loreOverflow={state.loreOverflow}
-      draft={draft}
-      authorNote={state.authorNote ?? ''}
-      authorNoteDepth={state.authorNoteDepth ?? 4}
-      onSaveAuthorNote={saveAuthorNote}
-      characterId={focused?.dbId ?? state.character?.id ?? ''}
-      expressionLabel={state.expressionLabel}
-      isGroup={state.isGroupMode ?? false}
-      focusedIsHost={focused?.isHost ?? !state.isGroupMode}
-      focusedAvatarUrl={focused?.avatarUrl}
-      focusedPlaceholderPortrait={focused?.placeholderPortrait}
-      toolsKey={toolsBump}
-      focusedId={focusedId}
-      groupId={state.groupId ?? null}
-      onCommand={sendMessage}
-      cast={cast}
-      onFocus={focusParticipant}
-      toolSupport={state.toolSupport}
-    />
-  ) : null;
 
-  // Wide layout (PR 1a): the cast bar and the Director strip leave the
-  // space above the transcript and live in the sidebar cards, as the
-  // desktop window arranges them. Same elements, same props — phone and
-  // tablet still render them above the transcript.
+  // The cast bar and the Director strip live in the sidebar cards, as the
+  // desktop window arranges them (PR 1a wide, PR 1b every width). Same
+  // elements, same props.
   const castBar = (
     <CastBar
       cast={cast}
@@ -378,7 +355,10 @@ export function ChatPage() {
       onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
     />
   ) : null;
-  const wideAside = realismForPanel ? (
+  // One sidebar at every width (PR 1b): the desktop window's card tree.
+  // ≥1024 it sits beside the chat; below that the same tree lives in the
+  // drawer below (full screen on a phone, 380px slide-over on a tablet).
+  const sidebar = realismForPanel ? (
     <ChatSidebar
       realism={realismForPanel}
       moodLook={moodLook}
@@ -410,6 +390,8 @@ export function ChatPage() {
       director={director}
       onEditCharacter={editPath ? () => navigate(editPath) : undefined}
       onChatSettings={() => setShowTheme(true)}
+      onOpenOverlay={() => setShowSidebar(false)}
+      onModelSettings={() => setModelSheetSignal((n) => n + 1)}
     />
   ) : null;
 
@@ -437,9 +419,6 @@ export function ChatPage() {
           isGroupMode={state.isGroupMode ?? false}
           expressionLabel={state.expressionLabel}
           characterId={state.character?.id}
-          isPhone={isPhone}
-          isDesktop={isDesktop}
-          hasStats={!!insight}
           cast={cast}
           groupLine={
             state?.isGroupMode
@@ -449,16 +428,9 @@ export function ChatPage() {
               : undefined
           }
           onBack={leaveChat}
-          onToggleSidebar={toggleAside}
-          onEdit={editPath ? () => navigate(editPath) : undefined}
-          onStats={() => setShowStats(true)}
-          onPersona={() => setShowPersona(true)}
-          onTheme={() => setShowTheme(true)}
-          onConversations={openSessions}
+          onToggleSidebar={toggleSidebar}
         />
 
-        {!isDesktop && castBar}
-        {!isDesktop && director}
         <ExitUndoBar
           undo={state.exitUndo ?? null}
           onUndo={() => {
@@ -511,7 +483,7 @@ export function ChatPage() {
               messages={state.messages}
               castById={castById}
               multiCast={multiCast}
-              isDesktop={isDesktop}
+              isDesktop
               moodLook={moodLook}
               moodPaints={moodPaints}
               liveMood={state.realism ? { emotion: state.realism.emotion, intensity: state.realism.emotionIntensity, held: state.realism.emotionHeld ?? 0 } : null}
@@ -601,28 +573,24 @@ export function ChatPage() {
           apiHint={state.llmHint}
           directing={!!state.director?.directing}
           draftBox={draftBox}
-          isDesktop={isDesktop}
+          isDesktop
           onPersona={() => setShowPersona(true)}
-          folderItems={
-            isDesktop
-              ? [
-                  {
-                    label: 'Conversations ▾',
-                    className: 'conversations-btn',
-                    onClick: openSessions,
-                  },
-                  {
-                    label: '📊 Context budget — what the model was sent',
-                    className: 'budget-link',
-                    onClick: () => setShowBudget(true),
-                  },
-                  {
-                    label: 'Turn Into a Story',
-                    onClick: () => setShowStory(true),
-                  },
-                ]
-              : undefined
-          }
+          folderItems={[
+            {
+              label: 'Conversations ▾',
+              className: 'conversations-btn',
+              onClick: openSessions,
+            },
+            {
+              label: '📊 Context budget — what the model was sent',
+              className: 'budget-link',
+              onClick: () => setShowBudget(true),
+            },
+            {
+              label: 'Turn Into a Story',
+              onClick: () => setShowStory(true),
+            },
+          ]}
           nextName={state.isGroupMode ? cast.find((c) => c.isNext)?.name : undefined}
           onNextTurn={
             state.isGroupMode
@@ -635,29 +603,36 @@ export function ChatPage() {
         />
       </div>
 
-      {/* Persistent insight column — desktop only. The 1024px here is the same
-          line `.chat-aside`'s media query draws; below it the column is
-          display:none, and a hidden mount still ran every sidebar fetch. */}
-      {isDesktop && showAside && wideAside && (
-        <aside className="chat-aside" style={{ width: asideWidth }}>
+      {/* The sidebar beside the chat at ≥1024. The 1024px here is the same
+          line `.chat-aside`'s media query draws; below it the same tree is
+          in the drawer, and a hidden mount would still run every fetch. */}
+      {isDesktop && showAside && sidebar && (
+        <aside className="chat-aside chat-sidebar" style={{ width: asideWidth }}>
           <div className="aside-resizer" onMouseDown={startAsideResize} title="Drag to resize" />
-          {wideAside}
+          {sidebar}
         </aside>
       )}
 
-      {/* Insight as a slide-over drawer below desktop. Also gated, so widening
-          the window past 1024 with the drawer still open can't mount it twice. */}
-      {!isDesktop && showStats && insight && (
-        <div className="drawer-backdrop" onClick={() => setShowStats(false)}>
-          <div className="sessions-drawer stats-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-head">
-              <span>Chat insight</span>
-              <button className="link-btn" onClick={() => setShowStats(false)}>Close</button>
-            </div>
-            {insight}
-          </div>
-        </div>
+      {/* Below 1024 the same ChatSidebar tree: full screen on a phone, a
+          380px slide-over on a tablet. Closing it keeps its scroll spot. */}
+      {!isDesktop && sidebar && (
+        <ChatSidebarDrawer
+          open={showSidebar}
+          title={title}
+          mode={isPhone ? 'full' : 'slide'}
+          onClose={() => setShowSidebar(false)}
+        >
+          {sidebar}
+        </ChatSidebarDrawer>
       )}
+
+      {/* The Change model sheet (Main Settings → Model Settings) is a page
+          overlay, not a sidebar child: on phone/tablet the drawer closes
+          before it opens. The chip itself stays hidden; the host carries no
+          aria-hidden, so the dialog stays in the accessibility tree. */}
+      <div className="model-sheet-host">
+        <ChatModelSwitcher openSignal={modelSheetSignal} />
+      </div>
 
       {showSessions && (
         <ConversationsDrawer

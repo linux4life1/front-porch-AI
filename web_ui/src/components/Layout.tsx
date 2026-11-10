@@ -73,12 +73,12 @@ export function Layout({ children }: { children: ReactNode }) {
     </div>
   );
 
-  // ── Desktop chat: the desktop chat window ──
-  // At ≥1024 px the chat is the Flutter desktop's window: no side rail, full
-  // width, and the header's back arrow owns leaving it (one-chat-ux.md PR 1).
-  // Phone and tablet keep the rail / drawer exactly as today — PR 1b does
-  // those widths.
-  if (bp === 'desktop' && location.pathname.startsWith('/chat')) {
+  // ── Chat route: the desktop chat window, at every width ──
+  // The chat is the Flutter desktop's window: no side rail, no phone banner,
+  // full width, and the header's back arrow owns leaving it (one-chat-ux.md
+  // PR 1). Phone and tablet live in the same shell; only the sidebar's
+  // presentation changes below 1024 (PR 1b).
+  if (location.pathname.startsWith('/chat')) {
     return (
       <div className="app-shell cols">
         <main className="app-main">{children}</main>

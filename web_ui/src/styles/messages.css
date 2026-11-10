@@ -188,6 +188,13 @@
    nothing is hover-hidden on wide), reply controls right-aligned under the
    newest reply. Phone and tablet keep the hover row above untouched. */
 .msg-row-desktop { flex-direction: row; align-items: flex-start; gap: 10px; }
+/* Below 1024 the sketch's avatar column is narrower (26px circle, 8px
+   gap), which also gives the phone bubble the width its chip rows need. */
+@media (max-width: 1023px) {
+  .msg-row-desktop { gap: 8px; }
+  .msg-avatar-col { width: 30px; }
+  .msg-avatar { width: 26px; height: 26px; }
+}
 .msg-avatar-col {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   flex-shrink: 0; padding-top: 2px; width: 40px;
@@ -198,7 +205,15 @@
   background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
   color: var(--on-accent);
 }
-.msg-row-desktop .msg-number { margin: 0; align-self: center; }
+/* The number sits centred under its avatar for every speaker. The user-side
+   rule in chat.css (`:root:not([data-user-side="right"]) .msg-number.user`)
+   is more specific than a plain row selector, so the user's number repeats
+   that prefix to win in the desktop row. */
+.msg-row-desktop .msg-number,
+.msg-row-desktop .msg-number.user,
+:root:not([data-user-side="right"]) .msg-row-desktop .msg-number.user {
+  margin: 0; align-self: center;
+}
 .msg-main { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
 /* `.msg-row .bubble.ai|user` (insight.css) pins align-self at three
    classes and the side-pref rule (chat.css) at five, so the wide
@@ -224,14 +239,15 @@
 .reply-actions { justify-content: flex-end; margin: 2px 0 0; }
 .reply-actions:empty { display: none; }
 /* Full-width transcript (PR 1a pass 4): the window fills the chat area —
-   the tablet reading-width cap (wizard.css @768) is lifted on wide and a
-   short transcript anchors above the composer instead of floating at top.
-   The rows live inside .chat-messages' content wrapper, so that wrapper —
-   not the rows — is the capped flex item. */
+   the tablet reading-width cap (wizard.css @768) is lifted on wide. A short
+   transcript anchors above the composer instead of floating at the top, at
+   every width (PR 1b: phone and tablet too). The rows live inside
+   .chat-messages' content wrapper, so that wrapper — not the rows — is the
+   flex item that takes the free space. */
 @media (min-width: 1024px) {
-  .chat-messages > div {
-    max-width: none; width: 100%; margin: 0;
-    display: flex; flex-direction: column; gap: 14px;
-  }
-  .chat-messages > div:first-child { margin-top: auto; }
+  .chat-messages > div { max-width: none; width: 100%; margin: 0; }
 }
+/* Row spacing and the bottom anchor hold at every width; only the lifted
+   reading cap above is wide-only, so a tablet keeps its 820 px column. */
+.chat-messages > div { display: flex; flex-direction: column; gap: 14px; }
+.chat-messages > div:first-child { margin-top: auto; }

@@ -1,14 +1,12 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The desktop (≥1024) chat sidebar — the window's right column (PR 1a).
-// The same controls the flat insight panel carries today, rearranged into
-// the desktop's card tree: portrait, Main Settings, the layout pills, then
-// the cast, Director, and the tool cards. Phone and tablet keep rendering
-// ChatInsight (and ChatTools inside it) untouched; this tree exists only in
-// the wide aside. The tools snapshot plumbing (focus scoping, embedding
-// poll, mutation helpers) mirrors ChatTools.tsx so both surfaces speak to
-// the same endpoints with the same payloads.
+// The chat sidebar — the desktop window's right column (PR 1a), and the same
+// card tree in the drawer below 1024 (PR 1b). Portrait, Main Settings, the
+// layout pills, then the cast, Director, and the tool cards. The tools
+// snapshot plumbing (focus scoping, embedding poll, mutation helpers)
+// mirrors ChatTools.tsx so both surfaces speak to the same endpoints with the
+// same payloads.
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
@@ -27,7 +25,6 @@ import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
-import { ChatModelSwitcher } from '../pages/chat/ChatModelSwitcher';
 import { GroupSettings } from './GroupSettings';
 import { BelongingsPanel } from './BelongingsPanel';
 import { PromisesPanel } from './PromisesPanel';
@@ -121,6 +118,8 @@ export function ChatSidebar({
   director,
   onEditCharacter,
   onChatSettings,
+  onOpenOverlay,
+  onModelSettings,
 }: {
   realism: Realism;
   moodLook?: MoodLook;
@@ -160,6 +159,13 @@ export function ChatSidebar({
   onEditCharacter?: () => void;
   /** Opens today's Chat settings drawer (Prompt source + Generation + theme). */
   onChatSettings: () => void;
+  /** A Main Settings item is opening its own dialog: the phone/tablet
+   *  drawer steps aside first, so closing the dialog lands back on the chat
+   *  (PR 1b). Harmless at ≥1024, where the sidebar is a column. */
+  onOpenOverlay?: () => void;
+  /** Opens the page-level Change model sheet (it lives outside the drawer so
+   *  closing the drawer cannot hide it). */
+  onModelSettings?: () => void;
 }) {
   // ── Tools snapshot (same plumbing as ChatTools.tsx) ──────────────────
   const [t, setT] = useState<ToolsState | null>(null);
@@ -258,16 +264,15 @@ export function ChatSidebar({
   // ── Main Settings menu ────────────────────────────────────────────────
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
-  const [modelSheetSignal, setModelSheetSignal] = useState(0);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
 
-  // ── Reorder (wide owns its own card order) ────────────────────────────
+  // ── Reorder (one order for every width) ──────────────────────────────
   // The host 'insight' surface still carries the OLD flat-panel ids, and
-  // POSTing the wide order there would drag the phone drawer's order with
-  // it. So the wide column persists its arrangement locally; the pills keep
-  // the same names and Reset still clears the host surfaces it shares.
-  const ORDER_KEY = 'fpai.wi…Order';
-  const LOCK_KEY = 'fpai.wi…cked';
+  // POSTing this tree's order there would drag that legacy list with it. So
+  // the card tree persists its arrangement locally; phone and PC in one
+  // browser profile share it (PR 1b), and the pills keep the same names.
+  const ORDER_KEY = 'fpai.wideSidebarOrder';
+  const LOCK_KEY = 'fpai.wideSidebarLocked';
   const [storedWide, setStoredWide] = useState<string[]>(() => {
     try {
       const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(ORDER_KEY) : null;
@@ -326,8 +331,8 @@ export function ChatSidebar({
     const r = settingsBtnRef.current?.getBoundingClientRect();
     const items: import('./library/CardMenu').CardMenuItem[] = [
       ...(onEditCharacter ? [{ label: 'Edit Character', onClick: onEditCharacter }] : []),
-      { label: 'Chat Settings', onClick: onChatSettings },
-      { label: 'Model Settings', onClick: () => setModelSheetSignal((n) => n + 1) },
+      { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
+      { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
         ? [{ label: 'Group Settings…', onClick: () => setShowGroupSettings(true) }]
         : []),
@@ -431,7 +436,7 @@ export function ChatSidebar({
               {/* The window keeps the Realism engine switch in the header.
                   Stopping the click/key keeps it from toggling the card. */}
               {t && (
-                <span
+                <label
                   className="card-switch"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -443,7 +448,7 @@ export function ChatSidebar({
                     disabled={t.realismAllowed === false}
                     onChange={(e) => toggle('realism', e.target.checked)}
                   />
-                </span>
+                </label>
               )}
             </summary>
             <div className="tool-body state-body">
@@ -965,13 +970,6 @@ export function ChatSidebar({
           {card(id, section(id))}
         </div>
       ))}
-      {/* Model Settings opens today's Change model sheet through the same
-          component the header chip used; the chip itself is hidden on wide
-          by CSS. The host carries no aria-hidden: the sheet it opens is a
-          dialog and must stay in the accessibility tree. */}
-      <div className="model-sheet-host">
-        <ChatModelSwitcher openSignal={modelSheetSignal} />
-      </div>
       {showGroupSettings && t?.group && groupId && (
         <div className="drawer-backdrop" onClick={() => setShowGroupSettings(false)}>
           <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>

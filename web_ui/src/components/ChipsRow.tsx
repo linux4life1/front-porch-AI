@@ -4,14 +4,15 @@
 // Per-message Realism + Needs chips shown under an AI reply. Extracted verbatim
 // from ChatPage to keep that page under the file-size cap. Realism deltas sit on
 // their own row, Needs deltas on a second row below (matching the desktop
-// bubble). A chip carrying a reason is tappable to reveal it inline (works on
-// touch where hover can't) and also exposes the reason as a title for desktop
-// hover. The last message additionally offers the Director redo (reprocess Needs
-// with a critique) + revert.
+// bubble), and the Manual Reprocess / Revert pills on a third row under both
+// (PR 1b: the sketch keeps them off the chip rows at every width). A chip
+// carrying a reason is tappable to reveal it inline (works on touch where hover
+// can't) and also exposes the reason as a title for desktop hover. The last
+// message additionally offers the Director redo (reprocess Needs with a
+// critique) + revert.
 
 import { useState } from 'react';
 import { type Chips, NEED_LABELS } from './chatTypes';
-import { useTouchScreen } from '../hooks/useTouchScreen';
 
 interface Pill {
   key: string;
@@ -34,7 +35,6 @@ export function ChipsRow({
   onRevert: () => void;
 }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const touch = useTouchScreen();
   const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   const realism: Pill[] = [];
@@ -109,31 +109,12 @@ export function ChipsRow({
 
   const openReason = [...realism, ...needs].find((p) => p.key === openKey)?.reason ?? '';
 
-  // Issue 668: on a touch screen the wide pills sat right above the small
-  // message icons and caught stray thumbs, so there they end the top chip row
-  // instead (the Realism row, else the Needs row). Mouse layouts keep the row.
-  const inlineTo = !touch || (!showReprocess && !showRevert) ? null : realism.length > 0 ? 'realism' : needs.length > 0 ? 'needs' : null;
-  const inlinePills = (
-    <>
-      {showReprocess && (
-        <button type="button" className="chip chip-action btn-reprocess" onClick={onReprocess} title="Redo the Needs or the Feelings for this reply" aria-label="Manual Reprocess">
-          ✍ Reprocess
-        </button>
-      )}
-      {showRevert && (
-        <button type="button" className="chip chip-action btn-revert" onClick={onRevert} title="Restore the Needs deltas from before the last reprocess" aria-label="Revert reprocess">
-          ↺ Revert
-        </button>
-      )}
-    </>
-  );
-
   return (
     <div className="chips-block">
-      {realism.length > 0 && <div className="chips-row realism">{realism.map(renderPill)}{inlineTo === 'realism' && inlinePills}</div>}
-      {needs.length > 0 && <div className="chips-row needs">{needs.map(renderPill)}{inlineTo === 'needs' && inlinePills}</div>}
+      {realism.length > 0 && <div className="chips-row realism">{realism.map(renderPill)}</div>}
+      {needs.length > 0 && <div className="chips-row needs">{needs.map(renderPill)}</div>}
       {openKey && openReason && <div className="chip-reason">{openReason}</div>}
-      {!inlineTo && (showReprocess || showRevert) && (
+      {(showReprocess || showRevert) && (
         <div className="needs-reprocess-row">
           {showReprocess && (
             <button type="button" className="btn-reprocess" onClick={onReprocess} title="Redo the Needs or the Feelings for this reply">

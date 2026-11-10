@@ -115,8 +115,9 @@ export function ChatComposer({
    *  those drafts ride the owner mailbox so the next new chat picks
    *  them up, as on the desktop. Null with no chat: nothing persists. */
   draftBox?: { sessionKey: string; ownerKey: string; fresh: boolean } | null;
-  /** The ≥1024 layout: the tools move from the input line to an icon row
-   *  under the box, as the desktop composer draws it (PR 1a). */
+  /** The window's composer: the tools move from the input line to an icon
+   *  row under the box. Every width renders it (PR 1a wide, PR 1b phone
+   *  and tablet); the legacy one-line layout stays for its unit tests. */
   isDesktop?: boolean;
   /** Round persona button at the row's left end (desktop; opens the same
    *  `Speak as…` modal the header button did). */

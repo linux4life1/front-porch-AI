@@ -1,0 +1,125 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Touch targets (PR 1b). On a touch screen every control gets a tap area of
+   at least 44x44 CSS px, but the control itself is DRAWN exactly as it is
+   with a mouse: a transparent ::after carries the extra area, so pills,
+   switches, chips and the drawer's Close keep their mouse size and their
+   rows keep the same height and alignment. A mouse (`pointer: fine`) is
+   unchanged. Imported last so the hit areas win over the surface rules.
+
+   Why not min-width/min-height on the control: that drew the target (Reset
+   and Lock became square boxes, the cast Away pill grew and pushed the +
+   onto its own line, One-Shot's pills became circles, the bubble's top row
+   split the sender name from its icons, and each card's padlock dropped
+   below its title). The hit area is invisible now.
+*/
+
+@media (pointer: coarse) {
+  /* One transparent hit area per control, centred on the control. */
+  .icon-btn,
+  .chat-back-btn,
+  .chat-sidebar-toggle,
+  .chat-sidebar-close,
+  .cast-actions button,
+  .cast-add,
+  .cast-controls button,
+  .composer-icon-row button,
+  .composer-persona-btn,
+  .composer-send-btn,
+  .swipe button,
+  .reply-actions button,
+  .sidebar-main-settings,
+  .sidebar-reset-pill,
+  .sidebar-lock-pill,
+  .sidebar-grip,
+  .cast-chip-main,
+  .state-time-nudges button,
+  .tool-pill,
+  .one-shot-row button,
+  .link-btn,
+  .drawer-head button,
+  .card-switch {
+    position: relative;
+  }
+  .icon-btn::after,
+  .chat-back-btn::after,
+  .chat-sidebar-toggle::after,
+  .chat-sidebar-close::after,
+  .cast-actions button::after,
+  .cast-add::after,
+  .cast-controls button::after,
+  .composer-icon-row button::after,
+  .composer-persona-btn::after,
+  .composer-send-btn::after,
+  .swipe button::after,
+  .reply-actions button::after,
+  .sidebar-main-settings::after,
+  .sidebar-reset-pill::after,
+  .sidebar-lock-pill::after,
+  .sidebar-grip::after,
+  .cast-chip-main::after,
+  .state-time-nudges button::after,
+  .tool-pill::after,
+  .one-shot-row button::after,
+  .link-btn::after,
+  .drawer-head button::after,
+  .card-switch::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+  /* The library card's kebab is already absolutely positioned at the card's
+     corner; `position: relative` would put it in the flow and clip it. The
+     pseudo-element still anchors to it (an absolutely positioned control is
+     its own containing block). */
+  .card-kebab {
+    position: absolute;
+  }
+  /* A centred 44px area would poke past the card's right edge, grow the
+     card's scrollWidth and let it scroll 6px sideways (which clips the
+     .lib-open button). Anchor the area inside the card instead. */
+  .card-kebab::after {
+    left: auto;
+    top: 0;
+    right: 0;
+    transform: none;
+    width: 44px;
+    height: 44px;
+  }
+
+  /* A card's header row is already wide; the hit area adds height only. The
+     row itself keeps its mouse height so the padlock stays on the title line. */
+  .insight-section summary,
+  .tool-section summary {
+    position: relative;
+  }
+  .insight-section summary::after,
+  .tool-section summary::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: max(100%, 44px);
+    transform: translateY(-50%);
+    background: transparent;
+  }
+  /* The header's hit area paints last; keep the switch above it so a tap on
+     the switch toggles the engine, not the card. */
+  .card-switch {
+    z-index: 1;
+  }
+
+  /* Menu rows are a vertical list: growing the row is the only hit area that
+     does not overlap its neighbour. Menus are transient, not chat layout. */
+  .card-menu-item {
+    min-height: 44px;
+  }
+}
