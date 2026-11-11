@@ -19,51 +19,45 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/chat/chat.dart'
-    show AmbitionService, PocketSection, Pockets, StoryClock, visibleNeeds;
-import 'package:front_porch_ai/services/chat/presence_derive.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show StoryClock;
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
-    show showPocketItemDialog;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import '../../mood/mood_look.dart';
 
 import '../porch_accordion.dart';
 import '../sidebar_reorder.dart';
-import 'ambitions_row.dart';
-import 'pockets_gate_line.dart';
-import 'pockets_row.dart';
 import 'bond_bars.dart';
-import 'needs_line.dart';
+import 'bond_reads.dart';
+import 'character_state_leaves.dart';
 import 'time_strip.dart';
-import 'presence_word.dart';
 
 /// 🎭 Character State — the first warm-porch accordion: everything about who
-/// the character *is right now* in one card. 1:1 shows the unified
-/// bond/trust/lust bars (BondBars — the nsfw_section merge),
-/// fixation, needs grid, and the time strip; group mode shows the focused
-/// member's GroupMemberCard (which renders the same shared bar widgets) plus
-/// the shared time strip.
+/// the character *is right now* in one card. The 1:1 host shows the unified
+/// bond/trust/lust bars (BondBars — the nsfw_section merge), fixation, needs
+/// grid, ambitions, pockets and the time strip. In a group the SAME leaves
+/// show for the focused member ([member]), each read from that member's own
+/// entry rather than the chat's live scalars (which hold whoever spoke last).
 ///
 /// Inside the accordion every portion is its own reorderable leaf — the off
-/// note, the member card, the bars, the needs, ambitions, pockets and the
-/// time strip each carry a grip and move within this accordion (ids and
-/// defaults live in `SidebarLayout` under container `character_state`).
-/// Gates travel with the leaf: the Needs grid still shows from the live
-/// `needsActive` gate, not the stored switch (Error Book 2026-10-08).
+/// note, the bars, the needs, ambitions, pockets and the time strip each
+/// carry a grip and move within this accordion (ids and defaults live in
+/// `SidebarLayout` under container `character_state`). Gates travel with the
+/// leaf: the Needs grid still shows from the live `needsActive` gate, not the
+/// stored switch (Error Book 2026-10-08).
 ///
-/// The realism master switch lives in the header for 1:1; group realism is
-/// governed by Group Settings. There is no settings gear: Needs is set on the
-/// card (or in Group Settings), and One-Shot Eval sits above the tool-calling
-/// pill (OneShotEvalRow).
+/// The realism master switch lives in the header for 1:1; a group's Realism is
+/// set in Group Settings (Main Settings → Group Settings…) until the
+/// per-member switches land. There is no settings gear: Needs is set on its
+/// line, and One-Shot Eval sits above the tool-calling pill (OneShotEvalRow).
 class CharacterStateGroup extends StatefulWidget {
   final ChatService chat;
   final bool isGroup;
 
-  /// The focused member's card, built by SidebarBody (needs page-level
-  /// callbacks: remove, objectives, avatar file). Null in 1:1 mode.
-  final Widget? groupMemberCard;
+  /// The focused group member whose state the leaves show. Null in 1:1 mode,
+  /// where the leaves read the chat's active character.
+  final CharacterCard? member;
 
   final bool initiallyExpanded;
   final ValueChanged<bool>? onExpansionChanged;
@@ -82,7 +76,7 @@ class CharacterStateGroup extends StatefulWidget {
     super.key,
     required this.chat,
     required this.isGroup,
-    this.groupMemberCard,
+    this.member,
     required this.initiallyExpanded,
     this.onExpansionChanged,
     this.timeStripKey,
@@ -101,36 +95,47 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
 
   void collapse() => _accordionKey.currentState?.collapse();
 
+  /// The focused group member, when there is one and this is a group.
+  CharacterCard? get _groupMember => widget.isGroup ? widget.member : null;
+
   String _subtitle(ChatService chat) {
+    final time = TimeStrip.timeLabel(chat.timeService.timeOfDay);
     if (widget.isGroup) {
-      final active = chat.isGroupRealismActive;
-      final time = TimeStrip.timeLabel(chat.timeService.timeOfDay);
-      return active ? time : 'Realism off · $time';
+      final member = _groupMember;
+      if (!chat.realismEnabled || member == null || member.isLite) {
+        return chat.realismEnabled ? time : 'Realism off · $time';
+      }
+      final reads = BondReads.member(chat, member);
+      final fixated = chat.getFixationForGroupCharacter(member) != null
+          ? ' · 🧠'
+          : '';
+      return '${reads.shortTerm.tierName} · ${reads.trust.tierName} · '
+          '$time$fixated';
     }
     if (!chat.realismEnabled) return 'Realism off';
     final rel = chat.relationshipService;
     final fixated = rel.activeFixation.isNotEmpty ? ' · 🧠' : '';
-    return '${rel.shortTermTierName} · ${rel.trustTierName} · '
-        '${TimeStrip.timeLabel(chat.timeService.timeOfDay)}$fixated';
+    return '${rel.shortTermTierName} · ${rel.trustTierName} · $time$fixated';
   }
 
   @override
   Widget build(BuildContext context) {
     final chat = widget.chat;
+    final member = _groupMember;
+    // A group's Realism runs when the chat's does; Director Mode keeps it on
+    // (the cast's state still shows, held still while the user is off stage).
     final realismOn = widget.isGroup
-        ? chat.isGroupRealismActive
+        ? chat.realismEnabled && chat.isGroupMode
         : chat.realismEnabled;
+    // A lite guest carries no realism, needs, ambitions or pockets.
+    final lite = member?.isLite ?? false;
+    // Whose state the leaves read: the focused member, or the 1:1 host.
+    final card = widget.isGroup ? member : chat.activeCharacter;
     // The switch shows this chat's own choice. While Porch Life blocks
     // Realism it greys out there; a change made mid-reply lands when the
     // reply settles, and the note says so meanwhile.
     final realismAllowed = realismAllowedOf(context);
     final realismSwitch = chat.realismChatSwitch;
-    // Hoisted: this used to be called twice in the Ambitions guard below, and
-    // it warms the ambition-progress cache on each call — cheap, but this
-    // sidebar rebuilds on every notify during streaming, so once is right.
-    final ambitions = chat.activeCharacter == null
-        ? const <({String text, int progress})>[]
-        : chat.ambitionsFor(chat.activeCharacter!);
     // Mirrors ChatService._clockRunning: Porch Life Passage of Time, live.
     final storage = Provider.of<StorageService>(context);
     final clockRunning = StoryClock.isRunning(
@@ -140,27 +145,28 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     // this chat can show right now filter the stored order and any unknown
     // id appends per the default (hidden portions keep their stored slot).
     final ui = storage.uiSettings;
-    final hasCharacter = chat.activeCharacter != null;
+    final fixation = widget.isGroup
+        ? (member == null || lite
+              ? null
+              : chat.getFixationForGroupCharacter(member))
+        : (realismOn ? chat.relationshipService.activeFixation : '');
     final visible = <String>[
-      if (!widget.isGroup && !realismOn) 'realism_off',
-      if (widget.isGroup && widget.groupMemberCard != null) 'member_card',
-      if (!widget.isGroup && realismOn) 'bond_bars',
-      if (!widget.isGroup &&
-          realismOn &&
-          chat.relationshipService.activeFixation.isNotEmpty)
+      if (!realismOn || lite) 'realism_off',
+      if (realismOn && !lite) 'bond_bars',
+      if (realismOn && !lite && fixation != null && fixation.isNotEmpty)
         'fixation',
-      // The NeedsLine leaf; its grid has the live needsActive gate inside.
-      if (!widget.isGroup && realismOn) 'needs',
-      if (!widget.isGroup &&
-          chat.objectivesActive &&
-          hasCharacter &&
-          ambitions.isNotEmpty)
+      // The NeedsLeaf; its grid has the live needsActive gate inside.
+      if (realismOn && !lite) 'needs',
+      if (chat.objectivesActive &&
+          card != null &&
+          !lite &&
+          chat.ambitionsFor(card).isNotEmpty)
         'ambitions',
       // The pockets leaf stays up while a character is in the chat —
       // v64: its switch is the ONLY 1:1 way back on (the card editor is
       // the default, not the runtime switch), so an off chat must show
       // the line, like Needs does. The PANEL inside keeps its own gate.
-      if (!widget.isGroup && hasCharacter) 'pockets',
+      if (card != null && !lite) 'pockets',
       if (realismOn || widget.isGroup || clockRunning) 'time',
     ];
     final ordered = ui.sidebarLeafOrderFor('character_state', visible);
@@ -251,12 +257,21 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
   Widget _portion(BuildContext context, ChatService chat, String id) {
     final realismAllowed = realismAllowedOf(context);
     final realismSwitch = chat.realismChatSwitch;
+    final member = _groupMember;
+    final card = widget.isGroup ? member : chat.activeCharacter;
     switch (id) {
       case 'realism_off':
         return Text(
-          !realismAllowed
+          member?.isLite ?? false
+              ? 'Lite NPC — no realism or needs tracking for this guest.'
+              : !realismAllowed
               ? "The Realism Engine is off in Porch Life. This chat's "
                     'own choice is kept.'
+              : widget.isGroup
+              // The group's switch lives in Group Settings for now.
+              ? 'The Realism Engine is off for this group. Turn it on in '
+                    'Main Settings → Group Settings to track bond, trust, '
+                    'mood, and scene time for each character.'
               : realismSwitch
               // Allowed again mid-reply: it lands when the reply settles.
               ? 'Realism starts again when this reply finishes.'
@@ -268,151 +283,39 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
             color: AppColors.textTertiary(context),
           ),
         );
-      case 'member_card':
-        return widget.groupMemberCard!;
       case 'bond_bars':
         // ── Unified bars (bond / trust / lust) ──
-        return BondBars(chat: chat);
+        return BondBars(chat: chat, member: widget.isGroup ? member : null);
       case 'fixation':
         // ── Fixation: its own movable portion (replaces the old always-on
         //     chat_page banner; the accordion subtitle carries a 🧠 marker
         //     when collapsed) ──
-        return FixationChip(
-          topic: chat.relationshipService.activeFixation,
-          lifespan: chat.relationshipService.fixationLifespan,
-          compact: false,
-        );
+        return widget.isGroup
+            ? FixationChip(
+                topic: chat.getFixationForGroupCharacter(member!) ?? '',
+                lifespan: chat.getFixationLifespanForGroupCharacter(member),
+                compact: false,
+              )
+            : FixationChip(
+                topic: chat.relationshipService.activeFixation,
+                lifespan: chat.relationshipService.fixationLifespan,
+                compact: false,
+              );
       case 'needs':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            NeedsLine(chat: chat),
-            // The bars show while Needs run: the gate (Realism, this chat's
-            // Needs switch, the Porch Life one), not the stored switch, or
-            // they sit frozen with Needs off and read as live.
-            if (chat.needsActive && chat.needsSimulation.vector.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              NeedsGrid(
-                needs: visibleNeeds(
-                  chat.needsSimulation.vector,
-                  chat.activeCharacter?.frontPorchExtensions?.needsOff ??
-                      const [],
-                ),
-                mini: false,
-                crossAxisCount: 2,
-                pulseInTrouble: widget.moodLook.portraitOn,
-                enjoysLowHygiene:
-                    chat
-                        .activeCharacter
-                        ?.frontPorchExtensions
-                        ?.enjoysLowHygiene ??
-                    false,
-              ),
-            ],
-          ],
+        return NeedsLeaf(
+          chat: chat,
+          member: widget.isGroup ? member : null,
+          pulseInTrouble: widget.moodLook.portraitOn,
         );
       case 'ambitions':
-        // ── Ambitions (Living Time §6) ──
-        // Deliberately OUTSIDE the realism branch. Ambitions are
-        // card-authored text and their progress moves on quest completion,
-        // so they need Objectives — not the Realism Engine. Sitting inside
-        // that branch meant switching the engine off HID a feature that was
-        // still running, which is the same class of bug the Porch Life tab
-        // was built to end (docs/design/feature-independence.md).
-        return AmbitionsRow(
-          ambitions: chat.ambitionsFor(chat.activeCharacter!),
-          // The quest climbing each mountain (v46). Reads the same
-          // accessor in both modes — it returns the 1:1 list unchanged
-          // when there is no group — so the step shown here and on the
-          // group member card are computed identically.
-          steps: AmbitionService.activeStepsFrom(
-            chat.getObjectivesForGroupCharacter(chat.activeCharacter!),
-          ),
-        );
+        return AmbitionsLeaf(chat: chat, card: card!);
       case 'pockets':
-        // Pockets & Wardrobe — answers to its own switch, so it sits OUTSIDE
-        // the realism branch for the same reason Ambitions does.
-        return Builder(
-          builder: (context) {
-            // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the gate
-            // LINE is always up — its switch is how an off chat turns back
-            // on, and an off chat says "retained, not tracked" (hide ≠
-            // erase, spoken aloud). Feature off = the PANEL absent, never
-            // greyed; with it ON the panel renders even for an empty
-            // record, so the FIRST item can be added by hand (2026-08-13
-            // — the panel used to be ✕-only).
-            final card = chat.activeCharacter!;
-            final id = chat.characterIdFor(card);
-            final live = chat.pocketsEnabledFor(id);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PocketsGateLine(
-                  chat: chat,
-                  characterId: id,
-                  characterName: card.name,
-                ),
-                if (live) ...[
-                  const SizedBox(height: 4),
-                  // The bars-show-from-the-gate rule (Error Book 2026-10-08):
-                  // the panel asks the LIVE gate, not the stored switch.
-                  PocketsRow(
-                    pockets: chat.pocketsFor(id) ?? Pockets(),
-                    day: chat.storyDayCount,
-                    onRemove: ({required section, required index}) => chat
-                        .removePocketItem(id, section: section, index: index),
-                    onAdd: ({section}) async {
-                      final add = await showPocketItemDialog(
-                        context,
-                        characterName: card.name,
-                        initialSection: section ?? PocketSection.carrying,
-                      );
-                      if (add == null) return;
-                      await chat.addPocketItem(
-                        id,
-                        section: add.section,
-                        name: add.name,
-                        gift: add.gift,
-                        correction: add.correction,
-                      );
-                    },
-                  ),
-                ],
-              ],
-            );
-          },
-        );
+        return PocketsLeaf(chat: chat, card: card!);
       case 'time':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TimeStrip(key: widget.timeStripKey, chat: chat),
-            ListenableBuilder(
-              listenable: chat,
-              builder: (context, _) {
-                final ext = chat.activeCharacter?.frontPorchExtensions;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!widget.isGroup)
-                      PresenceWord(
-                        where: derivePresence(
-                          occupation: ext?.occupation ?? '',
-                          hours: ext?.hours ?? '',
-                          clockMinutes: chat.timeService.clockMinutes,
-                          weekday: chat.timeService.clock.weekday,
-                          workDays: ext?.workDays,
-                          inScene: inSceneForPresence(
-                            stance: chat.relationshipService.spatialStance,
-                            withUser: chat.relationshipService.withUser,
-                          ),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ],
+        return TimeLeaf(
+          chat: chat,
+          member: widget.isGroup ? member : null,
+          stripKey: widget.timeStripKey,
         );
     }
     return const SizedBox.shrink();

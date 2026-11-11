@@ -72,7 +72,9 @@ class GroupMemberReads {
   /// current group (when `isGroupRealismActive` is true). Includes keys like:
   /// 'emotion', 'emotionIntensity', 'affection', 'trust', 'needs', 'fixation',
   /// and (when group size ≤ 4) the hidden 'relationships' map toward other members.
-  /// This is primarily for debugging/advanced use; the UI never exposes inter-char data.
+  /// The 'relationships' map is shown read-only as Group Dynamics (the
+  /// sidebar section on desktop and the PWA; see [GroupDynamics.of]). It is
+  /// never editable from the UI.
   /// Returns null if not in an active realism group or no data for that char.
   Map<String, dynamic>? getRealismStateForGroupCharacter(
     CharacterCard character,

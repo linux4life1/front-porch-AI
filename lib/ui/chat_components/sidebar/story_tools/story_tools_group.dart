@@ -34,7 +34,7 @@ import 'chat_places_panel.dart';
 import 'lorebook_chat_book.dart';
 import 'lorebook_panel.dart';
 
-/// 🎲 Story Tools accordion — chaos mode, dynamic responses (AFK, 1:1 only),
+/// 🎲 Story Tools accordion — chaos mode, dynamic responses (AFK),
 /// places, and lorebook triggers.
 ///
 /// Objectives live in their own SidebarBody accordion (collapsed by default)
@@ -89,7 +89,7 @@ class StoryToolsGroup extends StatelessWidget {
           // filters to them and appends any it does not know per the default.
           final visible = <String>[
             'chaos',
-            if (!isGroup) 'afk',
+            'afk',
             'places',
             if (showLorebook) 'lorebook',
             'chat_lorebook',

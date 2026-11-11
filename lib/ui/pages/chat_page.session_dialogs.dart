@@ -33,7 +33,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
-/// Group Settings, from the sidebar button, or on [initialTab] from a group
+/// Group Settings, from Main Settings → Group Settings…, or on [initialTab] from a group
 /// member's editor (its lines link to Realism and Needs).
 /// Completes when the dialog closes.
 Future<void> showGroupSettings(

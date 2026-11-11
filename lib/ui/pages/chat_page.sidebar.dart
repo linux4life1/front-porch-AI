@@ -35,7 +35,6 @@ import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
-import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.speakers.dart';
 
@@ -124,7 +123,8 @@ class ChatTranscriptAnchors {
 }
 
 /// The chat's right sidebar for the focused cast member: portrait, Main
-/// Settings, group controls, roster, then the scrolling section body.
+/// Settings (Group Settings… lives there), roster, then the scrolling
+/// section body.
 class ChatRightSidebar extends StatelessWidget {
   const ChatRightSidebar({
     super.key,
@@ -199,35 +199,6 @@ class ChatRightSidebar extends StatelessWidget {
           //    a section cannot be dragged by accident. Both are global —
           //    one arrangement for every chat (maintainer, 2026-11-04). ──
           const _SidebarLayoutPills(),
-
-          // ── Group Settings (group only; sits directly under Main Settings,
-          //    above the cast roster, so the whole-group controls are found
-          //    before per-character ones) ──
-          if (isGroup)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.35),
-                  ),
-                ),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => showGroupSettings(context, chatService),
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('Group Settings'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
-                    side: BorderSide(
-                      color: AppColors.borderOf(context).withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ),
-            ),
 
           // ── Participant roster (only when more than one speaker) ──
           if (cast.length > 1)
@@ -361,8 +332,7 @@ class _SidebarLayoutPills extends StatelessWidget {
                   ? 'Allow dragging the sidebar again'
                   : 'Stop the sidebar from being dragged by accident',
               active: locked,
-              onTap: () =>
-                  unawaited(ui.setSidebarLayoutLocked(!locked)),
+              onTap: () => unawaited(ui.setSidebarLayoutLocked(!locked)),
             ),
           ],
         ),
@@ -386,7 +356,8 @@ class _SidebarLayoutPills extends StatelessWidget {
       // Pop from inside the dialog so the right route closes.
       actions: [
         Builder(
-          builder: (ctx) => warmDialogCancel(ctx, label: 'Keep mine', value: false),
+          builder: (ctx) =>
+              warmDialogCancel(ctx, label: 'Keep mine', value: false),
         ),
         Builder(
           builder: (ctx) => warmDialogConfirm(
@@ -442,10 +413,7 @@ class _LayoutPill extends StatelessWidget {
             children: [
               Icon(icon, size: 13, color: color),
               const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(fontSize: 10, color: color),
-              ),
+              Text(label, style: TextStyle(fontSize: 10, color: color)),
             ],
           ),
         ),

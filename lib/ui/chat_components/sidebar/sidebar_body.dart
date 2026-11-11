@@ -34,6 +34,7 @@ import '../widgets/director_tools.dart';
 import 'character_state/character_state.dart';
 import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
+import 'group_dynamics_section.dart';
 import 'sidebar_member_card.dart';
 import 'sidebar_reorder.dart';
 import 'sidebar_tokens.dart';
@@ -190,8 +191,8 @@ class _SidebarBodyState extends State<SidebarBody> {
           isLite: isLite,
           isGroup: isGroup,
         );
+        // In a group the section is the focused member's own goals.
         final showObjectives =
-            !isGroup &&
             !isLite &&
             (chat.objectivesActive ||
                 OpenSectionEnv.name == OpenSectionEnv.objectives);
@@ -329,20 +330,14 @@ class _SidebarBodyState extends State<SidebarBody> {
           dragHandle: grip,
         );
       case 'character_state':
-        return CharacterStateGroup(
+        final member = isGroup ? widget.focused.card : null;
+        final dynamicsVisible = GroupDynamicsSection.visibleFor(chat, member);
+        final state = CharacterStateGroup(
           key: _characterStateKey,
           chat: chat,
           isGroup: isGroup,
           moodLook: MoodLook.of(storage),
-          groupMemberCard: isGroup
-              ? buildFocusedMemberCard(
-                  context: context,
-                  focused: widget.focused,
-                  chat: chat,
-                  moodLook: MoodLook.of(storage),
-                  resolveCharImage: widget.resolveCharImage,
-                )
-              : null,
+          member: member,
           initiallyExpanded: ui.sidebarGroupExpanded(
             'character_state',
             fallback: true,
@@ -351,6 +346,25 @@ class _SidebarBodyState extends State<SidebarBody> {
               ui.setSidebarGroupExpanded('character_state', v),
           dragHandle: grip,
           timeStripKey: _timeStripKey,
+        );
+        // Group Dynamics rides under Character State: it moves with it, so
+        // it always sits directly below, whatever order was saved.
+        if (!dynamicsVisible) return state;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            state,
+            GroupDynamicsSection(
+              chat: chat,
+              member: member!,
+              initiallyExpanded: ui.sidebarGroupExpanded(
+                'group_dynamics',
+                fallback: true,
+              ),
+              onExpansionChanged: (v) =>
+                  ui.setSidebarGroupExpanded('group_dynamics', v),
+            ),
+          ],
         );
       case 'journal_memory':
         return JournalMemoryGroup(
@@ -377,6 +391,9 @@ class _SidebarBodyState extends State<SidebarBody> {
           emoji: '🎯',
           title: 'Objectives',
           subtitle: () {
+            // A group's loaded goal is the next speaker's, not the focused
+            // member's: name the member instead.
+            if (isGroup) return widget.focused.name;
             final goal = chat.primaryObjective?.objective.trim() ?? '';
             return goal.isNotEmpty ? goal : 'auto · expand to steer';
           }(),
@@ -388,7 +405,12 @@ class _SidebarBodyState extends State<SidebarBody> {
           onExpansionChanged: (v) =>
               ui.setSidebarGroupExpanded('objectives', v),
           dragHandle: grip,
-          child: ObjectivePanel(chatService: chat),
+          child: isGroup
+              ? GroupObjectivesPanel(
+                  chatService: chat,
+                  member: widget.focused.card,
+                )
+              : ObjectivePanel(chatService: chat),
         );
       case 'story_tools':
         return StoryToolsGroup(

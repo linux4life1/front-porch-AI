@@ -34,6 +34,9 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.main_settings_items.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
+    show showGroupSettings;
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
     show memberGroupViewOfChat, readMemberEditorDefinition;
@@ -446,53 +449,12 @@ class ChatSidebarMainSettings extends StatelessWidget {
               builder: (context) => const TtsSettingsDialog(),
             );
             break;
+          case 'group_settings':
+            await showGroupSettings(context, chatService);
+            break;
         }
       },
-      items: const [
-        PopupMenuItem(
-          value: 'edit_character',
-          child: SettingsMenuItem(
-            icon: Icons.edit_outlined,
-            label: 'Edit Character',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'expressions',
-          child: SettingsMenuItem(
-            icon: Icons.photo_library_outlined,
-            label: 'Avatar Gallery',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'ui',
-          child: SettingsMenuItem(
-            icon: Icons.tune_outlined,
-            label: 'UI Settings',
-          ),
-        ),
-        PopupMenuDivider(height: 1),
-        PopupMenuItem(
-          value: 'chat',
-          child: SettingsMenuItem(
-            icon: Icons.chat_bubble_outline,
-            label: 'Chat Settings',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'model',
-          child: SettingsMenuItem(
-            icon: Icons.memory_outlined,
-            label: 'Model Settings',
-          ),
-        ),
-        PopupMenuItem(
-          value: 'tts',
-          child: SettingsMenuItem(
-            icon: Icons.volume_up_outlined,
-            label: 'TTS Settings',
-          ),
-        ),
-      ],
+      items: mainSettingsItems(isGroup: isGroup),
     );
   }
 }

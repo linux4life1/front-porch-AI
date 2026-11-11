@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.call_button.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.input.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.regen_shortcut.dart';
@@ -405,30 +406,8 @@ class ChatInputActionStrip {
           );
         },
       ),
-      // Call button (voice call mode)
-      Consumer2<SttService, StorageService>(
-        builder: (context, sttService, storage, _) {
-          if (!storage.sttSettings.sttEnabled || chatService.isGroupMode) {
-            return const SizedBox.shrink();
-          }
-          return Tooltip(
-            message: 'Start voice call',
-            child: IconButton(
-              icon: Icon(Icons.call, color: AppColors.porchAmberOf(context)),
-              onPressed: chatService.isGenerating || sttService.isBusy
-                  ? null
-                  : () async {
-                      final micOk = await sttService.checkMicAvailable();
-                      if (!micOk && context.mounted) {
-                        showNoMicDialog(context);
-                        return;
-                      }
-                      onStartCall();
-                    },
-            ),
-          );
-        },
-      ),
+      // Call button (voice call mode; greyed in a group)
+      ChatCallButton(chatService: chatService, onStartCall: onStartCall),
       // Auto-play (Director Mode) + Next Character; Next stays greyed out
       // while auto-play runs so Pause lands where Play was. Pause stays up
       // through an auto-chat reply: it lets that reply finish.

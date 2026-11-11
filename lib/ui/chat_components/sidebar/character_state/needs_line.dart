@@ -26,9 +26,15 @@ import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 /// Porch Life's Needs is off it greys out and says where to look; the chat's
 /// own choice is kept for when Porch Life turns Needs back on.
 class NeedsLine extends StatelessWidget {
-  const NeedsLine({super.key, required this.chat});
+  const NeedsLine({super.key, required this.chat, this.inGroup = false});
 
   final ChatService chat;
+
+  /// A group member's line: the heading alone, no switch. The group's Needs
+  /// switch is not the member's, and the per-member one comes later, so a
+  /// control here would claim a scope it does not have. The Group Settings
+  /// window still holds the switch.
+  final bool inGroup;
 
   @override
   Widget build(BuildContext context) {
@@ -57,18 +63,19 @@ class NeedsLine extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(
-              height: 24,
-              child: FittedBox(
-                child: Switch(
-                  value: chat.needsSimEnabled,
-                  activeThumbColor: accent,
-                  onChanged: !allowed || chat.isGenerating
-                      ? null
-                      : chat.setNeedsSimEnabled,
+            if (!inGroup)
+              SizedBox(
+                height: 24,
+                child: FittedBox(
+                  child: Switch(
+                    value: chat.needsSimEnabled,
+                    activeThumbColor: accent,
+                    onChanged: !allowed || chat.isGenerating
+                        ? null
+                        : chat.setNeedsSimEnabled,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         if (!allowed) const NeedsOffInPorchLifeNote(),

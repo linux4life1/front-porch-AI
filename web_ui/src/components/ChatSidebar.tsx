@@ -209,6 +209,10 @@ export function ChatSidebar({
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
 
+  // Realism off for this chat (a group member comes back with no scores at
+  // all, so nothing below may read them).
+  const realismOff = realism.realismEnabled === false;
+
   // ── Portrait mood (same computation as ChatInsight) ──────────────────
   const moodOn =
     (moodLook?.level ?? 'off') !== 'off' && !!moodPaints && realism.realismEnabled !== false;
@@ -415,7 +419,10 @@ export function ChatSidebar({
           </details>
         ) : null;
       case 'character_state':
+        // Group Dynamics rides under Character State, as on the window: it
+        // moves with it, so it always sits directly below.
         return (
+          <>
           <details
             className="tool-section state-card"
             open={stateOpen}
@@ -427,15 +434,17 @@ export function ChatSidebar({
                 <span className="card-sub">
                   {[
                     focusedName,
-                    realism.bond.tier,
-                    realism.trust.tier,
+                    realismOff ? undefined : realism.bond.tier,
+                    realismOff ? undefined : realism.trust.tier,
                     t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
                   ].filter(Boolean).join(' · ')}
                 </span>
               </span>
-              {/* The window keeps the Realism engine switch in the header.
+              {/* The window keeps the Realism engine switch in the header of a 1:1; in a
+                  group it is not shown until the per-member switches land (the
+                  chat-level one is not a member's).
                   Stopping the click/key keeps it from toggling the card. */}
-              {t && (
+              {t && !isGroup && (
                 <label
                   className="card-switch"
                   onClick={(e) => e.stopPropagation()}
@@ -464,8 +473,23 @@ export function ChatSidebar({
                 </p>
               ) : (
                 <>
+                  {realismOff && (
+                    <p className="muted small realism-off">
+                      {realism.realismAllowed === false
+                        ? "The Realism Engine is off in Porch Life. This chat's own choice is kept."
+                        : isGroup
+                          ? 'The Realism Engine is off for this group. Turn it on in Main Settings → ' +
+                            'Group Settings to track bond, trust, mood, and scene time for each character.'
+                          : realism.realismSwitch === true
+                            ? 'Realism starts again when this reply finishes.'
+                            : 'The Realism Engine is off for this chat — flip the switch to track bond, ' +
+                              'trust, mood, and scene time for this character.'}
+                    </p>
+                  )}
                   {/* The window's order: bonds, Afterglow/Lust, fixation,
                       Needs and its bars, ambitions, Pockets, time. */}
+                  {!realismOff && (
+                  <>
                   <StatBar
                     label="Short-Term Bond"
                     value={`${realism.bond.tier} · ${realism.bond.score}`}
@@ -518,20 +542,28 @@ export function ChatSidebar({
                       <span className="fixation-label">Fixation</span> {realism.fixation}
                     </div>
                   )}
-                  {t?.needsEnabled && (
+                  {(isGroup || t?.needsEnabled) && (
                     <>
+                      {isGroup ? (
+                        // A group's Needs line is the heading alone, as on the
+                        // window: the chat-level switch is not a member's.
+                        <div className="state-line">
+                          <span>💗 Needs</span>
+                        </div>
+                      ) : (
                       <label className="state-line">
                         <span>💗 Needs</span>
                         <input
                           type="checkbox"
                                 aria-label="Needs"
                           className="state-switch"
-                          checked={t.needsEnabled}
-                          disabled={t.needsAllowed === false}
+                          checked={t!.needsEnabled}
+                          disabled={t!.needsAllowed === false}
                           onChange={(e) => toggle('needs', e.target.checked)}
                         />
                       </label>
-                      {t.needsAllowed === false && (
+                      )}
+                      {t?.needsAllowed === false && (
                         <p className="muted small">
                           Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.
                         </p>
@@ -550,6 +582,8 @@ export function ChatSidebar({
                           />
                         ))}
                     </>
+                  )}
+                  </>
                   )}
                   {t && (t.ambitions?.length ?? 0) > 0 && (
                     <div className="state-ambitions">
@@ -766,6 +800,36 @@ export function ChatSidebar({
               )}
             </div>
           </details>
+          {t?.groupDynamics && (
+            <details className="tool-section group-dynamics" open>
+              <summary><span className="card-chev" aria-hidden>❯</span>🫂 Group Dynamics{' '}
+                <span className="card-sub">{t.groupDynamics.member}</span>
+              </summary>
+              <div className="tool-body">
+                {t.groupDynamics.tracked ? (
+                  <>
+                    <p className="muted small">
+                      How {t.groupDynamics.member} feels about the others. Read-only.
+                    </p>
+                    {t.groupDynamics.feelings.map((f) => (
+                      <StatBar
+                        key={f.id}
+                        label={f.name}
+                        value={`${f.tier} · ${f.score}`}
+                        percent={f.percent}
+                        tone={f.score < 0 ? 'danger' : ''}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <p className="muted small">
+                    Feelings between characters are tracked in groups of two to four characters.
+                  </p>
+                )}
+              </div>
+            </details>
+          )}
+          </>
         );
       case 'journal_memory':
         return t ? (

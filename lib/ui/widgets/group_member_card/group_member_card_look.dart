@@ -372,7 +372,7 @@ class GroupMemberCardLook {
         Padding(
           padding: const EdgeInsets.only(top: 2),
           child: Text(
-            'Realism off — enable in sidebar for per-character state',
+            'Realism off — turn it on in Main Settings → Group Settings',
             style: TextStyle(
               fontSize: 9,
               color: AppColors.textTertiary(context),
