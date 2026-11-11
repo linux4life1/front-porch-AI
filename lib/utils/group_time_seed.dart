@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -42,4 +44,24 @@ parseGroupTimeSeedOf(GroupChat group) {
     storyStartDate: date ?? blob?.storyStartDate,
     storyStartTime: time ?? blob?.storyStartTime,
   );
+}
+
+/// [definitionJson] with the scene time new chats start at set on its
+/// top-level keys, where [parseGroupTimeSeed] reads it. Seeds and every
+/// other key are kept; a blob that is not a map starts a fresh one.
+String withGroupSceneTime(
+  String definitionJson, {
+  required String timeOfDay,
+  required int dayCount,
+}) {
+  Map<String, dynamic> map;
+  try {
+    final raw = jsonDecode(definitionJson);
+    map = raw is Map ? Map<String, dynamic>.from(raw) : {};
+  } catch (_) {
+    map = {};
+  }
+  map['timeOfDay'] = timeOfDay;
+  map['dayCount'] = dayCount;
+  return jsonEncode(map);
 }

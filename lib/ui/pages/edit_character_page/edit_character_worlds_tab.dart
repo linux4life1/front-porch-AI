@@ -23,7 +23,6 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/widgets/group_setting_picker.dart';
 import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 
 /// The character editor's Worlds tab: where this character's new 1:1 chats
 /// meet, with the same picker groups use. One world sets the weather and
@@ -35,11 +34,16 @@ class EditCharacterWorldsTab extends StatelessWidget {
     required this.onChanged,
     required this.characterName,
     this.legacyWorldCount = 0,
-    this.memberNote,
+    this.owner,
+    this.suggestedBy = const {},
   });
 
-  /// A group member's editor: where the group meets instead.
-  final String? memberNote;
+  /// The group editor says whose worlds these are ("the group"); the
+  /// character editor names the character.
+  final String? owner;
+
+  /// Worlds the members already link, offered as suggestions (groups).
+  final Map<String, List<String>> suggestedBy;
 
   final GroupWorldChoice value;
   final ValueChanged<GroupWorldChoice> onChanged;
@@ -62,16 +66,18 @@ class EditCharacterWorldsTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (memberNote != null) MemberEditorNote(memberNote!),
                 GroupWorldsSection(
                   value: value,
                   onChanged: onChanged,
                   places: repo.placeWorlds,
                   weatherOf: groupWeatherLabels(repo),
                   legacyWorldCount: legacyWorldCount,
-                  owner: characterName.trim().isEmpty
-                      ? 'this character'
-                      : characterName.trim(),
+                  suggestedBy: suggestedBy,
+                  owner:
+                      owner ??
+                      (characterName.trim().isEmpty
+                          ? 'this character'
+                          : characterName.trim()),
                 ),
               ],
             ),

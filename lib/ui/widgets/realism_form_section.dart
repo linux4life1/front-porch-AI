@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/creator_palette.dart';
+import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
@@ -157,17 +158,14 @@ class RealismFormSection extends StatelessWidget {
   final bool showTimeAndDay;
   final bool showMasterEnabledToggle;
 
-  /// The starting bonds and emotion. A group member's start lives in the
-  /// group's own seeds (Edit group → Realism), so its editor hides them.
+  /// The starting bonds and emotion (a creator surface may hide them).
   final bool showStartingState;
 
-  /// The Afterglow switch's words, for a group member's own switch.
-  final String? afterglowLabel;
-  final String? afterglowSubtitle;
-
-  /// A group member's editor: the group's own lines, read-only, where a 1:1
-  /// card has its switches.
-  final MemberGroupRows? memberRows;
+  /// A group member's editor: Time & Day (and the story-start row under it)
+  /// is the group's, so it shows the group's values greyed out with this
+  /// tooltip. Chaos Mode likewise, with [chaosLockedTooltip].
+  final String? timeDayLockedTooltip;
+  final String? chaosLockedTooltip;
 
   /// The Director's authority over Needs scores (needs Verification on).
   /// Absent without a setter.
@@ -243,9 +241,8 @@ class RealismFormSection extends StatelessWidget {
     this.showTimeAndDay = true,
     this.showMasterEnabledToggle = true,
     this.showStartingState = true,
-    this.afterglowLabel,
-    this.afterglowSubtitle,
-    this.memberRows,
+    this.timeDayLockedTooltip,
+    this.chaosLockedTooltip,
     this.needsDirectorAuthority = false,
     this.onNeedsDirectorAuthorityChanged,
     this.storyStartDate,
@@ -280,6 +277,40 @@ class RealismFormSection extends StatelessWidget {
     context: context,
   );
 
+  /// The Time & Day card and the story-start row under it; greyed out with
+  /// [timeDayLockedTooltip] when the group owns them.
+  Widget _timeAndDay(BuildContext context, TextStyle labelStyle) {
+    final block = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RealismSectionHeader(
+          Icons.schedule,
+          'Time & Day',
+          context.creatorPalette?.amber ?? AppColors.timeDayAccent,
+        ),
+        const SizedBox(height: 12),
+        RealismTimeDayCard(
+          timeOfDay: timeOfDay,
+          onTimeOfDayChanged: onTimeOfDayChanged,
+          dayCount: dayCount,
+          onDayCountChanged: onDayCountChanged,
+          labelStyle: labelStyle,
+        ),
+        if (onStoryStartDateChanged != null) ...[
+          const SizedBox(height: 8),
+          StoryBeginsRow(
+            storyStartDate: storyStartDate,
+            onStoryStartDateChanged: onStoryStartDateChanged!,
+            storyStartTime: storyStartTime,
+            onStoryStartTimeChanged: onStoryStartTimeChanged,
+          ),
+        ],
+      ],
+    );
+    final lock = timeDayLockedTooltip;
+    return lock == null ? block : GreyedOut(tooltip: lock, child: block);
+  }
+
   @override
   Widget build(BuildContext context) {
     final labelStyle = TextStyle(
@@ -301,40 +332,12 @@ class RealismFormSection extends StatelessWidget {
         // Time / Chaos / identity chips are Porch Life — they run without
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
-        ?memberRows?.header,
-        if (showTimeAndDay) ...[
-          RealismSectionHeader(
-            Icons.schedule,
-            'Time & Day',
-            context.creatorPalette?.amber ?? AppColors.timeDayAccent,
-          ),
-          const SizedBox(height: 12),
-          RealismTimeDayCard(
-            timeOfDay: timeOfDay,
-            onTimeOfDayChanged: onTimeOfDayChanged,
-            dayCount: dayCount,
-            onDayCountChanged: onDayCountChanged,
-            labelStyle: labelStyle,
-          ),
-          if (onStoryStartDateChanged != null) ...[
-            const SizedBox(height: 8),
-            StoryBeginsRow(
-              storyStartDate: storyStartDate,
-              onStoryStartDateChanged: onStoryStartDateChanged!,
-              storyStartTime: storyStartTime,
-              onStoryStartTimeChanged: onStoryStartTimeChanged,
-            ),
-          ],
-        ],
+        if (showTimeAndDay) ...[_timeAndDay(context, labelStyle)],
         if (enabled) ...[
           // Needs Simulation (rendered separately when provided by caller).
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
           if (needsFormSection != null) needsFormSection!,
 
-          if (!showStartingState && memberRows?.noStartNote != null) ...[
-            const SizedBox(height: sectionHeaderGap),
-            MemberEditorNote(memberRows!.noStartNote!),
-          ],
           // Relationship Section — one [sectionHeaderGap] above the header.
           if (showStartingState) ...[
             Column(
@@ -347,10 +350,6 @@ class RealismFormSection extends StatelessWidget {
                   'Relationship',
                   context.creatorPalette?.amber ?? AppColors.relationshipAccent,
                 ),
-                if (memberRows != null) ...[
-                  const SizedBox(height: 4),
-                  Text(memberRows!.startNote, style: labelStyle),
-                ],
                 const SizedBox(height: 12),
                 RealismRelationshipCard(
                   shortTermBond: shortTermBond,
@@ -407,10 +406,7 @@ class RealismFormSection extends StatelessWidget {
             showChargenSuggestion: showChargenSuggestion,
             afterglowEnabled: afterglowEnabled,
             onAfterglowChanged: onAfterglowChanged,
-            afterglowLabel: afterglowLabel,
-            afterglowSubtitle: afterglowSubtitle,
-            chaosLine: memberRows?.chaos,
-            afterglowLine: memberRows?.afterglow,
+            chaosLockedTooltip: chaosLockedTooltip,
             needsDirectorAuthority: needsDirectorAuthority,
             onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),
@@ -434,13 +430,11 @@ class RealismFormSection extends StatelessWidget {
                     context.creatorPalette?.line ?? AppColors.borderOf(context),
               ),
             ),
-            child: buildRealismToggleRow(
-              icon: Icons.casino,
-              label: 'Chaos Mode (Chance Time)',
-              subtitle: 'Random narrative events during roleplay',
+            child: realismChaosRow(
+              context,
               value: chaosModeEnabled,
               onChanged: onChaosModeChanged,
-              context: context,
+              lockedTooltip: chaosLockedTooltip,
             ),
           ),
         ],

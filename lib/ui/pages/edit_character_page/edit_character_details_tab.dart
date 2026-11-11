@@ -26,12 +26,11 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show BirthdayMath;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/editor_tags_field.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_realism_section.dart';
-import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/group_member_mode.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
-    show MemberEditorNote;
 
 /// Card face for the editor: the ★ starred gallery look when set, else the
 /// library portrait — same resolution as the home grid / export cover
@@ -68,27 +67,25 @@ class EditCharacterDetailsTab extends StatelessWidget {
   final EditCharacterDraft draft;
   final VoidCallback onChanged;
 
-  /// The group this card is a member of, when it is a member's own copy.
-  final String? memberOfGroup;
+  /// Member mode: this card is a member's own copy in a group. Adds the
+  /// notice and "In the group", greys out what the group owns.
+  final GroupMemberMode? member;
+  final GroupMemberValues? memberValues;
+  final ValueChanged<GroupMemberValues>? onMemberValuesChanged;
 
-  /// The member's group, and where they start in its new chats.
-  final MemberGroupView? memberGroup;
-
-  /// What the group does with this member's Scenario.
-  final String? scenarioNote;
-  final GroupMemberStart? start;
-  final ValueChanged<GroupMemberStart>? onStartChanged;
+  /// 1:1 mode: the names of the groups this character is also in, for the
+  /// line at the top (none: no line).
+  final List<String> inGroups;
 
   const EditCharacterDetailsTab({
     super.key,
     required this.character,
     required this.draft,
     required this.onChanged,
-    this.memberOfGroup,
-    this.memberGroup,
-    this.scenarioNote,
-    this.start,
-    this.onStartChanged,
+    this.member,
+    this.memberValues,
+    this.onMemberValuesChanged,
+    this.inGroups = const [],
   });
 
   void _edit(VoidCallback fn) {
@@ -96,42 +93,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
     onChanged();
   }
 
-  void _addTag(String value) {
-    final trimmed = value.trim().toLowerCase();
-    if (trimmed.isNotEmpty && !draft.tags.contains(trimmed)) {
-      _edit(() {
-        draft.tags.add(trimmed);
-        draft.tagController.clear();
-      });
-    }
-  }
-
   /// The member's name as the editor has it now, so a rename shows at once.
   String get _memberName {
     final typed = draft.nameController.text.trim();
     return typed.isEmpty ? character.name : typed;
-  }
-
-  /// Says whose copy this is: edits stay in the group.
-  Widget _memberBanner(BuildContext context, String group) {
-    final name = _memberName;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.formAccentOf(context).withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.formAccentOf(context).withValues(alpha: 0.25),
-        ),
-      ),
-      child: Text(
-        '$name in $group. Changes apply to $name in this group; the library '
-        'card and its other chats stay as they are.',
-        key: const Key('group-member-editor-banner'),
-        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
-      ),
-    );
   }
 
   @override
@@ -146,7 +111,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (memberOfGroup != null) _memberBanner(context, memberOfGroup!),
+              if (member != null)
+                groupMemberNotice(_memberName, member!.groupName)
+              else
+                characterInGroupsNote(_memberName, inGroups),
               // ── Avatar (read-only). Portrait + expression images are managed
               //    in the Avatar Gallery (right-click a character on the home
               //    grid, or the chat sidebar) — no destructive change here.
@@ -220,65 +188,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
-                  // Tags
-                  kit.fieldLabel('Tags'),
-                  const SizedBox(height: 8),
-                  if (d.tags.isNotEmpty)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: d.tags
-                          .map(
-                            (tag) => Chip(
-                              label: Text(
-                                tag,
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              backgroundColor: AppColors.surfaceContainerOf(
-                                context,
-                              ),
-                              side: BorderSide.none,
-                              deleteIcon: Icon(
-                                Icons.close,
-                                size: 14,
-                                color: AppColors.textTertiary(context),
-                              ),
-                              onDeleted: () => _edit(() => d.tags.remove(tag)),
-                              visualDensity: VisualDensity.compact,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  if (d.tags.isNotEmpty) const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: d.tagController,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                            fontSize: 14,
-                          ),
-                          decoration: kit.inputDecoration('Add a tag...'),
-                          onSubmitted: _addTag,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        icon: Icon(
-                          Icons.add_circle,
-                          color: AppColors.formAccentOf(context),
-                        ),
-                        tooltip: 'Add tag',
-                        onPressed: () => _addTag(d.tagController.text),
-                      ),
-                    ],
+                  EditorTagsField(
+                    tags: d.tags,
+                    controller: d.tagController,
+                    onChanged: onChanged,
                   ),
                 ],
               ),
@@ -349,10 +262,6 @@ class EditCharacterDetailsTab extends StatelessWidget {
                     expandable: true,
                     hint: 'The setting, situation, or context...',
                   ),
-                  if (scenarioNote != null) ...[
-                    const SizedBox(height: 8),
-                    MemberEditorNote(scenarioNote!),
-                  ],
                 ],
               ),
               const SizedBox(height: 20),
@@ -437,12 +346,23 @@ class EditCharacterDetailsTab extends StatelessWidget {
               EditCharacterRealismSection(
                 draft: d,
                 onChanged: onChanged,
-                memberName: memberOfGroup == null ? null : _memberName,
-                group: memberGroup,
-                start: start,
-                onStartChanged: onStartChanged,
-                lite: memberOfGroup != null && character.isLite,
+                member: member,
+                memberName: member == null ? null : _memberName,
+                lite: member != null && character.isLite,
               ),
+
+              // ── In the group (member mode only) ──
+              if (member != null &&
+                  memberValues != null &&
+                  onMemberValuesChanged != null) ...[
+                const SizedBox(height: 20),
+                GroupMemberSection(
+                  mode: member!,
+                  memberName: _memberName,
+                  values: memberValues!,
+                  onChanged: onMemberValuesChanged!,
+                ),
+              ],
 
               const SizedBox(height: 80), // Space for token badge
             ],

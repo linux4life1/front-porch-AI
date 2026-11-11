@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/creator_palette.dart';
+import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 
 import 'realism_form_controls.dart';
@@ -39,8 +40,6 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     required this.realismVerificationStrictness,
     required this.onRealismVerificationStrictnessChanged,
     required this.showChaosToggle,
-    this.afterglowLabel,
-    this.afterglowSubtitle,
     required this.showVerificationToggle,
     this.recovery,
     this.onRecoveryChanged,
@@ -50,16 +49,14 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
-    this.chaosLine,
-    this.afterglowLine,
+    this.chaosLockedTooltip,
     this.needsDirectorAuthority = false,
     this.onNeedsDirectorAuthorityChanged,
   });
 
-  /// A group member's editor: the group's Chaos and Afterglow, read-only,
-  /// above the member's own rows.
-  final Widget? chaosLine;
-  final Widget? afterglowLine;
+  /// A group member's editor: Chaos Mode is the group's for now, so its row
+  /// is greyed out with this tooltip.
+  final String? chaosLockedTooltip;
 
   /// The Director's authority over Needs scores; it acts only with
   /// Verification on.
@@ -76,10 +73,6 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final ValueChanged<int>? onRealismVerificationStrictnessChanged;
   final bool showChaosToggle;
   final bool showVerificationToggle;
-
-  /// Words for the Afterglow switch when it is a group member's own.
-  final String? afterglowLabel;
-  final String? afterglowSubtitle;
 
   /// Recovery block (recovery overhaul PR 2). Rendered only when a caller
   /// supplies the value + setter (the group editors pass neither: per
@@ -121,16 +114,13 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          ?chaosLine,
-          if (allowed) ?afterglowLine,
           if (showSwitch) ...[
             buildRealismToggleRow(
               icon: Icons.local_fire_department,
-              label: afterglowLabel ?? 'Afterglow',
+              label: 'Afterglow',
               subtitle:
-                  afterglowSubtitle ??
                   'Lust and recovery in new chats with this character. Chats '
-                      'you already have keep their own switch.',
+                  'you already have keep their own switch.',
               value: afterglowEnabled,
               onChanged: onAfterglowChanged!,
               context: context,
@@ -165,18 +155,15 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               ),
           ],
           if (showChaosToggle) ...[
-            buildRealismToggleRow(
-              icon: Icons.casino,
-              label: 'Chaos Mode (Chance Time)',
-              subtitle: 'Random narrative events during roleplay',
+            realismChaosRow(
+              context,
               value: chaosModeEnabled,
               onChanged: onChaosModeChanged,
-              context: context,
+              lockedTooltip: chaosLockedTooltip,
             ),
           ],
 
           // Realism Verification toggle (last optional; independent of needs).
-          // Uses same _toggleRow + card styling. Sliders for passes/strictness are in Details dialog per spec.
           if (showVerificationToggle) ...[
             if (showChaosToggle || showRecovery)
               Divider(
@@ -186,83 +173,146 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         .withValues(alpha: 0.4),
                 height: 24,
               ),
-            buildRealismToggleRow(
-              icon: Icons.verified_user,
-              label: 'Realism Verification (Director/Verifier)',
-              subtitle:
-                  'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
-              value: realismVerificationEnabled,
-              onChanged: onRealismVerificationChanged,
-              context: context,
+            RealismVerificationControls(
+              enabled: realismVerificationEnabled,
+              onEnabledChanged: onRealismVerificationChanged,
+              maxReprocesses: realismVerificationMaxReprocesses,
+              onMaxReprocessesChanged:
+                  onRealismVerificationMaxReprocessesChanged,
+              strictness: realismVerificationStrictness,
+              onStrictnessChanged: onRealismVerificationStrictnessChanged,
+              directorAuthority: needsDirectorAuthority,
+              onDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
             ),
-            // Compact sliders for the 2 tunables (shown in forms including group per-member when toggle visible).
-            // 1-5 range; onChanged provided by caller (pages, group seed); defaults safe if not.
-            // With Verification off they only tune a switched-off pass:
-            // disabled and dimmed, values kept for when it comes back on.
-            const SizedBox(height: 8),
-            Text(
-              'Max reprocess passes: $realismVerificationMaxReprocesses',
-              style: TextStyle(
-                color: realismVerificationEnabled
-                    ? context.creatorPalette?.prose ??
-                          AppColors.textSecondary(context)
-                    : context.creatorPalette?.muted ??
-                          AppColors.textTertiary(context),
-                fontSize: 11,
-              ),
-            ),
-            Slider(
-              value: realismVerificationMaxReprocesses.toDouble(),
-              min: 1,
-              max: 5,
-              divisions: 4,
-              label: '$realismVerificationMaxReprocesses',
-              onChanged: realismVerificationEnabled
-                  ? (d) => onRealismVerificationMaxReprocessesChanged?.call(
-                      d.round(),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Strictness (1=lenient … 5=strict): $realismVerificationStrictness',
-              style: TextStyle(
-                color: realismVerificationEnabled
-                    ? context.creatorPalette?.prose ??
-                          AppColors.textSecondary(context)
-                    : context.creatorPalette?.muted ??
-                          AppColors.textTertiary(context),
-                fontSize: 11,
-              ),
-            ),
-            Slider(
-              value: realismVerificationStrictness.toDouble(),
-              min: 1,
-              max: 5,
-              divisions: 4,
-              label: '$realismVerificationStrictness',
-              onChanged: realismVerificationEnabled
-                  ? (d) =>
-                        onRealismVerificationStrictnessChanged?.call(d.round())
-                  : null,
-            ),
-            // It acts only through Verification, so it shows with it on (as
-            // the web editor and Group Settings show it).
-            if (onNeedsDirectorAuthorityChanged != null &&
-                realismVerificationEnabled)
-              buildRealismToggleRow(
-                icon: Icons.gavel,
-                label: 'Director authority (needs)',
-                subtitle:
-                    "The director's corrections to Needs scores are the ones "
-                    'used.',
-                value: needsDirectorAuthority,
-                onChanged: onNeedsDirectorAuthorityChanged!,
-                context: context,
-              ),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The Chaos Mode switch row; greyed out with [lockedTooltip] when it is
+/// not this editor's to set.
+Widget realismChaosRow(
+  BuildContext context, {
+  required bool value,
+  required ValueChanged<bool> onChanged,
+  String? lockedTooltip,
+}) {
+  final row = buildRealismToggleRow(
+    icon: Icons.casino,
+    label: 'Chaos Mode (Chance Time)',
+    subtitle: 'Random narrative events during roleplay',
+    value: value,
+    onChanged: onChanged,
+    context: context,
+  );
+  return lockedTooltip == null
+      ? row
+      : GreyedOut(tooltip: lockedTooltip, child: row);
+}
+
+/// Realism Verification (Director/Verifier): the switch, the two tunables and,
+/// with Verification on, the Director's authority over Needs scores. The
+/// character editor and the group editor show this same block.
+class RealismVerificationControls extends StatelessWidget {
+  const RealismVerificationControls({
+    super.key,
+    required this.enabled,
+    required this.onEnabledChanged,
+    required this.maxReprocesses,
+    required this.onMaxReprocessesChanged,
+    required this.strictness,
+    required this.onStrictnessChanged,
+    this.directorAuthority = false,
+    this.onDirectorAuthorityChanged,
+  });
+
+  final bool enabled;
+  final ValueChanged<bool> onEnabledChanged;
+  final int maxReprocesses;
+  final ValueChanged<int>? onMaxReprocessesChanged;
+  final int strictness;
+  final ValueChanged<int>? onStrictnessChanged;
+  final bool directorAuthority;
+  final ValueChanged<bool>? onDirectorAuthorityChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        buildRealismToggleRow(
+          icon: Icons.verified_user,
+          label: 'Realism Verification (Director/Verifier)',
+          subtitle:
+              'Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)',
+          value: enabled,
+          onChanged: onEnabledChanged,
+          context: context,
+        ),
+        // Compact sliders for the 2 tunables (shown in forms including group per-member when toggle visible).
+        // 1-5 range; onChanged provided by caller (pages, group seed); defaults safe if not.
+        // With Verification off they only tune a switched-off pass:
+        // disabled and dimmed, values kept for when it comes back on.
+        const SizedBox(height: 8),
+        Text(
+          'Max reprocess passes: $maxReprocesses',
+          style: TextStyle(
+            color: enabled
+                ? context.creatorPalette?.prose ??
+                      AppColors.textSecondary(context)
+                : context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
+            fontSize: 11,
+          ),
+        ),
+        Slider(
+          value: maxReprocesses.toDouble(),
+          min: 1,
+          max: 5,
+          divisions: 4,
+          label: '$maxReprocesses',
+          onChanged: enabled
+              ? (d) => onMaxReprocessesChanged?.call(d.round())
+              : null,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Strictness (1=lenient … 5=strict): $strictness',
+          style: TextStyle(
+            color: enabled
+                ? context.creatorPalette?.prose ??
+                      AppColors.textSecondary(context)
+                : context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
+            fontSize: 11,
+          ),
+        ),
+        Slider(
+          value: strictness.toDouble(),
+          min: 1,
+          max: 5,
+          divisions: 4,
+          label: '$strictness',
+          onChanged: enabled
+              ? (d) => onStrictnessChanged?.call(d.round())
+              : null,
+        ),
+        // It acts only through Verification, so it shows with it on (as
+        // the web editor and Group Settings show it).
+        if (onDirectorAuthorityChanged != null && enabled)
+          buildRealismToggleRow(
+            icon: Icons.gavel,
+            label: 'Director authority (needs)',
+            subtitle:
+                "The director's corrections to Needs scores are the ones "
+                'used.',
+            value: directorAuthority,
+            onChanged: onDirectorAuthorityChanged!,
+            context: context,
+          ),
+      ],
     );
   }
 }

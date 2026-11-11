@@ -18,19 +18,54 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
+
+/// The editor's four tabs, in order and with their icons. The group editor
+/// (Edit group) shows the same four.
+const kEditCharacterTabs = [
+  Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
+  Tab(icon: Icon(Icons.chat_bubble_outline, size: 18), text: 'Dialogue'),
+  Tab(icon: Icon(Icons.menu_book_outlined, size: 18), text: 'Lorebook'),
+  Tab(icon: Icon(Icons.public, size: 18), text: 'Worlds'),
+];
+
+/// A [Tab] greyed out with a tooltip. It reports the tab's own height, so
+/// the bar is as tall as the 1:1 editor's.
+class _GreyedTab extends StatelessWidget implements PreferredSizeWidget {
+  const _GreyedTab(this.tooltip, this.tab);
+
+  final String tooltip;
+  final Tab tab;
+
+  @override
+  Size get preferredSize => tab.preferredSize;
+
+  @override
+  Widget build(BuildContext context) => GreyedOut(tooltip: tooltip, child: tab);
+}
+
+/// The Worlds tab's index in [kEditCharacterTabs].
+const kEditCharacterWorldsTab = 3;
 
 /// The character editor's chrome: AppBar with the save action, the four-tab
 /// TabBar, the tab bodies and the floating token badge.
 class EditCharacterScaffold extends StatelessWidget {
+  /// Names the page: "Edit <name>" (a character, or the group).
   final String characterName;
   final String saveLabel;
   final bool popWithCardOnSave;
   final VoidCallback onSave;
   final TabController tabController;
-  final ValueNotifier<int> tokenNotifier;
+
+  /// The floating token badge; the group editor has none.
+  final ValueNotifier<int>? tokenNotifier;
 
   /// Details, Dialogue, Lorebook, Worlds — in TabBar order.
   final List<Widget> tabs;
+
+  /// A group member's editor greys the Worlds tab out with this tooltip: it
+  /// stays in the bar but cannot be selected.
+  final String? worldsLockedTooltip;
 
   const EditCharacterScaffold({
     super.key,
@@ -39,8 +74,9 @@ class EditCharacterScaffold extends StatelessWidget {
     required this.popWithCardOnSave,
     required this.onSave,
     required this.tabController,
-    required this.tokenNotifier,
+    this.tokenNotifier,
     required this.tabs,
+    this.worldsLockedTooltip,
   });
 
   @override
@@ -107,31 +143,35 @@ class EditCharacterScaffold extends StatelessWidget {
           unselectedLabelColor: AppColors.textTertiary(context),
           indicatorColor: AppColors.formAccentOf(context),
           indicatorWeight: 3,
-          tabs: const [
-            Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
-            Tab(
-              icon: Icon(Icons.chat_bubble_outline, size: 18),
-              text: 'Dialogue',
-            ),
-            Tab(
-              icon: Icon(Icons.menu_book_outlined, size: 18),
-              text: 'Lorebook',
-            ),
-            Tab(icon: Icon(Icons.public, size: 18), text: 'Worlds'),
+          tabs: [
+            for (var i = 0; i < kEditCharacterTabs.length; i++)
+              if (i == kEditCharacterWorldsTab && worldsLockedTooltip != null)
+                _GreyedTab(worldsLockedTooltip!, kEditCharacterTabs[i])
+              else
+                kEditCharacterTabs[i],
           ],
         ),
       ),
       body: Stack(
         children: [
-          TabBarView(controller: tabController, children: tabs),
-          Positioned(
-            right: 24,
-            bottom: 24,
-            child: ValueListenableBuilder<int>(
-              valueListenable: tokenNotifier,
-              builder: (context, tokens, child) => _tokenBadge(context, tokens),
-            ),
+          TabBarView(
+            controller: tabController,
+            // A greyed-out tab cannot be swiped to either.
+            physics: worldsLockedTooltip == null
+                ? null
+                : const NeverScrollableScrollPhysics(),
+            children: tabs,
           ),
+          if (tokenNotifier != null)
+            Positioned(
+              right: 24,
+              bottom: 24,
+              child: ValueListenableBuilder<int>(
+                valueListenable: tokenNotifier!,
+                builder: (context, tokens, child) =>
+                    _tokenBadge(context, tokens),
+              ),
+            ),
         ],
       ),
     );
