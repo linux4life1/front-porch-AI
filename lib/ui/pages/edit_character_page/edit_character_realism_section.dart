@@ -20,7 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/group_member_mode.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';

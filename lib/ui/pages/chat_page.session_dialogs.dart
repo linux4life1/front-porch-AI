@@ -32,26 +32,16 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 
-/// Group Settings, from Main Settings → Group Settings…, or on [initialTab] from a group
-/// member's editor (its lines link to Realism and Needs).
-/// Completes when the dialog closes.
-Future<void> showGroupSettings(
-  BuildContext context,
-  ChatService chatService, {
-  int initialTab = 0,
-}) {
-  final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
-  return showDialog<void>(
-    context: context,
-    // Outside tap used to discard General the same way X/Close did.
-    barrierDismissible: false,
-    builder: (dialogContext) => GroupSettingsDialog(
-      chatService: chatService,
-      groupRepo: groupRepo,
-      initialTab: initialTab,
-    ),
-  );
+/// The Edit group page for the open group, from Main Settings → Group
+/// Settings…. Completes when the page closes.
+Future<void> showGroupSettings(BuildContext context, ChatService chatService) {
+  final group = chatService.activeGroup;
+  if (group == null) return Future.value();
+  return Navigator.of(
+    context,
+  ).push<void>(MaterialPageRoute(builder: (_) => EditGroupPage(group: group)));
 }
 
 /// Import Chat: pick a .fpchat / SillyTavern file and load it into the open

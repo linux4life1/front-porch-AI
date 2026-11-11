@@ -50,12 +50,15 @@ const kEditCharacterWorldsTab = 3;
 /// The character editor's chrome: AppBar with the save action, the four-tab
 /// TabBar, the tab bodies and the floating token badge.
 class EditCharacterScaffold extends StatelessWidget {
-  /// Names the page: "Edit <name>" (a character, or the group).
+  /// Names the page: "Edit" and a name (a character, or the group).
   final String characterName;
   final String saveLabel;
   final bool popWithCardOnSave;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
   final TabController tabController;
+
+  /// A strip above the tab bodies (the group editor's fork notice).
+  final Widget? banner;
 
   /// The floating token badge; the group editor has none.
   final ValueNotifier<int>? tokenNotifier;
@@ -75,6 +78,7 @@ class EditCharacterScaffold extends StatelessWidget {
     required this.onSave,
     required this.tabController,
     this.tokenNotifier,
+    this.banner,
     required this.tabs,
     this.worldsLockedTooltip,
   });
@@ -152,28 +156,36 @@ class EditCharacterScaffold extends StatelessWidget {
           ],
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          TabBarView(
-            controller: tabController,
-            // A greyed-out tab cannot be swiped to either.
-            physics: worldsLockedTooltip == null
-                ? null
-                : const NeverScrollableScrollPhysics(),
-            children: tabs,
-          ),
-          if (tokenNotifier != null)
-            Positioned(
-              right: 24,
-              bottom: 24,
-              child: ValueListenableBuilder<int>(
-                valueListenable: tokenNotifier!,
-                builder: (context, tokens, child) =>
-                    _tokenBadge(context, tokens),
-              ),
-            ),
+          ?banner,
+          Expanded(child: _body()),
         ],
       ),
+    );
+  }
+
+  Widget _body() {
+    return Stack(
+      children: [
+        TabBarView(
+          controller: tabController,
+          // A greyed-out tab cannot be swiped to either.
+          physics: worldsLockedTooltip == null
+              ? null
+              : const NeverScrollableScrollPhysics(),
+          children: tabs,
+        ),
+        if (tokenNotifier != null)
+          Positioned(
+            right: 24,
+            bottom: 24,
+            child: ValueListenableBuilder<int>(
+              valueListenable: tokenNotifier!,
+              builder: (context, tokens, child) => _tokenBadge(context, tokens),
+            ),
+          ),
+      ],
     );
   }
 

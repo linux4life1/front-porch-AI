@@ -17,273 +17,79 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
-import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
-    show MemberGroupView;
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_cast_cards.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_draft.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_prompt_cards.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_realism_card.dart';
 
-/// Edit one member's card in the reused single-character editor, in its
-/// member mode for [groupName]. Saves to the group's member row only (never
-/// the source library character): every column the editor shows, voice,
-/// greeting seeds and the member's own Realism and Needs settings included.
-/// When the group is open in the chat, its copy of the member is replaced
-/// too, so a later save from the chat cannot put the old values back.
-/// [memberGroup] is what it shows of the group (its lines and the member's
-/// start). Returns the edited card, or null when the editor was backed out
-/// of.
-Future<CharacterCard?> editGroupMemberCard(
-  BuildContext context,
-  CharacterCard member,
-  String memberId, {
-  required String groupName,
-  MemberGroupView? memberGroup,
-}) async {
-  // The live database, not the startup snapshot `Provider<AppDatabase>`
-  // holds: a backup restore closes that one.
-  final database = liveDatabase(context);
-  final chat = Provider.of<ChatService>(context, listen: false);
-  final afterglowBefore = member.frontPorchExtensions?.afterglowEnabled ?? true;
-  final edited = await Navigator.of(context).push<CharacterCard>(
-    MaterialPageRoute(
-      builder: (_) => EditCharacterPage(
-        character: member,
-        memberOfGroup: groupName,
-        memberGroup: memberGroup,
-        allowAvatarChange: false,
-        popWithCardOnSave: true,
-        onSaveOverride: (card) async {
-          final before = liveMemberAfterglow(
-            chat,
-            card..dbId = memberId,
-            afterglowBefore,
-          );
-          await saveGroupMemberCard(database, card);
-          if (isOpenGroupMember(chat, card)) {
-            chat.refreshActiveCharacterCard(card);
-            await settleMemberAfterglow(chat, card, before);
-          }
-        },
-      ),
-    ),
-  );
-  if (edited != null && context.mounted) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      porchSnackBar(context, '“${edited.name}” updated in this group.'),
-    );
-  }
-  return edited;
-}
-
-/// Details tab of the group editor: group name, system prompt, scenario, and
-/// per-character prompt overrides, each with an Edit button for the member.
+/// Details tab of the group editor: the 1:1 editor's cards, in the order of
+/// docs/design/group-editor.md: Identity (with the cast), Turns, Voice,
+/// Personality & World, Advanced Prompts, Tags, Realism Engine and Your
+/// chats together.
 class EditGroupDetailsTab extends StatelessWidget {
   const EditGroupDetailsTab({
     super.key,
-    required this.nameController,
-    required this.systemPromptController,
-    required this.scenarioController,
+    required this.groupId,
+    required this.draft,
     required this.members,
-    required this.charPromptControllers,
     required this.onEditMember,
+    required this.cast,
+    required this.onChanged,
   });
 
-  final TextEditingController nameController;
-  final TextEditingController systemPromptController;
-  final TextEditingController scenarioController;
+  final String groupId;
+  final EditGroupDraft draft;
   final List<CharacterCard> members;
-
-  /// Per-member prompt overrides keyed by member id.
-  final Map<String, TextEditingController> charPromptControllers;
-  final void Function(CharacterCard member, String memberId) onEditMember;
+  final void Function(CharacterCard member) onEditMember;
+  final CastActions cast;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
+    const gap = SizedBox(height: 20);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Group Name',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 6),
-          AppTextField(
-            controller: nameController,
-            decoration: const InputDecoration(hintText: 'My Group'),
-          ),
-          const SizedBox(height: 20),
-
-          // Personality & World — strictly pruned (no Description, no Personality).
-          // Matches create wizard grouping + explanatory note.
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.cardOf(context),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderOf(context)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.psychology_outlined,
-                      color: AppColors.porchAmberOf(context),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Personality & World',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.porchAmberOf(context),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Group-level equivalents to character personality live in the system prompt and scenario.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary(context),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                  'Group System Prompt',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                AppTextField(
-                  controller: systemPromptController,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    hintText: 'Blank uses the Group system prompt in Settings',
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                  'Scenario (optional)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                AppTextField(
-                  controller: scenarioController,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'The group is...',
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                  'Per-Character Overrides (optional)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (members.isEmpty)
-                  Text(
-                    'No members in this group.',
-                    style: TextStyle(color: AppColors.textTertiary(context)),
-                  )
-                else
-                  ...members.map((c) => _memberOverride(context, c)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _memberOverride(BuildContext context, CharacterCard c) {
-    final id =
-        c.dbId ??
-        (c.imagePath != null
-            ? p.basenameWithoutExtension(c.imagePath!)
-            : c.name);
-    final ctrl = charPromptControllers[id] ?? TextEditingController();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.4),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  c.name,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
+              EditGroupIdentityCard(
+                draft: draft,
+                members: members,
+                onEditMember: onEditMember,
+                cast: cast,
+                onChanged: onChanged,
               ),
-              OutlinedButton.icon(
-                onPressed: () => onEditMember(c, id),
-                icon: const Icon(Icons.edit_outlined, size: 15),
-                label: const Text('Edit'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary(context),
-                  side: BorderSide(color: AppColors.borderOf(context)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  minimumSize: const Size(0, 32),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  textStyle: const TextStyle(fontSize: 12),
-                ),
+              gap,
+              EditGroupTurnsCard(draft: draft, onChanged: onChanged),
+              gap,
+              EditGroupVoiceCard(members: members),
+              gap,
+              EditGroupPersonalityCard(draft: draft),
+              gap,
+              EditGroupAdvancedPromptsCard(
+                draft: draft,
+                members: members,
+                onChanged: onChanged,
               ),
+              gap,
+              EditGroupTagsCard(draft: draft, onChanged: onChanged),
+              gap,
+              EditGroupRealismCard(
+                draft: draft,
+                members: members,
+                onChanged: onChanged,
+              ),
+              gap,
+              EditGroupStatsCard(groupId: groupId),
+              const SizedBox(height: 80),
             ],
           ),
-          const SizedBox(height: 6),
-          AppTextField(
-            controller: ctrl,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              hintText:
-                  'Extra instructions only for this character in this group',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

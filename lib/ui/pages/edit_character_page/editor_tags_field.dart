@@ -30,8 +30,12 @@ class EditorTagsField extends StatelessWidget {
     required this.tags,
     required this.controller,
     required this.onChanged,
+    this.showLabel = true,
   });
 
+  /// The 1:1 editor labels the control; a card of its own (the group's Tags)
+  /// already has the title.
+  final bool showLabel;
   final List<String> tags;
   final TextEditingController controller;
   final VoidCallback onChanged;
@@ -51,8 +55,7 @@ class EditorTagsField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        kit.fieldLabel('Tags'),
-        const SizedBox(height: 8),
+        if (showLabel) ...[kit.fieldLabel('Tags'), const SizedBox(height: 8)],
         if (tags.isNotEmpty)
           Wrap(
             spacing: 8,
