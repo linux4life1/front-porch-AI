@@ -716,7 +716,9 @@ export function ChatSidebar({
                       )}
                     </div>
                   )}
-                  {t && (
+                  {/* The window's rule in 1:1 and group alike: time shows while
+                      Realism runs for this character or the story clock runs. */}
+                  {t && (!realismOff || clockRunning) && (
                     <div className="state-time">
                       {t.time.presence && (
                         <div className="stat-line"><span>{t.time.presence}</span></div>
