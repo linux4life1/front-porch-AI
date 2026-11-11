@@ -65,7 +65,6 @@ import 'package:front_porch_ai/services/tts_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/kobold_log_dialog.dart';
@@ -106,31 +105,33 @@ void main() {
     );
   });
 
-  testWidgets('ModelSettingsDialog — openRouter backend (remote settings only)',
-      (tester) async {
-    final llm = FakeLLMProvider(activeBackend: BackendType.openRouter);
-    final storage = FakeStorageService();
-    addTearDown(() {
-      llm.dispose();
-      storage.dispose();
-    });
+  testWidgets(
+    'ModelSettingsDialog — openRouter backend (remote settings only)',
+    (tester) async {
+      final llm = FakeLLMProvider(activeBackend: BackendType.openRouter);
+      final storage = FakeStorageService();
+      addTearDown(() {
+        llm.dispose();
+        storage.dispose();
+      });
 
-    await expectThemedGoldens(
-      tester,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<LLMProvider>.value(value: llm),
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-        ],
-        child: const ModelSettingsDialog(),
-      ),
-      group: 'dialogs_remaining',
-      name: 'model_settings',
-      surface: const Size(500, 600),
-      // TextEditingControllers for API key / URL / model name fields.
-      settle: false,
-    );
-  });
+      await expectThemedGoldens(
+        tester,
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<LLMProvider>.value(value: llm),
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+          ],
+          child: const ModelSettingsDialog(),
+        ),
+        group: 'dialogs_remaining',
+        name: 'model_settings',
+        surface: const Size(500, 600),
+        // TextEditingControllers for API key / URL / model name fields.
+        settle: false,
+      );
+    },
+  );
 
   testWidgets('UserPersonaDialog — empty persona list', (tester) async {
     final personas = FakeUserPersonaService();
@@ -178,38 +179,41 @@ void main() {
     );
   });
 
-  testWidgets('TtsSettingsDialog — engine=disabled, no engine-specific sections',
-      (tester) async {
-    final storage = FakeStorageService(); // ttsEngine='disabled'
-    final tts = FakeTtsService();
-    final vm = FakeVoiceManager();
-    addTearDown(() {
-      storage.dispose();
-      tts.dispose();
-      vm.dispose();
-    });
+  testWidgets(
+    'TtsSettingsDialog — engine=disabled, no engine-specific sections',
+    (tester) async {
+      final storage = FakeStorageService(); // ttsEngine='disabled'
+      final tts = FakeTtsService();
+      final vm = FakeVoiceManager();
+      addTearDown(() {
+        storage.dispose();
+        tts.dispose();
+        vm.dispose();
+      });
 
-    await expectThemedGoldens(
-      tester,
-      child: MultiProvider(
-        providers: [
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-          ChangeNotifierProvider<TtsService>.value(value: tts),
-          ChangeNotifierProvider<VoiceManager>.value(value: vm),
-        ],
-        child: const TtsSettingsDialog(),
-      ),
-      group: 'dialogs_remaining',
-      name: 'tts_settings',
-      surface: const Size(540, 650),
-      // TextEditingControllers for openai key/url/model created in initState;
-      // _loadInstalledVoices() fires async (no-op via FakeVoiceManager).
-      settle: false,
-    );
-  });
+      await expectThemedGoldens(
+        tester,
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<TtsService>.value(value: tts),
+            ChangeNotifierProvider<VoiceManager>.value(value: vm),
+          ],
+          child: const TtsSettingsDialog(),
+        ),
+        group: 'dialogs_remaining',
+        name: 'tts_settings',
+        surface: const Size(540, 650),
+        // TextEditingControllers for openai key/url/model created in initState;
+        // _loadInstalledVoices() fires async (no-op via FakeVoiceManager).
+        settle: false,
+      );
+    },
+  );
 
-  testWidgets('ImageGenSettingsDialog — remote backend, empty model list',
-      (tester) async {
+  testWidgets('ImageGenSettingsDialog — remote backend, empty model list', (
+    tester,
+  ) async {
     final storage = FakeStorageService(); // imageGenBackend='remote'
     final imageSvc = FakeImageGenService();
     addTearDown(() {
@@ -234,7 +238,9 @@ void main() {
     );
   });
 
-  testWidgets('Edit character (page in dialog shell) — tab 0 at rest', (tester) async {
+  testWidgets('Edit character (page in dialog shell) — tab 0 at rest', (
+    tester,
+  ) async {
     // The in-chat editor is EditCharacterPage inside a Dialog since the
     // EditCharacterDialog consolidation (the dialog was a ~73% duplicate).
     // Same construction chat_page's "Edit Character" menu item uses.
@@ -246,7 +252,10 @@ void main() {
       child: ChangeNotifierProvider<StorageService>.value(
         value: storage,
         child: Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 24,
+          ),
           clipBehavior: Clip.antiAlias,
           child: SizedBox(
             width: 780,
@@ -300,28 +309,6 @@ void main() {
           await tester.pump();
         }
       },
-    );
-  });
-
-  testWidgets('GroupSettingsDialog — no active group (empty state)', (tester) async {
-    final chat = FakeChatService();
-    final groupRepo = FakeGroupChatRepository();
-    addTearDown(() {
-      chat.dispose();
-      groupRepo.dispose();
-    });
-
-    await expectThemedGoldens(
-      tester,
-      child: GroupSettingsDialog(
-        chatService: chat,
-        groupRepo: groupRepo,
-      ),
-      group: 'dialogs_remaining',
-      name: 'group_settings',
-      surface: const Size(720, 620),
-      // TabController created in initState.
-      settle: false,
     );
   });
 }

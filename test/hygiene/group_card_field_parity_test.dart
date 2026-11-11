@@ -582,7 +582,8 @@ const _desktopEditorSurfaces = [
   'lib/ui/widgets/greeting_seed_form/',
   'lib/ui/dialogs/ui_settings_dialog.dart',
   'lib/ui/dialogs/ui_settings/',
-  'lib/ui/dialogs/group_settings/',
+  'lib/ui/pages/edit_group_page.dart',
+  'lib/ui/pages/edit_group/',
   'lib/services/chat/group_lite.dart',
 ];
 
