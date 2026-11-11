@@ -228,16 +228,7 @@ class TimeLeaf extends StatelessWidget {
         withUser: chat.withUserForGroupCharacter(member),
       ),
     );
-    return PresenceWord(
-      where: where,
-      // Same busy read the service refuses on, or a tap while post-gen
-      // settles looks live and does nothing.
-      onToggle: chat.isTurnBusy
-          ? null
-          : () => chat.setGroupMemberAway(
-              chat.characterIdFor(member),
-              away: where == PresenceWhere.withYou,
-            ),
-    );
+    // Read-only, as in 1:1; Away / Back lives on the cast chip.
+    return PresenceWord(where: where);
   }
 }

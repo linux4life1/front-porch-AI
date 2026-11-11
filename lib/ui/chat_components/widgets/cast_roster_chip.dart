@@ -20,13 +20,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// One face in the desktop cast strip. Soft guests carry the amber GUEST
 /// mark and the **only** Promote control (member card / Lite NPC banner
-/// stay status-only). Matches the web CastBar.
+/// stay status-only). A group member also carries the Away / Back control
+/// ([presence] + [onSetAway]), the only place the user sets it by hand.
+/// Matches the web CastBar.
 class CastRosterChip extends StatelessWidget {
   final String name;
   final Color color;
@@ -36,6 +39,20 @@ class CastRosterChip extends StatelessWidget {
   final bool promoteEnabled;
   final VoidCallback onFocus;
   final VoidCallback? onPromote;
+
+  /// Group members only: where the member is now. Away / Back shows for
+  /// With you and Away (never At work, which the clock derives) and when
+  /// [onSetAway] is given; null hides it, as on the web.
+  final PresenceWhere? presence;
+
+  /// Taps the control with the away value to set (true from With you).
+  /// Null while a turn is busy: the service refuses until post-gen settles.
+  final ValueChanged<bool>? onSetAway;
+
+  /// Whether this chip draws the Away / Back control at all.
+  bool get hasAwayControl =>
+      !isLite &&
+      (presence == PresenceWhere.withYou || presence == PresenceWhere.away);
 
   const CastRosterChip({
     super.key,
@@ -47,12 +64,42 @@ class CastRosterChip extends StatelessWidget {
     this.promoteEnabled = true,
     required this.onFocus,
     this.onPromote,
+    this.presence,
+    this.onSetAway,
   });
 
   Widget _initial() => Text(
     name.isNotEmpty ? name[0] : '?',
     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
   );
+
+  Widget _awayButton(BuildContext context) {
+    final onScene = presence == PresenceWhere.withYou;
+    final callback = onSetAway;
+    final color = AppColors.formAccentOf(context);
+    return Tooltip(
+      message: onScene ? 'Mark as away' : 'Bring back',
+      child: SizedBox(
+        height: 20,
+        child: TextButton(
+          key: const ValueKey('cast-chip-away'),
+          onPressed: callback == null ? null : () => callback(onScene),
+          style: TextButton.styleFrom(
+            foregroundColor: color,
+            disabledForegroundColor: AppColors.textTertiary(context),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            minimumSize: const Size(0, 18),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          child: Text(
+            onScene ? 'Away' : 'Back',
+            style: const TextStyle(fontSize: 9),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +152,7 @@ class CastRosterChip extends StatelessWidget {
                     : AppColors.textTertiary(context),
               ),
             ),
+            if (hasAwayControl) _awayButton(context),
             if (isLite) ...[
               Text(
                 'GUEST',
