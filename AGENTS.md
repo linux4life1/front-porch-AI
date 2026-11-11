@@ -12,9 +12,11 @@ The parts of CLAUDE.md that bite most often:
   `web_ui/` together, and drift fails CI (`one_ui_parity_test`, the
   `group_sidebar_parity` goldens, `settings_parity_manifest_test`).
 - **Screenshots are required** — every UI or UX PR carries screenshots of
-  each changed screen, desktop and web, in its `## Screenshots` section,
-  using seeded or synthetic data only. The PR rules check fails without
-  them; there is no label to skip it.
+  each changed screen, desktop and web, in the PR description's
+  `## Screenshots` section (never a comment), as GitHub uploads or files
+  under `docs/screenshots/`, using seeded or synthetic data only. The PR
+  rules check fails without them; no label skips it and no author is
+  exempt.
 - **What CI enforces** — the ratchets (500-line files, no new `part`
   files, raw colours, raw dialogs, sync I/O in UI), the `## Hand-check`
   rule on UI PRs, and the `approved-test-change` label for any edit to an

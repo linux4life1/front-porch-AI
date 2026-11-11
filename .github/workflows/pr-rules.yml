@@ -15,9 +15,11 @@ name: PR rules
 #    synthetic data only and live under docs/screenshots/. The
 #    `approved-images` label lets a deliberate stray one in.
 # 4. Screenshots. A PR that changes UI needs a `## Screenshots` section in
-#    its description holding at least one image (markdown image, <img>, or
-#    a GitHub attachment link). CLAUDE.md "One UI": every UI or UX change is
-#    shown, desktop and web. There is deliberately no label to skip it.
+#    its DESCRIPTION (a comment does not count) holding at least one image,
+#    and every image there must be real: a GitHub upload, or a file under
+#    docs/screenshots/ present on the PR's head. CLAUDE.md "One UI": every
+#    UI or UX change is shown, desktop and web. No label skips it and no
+#    author is exempt, maintainer included.
 # 3. Smoke tier. The job summary prints the tier the changed files call for
 #    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
 #
@@ -143,23 +145,69 @@ jobs:
               );
             }
 
-            // --- Screenshots (One UI; no label skips this) --------------------
+            // --- Screenshots (One UI; no label, no author, no exception) ------
+            // In the description itself, never a comment. Every image must be
+            // real: a GitHub upload, or a file under docs/screenshots/ that
+            // exists on this PR's head. A link to anywhere else, or to a file
+            // that is not there, does not count and fails the check.
             if (uiFiles.length) {
               const shots = body.match(/^##\s+Screenshots\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/im);
-              const IMG = [
-                /!\[[^\]]*\]\(\s*[^)\s]+[^)]*\)/,
-                /<img\s[^>]*\bsrc\s*=\s*["'][^"']+["']/i,
-                /https:\/\/github\.com\/user-attachments\/(?:assets|files)\/\S+/i,
-              ];
-              const hasImage = !!shots && IMG.some((r) => r.test(shots[1]));
-              if (!hasImage) {
+              const text = shots ? shots[1] : '';
+              const refs = new Set();
+              for (const m of text.matchAll(/!\[[^\]]*\]\(\s*<?([^)\s>]+)/g)) refs.add(m[1]);
+              for (const m of text.matchAll(/<img\s[^>]*?\bsrc\s*=\s*["']([^"']+)["']/gi)) refs.add(m[1]);
+              for (const m of text.matchAll(/https:\/\/github\.com\/user-attachments\/assets\/[\w-]+/gi)) refs.add(m[0]);
+              const UPLOAD = /^https:\/\/(?:github\.com\/user-attachments\/assets\/|private-user-images\.githubusercontent\.com\/|user-images\.githubusercontent\.com\/)/i;
+              const IMG_EXT = /\.(png|jpe?g|webp|gif)$/i;
+              const repos = new Set(
+                [pr.base.repo.full_name, pr.head.repo && pr.head.repo.full_name]
+                  .filter(Boolean)
+                  .map((r) => r.toLowerCase()),
+              );
+              const repoPath = (u) => {
+                let m = u.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:blob|raw)\/[^/]+\/(docs\/screenshots\/[^?#]+)/i);
+                if (!m) m = u.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/[^/]+\/(docs\/screenshots\/[^?#]+)/i);
+                if (m) return repos.has(m[1].toLowerCase()) ? decodeURIComponent(m[2]) : null;
+                m = u.match(/^\.?\/?(docs\/screenshots\/[^?#]+)$/i);
+                return m ? decodeURIComponent(m[1]) : null;
+              };
+              const good = [];
+              const bad = [];
+              for (const u of refs) {
+                if (UPLOAD.test(u)) {
+                  good.push(u);
+                  continue;
+                }
+                const path = repoPath(u);
+                if (!path || !IMG_EXT.test(path)) {
+                  bad.push(`${u} (not a GitHub upload or a docs/screenshots/ image in this repo)`);
+                  continue;
+                }
+                let found = paths.includes(path);
+                if (!found) {
+                  try {
+                    await github.rest.repos.getContent({ ...context.repo, path, ref: pr.head.sha });
+                    found = true;
+                  } catch (e) {
+                    if (e.status !== 404) throw e;
+                  }
+                }
+                (found ? good : bad).push(found ? u : `${u} (not on this PR's head)`);
+              }
+              if (!good.length || bad.length) {
                 errors.push(
-                  'Changes UI but the description has no screenshot. Add a ' +
-                    '`## Screenshots` section with at least one image of each ' +
-                    'changed screen, desktop and web (CLAUDE.md "One UI"). Use ' +
-                    'seeded or made-up data only. Embed images committed under ' +
-                    '`docs/screenshots/<topic>/`, or drag them into the section ' +
-                    'on the PR page. No label skips this check.',
+                  (!shots
+                    ? 'Changes UI but the description has no `## Screenshots` section.'
+                    : !good.length
+                      ? 'Changes UI but `## Screenshots` holds no real image.'
+                      : 'Some screenshots are not real images on GitHub:') +
+                    (bad.length ? '\n' + bad.map((l) => `  - ${l}`).join('\n') : '') +
+                    '\nEvery UI or UX change shows each changed screen, desktop and ' +
+                    'web, in the PR description itself (not a comment) (CLAUDE.md ' +
+                    '"One UI"). Drag images into the `## Screenshots` section while ' +
+                    'editing the description, or commit them under ' +
+                    '`docs/screenshots/<topic>/` and embed them. Seeded or made-up ' +
+                    'data only. No label or author is exempt.',
                 );
               }
             }

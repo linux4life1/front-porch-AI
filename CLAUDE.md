@@ -46,10 +46,13 @@ product law, not a preference, and it outranks speed of delivery.
   web, group vs 1:1), `settings_parity_manifest_test`, and the
   `group_sidebar_parity` pixel goldens. A new shared surface gets a
   golden and a parity entry in the PR that adds it.
-- Every UI or UX change carries screenshots in the PR description's
-  `## Screenshots` section: each changed screen, desktop and web, before
-  and after where something existed. The PR rules check fails a UI PR
-  without them; there is no label to skip it.
+- Every UI or UX change carries screenshots in the PR description itself
+  (the body's `## Screenshots` section, never a comment or a linked
+  page): each changed screen, desktop and web, before and after where
+  something existed. Every image must be real: a GitHub upload or a file
+  under `docs/screenshots/` on the PR's head. The PR rules check fails a UI
+  PR without them. No label skips it and no author is exempt, maintainer
+  included; outside contributors are held to it first.
 
 ## Commands
 
@@ -279,8 +282,9 @@ job clears what it shipped (`tools/rotate-rawhide-notes.sh`) and
 `rawhide_notes_test` fails on a second heading, a duplicate, or a stall.
 `.claude/changelog.md` is a pointer, not a diary. Screenshots show seeded
 or synthetic data only, never a real chat, library or user data. PR
-screenshots go under `docs/screenshots/<pr-or-topic>/` and are embedded in
-the PR's `## Screenshots` section (or uploaded to the PR page).
+screenshots are either GitHub uploads dragged into the description or files
+under `docs/screenshots/<pr-or-topic>/` embedded in it; either way they sit
+in the PR body's `## Screenshots` section.
 
 ## Files that need a reason
 
