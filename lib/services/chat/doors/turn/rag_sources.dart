@@ -57,12 +57,18 @@ class RagSources {
   /// per-member memory (see [legacyGroupMemoryBuckets]) are a read-only
   /// fallback for every member. [sessionScoped] limits the speaker's key and
   /// the fallback to this chat; explicit sources that are not members stay
-  /// unscoped, and a source that IS another member is dropped (their windows
-  /// here are exactly what the speaker may not have been there for).
-  Future<({List<String> sourceIds, Set<String> sessionScoped})> sourceIds({
-    CharacterCard? guest,
-    CharacterCard? speaker,
-  }) async {
+  /// unscoped. A source that IS another member keeps its other-chat windows,
+  /// but their windows in THIS chat are exactly what the speaker may not have
+  /// been there for: [offLimitsThisChat] names those owners, and retrieval
+  /// drops their current-chat rows.
+  Future<
+    ({
+      List<String> sourceIds,
+      Set<String> sessionScoped,
+      Set<String> offLimitsThisChat,
+    })
+  >
+  sourceIds({CharacterCard? guest, CharacterCard? speaker}) async {
     final grouped = guest == null && _activeGroup != null;
     final memory = _d.doors.cast().memory;
     final currentId = guest != null
@@ -96,7 +102,11 @@ class RagSources {
 
     if (guest != null) {
       await addMemorySources(guest.dbId);
-      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+      return (
+        sourceIds: sourceIds,
+        sessionScoped: sessionScoped,
+        offLimitsThisChat: const <String>{},
+      );
     }
 
     if (grouped) {
@@ -104,20 +114,24 @@ class RagSources {
         sourceIds.add(bucket);
         sessionScoped.add(bucket);
       }
-      if (speaker == null) {
-        return (sourceIds: sourceIds, sessionScoped: sessionScoped);
-      }
       final others = {
         for (final c in _groupCharacters)
           if (!identical(c, speaker)) memory.keyFor(c),
       }..remove(currentId);
-      await addMemorySources(_libraryDbIdOf(speaker));
-      sourceIds.removeWhere(others.contains);
-      return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+      if (speaker != null) await addMemorySources(_libraryDbIdOf(speaker));
+      return (
+        sourceIds: sourceIds,
+        sessionScoped: sessionScoped,
+        offLimitsThisChat: speaker == null ? const <String>{} : others,
+      );
     }
 
     await addMemorySources(_session.activeCharacter?.dbId);
-    return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+    return (
+      sourceIds: sourceIds,
+      sessionScoped: sessionScoped,
+      offLimitsThisChat: const <String>{},
+    );
   }
 
   /// The library row a group member was copied from (where its memory

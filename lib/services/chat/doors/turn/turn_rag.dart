@@ -147,15 +147,30 @@ class TurnRag {
           debugPrint('[RAG:Chat] Skipping memory retrieval — cue-less beat');
           rawMemories = const [];
         } else {
-          rawMemories = await _memoryService!.retrieve(
+          // Another member's windows in THIS chat are theirs (a scene the
+          // speaker may have missed); drop them before the limit, so the
+          // search is asked for everything and cut after.
+          final offLimits = packed.offLimitsThisChat;
+          final thisChat = _session.currentSessionId ?? '';
+          final asked = await _memoryService!.retrieve(
             queryText: queryMessages,
             sourceCharacterIds: sourceIds,
-            currentSessionId: _session.currentSessionId ?? '',
+            currentSessionId: thisChat,
             inContextStart: _history.basePosition + t.droppedMessages,
-            limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
+            limit: retrievalLimit == 0 || offLimits.isNotEmpty
+                ? 9999
+                : retrievalLimit,
             characterPriorities: _a.ragSources.prioritiesByMemoryKey(),
             sessionScopedCharacterIds: sessionScoped,
           );
+          rawMemories = offLimits.isEmpty
+              ? asked
+              : [
+                  for (final m in asked)
+                    if (!(m.sessionId == thisChat &&
+                        offLimits.contains(m.characterId)))
+                      m,
+                ].take(retrievalLimit == 0 ? 9999 : retrievalLimit).toList();
         }
         // Two-tier memory dedupe: the journal expanded these exact lines
         // above — never pay for them twice.

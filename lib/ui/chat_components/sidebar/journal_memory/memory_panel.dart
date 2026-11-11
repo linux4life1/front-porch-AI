@@ -125,8 +125,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
   Set<String> _excludedSourceIds() {
     final owner = _owner;
     if (owner == null) return const {};
-    if (!_inGroup) return {characterEmbeddingId(owner)};
-    return {for (final c in widget.chatService.groupCharacters) _memoryId(c)};
+    return {_memoryId(owner)};
   }
 
   @override

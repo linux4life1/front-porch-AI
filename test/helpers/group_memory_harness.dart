@@ -124,8 +124,12 @@ class GroupMemoryHarness {
   late ChatService chat;
   late FakeBackendServer backend;
   late RecordingMemory memory;
+  late CharacterRepository library;
 
-  static Future<GroupMemoryHarness> open({int windowSize = 3}) async {
+  static Future<GroupMemoryHarness> open({
+    int windowSize = 3,
+    bool beaLite = false,
+  }) async {
     final h = GroupMemoryHarness._();
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({
@@ -141,6 +145,18 @@ class GroupMemoryHarness {
     );
     h.db = AppDatabase.forTesting();
     h.storage = StorageService();
+    // Ada is backed by a library character; Bea is a bare member.
+    await h.db
+        .into(h.db.characters)
+        .insert(
+          CharactersCompanion.insert(
+            id: 'lib-ada',
+            name: 'Ada',
+            imagePath: const Value('/library/Ada_lib.png'),
+          ),
+        );
+    h.library = CharacterRepository(h.db, h.storage);
+    await h.library.loadCharacters();
     h.chat =
         ChatService(
             KoboldService(h.storage),
@@ -149,7 +165,7 @@ class GroupMemoryHarness {
             WorldRepository(h.storage, h.db),
           )
           ..setDatabase(h.db)
-          ..setCharacterRepository(CharacterRepository(h.db, h.storage))
+          ..setCharacterRepository(h.library)
           ..testLlmServiceOverride = OpenRouterService(
             apiUrl: '${h.backend.baseUrl}/v1',
             modelName: 'smoke-model',
@@ -159,7 +175,11 @@ class GroupMemoryHarness {
     h.chat.setMemoryService(h.memory);
     await h.db.insertGroup(GroupsCompanion.insert(id: groupId, name: 'Cast'));
     for (final (id, name, memberState) in [
-      ('mem-ada', 'Ada', '{"originStableId":"$adaKey"}'),
+      (
+        'mem-ada',
+        'Ada',
+        '{"originStableId":"$adaKey","originLibraryDbId":"lib-ada"}',
+      ),
       ('mem-bea', 'Bea', '{}'),
     ]) {
       await h.db.insertGroupMember(
@@ -169,8 +189,10 @@ class GroupMemoryHarness {
           name: name,
           personality: Value('$name keeps the porch.'),
           avatarFilename: Value('${name.toLowerCase()}.png'),
-          frontPorchExtensions: const Value(
-            '{"realism_engine":{"realism_enabled":true}}',
+          frontPorchExtensions: Value(
+            beaLite && name == 'Bea'
+                ? '{"realism_engine":{"realism_enabled":true,"tier":"lite"}}'
+                : '{"realism_engine":{"realism_enabled":true}}',
           ),
           memberState: Value(memberState),
         ),

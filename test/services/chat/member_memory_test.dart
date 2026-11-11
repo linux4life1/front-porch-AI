@@ -23,6 +23,7 @@
 // scores alike: these tests prove WHICH windows are filed and read, and say
 // nothing about how a model ranks text.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -249,6 +250,51 @@ void main() {
       expect(bea, contains('BEAONLY'));
       expect(bea, contains('OLDPOOL'), reason: 'the fallback reaches Bea');
       expect(bea, isNot(contains('ADAONLY')));
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  });
+
+  group('a member linked as a memory source', () {
+    setUp(() async {
+      h = await GroupMemoryHarness.open();
+      await h.seedLongChat();
+      await h.window(GroupMemoryHarness.adaKey, 'ADAONLY window', 3);
+      await h.window('mem-bea', 'BEAONLY window', 6);
+      // Bea's memory of a DIFFERENT chat, e.g. their 1:1 together.
+      await h.db.insertEmbedding(
+        MessageEmbeddingsCompanion(
+          sessionId: const Value('some-other-chat'),
+          characterId: const Value('mem-bea'),
+          positionStart: const Value(0),
+          positionEnd: const Value(2),
+          content: const Value('BEAOTHERCHAT window'),
+          embedding: Value(FakeVectorsBytes.bytes),
+          dimensions: const Value(4),
+        ),
+      );
+      // Ada's card links Bea's memories.
+      await (h.db.update(
+        h.db.characters,
+      )..where((c) => c.id.equals('lib-ada'))).write(
+        const CharactersCompanion(memorySources: Value('["mem-bea"]')),
+      );
+      await h.openGroup();
+      await h.chat.loadSession(GroupMemoryHarness.sessionId);
+    });
+    tearDown(() => h.close());
+
+    test('keeps their other-chat memories but never their windows from this '
+        'chat', () async {
+      await h.say('Ada', 'Ada, remember what you said?');
+      expect(h.memory.asked.last.sources, contains('mem-bea'));
+      final body = h.backend.lastChatBody;
+      expect(body, contains('BEAOTHERCHAT'), reason: 'cross-chat recall stays');
+      expect(body, contains('ADAONLY'));
+      expect(
+        body,
+        isNot(contains('BEAONLY')),
+        reason:
+            'a scene of this chat filed only under Bea may be one Ada missed',
+      );
     }, timeout: const Timeout(Duration(minutes: 3)));
   });
 

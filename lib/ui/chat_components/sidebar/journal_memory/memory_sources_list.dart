@@ -42,9 +42,9 @@ class MemorySourcesList extends StatelessWidget {
   final Set<String> selectedSources;
   final ValueChanged<String> onToggleSource;
 
-  /// Embedding ids that are not offered: the character itself and, in a
-  /// group, the other members (their windows are theirs, and a member never
-  /// reads another's).
+  /// Embedding ids that are not offered: the character itself. Other group
+  /// members stay offered; only their windows in the current chat are never
+  /// read by someone else.
   final Set<String> excludedIds;
 
   const MemorySourcesList({
