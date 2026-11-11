@@ -78,8 +78,10 @@ class ChatSessionState {
     return false;
   }
 
-  /// The chat's own id, its memory bucket: `group_<id>` in a group, the
-  /// host's id in 1:1, `unknown` with no chat open.
+  /// The chat's own id: `group_<id>` in a group, the host's id in 1:1,
+  /// `unknown` with no chat open. In a 1:1 it is also the memory id; in a
+  /// group it is only the old shared pool (see `legacyGroupMemoryBuckets`),
+  /// since group memory is per member now (`MemberMemory.keyFor`).
   String ragCharacterId() {
     final group = activeGroup;
     if (group != null) return 'group_${group.id}';

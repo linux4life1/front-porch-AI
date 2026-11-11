@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chat/doors/cast/greeting_picker.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/guest_flow.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/guest_join.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/idle_autonomy.dart';
+import 'package:front_porch_ai/services/chat/doors/cast/member_memory.dart';
 
 export 'package:front_porch_ai/services/chat/doors/cast/away_pulse_runner.dart';
 export 'package:front_porch_ai/services/chat/doors/cast/cast_collapse.dart';
@@ -39,6 +40,7 @@ export 'package:front_porch_ai/services/chat/doors/cast/greeting_picker.dart';
 export 'package:front_porch_ai/services/chat/doors/cast/guest_flow.dart';
 export 'package:front_porch_ai/services/chat/doors/cast/guest_join.dart';
 export 'package:front_porch_ai/services/chat/doors/cast/idle_autonomy.dart';
+export 'package:front_porch_ai/services/chat/doors/cast/member_memory.dart';
 
 /// Who is in the scene and how they come and go: the group roster and its
 /// exits, 1:1 Scene Guests, the opening greeting, the Away pulse and the
@@ -64,6 +66,7 @@ class CastDoor {
   late final GreetingBaseline baseline = GreetingBaseline(this, _d);
   late final AwayPulseRunner away = AwayPulseRunner(_d);
   late final IdleAutonomy idle = IdleAutonomy(_d);
+  late final MemberMemory memory = MemberMemory(away, _d);
 
   /// One-shot hidden stage direction for the next speaker (an entrance, a
   /// goodbye, the user stepping off or on stage). The prompt consumes it.

@@ -192,6 +192,14 @@ class TurnStream {
       t.streamTarget,
       continuing: t.mode == GenerationMode.continue_,
     );
+    // Who is in the scene for this line, for per-member memory. Continue
+    // extends a reply that already carries its stamp.
+    if (t.mode != GenerationMode.continue_) {
+      _d.doors.cast().memory.stamp(
+        t.streamTarget,
+        speaker: t.mode == GenerationMode.normal ? t.speakingCharacter : null,
+      );
+    }
     final streamTarget = t.streamTarget;
 
     // Helper to update the visible message from buffer. Incremental: only

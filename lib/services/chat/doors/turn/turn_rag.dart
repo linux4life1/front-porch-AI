@@ -117,7 +117,10 @@ class TurnRag {
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
         // injection format/budget below is shared — only the source id swaps.
-        final packed = await _a.ragSources.sourceIds(guest: t.guestSpeaker);
+        final packed = await _a.ragSources.sourceIds(
+          guest: t.guestSpeaker,
+          speaker: t.speakingCharacter,
+        );
         final sourceIds = packed.sourceIds;
         debugPrint('[RAG:Chat] Memory source IDs: $sourceIds');
 
@@ -150,7 +153,7 @@ class TurnRag {
             currentSessionId: _session.currentSessionId ?? '',
             inContextStart: _history.basePosition + t.droppedMessages,
             limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
-            characterPriorities: _members.currentGroupRAGPriorities,
+            characterPriorities: _a.ragSources.prioritiesByMemoryKey(),
             sessionScopedCharacterIds: sessionScoped,
           );
         }
@@ -376,7 +379,7 @@ class TurnRag {
         );
       }
     } else if ((t.droppedMessages > 0 || _history.basePosition > 0) &&
-        _storageService.memorySettings.ragEnabled) {
+        effectiveRagEnabled) {
       debugPrint(
         '[RAG:Chat] ⚠ ${t.droppedMessages} messages dropped but RAG not operational (service=${_memoryService != null}, operational=${_memoryService?.isOperational ?? false})',
       );

@@ -24,8 +24,8 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/group_memory.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_deps.dart';
-import 'package:front_porch_ai/services/group_chat_repository.dart';
 
 /// Whose memories a turn retrieves: the RAG source character ids and the
 /// session-scoped set (see [sourceIds]). Body as the generation part held
@@ -38,8 +38,6 @@ class RagSources {
   ChatSessionState get _session => _d.session;
   AppDatabase get _db => _d.services.db();
   CharacterRepository? get _characterRepository => _d.services.characters();
-  GroupChatRepository? get _groupChatRepository =>
-      _d.doors.entry().groupRepository;
   GroupChat? get _activeGroup => _session.activeGroup;
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
@@ -47,25 +45,32 @@ class RagSources {
 
   /// Resolve the RAG source character ids for retrieval.
   ///
-  /// Normally keyed on the active character (or the group bucket). When a
-  /// [guest] is supplied (Scene Guests Phase 4), retrieval is keyed on the
-  /// guest's OWN id instead — the same id the guest embeds under via
-  /// `_maybeEmbedMessages` — plus that guest's cross-character memory sources.
-  /// This keeps the guest's episodic memory isolated from the host's: the
+  /// Normally keyed on the active character. When a [guest] is supplied
+  /// (Scene Guests Phase 4), retrieval is keyed on the guest's OWN id
+  /// instead, plus that guest's cross-character memory sources, so the
   /// host's memories are never injected on a guest turn, and vice versa.
   ///
-  /// Groups: conversation RAG stays on `group_<id>`. Data Bank rows and
-  /// library `memory_sources` key by the origin portrait basename / library
-  /// UUID, never the group-private avatar UUID. [sessionScoped] is the
-  /// group bucket plus those library ids so 1:1 embeddings cannot bleed;
-  /// explicit cross-character sources that are not members stay unscoped.
+  /// Groups: memory is per member. The [speaker] reads only their own
+  /// windows in this chat (filed under their [MemberMemory.keyFor]), their
+  /// Data Bank and their memory sources; never another member's windows, so
+  /// a scene they were Away for stays unknown to them. Windows from before
+  /// per-member memory (see [legacyGroupMemoryBuckets]) are a read-only
+  /// fallback for every member. [sessionScoped] limits the speaker's key and
+  /// the fallback to this chat; explicit sources that are not members stay
+  /// unscoped, and a source that IS another member is dropped (their windows
+  /// here are exactly what the speaker may not have been there for).
   Future<({List<String> sourceIds, Set<String> sessionScoped})> sourceIds({
     CharacterCard? guest,
+    CharacterCard? speaker,
   }) async {
+    final grouped = guest == null && _activeGroup != null;
+    final memory = _d.doors.cast().memory;
     final currentId = guest != null
         ? _getCharacterIdFromCard(guest)
+        : grouped
+        ? (speaker == null ? '' : memory.keyFor(speaker))
         : _getCharacterId();
-    final sourceIds = <String>[currentId];
+    final sourceIds = <String>[if (currentId.isNotEmpty) currentId];
     final sessionScoped = <String>{if (currentId.isNotEmpty) currentId};
 
     Future<void> addMemorySources(String? libraryDbId) async {
@@ -94,48 +99,49 @@ class RagSources {
       return (sourceIds: sourceIds, sessionScoped: sessionScoped);
     }
 
-    if (_activeGroup != null) {
-      final library =
-          _characterRepository?.characters ?? const <CharacterCard>[];
-      final repo = _groupChatRepository;
-      final members = repo != null
-          ? await repo.getMembersForGroup(_activeGroup!.id)
-          : const <GroupMember>[];
-      if (members.isNotEmpty) {
-        for (final m in members) {
-          final ident = MemberOriginResolver.libraryRagIdentity(
-            originStableId: m.originStableId,
-            originLibraryDbId: m.originLibraryDbId,
-            memberName: m.name,
-            libraryCharacters: library,
-          );
-          final sid = ident.sourceId;
-          if (sid != null && sid.isNotEmpty) {
-            if (!sourceIds.contains(sid)) sourceIds.add(sid);
-            sessionScoped.add(sid);
-          }
-          await addMemorySources(ident.libraryDbId);
-        }
-      } else {
-        for (final c in _groupCharacters) {
-          final ident = MemberOriginResolver.libraryRagIdentity(
-            originStableId: null,
-            originLibraryDbId: null,
-            memberName: c.name,
-            libraryCharacters: library,
-          );
-          final sid = ident.sourceId;
-          if (sid != null && sid.isNotEmpty) {
-            if (!sourceIds.contains(sid)) sourceIds.add(sid);
-            sessionScoped.add(sid);
-          }
-          await addMemorySources(ident.libraryDbId);
-        }
+    if (grouped) {
+      for (final bucket in legacyGroupMemoryBuckets(_activeGroup!.id)) {
+        sourceIds.add(bucket);
+        sessionScoped.add(bucket);
       }
+      if (speaker == null) {
+        return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+      }
+      final others = {
+        for (final c in _groupCharacters)
+          if (!identical(c, speaker)) memory.keyFor(c),
+      }..remove(currentId);
+      await addMemorySources(_libraryDbIdOf(speaker));
+      sourceIds.removeWhere(others.contains);
       return (sourceIds: sourceIds, sessionScoped: sessionScoped);
     }
 
     await addMemorySources(_session.activeCharacter?.dbId);
     return (sourceIds: sourceIds, sessionScoped: sessionScoped);
+  }
+
+  /// The library row a group member was copied from (where its memory
+  /// sources live); null for a member with no resolvable origin.
+  String? _libraryDbIdOf(CharacterCard member) {
+    final library = _characterRepository?.characters ?? const <CharacterCard>[];
+    return MemberOriginResolver.libraryRagIdentity(
+      originStableId: member.originStableId,
+      originLibraryDbId: member.originLibraryDbId,
+      memberName: member.name,
+      libraryCharacters: library,
+    ).libraryDbId;
+  }
+
+  /// Per-character memory importance, keyed the way retrieval multiplies:
+  /// by the row owner's memory key. Stored by member roster id, so it is
+  /// translated here; keying it by roster id never matched a row.
+  Map<String, double> prioritiesByMemoryKey() {
+    if (_activeGroup == null) return const {};
+    final stored = _d.doors.entry().members.currentGroupRAGPriorities;
+    final memory = _d.doors.cast().memory;
+    return {
+      for (final c in _groupCharacters)
+        memory.keyFor(c): ?stored[_getCharacterIdFromCard(c)],
+    };
   }
 }

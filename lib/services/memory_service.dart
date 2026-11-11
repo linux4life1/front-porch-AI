@@ -104,9 +104,15 @@ class MemoryService extends ChangeNotifier {
   /// Expose the embedding service for use by other services (e.g. persona fact dedup).
   EmbeddingService get embeddingService => _embeddingService;
 
+  /// The open chat's own memory switch, when it has one: a group's own
+  /// (`groupRagEnabled`), null in a 1:1 where the global Memory setting rules.
+  /// Wired by the chat; without it a group's switch would sit behind the
+  /// global 1:1 one and do nothing while that one was off.
+  bool? Function()? chatGate;
+
   /// Whether RAG memory is fully operational (enabled + embeddings available).
   bool get isOperational =>
-      _storageService.memorySettings.ragEnabled &&
+      (chatGate?.call() ?? _storageService.memorySettings.ragEnabled) &&
       _embeddingService.isAvailable;
 
   /// Get all stored content chunks for the given characters, sorted chronologically.
@@ -144,6 +150,12 @@ class MemoryService extends ChangeNotifier {
   /// in windows of [ragWindowSize] messages, skipping windows that are
   /// already embedded (by checking existing position ranges).
   ///
+  /// [lineMask] (one flag per line of [formattedMessages]) files only the
+  /// lines that are true, so a member's window holds just the lines they were
+  /// there for; a window with none is not stored. [skipRangesStoredUnder]
+  /// names other character ids whose stored windows count as already
+  /// covering a range (the read-only old group pool).
+  ///
   /// Optional [maxWindows] caps work so a large import backfill can yield
   /// between chunks; the live path omits it (full pass). When set, only that
   /// many *missing* windows are discovered per call (avoids O(N²) full-history
@@ -157,6 +169,8 @@ class MemoryService extends ChangeNotifier {
     int positionOffset = 0,
     int? maxWindows,
     bool Function()? shouldContinue,
+    List<bool>? lineMask,
+    List<String> skipRangesStoredUnder = const [],
   }) {
     return _embedder.embed(
       sessionId: sessionId,
@@ -166,6 +180,8 @@ class MemoryService extends ChangeNotifier {
       positionOffset: positionOffset,
       maxWindows: maxWindows,
       shouldContinue: shouldContinue,
+      lineMask: lineMask,
+      skipRangesStoredUnder: skipRangesStoredUnder,
     );
   }
 

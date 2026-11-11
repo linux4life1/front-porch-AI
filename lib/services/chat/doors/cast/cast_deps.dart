@@ -207,7 +207,8 @@ class CastShellHooks {
   final Future<void> Function(CharacterCard card) setActiveCharacter;
   final Future<void> Function(String sessionId) loadSession;
 
-  /// The memory bucket of the open chat (`group_<id>` for a group).
+  /// The open chat's id (`group_<id>` for a group); a group's memory is
+  /// per member, see [MemberMemory].
   final String Function() ragCharacterId;
   final Map<String, String> Function(String? json) parseJsonMap;
 
