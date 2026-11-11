@@ -54,14 +54,10 @@ const _deadLeafIds = {
       'never in the visible list, so it resolves to nothing in either mode.',
 };
 
-/// Leaves a chat shows differently in a group than in 1:1. Everything else
-/// must be gated identically in both modes.
-const _groupDiffersLeaves = {
-  'time':
-      'A group always shows the time portion (the tapped member\'s presence, '
-      'plan and weather); 1:1 hides it only while Realism is off and the '
-      'clock is paused.',
-};
+/// Leaves a chat shows differently in a group than in 1:1. None: every
+/// leaf is gated by the same rule in both modes. Add one here, with a reason,
+/// only if the maintainer rules the difference in.
+const _groupDiffersLeaves = <String, String>{};
 
 /// Items only a 1:1 chat has in Character State. None: a leaf missing in a
 /// group would be drift. Add one here, with a reason, only if the plan rules

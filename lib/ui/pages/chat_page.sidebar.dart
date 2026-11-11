@@ -32,6 +32,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
@@ -253,9 +254,27 @@ class _ParticipantRoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Away / Back and the turn-busy gate change without the cast changing.
+    return ListenableBuilder(
+      listenable: chatService,
+      builder: (context, _) => _roster(context),
+    );
+  }
+
+  Widget _roster(BuildContext context) {
     final hasLite = cast.any((p) => p.isLite);
+    // Group members only (the web's rule): With you / Away get Away / Back.
+    PresenceWhere? presenceOf(ChatParticipant p) =>
+        chatService.isGroupMode && !p.isLite && !p.isHost
+        ? chatService.groupMemberPresence(p.id)
+        : null;
+    final hasAway = cast.any(
+      (p) =>
+          presenceOf(p) == PresenceWhere.withYou ||
+          presenceOf(p) == PresenceWhere.away,
+    );
     return Container(
-      height: hasLite ? 96 : 66,
+      height: (hasLite ? 96 : 66) + (hasAway ? 22 : 0),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
@@ -281,6 +300,13 @@ class _ParticipantRoster extends StatelessWidget {
             isLite: p.isLite,
             imageFile: img,
             promoteEnabled: !chatService.isGenerating,
+            presence: presenceOf(p),
+            // The same busy read the service refuses on.
+            onSetAway: chatService.isTurnBusy
+                ? null
+                : (away) => unawaited(
+                    chatService.setGroupMemberAway(p.id, away: away),
+                  ),
             onFocus: () => onFocus(p.id),
             onPromote: p.isLite
                 ? () {

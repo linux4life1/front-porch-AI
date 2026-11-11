@@ -180,7 +180,8 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
       // the default, not the runtime switch), so an off chat must show
       // the line, like Needs does. The PANEL inside keeps its own gate.
       if (card != null && !lite) 'pockets',
-      if (realismOn || widget.isGroup || clockRunning) 'time',
+      // One rule in both modes: the member's Realism, or the clock running.
+      if (realismOn || clockRunning) 'time',
     ];
     final ordered = ui.sidebarLeafOrderFor('character_state', visible);
     final pump = ReorderScrollPump.maybeOf(context);
