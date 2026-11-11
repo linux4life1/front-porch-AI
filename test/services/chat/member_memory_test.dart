@@ -27,6 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/fpchat_format.dart';
 import 'package:front_porch_ai/services/chat/group_memory.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -82,6 +83,29 @@ void main() {
       expect(masks['mem-bea'], [true, true, true, false, true]);
     });
   });
+
+  test(
+    'who was present is not exported: another library\'s ids mean nothing',
+    () {
+      final m = ChatMessage(
+        text: 'hi',
+        sender: 'Ada',
+        isUser: false,
+        metadata: {
+          kMemoryPresentMeta: ['Ada_lib'],
+          'keep': 1,
+        },
+      );
+      final out = messagesExtraEntry(0, m);
+      expect(out['metadata'], {'keep': 1});
+      expect((out['swipe_metadata'] as List).single, {'keep': 1});
+      expect(
+        m.metadata,
+        contains(kMemoryPresentMeta),
+        reason: 'live untouched',
+      );
+    },
+  );
 
   group('a real group chat', () {
     setUp(() async {
