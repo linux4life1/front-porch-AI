@@ -18,9 +18,10 @@ import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/group
 
 /// One member on the Realism tab: a live readout, a summary of where they
 /// start in new chats of the group, and an Edit that opens their editor
-/// (their start, Verification, Needs and Afterglow are there). This chat's
-/// own controls for them stay here: their Afterglow switch with its
-/// Recovery block, and Reset.
+/// (their start, Verification, Needs and Afterglow are there). What stays
+/// here: their Afterglow default for new chats with its Recovery block, their
+/// Pockets default, and Reset. This chat's own switches for them are in the
+/// sidebar.
 class GroupMemberRealismCard extends StatelessWidget {
   final int index;
   final CharacterCard char;
@@ -54,7 +55,7 @@ class GroupMemberRealismCard extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
-        'Afterglow',
+        'Afterglow — new chats',
         style: TextStyle(fontSize: 11, color: AppColors.textSecondary(context)),
       ),
       const SizedBox(width: 6),
@@ -131,8 +132,7 @@ class GroupMemberRealismCard extends StatelessWidget {
         : null;
     final emo = liveState?['emotion'] as String?;
     final bond = isRealismActive ? cs.getAffectionForGroupCharacter(char) : 0;
-    final afterglowShown =
-        afterglowEnabledOf(context) && cs.afterglowChatSwitch;
+    final afterglowShown = afterglowEnabledOf(context);
     final ownAfterglow = char.frontPorchExtensions?.afterglowEnabled ?? true;
     // Forgiving read shared with the sidebar line (a bare dialog harness
     // has no StorageService; identity_chip_lists.pocketsEnabledOf).
@@ -200,9 +200,9 @@ class GroupMemberRealismCard extends StatelessWidget {
               ),
             ],
           ),
-          // This member's own Afterglow switch in this chat, while Porch Life
-          // allows Afterglow and the group chat's switch is on (the phone
-          // shows the same switch).
+          // This member's Afterglow default for new chats, while Porch Life
+          // allows Afterglow. This chat's own switch for them is in the
+          // sidebar's Character State (the phone has the same).
           if (afterglowShown) ...[
             _afterglowRow(context),
             // Their Recovery block while their own switch is on, as the card

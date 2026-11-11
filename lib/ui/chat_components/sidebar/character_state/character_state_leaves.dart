@@ -64,11 +64,14 @@ class NeedsLeaf extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        NeedsLine(chat: chat, inGroup: member != null),
-        // The bars show while Needs run: the gate (Realism, this chat's
-        // Needs switch, the Porch Life one), not the stored switch, or
-        // they sit frozen with Needs off and read as live.
-        if (chat.needsActive && vector.isNotEmpty) ...[
+        NeedsLine(chat: chat, member: member),
+        // The bars show while Needs run for this character: the gate
+        // (their Realism, their Needs switch, the Porch Life one), not the
+        // stored switch, or they sit frozen with Needs off and read as live.
+        if (chat.needsActiveFor(
+              member == null ? '' : chat.characterIdFor(member),
+            ) &&
+            vector.isNotEmpty) ...[
           const SizedBox(height: 4),
           NeedsGrid(
             needs: member == null

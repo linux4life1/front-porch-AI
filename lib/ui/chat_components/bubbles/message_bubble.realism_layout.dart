@@ -162,8 +162,11 @@ class MessageRealismChipLayout extends StatelessWidget {
         chat.reprocessNeedsTargetFor(index) != null ||
         chat.reprocessFeelingsTargetFor(index) != null;
     // Revert is offered only when a pre-reprocess stash exists on this (last) msg
+    // In a group the reply's own speaker's Needs decide, not the next one's.
     final canRevert =
-        chat.needsActive &&
+        (chat.isGroupMode
+            ? chat.reprocessNeedsTargetFor(index) != null
+            : chat.needsActive) &&
         meta != null &&
         meta['needs_deltas_pre_reprocess'] is Map;
     if (!canReprocess && !canRevert) return const <Widget>[];

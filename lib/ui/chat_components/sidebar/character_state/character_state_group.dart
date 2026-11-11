@@ -47,10 +47,11 @@ import 'time_strip.dart';
 /// leaf: the Needs grid still shows from the live `needsActive` gate, not the
 /// stored switch (Error Book 2026-10-08).
 ///
-/// The realism master switch lives in the header for 1:1; a group's Realism is
-/// set in Group Settings (Main Settings → Group Settings…) until the
-/// per-member switches land. There is no settings gear: Needs is set on its
-/// line, and One-Shot Eval sits above the tool-calling pill (OneShotEvalRow).
+/// The Realism switch lives in the header and, in a group, drives the focused
+/// member for this chat only (docs/design/one-chat-ux.md PR 3); Needs and
+/// Afterglow sit on their own lines and Pockets on its line, each the same.
+/// There is no settings gear: Needs is set on its line, and One-Shot Eval
+/// sits above the tool-calling pill (OneShotEvalRow).
 class CharacterStateGroup extends StatefulWidget {
   final ChatService chat;
   final bool isGroup;
@@ -98,12 +99,23 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
   /// The focused group member, when there is one and this is a group.
   CharacterCard? get _groupMember => widget.isGroup ? widget.member : null;
 
+  /// Whether Realism runs for what the leaves show: the focused member's own
+  /// switch in a group (Director Mode keeps it on), else the chat's.
+  bool _realismOn(ChatService chat) {
+    if (!widget.isGroup) return chat.realismEnabled;
+    final member = _groupMember;
+    return member != null &&
+        chat.isGroupMode &&
+        chat.realismEnabledFor(chat.characterIdFor(member));
+  }
+
   String _subtitle(ChatService chat) {
     final time = TimeStrip.timeLabel(chat.timeService.timeOfDay);
     if (widget.isGroup) {
       final member = _groupMember;
-      if (!chat.realismEnabled || member == null || member.isLite) {
-        return chat.realismEnabled ? time : 'Realism off · $time';
+      final on = _realismOn(chat);
+      if (!on || member == null || member.isLite) {
+        return on ? time : 'Realism off · $time';
       }
       final reads = BondReads.member(chat, member);
       final fixated = chat.getFixationForGroupCharacter(member) != null
@@ -122,11 +134,10 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
   Widget build(BuildContext context) {
     final chat = widget.chat;
     final member = _groupMember;
-    // A group's Realism runs when the chat's does; Director Mode keeps it on
-    // (the cast's state still shows, held still while the user is off stage).
-    final realismOn = widget.isGroup
-        ? chat.realismEnabled && chat.isGroupMode
-        : chat.realismEnabled;
+    // A group's Realism runs when the focused member's does; Director Mode
+    // keeps it on (the cast's state still shows, held still while the user
+    // is off stage).
+    final realismOn = _realismOn(chat);
     // A lite guest carries no realism, needs, ambitions or pockets.
     final lite = member?.isLite ?? false;
     // Whose state the leaves read: the focused member, or the 1:1 host.
@@ -135,7 +146,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
     // Realism it greys out there; a change made mid-reply lands when the
     // reply settles, and the note says so meanwhile.
     final realismAllowed = realismAllowedOf(context);
-    final realismSwitch = chat.realismChatSwitch;
+    // The focused member's id; '' for the 1:1 host, whose switch is the chat's.
+    final memberId = member == null ? '' : chat.characterIdFor(member);
+    final realismSwitch = chat.realismSwitchFor(memberId);
     // Mirrors ChatService._clockRunning: Porch Life Passage of Time, live.
     final storage = Provider.of<StorageService>(context);
     final clockRunning = StoryClock.isRunning(
@@ -182,7 +195,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
       initiallyExpanded: widget.initiallyExpanded,
       onExpansionChanged: widget.onExpansionChanged,
       dragHandle: widget.dragHandle,
-      trailing: widget.isGroup
+      // A group mounts it for the focused member; a lite guest carries no
+      // Realism, so it has no switch to flip.
+      trailing: widget.isGroup && (member == null || lite)
           ? null
           : SizedBox(
               height: 24,
@@ -193,7 +208,7 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                   onChanged: !realismAllowed || chat.isGenerating
                       ? null
                       : (val) {
-                          chat.setRealismEnabled(val);
+                          chat.setMemberRealismEnabled(memberId, val);
                           // Turning realism ON reveals the stats it enables
                           // (old RealismSection auto-expanded the same way).
                           if (val) _accordionKey.currentState?.expand();
@@ -256,8 +271,10 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
   /// them.
   Widget _portion(BuildContext context, ChatService chat, String id) {
     final realismAllowed = realismAllowedOf(context);
-    final realismSwitch = chat.realismChatSwitch;
     final member = _groupMember;
+    final realismSwitch = chat.realismSwitchFor(
+      member == null ? '' : chat.characterIdFor(member),
+    );
     final card = widget.isGroup ? member : chat.activeCharacter;
     switch (id) {
       case 'realism_off':
@@ -267,11 +284,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               : !realismAllowed
               ? "The Realism Engine is off in Porch Life. This chat's "
                     'own choice is kept.'
-              : widget.isGroup
-              // The group's switch lives in Group Settings for now.
-              ? 'The Realism Engine is off for this group. Turn it on in '
-                    'Main Settings → Group Settings to track bond, trust, '
-                    'mood, and scene time for each character.'
+              : widget.isGroup && !realismSwitch
+              // This member's own switch, in the header.
+              ? 'The Realism Engine is off for ${member?.name ?? 'this '
+                            'character'} in this chat — flip the switch to track '
+                    'bond, trust, mood, and scene time for them.'
               : realismSwitch
               // Allowed again mid-reply: it lands when the reply settles.
               ? 'Realism starts again when this reply finishes.'

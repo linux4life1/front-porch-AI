@@ -88,10 +88,16 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
                 child: Builder(
                   builder: (_) {
                     final card = cast[i].card;
-                    final emo = chatService.isGroupRealismActive
+                    // Each member's ring answers to their own Realism switch.
+                    final realismOn =
+                        chatService.isGroupMode &&
+                        chatService.realismEnabledFor(
+                          chatService.characterIdFor(card),
+                        );
+                    final emo = realismOn
                         ? chatService.getEmotionForGroupCharacter(card)
                         : null;
-                    final fix = chatService.isGroupRealismActive
+                    final fix = realismOn
                         ? chatService.getFixationForGroupCharacter(card)
                         : null;
                     final tooltip = emo == null
@@ -104,7 +110,7 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
                       child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: chatService.isGroupRealismActive
+                          border: realismOn
                               ? Border.all(
                                   color: EmotionLabels.ringColor(emo),
                                   width: 2.0,

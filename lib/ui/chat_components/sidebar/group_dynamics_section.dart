@@ -51,9 +51,9 @@ class GroupDynamicsSection extends StatelessWidget {
   /// Whether the section mounts for this chat and member.
   static bool visibleFor(ChatService chat, CharacterCard? member) =>
       chat.isGroupMode &&
-      chat.realismEnabled &&
       member != null &&
-      !member.isLite;
+      !member.isLite &&
+      chat.realismEnabledFor(chat.characterIdFor(member));
 
   /// The read for [member] off the live chat.
   static GroupDynamics readFor(ChatService chat, CharacterCard member) =>

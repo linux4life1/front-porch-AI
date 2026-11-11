@@ -55,8 +55,10 @@ class MoodPortraitFrame extends StatelessWidget {
     required MoodLook look,
   }) {
     if (!look.portraitOn) return null;
+    // A group member's ring answers to that member's own Realism switch.
+    final id = chat.characterIdFor(character);
     final realism = isGroup
-        ? chat.realismEnabled && chat.isGroupMode
+        ? chat.realismEnabledFor(id) && chat.isGroupMode
         : chat.realismEnabled;
     if (!realism) return null;
     final enjoysLowHygiene =
@@ -69,7 +71,7 @@ class MoodPortraitFrame extends StatelessWidget {
       mood = chat.getMoodForGroupCharacter(character);
       bond = chat.getAffectionForGroupCharacter(character);
       trust = chat.getTrustForGroupCharacter(character);
-      needs = chat.needsActive
+      needs = chat.needsActiveFor(id)
           ? visibleNeedsFor(
               chat.getNeedsForGroupCharacter(character),
               character,

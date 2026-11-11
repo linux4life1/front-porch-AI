@@ -40,8 +40,8 @@ class BondBars extends StatelessWidget {
 
   /// A group member to read instead of the chat's live scalars (which hold
   /// whoever spoke last in a group). Null = the 1:1 host. A member's Lust
-  /// shows while Afterglow runs for them; this line carries no Afterglow
-  /// switch (the per-member switch is a later change).
+  /// shows while Afterglow runs for them, and the Afterglow line under Trust
+  /// is their switch for this chat, as it is the 1:1 chat's.
   final CharacterCard? member;
 
   const BondBars({super.key, required this.chat, this.member});
@@ -49,6 +49,8 @@ class BondBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final member = this.member;
+    // '' for the 1:1 host, whose switch is the chat's.
+    final memberId = member == null ? '' : chat.characterIdFor(member);
     final reads = member == null
         ? BondReads.host(chat)
         : BondReads.member(chat, member);
@@ -108,20 +110,20 @@ class BondBars extends StatelessWidget {
               'Trust: Paranoia vs absolute faith. Dictates whether the '
               'character questions your motives or readily believes you.',
         ),
-        // Porch Life (with 18+) allows Afterglow: the line and this chat's
-        // own switch show; Lust and recovery show while the switch is on.
-        if (member == null && afterglowEnabledOf(context)) ...[
+        // Porch Life (with 18+) allows Afterglow: the line and this
+        // character's own switch for this chat show; Lust and recovery show
+        // while the switch is on.
+        if (afterglowEnabledOf(context)) ...[
           const SizedBox(height: 8),
           _AfterglowLine(
             chat: chat,
-            on: chat.nsfwService.storedNsfwCooldownEnabled,
+            memberId: memberId,
+            on: chat.afterglowSwitchFor(memberId),
           ),
         ],
         if (reads.lustOn) ...[
           // Closer under the Afterglow line; the old gap without it.
-          SizedBox(
-            height: member == null && afterglowEnabledOf(context) ? 4 : 8,
-          ),
+          SizedBox(height: afterglowEnabledOf(context) ? 4 : 8),
           RealismProgressRow(
             label: 'Lust',
             value: reads.lustLevel,
@@ -187,11 +189,17 @@ class RefractoryLine extends StatelessWidget {
   }
 }
 
-/// This chat's own Afterglow switch, on the line it controls (no gear).
+/// One character's Afterglow switch for this chat, on the line it controls
+/// (no gear).
 class _AfterglowLine extends StatelessWidget {
-  const _AfterglowLine({required this.chat, required this.on});
+  const _AfterglowLine({
+    required this.chat,
+    required this.memberId,
+    required this.on,
+  });
 
   final ChatService chat;
+  final String memberId;
   final bool on;
 
   @override
@@ -217,7 +225,9 @@ class _AfterglowLine extends StatelessWidget {
             child: Switch(
               value: on,
               activeThumbColor: accent,
-              onChanged: chat.isGenerating ? null : chat.setAfterglowEnabled,
+              onChanged: chat.isGenerating
+                  ? null
+                  : (v) => chat.setMemberAfterglowSwitch(memberId, v),
             ),
           ),
         ),
