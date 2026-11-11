@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // PR 2 (docs/design/one-chat-ux.md), the window's Character State rules in a
-// group: Realism off says where to turn it on (and a member with no scores
-// must not crash the card), a lite guest keeps its note, and the Needs line
-// is the heading alone (the chat-level switch is not a member's).
+// group: Realism off says how to turn it on (and a member with no scores
+// must not crash the card), a lite guest keeps its note, and the switches
+// need a member id (PR 3: ChatSidebar.memberSwitches.test.tsx has them).
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -127,8 +127,8 @@ afterEach(() => {
 describe('Character State in a group', () => {
   it('Realism off says where to turn it on, and shows no scores', async () => {
     await render(off);
-    expect(body()).toContain('The Realism Engine is off for this group');
-    expect(body()).toContain('Main Settings → Group Settings');
+    expect(body()).toContain('The Realism Engine is off for Mara in this chat');
+    expect(body()).toContain('flip the switch');
     expect(body()).not.toContain('Short-Term Bond');
     expect(body()).not.toContain('Needs');
     // Pockets and time are not Realism's, so they stay.
@@ -142,7 +142,7 @@ describe('Character State in a group', () => {
     expect(body()).not.toContain('Short-Term Bond');
   });
 
-  it('the Needs line is the heading alone in a group, with a switch in a 1:1', async () => {
+  it('the Needs line has no switch for a guest (no member id), and one in a 1:1', async () => {
     await render(on);
     expect(body()).toContain('Needs');
     expect(container.querySelector('input[aria-label="Needs"]')).toBeNull();
@@ -154,7 +154,7 @@ describe('Character State in a group', () => {
     expect(container.querySelector('input[aria-label="Needs"]')).not.toBeNull();
   });
 
-  it('the Realism switch is not in a group\'s header (it is the chat\'s, not a member\'s)', async () => {
+  it('the Realism switch is not in the header without a member id, and is in a 1:1', async () => {
     await render(on);
     expect(container.querySelector('input[aria-label="Realism engine"]')).toBeNull();
 
