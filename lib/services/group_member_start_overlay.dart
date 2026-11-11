@@ -97,7 +97,12 @@ Map<String, Map<String, dynamic>> memberStartSeeds(
       continue;
     }
     if (!ext.realismEnabled) continue;
-    final seed = groupMemberStartingSeed(ext);
+    // What a seed holds besides a start (a fixation it begins with, a stance)
+    // stays; every start value is the copy's.
+    final seed = <String, dynamic>{
+      ...?stored[m.mid],
+      ...groupMemberStartingSeed(ext),
+    };
     if (ext.needsSimChoice == false) seed.remove('needs');
     final rels = <String, int>{
       for (final r
