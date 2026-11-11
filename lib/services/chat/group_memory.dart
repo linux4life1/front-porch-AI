@@ -80,3 +80,29 @@ Map<String, List<bool>> presentLineMasks(
   }
   return masks;
 }
+
+/// The id [card]'s Data Bank rows and memory windows carry: a group member's
+/// [memoryKeyFor], a 1:1 host's own `stableGroupId`. The one rule the desktop
+/// Memory leaf and the PWA both read, so they cannot disagree on whose Data
+/// Bank is shown.
+String memoryIdFor(
+  CharacterCard card,
+  Iterable<CharacterCard> library, {
+  required bool inGroup,
+}) => inGroup ? memoryKeyFor(card, library) : card.stableGroupId;
+
+/// The library row whose memory sources [card] reads: the character a group
+/// member was copied from, or a 1:1 host's own row. Null when unresolved.
+String? memoryLibraryDbIdFor(
+  CharacterCard card,
+  Iterable<CharacterCard> library, {
+  required bool inGroup,
+}) {
+  if (!inGroup) return card.dbId;
+  return MemberOriginResolver.libraryRagIdentity(
+    originStableId: card.originStableId,
+    originLibraryDbId: card.originLibraryDbId,
+    memberName: card.name,
+    libraryCharacters: library,
+  ).libraryDbId;
+}

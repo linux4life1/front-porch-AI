@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools.dart';
 import 'package:front_porch_ai/services/web/facade/journal_web_surface.dart';
@@ -34,6 +35,8 @@ class ChatToolsFacade {
     StoryRepository? storyRepo,
     UserPersonaService? personas,
     ChatWorldRead? chatWorld,
+    AppDatabase? db,
+    CharacterRepository? library,
   }) : _ctx = ChatToolsContext(chat, storage, hub) {
     _scene = ChatToolsScene(
       _ctx,
@@ -46,7 +49,11 @@ class ChatToolsFacade {
     _switches = ChatToolsSwitches(_ctx);
     _objectives = ChatToolsObjectives(_ctx);
     _pockets = ChatToolsPockets(_ctx);
+    memoryBank = ChatToolsMemoryBank(_ctx, db: db, library: library);
   }
+
+  /// The Memory section's Sources picker and Data Bank.
+  late final ChatToolsMemoryBank memoryBank;
 
   final ChatToolsContext _ctx;
   late final ChatToolsScene _scene;

@@ -23,7 +23,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/group_memory.dart';
-import 'package:front_porch_ai/services/chat/member_origin_resolver.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/data_bank_dialog.dart';
@@ -109,30 +108,19 @@ class _MemoryPanelState extends State<MemoryPanel> {
 
   /// The id this character's Data Bank rows and memory windows carry: their
   /// library identity (a group member is a copy, so not their own avatar id).
-  String _memoryId(CharacterCard card) {
-    if (!_inGroup) return characterEmbeddingId(card);
-    final library = Provider.of<CharacterRepository>(
-      context,
-      listen: false,
-    ).characters;
-    return memoryKeyFor(card, library);
-  }
+  String _memoryId(CharacterCard card) => memoryIdFor(
+    card,
+    Provider.of<CharacterRepository>(context, listen: false).characters,
+    inGroup: _inGroup,
+  );
 
   /// The library row whose memory sources this character reads (a group
   /// member's is the character it was copied from).
-  String? _libraryDbId(CharacterCard card) {
-    if (!_inGroup) return card.dbId;
-    final library = Provider.of<CharacterRepository>(
-      context,
-      listen: false,
-    ).characters;
-    return MemberOriginResolver.libraryRagIdentity(
-      originStableId: card.originStableId,
-      originLibraryDbId: card.originLibraryDbId,
-      memberName: card.name,
-      libraryCharacters: library,
-    ).libraryDbId;
-  }
+  String? _libraryDbId(CharacterCard card) => memoryLibraryDbIdFor(
+    card,
+    Provider.of<CharacterRepository>(context, listen: false).characters,
+    inGroup: _inGroup,
+  );
 
   Set<String> _excludedSourceIds() {
     final owner = _owner;
