@@ -31,25 +31,24 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
-/// Group Settings, from Main Settings → Group Settings…, or on [initialTab] from a group
-/// member's editor (its lines link to Realism and Needs).
-/// Completes when the dialog closes.
-Future<void> showGroupSettings(
+/// Group Settings…: the group editor page for the group open in
+/// [chatService], on [initialTab] (see `kEditGroupSectionIds`). It edits the
+/// group's definition (its defaults for new chats), and what applies to the
+/// open chat now (name, prompts, turn order) is carried over when it saves.
+/// Completes when the page closes.
+Future<void> openGroupEditor(
   BuildContext context,
   ChatService chatService, {
   int initialTab = 0,
 }) {
-  final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
-  return showDialog<void>(
-    context: context,
-    // Outside tap used to discard General the same way X/Close did.
-    barrierDismissible: false,
-    builder: (dialogContext) => GroupSettingsDialog(
-      chatService: chatService,
-      groupRepo: groupRepo,
-      initialTab: initialTab,
+  final group = chatService.activeGroup;
+  if (group == null) return Future.value();
+  return Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => EditGroupPage(group: group, initialTab: initialTab),
     ),
   );
 }

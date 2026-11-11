@@ -34,6 +34,7 @@ class EditGroupRealismTab extends StatelessWidget {
     required this.baselineJson,
     required this.onChanged,
     this.onEditMember,
+    this.memberExtras,
   });
 
   final bool loaded;
@@ -44,6 +45,9 @@ class EditGroupRealismTab extends StatelessWidget {
 
   /// Opens member [mid]'s editor.
   final void Function(String mid)? onEditMember;
+
+  /// A member's defaults for new chats, shown under their line.
+  final Widget? Function(GroupRealismMember member)? memberExtras;
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +65,7 @@ class EditGroupRealismTab extends StatelessWidget {
       initialBaselineJson: baselineJson,
       onChanged: onChanged,
       onEditMember: onEditMember,
+      memberExtras: memberExtras,
     );
   }
 }

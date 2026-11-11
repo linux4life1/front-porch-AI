@@ -36,7 +36,7 @@ import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controll
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.main_settings_items.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
-    show showGroupSettings;
+    show openGroupEditor;
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
     show memberGroupViewOfChat, readMemberEditorDefinition;
@@ -292,7 +292,6 @@ Future<void> showEditCharacterDialog(
   BuildContext context,
   CharacterCard character, {
   bool ensureRelationshipVisible = false,
-  void Function(int tab)? groupSettingsTab,
 }) async {
   final chatService = Provider.of<ChatService>(context, listen: false);
   // A group member is the group's own copy: Save writes its row, never the
@@ -319,7 +318,6 @@ Future<void> showEditCharacterDialog(
           chatService,
           character,
           persisted: persisted,
-          showTab: groupSettingsTab,
         )
       : null;
   final opened = showDialog<void>(
@@ -450,7 +448,7 @@ class ChatSidebarMainSettings extends StatelessWidget {
             );
             break;
           case 'group_settings':
-            await showGroupSettings(context, chatService);
+            await openGroupEditor(context, chatService);
             break;
         }
       },

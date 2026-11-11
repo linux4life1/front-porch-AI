@@ -16,14 +16,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Shown on the Lore & Worlds tab when the stored group lorebook can't be read.
 const kEditGroupUnreadableLoreNote =
@@ -88,6 +93,31 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
                     color: AppColors.textPrimary(context),
                   ),
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  for (final e in await importGroupLorebookJson(context)) {
+                    onAddEntry(e);
+                  }
+                },
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: const Text('Import JSON'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  for (final e in await importGroupLoreFromCharacter(context)) {
+                    onAddEntry(e);
+                  }
+                },
+                icon: const Icon(Icons.person_search_outlined, size: 18),
+                label: const Text('From character'),
               ),
               OutlinedButton.icon(
                 onPressed: () async {
@@ -219,4 +249,61 @@ Future<bool?> keepUnreadableGroupLorebook(
   );
   if (replace == null) return null;
   return !replace;
+}
+
+/// Entries from a lorebook JSON file the user picks (a card's or a bare
+/// `entries` book), tolerating either shape; says what happened in a
+/// snackbar and returns none when nothing was added.
+Future<List<LorebookEntry>> importGroupLorebookJson(
+  BuildContext context,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final result = await GuardedPicker.pickFiles(
+    context,
+    category: PickerPrefs.catImport,
+    type: FileType.custom,
+    allowedExtensions: ['json'],
+  );
+  if (result == null || result.files.isEmpty) return const [];
+  try {
+    final json =
+        jsonDecode(utf8.decode(await result.files.single.readAsBytes()))
+            as Map<String, dynamic>;
+    final source = (json['lorebook'] is Map)
+        ? json['lorebook'] as Map<String, dynamic>
+        : (json['entries'] != null ? json : <String, dynamic>{});
+    final imported = Lorebook.fromJson(source.isNotEmpty ? source : json);
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          imported.entries.isEmpty
+              ? 'No entries found in file.'
+              : 'Imported ${imported.entries.length} entries.',
+        ),
+      ),
+    );
+    return imported.entries;
+  } catch (e) {
+    debugPrint('[EditGroup] lorebook import failed: $e');
+    messenger?.showSnackBar(SnackBar(content: Text('Failed to import: $e')));
+    return const [];
+  }
+}
+
+/// Entries copied from a library character's lorebook, picked in the shared
+/// dialog.
+Future<List<LorebookEntry>> importGroupLoreFromCharacter(
+  BuildContext context,
+) async {
+  final characters = Provider.of<CharacterRepository>(context, listen: false);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final entries = await showImportCharacterLoreDialog(
+    context: context,
+    characters: characters.characters,
+  );
+  if (entries == null || entries.isEmpty) return const [];
+  messenger?.showSnackBar(
+    SnackBar(content: Text('Added ${entries.length} entries from character.')),
+  );
+  return entries;
 }

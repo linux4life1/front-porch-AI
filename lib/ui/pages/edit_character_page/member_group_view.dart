@@ -29,14 +29,14 @@ class MemberGroupView {
   const MemberGroupView({
     required this.read,
     this.changes,
-    this.linkLabel = 'Group Settings',
+    this.linkLabel = 'Edit group',
     this.onOpenRealism,
     this.onOpenChaos,
     this.onOpenNeeds,
-    this.chaosWhere = 'set in Group Settings',
+    this.chaosWhere = 'set in the chat sidebar',
     this.loreWhere =
-        'Group Settings → Lorebook & Worlds has "Inherit character lorebooks"',
-    this.worldsWhere = 'Group Settings',
+        'Edit group → Lore & Worlds has "Inherit character & world lorebooks"',
+    this.worldsWhere = 'Edit group → Lore & Worlds',
     this.start,
     this.startUpdates,
     this.noStartWhere = 'Edit group → Realism & Dynamics',
@@ -50,7 +50,7 @@ class MemberGroupView {
   /// Repaints the lines when the group's switches move (the open chat).
   final Listenable? changes;
 
-  /// Where the links go ("Group Settings", "Realism & Dynamics").
+  /// Where the links go ("Edit group", "Realism & Dynamics").
   final String linkLabel;
 
   /// Opens where the group sets Realism, time, Chaos and Afterglow (from the
@@ -140,7 +140,7 @@ MemberGroupRows memberGroupRows(
       icon: Icons.casino,
       text: 'Chaos Mode · ${on(values.chaos)}',
       linkLabel: values.open && view.onOpenChaos != null
-          ? 'Group Settings'
+          ? view.linkLabel
           : null,
       onOpen: values.open ? link(view.onOpenChaos) : null,
       where: values.open

@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// One selectable turn-order card on the Group Settings General tab.
+/// One selectable turn-order card in the group editor.
 class GroupTurnStrategyCard extends StatelessWidget {
   final bool isSelected;
   final String label;

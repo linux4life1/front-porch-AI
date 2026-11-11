@@ -107,6 +107,15 @@ class GroupMemberSettings {
           ? _nsfwService.storedNsfwCooldownEnabled
           : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
 
+  /// Gives every full member a live switch of their own for this chat before
+  /// a default is edited, so the edit can never reach into the chat that is
+  /// open (a member who has none reads the default until this runs). Group
+  /// Settings' page calls it ahead of every save that touches defaults.
+  void holdMemberSwitches() {
+    if (_activeGroup == null) return;
+    _s.graph().seedGroupMemberSwitches();
+  }
+
   /// A group member's Afterglow DEFAULT for the group's new chats: the flag
   /// on their member copy (unset reads on), the Pockets shape. It is not this
   /// chat's switch (that rides their bag, [MemberSwitches.setAfterglow], and

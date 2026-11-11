@@ -58,6 +58,7 @@ export 'group_chat_repository.dart';
 export 'group_card_service.dart';
 export 'group_card_exporter.dart';
 export 'group_fork_source.dart';
+export 'group_editor_apply.dart';
 export 'group_member_card_save.dart';
 export 'group_member_start.dart';
 export 'group_wide_values.dart';

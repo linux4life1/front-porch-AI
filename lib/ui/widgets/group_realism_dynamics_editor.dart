@@ -45,6 +45,9 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
   /// Opens member [mid]'s editor; the summaries have no Edit without it.
   final void Function(String mid)? onEditMember;
 
+  /// What sits under a member's line (their defaults for new chats).
+  final Widget? Function(GroupRealismMember member)? memberExtras;
+
   const GroupRealismDynamicsEditor({
     super.key,
     required this.members,
@@ -52,6 +55,7 @@ class GroupRealismDynamicsEditor extends StatefulWidget {
     required this.initialBaselineJson,
     required this.onChanged,
     this.onEditMember,
+    this.memberExtras,
   });
 
   @override
@@ -368,6 +372,11 @@ class _GroupRealismDynamicsEditorState
               _emit();
             },
           ),
+          // Members' own defaults (Pockets needs no Realism) stay reachable.
+          if (!_realismEnabled) ...[
+            const SizedBox(height: 16),
+            ...widget.members.map(_buildMemberSummary),
+          ],
         ],
       ),
     );
@@ -484,6 +493,7 @@ class _GroupRealismDynamicsEditorState
         lite: m.extensions?.tier == 'lite',
       ),
       onEdit: edit == null ? null : () => edit(m.mid),
+      below: widget.memberExtras?.call(m),
     );
   }
 }

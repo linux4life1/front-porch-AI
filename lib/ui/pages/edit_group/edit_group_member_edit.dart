@@ -27,16 +27,6 @@ import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.
     show memberGroupViewOfTemplate;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group_details_tab.dart';
 
-/// Edit group's tabs, in order; the member editor's links go back to
-/// [kEditGroupRealismTab].
-const kEditGroupTabs = [
-  Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
-  Tab(icon: Icon(Icons.chat_bubble_outline, size: 18), text: 'Dialogue'),
-  Tab(icon: Icon(Icons.auto_stories_outlined, size: 18), text: 'Lore & Worlds'),
-  Tab(icon: Icon(Icons.favorite_outline, size: 18), text: 'Realism & Dynamics'),
-];
-const kEditGroupRealismTab = 3;
-
 /// Opens [member]'s editor from Edit group, on [group]'s settings for new
 /// chats as the page holds them now ([defaultMemberJson], [baselineJson],
 /// where it meets: [settingId], and [inheritCharacterLorebooks]). A start

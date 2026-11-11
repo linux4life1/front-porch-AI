@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Auto-advance switch card on the Group Settings General tab.
+/// Auto-advance switch card in the group editor.
 class GroupAutoAdvanceCard extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;

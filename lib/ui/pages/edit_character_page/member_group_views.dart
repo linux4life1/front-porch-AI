@@ -26,16 +26,12 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart'
     show RealismSettings;
 import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart'
-    show showGroupSettings;
-import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
-    show leaveCharacterEditor;
+    show openGroupEditor;
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_sections.dart'
+    show kEditGroupRealismTab;
 import 'package:front_porch_ai/ui/pages/edit_character_page/member_group_view.dart';
 import 'package:front_porch_ai/ui/widgets/porch_snack_bar.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-/// Group Settings' Realism and Needs tabs (see `GroupSettingsDialog`).
-const kGroupSettingsRealismTab = 2;
-const kGroupSettingsNeedsTab = 3;
 
 /// Porch Life's Realism permission as the editor opens (allowed without a
 /// StorageService above, as in widget goldens).
@@ -115,26 +111,23 @@ Future<String?> readMemberEditorDefinition(
 }
 
 /// The member editor's view of the group open in [chat]: the chat's own
-/// switches (its lines say "in this chat"), links to Group Settings, and
-/// [member]'s start in the group's new chats. The start comes from
-/// [persisted], the group's row as the editor opened
-/// (`defaultMemberRealismState`), never the chat's copy, which can hold
-/// Group Settings edits not saved yet; it is read again when a link's Group
-/// Settings closes. Opened from inside Group Settings ([showTab] is its tab
-/// switch), a link closes the editor back to that dialog's tab instead of
-/// opening a second one.
+/// switches (its lines say "in this chat"), links to the group editor page
+/// (where the group sets how its NEW chats start), and [member]'s start in
+/// those. The start comes from [persisted], the group's row as the editor
+/// opened (`defaultMemberRealismState`), never the chat's copy; it is read
+/// again when a link's page closes. The chat's own Chaos switch is in its
+/// sidebar, so that line says so instead of linking.
 MemberGroupView memberGroupViewOfChat(
   BuildContext context,
   ChatService chat,
   CharacterCard member, {
   required String persisted,
-  void Function(int tab)? showTab,
 }) {
   final group = chat.activeGroup;
   final worlds = _worlds(context);
   final mid = groupMemberStoreId(member);
   final ext = member.frontPorchExtensions;
-  // Group Settings saves through the group repository; without one (a
+  // The group editor saves through the group repository; without one (a
   // host that has none) the lines show their values with no link.
   var canOpen = true;
   try {
@@ -142,15 +135,14 @@ MemberGroupView memberGroupViewOfChat(
   } on ProviderNotFoundException {
     canOpen = false;
   }
-  final back = showTab;
   final porchLife = _porchLife(context);
   final legacy = [member.stableGroupId];
   final db = liveDatabase(context);
   final updates = _StartUpdates(
     groupMemberStartIn(persisted, mid, card: ext, legacyIds: legacy),
   );
-  // Group Settings' Done can write the group's row; read it again once the
-  // dialog closes so the start the editor shows is the saved one.
+  // The group editor's Save can write the group's row; read it again once the
+  // page closes so the start the editor shows is the saved one.
   Future<void> reread() async {
     if (group == null) return;
     try {
@@ -167,12 +159,10 @@ MemberGroupView memberGroupViewOfChat(
     }
   }
 
-  void Function(BuildContext)? open(int tab) => back != null
-      ? (ctx) => leaveCharacterEditor(ctx, onLeave: () => back(tab))
-      : !canOpen
+  void Function(BuildContext)? open(int tab) => !canOpen
       ? null
       : (ctx) async {
-          await showGroupSettings(ctx, chat, initialTab: tab);
+          await openGroupEditor(ctx, chat, initialTab: tab);
           await reread();
         };
   return MemberGroupView(
@@ -184,9 +174,10 @@ MemberGroupView memberGroupViewOfChat(
     changes: chat,
     startUpdates: updates,
     realismAllowed: _realismAllowed(context),
-    onOpenRealism: open(kGroupSettingsRealismTab),
-    onOpenChaos: open(kGroupSettingsRealismTab),
-    onOpenNeeds: open(kGroupSettingsNeedsTab),
+    linkLabel: 'Edit group',
+    onOpenRealism: open(kEditGroupRealismTab),
+    onOpenNeeds: open(kEditGroupRealismTab),
+    chaosWhere: 'the Chaos switch in the sidebar, under Story Tools',
     start: group == null ? null : updates.value,
     saveStart: group == null
         ? null

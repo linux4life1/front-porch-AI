@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -33,14 +31,12 @@ import 'package:front_porch_ai/utils/utils.dart';
 export 'package:front_porch_ai/ui/pages/edit_group/edit_group_lore_worlds_tab.dart'
     show kEditGroupUnreadableLoreNote;
 
-/// Tabbed group editor (edit-only flow).
-/// Matches the visual tabbed style, section cards, and field treatment of EditCharacterPage
-/// while using ONLY AppColors helpers (no hard-coded Color literals or raw Colors.*).
-/// Pruned per spec:
-/// - Personality & World: no Description/Personality fields; includes explanatory note,
-///   Group System Prompt, Scenario, and Per-Character Overrides.
-/// - Dialogue: First Message + alternate greetings with opening seeds;
-///   Example Dialogue / mes_example completely omitted (GroupChat has no such field).
+/// The group editor: one page for everything a group is made of, in tabs
+/// (Details, Dialogue, Lore & Worlds, Realism & Dynamics, Memory). It edits
+/// the group's definition, so what it holds for Realism, Needs, Afterglow and
+/// Pockets are defaults for NEW chats and never switch a chat that is open;
+/// the name, prompts and turn order also apply to an open chat on Save. The
+/// web twin is `GroupEditPage.tsx`, with the same sections in the same order.
 class EditGroupPage extends StatefulWidget {
   final GroupChat group;
 
@@ -51,11 +47,15 @@ class EditGroupPage extends StatefulWidget {
   final String saveLabel;
   final bool popWithGroupOnSave;
 
+  /// The section it opens on (see [kEditGroupSectionIds]).
+  final int initialTab;
+
   const EditGroupPage({
     super.key,
     required this.group,
     this.saveLabel = 'Save',
     this.popWithGroupOnSave = false,
+    this.initialTab = 0,
   });
 
   @override
@@ -84,15 +84,15 @@ class _EditGroupPageState extends State<EditGroupPage>
   late final TextEditingController _scenarioController;
   late final TextEditingController _systemPromptController;
 
-  final List<CharacterCard> _members = [];
-  // Members as the realism editor needs them (mid + name + origin + avatar). The
-  // origin lets the editor recover realism seeds from groups made before the
-  // id-keying fix. Populated together with _members.
-  final List<GroupRealismMember> _realismMembers = [];
-  bool _realismLoaded = false;
+  // The members (cards for Details, rows for Realism with the origin ids the
+  // editor recovers old seeds from) and their defaults for new chats.
+  final _roster = EditGroupRoster();
+  List<CharacterCard> get _members => _roster.members;
+  List<GroupRealismMember> get _realismMembers => _roster.realism;
   final Map<String, TextEditingController> _charPromptControllers = {};
+  bool _saving = false;
 
-  final List<LorebookEntry> _groupLoreEntries = [];
+  late final EditGroupLorebook _lore;
   // Where new chats meet, and what the group stored when the page opened.
   GroupWorldChoice _worldChoice = const GroupWorldChoice();
   GroupWorldChoice _worldsAsLoaded = const GroupWorldChoice();
@@ -123,27 +123,32 @@ class _EditGroupPageState extends State<EditGroupPage>
     });
   }
 
-  // Preserved on edit (baseline is immutable per spec; default seeds passed through)
   String _baselineRealismState = '{}';
   String _defaultMemberRealismState = '{}';
   TurnOrder _turnOrder = TurnOrder.roundRobin;
   bool _autoAdvance = false;
   bool _directorMode = false;
 
-  // Guards + data-loss protection (smallest possible additions)
   bool _membersLoaded = false;
-  String _originalRawLorebook = '';
 
-  /// The stored group lorebook could not be read. It is kept as stored
-  /// unless the user, asked on Save, chooses to replace it.
-  bool _bookUnreadable = false;
+  /// The chat open on this group, or null: removing and adding members,
+  /// Author's Notes and Memory need one.
+  ChatService? get _openChat {
+    final chat = Provider.of<ChatService>(context, listen: false);
+    return openGroupOf(chat, widget.group.id) == null ? null : chat;
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: kEditGroupTabs.length,
+      vsync: this,
+      initialIndex: widget.initialTab.clamp(0, kEditGroupTabs.length - 1),
+    );
 
     final g = widget.group;
+    _roster.addListener(_onRoster);
     _nameController = TextEditingController(text: g.name);
     _firstMessageController = TextEditingController(text: g.firstMessage);
     _altGreetings = List.from(g.alternateGreetings);
@@ -157,7 +162,7 @@ class _EditGroupPageState extends State<EditGroupPage>
     _turnOrder = g.turnOrder;
     _autoAdvance = g.autoAdvance;
     _directorMode = g.directorMode;
-    _originalRawLorebook = g.groupLorebook;
+    _lore = EditGroupLorebook(g.groupLorebook);
   }
 
   @override
@@ -167,77 +172,76 @@ class _EditGroupPageState extends State<EditGroupPage>
     _membersLoaded = true;
 
     final g = widget.group;
-    final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
-    final storage = Provider.of<StorageService>(context, listen: false);
     final worlds = Provider.of<WorldRepository>(context, listen: false);
-    // Fire-and-forget async load (didChangeDependencies is sync). Collect the
-    // full roster once, then a single setState — the Realism tab needs the whole
-    // member list (with origin ids) before it initializes its seeds.
-    () async {
-      final roster = await loadEditGroupRoster(groupRepo, storage, g.id);
-      if (!mounted) return;
-      setState(() {
-        _members.addAll(roster.cards);
-        _realismMembers.addAll(roster.realism);
-        _realismLoaded = true;
-        // Per-char prompt controllers keyed by the member mid (matches the
-        // runtime read + the fixed creator write).
-        for (final rm in roster.realism) {
-          _charPromptControllers.putIfAbsent(rm.mid, TextEditingController.new);
-        }
-      });
-    }();
+    _loadRoster();
 
-    // Per-char prompt controllers seeded from the stored overrides (member-level
-    // empty controllers are added in the async roster load above).
+    // Per-char prompt controllers seeded from the stored overrides.
     for (final entry in g.characterSystemPrompts.entries) {
       _charPromptControllers[entry.key] = TextEditingController(
         text: entry.value,
       );
     }
 
-    // Parse existing group lorebook (preserve raw on failure for data safety)
-    try {
-      final book = parseGroupLorebookJson(g.groupLorebook);
-      if (book != null) _groupLoreEntries.addAll(book.entries);
-    } catch (e) {
-      debugPrint('[EditGroup] group lorebook could not be read: $e');
-      _bookUnreadable = true;
-    }
     _worldChoice = _worldsAsLoaded = groupWorldChoiceIn(g, worlds);
-    _startFingerprint = _fingerprint();
+    _startFingerprint = _values().fingerprint;
+  }
+
+  /// Reads the whole roster (fire-and-forget: this runs from a sync hook),
+  /// then the editors seed from all of it at once. A page that was clean
+  /// stays clean once the members are in.
+  Future<void> _loadRoster() async {
+    final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final clean = !_isDirty();
+    await _roster.load(groupRepo, storage, widget.group.id);
+    if (!mounted) return;
+    // Per-char prompt controllers keyed by the member mid (matches the
+    // runtime read + the fixed creator write).
+    setState(() {
+      for (final rm in _roster.realism) {
+        _charPromptControllers.putIfAbsent(rm.mid, TextEditingController.new);
+      }
+    });
+    if (clean) _startFingerprint = _values().fingerprint;
+  }
+
+  void _onRoster() {
+    if (mounted) setState(() {});
   }
 
   /// Everything Save writes, so leaving can tell whether anything changed.
   /// Empty per-character prompts are dropped, as Save drops them.
-  String _fingerprint() => jsonEncode([
-    _nameController.text.trim(),
-    _firstMessageController.text.trim(),
-    _altGreetings,
-    [for (final s in _altGreetingSeeds) s?.toJson()],
-    _scenarioController.text.trim(),
-    _systemPromptController.text.trim(),
-    _turnOrder.name,
-    _autoAdvance,
-    _directorMode,
-    _worldChoice.settingId,
-    _worldChoice.loreIds,
-    _inheritCharacterLorebooks,
-    {
+  EditGroupValues _values() => EditGroupValues(
+    name: _nameController.text.trim(),
+    firstMessage: _firstMessageController.text.trim(),
+    altGreetings: _altGreetings,
+    altGreetingSeeds: _altGreetingSeeds,
+    scenario: _scenarioController.text.trim(),
+    systemPrompt: _systemPromptController.text.trim(),
+    turnOrder: _turnOrder,
+    autoAdvance: _autoAdvance,
+    directorMode: _directorMode,
+    worldChoice: _worldChoice,
+    inheritCharacterLorebooks: _inheritCharacterLorebooks,
+    charPrompts: {
       for (final e in _charPromptControllers.entries)
         if (e.value.text.trim().isNotEmpty) e.key: e.value.text.trim(),
     },
-    [for (final e in _groupLoreEntries) e.toJson()],
-    _defaultMemberRealismState,
-    _baselineRealismState,
-  ]);
+    loreEntries: _lore.entries,
+    defaultMemberRealismState: _defaultMemberRealismState,
+    baselineRealismState: _baselineRealismState,
+    memberExtensions: _roster.extJson(),
+  );
   String? _startFingerprint;
 
   bool _isDirty() =>
-      _startFingerprint != null && _fingerprint() != _startFingerprint;
+      _startFingerprint != null && _values().fingerprint != _startFingerprint;
 
   @override
   void dispose() {
+    _roster
+      ..removeListener(_onRoster)
+      ..dispose();
     _tabController.dispose();
     _nameController.dispose();
     _firstMessageController.dispose();
@@ -250,72 +254,45 @@ class _EditGroupPageState extends State<EditGroupPage>
   }
 
   Future<void> _saveGroup() async {
+    if (_saving) return;
+    _saving = true;
+    try {
+      await _save();
+    } finally {
+      _saving = false;
+    }
+  }
+
+  Future<void> _save() async {
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     final chatService = Provider.of<ChatService>(context, listen: false);
-
-    final charPrompts = <String, String>{};
-    for (final entry in _charPromptControllers.entries) {
-      final t = entry.value.text.trim();
-      if (t.isNotEmpty) charPrompts[entry.key] = t;
-    }
+    final values = _values();
 
     // An unreadable stored book is never replaced without the user saying so.
     final keepRaw = await keepUnreadableGroupLorebook(
       context,
-      bookUnreadable: _bookUnreadable,
-      hasEntries: _groupLoreEntries.isNotEmpty,
+      bookUnreadable: _lore.unreadable,
+      hasEntries: _lore.entries.isNotEmpty,
     );
     if (keepRaw == null) return;
-    final String groupLoreJson = keepRaw
-        ? _originalRawLorebook
-        : jsonEncode(Lorebook(entries: List.from(_groupLoreEntries)).toJson());
-    final worldFields = groupWorldFieldsToSave(
-      storedWorldIds: widget.group.worldIds,
-      storedLoreWorldIds: widget.group.loreWorldIds,
-      chosen: _worldChoice,
-      asLoaded: _worldsAsLoaded,
-    );
-
-    final updated = GroupChat(
-      id: widget.group.id,
-      // Preserve the portable stable id (used for in-place Stoop updates +
-      // cross-device). Rebuilding the GroupChat from scratch would otherwise
-      // silently drop it.
-      stableId: widget.group.stableId,
-      name: _nameController.text.trim().isEmpty
-          ? widget.group.name
-          : _nameController.text.trim(),
-      // characterIds removed (decoupled group members).
-      turnOrder: _turnOrder,
-      autoAdvance: _autoAdvance,
-      directorMode: _directorMode,
-      firstMessage: _firstMessageController.text.trim(),
-      alternateGreetings: List.from(_altGreetings),
-      greetingSeeds: List.from(_altGreetingSeeds),
-      scenario: _scenarioController.text.trim(),
-      systemPrompt: _systemPromptController.text.trim(),
-      defaultMemberRealismState: withGroupOpeningAlts(
-        _defaultMemberRealismState,
-        alternateGreetings: _altGreetings,
-        greetingSeeds: _altGreetingSeeds,
+    final updated = values.toGroup(
+      widget.group,
+      loreJson: _lore.toSave(keepRaw: keepRaw),
+      worlds: groupWorldFieldsToSave(
+        storedWorldIds: widget.group.worldIds,
+        storedLoreWorldIds: widget.group.loreWorldIds,
+        chosen: _worldChoice,
+        asLoaded: _worldsAsLoaded,
       ),
-      baselineRealismState: _baselineRealismState,
-      characterSystemPrompts: charPrompts,
-      worldIds: worldFields.worldIds,
-      loreWorldIds: worldFields.loreWorldIds,
-      groupLorebook: groupLoreJson,
-      inheritCharacterLorebooks: _inheritCharacterLorebooks,
-      // Chaos flags are runtime/session settings (controlled in Group Settings dialog).
-      // Preserve whatever was on the original definition.
-      chaosModeEnabled: widget.group.chaosModeEnabled,
-      chaosNsfwEnabled: widget.group.chaosNsfwEnabled,
     );
 
     try {
       await groupRepo.save(updated);
+      final open = _openChat;
+      await _roster.saveDefaults(liveDatabase(context), open);
+      if (open != null) await applySavedGroupToOpenChat(open, updated);
 
       if (!mounted) return;
-      // Capture *before* any pop (fixes snackbar attachment + supports active-chat desync notice)
       final messenger = ScaffoldMessenger.of(context);
       final nav = Navigator.of(context);
 
@@ -326,12 +303,17 @@ class _EditGroupPageState extends State<EditGroupPage>
         return;
       }
 
-      final wasActive = chatService.activeGroup?.id == updated.id;
       nav.pop();
-      final msg = wasActive
-          ? 'Group "${updated.name}" updated. Changes apply on next New Chat / re-entry.'
-          : 'Group "${updated.name}" updated.';
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            chatService.activeGroup?.id == updated.id
+                ? 'Group "${updated.name}" updated. The name, prompts and turn '
+                      'order apply to this chat now; the rest is for new chats.'
+                : 'Group "${updated.name}" updated.',
+          ),
+        ),
+      );
     } catch (e) {
       debugPrint('EditGroupPage save failed: $e');
       if (mounted) {
@@ -343,6 +325,32 @@ class _EditGroupPageState extends State<EditGroupPage>
         );
       }
     }
+  }
+
+  Future<void> _addMember() async {
+    final chat = _openChat;
+    if (chat == null) return;
+    final repo = Provider.of<GroupChatRepository>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    if (!await addMemberToOpenChat(context, chat, repo, _members)) return;
+    if (!mounted) return;
+    await _roster.load(repo, storage, widget.group.id);
+  }
+
+  /// Removing the second-to-last member turns the group into a 1:1 chat,
+  /// which leaves nothing to edit: the page closes.
+  Future<void> _removeMember(CharacterCard live) async {
+    final chat = _openChat;
+    if (chat == null) return;
+    final repo = Provider.of<GroupChatRepository>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    if (!await removeMemberFromOpenChat(context, chat, repo, live)) return;
+    if (!mounted) return;
+    if (openGroupOf(chat, widget.group.id) == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await _roster.load(repo, storage, widget.group.id);
   }
 
   // A start it saves is on the group's row already: a clean page stays clean.
@@ -361,11 +369,13 @@ class _EditGroupPageState extends State<EditGroupPage>
         _defaultMemberRealismState = d;
         _baselineRealismState = b;
         _realismGen++;
-        if (clean) _startFingerprint = _fingerprint();
+        if (clean) _startFingerprint = _values().fingerprint;
       },
     );
     if (!mounted) return;
-    setState(() {}); // The member card was mutated in place.
+    // The member card was mutated in place, and the editor saved all of it:
+    // what it holds is stored now.
+    _roster.markStored();
     if (toRealism) _tabController.animateTo(kEditGroupRealismTab);
   }
 
@@ -375,43 +385,13 @@ class _EditGroupPageState extends State<EditGroupPage>
       isDirty: _isDirty,
       child: Scaffold(
         backgroundColor: AppColors.backgroundOf(context),
-        appBar: AppBar(
-          backgroundColor: AppColors.surfaceOf(context),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.of(context).maybePop(),
-          ),
-          title: const Text('Edit Group'),
-          bottom: TabBar(
-            controller: _tabController,
-            labelColor: AppColors.formAccentOf(context),
-            unselectedLabelColor: AppColors.textTertiary(context),
-            indicatorColor: AppColors.formAccentOf(context),
-            indicatorWeight: 3,
-            isScrollable: true,
-            tabs: kEditGroupTabs,
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _nameController,
-                builder: (context, value, _) {
-                  final hasName = value.text.trim().isNotEmpty;
-                  return ElevatedButton.icon(
-                    onPressed: hasName ? _saveGroup : null,
-                    icon: Icon(
-                      widget.popWithGroupOnSave
-                          ? Icons.arrow_forward
-                          : Icons.save_outlined,
-                      size: 18,
-                    ),
-                    label: Text(widget.saveLabel),
-                  );
-                },
-              ),
-            ),
-          ],
+        appBar: buildEditGroupAppBar(
+          context,
+          tabs: _tabController,
+          name: _nameController,
+          onSave: _saveGroup,
+          saveLabel: widget.saveLabel,
+          leadsOn: widget.popWithGroupOnSave,
         ),
         body: Center(
           child: ConstrainedBox(
@@ -435,11 +415,12 @@ class _EditGroupPageState extends State<EditGroupPage>
     );
   }
 
-  // Details, Dialogue, Lore & Worlds and Realism are widgets under
+  // Details, Dialogue, Lore & Worlds, Realism and Memory are widgets under
   // edit_group/. All colors via AppColors.* only — no raw Colors.*.
   Widget _tabs() {
     // A LISTENING read, as before: world changes rebuild the page.
     final worlds = Provider.of<WorldRepository>(context);
+    final chat = _openChat;
     return TabBarView(
       controller: _tabController,
       children: [
@@ -450,6 +431,15 @@ class _EditGroupPageState extends State<EditGroupPage>
           members: _members,
           charPromptControllers: _charPromptControllers,
           onEditMember: _editMember,
+          turnOrder: _turnOrder,
+          autoAdvance: _autoAdvance,
+          directorMode: _directorMode,
+          onTurnOrderChanged: (v) => setState(() => _turnOrder = v),
+          onAutoAdvanceChanged: (v) => setState(() => _autoAdvance = v),
+          onDirectorModeChanged: (v) => setState(() => _directorMode = v),
+          openChat: chat,
+          onRemoveMember: chat == null ? null : _removeMember,
+          onAddMember: chat == null ? null : _addMember,
         ),
         EditGroupDialogueTab(
           firstMessageController: _firstMessageController,
@@ -464,35 +454,44 @@ class _EditGroupPageState extends State<EditGroupPage>
           legacyWorldCount: groupNeedsWorldSplitNotice(widget.group)
               ? widget.group.worldIds.length
               : 0,
-          loreEntries: _groupLoreEntries,
-          bookUnreadable: _bookUnreadable,
+          loreEntries: _lore.entries,
+          bookUnreadable: _lore.unreadable,
           inheritCharacterLorebooks: _inheritCharacterLorebooks,
           worldChoice: _worldChoice,
           onAddEntry: (entry) {
-            if (mounted) setState(() => _groupLoreEntries.add(entry));
+            if (mounted) setState(() => _lore.entries.add(entry));
           },
           onReplaceEntry: (i, entry) {
-            if (mounted) setState(() => _groupLoreEntries[i] = entry);
+            if (mounted) setState(() => _lore.entries[i] = entry);
           },
-          onRemoveEntry: (i) => setState(() => _groupLoreEntries.removeAt(i)),
+          onRemoveEntry: (i) => setState(() => _lore.entries.removeAt(i)),
           onInheritChanged: (v) =>
               setState(() => _inheritCharacterLorebooks = v),
           onWorldChoiceChanged: (c) => setState(() => _worldChoice = c),
         ),
         EditGroupRealismTab(
           key: ValueKey('group-realism-editor-$_realismGen'),
-          loaded: _realismLoaded,
+          loaded: _roster.loaded,
           members: _realismMembers,
           defaultMemberJson: _defaultMemberRealismState,
           baselineJson: _baselineRealismState,
           onEditMember: (mid) => _members
               .where((c) => c.dbId == mid)
               .forEach((c) => _editMember(c, mid)),
+          memberExtras: (m) {
+            final card = _members.where((c) => c.dbId == m.mid).firstOrNull;
+            if (card == null) return null;
+            return EditGroupMemberDefaults(
+              member: card,
+              onChanged: (ext) => _roster.setDefaults(m.mid, ext),
+            );
+          },
           onChanged: (d, b) {
             _defaultMemberRealismState = d;
             _baselineRealismState = b;
           },
         ),
+        EditGroupMemoryTab(chat: chat),
       ],
     );
   }
