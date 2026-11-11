@@ -57,15 +57,15 @@ class RagSources {
   /// per-member memory (see [legacyGroupMemoryBuckets]) are a read-only
   /// fallback for every member. [sessionScoped] limits the speaker's key and
   /// the fallback to this chat; explicit sources that are not members stay
-  /// unscoped. A source that IS another member keeps its other-chat windows,
-  /// but their windows in THIS chat are exactly what the speaker may not have
-  /// been there for: [offLimitsThisChat] names those owners, and retrieval
-  /// drops their current-chat rows.
+  /// unscoped. A linked source keeps its other-chat windows, but in THIS chat
+  /// a group speaker reads only [readableThisChat] (their own key and the old
+  /// pool): anyone else's windows here may be scenes the speaker missed, so
+  /// retrieval drops them, whoever they belong to.
   Future<
     ({
       List<String> sourceIds,
       Set<String> sessionScoped,
-      Set<String> offLimitsThisChat,
+      Set<String> readableThisChat,
     })
   >
   sourceIds({CharacterCard? guest, CharacterCard? speaker}) async {
@@ -105,7 +105,7 @@ class RagSources {
       return (
         sourceIds: sourceIds,
         sessionScoped: sessionScoped,
-        offLimitsThisChat: const <String>{},
+        readableThisChat: const <String>{},
       );
     }
 
@@ -114,15 +114,16 @@ class RagSources {
         sourceIds.add(bucket);
         sessionScoped.add(bucket);
       }
-      final others = {
-        for (final c in _groupCharacters)
-          if (!identical(c, speaker)) memory.keyFor(c),
-      }..remove(currentId);
       if (speaker != null) await addMemorySources(_libraryDbIdOf(speaker));
+      // In this chat the speaker reads their own key and the old pool, and
+      // nothing else: whoever else filed here, current, removed or renamed.
       return (
         sourceIds: sourceIds,
         sessionScoped: sessionScoped,
-        offLimitsThisChat: speaker == null ? const <String>{} : others,
+        readableThisChat: {
+          if (currentId.isNotEmpty) currentId,
+          ...legacyGroupMemoryBuckets(_activeGroup!.id),
+        },
       );
     }
 
@@ -130,7 +131,7 @@ class RagSources {
     return (
       sourceIds: sourceIds,
       sessionScoped: sessionScoped,
-      offLimitsThisChat: const <String>{},
+      readableThisChat: const <String>{},
     );
   }
 

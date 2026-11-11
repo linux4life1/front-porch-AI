@@ -147,28 +147,30 @@ class TurnRag {
           debugPrint('[RAG:Chat] Skipping memory retrieval — cue-less beat');
           rawMemories = const [];
         } else {
-          // Another member's windows in THIS chat are theirs (a scene the
-          // speaker may have missed); drop them before the limit, so the
-          // search is asked for everything and cut after.
-          final offLimits = packed.offLimitsThisChat;
+          // In a group, this chat's windows are readable only under the
+          // speaker's own key and the old pool; a linked source's windows
+          // from THIS chat may be scenes the speaker missed. The wide fetch
+          // and filter happen only when such a source is linked at all.
+          final readable = packed.readableThisChat;
+          final filter =
+              readable.isNotEmpty &&
+              sourceIds.any((id) => !readable.contains(id));
           final thisChat = _session.currentSessionId ?? '';
           final asked = await _memoryService!.retrieve(
             queryText: queryMessages,
             sourceCharacterIds: sourceIds,
             currentSessionId: thisChat,
             inContextStart: _history.basePosition + t.droppedMessages,
-            limit: retrievalLimit == 0 || offLimits.isNotEmpty
-                ? 9999
-                : retrievalLimit,
+            limit: retrievalLimit == 0 || filter ? 9999 : retrievalLimit,
             characterPriorities: _a.ragSources.prioritiesByMemoryKey(),
             sessionScopedCharacterIds: sessionScoped,
           );
-          rawMemories = offLimits.isEmpty
+          rawMemories = !filter
               ? asked
               : [
                   for (final m in asked)
-                    if (!(m.sessionId == thisChat &&
-                        offLimits.contains(m.characterId)))
+                    if (m.sessionId != thisChat ||
+                        readable.contains(m.characterId))
                       m,
                 ].take(retrievalLimit == 0 ? 9999 : retrievalLimit).toList();
         }

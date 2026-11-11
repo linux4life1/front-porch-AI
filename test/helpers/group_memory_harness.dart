@@ -69,6 +69,7 @@ class RecordingMemory extends MemoryService {
       List<String> sources,
       Set<String> scoped,
       Map<String, double>? priorities,
+      int limit,
     })
   >
   asked = [];
@@ -88,6 +89,7 @@ class RecordingMemory extends MemoryService {
       sources: List.of(sourceCharacterIds),
       scoped: Set.of(sessionScopedCharacterIds),
       priorities: characterPriorities,
+      limit: limit,
     ));
     return super.retrieve(
       queryText: queryText,
@@ -129,6 +131,7 @@ class GroupMemoryHarness {
   static Future<GroupMemoryHarness> open({
     int windowSize = 3,
     bool beaLite = false,
+    bool withCy = false,
   }) async {
     final h = GroupMemoryHarness._();
     HttpOverrides.global = null;
@@ -155,6 +158,17 @@ class GroupMemoryHarness {
             imagePath: const Value('/library/Ada_lib.png'),
           ),
         );
+    if (withCy) {
+      await h.db
+          .into(h.db.characters)
+          .insert(
+            CharactersCompanion.insert(
+              id: 'lib-cy',
+              name: 'Cy',
+              imagePath: const Value('/library/Cy_lib.png'),
+            ),
+          );
+    }
     h.library = CharacterRepository(h.db, h.storage);
     await h.library.loadCharacters();
     h.chat =
@@ -182,6 +196,12 @@ class GroupMemoryHarness {
         '{"originStableId":"$adaKey","originLibraryDbId":"lib-ada"}',
       ),
       ('mem-bea', 'Bea', '{}'),
+      if (withCy)
+        (
+          'mem-cy',
+          'Cy',
+          '{"originStableId":"Cy_lib","originLibraryDbId":"lib-cy"}',
+        ),
     ]) {
       await h.db.insertGroupMember(
         GroupMembersCompanion.insert(
