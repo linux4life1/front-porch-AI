@@ -31,6 +31,7 @@ import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'memory_sources_list.dart';
 import 'rag_engine_card.dart';
 import 'rag_receipt_view.dart';
+import 'memory_off_everywhere_note.dart';
 import 'rag_settings_well.dart';
 
 /// Memory (RAG) sidebar panel — enable toggle (with first-run consent flow),
@@ -81,10 +82,21 @@ class _MemoryPanelState extends State<MemoryPanel> {
   CharacterCard? get _owner =>
       widget.member ?? widget.chatService.activeCharacter;
 
-  /// The switch: the group's own in a group, the global setting in a 1:1.
-  bool _enabled(StorageService storage) => _inGroup
+  /// Whether memory runs in this chat: the global Memory setting, and in a
+  /// group also the group's own switch (both must be on).
+  bool _enabled(StorageService storage) =>
+      storage.memorySettings.ragEnabled &&
+      (!_inGroup || widget.chatService.groupRagEnabled);
+
+  /// What the switch shows: the group's own choice in a group (kept while the
+  /// global setting is off), the global setting in a 1:1.
+  bool _switchValue(StorageService storage) => _inGroup
       ? widget.chatService.groupRagEnabled
       : storage.memorySettings.ragEnabled;
+
+  /// A group's switch is unavailable while the global setting is off.
+  bool _switchLocked(StorageService storage) =>
+      _inGroup && !storage.memorySettings.ragEnabled;
 
   Future<void> _setEnabled(StorageService storage, bool on) async {
     if (_inGroup) {
@@ -207,44 +219,46 @@ class _MemoryPanelState extends State<MemoryPanel> {
             height: 28,
             child: FittedBox(
               child: Switch(
-                value: enabled,
-                onChanged: (val) async {
-                  if (!val) {
-                    // Turning OFF — no consent needed
-                    await _setEnabled(storage, false);
-                    return;
-                  }
-                  // Turning ON — check if consent was given before
-                  final prefs = await SharedPreferences.getInstance();
-                  final consented =
-                      prefs.getBool('rag_setup_consented') ?? false;
-                  if (consented) {
-                    // Already consented — just enable
-                    await _setEnabled(storage, true);
-                    Provider.of<EmbeddingService>(
-                      context,
-                      listen: false,
-                    ).ensureReady();
-                    return;
-                  }
-                  // First time — show consent + setup dialog
-                  if (!context.mounted) return;
-                  final result = await showDialog<bool>(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => const RagSetupDialog(),
-                  );
-                  if (result == true) {
-                    await prefs.setBool('rag_setup_consented', true);
-                    await _setEnabled(storage, true);
-                    if (context.mounted) {
-                      Provider.of<EmbeddingService>(
-                        context,
-                        listen: false,
-                      ).ensureReady();
-                    }
-                  }
-                },
+                value: _switchValue(storage),
+                onChanged: _switchLocked(storage)
+                    ? null
+                    : (val) async {
+                        if (!val) {
+                          // Turning OFF — no consent needed
+                          await _setEnabled(storage, false);
+                          return;
+                        }
+                        // Turning ON — check if consent was given before
+                        final prefs = await SharedPreferences.getInstance();
+                        final consented =
+                            prefs.getBool('rag_setup_consented') ?? false;
+                        if (consented) {
+                          // Already consented — just enable
+                          await _setEnabled(storage, true);
+                          Provider.of<EmbeddingService>(
+                            context,
+                            listen: false,
+                          ).ensureReady();
+                          return;
+                        }
+                        // First time — show consent + setup dialog
+                        if (!context.mounted) return;
+                        final result = await showDialog<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => const RagSetupDialog(),
+                        );
+                        if (result == true) {
+                          await prefs.setBool('rag_setup_consented', true);
+                          await _setEnabled(storage, true);
+                          if (context.mounted) {
+                            Provider.of<EmbeddingService>(
+                              context,
+                              listen: false,
+                            ).ensureReady();
+                          }
+                        }
+                      },
                 // Switches are porch amber app-wide; the sage accent stays
                 // on the section chrome.
                 activeTrackColor: AppColors.porchAmberOf(context),
@@ -252,6 +266,8 @@ class _MemoryPanelState extends State<MemoryPanel> {
             ),
           ),
         ),
+
+        if (_switchLocked(storage)) const MemoryOffEverywhereNote(),
 
         if (!enabled)
           Padding(

@@ -105,14 +105,17 @@ class MemoryService extends ChangeNotifier {
   EmbeddingService get embeddingService => _embeddingService;
 
   /// The open chat's own memory switch, when it has one: a group's own
-  /// (`groupRagEnabled`), null in a 1:1 where the global Memory setting rules.
-  /// Wired by the chat; without it a group's switch would sit behind the
-  /// global 1:1 one and do nothing while that one was off.
+  /// (`groupRagEnabled`), null in a 1:1, which has only the global setting.
+  /// Wired by the chat. Both must be on, as Needs and Objectives AND a global
+  /// setting with a chat switch.
   bool? Function()? chatGate;
 
-  /// Whether RAG memory is fully operational (enabled + embeddings available).
+  /// Whether RAG memory is fully operational: the global Memory setting AND
+  /// the open chat's own switch (a group's) are on, and embeddings are
+  /// available.
   bool get isOperational =>
-      (chatGate?.call() ?? _storageService.memorySettings.ragEnabled) &&
+      _storageService.memorySettings.ragEnabled &&
+      (chatGate?.call() ?? true) &&
       _embeddingService.isAvailable;
 
   /// Get all stored content chunks for the given characters, sorted chronologically.

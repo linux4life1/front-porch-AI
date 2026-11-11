@@ -298,6 +298,58 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 3)));
   });
 
+  group(
+    'the memory gate in a group is the global setting AND the group\'s',
+    () {
+      setUp(() async {
+        h = await GroupMemoryHarness.open();
+        await h.seedLongChat();
+        await h.window(GroupMemoryHarness.adaKey, 'ADAONLY window', 3);
+        await h.openGroup();
+        await h.chat.loadSession(GroupMemoryHarness.sessionId);
+      });
+      tearDown(() => h.close());
+
+      /// One reply on the long chat: did it search, did it recall, did it file?
+      Future<({bool searched, bool recalled, int filed})> turn({
+        required bool global,
+        required bool group,
+      }) async {
+        await h.storage.memorySettings.setRagEnabled(global);
+        h.chat.setGroupRAGEnabled(group);
+        final before = (await h.db.select(h.db.messageEmbeddings).get()).length;
+        await h.say('Ada', 'Ada, remember what you said?');
+        final after = (await h.db.select(h.db.messageEmbeddings).get()).length;
+        return (
+          searched: h.memory.asked.isNotEmpty,
+          recalled: h.backend.lastChatBody.contains('ADAONLY'),
+          filed: after - before,
+        );
+      }
+
+      test('global off, group on: nothing is filed or recalled', () async {
+        final r = await turn(global: false, group: true);
+        expect(r.searched, isFalse);
+        expect(r.recalled, isFalse);
+        expect(r.filed, 0);
+      }, timeout: const Timeout(Duration(minutes: 2)));
+
+      test('global on, group off: nothing is filed or recalled', () async {
+        final r = await turn(global: true, group: false);
+        expect(r.searched, isFalse);
+        expect(r.recalled, isFalse);
+        expect(r.filed, 0);
+      }, timeout: const Timeout(Duration(minutes: 2)));
+
+      test('both on: it searches, recalls and files', () async {
+        final r = await turn(global: true, group: true);
+        expect(r.searched, isTrue);
+        expect(r.recalled, isTrue);
+        expect(r.filed, greaterThan(0));
+      }, timeout: const Timeout(Duration(minutes: 2)));
+    },
+  );
+
   group('rewrites', () {
     setUp(() async {
       h = await GroupMemoryHarness.open();

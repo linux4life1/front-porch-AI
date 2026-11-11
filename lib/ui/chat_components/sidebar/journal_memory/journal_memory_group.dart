@@ -98,9 +98,9 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
     final showMemory = !widget.isLite;
-    final ragOn = widget.isGroup
-        ? widget.chatService.groupRagEnabled
-        : storage.memorySettings.ragEnabled;
+    final ragOn =
+        storage.memorySettings.ragEnabled &&
+        (!widget.isGroup || widget.chatService.groupRagEnabled);
     final subtitle =
         'Journal ${storage.memorySettings.journalEnabled ? 'on' : 'off'}'
         '${showMemory ? ' · RAG ${ragOn ? 'on' : 'off'}' : ''}';

@@ -35,6 +35,9 @@ export interface ToolsState {
     /** 'group' when the switch and the count are the group's own (additive:
      *  absent on an older desktop, where they were global). */
     ragScope?: 'group' | 'global';
+    /** The global Memory setting (additive). In a group the switch only takes
+     *  effect while this is on, so it is greyed while this is false. */
+    ragGlobalEnabled?: boolean;
     ragRetrievalCount: number;
     ragWindowSize: number;
     journalEnabled: boolean;

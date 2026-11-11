@@ -151,10 +151,10 @@ class PostGenSide {
   /// retrieves under in [RagSources.sourceIds] — giving guests episodic memory
   /// without touching the host's embeddings.
   void maybeEmbedMessages({String? characterIdOverride}) {
-    // A group's own switch, not the global 1:1 one.
-    final ragOn = _session.activeGroup != null
-        ? _entry.members.groupRagEnabled
-        : _storageService.memorySettings.ragEnabled;
+    // The global setting AND, in a group, the group's own switch.
+    final ragOn =
+        _storageService.memorySettings.ragEnabled &&
+        (_session.activeGroup == null || _entry.members.groupRagEnabled);
     if (_memoryService == null || !ragOn) return;
     if (_session.currentSessionId == null) return;
 

@@ -141,6 +141,9 @@ class ChatToolsSnapshot {
             ? _chat.groupRagEnabled
             : mem.ragEnabled,
         'ragScope': _chat.isGroupMode ? 'group' : 'global',
+        // The global Memory setting. A group's switch only takes effect with
+        // it on, so the PWA greys the group switch while it is off (additive).
+        'ragGlobalEnabled': mem.ragEnabled,
         'ragRetrievalCount': _chat.isGroupMode
             ? _chat.groupRetrievalCount
             : mem.ragRetrievalCount,

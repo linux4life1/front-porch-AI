@@ -172,6 +172,7 @@ void main() {
     await storage.memorySettings.setRagRetrievalCount(5);
     expect(feed('Ana')['memory']['ragScope'], 'group');
     expect(feed('Ana')['memory']['ragEnabled'], chat.groupRagEnabled);
+    expect(feed('Ana')['memory']['ragGlobalEnabled'], isTrue);
 
     final res = await router.call(
       shelf.Request(

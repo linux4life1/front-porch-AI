@@ -20,6 +20,7 @@ import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/group_dynamics_section.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_off_everywhere_note.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_panel.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_sources_list.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
@@ -415,7 +416,7 @@ void main() {
       'switch is the group\'s own', (tester) async {
     await tester.runAsync(boot);
     addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
-    await tester.runAsync(() => storage.memorySettings.setRagEnabled(false));
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(true));
     tester.view.physicalSize = const Size(900, 4200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -471,8 +472,8 @@ void main() {
       'Bea',
     );
 
-    // The group's gate is on by default, though the global setting is off:
-    // the leaf shows the group's, and flipping it leaves the global alone.
+    // The group's gate is on by default: the leaf shows the group's, and
+    // flipping it leaves the global setting alone.
     Finder memorySwitch() => find.descendant(
       of: find.byType(MemoryPanel),
       matching: find.byType(Switch),
@@ -483,8 +484,15 @@ void main() {
     await tester.tap(memorySwitch());
     await settle(tester);
     expect(chat.groupRagEnabled, isFalse);
-    expect(storage.memorySettings.ragEnabled, isFalse);
+    expect(storage.memorySettings.ragEnabled, isTrue);
     expect(tester.widget<Switch>(memorySwitch()).value, isFalse);
+
+    // With the global setting off, the group's switch is unavailable (its
+    // choice kept) and says why.
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(false));
+    await settle(tester);
+    expect(tester.widget<Switch>(memorySwitch()).onChanged, isNull);
+    expect(find.text(MemoryOffEverywhereNote.text), findsOneWidget);
   });
 
   testWidgets('the Sources picker lists the other members of a group', (
@@ -492,6 +500,7 @@ void main() {
   ) async {
     await tester.runAsync(boot);
     addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(true));
     tester.view.physicalSize = const Size(900, 4200);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

@@ -67,9 +67,9 @@ class TurnRag {
     // ── RAG Memory Retrieval ──
     // When messages are dropped from context, search for relevant past memories
     // Skip retrieval for brand new chats to prevent old memories from interfering
-    final effectiveRagEnabled = _activeGroup != null
-        ? _members.groupRagEnabled
-        : _storageService.memorySettings.ragEnabled;
+    final effectiveRagEnabled =
+        _storageService.memorySettings.ragEnabled &&
+        (_activeGroup == null || _members.groupRagEnabled);
 
     if (_isNewChat) {
       debugPrint('[RAG:Chat] Skipping memory retrieval - new chat in progress');
