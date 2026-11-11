@@ -54,8 +54,12 @@ FrontPorchExtensions memberCopyFromGroupSeed(
   }
   if (seed == null) return out;
   final start = groupMemberStartOfSeed(seed);
+  // A need's baseline is the seed's own baseline key, else its bar: a seed
+  // starts each need at its bar.
+  final bars = seed['needs'];
   int? bar(String need) {
-    final v = seed['needsBaseline${need[0].toUpperCase()}${need.substring(1)}'];
+    final key = 'needsBaseline${need[0].toUpperCase()}${need.substring(1)}';
+    final v = seed[key] ?? (bars is Map ? bars[need] : null);
     return v is num ? v.toInt().clamp(0, 100) : null;
   }
 

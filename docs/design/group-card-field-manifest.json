@@ -896,6 +896,16 @@
         {
           "path": "web_ui/src/components/realism/RelationshipFields.tsx",
           "marker": "set({ characterEmotion: e.target.value })"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('characterEmotion', b.characterEmotion)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'characterEmotion': e.characterEmotion"
         }
       ],
       "reader": [
@@ -1019,6 +1029,16 @@
         {
           "path": "web_ui/src/components/realism/RelationshipFields.tsx",
           "marker": "set({ emotionIntensity: s })"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asStr('emotionIntensity', b.emotionIntensity)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'emotionIntensity': e.emotionIntensity"
         }
       ],
       "reader": [
@@ -2174,6 +2194,16 @@
         {
           "path": "web_ui/src/components/realism/RelationshipFields.tsx",
           "marker": "set({ longTermBond: n })"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('longTermBond', b.longTermBond)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'longTermBond': e.longTermBond"
         }
       ],
       "reader": [
@@ -3198,6 +3228,16 @@
         {
           "path": "web_ui/src/components/realism/RelationshipFields.tsx",
           "marker": "set({ shortTermBond: n })"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('shortTermBond', b.shortTermBond)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'shortTermBond': e.shortTermBond"
         }
       ],
       "reader": [
@@ -3259,6 +3299,16 @@
         {
           "path": "web_ui/src/components/realism/RelationshipFields.tsx",
           "marker": "set({ trustLevel: n })"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asInt('trustLevel', b.trustLevel)"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'trustLevel': e.trustLevel"
         }
       ],
       "reader": [

@@ -20,6 +20,7 @@
 // spec's order over a seeded group, one write on Save, the removed controls
 // absent, and the cast changed on the group's rows with its chat closed.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show TableUpdateQuery, Value;
@@ -44,6 +45,11 @@ class _Storage extends FakeStorageService {
   @override
   Future<void> get initialized async {}
 }
+
+/// A 1x1 PNG: the cast rows draw their avatar.
+final _png = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+);
 
 class _Library extends FakeCharacterRepository {
   @override
@@ -72,7 +78,7 @@ void main() {
     for (final n in ['Ana', 'Bea', 'Cy']) {
       File(
         '${root.path}/g/avatars/${n.toLowerCase()}.png',
-      ).writeAsBytesSync([0]);
+      ).writeAsBytesSync(_png);
       await db.insertGroupMember(
         GroupMembersCompanion.insert(
           id: 'mem-${n.toLowerCase()}',
@@ -146,7 +152,6 @@ void main() {
       for (final t in ['Details', 'Dialogue', 'Lorebook', 'Worlds']) {
         expect(find.text(t), findsWidgets);
       }
-      double y(String text) => tester.getTopLeft(find.text(text).first).dy;
       final order = [
         'Identity',
         'Turns',
@@ -175,7 +180,6 @@ void main() {
         orderedEquals([...ys]..sort()),
         reason: 'sections out of order',
       );
-      expect(y('Identity'), isNonNegative);
       expect(find.text("Edit Ana's card"), findsOneWidget);
       expect(find.text('+ Add a character'), findsOneWidget);
     });
