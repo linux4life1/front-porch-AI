@@ -892,6 +892,10 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "characterEmotion: d.realismEmotion"
+        },
+        {
+          "path": "web_ui/src/components/realism/RelationshipFields.tsx",
+          "marker": "set({ characterEmotion: e.target.value })"
         }
       ],
       "reader": [
@@ -1011,6 +1015,10 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "emotionIntensity: d.realismEmotionIntensity"
+        },
+        {
+          "path": "web_ui/src/components/realism/RelationshipFields.tsx",
+          "marker": "set({ emotionIntensity: s })"
         }
       ],
       "reader": [
@@ -2162,6 +2170,10 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "longTermBond: d.realismLongTermBond"
+        },
+        {
+          "path": "web_ui/src/components/realism/RelationshipFields.tsx",
+          "marker": "set({ longTermBond: n })"
         }
       ],
       "reader": [
@@ -3182,6 +3194,10 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "shortTermBond: d.realismShortTermBond"
+        },
+        {
+          "path": "web_ui/src/components/realism/RelationshipFields.tsx",
+          "marker": "set({ shortTermBond: n })"
         }
       ],
       "reader": [
@@ -3239,6 +3255,10 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "trustLevel: d.realismTrustLevel"
+        },
+        {
+          "path": "web_ui/src/components/realism/RelationshipFields.tsx",
+          "marker": "set({ trustLevel: n })"
         }
       ],
       "reader": [

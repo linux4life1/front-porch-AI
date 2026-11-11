@@ -29,8 +29,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// line, as it would for a character in no group.
 Future<List<String>> groupNamesOfCharacter(
   AppDatabase db,
-  CharacterCard character,
+  CharacterCard? character,
 ) async {
+  if (character == null) return const [];
   final stable = character.stableGroupId;
   final dbId = character.dbId;
   final names = <String>[];

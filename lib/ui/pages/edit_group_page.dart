@@ -79,6 +79,12 @@ class _EditGroupPageState extends State<EditGroupPage>
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _draft = EditGroupDraft(widget.group);
+    _castOps = EditGroupCast(
+      context: () => context,
+      group: widget.group,
+      chat: Provider.of<ChatService>(context, listen: false),
+      onDone: _reloadMembers,
+    );
     _lore = EditorLorebookActions(
       context: () => context,
       mounted: () => mounted,
@@ -268,12 +274,7 @@ class _EditGroupPageState extends State<EditGroupPage>
     if (mounted) setState(() {}); // The member card was mutated in place.
   }
 
-  late final EditGroupCast _castOps = EditGroupCast(
-    context: () => context,
-    group: widget.group,
-    chat: Provider.of<ChatService>(context, listen: false),
-    onDone: _reloadMembers,
-  );
+  late final EditGroupCast _castOps;
   int _removedCount = 0;
 
   CastActions _cast() => CastActions(
@@ -284,6 +285,7 @@ class _EditGroupPageState extends State<EditGroupPage>
   );
 
   Future<void> _reloadMembers() async {
+    if (!mounted) return;
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
     final roster = await loadEditGroupRoster(

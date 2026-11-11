@@ -134,9 +134,7 @@ void main() {
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
     // The roster reads real files.
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 300)),
-    );
+    await Future<void>.delayed(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
   }
 
