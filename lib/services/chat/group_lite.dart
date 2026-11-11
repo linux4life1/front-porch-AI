@@ -54,9 +54,10 @@ FrontPorchExtensions cloneFrontPorchTier(
   return ext;
 }
 
-/// A joining member's extensions, with their own Afterglow switch on. The
-/// card's switch says how new 1:1 chats start; in a group the group's own
-/// switch does that, and a member's switch means "track them in this group".
+/// A joining member's extensions, with their Afterglow default on. The card's
+/// switch says how new 1:1 chats start; the member copy's flag is the default
+/// for the group's new chats, and a member who joins starts tracked (their
+/// switch for this chat is seeded from it, see MemberSwitches.seedMissing).
 FrontPorchExtensions? joiningMemberFrontPorch(FrontPorchExtensions? ext) =>
     ext == null || ext.afterglowEnabled
     ? ext

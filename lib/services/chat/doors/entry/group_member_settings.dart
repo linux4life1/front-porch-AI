@@ -24,8 +24,9 @@ import 'entry_door.dart';
 
 /// A group member's settings in this chat: the RAG knobs, their Author's
 /// Note and system prompt (the session store's [GroupSessionConfig], saved
-/// in the session blob), their own Afterglow switch (on their member card)
-/// and the group's turn order.
+/// in the session blob), their Afterglow default for new chats (on their member
+/// card; this chat's own switch rides their bag, see MemberSwitches) and the
+/// group's turn order.
 class GroupMemberSettings {
   GroupMemberSettings(this._door, this._d);
 

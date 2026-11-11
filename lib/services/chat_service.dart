@@ -404,7 +404,8 @@ class ChatService extends ChangeNotifier {
   Future<void> setPassageOfTimeEnabled(bool enabled) =>
       controlsDoor.setPassageOfTimeEnabled(enabled);
 
-  /// A group member's own Afterglow switch (body in [GroupMemberSettings]).
+  /// A group member's Afterglow DEFAULT for new chats (body in
+  /// [GroupMemberSettings]); this chat's own switch is [setMemberAfterglowSwitch].
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) =>
       entryDoor.members.setMemberAfterglowEnabled(member, on);
 

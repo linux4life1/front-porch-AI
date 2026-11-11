@@ -90,12 +90,15 @@ Future<void> saveGroupMemberExtensions(AppDatabase db, CharacterCard card) {
   );
 }
 
-/// The open chat's Afterglow for the member [card] is a copy of, read before
-/// a save from an editor that opened the switch at [opened]. An editor
-/// holding an older copy (Edit group) that left the switch alone takes the
-/// chat's value, so a change made since (Group Settings, the phone) is not
-/// put back; one that wrote no extensions at all takes the chat's whole set.
-/// Returns the value [settleMemberAfterglow] starts from.
+/// The Afterglow DEFAULT the member copy [card] is a copy of in the open
+/// group, read before a save from an editor that opened the switch at
+/// [opened]. It is the flag on the member copy, what the group's NEW chats
+/// start with; it is not this chat's switch for them (the sidebar's, in their
+/// bag). An editor holding an older copy (Edit group) that left the switch
+/// alone takes the copy's current value, so a change made since (Group
+/// Settings, the phone) is not put back; one that wrote no extensions at all
+/// takes the copy's whole set. Returns the value [settleMemberAfterglow]
+/// starts from.
 bool liveMemberAfterglow(ChatService chat, CharacterCard card, bool opened) {
   if (!chat.isGroupMode) return opened;
   CharacterCard? live;
@@ -113,11 +116,12 @@ bool liveMemberAfterglow(ChatService chat, CharacterCard card, bool opened) {
   return now;
 }
 
-/// Settles a member's own Afterglow switch after their editor saved [saved]
-/// into the open group chat. The editor sets the switch on the card itself,
-/// so the chat would never see it move: the opening value [before] goes back
-/// and the chat sets the new one, as the Group Settings switch does. Off
-/// hides the member's Lust and recovery and keeps them; nothing is zeroed.
+/// Settles a member's Afterglow DEFAULT after their editor saved [saved] into
+/// the open group chat. The editor sets the flag on the card itself, so the
+/// chat's live member copy would never see it move: the opening value
+/// [before] goes back and the chat sets the new one, as the Group Settings
+/// switch does. It is the default for new chats only: this chat's own switch
+/// for the member (and their Lust and recovery) is untouched.
 Future<void> settleMemberAfterglow(
   ChatService chat,
   CharacterCard saved,
