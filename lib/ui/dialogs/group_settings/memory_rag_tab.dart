@@ -281,9 +281,9 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
 
                   const SizedBox(height: 4),
                   Text(
-                    'How much of a moment each memory keeps is set in a '
-                    'one-on-one chat\'s sidebar, under Memory (RAG), and '
-                    'applies to every chat.',
+                    'How much of a moment each memory keeps is set in the '
+                    'sidebar, under Memory (RAG), and applies to every chat. '
+                    'Each character recalls only what they were there for.',
                     style: TextStyle(
                       fontSize: 10,
                       color: AppColors.textTertiary(context),

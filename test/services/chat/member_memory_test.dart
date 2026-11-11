@@ -251,4 +251,33 @@ void main() {
       expect(bea, isNot(contains('ADAONLY')));
     }, timeout: const Timeout(Duration(minutes: 3)));
   });
+
+  group('rewrites', () {
+    setUp(() async {
+      h = await GroupMemoryHarness.open();
+      await h.seedLongChat();
+      await h.window(GroupMemoryHarness.adaKey, 'ADA early', 0);
+      await h.window('mem-bea', 'BEA early', 0);
+      await h.window(GroupMemoryHarness.adaKey, 'ADA late', 60);
+      await h.window('mem-bea', 'BEA late', 60);
+      await h.openGroup();
+      await h.chat.loadSession(GroupMemoryHarness.sessionId);
+    });
+    tearDown(() => h.close());
+
+    test(
+      'a delete purges every member\'s windows citing it, and only those',
+      () async {
+        h.chat.deleteMessage(61);
+        for (var i = 0; i < 30; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+        Future<List<String>> corpus(String key) async => [
+          for (final r in await h.rows(key)) r.content,
+        ];
+        expect(await corpus(GroupMemoryHarness.adaKey), ['ADA early']);
+        expect(await corpus('mem-bea'), ['BEA early']);
+      },
+    );
+  });
 }
