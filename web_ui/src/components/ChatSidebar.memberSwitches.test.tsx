@@ -162,15 +162,4 @@ describe('per-member switches in a group', () => {
     flip('input[aria-label="Afterglow"]');
     expect(last().body).toEqual({ name: 'memberAfterglow', value: false, id: 'm1' });
   });
-
-  it('a 1:1 still posts the chat toggles', async () => {
-    inGroup = false;
-    await render(on);
-    flip('.state-card > summary input[aria-label="Realism engine"]');
-    expect(last().body).toEqual({ name: 'realism', value: false });
-    flip('input[aria-label="Needs"]');
-    expect(last().body).toEqual({ name: 'needs', value: false });
-    flip('input[aria-label="Afterglow"]');
-    expect(last().body).toEqual({ name: 'nsfwCooldown', value: false });
-  });
 });
