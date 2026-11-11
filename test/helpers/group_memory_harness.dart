@@ -166,6 +166,7 @@ class GroupMemoryHarness {
           )
           ..setDatabase(h.db)
           ..setCharacterRepository(h.library)
+          ..setGroupChatRepository(GroupChatRepository(h.storage, h.db))
           ..testLlmServiceOverride = OpenRouterService(
             apiUrl: '${h.backend.baseUrl}/v1',
             modelName: 'smoke-model',
