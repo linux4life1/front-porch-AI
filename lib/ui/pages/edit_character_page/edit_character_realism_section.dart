@@ -70,7 +70,9 @@ class EditCharacterRealismSection extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => _build(context);
+
+  Widget _build(BuildContext context) {
     final d = draft;
     final mode = member;
     final name = memberName;

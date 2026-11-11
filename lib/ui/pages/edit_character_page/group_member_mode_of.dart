@@ -73,7 +73,6 @@ GroupMemberMode? groupMemberModeOfChat(
 ) {
   final group = chat.activeGroup;
   if (group == null) return null;
-  final repo = Provider.of<GroupChatRepository>(context, listen: false);
   final mid = groupMemberStoreId(member);
   return groupMemberModeOf(
     context,
@@ -82,7 +81,11 @@ GroupMemberMode? groupMemberModeOfChat(
     cast: chat.groupCharacters,
     saveValues: (values) async {
       applyGroupMemberValues(group, mid, values);
-      await repo.save(group);
+      // Read when there is something to store.
+      await Provider.of<GroupChatRepository>(
+        context,
+        listen: false,
+      ).save(group);
     },
   );
 }

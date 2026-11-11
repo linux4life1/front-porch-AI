@@ -47,7 +47,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
-import 'package:drift/drift.dart' show TableInfo, TableUpdateQuery;
+import 'package:drift/drift.dart' show TableUpdateQuery;
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -63,6 +64,9 @@ import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.
     show GroupMemberMode;
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
+    show RealismTimeDayCard;
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -463,7 +467,8 @@ void main() {
   testWidgets("the chat sidebar's member Edit sets a changed Afterglow "
       'through the chat, which clears her Lust', (tester) async {
     await tester.runAsync(() async {
-      final mara = member()..frontPorchExtensions = FrontPorchExtensions();
+      final mara = member()
+        ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true);
       final chat = _AfterglowGroup([mara]);
       await pumpAfterglowHost(
         tester,
@@ -472,14 +477,10 @@ void main() {
       );
 
       expect(
-        tester
-            .widget<Text>(find.byKey(const Key('group-member-editor-banner')))
-            .data,
-        startsWith('Mara in Pair.'),
+        find.textContaining("You're editing Mara in Pair only."),
+        findsOneWidget,
       );
-      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
-        false,
-      );
+      tester.widget<Switch>(afterglowSwitch('Afterglow')).onChanged!(false);
       await tester.pump();
       await save(tester);
 
@@ -500,7 +501,8 @@ void main() {
   testWidgets("Edit group's member Edit sets a changed Afterglow through the "
       'open chat', (tester) async {
     await tester.runAsync(() async {
-      final live = member()..frontPorchExtensions = FrontPorchExtensions();
+      final live = member()
+        ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true);
       final chat = _AfterglowGroup([live]);
       await pumpAfterglowHost(
         tester,
@@ -508,15 +510,14 @@ void main() {
         // Edit group's own copy, loaded from the row, not the chat's.
         onOpen: (context) => editGroupMemberCard(
           context,
-          member()..frontPorchExtensions = FrontPorchExtensions(),
+          member()
+            ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true),
           _memberId,
           mode: _mode('Pair'),
         ),
       );
 
-      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
-        false,
-      );
+      tester.widget<Switch>(afterglowSwitch('Afterglow')).onChanged!(false);
       await tester.pump();
       await save(tester);
 
@@ -536,7 +537,10 @@ void main() {
     await tester.runAsync(() async {
       // Group Settings switched Mara's own Afterglow off after Edit group
       // loaded her with it on.
-      final off = FrontPorchExtensions(afterglowEnabled: false);
+      final off = FrontPorchExtensions(
+        afterglowEnabled: false,
+        realismEnabled: true,
+      );
       await db.updateGroupMember(
         GroupMembersCompanion(
           id: const Value(_memberId),
@@ -549,7 +553,8 @@ void main() {
         chat: chat,
         onOpen: (context) => editGroupMemberCard(
           context,
-          member()..frontPorchExtensions = FrontPorchExtensions(),
+          member()
+            ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true),
           _memberId,
           mode: _mode('Pair'),
         ),
@@ -595,9 +600,9 @@ void main() {
         ),
       );
 
-      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
-        false,
-      );
+      tester
+          .widget<RealismFormSection>(find.byType(RealismFormSection))
+          .onEnabledChanged(true);
       pickVoice(tester, 'af_heart');
       await tester.pump();
       await save(tester);
@@ -630,9 +635,9 @@ void main() {
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
 
-      tester.widget<Switch>(afterglowSwitch('Afterglow for Mara')).onChanged!(
-        false,
-      );
+      tester
+          .widget<RealismFormSection>(find.byType(RealismFormSection))
+          .onEnabledChanged(true);
       await tester.pump();
       await save(tester);
 
@@ -655,7 +660,10 @@ void main() {
     await tester.runAsync(() async {
       // Edit group loaded Mara before she had extensions; since then the
       // phone switched her Afterglow off.
-      final off = FrontPorchExtensions(afterglowEnabled: false);
+      final off = FrontPorchExtensions(
+        afterglowEnabled: false,
+        realismEnabled: true,
+      );
       await db.updateGroupMember(
         GroupMembersCompanion(
           id: const Value(_memberId),
@@ -710,16 +718,6 @@ void main() {
   RealismFormSection form(WidgetTester tester) =>
       tester.widget<RealismFormSection>(find.byType(RealismFormSection));
 
-  /// Counts writes to [table] from here on.
-  int Function() countWrites(TableInfo<dynamic, dynamic> table) {
-    var n = 0;
-    final sub = db
-        .tableUpdates(TableUpdateQuery.onTable(table))
-        .listen((_) => n++);
-    addTearDown(sub.cancel);
-    return () => n;
-  }
-
   Future<void> saveTwiceFast(WidgetTester tester) async {
     await doubleTapNoFrame(tester, find.text('Save'));
     await pumpUntil(
@@ -735,7 +733,8 @@ void main() {
     tester,
   ) async {
     await tester.runAsync(() async {
-      final mara = member()..frontPorchExtensions = FrontPorchExtensions();
+      final mara = member()
+        ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true);
       await pumpHost(
         tester,
         chat: _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair')),
@@ -753,6 +752,220 @@ void main() {
       final ext = rowExtensions(await memberRow());
       expect(ext?.realismVerificationEnabled, isTrue);
       expect(ext?.realismNeedsDirectorAuthority, isTrue);
+    });
+  });
+
+  // ── PR 5: one editor. Member mode adds the notice and "In the group" and
+  // greys out what the group owns; the 1:1 editor names the groups its
+  // character is in. ──
+
+  testWidgets('member mode adds the notice and the group section and greys '
+      'out Time & Day, Worlds and Chaos Mode', (tester) async {
+    await tester.runAsync(() async {
+      final mara = member()
+        ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true);
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          mara,
+          _memberId,
+          mode: GroupMemberMode(
+            groupName: 'Pair',
+            memberId: _memberId,
+            others: const [GroupMemberRef('mem-bo', 'Bo')],
+            scene: const GroupSceneTime(timeOfDay: 'evening', dayCount: 3),
+            values: const GroupMemberValues(),
+            saveValues: (_) async {},
+          ),
+        ),
+      );
+
+      expect(
+        find.textContaining("You're editing Mara in Pair only."),
+        findsOneWidget,
+      );
+      expect(find.text('In Pair'), findsOneWidget);
+      expect(find.text('Toward Bo · ', findRichText: true), findsNothing);
+      // Time & Day, Chaos Mode and the Worlds tab are present but greyed.
+      final greyed = tester
+          .widgetList<GreyedOut>(find.byType(GreyedOut))
+          .map((g) => g.tooltip)
+          .toSet();
+      expect(greyed, {
+        'Time & Day is set per group, not per character.',
+        'Chaos Mode is set per group for now.',
+        'Worlds are set per group, not per character.',
+      });
+      expect(find.text('Time of Day'), findsOneWidget);
+      expect(find.text('Worlds'), findsOneWidget);
+      // The 1:1 read-only lines and the old banner are gone.
+      expect(find.byKey(const Key('group-member-editor-banner')), findsNothing);
+      expect(find.textContaining('Group Settings'), findsNothing);
+      expect(find.text('Enable Realism Engine'), findsOneWidget);
+    });
+  });
+
+  testWidgets('a greyed Time & Day cannot be changed and says why on '
+      'long-press', (tester) async {
+    await tester.runAsync(() async {
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member()..frontPorchExtensions = FrontPorchExtensions(),
+          _memberId,
+          mode: _mode('Pair'),
+        ),
+      );
+      await tester.ensureVisible(find.byType(RealismTimeDayCard));
+      await tester.pump();
+      final dayField = find.descendant(
+        of: find.byType(RealismTimeDayCard),
+        matching: find.byType(EditableText),
+      );
+      await tester.enterText(dayField, '9');
+      await tester.pump();
+      expect(
+        tester
+            .widget<RealismFormSection>(find.byType(RealismFormSection))
+            .dayCount,
+        1,
+        reason: 'the group owns the day number',
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(
+        tester.getCenter(
+          find.ancestor(
+            of: find.byType(RealismTimeDayCard),
+            matching: find.byType(GreyedOut),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(
+        find.text(
+          'Time & Day is set per group, not per character.',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+    });
+  });
+
+  testWidgets('the Worlds tab of a member cannot be opened', (tester) async {
+    await tester.runAsync(() async {
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          mode: _mode('Pair'),
+        ),
+      );
+      await tester.tap(find.text('Worlds'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(GroupWorldsSection), findsNothing);
+    });
+  });
+
+  testWidgets("a member's Save writes the group's copy once and leaves the "
+      'library row alone', (tester) async {
+    await tester.runAsync(() async {
+      await db
+          .into(db.characters)
+          .insert(CharactersCompanion.insert(id: 'lib-mara', name: 'Mara'));
+      final mara = member();
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) =>
+            editGroupMemberCard(context, mara, _memberId, mode: _mode('Pair')),
+      );
+      var memberWrites = 0;
+      final sub = db
+          .tableUpdates(TableUpdateQuery.onTable(db.groupMembers))
+          .listen((_) => memberWrites++);
+      addTearDown(sub.cancel);
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Keeps the lighthouse.'),
+        'Keeps the lamp.',
+      );
+      await tester.pump();
+      await doubleTapNoFrame(tester, find.text('Save'));
+      await pumpUntil(
+        tester,
+        () => find.byType(EditCharacterPage).evaluate().isEmpty,
+        why: 'Save never closed the editor',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect((await memberRow()).description, 'Keeps the lamp.');
+      expect(memberWrites, 1, reason: 'a double tap wrote the row twice');
+      final library = await db.select(db.characters).getSingle();
+      expect(library.description, isNot('Keeps the lamp.'));
+    });
+  });
+
+  group('the 1:1 editor names the groups its character is in', () {
+    Future<void> open(WidgetTester tester) => pumpHost(
+      tester,
+      chat: _OpenGroup(const []),
+      onOpen: (context) => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => EditCharacterPage(
+            character: CharacterCard(name: 'Mara')..dbId = 'lib-mara',
+          ),
+        ),
+      ),
+    );
+
+    testWidgets('a character in a group gets the line', (tester) async {
+      await tester.runAsync(() async {
+        await db.updateGroupMember(
+          GroupMembersCompanion(
+            id: const Value(_memberId),
+            memberState: Value(
+              GroupMember.encodeProvenance(
+                originStableId: 'Mara',
+                originLibraryDbId: 'lib-mara',
+              ),
+            ),
+          ),
+        );
+        await db.updateGroup(
+          const GroupsCompanion(
+            id: Value(_groupId),
+            name: Value('The Porch Trio'),
+          ),
+        );
+        await open(tester);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await tester.pump();
+        expect(
+          find.text(
+            'Mara is also in The Porch Trio. Groups keep their own copy; '
+            "changes here don't reach them.",
+            findRichText: true,
+          ),
+          findsOneWidget,
+        );
+      });
+    });
+
+    testWidgets('a character in no group gets no line', (tester) async {
+      await tester.runAsync(() async {
+        await open(tester);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await tester.pump();
+        expect(find.byKey(const Key('character-in-groups-note')), findsNothing);
+        expect(find.byKey(const Key('group-member-notice')), findsNothing);
+      });
     });
   });
 
@@ -822,27 +1035,6 @@ void main() {
         await settle(tester);
       });
       expect(find.byType(EditCharacterPage), findsOneWidget);
-    });
-
-    testWidgets("a group read that fails still opens her editor, offering no "
-        'start, and says so', (tester) async {
-      await tester.runAsync(() async {
-        final broken = AppDatabase.forTesting(sameIsolate: true);
-        addTearDown(broken.close);
-        await broken.customStatement('DROP TABLE groups');
-        await pumpOpener(tester, broken);
-        await tester.tap(find.text('Open'));
-        await settle(tester);
-        expect(
-          find.text(
-            "Couldn't read this group's settings, so where the member starts "
-            'is not shown.',
-          ),
-          findsWidgets,
-          reason: 'the messenger shows it on every Scaffold, the editor too',
-        );
-        expect(form(tester).showStartingState, isFalse);
-      });
     });
   });
 

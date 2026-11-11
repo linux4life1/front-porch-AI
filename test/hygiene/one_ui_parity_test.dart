@@ -317,4 +317,74 @@ void main() {
     expect(webNote, isNotNull);
     expect(dartText, webNote!.group(1));
   });
+
+  // PR 5: one editor for 1:1 and group members (docs/design/group-editor.md).
+  test(
+    'the member editor is the 1:1 editor plus the notice and "In the group", '
+    'with Time & Day, Worlds and Chaos Mode greyed',
+    () {
+      final details = File(
+        'lib/ui/pages/edit_character_page/edit_character_details_tab.dart',
+      ).readAsStringSync();
+      final order = RegExp(
+        r"title: '(Identity|Voice|Personality & World|Advanced Prompts)'|"
+        r'IdentityChipLists\(|EditCharacterRealismSection\(|'
+        r'GroupMemberSection\(|groupMemberNotice\(|characterInGroupsNote\(',
+      ).allMatches(details).map((m) => m.group(0)!).toList();
+      expect(order, [
+        'groupMemberNotice(',
+        'characterInGroupsNote(',
+        "title: 'Identity'",
+        "title: 'Voice'",
+        "title: 'Personality & World'",
+        "title: 'Advanced Prompts'",
+        'IdentityChipLists(',
+        'EditCharacterRealismSection(',
+        'GroupMemberSection(',
+      ], reason: 'member mode adds the notice first and its section last');
+      final realism = File(
+        'lib/ui/pages/edit_character_page/edit_character_realism_section.dart',
+      ).readAsStringSync();
+      expect(realism, contains('timeDayLockedTooltip'));
+      expect(realism, contains('chaosLockedTooltip'));
+      expect(
+        File(
+          'lib/ui/pages/edit_character_page/edit_character_page.dart',
+        ).readAsStringSync(),
+        isNot(contains('member_group_view')),
+        reason: 'there is no member-only twin of the editor',
+      );
+    },
+  );
+
+  test('Edit group has the 1:1 editor\'s four tabs and the spec\'s Details '
+      'sections in order', () {
+    final tabs = File(
+      'lib/ui/pages/edit_character_page/edit_character_scaffold.dart',
+    ).readAsStringSync();
+    expect(
+      RegExp(r"text: '(\w+)'").allMatches(tabs).map((m) => m.group(1)).toList(),
+      ['Details', 'Dialogue', 'Lorebook', 'Worlds'],
+    );
+    final page = File('lib/ui/pages/edit_group_page.dart').readAsStringSync();
+    expect(page, contains('EditCharacterScaffold('));
+    final tab = File(
+      'lib/ui/pages/edit_group/edit_group_details_tab.dart',
+    ).readAsStringSync();
+    expect(
+      RegExp(
+        r'(Edit\w+Card)\(',
+      ).allMatches(tab).map((m) => m.group(1)).toList(),
+      [
+        'EditGroupIdentityCard',
+        'EditGroupTurnsCard',
+        'EditGroupVoiceCard',
+        'EditGroupPersonalityCard',
+        'EditGroupAdvancedPromptsCard',
+        'EditGroupTagsCard',
+        'EditGroupRealismCard',
+        'EditGroupStatsCard',
+      ],
+    );
+  });
 }

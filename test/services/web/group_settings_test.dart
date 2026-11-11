@@ -22,7 +22,7 @@ import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart'
+import 'package:front_porch_ai/utils/member_baseline_seed.dart'
     show legacyCardExtSeedKeys;
 
 import '../../golden/support/fakes.dart';

@@ -147,6 +147,15 @@ class EditCharacterScaffold extends StatelessWidget {
           unselectedLabelColor: AppColors.textTertiary(context),
           indicatorColor: AppColors.formAccentOf(context),
           indicatorWeight: 3,
+          // A greyed-out tab takes no selection: the bar's own tap handler
+          // sits outside the tab, so the tab alone cannot absorb it.
+          onTap: worldsLockedTooltip == null
+              ? null
+              : (i) {
+                  if (i == kEditCharacterWorldsTab) {
+                    tabController.index = tabController.previousIndex;
+                  }
+                },
           tabs: [
             for (var i = 0; i < kEditCharacterTabs.length; i++)
               if (i == kEditCharacterWorldsTab && worldsLockedTooltip != null)
