@@ -10,9 +10,14 @@ name: PR rules
 #    PR's head) or starts `eye-only:` for what only a person can judge. The
 #    smoke tester does the eye-only lines and looks at the changed screens.
 # 2. Images. A PR may not add a picture outside the places pictures belong
-#    (goldens, app assets, platform icons, docs/screenshots). Evidence
-#    screenshots go in the PR thread: #568 committed screenshots of a real
-#    chat library. The `approved-images` label lets a deliberate one in.
+#    (goldens, app assets, platform icons, docs/screenshots). #568 committed
+#    screenshots of a real chat library; PR screenshots show seeded or
+#    synthetic data only and live under docs/screenshots/. The
+#    `approved-images` label lets a deliberate stray one in.
+# 4. Screenshots. A PR that changes UI needs a `## Screenshots` section in
+#    its description holding at least one image (markdown image, <img>, or
+#    a GitHub attachment link). CLAUDE.md "One UI": every UI or UX change is
+#    shown, desktop and web. There is deliberately no label to skip it.
 # 3. Smoke tier. The job summary prints the tier the changed files call for
 #    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
 #
@@ -136,6 +141,27 @@ jobs:
                 'Hand-check lines name tests that are not on this branch:\n' +
                   missingTests.map((p) => `  - ${p}`).join('\n'),
               );
+            }
+
+            // --- Screenshots (One UI; no label skips this) --------------------
+            if (uiFiles.length) {
+              const shots = body.match(/^##\s+Screenshots\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/im);
+              const IMG = [
+                /!\[[^\]]*\]\(\s*[^)\s]+[^)]*\)/,
+                /<img\s[^>]*\bsrc\s*=\s*["'][^"']+["']/i,
+                /https:\/\/github\.com\/user-attachments\/(?:assets|files)\/\S+/i,
+              ];
+              const hasImage = !!shots && IMG.some((r) => r.test(shots[1]));
+              if (!hasImage) {
+                errors.push(
+                  'Changes UI but the description has no screenshot. Add a ' +
+                    '`## Screenshots` section with at least one image of each ' +
+                    'changed screen, desktop and web (CLAUDE.md "One UI"). Use ' +
+                    'seeded or made-up data only. Embed images committed under ' +
+                    '`docs/screenshots/<topic>/`, or drag them into the section ' +
+                    'on the PR page. No label skips this check.',
+                );
+              }
             }
 
             // --- Smoke tier --------------------------------------------------
