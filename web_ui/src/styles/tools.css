@@ -169,3 +169,6 @@
 .data-bank-entry-head { display: flex; align-items: center; gap: 8px; }
 .data-bank-entry-head strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .data-bank-empty { text-align: center; padding: 16px 0; }
+/* A vetoed switch (e.g. a group's Memory while Memory is off everywhere): the
+   label reads as unavailable, since a disabled checkbox that is on still looks live. */
+.tool-toggle.is-locked { color: var(--faint); }

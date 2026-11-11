@@ -214,7 +214,7 @@ export function Toggle({
   disabled?: boolean;
 }) {
   return (
-    <label className="tool-toggle">
+    <label className={`tool-toggle${disabled ? ' is-locked' : ''}`}>
       <span>{label}</span>
       <input type="checkbox" checked={value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
     </label>

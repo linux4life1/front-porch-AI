@@ -202,6 +202,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
           icon: Icons.psychology,
           label: 'Memory (RAG)',
           accent: accent,
+          dimmed: _switchLocked(storage),
           dragHandle: widget.dragHandle,
           trailing: SizedBox(
             height: 28,

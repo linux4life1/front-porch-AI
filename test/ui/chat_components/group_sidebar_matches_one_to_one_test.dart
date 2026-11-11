@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/group_dynamics_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_off_everywhere_note.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_panel.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_sources_list.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
@@ -493,6 +494,59 @@ void main() {
     await settle(tester);
     expect(tester.widget<Switch>(memorySwitch()).onChanged, isNull);
     expect(find.text(MemoryOffEverywhereNote.text), findsOneWidget);
+    expect(
+      tester
+          .widget<SidebarSubHeader>(
+            find.descendant(
+              of: find.byType(MemoryPanel),
+              matching: find.byType(SidebarSubHeader),
+            ),
+          )
+          .dimmed,
+      isTrue,
+      reason: 'the greyed switch alone still paints bright when it is on',
+    );
+  });
+
+  testWidgets('locked Memory header renders icon and label in textTertiary', (
+    tester,
+  ) async {
+    Color iconColor(WidgetTester t) => t
+        .widget<Icon>(
+          find.descendant(
+            of: find.byType(SidebarSubHeader),
+            matching: find.byIcon(Icons.psychology),
+          ),
+        )
+        .color!;
+    Color labelColor(WidgetTester t) => t
+        .widget<Text>(
+          find.descendant(
+            of: find.byType(SidebarSubHeader),
+            matching: find.text('Memory (RAG)'),
+          ),
+        )
+        .style!
+        .color!;
+    Future<void> pump(bool dimmed) => tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => SidebarSubHeader(
+            icon: Icons.psychology,
+            label: 'Memory (RAG)',
+            accent: const Color(0xFF00AA88),
+            dimmed: dimmed,
+          ),
+        ),
+      ),
+    );
+    await pump(true);
+    final context = tester.element(find.byType(SidebarSubHeader));
+    expect(iconColor(tester), AppColors.textTertiary(context));
+    expect(labelColor(tester), AppColors.textTertiary(context));
+    await pump(false);
+    expect(iconColor(tester), const Color(0xFF00AA88));
+    expect(labelColor(tester), AppColors.textPrimary(context));
   });
 
   testWidgets('the Sources picker lists the other members of a group', (

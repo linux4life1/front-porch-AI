@@ -177,12 +177,15 @@ describe('a group\'s Memory switch', () => {
     expect(sw.disabled).toBe(true);
     expect(container.textContent).toContain(MEMORY_OFF_EVERYWHERE);
     expect(container.querySelector('.memory-link')).toBeNull();
+    // A disabled checkbox that is on still looks live, so the label is muted.
+    expect(sw.closest('.tool-toggle')!.classList.contains('is-locked')).toBe(true);
   });
 
   it('is live when the global setting is on', async () => {
     await render(state({ ragScope: 'group', ragGlobalEnabled: true }));
     const sw = container.querySelector<HTMLInputElement>('.tool-toggle input[type="checkbox"]')!;
     expect(sw.disabled).toBe(false);
+    expect(sw.closest('.tool-toggle')!.classList.contains('is-locked')).toBe(false);
     expect(container.querySelector('.memory-link')).not.toBeNull();
   });
 });
