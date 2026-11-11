@@ -39,28 +39,27 @@ String characterEmbeddingId(CharacterCard card) {
 /// panel. Selection state lives in MemoryPanel; this list only renders and
 /// reports toggles.
 class MemorySourcesList extends StatelessWidget {
-  final ChatService chatService;
   final Set<String> selectedSources;
   final ValueChanged<String> onToggleSource;
 
+  /// Embedding ids that are not offered: the character itself. Other group
+  /// members stay offered; only their windows in the current chat are never
+  /// read by someone else.
+  final Set<String> excludedIds;
+
   const MemorySourcesList({
     super.key,
-    required this.chatService,
     required this.selectedSources,
     required this.onToggleSource,
+    required this.excludedIds,
   });
 
   @override
   Widget build(BuildContext context) {
     final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-    final activeChar = chatService.activeCharacter;
-    final activeEmbedId = activeChar != null
-        ? characterEmbeddingId(activeChar)
-        : '';
-
-    // Get all characters except the current one
+    // Get all characters except the excluded ones
     final otherChars = charRepo.characters
-        .where((c) => characterEmbeddingId(c) != activeEmbedId)
+        .where((c) => !excludedIds.contains(characterEmbeddingId(c)))
         .toList();
 
     if (otherChars.isEmpty) {

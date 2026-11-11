@@ -59,7 +59,17 @@ class BoundServices {
   CharacterRepository? characters;
   TtsService? tts;
   ImageGenService? imageGen;
-  MemoryService? memory;
+
+  MemoryService? _memory;
+  MemoryService? get memory => _memory;
+  set memory(MemoryService? m) {
+    _memory = m;
+    m?.chatGate = () => chatMemoryGate?.call();
+  }
+
+  /// The open chat's own memory switch: the group's in a group, null in a
+  /// 1:1 (the global Memory setting rules there). Set by [ChatWiring].
+  bool? Function()? chatMemoryGate;
 
   /// Test-only overrides for driving the real LLM paths (realism evals and
   /// chat generation) with canned responses without building a full
@@ -88,7 +98,10 @@ class ChatWiring {
     required this.life,
     required this.service,
     required this.notify,
-  });
+  }) {
+    bound.chatMemoryGate = () =>
+        session.activeGroup != null ? entryDoor.members.groupRagEnabled : null;
+  }
 
   final KoboldService kobold;
   final UserPersonaService personas;

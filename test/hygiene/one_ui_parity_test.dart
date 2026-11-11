@@ -282,4 +282,39 @@ void main() {
     expect(dyn, greaterThan(wCase.indexOf('className="state-time"')));
     expect(web, isNot(contains("'group_dynamics',")));
   });
+
+  test('the Memory leaf has the same links, in the same order, and the same '
+      'greyed-switch note on both sides', () {
+    const dir = 'lib/ui/chat_components/sidebar/journal_memory';
+    final panel = _read('$dir/memory_panel.dart');
+    final labels = RegExp(
+      r"label:\s*'([^'\n]+?)(?:\$\{|')",
+    ).allMatches(panel.substring(panel.indexOf('_link(')));
+    expect([for (final m in labels) m.group(1)!.trim()].take(3).toList(), [
+      'Settings',
+      'Sources',
+      'Data Bank',
+    ], reason: 'the desktop links moved; the PWA order must follow');
+    final tsx = _read('web_ui/src/components/ChatToolsMemoryBank.tsx');
+    final at = [
+      tsx.indexOf('aria-pressed={showSettings}'),
+      tsx.indexOf('aria-pressed={showSources}'),
+      tsx.indexOf('setShowBank(true)'),
+    ];
+    expect(at, everyElement(greaterThan(-1)));
+    expect(at[0], lessThan(at[1]));
+    expect(at[1], lessThan(at[2]));
+
+    final noteSrc = _read('$dir/memory_off_everywhere_note.dart');
+    final dartNote = RegExp(r'text =([^;]+);').firstMatch(noteSrc);
+    expect(dartNote, isNotNull);
+    final dartText = RegExp(
+      r'"([^"]*)"',
+    ).allMatches(dartNote!.group(1)!).map((m) => m.group(1)).join();
+    final webNote = RegExp(
+      r'MEMORY_OFF_EVERYWHERE =\s*"([^"]+)"',
+    ).firstMatch(_read('web_ui/src/components/ChatToolsMemory.tsx'));
+    expect(webNote, isNotNull);
+    expect(dartText, webNote!.group(1));
+  });
 }

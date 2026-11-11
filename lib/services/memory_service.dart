@@ -104,9 +104,18 @@ class MemoryService extends ChangeNotifier {
   /// Expose the embedding service for use by other services (e.g. persona fact dedup).
   EmbeddingService get embeddingService => _embeddingService;
 
-  /// Whether RAG memory is fully operational (enabled + embeddings available).
+  /// The open chat's own memory switch, when it has one: a group's own
+  /// (`groupRagEnabled`), null in a 1:1, which has only the global setting.
+  /// Wired by the chat. Both must be on, as Needs and Objectives AND a global
+  /// setting with a chat switch.
+  bool? Function()? chatGate;
+
+  /// Whether RAG memory is fully operational: the global Memory setting AND
+  /// the open chat's own switch (a group's) are on, and embeddings are
+  /// available.
   bool get isOperational =>
       _storageService.memorySettings.ragEnabled &&
+      (chatGate?.call() ?? true) &&
       _embeddingService.isAvailable;
 
   /// Get all stored content chunks for the given characters, sorted chronologically.
@@ -144,6 +153,12 @@ class MemoryService extends ChangeNotifier {
   /// in windows of [ragWindowSize] messages, skipping windows that are
   /// already embedded (by checking existing position ranges).
   ///
+  /// [lineMask] (one flag per line of [formattedMessages]) files only the
+  /// lines that are true, so a member's window holds just the lines they were
+  /// there for; a window with none is not stored. [skipRangesStoredUnder]
+  /// names other character ids whose stored windows count as already
+  /// covering a range (the read-only old group pool).
+  ///
   /// Optional [maxWindows] caps work so a large import backfill can yield
   /// between chunks; the live path omits it (full pass). When set, only that
   /// many *missing* windows are discovered per call (avoids O(N²) full-history
@@ -157,6 +172,8 @@ class MemoryService extends ChangeNotifier {
     int positionOffset = 0,
     int? maxWindows,
     bool Function()? shouldContinue,
+    List<bool>? lineMask,
+    List<String> skipRangesStoredUnder = const [],
   }) {
     return _embedder.embed(
       sessionId: sessionId,
@@ -166,6 +183,8 @@ class MemoryService extends ChangeNotifier {
       positionOffset: positionOffset,
       maxWindows: maxWindows,
       shouldContinue: shouldContinue,
+      lineMask: lineMask,
+      skipRangesStoredUnder: skipRangesStoredUnder,
     );
   }
 

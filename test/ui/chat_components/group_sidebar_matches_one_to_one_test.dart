@@ -16,9 +16,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/group_dynamics_section.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_off_everywhere_note.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_panel.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/memory_sources_list.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
     show AfkPanel, GroupObjectivesPanel;
 import 'package:front_porch_ai/ui/pages/chat_page.call_button.dart';
@@ -31,6 +36,25 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 import '../../golden/support/fakes.dart' show FakeSttService;
 import '../../helpers/chat_db_teardown.dart';
+
+class _QuietEmbeddings extends EmbeddingService {
+  _QuietEmbeddings(super.storage);
+
+  @override
+  bool get isAvailable => true;
+
+  @override
+  Future<void> ensureReady() async {}
+}
+
+class _Library extends CharacterRepository {
+  _Library(super.db, super.storage, this.cards);
+
+  final List<CharacterCard> cards;
+
+  @override
+  List<CharacterCard> get characters => cards;
+}
 
 class _Stt extends FakeSttService {
   @override
@@ -387,5 +411,206 @@ void main() {
     );
     expect(find.text('2 characters • Round Robin'), findsOneWidget);
     expect(find.textContaining('roundRobin'), findsNothing);
+  });
+
+  testWidgets('the Memory leaf shows in a group for the tapped member, and its '
+      'switch is the group\'s own', (tester) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(true));
+    tester.view.physicalSize = const Size(900, 4200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    String? focusedId;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<WorldRepository>.value(
+            value: WorldRepository(storage, db),
+          ),
+          ChangeNotifierProvider<EmbeddingService>.value(
+            value: _QuietEmbeddings(storage),
+          ),
+          ChangeNotifierProvider<CharacterRepository>.value(
+            value: CharacterRepository(db, storage),
+          ),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) => ChatRightSidebar(
+                chatService: chat,
+                focusedParticipantId: focusedId,
+                onFocusParticipant: (id) => setState(() => focusedId = id),
+                sidebarWidth: 360,
+                resolveCharImage: File.new,
+                draft: TextEditingController(),
+                onJumpToMessage: (_) {},
+                onEditCharacter:
+                    (card, {ensureRelationshipVisible = false}) async {},
+                onAvatarsChanged: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.textContaining('Journal & Memory'));
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(MemoryPanel), findsOneWidget);
+    expect(
+      tester.widget<MemoryPanel>(find.byType(MemoryPanel)).member?.name,
+      'Ana',
+    );
+    await tapChip(tester, 'Bea');
+    expect(
+      tester.widget<MemoryPanel>(find.byType(MemoryPanel)).member?.name,
+      'Bea',
+    );
+
+    // The group's gate is on by default: the leaf shows the group's, and
+    // flipping it leaves the global setting alone.
+    Finder memorySwitch() => find.descendant(
+      of: find.byType(MemoryPanel),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(memorySwitch()).value, isTrue);
+    await tester.ensureVisible(memorySwitch());
+    await tester.pump();
+    await tester.tap(memorySwitch());
+    await settle(tester);
+    expect(chat.groupRagEnabled, isFalse);
+    expect(storage.memorySettings.ragEnabled, isTrue);
+    expect(tester.widget<Switch>(memorySwitch()).value, isFalse);
+
+    // With the global setting off, the group's switch is unavailable (its
+    // choice kept) and says why.
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(false));
+    await settle(tester);
+    expect(tester.widget<Switch>(memorySwitch()).onChanged, isNull);
+    expect(find.text(MemoryOffEverywhereNote.text), findsOneWidget);
+    expect(
+      tester
+          .widget<SidebarSubHeader>(
+            find.descendant(
+              of: find.byType(MemoryPanel),
+              matching: find.byType(SidebarSubHeader),
+            ),
+          )
+          .dimmed,
+      isTrue,
+      reason: 'the greyed switch alone still paints bright when it is on',
+    );
+  });
+
+  testWidgets('locked Memory header renders icon and label in textTertiary', (
+    tester,
+  ) async {
+    Color iconColor(WidgetTester t) => t
+        .widget<Icon>(
+          find.descendant(
+            of: find.byType(SidebarSubHeader),
+            matching: find.byIcon(Icons.psychology),
+          ),
+        )
+        .color!;
+    Color labelColor(WidgetTester t) => t
+        .widget<Text>(
+          find.descendant(
+            of: find.byType(SidebarSubHeader),
+            matching: find.text('Memory (RAG)'),
+          ),
+        )
+        .style!
+        .color!;
+    Future<void> pump(bool dimmed) => tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => SidebarSubHeader(
+            icon: Icons.psychology,
+            label: 'Memory (RAG)',
+            accent: const Color(0xFF00AA88),
+            dimmed: dimmed,
+          ),
+        ),
+      ),
+    );
+    await pump(true);
+    final context = tester.element(find.byType(SidebarSubHeader));
+    expect(iconColor(tester), AppColors.textTertiary(context));
+    expect(labelColor(tester), AppColors.textTertiary(context));
+    await pump(false);
+    expect(iconColor(tester), const Color(0xFF00AA88));
+    expect(labelColor(tester), AppColors.textPrimary(context));
+  });
+
+  testWidgets('the Sources picker lists the other members of a group', (
+    tester,
+  ) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await tester.runAsync(() => storage.memorySettings.setRagEnabled(true));
+    tester.view.physicalSize = const Size(900, 4200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    // The library holds the cast: a member's memory id is its library id.
+    final library = _Library(db, storage, [
+      CharacterCard(name: 'Ana', imagePath: '/lib/mem-ana.png'),
+      CharacterCard(name: 'Bea', imagePath: '/lib/mem-bea.png'),
+      CharacterCard(name: 'Zoe', imagePath: '/lib/zoe.png'),
+    ]);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<WorldRepository>.value(
+            value: WorldRepository(storage, db),
+          ),
+          ChangeNotifierProvider<EmbeddingService>.value(
+            value: _QuietEmbeddings(storage),
+          ),
+          ChangeNotifierProvider<CharacterRepository>.value(value: library),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: ChatRightSidebar(
+              chatService: chat,
+              focusedParticipantId: null,
+              onFocusParticipant: (_) {},
+              sidebarWidth: 360,
+              resolveCharImage: File.new,
+              draft: TextEditingController(),
+              onJumpToMessage: (_) {},
+              onEditCharacter:
+                  (card, {ensureRelationshipVisible = false}) async {},
+              onAvatarsChanged: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await settle(tester);
+    await tester.tap(find.textContaining('Journal & Memory'));
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.ensureVisible(find.text('Sources'));
+    await tester.tap(find.text('Sources'));
+    await settle(tester);
+    final list = find.byType(MemorySourcesList);
+    expect(
+      find.descendant(of: list, matching: find.text('Bea')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: list, matching: find.text('Zoe')),
+      findsOneWidget,
+    );
+    expect(find.descendant(of: list, matching: find.text('Ana')), findsNothing);
   });
 }

@@ -147,6 +147,8 @@ class SendTurn {
     // Session token for the caption writes below — captured NOW so a chat
     // switch anywhere during the (long) turn voids the stamp+save.
     final sessionToken = _session.currentSessionId;
+    // Per-member memory: who is in the scene as this line is said.
+    _cast.memory.stamp(userMsg);
     _session.messages.add(userMsg);
     await _saveChat();
     notifyListeners();

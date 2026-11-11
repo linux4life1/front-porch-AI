@@ -109,6 +109,8 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
           streamHub,
           storyRepo: stories,
           personas: personas,
+          db: db,
+          library: characters,
         )
       : null;
 

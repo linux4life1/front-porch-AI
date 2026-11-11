@@ -183,6 +183,21 @@ Desktop and web together. Path-complete matrix required.
   drop the sliders.
 - Open: 1:1's memory switch is global (all 1:1 chats); decide whether the
   group's stays per group or becomes per member.
+- Built (decisions, change in one place each): a message is stamped with who
+  was in the scene (`memory_present`, memory keys; not Away, not At work, the
+  speaker always); the one writer (`WindowFiler`) files each member's copy of
+  the lines they were there for under their key and this chat. Old
+  `group_<id>` windows are a read-only fallback for every member
+  (`legacyGroupMemoryBuckets`), never re-filed. The group's memory switch
+  stays per group, and a group's memory runs only while the global Memory
+  setting AND the group's switch are on (the embed, retrieval and
+  `isOperational` read both; the group's switch greys out while the global one
+  is off); the 1:1 one stays global. Importance sliders are translated to
+  memory keys at retrieval. A memory source that is another member of the
+  group keeps its other-chat windows; their windows in THIS chat are never
+  read by someone else. The PWA's Memory section has the Sources picker and
+  Data Bank for the focused member (`/api/chat/tools/memory/sources`,
+  `/databank`).
 - Tests: a window from a member's Away stretch is not retrieved for that
   member but is for one who was present; the web switch in a group flips
   the group gate.

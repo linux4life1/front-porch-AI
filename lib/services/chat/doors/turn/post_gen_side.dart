@@ -26,7 +26,9 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/window_filer.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
+import 'package:front_porch_ai/services/memory/memory.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/tts_service.dart';
@@ -38,6 +40,7 @@ class PostGenSide {
   PostGenSide(this._e);
 
   final TurnEngine _e;
+  late final WindowFiler _filer = WindowFiler(_e.deps);
 
   TurnDeps get _d => _e.deps;
   ChatSessionState get _session => _d.session;
@@ -148,13 +151,16 @@ class PostGenSide {
   /// retrieves under in [RagSources.sourceIds] — giving guests episodic memory
   /// without touching the host's embeddings.
   void maybeEmbedMessages({String? characterIdOverride}) {
-    if (_memoryService == null || !_storageService.memorySettings.ragEnabled) {
-      return;
-    }
+    // The global setting AND, in a group, the group's own switch.
+    final ragOn =
+        _storageService.memorySettings.ragEnabled &&
+        (_session.activeGroup == null || _entry.members.groupRagEnabled);
+    if (_memoryService == null || !ragOn) return;
     if (_session.currentSessionId == null) return;
 
     final sessionId = _session.currentSessionId!;
     final characterId = characterIdOverride ?? _getCharacterId();
+    final group = _session.activeGroup != null && characterIdOverride == null;
     // Fire and forget — wait for the tail backfill first so we never store
     // a 24-row snapshot as positions 0..N (that permanently skips the real
     // start of a long chat, and stamps today's story-day on old lines).
@@ -170,17 +176,35 @@ class PostGenSide {
       final formatted = formatForRagEmbedding(_session.messages);
       debugPrint(
         '[RAG:Chat] ▶ Triggering background embedding (session: $sessionId, '
-        'char: $characterId, ${formatted.length} msgs, '
-        'base=${_history.basePosition})',
+        'char: ${group ? 'each member present' : characterId}, '
+        '${formatted.length} msgs, base=${_history.basePosition})',
       );
-      await _memoryService!.embedMessageWindow(
+      await embedWindows(
         sessionId: sessionId,
-        characterId: characterId,
-        formattedMessages: formatted,
-        totalMessageCount: formatted.length,
-        positionOffset: _history.basePosition,
+        characterIdOverride: characterIdOverride,
       );
     }());
+  }
+
+  /// Files the open chat's missing RAG windows (see [WindowFiler]): the one
+  /// door the live embed and the post-import backfill share.
+  Future<EmbedPassResult> embedWindows({
+    required String sessionId,
+    String? characterIdOverride,
+    int? maxWindows,
+    bool Function()? shouldContinue,
+  }) {
+    final messages = List<ChatMessage>.of(_session.messages);
+    return _filer.file(
+      memory: _memoryService!,
+      sessionId: sessionId,
+      messages: messages,
+      lines: formatForRagEmbedding(messages),
+      positionOffset: _history.basePosition,
+      characterIdOverride: characterIdOverride,
+      maxWindows: maxWindows,
+      shouldContinue: shouldContinue,
+    );
   }
 
   /// Canonical RAG message lines for [MemoryService.embedMessageWindow].

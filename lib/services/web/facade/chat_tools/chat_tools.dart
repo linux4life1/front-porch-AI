@@ -26,3 +26,4 @@ export 'chat_tools_pockets.dart';
 export 'chat_tools_scene.dart';
 export 'chat_tools_snapshot.dart';
 export 'chat_tools_switches.dart';
+export 'chat_tools_memory_bank.dart';

@@ -24,6 +24,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:front_porch_ai/services/services.dart' show OneShotMode;
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chat_tools_member_toggles.dart';
+import 'package:front_porch_ai/services/web/routes/chat_tools_memory_bank_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// Chat sidebar *tools* endpoints (memory/summary/chaos/NSFW/scene-time/
@@ -56,6 +57,7 @@ class WebChatToolsRoutes {
     router.post('/api/chat/tools/journal', _journalPost);
     router.get('/api/chat/tools/journal/review', _journalReviewGet);
     router.post('/api/chat/tools/journal/review', _journalReviewPost);
+    WebMemoryBankRoutes(_facade, router);
   }
 
   final ChatToolsFacade _facade;

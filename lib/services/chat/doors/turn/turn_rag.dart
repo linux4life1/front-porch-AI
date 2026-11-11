@@ -67,9 +67,9 @@ class TurnRag {
     // ── RAG Memory Retrieval ──
     // When messages are dropped from context, search for relevant past memories
     // Skip retrieval for brand new chats to prevent old memories from interfering
-    final effectiveRagEnabled = _activeGroup != null
-        ? _members.groupRagEnabled
-        : _storageService.memorySettings.ragEnabled;
+    final effectiveRagEnabled =
+        _storageService.memorySettings.ragEnabled &&
+        (_activeGroup == null || _members.groupRagEnabled);
 
     if (_isNewChat) {
       debugPrint('[RAG:Chat] Skipping memory retrieval - new chat in progress');
@@ -117,7 +117,10 @@ class TurnRag {
         // Scene Guests Phase 4: a guest turn retrieves the GUEST's own
         // episodic memories (keyed on the guest id), not the host's. The
         // injection format/budget below is shared — only the source id swaps.
-        final packed = await _a.ragSources.sourceIds(guest: t.guestSpeaker);
+        final packed = await _a.ragSources.sourceIds(
+          guest: t.guestSpeaker,
+          speaker: t.speakingCharacter,
+        );
         final sourceIds = packed.sourceIds;
         debugPrint('[RAG:Chat] Memory source IDs: $sourceIds');
 
@@ -144,15 +147,32 @@ class TurnRag {
           debugPrint('[RAG:Chat] Skipping memory retrieval — cue-less beat');
           rawMemories = const [];
         } else {
-          rawMemories = await _memoryService!.retrieve(
+          // In a group, this chat's windows are readable only under the
+          // speaker's own key and the old pool; a linked source's windows
+          // from THIS chat may be scenes the speaker missed. The wide fetch
+          // and filter happen only when such a source is linked at all.
+          final readable = packed.readableThisChat;
+          final filter =
+              readable.isNotEmpty &&
+              sourceIds.any((id) => !readable.contains(id));
+          final thisChat = _session.currentSessionId ?? '';
+          final asked = await _memoryService!.retrieve(
             queryText: queryMessages,
             sourceCharacterIds: sourceIds,
-            currentSessionId: _session.currentSessionId ?? '',
+            currentSessionId: thisChat,
             inContextStart: _history.basePosition + t.droppedMessages,
-            limit: retrievalLimit == 0 ? 9999 : retrievalLimit,
-            characterPriorities: _members.currentGroupRAGPriorities,
+            limit: retrievalLimit == 0 || filter ? 9999 : retrievalLimit,
+            characterPriorities: _a.ragSources.prioritiesByMemoryKey(),
             sessionScopedCharacterIds: sessionScoped,
           );
+          rawMemories = !filter
+              ? asked
+              : [
+                  for (final m in asked)
+                    if (m.sessionId != thisChat ||
+                        readable.contains(m.characterId))
+                      m,
+                ].take(retrievalLimit == 0 ? 9999 : retrievalLimit).toList();
         }
         // Two-tier memory dedupe: the journal expanded these exact lines
         // above — never pay for them twice.
@@ -376,7 +396,7 @@ class TurnRag {
         );
       }
     } else if ((t.droppedMessages > 0 || _history.basePosition > 0) &&
-        _storageService.memorySettings.ragEnabled) {
+        effectiveRagEnabled) {
       debugPrint(
         '[RAG:Chat] ⚠ ${t.droppedMessages} messages dropped but RAG not operational (service=${_memoryService != null}, operational=${_memoryService?.isOperational ?? false})',
       );

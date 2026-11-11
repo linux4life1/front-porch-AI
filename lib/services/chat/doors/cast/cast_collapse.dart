@@ -23,6 +23,7 @@ import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/group_memory.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 
@@ -57,6 +58,7 @@ class CastCollapse {
 
     final sole = _session.groupCharacters.first;
     final soleId = _d.characterIdFor(sole); // member instance id (mid)
+    final soleKey = _door.memory.keyFor(sole);
 
     // Resolve the survivor back to its origin library character. The origin
     // link lives on the member ROW, not the loaded card.
@@ -151,11 +153,13 @@ class CastCollapse {
     try {
       await _d.db.reassignObjectives(soleId, originId, chatId: sessionId);
       await _d.db.reassignGrowthRings(soleId, originId, sessionId: sessionId);
-      await _d.db.reassignEmbeddings(
-        'group_${group.id}',
-        originId,
-        chatId: sessionId,
-      );
+      // The survivor's own windows (their member key), and the old shared
+      // pool of a chat from before per-member memory, become the 1:1's.
+      for (final from in {soleKey, ...legacyGroupMemoryBuckets(group.id)}) {
+        if (from != originId) {
+          await _d.db.reassignEmbeddings(from, originId, chatId: sessionId);
+        }
+      }
       // Journal cards sit under the MEMBER instance id; the 1:1 reads them
       // under originId.
       await _door.roster.moveJournalCards(sessionId, soleId, originId);
@@ -263,13 +267,13 @@ class CastCollapse {
       } catch (e) {
         debugPrint('[Cast] host journal carry-on-fork (non-fatal): $e');
       }
-      // RAG memory goes to the GROUP's shared pool (`group_<id>`), so the
-      // cast can recall pre-conversion events.
+      // RAG memory goes to the host member's own memory in the new chat: the
+      // others were not there for the 1:1, so only the host recalls it.
       try {
         await _d.db.copyEmbeddingsForSession(
           originalCharId,
           hostSessionId,
-          toCharacterId: _h.ragCharacterId(),
+          toCharacterId: _door.memory.keyFor(hostMember),
           toSessionId: _session.currentSessionId!,
         );
       } catch (e) {

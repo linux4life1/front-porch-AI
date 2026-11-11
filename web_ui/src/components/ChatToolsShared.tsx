@@ -32,6 +32,12 @@ export interface ToolsState {
   realismOneShotMode?: 'auto' | 'on' | 'off';
   memory: {
     ragEnabled: boolean;
+    /** 'group' when the switch and the count are the group's own (additive:
+     *  absent on an older desktop, where they were global). */
+    ragScope?: 'group' | 'global';
+    /** The global Memory setting (additive). In a group the switch only takes
+     *  effect while this is on, so it is greyed while this is false. */
+    ragGlobalEnabled?: boolean;
     ragRetrievalCount: number;
     ragWindowSize: number;
     journalEnabled: boolean;
@@ -196,11 +202,21 @@ export type ToolsSettings = (fields: Record<string, unknown>) => void;
 export type ToolsToggle = (name: string, value: boolean, extra?: Record<string, unknown>) => void;
 
 /** Small labelled on/off switch. */
-export function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className="tool-toggle">
+    <label className={`tool-toggle${disabled ? ' is-locked' : ''}`}>
       <span>{label}</span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

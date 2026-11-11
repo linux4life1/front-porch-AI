@@ -134,8 +134,19 @@ class ChatToolsSnapshot {
       'realismOneShotMode': rs.oneShotMode.name,
       'focusedId': focused?.id,
       'memory': {
-        'ragEnabled': mem.ragEnabled,
-        'ragRetrievalCount': mem.ragRetrievalCount,
+        // In a group the switch and the count are the group's own (the gate
+        // retrieval and the embed read), exactly as the desktop Memory leaf
+        // shows them; `ragScope` says so (additive). A 1:1's stay global.
+        'ragEnabled': _chat.isGroupMode
+            ? _chat.groupRagEnabled
+            : mem.ragEnabled,
+        'ragScope': _chat.isGroupMode ? 'group' : 'global',
+        // The global Memory setting. A group's switch only takes effect with
+        // it on, so the PWA greys the group switch while it is off (additive).
+        'ragGlobalEnabled': mem.ragEnabled,
+        'ragRetrievalCount': _chat.isGroupMode
+            ? _chat.groupRetrievalCount
+            : mem.ragRetrievalCount,
         'ragWindowSize': mem.ragWindowSize,
         // The last reply's retrieval receipt (rag_injection.dart wire
         // shape) — the same anti-black-box surface the desktop sidebar

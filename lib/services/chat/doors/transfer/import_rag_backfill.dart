@@ -26,7 +26,8 @@ import 'transfer_host.dart';
 ///
 /// Chunks one window at a time with an `isGenerating` re-check so a Send
 /// never sits behind hundreds of import embeds on the ONNX FIFO queue.
-/// Works for 1:1 and group via [TransferHost.ragCharacterId] (group bucket).
+/// Works for 1:1 and group: a group files each member's windows by the same
+/// rule as the live embed ([PostGenSide.embedWindows]).
 ///
 /// Contract: if the whole backfill is paused for generation, remaining
 /// windows stay missing until this loop resumes or the live post-gen path
@@ -44,8 +45,6 @@ Future<void> backfillRagAfterImport(
 
   await host.sessions().window.awaitHistoryHydrated();
   if (session.currentSessionId != sid) return;
-  final formatted = host.turn().side.formatForRagEmbedding(session.messages);
-  final offset = host.sessions().history.basePosition;
   // Bound wall-clock work: each successful window resets stall; null-embed
   // / abort only retry a limited number of times so we never busy-spin the
   // event loop (Muse review of 03d46d9a).
@@ -72,12 +71,8 @@ Future<void> backfillRagAfterImport(
       continue;
     }
     try {
-      final pass = await mem.embedMessageWindow(
+      final pass = await host.turn().side.embedWindows(
         sessionId: sid,
-        characterId: charId,
-        formattedMessages: formatted,
-        totalMessageCount: formatted.length,
-        positionOffset: offset,
         maxWindows: 1,
         shouldContinue: () =>
             !host.turn().progress.isGenerating &&
