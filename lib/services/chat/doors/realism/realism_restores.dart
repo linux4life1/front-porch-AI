@@ -130,23 +130,22 @@ class RealismRestores {
     if (speaker == null) return;
     final sid = _getCharacterIdFromCard(speaker);
     if (sid.isEmpty) return;
-    // The message's speaker owns every switch this rewind reads, not whoever
-    // is up next: their Realism, Needs and Pockets gates are theirs alone.
-    _groupStore.asSpeaker(sid, () {
-      final hadStoredNeeds = _groupStore.needsOf(sid).isNotEmpty;
-      final state = msg.activeMetadata?['realism_state'];
-      final stampHasNeeds = state is Map && state['needs'] is Map;
-      _realismDance.loadIntoScalars(sid);
-      fromMessage(msg, groupSpeakerId: sid, restoreClock: restoreClock);
-      if (!hadStoredNeeds && !stampHasNeeds) {
-        // The load's initializeFresh() filled the scalar vector for a member
-        // with no needs history, and the stamp carries none either — clear
-        // it so the save below can't materialize invented needs into their
-        // entry.
-        _needsSimulation.restoreFromSnapshot(const {'vector': <String, int>{}});
-      }
-      _realismDance.saveScalarsIntoGroup(sid);
-    });
+    // Every gate below is named by the message's speaker id (their Needs
+    // switch, their kit, their Afterglow through the loaded member), never
+    // read off whoever is up next, so no speaker pin is needed here.
+    final hadStoredNeeds = _groupStore.needsOf(sid).isNotEmpty;
+    final state = msg.activeMetadata?['realism_state'];
+    final stampHasNeeds = state is Map && state['needs'] is Map;
+    _realismDance.loadIntoScalars(sid);
+    fromMessage(msg, groupSpeakerId: sid, restoreClock: restoreClock);
+    if (!hadStoredNeeds && !stampHasNeeds) {
+      // The load's initializeFresh() filled the scalar vector for a member
+      // with no needs history, and the stamp carries none either — clear
+      // it so the save below can't materialize invented needs into their
+      // entry.
+      _needsSimulation.restoreFromSnapshot(const {'vector': <String, int>{}});
+    }
+    _realismDance.saveScalarsIntoGroup(sid);
   }
 
   /// [groupSpeakerId] names the member being rewound so the two registers

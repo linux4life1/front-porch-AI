@@ -301,28 +301,52 @@ void main() {
   group(
     'a rewind reads the reply speaker\'s switches, never the next one\'s',
     () {
-      test('regen of Ada rewinds and re-scores her while Bea (up next) has '
-          'Realism off and the chat-wide switch is off', () async {
-        // Only Ada has Realism on: the chat's own switch is off, so a rewind
-        // that read it (or the next speaker's) would skip Ada's.
-        await chat.setRealismEnabled(false);
-        await chat.setMemberRealismEnabled(idOf('Ada'), true);
-        chat.setNextCharacter(member('Ada'));
+      // The revert called directly, with the chat's NEXT speaker (Ada, the
+      // first member in random order) holding Realism off: Bea's rewind is
+      // Bea's, not Ada's.
+      test("the regen revert reads the rejected reply's speaker, not the "
+          'next one', () async {
+        chat.activeGroup!.turnOrder = TurnOrder.random;
+        await chat.setMemberRealismEnabled(idOf('Ada'), false);
+        chat.setNextCharacter(member('Bea'));
         await chat.sendMessage('I bring you a cup of tea.');
         await _drain();
-        expect(chat.messages.last.sender, 'Ada');
-        final scored = bond('Ada');
-        expect(scored, isNot(0), reason: 'baseline: Ada\'s send scored');
-        expect(chat.nextCharacter?.name, 'Bea');
+        expect(chat.messages.last.sender, 'Bea');
+        expect(bond('Bea'), isNot(0), reason: 'baseline: the send scored');
+        // Not mid-turn, so the chat falls back to the first member.
+        expect(chat.realism.groups.currentSpeakerId(), idOf('Ada'));
 
-        await chat.regenerateLastMessage();
-        await _drain();
-        expect(chat.messages.last.sender, 'Ada');
-        expect(
-          bond('Ada'),
-          scored,
-          reason: 'the same line, rewound by Ada\'s own switch: not stacked',
+        final rejected = chat.realism.session.messages.removeLast();
+        chat.realism.regenBaseline.revert(
+          lastMsg: rejected,
+          regenGuest: null,
+          regenSpeakerCard: member('Bea'),
+          regenSpeakerSid: idOf('Bea'),
         );
+        expect(bond('Bea'), 0, reason: 'her reply is taken back by her switch');
+      }, timeout: const Timeout(Duration(minutes: 2)));
+
+      // forSpeaker (swipe and delete restore) names its member by id: the
+      // chat's own Needs switch is off and Ada, up next, has hers off too,
+      // yet Bea's Needs run, so Bea's bars come back from the stamp.
+      test("a swipe/delete restore puts the reply speaker's bars back by "
+          'their own Needs switch', () async {
+        chat.activeGroup!.turnOrder = TurnOrder.random;
+        await chat.setNeedsSimEnabled(false);
+        await chat.setMemberNeedsEnabled(idOf('Bea'), true);
+        chat.setNextCharacter(member('Bea'));
+        await chat.sendMessage('I bring you a cup of tea.');
+        await _drain();
+        final reply = chat.messages.last;
+        expect(reply.sender, 'Bea');
+        final stamped = Map<String, int>.from(
+          chat.debugGroupNeeds(idOf('Bea')),
+        );
+        expect(stamped, isNotEmpty, reason: 'baseline: her bars ran');
+        chat.debugSeedGroupSpeakerState(idOf('Bea'), needs: {'hunger': 3});
+
+        chat.realism.restores.forSpeaker(reply);
+        expect(chat.debugGroupNeeds(idOf('Bea')), stamped);
       }, timeout: const Timeout(Duration(minutes: 2)));
 
       test(
