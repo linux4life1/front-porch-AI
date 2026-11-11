@@ -278,6 +278,9 @@ class CastController {
     }
     await _h.reloadGroupRoster();
     _seedPromotedNeeds(mid, cleared);
+    // A promoted guest enters with the switches the chat held, as a member
+    // joining does: later edits to a default never reach this chat.
+    _d.graph().seedGroupMemberSwitches();
     if (mid.isNotEmpty) {
       final rel = _d.realism().relationship();
       rel.ensureInterCharacterRelationshipsSeeded(mid);

@@ -116,7 +116,7 @@ class NeedsRewinds {
     String? speakerId,
     Map<String, Map<String, int>> capturedBeforeRestore,
   ) {
-    if (!_needsSimEnabled) return;
+    if (_activeGroup == null && !_needsSimEnabled) return;
     final refunded = refundCoPresentWear(
       captured: capturedBeforeRestore,
       preWear: presentBodiesFromMeta(
@@ -130,6 +130,9 @@ class NeedsRewinds {
       return;
     }
     for (final entry in refunded.entries) {
+      // A body whose own Needs are off was not worn by this beat, and its
+      // bars are held: nothing to give back.
+      if (!_scope.groups.needsOnFor(entry.key)) continue;
       _setGroupNeeds(entry.key, entry.value);
     }
   }
@@ -206,7 +209,11 @@ class NeedsRewinds {
     Map<String, Map<String, int>> presentBeforeDelete = const {},
   }) {
     _refundPresentWearExcept(deleted, groupSid, presentBeforeDelete);
-    if (!_needsSimEnabled || liveBefore.isEmpty) return;
+    // The deleted speaker's own switch in a group, the chat's in a 1:1.
+    final sidOn = groupSid != null && groupSid.isNotEmpty
+        ? _scope.groups.needsOnFor(groupSid)
+        : _needsSimEnabled;
+    if (!sidOn || liveBefore.isEmpty) return;
     final raw = deleted.activeMetadata?['needs_deltas'];
     if (raw is! Map || raw.isEmpty) return;
 

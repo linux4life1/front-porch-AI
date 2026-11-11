@@ -208,6 +208,9 @@ class GroupRoster {
       );
     }
 
+    // The new member starts with the switches the chat holds.
+    _s.graph().seedGroupMemberSwitches();
+
     debugPrint(
       '[Chat] \u{2795} Added ${character.name} to group ${_activeGroup!.name}',
     );

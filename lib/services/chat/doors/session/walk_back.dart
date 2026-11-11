@@ -161,10 +161,21 @@ class WalkBack {
         // The member's Afterglow flag is a toggle, not a scalar: kept like
         // the 1:1 walk keeps the chat's, never reset to the seed.
         final keptNsfw = _groupRealism[sid]?.nsfwCooldownEnabled;
+        // Their switches are choices, not scalars: the fork keeps them.
+        final old = _groupRealism[sid];
+        final keptRealism = old?.realismSwitch;
+        final keptNeedsSwitch = old?.needsSwitch;
+        final keptAfterglow = old?.afterglowSwitch;
+        final keptObjectives = old?.objectivesSwitch;
         final seed = seeds[sid];
         _groupRealism[sid] = seed != null
             ? GroupMemberRealism.fromJson(Map<String, dynamic>.from(seed))
             : GroupMemberRealism();
+        _groupRealism[sid]!
+          ..realismSwitch = keptRealism
+          ..needsSwitch = keptNeedsSwitch
+          ..afterglowSwitch = keptAfterglow
+          ..objectivesSwitch = keptObjectives;
         if (keptPockets != null) _groupRealism[sid]!.pockets = keptPockets;
         if (keptNsfw != null) {
           _groupRealism[sid]!.nsfwCooldownEnabled = keptNsfw;

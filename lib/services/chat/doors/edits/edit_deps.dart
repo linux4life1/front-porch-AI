@@ -104,6 +104,8 @@ class EditsView {
     required this.isEvaluatingRealism,
     required this.realismEnabled,
     required this.needsActive,
+    this.realismEnabledForCard,
+    this.needsActiveForCard,
   });
 
   final List<ChatMessage> Function() messages;
@@ -118,6 +120,12 @@ class EditsView {
   final bool Function() isEvaluatingRealism;
   final bool Function() realismEnabled;
   final bool Function() needsActive;
+
+  /// The same two gates for one group member's card, whoever speaks next: a
+  /// Reprocess offer is the reply's speaker's to make. Unwired, the
+  /// speaker's.
+  final bool Function(CharacterCard card)? realismEnabledForCard;
+  final bool Function(CharacterCard card)? needsActiveForCard;
 }
 
 /// The leaf services the edits use. Each is read through a thunk: the

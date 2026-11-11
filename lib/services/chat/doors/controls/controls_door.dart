@@ -17,21 +17,18 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
 
-import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/chance_time.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_deps.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/group_member_ext_writer.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/member_switches.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/story_clock_nudges.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/v2_card_service.dart';
 
 export 'package:front_porch_ai/services/chat/doors/controls/chance_time.dart';
 export 'package:front_porch_ai/services/chat/doors/controls/controls_deps.dart';
@@ -103,10 +100,21 @@ class ControlsDoor {
   // ── The gates ─────────────────────────────────────────────────────────
 
   /// The Realism gate every reader goes through: Porch Life allows Realism
-  /// (as of this turn's start) AND this chat's own switch. Saves, seeds and
-  /// carries keep the raw switch, so Porch Life off never overwrites a
-  /// chat's choice.
-  bool get realismEnabled => permission.allowed && _realismChatSwitch;
+  /// (as of this turn's start) AND this chat's own switch, in a group the
+  /// SPEAKING member's own ([GroupRealismStore.currentSpeakerId]: the one
+  /// picked for the turn, else the next up). Saves, seeds and carries keep
+  /// the raw switch, so Porch Life off never overwrites a chat's choice.
+  bool get realismEnabled =>
+      permission.allowed &&
+      (_activeGroup == null
+          ? _realismChatSwitch
+          : _g.groups.realismOnFor(_g.groups.currentSpeakerId()));
+
+  /// [realismEnabled] for member [id] of a group, whoever is speaking: a
+  /// rewind of that member's reply, or a pass over the whole cast.
+  bool realismEnabledFor(String? id) =>
+      permission.allowed &&
+      (_activeGroup == null ? chatRealism : _g.groups.realismOnFor(id));
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on
@@ -118,8 +126,13 @@ class ControlsDoor {
   /// already-open chat running, which for Needs is merely surprising but here
   /// would defeat the switch's whole purpose — stopping a recurring model
   /// call. Checking live means "off" takes effect on the next turn, everywhere.
+  ///
+  /// In a group the per-chat half is the SPEAKING member's own switch.
   bool get objectivesActive =>
-      objectivesEnabled && _storage.realismSettings.objectivesEnabled;
+      (_activeGroup == null
+          ? objectivesEnabled
+          : _g.groups.objectivesOnFor(_g.groups.currentSpeakerId())) &&
+      _storage.realismSettings.objectivesEnabled;
 
   /// Porch Life Passage of Time — live. Not a seeded copy, not per-chat.
   bool get clockRunning => StoryClock.isRunning(
@@ -242,8 +255,14 @@ class ControlsDoor {
 
   // ── Switch writes ─────────────────────────────────────────────────────
 
+  /// A group member's own switches in this chat; the sidebar and the phone
+  /// write them by member id. In a group [setRealismEnabled] and its kin are
+  /// the chat-wide cards of Group Settings, which turn the whole cast.
+  late final MemberSwitches memberSwitches = MemberSwitches(deps);
+
   Future<void> setRealismEnabled(bool enabled) async {
     _realismChatSwitch = enabled;
+    memberSwitches.applyToAll(realism: enabled);
     if (enabled) onRealismStarted();
 
     if (!enabled) {
@@ -275,6 +294,7 @@ class ControlsDoor {
   /// Matches the side-effect style of [setAfterglowEnabled] and [setChaosModeEnabled].
   Future<void> setNeedsSimEnabled(bool enabled) async {
     needsSimEnabled = enabled;
+    memberSwitches.applyToAll(needs: enabled);
     // Enabling mid-chat: the needs vector is only seeded at chat start (see
     // chat_entry/group_entry), so a toggle-on after a needs-off start leaves it
     // empty and the sidebar shows no scores. Seed it now from the active
@@ -321,6 +341,7 @@ class ControlsDoor {
   /// cooldown follows.
   Future<void> setObjectivesEnabled(bool enabled) async {
     objectivesEnabled = enabled;
+    memberSwitches.applyToAll(objectives: enabled);
     await deps.saveChat();
     deps.notify();
   }
@@ -399,8 +420,9 @@ class ControlsDoor {
     deps.notify();
   }
 
-  /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or the
-  /// group chat's.
+  /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or, in a
+  /// group, the older chat-wide one. Nothing shows it in a group any more:
+  /// each member has their own ([MemberSwitches]), and it only seeds them.
   bool get afterglowChatSwitch => _activeGroup == null
       ? _g.nsfw.storedNsfwCooldownEnabled
       : _g.groups.afterglowOn;
@@ -415,12 +437,15 @@ class ControlsDoor {
   /// 18+) allows Afterglow. Off hides Lust and recovery and holds them where
   /// they are (hide, never erase, as Pockets does); on shows them again,
   /// unchanged. Nothing zeroes them either way, in a 1:1 or for any member.
+  /// In a group it turns the whole cast; one member's is
+  /// [MemberSwitches.setAfterglow].
   Future<void> setAfterglowEnabled(bool enabled) async {
-    if (enabled == afterglowChatSwitch) return;
     if (_activeGroup == null) {
+      if (enabled == afterglowChatSwitch) return;
       _g.nsfw.setNsfwCooldownEnabled(enabled);
     } else {
       _g.groups.afterglowOn = enabled;
+      memberSwitches.applyToAll(afterglow: enabled);
     }
     await deps.saveChat();
     deps.notify();
@@ -438,61 +463,10 @@ class ControlsDoor {
   // ── A group member's own switches, persisted ──────────────────────────
 
   /// Write a group member's current extensions (pace, which needs are on,
-  /// baselines, their own Afterglow) to the avatar and the group-members
-  /// row.
-  Future<void> persistGroupMemberExtensions({String? memberId}) {
-    if (_activeGroup == null) return Future<void>.value();
-    // Who to write is read now: a write queued behind another can run after
-    // the chat has moved to another group.
-    final targets = [
-      for (final c in _session.groupCharacters)
-        if (memberId == null || deps.session.characterIdFor(c) == memberId) c,
-    ];
-    // One write at a time: two saves of one member race on its avatar PNG.
-    // The queue only orders them; each caller still sees its own error.
-    final groups = _g.groups;
-    final write = groups.memberExtWrites.then(
-      (_) => _writeGroupMemberExtensions(targets),
-    );
-    groups.memberExtWrites = write.catchError((Object _) {});
-    return write;
-  }
+  /// baselines, the defaults a new chat starts from) to the avatar and the
+  /// group-members row.
+  Future<void> persistGroupMemberExtensions({String? memberId}) =>
+      _extWriter.persist(memberId: memberId);
 
-  Future<void> _writeGroupMemberExtensions(List<CharacterCard> targets) async {
-    if (deps.characters() != null) {
-      final v2Service = V2CardService();
-      // The chat's own handle: in the app the same file as
-      // AppDatabase.instance(), re-pointed with it on a swap.
-      final db = deps.db();
-
-      for (final char in targets) {
-        final ext = char.frontPorchExtensions ?? FrontPorchExtensions();
-        ext.ensureStableId();
-        char.frontPorchExtensions = ext;
-
-        if (char.imagePath != null) {
-          final file = File(char.imagePath!);
-          if (await file.exists()) {
-            await v2Service.saveCardAsPng(
-              char,
-              char.imagePath!,
-              char.imagePath!,
-            );
-          }
-        }
-
-        if (char.dbId != null) {
-          await db.updateGroupMember(
-            GroupMembersCompanion(
-              id: drift.Value(char.dbId!),
-              frontPorchExtensions: drift.Value(jsonEncode(ext.toJson())),
-            ),
-          );
-        }
-      }
-    }
-
-    await deps.saveChat();
-    deps.notify();
-  }
+  late final GroupMemberExtWriter _extWriter = GroupMemberExtWriter(deps);
 }

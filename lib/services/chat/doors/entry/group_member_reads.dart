@@ -47,6 +47,15 @@ class GroupMemberReads {
   String _getCharacterIdFromCard(CharacterCard c) =>
       _d.shared.characterIdFor(c);
 
+  /// Realism runs for [character] in this open group: the group is live and
+  /// the member's OWN switch is on (and Porch Life allows it), whoever
+  /// speaks next. Every per-member read below answers to it, so the sidebar
+  /// shows the tapped member as that member's switch says.
+  bool _realismOnFor(CharacterCard character) =>
+      (_session.groupManager?.isActive ?? false) &&
+      (_scope.realismEnabledFor?.call(_getCharacterIdFromCard(character)) ??
+          _realismEnabled);
+
   /// Empty stance fails toward here. Group card glance.
   String spatialStanceForGroupCharacter(CharacterCard character) {
     final id = _getCharacterIdFromCard(character);
@@ -62,7 +71,7 @@ class GroupMemberReads {
   /// Returns the current emotion label (e.g. "joy", "sadness", "affection") for
   /// the given character when in a realism-enabled group chat. Returns null otherwise.
   String? getEmotionForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     final id = _getCharacterIdFromCard(character);
     final raw = _groupRealism[id]?.emotion;
     return (raw != null && raw.isNotEmpty) ? raw : null;
@@ -79,7 +88,7 @@ class GroupMemberReads {
   Map<String, dynamic>? getRealismStateForGroupCharacter(
     CharacterCard character,
   ) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     final id = _getCharacterIdFromCard(character);
     final data = _groupRealism[id];
     return (data != null && data.isNotEmpty)
@@ -94,12 +103,12 @@ class GroupMemberReads {
   /// Only official needs keys are returned (legacy bad keys such as 'arousal'/'libido'
   /// from older group data are silently filtered).
   Map<String, int> getNeedsForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return const {};
+    if (!_realismOnFor(character)) return const {};
     return _groupStore.needsOf(_getCharacterIdFromCard(character));
   }
 
   int getAffectionForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return 0;
+    if (!_realismOnFor(character)) return 0;
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.affection ?? 0;
   }
@@ -118,27 +127,27 @@ class GroupMemberReads {
   /// [RelationshipService.loadRelationshipScalarsForSpeaker] does when it seeds
   /// a member who predates the key.
   int getLongTermForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return 0;
+    if (!_realismOnFor(character)) return 0;
     final id = _getCharacterIdFromCard(character);
     final entry = _groupRealism[id];
     return entry?.longTermScore ?? entry?.affection ?? 0;
   }
 
   int getTrustForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return 0;
+    if (!_realismOnFor(character)) return 0;
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.trust ?? 0;
   }
 
   String? getFixationForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     final id = _getCharacterIdFromCard(character);
     final raw = _groupRealism[id]?.fixation;
     return (raw != null && raw.isNotEmpty) ? raw : null;
   }
 
   int getArousalForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return 0;
+    if (!_realismOnFor(character)) return 0;
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.arousal ?? 0;
   }
@@ -150,7 +159,8 @@ class GroupMemberReads {
   ({String chip, bool soft, int minutes}) getRefractoryForGroupCharacter(
     CharacterCard character,
   ) {
-    if (!isGroupRealismActive || !_door.members.afterglowRunsFor(character)) {
+    if (!_realismOnFor(character) ||
+        !_door.members.afterglowRunsFor(character)) {
       return (chip: '', soft: false, minutes: 0);
     }
     final body =
@@ -199,7 +209,7 @@ class GroupMemberReads {
   }
 
   String? getEmotionIntensityForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     final id = _getCharacterIdFromCard(character);
     final raw = _groupRealism[id]?.emotionIntensity;
     return (raw != null && raw.isNotEmpty) ? raw : null;
@@ -208,7 +218,7 @@ class GroupMemberReads {
   /// The member's whole mood (label, intensity, cause, hold) for the member
   /// card and the phone, or null outside active group realism.
   MoodState? getMoodForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     return _mood.memberState(_getCharacterIdFromCard(character));
   }
 
@@ -216,7 +226,7 @@ class GroupMemberReads {
   /// given group character, if any. Returns null if not in active group realism
   /// or no fixation data.
   int? getFixationLifespanForGroupCharacter(CharacterCard character) {
-    if (!isGroupRealismActive) return null;
+    if (!_realismOnFor(character)) return null;
     final id = _getCharacterIdFromCard(character);
     return _groupRealism[id]?.fixationLifespan;
   }
@@ -247,9 +257,17 @@ class GroupMemberReads {
     if (_activeGroup == null) return;
     final id = _getCharacterIdFromCard(character);
     if (_groupRealism.containsKey(id)) {
-      _groupRealism.remove(
+      final old = _groupRealism.remove(
         id,
       ); // also clears hidden 'relationships' toward other group members
+      // Their switches are the user's choices, not state: a reset keeps them.
+      if (old != null) {
+        _groupRealism[id] = GroupMemberRealism()
+          ..realismSwitch = old.realismSwitch
+          ..needsSwitch = old.needsSwitch
+          ..afterglowSwitch = old.afterglowSwitch
+          ..objectivesSwitch = old.objectivesSwitch;
+      }
       // (old checkpoint call removed in v30)
       debugPrint('[GroupRealism] Reset per-character state for $id');
       _d.notify();

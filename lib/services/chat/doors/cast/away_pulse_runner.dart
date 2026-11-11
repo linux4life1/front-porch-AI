@@ -54,7 +54,12 @@ class AwayPulseRunner {
     required bool fromUserSend,
   }) async {
     if (_activeGroup == null) return;
-    if (!_scope.realismEnabled()) return;
+    // Presence is Realism's: it runs for each member whose own Realism is
+    // on, whoever happens to speak next.
+    bool realismFor(CharacterCard c) =>
+        _scope.realismEnabledFor?.call(_d.characterIdFor(c)) ??
+        _scope.realismEnabled();
+    if (!_groupCharacters.any(realismFor)) return;
     if (fromUserSend) {
       state.beginUserSend(userText);
     } else if (state.lastUserText.isEmpty) {
@@ -98,7 +103,7 @@ class AwayPulseRunner {
       userText: text,
       presenceOf: presenceOf,
       isHeld: (c) => _groupRealism[_d.characterIdFor(c)]?.awayHeld ?? false,
-    );
+    ).where(realismFor).toList();
     final userName = _d.personas.persona.name.trim();
     final exchange = recentExchange(_session.messages);
     final eval = _d.judges().makeWithUserEval();

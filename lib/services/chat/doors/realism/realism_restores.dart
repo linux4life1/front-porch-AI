@@ -49,6 +49,13 @@ class RealismRestores {
   /// The chat's STORED Needs switch: this file rewinds state with it.
   bool get _needsSimEnabled => _g.controls.needsSimEnabled;
 
+  /// The stored switch a rewind reads: a group member's rewind reads that
+  /// member's own, the 1:1 chat's is the chat's.
+  bool _storedNeedsOn(String? sid) {
+    if (_activeGroup == null || sid == null) return _needsSimEnabled;
+    return _groupStore.needsOnFor(sid);
+  }
+
   // ── Group Creation Baseline Seeding (bond/trust/emotion/time/day only) ──
 
   /// The immutable creation-time baseline realism values for a group member.
@@ -123,18 +130,23 @@ class RealismRestores {
     if (speaker == null) return;
     final sid = _getCharacterIdFromCard(speaker);
     if (sid.isEmpty) return;
-    final hadStoredNeeds = _groupStore.needsOf(sid).isNotEmpty;
-    final state = msg.activeMetadata?['realism_state'];
-    final stampHasNeeds = state is Map && state['needs'] is Map;
-    _realismDance.loadIntoScalars(sid);
-    fromMessage(msg, groupSpeakerId: sid, restoreClock: restoreClock);
-    if (!hadStoredNeeds && !stampHasNeeds) {
-      // The load's initializeFresh() filled the scalar vector for a member
-      // with no needs history, and the stamp carries none either — clear it
-      // so the save below can't materialize invented needs into their entry.
-      _needsSimulation.restoreFromSnapshot(const {'vector': <String, int>{}});
-    }
-    _realismDance.saveScalarsIntoGroup(sid);
+    // The message's speaker owns every switch this rewind reads, not whoever
+    // is up next: their Realism, Needs and Pockets gates are theirs alone.
+    _groupStore.asSpeaker(sid, () {
+      final hadStoredNeeds = _groupStore.needsOf(sid).isNotEmpty;
+      final state = msg.activeMetadata?['realism_state'];
+      final stampHasNeeds = state is Map && state['needs'] is Map;
+      _realismDance.loadIntoScalars(sid);
+      fromMessage(msg, groupSpeakerId: sid, restoreClock: restoreClock);
+      if (!hadStoredNeeds && !stampHasNeeds) {
+        // The load's initializeFresh() filled the scalar vector for a member
+        // with no needs history, and the stamp carries none either — clear
+        // it so the save below can't materialize invented needs into their
+        // entry.
+        _needsSimulation.restoreFromSnapshot(const {'vector': <String, int>{}});
+      }
+      _realismDance.saveScalarsIntoGroup(sid);
+    });
   }
 
   /// [groupSpeakerId] names the member being rewound so the two registers
@@ -187,7 +199,7 @@ class RealismRestores {
     // clean mid-chat toggle-off via setNeedsSimEnabled without stale state).
     if (state.containsKey('needs') &&
         state['needs'] is Map &&
-        _needsSimEnabled) {
+        _storedNeedsOn(groupSpeakerId)) {
       final needsData = state['needs'] as Map;
       _needsSimulation.restoreFromSnapshot(needsData);
     }

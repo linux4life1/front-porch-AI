@@ -55,6 +55,10 @@ EditsDoor buildEditsDoor(ChatWiring w) {
         isEvaluatingRealism: () => w.realism.evalStatus.evaluating,
         realismEnabled: () => w.controlsDoor.realismEnabled,
         needsActive: () => w.realism.needsPass.active,
+        realismEnabledForCard: (c) =>
+            w.controlsDoor.realismEnabledFor(session.characterIdFor(c)),
+        needsActiveForCard: (c) =>
+            w.realism.needsPass.activeFor(session.characterIdFor(c)),
       ),
       services: EditServices(
         db: () => w.bound.db,
