@@ -42,6 +42,7 @@ class WebGroupRoutes {
     router.post('/api/groups/<id>/delete', _delete);
     router.post('/api/groups/<id>/settings', _settings);
     router.get('/api/groups/<id>/detail', _detail);
+    router.get('/api/groups/<id>/stats', _stats);
     router.post('/api/groups/<id>/cast', _cast);
     router.get('/api/groups/<id>/worlds', _worlds);
     router.get('/api/groups/<id>/new-chats', _newChats);
@@ -118,6 +119,12 @@ class WebGroupRoutes {
   /// The Edit group page's detail: every field the desktop page shows.
   Future<shelf.Response> _detail(shelf.Request request, String id) async {
     final d = await _facade.editor.detail(id);
+    if (d == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(d);
+  }
+
+  Future<shelf.Response> _stats(shelf.Request request, String id) async {
+    final d = await _facade.editor.stats(id);
     if (d == null) return JsonResponse.error(404, 'Group not found');
     return JsonResponse.ok(d);
   }

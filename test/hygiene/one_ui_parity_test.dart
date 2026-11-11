@@ -387,4 +387,99 @@ void main() {
       ],
     );
   });
+
+  test('Edit group and the member editor list the same sections in the same '
+      'order on desktop and web', () {
+    // Edit group, Details tab.
+    final dartGroup = [
+      for (final m in RegExp(r"title: '([^']+)'").allMatches(
+        File(
+              'lib/ui/pages/edit_group/edit_group_cast_cards.dart',
+            ).readAsStringSync() +
+            File(
+              'lib/ui/pages/edit_group/edit_group_prompt_cards.dart',
+            ).readAsStringSync() +
+            File(
+              'lib/ui/pages/edit_group/edit_group_realism_card.dart',
+            ).readAsStringSync(),
+      ))
+        m.group(1)!,
+    ];
+    final tab = File(
+      'lib/ui/pages/edit_group/edit_group_details_tab.dart',
+    ).readAsStringSync();
+    const cardTitle = {
+      'EditGroupIdentityCard': 'Identity',
+      'EditGroupTurnsCard': 'Turns',
+      'EditGroupVoiceCard': 'Voice',
+      'EditGroupPersonalityCard': 'Personality & World',
+      'EditGroupAdvancedPromptsCard': 'Advanced Prompts',
+      'EditGroupTagsCard': 'Tags',
+      'EditGroupRealismCard': 'Realism Engine',
+      'EditGroupStatsCard': 'Your chats together',
+    };
+    final dartOrder = [
+      for (final m in RegExp(r'(EditGroup\w+Card)\(').allMatches(tab))
+        cardTitle[m.group(1)]!,
+    ];
+    for (final t in dartOrder) {
+      if (t == 'Your chats together') continue;
+      expect(dartGroup, contains(t), reason: 'the desktop card titled $t');
+    }
+    final web = File('web_ui/src/pages/GroupEditPage.tsx').readAsStringSync();
+    final webOrder = [
+      for (final m in RegExp(
+        r'section-label">([^<]+)</h3>|<summary>([^<]+)</summary>|(CharacterStatsCard characterId)',
+      ).allMatches(web))
+        (m.group(1) ?? m.group(2) ?? 'Your chats together').replaceAll(
+          '&amp;',
+          '&',
+        ),
+    ];
+    // The web's Details tab, up to the Dialogue tab's own headings.
+    final webDetails = webOrder.takeWhile((t) => t != 'First Message').toList();
+    expect(webDetails, dartOrder);
+
+    // The member editor: its notice first, "In the group" last.
+    final dartMember = [
+      for (final m
+          in RegExp(
+            r"groupMemberNotice\(|title: '(Identity|Voice|Personality & World|Advanced Prompts)'|"
+            r'EditCharacterRealismSection\(|GroupMemberSection\(',
+          ).allMatches(
+            File(
+              'lib/ui/pages/edit_character_page/edit_character_details_tab.dart',
+            ).readAsStringSync(),
+          ))
+        m.group(1) ?? m.group(0)!,
+    ];
+    final webChar = File(
+      'web_ui/src/pages/CharacterEditPage.tsx',
+    ).readAsStringSync();
+    final webMember = [
+      for (final m in RegExp(
+        r'data-testid="group-member-notice"|section-label">(Identity|Voice|Personality &amp; World|Realism Engine)</h3>|<summary>(Advanced Prompts)</summary>|<GroupMemberSection',
+      ).allMatches(webChar))
+        m.group(1)?.replaceAll('&amp;', '&') ??
+            m.group(2) ??
+            (m.group(0)!.contains('notice')
+                ? 'groupMemberNotice('
+                : 'GroupMemberSection('),
+    ];
+    expect(dartMember.first, 'groupMemberNotice(');
+    expect(dartMember.last, 'GroupMemberSection(');
+    expect(webMember, [
+      'groupMemberNotice(',
+      'Identity',
+      'Voice',
+      'Personality & World',
+      'Advanced Prompts',
+      'Realism Engine',
+      'GroupMemberSection(',
+    ]);
+    expect([
+      for (final t in dartMember)
+        t == 'EditCharacterRealismSection(' ? 'Realism Engine' : t,
+    ], webMember);
+  });
 }

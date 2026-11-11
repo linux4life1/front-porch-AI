@@ -92,7 +92,8 @@ const ROUTES: ((i: { character: string; story: string; group: string; member: st
   (i) => `/stories/${i.story}/lore`,
   (i) => `/stories/${i.story}/log`,
   (i) => `/edit/${i.character}`,
-  // A group member's own editor.
+  // The Edit group page, and a group member's own editor.
+  (i) => `/groups/${i.group}/edit`,
   (i) => `/groups/${i.group}/members/${i.member}/edit`,
 ];
 

@@ -2712,3 +2712,44 @@ test('the chat drawer loads a preset into this chat and follows the model again'
     await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
   }
 });
+
+test.describe.serial('editing a group member', { tag: SERIAL }, () => {
+  test("open a group, edit a member's card, change a field, save: the library character is unchanged", async ({
+    page,
+  }) => {
+    type Groups = { groups?: { id: string; name: string; members: { id: string; name: string }[] }[] };
+    const characters = (await (await page.request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const porch = characters.find((c) => c.name === 'Porch Tester') ?? characters[0];
+    const second = characters.find((c) => c.id !== porch.id) ?? porch;
+    let groups = ((await (await page.request.get('/api/groups')).json()) as Groups).groups ?? [];
+    let group = groups.find((g) => g.name === 'Journey Group');
+    if (!group) {
+      await page.request.post('/api/groups', {
+        data: { name: 'Journey Group', memberIds: [porch.id, second.id] },
+      });
+      groups = ((await (await page.request.get('/api/groups')).json()) as Groups).groups ?? [];
+      group = groups.find((g) => g.name === 'Journey Group');
+    }
+    const member = group!.members[0];
+    const libraryBefore = (await (await page.request.get(`/api/characters/${porch.id}/detail`)).json()) as {
+      description: string;
+    };
+
+    await openRoute(page, `/groups/${group!.id}/edit`);
+    await page.getByRole('button', { name: new RegExp(`Edit ${member.name}.s card`) }).click();
+    await expect(page.getByText(`You're editing ${member.name} in Journey Group only.`)).toBeVisible();
+    await page.getByLabel('Description').fill('Changed only inside the group.');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    // The editor closes once the save landed; only then read persisted state.
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+
+    const inGroup = (await (
+      await page.request.get(`/api/groups/${group!.id}/members/${member.id}/detail`)
+    ).json()) as { description: string };
+    expect(inGroup.description).toBe('Changed only inside the group.');
+    const libraryAfter = (await (await page.request.get(`/api/characters/${porch.id}/detail`)).json()) as {
+      description: string;
+    };
+    expect(libraryAfter.description).toBe(libraryBefore.description);
+  });
+});

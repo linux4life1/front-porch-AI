@@ -3,7 +3,7 @@
 //
 // The wide sidebar's contract (PR 1a): portrait first, the Main Settings
 // button opens Chat Settings / Model Settings (Edit Character only when an
-// editor is wired, Group Settings… only for a group), the layout pills keep
+// editor is wired, Edit group… only for a group), the layout pills keep
 // their names, and no-portrait characters get the window's initial square.
 
 import { act } from 'react-dom/test-utils';
@@ -171,13 +171,13 @@ describe('wide sidebar cards', () => {
     expect(body.querySelector('.state-pockets, .state-ambitions, .state-line')).not.toBeNull();
   });
 
-  it('a group gets the cast pills and Group Settings…', async () => {
+  it('a group gets the cast pills and Edit group…', async () => {
     await render(true);
     expect(container.querySelector('.cast-stand-in')).not.toBeNull();
     expect(sectionIds()).toContain('cast');
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-main-settings')?.click();
     });
-    expect(menuLabels().some((l) => l.includes('Group Settings…'))).toBe(true);
+    expect(menuLabels().some((l) => l.includes('Edit group…'))).toBe(true);
   });
 });

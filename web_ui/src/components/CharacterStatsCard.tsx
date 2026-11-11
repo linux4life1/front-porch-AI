@@ -39,14 +39,14 @@ export function statTiles(s: CharacterStats): [string, string][] {
   return tiles;
 }
 
-export function CharacterStatsCard({ characterId }: { characterId: string }) {
+export function CharacterStatsCard({ characterId, url }: { characterId: string; url?: string }) {
   const [stats, setStats] = useState<CharacterStats | null>(null);
 
   useEffect(() => {
     let live = true;
     setStats(null);
     api
-      .get<CharacterStats>(`/api/characters/${characterId}/stats`)
+      .get<CharacterStats>(url ?? `/api/characters/${characterId}/stats`)
       .then((s) => {
         if (live) setStats(s);
       })
@@ -54,7 +54,7 @@ export function CharacterStatsCard({ characterId }: { characterId: string }) {
     return () => {
       live = false;
     };
-  }, [characterId]);
+  }, [characterId, url]);
 
   if (!stats || stats.theirMessages + stats.yourMessages === 0) return null;
   return (

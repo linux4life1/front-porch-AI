@@ -25,7 +25,6 @@ import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
-import { GroupSettings } from './GroupSettings';
 import { BelongingsPanel } from './BelongingsPanel';
 import { PromisesPanel } from './PromisesPanel';
 import { StoryCalendarModal } from './StoryCalendarModal';
@@ -87,6 +86,11 @@ const WIDE_DEFAULTS = [
   'story_tools',
 ];
 
+/** Edit group is a page, opened by its route (the app routes by hash). */
+function openEditGroup(groupId: string | undefined) {
+  if (groupId) window.location.hash = `#/groups/${groupId}/edit`;
+}
+
 export function ChatSidebar({
   realism,
   moodLook,
@@ -106,7 +110,6 @@ export function ChatSidebar({
   toolsKey,
   focusedId,
   groupId,
-  onCommand,
   loreTokens,
   loreBudget,
   loreOverflow,
@@ -274,7 +277,6 @@ export function ChatSidebar({
   // ── Main Settings menu ────────────────────────────────────────────────
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
-  const [showGroupSettings, setShowGroupSettings] = useState(false);
 
   // ── Reorder (one order for every width) ──────────────────────────────
   // The host 'insight' surface still carries the OLD flat-panel ids, and
@@ -344,7 +346,7 @@ export function ChatSidebar({
       { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
       { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
-        ? [{ label: 'Edit group…', onClick: () => setShowGroupSettings(true) }]
+        ? [{ label: 'Edit group…', onClick: () => openEditGroup(groupId) }]
         : []),
     ];
     setSettingsMenu({
@@ -1040,23 +1042,6 @@ export function ChatSidebar({
           {card(id, section(id))}
         </div>
       ))}
-      {showGroupSettings && t?.group && groupId && (
-        <div className="drawer-backdrop" onClick={() => setShowGroupSettings(false)}>
-          <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-head">
-              <span>Group settings</span>
-              <button className="link-btn" onClick={() => setShowGroupSettings(false)}>Close</button>
-            </div>
-            <GroupSettings
-              group={t.group}
-              groupId={groupId}
-              onCommand={onCommand}
-              onToggleDirector={(v) => toggle('director', v)}
-              clockOn={t.time.passageEnabled}
-            />
-          </div>
-        </div>
-      )}
       {showCalendar && (
         <StoryCalendarModal
           focusedId={focusedId}

@@ -64,6 +64,7 @@ class GroupEditorRelay {
       'mesExample': g.mesExample,
       'firstMessage': g.firstMessage,
       'alternateGreetings': g.alternateGreetings,
+      'greetingSeeds': [for (final x in g.greetingSeeds) x?.toJson()],
       'tags': g.tags,
       'chaosModeEnabled': g.chaosModeEnabled,
       'inheritCharacterLorebooks': g.inheritCharacterLorebooks,
@@ -97,6 +98,13 @@ class GroupEditorRelay {
       'feelings': startingFeelingsIn(g.defaultMemberRealismState),
       'removedCount': removed.length,
     };
+  }
+
+  /// "Your chats together" over the group's chats, or null with no database.
+  Future<Map<String, dynamic>?> stats(String groupId) async {
+    final db = _db;
+    if (db == null || _groups.getById(groupId) == null) return null;
+    return (await loadGroupStats(db, groupId)).toJson();
   }
 
   /// Applies the fields the Edit group page posts that the older settings

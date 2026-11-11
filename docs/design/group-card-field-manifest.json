@@ -12,13 +12,7 @@
     "Lorebook": "a lorebook is edited as one book in the Lorebook tab and read as one book for the speaker; its entries are not card fields",
     "AvatarImage": "gallery rows of the library card (looks and expressions); a member inherits the origin card's"
   },
-  "memberHidden": {
-    "web_ui/src/pages/CharacterEditPage.tsx": {
-      "showSwitch": [
-        "ext.needsSimChoice"
-      ]
-    }
-  },
+  "memberHidden": {},
   "spine": [
     {
       "why": "Edit group opens Edit Character on a member",
@@ -78,12 +72,6 @@
       "path": "lib/services/web/facade/group_member_edit.dart",
       "in": "GroupMemberEdit.update",
       "marker": "await saveGroupMemberCard(_db, c)"
-    },
-    {
-      "why": "a member's start goes to the group's seed for them",
-      "path": "lib/services/web/facade/group_member_edit.dart",
-      "in": "GroupMemberEdit.update",
-      "marker": "_saveStart(groupId, memberId, c, fields['groupStart'])"
     },
     {
       "why": "the page's Realism fields go through the relay",
@@ -904,20 +892,6 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "characterEmotion: d.realismEmotion"
-        },
-        {
-          "path": "web_ui/src/components/realism/memberGroup.tsx",
-          "marker": "set({ characterEmotion:"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.fromJson",
-          "marker": "s('characterEmotion')"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.toJson",
-          "marker": "'characterEmotion': emotion"
         }
       ],
       "reader": [
@@ -1037,20 +1011,6 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "emotionIntensity: d.realismEmotionIntensity"
-        },
-        {
-          "path": "web_ui/src/components/realism/memberGroup.tsx",
-          "marker": "set({ emotionIntensity:"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.fromJson",
-          "marker": "s('emotionIntensity')"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.toJson",
-          "marker": "'emotionIntensity': emotionIntensity"
         }
       ],
       "reader": [
@@ -2202,20 +2162,6 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "longTermBond: d.realismLongTermBond"
-        },
-        {
-          "path": "web_ui/src/components/realism/memberGroup.tsx",
-          "marker": "set({ longTermBond:"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.fromJson",
-          "marker": "n('longTermBond')"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.toJson",
-          "marker": "'longTermBond': longTerm"
         }
       ],
       "reader": [
@@ -3236,20 +3182,6 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "shortTermBond: d.realismShortTermBond"
-        },
-        {
-          "path": "web_ui/src/components/realism/memberGroup.tsx",
-          "marker": "set({ shortTermBond:"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.fromJson",
-          "marker": "n('shortTermBond')"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.toJson",
-          "marker": "'shortTermBond': shortTerm"
         }
       ],
       "reader": [
@@ -3307,20 +3239,6 @@
           "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
           "in": "EditCharacterCardWriter._writeExtensions",
           "marker": "trustLevel: d.realismTrustLevel"
-        },
-        {
-          "path": "web_ui/src/components/realism/memberGroup.tsx",
-          "marker": "set({ trustLevel:"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.fromJson",
-          "marker": "n('trustLevel')"
-        },
-        {
-          "path": "lib/services/group_member_start.dart",
-          "in": "GroupMemberStart.toJson",
-          "marker": "'trustLevel': trust"
         }
       ],
       "reader": [

@@ -94,3 +94,29 @@
 }
 .gw-review-row dt { font-weight: 600; color: var(--muted); }
 .gw-review-row dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+/* A control the group owns: present, faded, taking no taps (GreyedOut). */
+.greyed-out { position: relative; }
+.greyed-out-body { opacity: 0.45; pointer-events: none; user-select: none; }
+.greyed-out-tip {
+  position: absolute; left: 0; bottom: 100%; z-index: 5; max-width: 90%;
+  padding: 6px 10px; border-radius: var(--radius);
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  font-size: 0.85em;
+}
+
+.editor-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; position: relative; }
+.editor-tab {
+  flex: 1 1 0; min-width: 0; background: none; border: none; border-bottom: 3px solid transparent;
+  color: var(--muted); padding: 10px 6px; cursor: pointer; font: inherit;
+}
+.editor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.editor-tab.greyed { opacity: 0.45; cursor: default; }
+.editor-tab-tip { top: 100%; bottom: auto; right: 0; left: auto; }
+.group-notice {
+  display: flex; gap: 10px; align-items: flex-start; padding: 14px; margin-bottom: 16px;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.editor-section { margin-bottom: 20px; }
+.editor-section > summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }

@@ -12,6 +12,7 @@ import { CharactersPage } from './pages/CharactersPage';
 import { ChatPage } from './pages/ChatPage';
 import { RemoteAccessPage } from './pages/RemoteAccessPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { GroupEditPage } from './pages/GroupEditPage';
 import { CharacterEditPage } from './pages/CharacterEditPage';
 import { CreateCharacterPage } from './pages/CreateCharacterPage';
 import { CreateAiCharacterPage } from './pages/CreateAiCharacterPage';
@@ -94,6 +95,7 @@ export function App() {
         <Route path="/images" element={<ImageStudioPage />} />
         <Route path="/stoop/*" element={<StoopSection />} />
         <Route path="/edit/:id" element={<CharacterEditPage />} />
+        <Route path="/groups/:groupId/edit" element={<GroupEditPage />} />
         <Route path="/groups/:groupId/members/:memberId/edit" element={<CharacterEditPage />} />
         <Route path="/account" element={<AccountPage />} />
         <Route path="/backups" element={<BackupsPage />} />
