@@ -89,6 +89,15 @@ dart run build_runner build   # regenerates lib/database/database.g.dart
 5. Open the PR against the same branch. GitHub fills the PR template;
    delete sections that do not apply.
 6. Say what you tested, and on which platforms.
+7. **UI or UX changes need screenshots.** Front Porch AI has one UI: the
+   desktop app, the web app on a wide screen and on a phone, 1:1 and group
+   chats all show the same controls in the same places. A change to one
+   ships in all of them, and the `## Screenshots` section of the PR
+   **description** (not a comment) shows each changed screen, desktop and
+   web, with before and after where something existed. Drag the images into
+   that section while editing the description. Use made-up characters,
+   never a real chat. The PR rules check fails a UI PR without real
+   screenshots there; no label skips it, and it applies to every author.
 
 Draft PRs are welcome when you want direction on an approach.
 

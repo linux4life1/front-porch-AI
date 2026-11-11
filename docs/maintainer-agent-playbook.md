@@ -120,12 +120,14 @@ done", so every hand-check item in a PR is already a test or marked
 | Tier | When | What the smoke tester does |
 |------|------|----------------------------|
 | 0. None | Nothing under `lib/ui/`, `web_ui/src/` or `lib/main*.dart` changed, or the PR is only tests, CI or docs | Nothing. CI is the gate |
-| 1. Look only | UI changed, and nothing from tier 2 | Looks at screenshots of the changed screens and does the `eye-only:` lines. No item-by-item run |
+| 1. Look only | UI changed, and nothing from tier 2 | Looks at the PR's required screenshots of the changed screens (desktop and web) and does the `eye-only:` lines. No item-by-item run |
 | 2. Full | The PR touches the database or migrations, file pickers or OS dialogs, desktop platform code, import/export, or adds a screen | Does the `eye-only:` lines and walks the risky area |
 
 The hostile reviewer still sees every PR. The **PR rules** check prints each
 PR's tier in its summary, and fails a UI PR whose `## Hand-check` lines don't
-each name a test or start `eye-only:`, or a PR that adds pictures outside
+each name a test or start `eye-only:`, a UI PR with no image in its
+`## Screenshots` section (no label skips that; CLAUDE.md "One UI"), or a PR
+that adds pictures outside
 goldens, `assets/` and `docs/screenshots/` (the `approved-images` label lets a
 deliberate one in).
 

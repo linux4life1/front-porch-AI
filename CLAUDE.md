@@ -25,6 +25,35 @@ Worlds (places with lore and climate). AGPL-3.0-or-later.
 - Nightly / Rawhide builds isolate data in `FrontPorchAI-Beta/` with
   `beta_` preference keys. Never point them at a stable library.
 
+## One UI (non-negotiable)
+
+There is one user interface. Desktop, web wide, web phone, 1:1 and group are
+the same screen with the same controls in the same places and the same
+order, doing the same thing. Only the layout may adapt (the phone sidebar
+opens full screen; a slide-over on a tablet). No surface gets a control,
+section, wording or order the others lack, and none drops one. This is a
+product law, not a preference, and it outranks speed of delivery.
+
+- The desktop 1:1 chat is the baseline. A group shows every 1:1 control
+  in the same spot, scoped to the tapped member
+  (`docs/design/one-chat-ux.md` rulings). Group-only pieces are exactly
+  the ones the rulings list.
+- Every UI change ships desktop and `web_ui/` together, in the same PR,
+  checked under a non-Porch theme, light and dark, at phone and wide.
+  An item may wait only when the maintainer defers it in the current
+  conversation, and the PR says so.
+- Drift fails CI: `one_ui_parity_test` (section and leaf order, desktop vs
+  web, group vs 1:1), `settings_parity_manifest_test`, and the
+  `group_sidebar_parity` pixel goldens. A new shared surface gets a
+  golden and a parity entry in the PR that adds it.
+- Every UI or UX change carries screenshots in the PR description itself
+  (the body's `## Screenshots` section, never a comment or a linked
+  page): each changed screen, desktop and web, before and after where
+  something existed. Every image must be real: a GitHub upload or a file
+  under `docs/screenshots/` on the PR's head. The PR rules check fails a UI
+  PR without them. No label skips it and no author is exempt, maintainer
+  included; outside contributors are held to it first.
+
 ## Commands
 
 ```bash
@@ -91,7 +120,7 @@ name through that door's `*_api.dart` bridge the shell exports.
 | `generated_dart_size_test` | `*.g.dart` over its recorded ceiling; Drift managers on | none; `build.yaml` keeps `generate_manager: false` |
 | `raw_colors_ratchet_test`, `raw_dialogs_ratchet_test` | a file gains a raw colour or a dialog opened outside `showWarmDialog`; a new file must have none | none |
 | `needs_gate_ratchet_test`, `clock_*_ratchet_test`, `picker_calls_guarded_test`, `settings_parity_manifest_test` | the gates in **Chat contracts** are bypassed; a setting lacks its web twin | none |
-| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; images added outside goldens, `assets/`, `docs/screenshots/` | `approved-images` label |
+| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; a UI PR has no `## Screenshots` section with at least one image; images added outside goldens, `assets/`, `docs/screenshots/` | none for screenshots; `approved-images` for a stray image |
 | Test integrity | an existing test, golden, baseline, dependency floor, `.github/`, `scripts/ci-local.sh` or `analysis_options.yaml` is modified or deleted | maintainer applies `approved-test-change` |
 
 Adding a new test file, or appending whole `test(` / `group(` calls and
@@ -173,6 +202,8 @@ without group speaker restore, desktop without web.
 
 ## Parity
 
+- **One UI** (see the section above) is the rule; this list is how it
+  applies per pairing.
 - **Desktop ↔ web.** Anything the user can see, tap or configure on
   desktop ships in `web_ui/` in the same change. Phone vs wide adaptation is
   fine; omission is not, unless the maintainer deferred that item in the
@@ -249,8 +280,11 @@ No personal names in anything that ships to users. What's New: nightly in
 each under a single `## Unreleased` heading; the nightly's `rotate-notes`
 job clears what it shipped (`tools/rotate-rawhide-notes.sh`) and
 `rawhide_notes_test` fails on a second heading, a duplicate, or a stall.
-`.claude/changelog.md` is a pointer, not a diary. Never commit screenshots
-of real chats or user data; evidence goes in the PR thread.
+`.claude/changelog.md` is a pointer, not a diary. Screenshots show seeded
+or synthetic data only, never a real chat, library or user data. PR
+screenshots are either GitHub uploads dragged into the description or files
+under `docs/screenshots/<pr-or-topic>/` embedded in it; either way they sit
+in the PR body's `## Screenshots` section.
 
 ## Files that need a reason
 

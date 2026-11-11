@@ -77,8 +77,15 @@ Source and license: <!-- e.g. "kokoro-multi-lang-v1_0, Apache-2.0" -->
 
 ## Screenshots
 
-<!-- Required for UI changes. Before/after if you're changing something existing.
-Include light AND dark mode if you touched colours. -->
+<!-- REQUIRED for any UI or UX change (lib/ui/, lib/main*.dart, web_ui/src/).
+The PR rules check fails without at least one image here; no label skips it.
+Show each changed screen on desktop AND web (wide, plus phone if it differs),
+before and after where something existed. Light AND dark if you touched
+colours. Seeded or made-up data only, never a real chat or library.
+Drag images into THIS section while editing the description (a comment does
+not count), or commit them under docs/screenshots/<topic>/ and embed them.
+Links to other image hosts are rejected. No author is exempt. One UI: desktop, web, 1:1 and group show
+the same controls in the same places (CLAUDE.md "One UI"). -->
 
 ## Attribution
 
