@@ -135,7 +135,7 @@ void main() {
     for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
-    await tester.tap(find.byIcon(Icons.edit).first);
+    await tester.tap(find.byIcon(Icons.edit_outlined).first);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit Lorebook Entry'), findsOneWidget);
     await tester.enterText(
