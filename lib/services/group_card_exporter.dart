@@ -196,6 +196,7 @@ class GroupCardExporter {
       realismVerificationMaxReprocesses:
           group.realismVerificationMaxReprocesses,
       needsDirectorAuthority: group.needsDirectorAuthority,
+      characterAuthorNotes: group.characterAuthorNotes,
       groupLorebook: group.groupLorebook,
       worldIds: worldIds,
       worldNames: worldNames,

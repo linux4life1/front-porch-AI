@@ -322,6 +322,9 @@ class GroupEntry {
       // that loader at all; see its group branch.) `addAll`, not assign, so a
       // legacy blob that did carry entries keeps them.
       _group.characterSystemPrompts.addAll(group.characterSystemPrompts);
+      // The group's own Author's Notes for its members open the chat; an
+      // existing chat reloads its own from its session below.
+      _group.seedNewChatDefaults(group);
 
       // Seed objectives that came from an imported Group Card (one-time)
       await _s.objectives().writer.seedImportedMemberObjectivesIfPresent();

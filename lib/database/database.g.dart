@@ -6626,6 +6626,18 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         ),
         defaultValue: const Constant(false),
       );
+  static const VerificationMeta _characterAuthorNotesMeta =
+      const VerificationMeta('characterAuthorNotes');
+  @override
+  late final GeneratedColumn<String> characterAuthorNotes =
+      GeneratedColumn<String>(
+        'character_author_notes',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('{}'),
+      );
   static const VerificationMeta _folderIdMeta = const VerificationMeta(
     'folderId',
   );
@@ -6691,6 +6703,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     realismVerificationStrictness,
     realismVerificationMaxReprocesses,
     needsDirectorAuthority,
+    characterAuthorNotes,
     folderId,
     updatedAt,
     deletedAt,
@@ -6945,6 +6958,15 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         ),
       );
     }
+    if (data.containsKey('character_author_notes')) {
+      context.handle(
+        _characterAuthorNotesMeta,
+        characterAuthorNotes.isAcceptableOrUnknown(
+          data['character_author_notes']!,
+          _characterAuthorNotesMeta,
+        ),
+      );
+    }
     if (data.containsKey('folder_id')) {
       context.handle(
         _folderIdMeta,
@@ -7088,6 +7110,10 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.bool,
         data['${effectivePrefix}needs_director_authority'],
       )!,
+      characterAuthorNotes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}character_author_notes'],
+      )!,
       folderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}folder_id'],
@@ -7173,6 +7199,11 @@ class Group extends DataClass implements Insertable<Group> {
   final int realismVerificationMaxReprocesses;
   final bool needsDirectorAuthority;
 
+  /// Per-member Author's Note and Strength for new chats, JSON
+  /// `{memberId: {note, strength}}` (Edit group; the chat's live notes ride
+  /// the session and are seeded from this on entry).
+  final String characterAuthorNotes;
+
   /// Home-screen folder membership (schema v42), the group analogue of
   /// Characters.folderId. Null = top level. Nullable + additive.
   final String? folderId;
@@ -7208,6 +7239,7 @@ class Group extends DataClass implements Insertable<Group> {
     required this.realismVerificationStrictness,
     required this.realismVerificationMaxReprocesses,
     required this.needsDirectorAuthority,
+    required this.characterAuthorNotes,
     this.folderId,
     required this.updatedAt,
     this.deletedAt,
@@ -7264,6 +7296,7 @@ class Group extends DataClass implements Insertable<Group> {
       realismVerificationMaxReprocesses,
     );
     map['needs_director_authority'] = Variable<bool>(needsDirectorAuthority);
+    map['character_author_notes'] = Variable<String>(characterAuthorNotes);
     if (!nullToAbsent || folderId != null) {
       map['folder_id'] = Variable<String>(folderId);
     }
@@ -7315,6 +7348,7 @@ class Group extends DataClass implements Insertable<Group> {
         realismVerificationMaxReprocesses,
       ),
       needsDirectorAuthority: Value(needsDirectorAuthority),
+      characterAuthorNotes: Value(characterAuthorNotes),
       folderId: folderId == null && nullToAbsent
           ? const Value.absent()
           : Value(folderId),
@@ -7378,6 +7412,9 @@ class Group extends DataClass implements Insertable<Group> {
       needsDirectorAuthority: serializer.fromJson<bool>(
         json['needsDirectorAuthority'],
       ),
+      characterAuthorNotes: serializer.fromJson<String>(
+        json['characterAuthorNotes'],
+      ),
       folderId: serializer.fromJson<String?>(json['folderId']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -7430,6 +7467,7 @@ class Group extends DataClass implements Insertable<Group> {
         realismVerificationMaxReprocesses,
       ),
       'needsDirectorAuthority': serializer.toJson<bool>(needsDirectorAuthority),
+      'characterAuthorNotes': serializer.toJson<String>(characterAuthorNotes),
       'folderId': serializer.toJson<String?>(folderId),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -7466,6 +7504,7 @@ class Group extends DataClass implements Insertable<Group> {
     int? realismVerificationStrictness,
     int? realismVerificationMaxReprocesses,
     bool? needsDirectorAuthority,
+    String? characterAuthorNotes,
     Value<String?> folderId = const Value.absent(),
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -7512,6 +7551,7 @@ class Group extends DataClass implements Insertable<Group> {
         this.realismVerificationMaxReprocesses,
     needsDirectorAuthority:
         needsDirectorAuthority ?? this.needsDirectorAuthority,
+    characterAuthorNotes: characterAuthorNotes ?? this.characterAuthorNotes,
     folderId: folderId.present ? folderId.value : this.folderId,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -7592,6 +7632,9 @@ class Group extends DataClass implements Insertable<Group> {
       needsDirectorAuthority: data.needsDirectorAuthority.present
           ? data.needsDirectorAuthority.value
           : this.needsDirectorAuthority,
+      characterAuthorNotes: data.characterAuthorNotes.present
+          ? data.characterAuthorNotes.value
+          : this.characterAuthorNotes,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -7634,6 +7677,7 @@ class Group extends DataClass implements Insertable<Group> {
             'realismVerificationMaxReprocesses: $realismVerificationMaxReprocesses, ',
           )
           ..write('needsDirectorAuthority: $needsDirectorAuthority, ')
+          ..write('characterAuthorNotes: $characterAuthorNotes, ')
           ..write('folderId: $folderId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -7672,6 +7716,7 @@ class Group extends DataClass implements Insertable<Group> {
     realismVerificationStrictness,
     realismVerificationMaxReprocesses,
     needsDirectorAuthority,
+    characterAuthorNotes,
     folderId,
     updatedAt,
     deletedAt,
@@ -7711,6 +7756,7 @@ class Group extends DataClass implements Insertable<Group> {
           other.realismVerificationMaxReprocesses ==
               this.realismVerificationMaxReprocesses &&
           other.needsDirectorAuthority == this.needsDirectorAuthority &&
+          other.characterAuthorNotes == this.characterAuthorNotes &&
           other.folderId == this.folderId &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -7746,6 +7792,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<int> realismVerificationStrictness;
   final Value<int> realismVerificationMaxReprocesses;
   final Value<bool> needsDirectorAuthority;
+  final Value<String> characterAuthorNotes;
   final Value<String?> folderId;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -7780,6 +7827,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.realismVerificationStrictness = const Value.absent(),
     this.realismVerificationMaxReprocesses = const Value.absent(),
     this.needsDirectorAuthority = const Value.absent(),
+    this.characterAuthorNotes = const Value.absent(),
     this.folderId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -7815,6 +7863,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.realismVerificationStrictness = const Value.absent(),
     this.realismVerificationMaxReprocesses = const Value.absent(),
     this.needsDirectorAuthority = const Value.absent(),
+    this.characterAuthorNotes = const Value.absent(),
     this.folderId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -7851,6 +7900,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<int>? realismVerificationStrictness,
     Expression<int>? realismVerificationMaxReprocesses,
     Expression<bool>? needsDirectorAuthority,
+    Expression<String>? characterAuthorNotes,
     Expression<String>? folderId,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -7896,6 +7946,8 @@ class GroupsCompanion extends UpdateCompanion<Group> {
             realismVerificationMaxReprocesses,
       if (needsDirectorAuthority != null)
         'needs_director_authority': needsDirectorAuthority,
+      if (characterAuthorNotes != null)
+        'character_author_notes': characterAuthorNotes,
       if (folderId != null) 'folder_id': folderId,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -7933,6 +7985,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<int>? realismVerificationStrictness,
     Value<int>? realismVerificationMaxReprocesses,
     Value<bool>? needsDirectorAuthority,
+    Value<String>? characterAuthorNotes,
     Value<String?>? folderId,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -7977,6 +8030,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           this.realismVerificationMaxReprocesses,
       needsDirectorAuthority:
           needsDirectorAuthority ?? this.needsDirectorAuthority,
+      characterAuthorNotes: characterAuthorNotes ?? this.characterAuthorNotes,
       folderId: folderId ?? this.folderId,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -8092,6 +8146,11 @@ class GroupsCompanion extends UpdateCompanion<Group> {
         needsDirectorAuthority.value,
       );
     }
+    if (characterAuthorNotes.present) {
+      map['character_author_notes'] = Variable<String>(
+        characterAuthorNotes.value,
+      );
+    }
     if (folderId.present) {
       map['folder_id'] = Variable<String>(folderId.value);
     }
@@ -8143,6 +8202,7 @@ class GroupsCompanion extends UpdateCompanion<Group> {
             'realismVerificationMaxReprocesses: $realismVerificationMaxReprocesses, ',
           )
           ..write('needsDirectorAuthority: $needsDirectorAuthority, ')
+          ..write('characterAuthorNotes: $characterAuthorNotes, ')
           ..write('folderId: $folderId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')

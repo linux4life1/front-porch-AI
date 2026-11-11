@@ -8,7 +8,6 @@ import 'package:front_porch_ai/services/chat/session_open_window.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
-import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import 'package:front_porch_ai/utils/group_time_seed.dart';
 
 /// The open chat as the story clock sees it. Every getter runs live, so

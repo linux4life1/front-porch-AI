@@ -274,6 +274,7 @@ class GroupCardImporter {
     Map<String, String> finalCharPrompts = importedCharPrompts;
     Map<String, List<Map<String, dynamic>>> finalObjectives =
         groupCard.memberObjectives;
+    var finalAuthorNotes = groupCard.characterAuthorNotes;
 
     if (oldStableIdToNewStableId.isNotEmpty) {
       finalBaseline = _remapIdsInJson(
@@ -290,6 +291,10 @@ class GroupCardImporter {
         remappedPrompts[oldStableIdToNewStableId[e.key] ?? e.key] = e.value;
       }
       finalCharPrompts = remappedPrompts;
+      finalAuthorNotes = {
+        for (final e in groupCard.characterAuthorNotes.entries)
+          oldStableIdToNewStableId[e.key] ?? e.key: e.value,
+      };
 
       final remappedObjectives = <String, List<Map<String, dynamic>>>{};
       for (final e in groupCard.memberObjectives.entries) {
@@ -330,6 +335,7 @@ class GroupCardImporter {
       realismVerificationMaxReprocesses:
           groupCard.realismVerificationMaxReprocesses,
       needsDirectorAuthority: groupCard.needsDirectorAuthority,
+      characterAuthorNotes: finalAuthorNotes,
       baselineRealismState: finalBaseline.isNotEmpty ? finalBaseline : '{}',
       defaultMemberRealismState: finalDefaultMember.isNotEmpty
           ? finalDefaultMember

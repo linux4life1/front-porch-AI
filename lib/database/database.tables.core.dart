@@ -409,6 +409,12 @@ class Groups extends Table {
   BoolColumn get needsDirectorAuthority =>
       boolean().withDefault(const Constant(false))();
 
+  /// Per-member Author's Note and Strength for new chats, JSON
+  /// `{memberId: {note, strength}}` (Edit group; the chat's live notes ride
+  /// the session and are seeded from this on entry).
+  TextColumn get characterAuthorNotes =>
+      text().withDefault(const Constant('{}'))();
+
   /// Home-screen folder membership (schema v42), the group analogue of
   /// Characters.folderId. Null = top level. Nullable + additive.
   TextColumn get folderId => text().nullable()();

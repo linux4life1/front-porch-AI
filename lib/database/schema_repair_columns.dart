@@ -261,4 +261,5 @@ const kGroupEditorColumnsV66 = [
   'realism_verification_strictness INTEGER NOT NULL DEFAULT 3',
   'realism_verification_max_reprocesses INTEGER NOT NULL DEFAULT 1',
   'needs_director_authority INTEGER NOT NULL DEFAULT 0',
+  "character_author_notes TEXT NOT NULL DEFAULT '{}'",
 ];

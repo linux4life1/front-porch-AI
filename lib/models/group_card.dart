@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/group_chat.dart' show MemberAuthorNote;
 
 /// Portable interchange format for a group of characters exported as a single PNG.
 ///
@@ -87,6 +88,7 @@ class GroupCard {
   final int realismVerificationStrictness;
   final int realismVerificationMaxReprocesses;
   final bool needsDirectorAuthority;
+  final Map<String, MemberAuthorNote> characterAuthorNotes;
 
   /// The immutable creation-time baseline realism seed.
   /// This is what should be restored on import (not any evolved state).
@@ -138,6 +140,7 @@ class GroupCard {
     this.realismVerificationStrictness = 3,
     this.realismVerificationMaxReprocesses = 1,
     this.needsDirectorAuthority = false,
+    this.characterAuthorNotes = const {},
     this.baselineRealismState = '{}',
     this.defaultMemberRealismState = '{}',
     this.memberObjectives = const {},
@@ -196,6 +199,11 @@ class GroupCard {
           realismVerificationMaxReprocesses;
     }
     if (needsDirectorAuthority) result['needs_director_authority'] = true;
+    if (characterAuthorNotes.isNotEmpty) {
+      result['character_author_notes'] = {
+        for (final e in characterAuthorNotes.entries) e.key: e.value.toJson(),
+      };
+    }
 
     if (baselineRealismState.isNotEmpty && baselineRealismState != '{}') {
       result['baseline_realism_state'] = baselineRealismState;
@@ -323,6 +331,9 @@ class GroupCard {
       realismVerificationMaxReprocesses:
           (json['realism_verification_max_reprocesses'] as num?)?.toInt() ?? 1,
       needsDirectorAuthority: flag(json['needs_director_authority'], false),
+      characterAuthorNotes: MemberAuthorNote.parseAll(
+        json['character_author_notes'],
+      ),
       baselineRealismState: json['baseline_realism_state']?.toString() ?? '{}',
       defaultMemberRealismState:
           json['default_member_realism_state']?.toString() ?? '{}',

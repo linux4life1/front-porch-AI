@@ -132,6 +132,7 @@ class GroupChatRepository extends ChangeNotifier {
             realismVerificationMaxReprocesses:
                 g.realismVerificationMaxReprocesses,
             needsDirectorAuthority: g.needsDirectorAuthority,
+            characterAuthorNotes: _notesOf(g.characterAuthorNotes),
           ),
         );
       }
@@ -151,6 +152,19 @@ class GroupChatRepository extends ChangeNotifier {
     }
     return const [];
   }
+
+  static Map<String, MemberAuthorNote> _notesOf(String raw) {
+    try {
+      return MemberAuthorNote.parseAll(jsonDecode(raw));
+    } catch (e) {
+      debugPrint('Group author notes unreadable, read as none: $e');
+      return {};
+    }
+  }
+
+  static String _notesJson(GroupChat g) => jsonEncode({
+    for (final e in g.characterAuthorNotes.entries) e.key: e.value.toJson(),
+  });
 
   static String? _loreJson(GroupChat g) =>
       g.loreWorldIds == null ? null : jsonEncode(g.loreWorldIds);
@@ -209,6 +223,7 @@ class GroupChatRepository extends ChangeNotifier {
         group.realismVerificationMaxReprocesses,
       ),
       needsDirectorAuthority: Value(group.needsDirectorAuthority),
+      characterAuthorNotes: Value(_notesJson(group)),
       // updateGroup now uses partial .write() (so folder_id survives saves);
       // bump updatedAt explicitly since the column default no longer applies.
       updatedAt: Value(DateTime.now()),
@@ -256,6 +271,7 @@ class GroupChatRepository extends ChangeNotifier {
             group.realismVerificationMaxReprocesses,
           ),
           needsDirectorAuthority: Value(group.needsDirectorAuthority),
+          characterAuthorNotes: Value(_notesJson(group)),
         ),
       );
     }

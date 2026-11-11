@@ -259,6 +259,9 @@ class NewChatOpener {
             _activeGroup!.defaultMemberRealismState,
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
           await _h.rekeyGroupStores();
+          // Each member's system prompt and Author's Note start from the
+          // group's defaults, not the chat before this one.
+          _store.groupConfig.seedNewChatDefaults(_activeGroup!);
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (doors/entry/group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off
