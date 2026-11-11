@@ -376,6 +376,49 @@ test('the sidebar walks its sections in the desktop order at every width', async
   }
 });
 
+test('the Memory section: pick memory sources and keep a Data Bank, as on the desktop', async ({ page }) => {
+  await openPorchChat(page);
+  await openSidebar(page);
+  const panel = sidebarPanel(page);
+  await panel.locator('.insight-section[data-id="journal_memory"] > summary').click();
+  const memory = panel.locator('details.tool-section', { has: page.locator(':scope > summary', { hasText: /^Memory$/ }) });
+  await memory.locator(':scope > summary').click();
+  const use = memory.getByLabel('Use memory (RAG)');
+  if (!(await use.isChecked())) await use.check();
+
+  // The links, in the desktop leaf's order.
+  const links = memory.locator('.memory-link');
+  await expect(links).toHaveText(['Settings', 'Sources', 'Data Bank']);
+
+  // Sources: pick another character; it is saved at once and survives a reload.
+  await links.nth(1).click();
+  const first = memory.getByRole('checkbox', { name: /^Include memories from / }).first();
+  await first.check();
+  await expect(links.nth(1)).toHaveText('Sources (1)');
+  await page.reload();
+  await waitIdle(page);
+  await openSidebar(page);
+  await expect(sidebarPanel(page).locator('.memory-link').nth(1)).toHaveText('Sources (1)');
+  await sidebarPanel(page).locator('.memory-link').nth(1).click();
+  await sidebarPanel(page).getByRole('checkbox', { name: /^Include memories from / }).first().uncheck();
+  await expect(sidebarPanel(page).locator('.memory-link').nth(1)).toHaveText('Sources');
+
+  // Data Bank: add an entry, see it listed, delete it.
+  await sidebarPanel(page).locator('.memory-link').nth(2).click();
+  const bank = page.getByRole('dialog', { name: 'Data Bank' });
+  await expect(bank).toContainText('No entries yet');
+  await bank.getByRole('button', { name: 'Add Entry' }).click();
+  await bank.getByLabel('Title').fill('Gate');
+  await bank.getByLabel('Content').fill('The garden gate is blue.');
+  await bank.getByRole('button', { name: 'Save' }).click();
+  await expect(bank).toContainText('Gate');
+  await expect(bank).toContainText('1 entries');
+  await bank.getByRole('button', { name: 'Delete Gate' }).click();
+  await expect(bank).toContainText('No entries yet');
+  await bank.getByRole('button', { name: 'Close' }).click();
+  await expect(bank).toBeHidden();
+});
+
 test('a setting survives a reload', async ({ page }) => {
   await openRoute(page, '/settings');
   const toggle = page.getByLabel('Follow streaming replies');

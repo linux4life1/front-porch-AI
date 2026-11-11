@@ -150,3 +150,22 @@
 }
 .side-quest .tool-row button { font-size: 0.8rem; padding: 4px 8px; }
 
+
+/* ── Memory section links: Settings / Sources / Data Bank (desktop Memory leaf) ── */
+.memory-links { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.memory-link {
+  background: none; border: none; padding: 2px 4px; font-size: 0.72rem;
+  color: var(--faint); cursor: pointer;
+}
+.memory-link[aria-pressed='true'] { color: var(--accent); }
+.memory-well {
+  display: flex; flex-direction: column; gap: 6px; padding: 8px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+}
+.data-bank { width: min(650px, 94vw); max-height: 86vh; overflow-y: auto; }
+.data-bank-form { display: flex; flex-direction: column; gap: 8px; }
+.data-bank-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.data-bank-entry { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; }
+.data-bank-entry-head { display: flex; align-items: center; gap: 8px; }
+.data-bank-entry-head strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-bank-empty { text-align: center; padding: 16px 0; }

@@ -844,7 +844,7 @@ export function ChatSidebar({
               <span className="card-sub">
                 {[
                   t.memory.journalEnabled ? 'recap' : '',
-                  t.memory.ragEnabled ? 'RAG on' : '',
+                  t.memory.ragEnabled && t.memory.ragGlobalEnabled !== false ? 'RAG on' : '',
                 ].filter(Boolean).join(' · ')}
               </span>
             </summary>

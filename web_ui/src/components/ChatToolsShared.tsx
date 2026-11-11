@@ -202,11 +202,21 @@ export type ToolsSettings = (fields: Record<string, unknown>) => void;
 export type ToolsToggle = (name: string, value: boolean, extra?: Record<string, unknown>) => void;
 
 /** Small labelled on/off switch. */
-export function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <label className="tool-toggle">
       <span>{label}</span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }
