@@ -204,18 +204,16 @@ Desktop and web together. Path-complete matrix required.
 
 ### PR 5 — Group Settings window becomes the group editor page
 
-Desktop and web together.
+Locked design: [group-editor.md](group-editor.md). It supersedes the earlier
+sketch that stood here. Desktop and web together.
 
-- Fold the dialog into the group editor page (`EditGroupPage`; confirm at
-  build): name, scenario, first message, alternate greetings, turn order,
-  auto-advance, start in Director, group and per-character prompts,
-  per-character author's notes, lorebook import and entries, worlds picker,
-  member recovery, add / remove members, and per-member defaults for new
-  chats (Realism, Needs and its sliders, Afterglow, Pockets). No Reset ALL.
-- Delete `GroupSettingsDialog` and its tab files once nothing opens them;
-  retarget deep links (`edit_character_page/member_group_views.dart`).
-- Web `GroupSettings.tsx` becomes the same page with the same sections.
-- Dialog goldens and tests go → `approved-test-change` with the reason.
+### PR 5b — Chaos Mode per character
+
+Each member gets the 1:1 Chaos controls: the editor toggle is that member's
+new-chat default, the chat sidebar has that member's live switch, 18+ events
+toggle, pressure gauge and Spin, and a Chance Time event only reaches that
+member. Existing groups seed every member from the group's switch. Sketch
+the sidebar before building.
 
 ### Later, not yet sketched for approval
 
