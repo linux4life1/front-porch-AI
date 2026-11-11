@@ -143,6 +143,15 @@ void main() {
         reason: 'new windows are never filed under the old shared id',
       );
 
+      // Reopening the chat keeps who was there: the stamps ride the messages.
+      await h.chat.loadSession(h.chat.currentSessionId!);
+      final bravo = h.chat.messages.firstWhere(
+        (m) => m.isUser && m.text.contains('BRAVO one'),
+      );
+      final seen = bravo.activeMetadata?[kMemoryPresentMeta] as List?;
+      expect(seen, contains(GroupMemoryHarness.adaKey));
+      expect(seen, isNot(contains(beaKey)));
+
       // And the read side, on those same rows.
       Future<List<RetrievedMemory>> recall(String key) => h.memory.retrieve(
         queryText: 'the porch',
@@ -181,6 +190,21 @@ void main() {
       }
       await h.chat.regenerateLastMessage();
       await h.settle();
+      // Continue extends a reply that already carries its stamp, and the Next
+      // button's reply is stamped with its own speaker.
+      final last = h.chat.messages.last;
+      final stamp = List.of(last.activeMetadata![kMemoryPresentMeta] as List);
+      await h.chat.continueGeneration();
+      await h.settle();
+      expect(h.chat.messages.last.activeMetadata![kMemoryPresentMeta], stamp);
+      h.chat.setNextCharacter(h.member('Bea'));
+      await h.chat.triggerNextCharacter();
+      await h.settle();
+      expect(h.chat.messages.last.sender, 'Bea');
+      expect(
+        h.chat.messages.last.activeMetadata![kMemoryPresentMeta],
+        contains(memoryKeyFor(h.member('Bea'), const [])),
+      );
       for (final e in before.entries) {
         final now = (await h.rows(
           e.key,
