@@ -302,8 +302,11 @@ void main() {
     'a rewind reads the reply speaker\'s switches, never the next one\'s',
     () {
       test('regen of Ada rewinds and re-scores her while Bea (up next) has '
-          'Realism off', () async {
-        await chat.setMemberRealismEnabled(idOf('Bea'), false);
+          'Realism off and the chat-wide switch is off', () async {
+        // Only Ada has Realism on: the chat's own switch is off, so a rewind
+        // that read it (or the next speaker's) would skip Ada's.
+        await chat.setRealismEnabled(false);
+        await chat.setMemberRealismEnabled(idOf('Ada'), true);
         chat.setNextCharacter(member('Ada'));
         await chat.sendMessage('I bring you a cup of tea.');
         await _drain();
