@@ -58,6 +58,16 @@ class ChatToolsSnapshot {
         _chat.isGroupMode && owner != null && owner.realismEnabled
         ? owner.card
         : null;
+    // Whose switches the panel shows and flips: in a group the panel owner's
+    // (the focused member, or the first), by the id the toggle route takes.
+    // Empty in a 1:1 chat and for a scene guest, whose switches are the
+    // chat's.
+    final switchOwner = _chat.isGroupMode && owner != null && !owner.isLite
+        ? owner.card
+        : null;
+    final switchId = switchOwner == null
+        ? ''
+        : _chat.characterIdFor(switchOwner);
     // Afterglow off hides Lust and recovery and keeps them: the block then
     // carries neither, as the desktop shows neither.
     final afterglowRuns = _chat.isGroupMode
@@ -77,14 +87,23 @@ class ChatToolsSnapshot {
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
-      // Whether Realism runs: Porch Life allows it AND this chat's switch.
-      'realismEnabled': _chat.realismEnabled,
+      // Whether Realism runs: Porch Life allows it AND this chat's switch,
+      // in a group the panel owner's own.
+      'realismEnabled': switchOwner == null
+          ? _chat.realismEnabled
+          : _chat.realismEnabledFor(switchId),
       // Additive: Porch Life allows Realism, and this chat's own switch,
       // which the phone shows (greyed at its choice while Porch Life
-      // blocks Realism).
+      // blocks Realism). In a group, the panel owner's.
       'realismAllowed': rs.realismAllowed,
-      'realismSwitch': _chat.realismChatSwitch,
-      'needsEnabled': _chat.needsSimEnabled,
+      'realismSwitch': _chat.realismSwitchFor(switchId),
+      'needsEnabled': _chat.needsSwitchFor(switchId),
+      // Additive: set only in a group, for a full member. The PWA then routes
+      // the Realism, Needs and Afterglow switches at `memberRealism`,
+      // `memberNeeds` and `memberAfterglow` with this id, one member at a
+      // time. Absent/null = 1:1 (or a guest) → `realism`, `needs`,
+      // `nsfwCooldown`.
+      'memberId': switchOwner == null ? null : groupMemberStoreId(switchOwner),
       // Porch Life allows Needs: while it does not, the phone greys this
       // chat's switch, as the desktop's Needs line does (additive).
       'needsAllowed': rs.needsSimDefault,
@@ -162,15 +181,16 @@ class ChatToolsSnapshot {
         // In a group, for the panel owner (their own switch counts).
         'cooldownEnabled': afterglowRuns,
         'afterglowAllowed': rs.afterglowEnabled,
-        'afterglowSwitch': _chat.afterglowChatSwitch,
-        // In a group, each member's own switch (additive).
+        // This chat's switch for the panel owner (in a group, theirs).
+        'afterglowSwitch': _chat.afterglowSwitchFor(switchId),
+        // In a group, each member's own switch for this chat (additive).
         if (_chat.isGroupMode)
           'members': [
             for (final c in _chat.groupCharacters)
               {
                 'id': groupMemberStoreId(c),
                 'name': c.name,
-                'afterglow': c.frontPorchExtensions?.afterglowEnabled ?? true,
+                'afterglow': _chat.afterglowSwitchFor(_chat.characterIdFor(c)),
               },
           ],
         // The desktop chip's own words, ready-made, so the phone cannot
@@ -321,9 +341,9 @@ class ChatToolsSnapshot {
   /// desktop sidebar section uses ([GroupDynamics.of]).
   Map<String, dynamic>? _groupDynamicsBlock(ChatParticipant? owner) {
     if (!_chat.isGroupMode ||
-        !_chat.realismEnabled ||
         owner == null ||
-        owner.isLite) {
+        owner.isLite ||
+        !_chat.realismEnabledFor(_chat.characterIdFor(owner.card))) {
       return null;
     }
     final dynamics = GroupDynamics.of(

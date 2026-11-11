@@ -96,17 +96,33 @@ class ChatToolsSwitches {
     _notify();
   }
 
-  /// This chat's own Afterglow switch (1:1 or group).
+  /// This chat's own Afterglow switch (1:1), or every member's (group; an
+  /// older phone's switch, which had one for the chat).
   Future<void> setAfterglow(bool v) async {
     await _chat.setAfterglowEnabled(v);
     _notify();
   }
 
-  /// A group member's own Afterglow switch. False when [id] is not a member.
-  Future<bool> setMemberAfterglow(String id, bool v) async {
+  /// A group member's own switches in this chat, the web twin of the
+  /// sidebar's Character State header, Needs line and Afterglow line, one
+  /// member at a time. False when [id] is not a member, so the route can
+  /// reject a bad id.
+  Future<bool> setMemberAfterglow(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberAfterglowSwitch(m, v));
+
+  Future<bool> setMemberRealism(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberRealismEnabled(m, v));
+
+  Future<bool> setMemberNeeds(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberNeedsEnabled(m, v));
+
+  Future<bool> _forMember(
+    String id,
+    Future<void> Function(String) write,
+  ) async {
     for (final c in _chat.groupCharacters) {
-      if (groupMemberStoreId(c) != id) continue;
-      await _chat.setMemberAfterglowEnabled(c, v);
+      if (groupMemberStoreId(c) != id || c.isLite) continue;
+      await write(_chat.characterIdFor(c));
       _notify();
       return true;
     }
