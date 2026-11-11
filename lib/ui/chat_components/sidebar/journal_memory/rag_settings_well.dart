@@ -25,10 +25,15 @@ import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
 
 /// Friendly RAG retrieval sliders for the Memory sidebar Settings well.
 /// Labels say what the user gets, not the implementation name.
+///
+/// In a group [groupChat] is the chat whose own retrieval count the first
+/// slider drives (the count the group's turns read); the window size stays
+/// the one global setting, as in the Group Settings window.
 class RagSettingsWell extends StatefulWidget {
   final Color accent;
+  final ChatService? groupChat;
 
-  const RagSettingsWell({super.key, required this.accent});
+  const RagSettingsWell({super.key, required this.accent, this.groupChat});
 
   @override
   State<RagSettingsWell> createState() => _RagSettingsWellState();
@@ -42,9 +47,11 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
     final accent = widget.accent;
-    final count =
-        (_dragCount ?? storage.memorySettings.ragRetrievalCount.toDouble())
-            .round();
+    final group = widget.groupChat;
+    final storedCount =
+        (group?.groupRetrievalCount ?? storage.memorySettings.ragRetrievalCount)
+            .toDouble();
+    final count = (_dragCount ?? storedCount).round();
     final window =
         (_dragWindow ?? storage.memorySettings.ragWindowSize.toDouble())
             .round();
@@ -70,9 +77,7 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
           SliderTheme(
             data: _sliderTheme(context),
             child: Slider(
-              value:
-                  _dragCount ??
-                  storage.memorySettings.ragRetrievalCount.toDouble(),
+              value: _dragCount ?? storedCount,
               min: 0,
               max: 50,
               divisions: 50,
@@ -81,7 +86,11 @@ class _RagSettingsWellState extends State<RagSettingsWell> {
               onChanged: (val) => setState(() => _dragCount = val),
               onChangeEnd: (val) {
                 _dragCount = null;
-                storage.memorySettings.setRagRetrievalCount(val.round());
+                if (group != null) {
+                  group.setGroupRetrievalCount(val.round());
+                } else {
+                  storage.memorySettings.setRagRetrievalCount(val.round());
+                }
               },
             ),
           ),

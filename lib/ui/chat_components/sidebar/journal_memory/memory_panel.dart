@@ -20,7 +20,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/group_memory.dart';
+import 'package:front_porch_ai/services/chat/member_origin_resolver.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/data_bank_dialog.dart';
@@ -35,8 +38,17 @@ import 'rag_settings_well.dart';
 /// (RagReceiptView — what memory just did), retrieval settings,
 /// cross-character source picker, and the Data Bank. The RAG half of the old
 /// MemorySection; the Character Growth half lives in GrowthPanel.
+///
+/// In a group the leaf speaks for the tapped [member]: the sources and Data
+/// Bank are theirs (by their library identity), and the switch and the count
+/// are the group's own (the gate the embed and retrieval read), where a 1:1's
+/// are the global Memory setting.
 class MemoryPanel extends StatefulWidget {
   final ChatService chatService;
+
+  /// The focused participant's card (the group member, or the 1:1 host).
+  /// Null falls back to the chat's active character.
+  final CharacterCard? member;
 
   /// Journal-receipts tap-to-jump, threaded down from the chat page so a
   /// receipt line can seek the transcript to the message it quoted.
@@ -48,6 +60,7 @@ class MemoryPanel extends StatefulWidget {
   const MemoryPanel({
     super.key,
     required this.chatService,
+    this.member,
     this.onJumpToMessage,
     this.dragHandle,
   });
@@ -62,6 +75,71 @@ class _MemoryPanelState extends State<MemoryPanel> {
   Set<String> _selectedSources = {};
   bool _sourcesLoaded = false;
 
+  bool get _inGroup => widget.chatService.activeGroup != null;
+
+  /// Whose memory the leaf shows: the tapped member, else the host.
+  CharacterCard? get _owner =>
+      widget.member ?? widget.chatService.activeCharacter;
+
+  /// The switch: the group's own in a group, the global setting in a 1:1.
+  bool _enabled(StorageService storage) => _inGroup
+      ? widget.chatService.groupRagEnabled
+      : storage.memorySettings.ragEnabled;
+
+  Future<void> _setEnabled(StorageService storage, bool on) async {
+    if (_inGroup) {
+      widget.chatService.setGroupRAGEnabled(on);
+    } else {
+      await storage.memorySettings.setRagEnabled(on);
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// The id this character's Data Bank rows and memory windows carry: their
+  /// library identity (a group member is a copy, so not their own avatar id).
+  String _memoryId(CharacterCard card) {
+    if (!_inGroup) return characterEmbeddingId(card);
+    final library = Provider.of<CharacterRepository>(
+      context,
+      listen: false,
+    ).characters;
+    return memoryKeyFor(card, library);
+  }
+
+  /// The library row whose memory sources this character reads (a group
+  /// member's is the character it was copied from).
+  String? _libraryDbId(CharacterCard card) {
+    if (!_inGroup) return card.dbId;
+    final library = Provider.of<CharacterRepository>(
+      context,
+      listen: false,
+    ).characters;
+    return MemberOriginResolver.libraryRagIdentity(
+      originStableId: card.originStableId,
+      originLibraryDbId: card.originLibraryDbId,
+      memberName: card.name,
+      libraryCharacters: library,
+    ).libraryDbId;
+  }
+
+  Set<String> _excludedSourceIds() {
+    final owner = _owner;
+    if (owner == null) return const {};
+    if (!_inGroup) return {characterEmbeddingId(owner)};
+    return {for (final c in widget.chatService.groupCharacters) _memoryId(c)};
+  }
+
+  @override
+  void didUpdateWidget(MemoryPanel old) {
+    super.didUpdateWidget(old);
+    // Another cast chip was tapped: the sources shown are theirs.
+    if (!identical(old.member, widget.member)) {
+      _selectedSources = {};
+      _sourcesLoaded = false;
+      if (_showSources) _loadSources();
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -69,20 +147,21 @@ class _MemoryPanelState extends State<MemoryPanel> {
     // start setup so the RagEngineCard can show a real progress bar. After
     // the frame: runSetup notifies synchronously, and this runs mid-build.
     final storage = Provider.of<StorageService>(context);
-    if (!storage.memorySettings.ragEnabled) return;
+    if (!_enabled(storage)) return;
     final emb = Provider.of<EmbeddingService>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && storage.memorySettings.ragEnabled) emb.ensureReady();
+      if (mounted && _enabled(storage)) emb.ensureReady();
     });
   }
 
   /// Load current memorySources from DB
   Future<void> _loadSources() async {
-    final activeChar = widget.chatService.activeCharacter;
-    if (activeChar == null || activeChar.dbId == null) return;
+    final owner = _owner;
+    final libraryId = owner == null ? null : _libraryDbId(owner);
+    if (libraryId == null) return;
     try {
       final repo = Provider.of<CharacterRepository>(context, listen: false);
-      final sources = await repo.getMemorySources(activeChar.dbId!);
+      final sources = await repo.getMemorySources(libraryId);
       // The read crosses the DB isolate, and the panel dies on an accordion
       // collapse or a chat switch — setState on a defunct State throws.
       if (!mounted) return;
@@ -99,11 +178,12 @@ class _MemoryPanelState extends State<MemoryPanel> {
 
   /// Save selected sources to DB
   Future<void> _saveSources() async {
-    final activeChar = widget.chatService.activeCharacter;
-    if (activeChar == null || activeChar.dbId == null) return;
+    final owner = _owner;
+    final libraryId = owner == null ? null : _libraryDbId(owner);
+    if (libraryId == null) return;
     try {
       final repo = Provider.of<CharacterRepository>(context, listen: false);
-      await repo.setMemorySources(activeChar.dbId!, _selectedSources.toList());
+      await repo.setMemorySources(libraryId, _selectedSources.toList());
     } catch (e) {
       debugPrint('[RAG:UI] Failed to save memorySources: $e');
     }
@@ -112,7 +192,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final enabled = storage.memorySettings.ragEnabled;
+    final enabled = _enabled(storage);
     final accent = AppColors.journalAccentOf(context);
 
     return Column(
@@ -132,7 +212,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 onChanged: (val) async {
                   if (!val) {
                     // Turning OFF — no consent needed
-                    storage.memorySettings.setRagEnabled(false);
+                    await _setEnabled(storage, false);
                     return;
                   }
                   // Turning ON — check if consent was given before
@@ -141,7 +221,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                       prefs.getBool('rag_setup_consented') ?? false;
                   if (consented) {
                     // Already consented — just enable
-                    storage.memorySettings.setRagEnabled(true);
+                    await _setEnabled(storage, true);
                     Provider.of<EmbeddingService>(
                       context,
                       listen: false,
@@ -157,7 +237,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   );
                   if (result == true) {
                     await prefs.setBool('rag_setup_consented', true);
-                    storage.memorySettings.setRagEnabled(true);
+                    await _setEnabled(storage, true);
                     if (context.mounted) {
                       Provider.of<EmbeddingService>(
                         context,
@@ -232,13 +312,13 @@ class _MemoryPanelState extends State<MemoryPanel> {
                 color: AppColors.textTertiary(context),
                 iconColor: AppColors.iconSecondary(context),
                 onTap: () {
-                  final activeChar = widget.chatService.activeCharacter;
-                  if (activeChar == null) return;
+                  final owner = _owner;
+                  if (owner == null) return;
                   showDialog(
                     context: context,
                     builder: (_) => DataBankDialog(
-                      characterId: characterEmbeddingId(activeChar),
-                      characterName: activeChar.name,
+                      characterId: _memoryId(owner),
+                      characterName: owner.name,
                     ),
                   );
                 },
@@ -248,7 +328,10 @@ class _MemoryPanelState extends State<MemoryPanel> {
 
           if (_showSettings) ...[
             const SizedBox(height: 8),
-            RagSettingsWell(accent: accent),
+            RagSettingsWell(
+              accent: accent,
+              groupChat: _inGroup ? widget.chatService : null,
+            ),
           ],
 
           // Expandable memory sources (cross-character picker)
@@ -273,7 +356,7 @@ class _MemoryPanelState extends State<MemoryPanel> {
                   ),
                   const SizedBox(height: 6),
                   MemorySourcesList(
-                    chatService: widget.chatService,
+                    excludedIds: _excludedSourceIds(),
                     selectedSources: _selectedSources,
                     onToggleSource: (embedId) {
                       setState(() {

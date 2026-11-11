@@ -73,8 +73,21 @@ class ChatToolsFacade {
     }
 
     final mem = _ctx.storage.memorySettings;
-    await ifBool('ragEnabled', mem.setRagEnabled);
-    await ifInt('ragRetrievalCount', mem.setRagRetrievalCount);
+    // In a group these two are the group's own, as the desktop leaf's are; the
+    // global 1:1 Memory setting is left alone.
+    final inGroup = _ctx.chat.isGroupMode;
+    await ifBool(
+      'ragEnabled',
+      inGroup
+          ? (v) async => _ctx.chat.setGroupRAGEnabled(v)
+          : mem.setRagEnabled,
+    );
+    await ifInt(
+      'ragRetrievalCount',
+      inGroup
+          ? (v) async => _ctx.chat.setGroupRetrievalCount(v)
+          : mem.setRagRetrievalCount,
+    );
     await ifInt('ragWindowSize', mem.setRagWindowSize);
     await ifBool('journalEnabled', mem.setJournalEnabled);
     await ifInt('journalInterval', mem.setJournalInterval);

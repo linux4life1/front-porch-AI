@@ -32,6 +32,9 @@ export interface ToolsState {
   realismOneShotMode?: 'auto' | 'on' | 'off';
   memory: {
     ragEnabled: boolean;
+    /** 'group' when the switch and the count are the group's own (additive:
+     *  absent on an older desktop, where they were global). */
+    ragScope?: 'group' | 'global';
     ragRetrievalCount: number;
     ragWindowSize: number;
     journalEnabled: boolean;

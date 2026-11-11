@@ -374,6 +374,7 @@ class _SidebarBodyState extends State<SidebarBody> {
           isLite: isLite,
           diaryOwnerId: widget.focused.id,
           diaryOwnerName: widget.focused.name,
+          diaryOwnerCard: widget.focused.card,
           onJumpToMessage: widget.onJumpToMessage,
           initiallyExpanded: ui.sidebarGroupExpanded(
             'journal_memory',

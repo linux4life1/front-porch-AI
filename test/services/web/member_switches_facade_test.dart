@@ -165,4 +165,30 @@ void main() {
     expect(res.statusCode, 400);
     expect(chat.realismSwitchFor(chat.characterIdFor(who('Ana').card)), isTrue);
   });
+
+  test('in a group the web Memory switch and count are the group\'s own, '
+      'and the global 1:1 setting stays put', () async {
+    await storage.memorySettings.setRagEnabled(true);
+    await storage.memorySettings.setRagRetrievalCount(5);
+    expect(feed('Ana')['memory']['ragScope'], 'group');
+    expect(feed('Ana')['memory']['ragEnabled'], chat.groupRagEnabled);
+
+    final res = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/chat/tools/settings'),
+        headers: {'content-type': 'application/json'},
+        body: jsonEncode({'ragEnabled': false, 'ragRetrievalCount': 9}),
+      ),
+    );
+    expect(res.statusCode, 200);
+
+    expect(chat.groupRagEnabled, isFalse, reason: 'the group gate flipped');
+    expect(chat.groupRetrievalCount, 9);
+    expect(storage.memorySettings.ragEnabled, isTrue, reason: 'global kept');
+    expect(storage.memorySettings.ragRetrievalCount, 5);
+    final memory = feed('Bea')['memory'] as Map;
+    expect(memory['ragEnabled'], isFalse, reason: 'the feed reads the gate');
+    expect(memory['ragRetrievalCount'], 9);
+  });
 }

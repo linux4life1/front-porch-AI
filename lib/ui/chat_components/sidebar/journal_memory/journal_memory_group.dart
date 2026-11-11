@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../porch_accordion.dart';
@@ -34,9 +35,10 @@ import 'summary_section.dart';
 /// the Growth Rings timeline (GrowthPanel — also per focused participant)
 /// under one collapsible card.
 ///
-/// Branch gating: Memory (RAG) is 1:1 full chats only; the Journal and
-/// Growth show everywhere except for lite scene guests (guests never
-/// journal; their rings grow in the background and surface if promoted).
+/// Branch gating: Memory (RAG), the Journal and Growth show everywhere except
+/// for lite scene guests (guests never journal or recall; their rings grow in
+/// the background and surface if promoted). In a group every leaf speaks for
+/// the focused member.
 class JournalMemoryGroup extends StatefulWidget {
   final ChatService chatService;
   final bool isGroup;
@@ -46,6 +48,9 @@ class JournalMemoryGroup extends StatefulWidget {
   /// (ChatParticipant.id — the same stable id cards and rings are keyed by).
   final String diaryOwnerId;
   final String diaryOwnerName;
+
+  /// The focused participant's card, whose memory the Memory leaf shows.
+  final CharacterCard? diaryOwnerCard;
 
   /// Receipts tap-to-jump (journal dialog + growth ring receipts).
   final ValueChanged<int> onJumpToMessage;
@@ -67,6 +72,7 @@ class JournalMemoryGroup extends StatefulWidget {
     required this.isLite,
     required this.diaryOwnerId,
     required this.diaryOwnerName,
+    this.diaryOwnerCard,
     required this.onJumpToMessage,
     required this.initiallyExpanded,
     this.onExpansionChanged,
@@ -91,10 +97,13 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
   @override
   Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context);
-    final showMemory = !widget.isGroup && !widget.isLite;
+    final showMemory = !widget.isLite;
+    final ragOn = widget.isGroup
+        ? widget.chatService.groupRagEnabled
+        : storage.memorySettings.ragEnabled;
     final subtitle =
         'Journal ${storage.memorySettings.journalEnabled ? 'on' : 'off'}'
-        '${showMemory ? ' · RAG ${storage.memorySettings.ragEnabled ? 'on' : 'off'}' : ''}';
+        '${showMemory ? ' · RAG ${ragOn ? 'on' : 'off'}' : ''}';
 
     final ui = storage.uiSettings;
     // The leaf ids this accordion can show right now; the stored order
@@ -146,9 +155,7 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
           pump: pump,
           child: Padding(
             // The old Column's 12px gap between leaves, not after the last.
-            padding: EdgeInsets.only(
-              bottom: i == ordered.length - 1 ? 0 : 12,
-            ),
+            padding: EdgeInsets.only(bottom: i == ordered.length - 1 ? 0 : 12),
             child: _leaf(context, ordered[i], i),
           ),
         ),
@@ -176,6 +183,7 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
       case 'memory':
         return MemoryPanel(
           chatService: widget.chatService,
+          member: widget.diaryOwnerCard,
           onJumpToMessage: widget.onJumpToMessage,
           dragHandle: grip,
         );
