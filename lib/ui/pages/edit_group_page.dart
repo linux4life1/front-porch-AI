@@ -293,9 +293,12 @@ class _EditGroupPageState extends State<EditGroupPage>
       storage,
       widget.group.id,
     );
-    final removed = (await _castOps.editor.removedMembers(
-      widget.group.id,
-    )).length;
+    var removed = 0;
+    try {
+      removed = (await _castOps.editor.removedMembers(widget.group.id)).length;
+    } catch (e) {
+      debugPrint('[EditGroup] removed members could not be read: $e');
+    }
     if (!mounted) return;
     setState(() {
       _members

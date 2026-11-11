@@ -69,7 +69,7 @@ void main() {
       ),
     );
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.text('Lore & Worlds'));
+    await tester.tap(find.text('Lorebook'));
     for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
