@@ -673,37 +673,6 @@ void main() {
       expect(realismSwitch(tester).onChanged, isNotNull);
       expect(find.textContaining('off in Porch Life'), findsNothing);
     });
-
-    testWidgets("a group chat's Afterglow card names Porch Life while it "
-        'blocks Realism', (tester) async {
-      final storage = _AdultStorage();
-      final chat = _RealismChat(realismEnabled: false);
-      chat.nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: true);
-      final controller = GroupRealismNeedsController(chat);
-      addTearDown(() {
-        controller.dispose();
-        storage.dispose();
-        chat.dispose();
-      });
-      await storage.realismSettings.setRealismAllowed(false);
-      await tester.pumpWidget(
-        ChangeNotifierProvider<StorageService>.value(
-          value: storage,
-          child: MaterialApp(
-            home: Scaffold(body: GroupAfterglowCard(controller: controller)),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(controller.realismEnabled, isTrue, reason: "the chat's own");
-      expect(
-        find.text(
-          'The Realism Engine is off in Porch Life, so this has no effect '
-          'for now.',
-        ),
-        findsOneWidget,
-      );
-    });
   });
 
   // The feature is the Realism Engine everywhere else; this line still said

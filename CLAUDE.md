@@ -149,8 +149,8 @@ Live product behaviour, each pinned by a test. Do not collapse the cases.
 | Mouth speech | Closed think-only body lifts and is spoken; an unclosed cut-off stays tagged, display empty | `lib/utils/think_tags.dart` `resolveMouthSpeech` |
 | Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `doors/turn/turn_stops.dart`, `doors/turn/post_gen.dart` |
 | Pockets | Hide, never erase: `pocketsFor` is null when off; stored records and the save wire are untouched | `pockets_rewind_test` |
-| Objectives | `objectivesActive` is a live AND of the per-chat switch and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
-| Needs | One gate, `NeedsPass.active` = engine AND chat switch AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
+| Objectives | `objectivesActive` is a live AND of the per-chat switch (in a group, the speaking member's own switch) and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
+| Needs | One gate, `NeedsPass.active` = engine AND chat switch (in a group, the speaking member's own Realism and Needs switches; a rewind reads the reply speaker's) AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
 | Clock | Passage of time needs a model call. `_clockRunning` is Porch Life `passageOfTimeDefault` live. Regen rewinds from `story_clock_before`. One-shot must not apply minutes twice | `clock_*_ratchet_test`, `scene_time_evaluator.dart` |
 | Evals | Score the user's message before generation, never the reply. Regen with the same inputs reproduces the same deltas; non-scalar inputs join `captureCadenceAndFeelings` / `restoreFromMessageState` | `regen_feelings_cadence_test` |
 | Eval transport | Native tool call first, then the regex/JSON text floor. No GBNF on the floor. The prefix-sharing judges send the same `kJudgeEvalTools` list | `docs/design/tools-transport.md` |

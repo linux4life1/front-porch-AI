@@ -59,7 +59,10 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     final cs = widget.chatService;
     _chars = cs.groupCharacters;
 
-    _needsSimEnabled = cs.needsSimEnabled;
+    // On while any character's own Needs switch for this chat is.
+    _needsSimEnabled = _chars.isEmpty
+        ? cs.needsSimEnabled
+        : _chars.any((c) => cs.needsSwitchFor(cs.characterIdFor(c)));
 
     for (final c in _chars) {
       final id = _getCharId(c);

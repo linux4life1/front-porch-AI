@@ -226,12 +226,18 @@ class TurnStops {
   /// happens to be loaded, i.e. refund the wrong character. An empty
   /// baseline makes the revert a no-op. Reads the chat's stored switch: this
   /// rewinds state, it does not run Needs.
-  Map<String, int> needsBeforeDelete(String? deletedSid) =>
-      (!_needsSimEnabled || (_activeGroup != null && deletedSid == null))
-      ? const <String, int>{}
-      : (deletedSid != null
-            ? Map<String, int>.from(_groupStore.needsOf(deletedSid))
-            : Map<String, int>.from(_needsSimulation.vector));
+  Map<String, int> needsBeforeDelete(String? deletedSid) {
+    // A group speaker's own switch decides, never the chat's.
+    if (_activeGroup != null && deletedSid != null) {
+      return _groupStore.needsOnFor(deletedSid)
+          ? Map<String, int>.from(_groupStore.needsOf(deletedSid))
+          : const <String, int>{};
+    }
+    if (!_needsSimEnabled || _activeGroup != null) {
+      return const <String, int>{};
+    }
+    return Map<String, int>.from(_needsSimulation.vector);
+  }
 
   /// Cancel an in-flight Realism eval or post-gen tick. No-op when idle.
   Future<void> cancelRealismEval() async {

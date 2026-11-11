@@ -174,6 +174,12 @@ class ChatToolsFacade {
   Future<void> setPocketsEnabled(bool v) => _switches.setPocketsEnabled(v);
   Future<bool> setMemberPockets(String id, bool v) =>
       _switches.setMemberPockets(id, v);
+
+  Future<bool> setMemberRealism(String id, bool v) =>
+      _switches.setMemberRealism(id, v);
+
+  Future<bool> setMemberNeeds(String id, bool v) =>
+      _switches.setMemberNeeds(id, v);
   Future<bool> setMemberRecovery(String id, Object? fields) =>
       _switches.setMemberRecovery(id, fields);
   Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);

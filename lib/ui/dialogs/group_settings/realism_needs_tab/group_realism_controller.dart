@@ -21,7 +21,6 @@ class GroupRealismNeedsController extends ChangeNotifier {
   bool _realismEnabled = false;
   bool _chaosModeEnabled = false;
   bool _chaosNsfwEnabled = false;
-  bool _afterglowEnabled = true;
 
   // Group-wide Time & Day.
   String _groupTimeOfDay = 'morning';
@@ -45,7 +44,6 @@ class GroupRealismNeedsController extends ChangeNotifier {
   bool get realismEnabled => _realismEnabled;
   bool get chaosModeEnabled => _chaosModeEnabled;
   bool get chaosNsfwEnabled => _chaosNsfwEnabled;
-  bool get afterglowEnabled => _afterglowEnabled;
   String get groupTimeOfDay => _groupTimeOfDay;
   String? get groupStoryStartDate => _groupStoryStartDate;
   String? get groupStoryStartTime => _groupStoryStartTime;
@@ -55,11 +53,13 @@ class GroupRealismNeedsController extends ChangeNotifier {
     final cs = chatService;
     _chars = cs.groupCharacters;
 
-    // The chat's own switch, kept while Porch Life blocks Realism.
-    _realismEnabled = cs.realismChatSwitch;
+    // The chat's own switches, kept while Porch Life blocks Realism: on
+    // while any character's is, since each has their own in this chat.
+    _realismEnabled = _chars.isEmpty
+        ? cs.realismChatSwitch
+        : _chars.any((c) => cs.realismSwitchFor(cs.characterIdFor(c)));
     _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
     _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
-    _afterglowEnabled = cs.afterglowChatSwitch;
 
     // Group-wide Time & Day.
     final group = cs.activeGroup;
@@ -102,14 +102,8 @@ class GroupRealismNeedsController extends ChangeNotifier {
     chatService.setChaosModeEnabled(value);
   }
 
-  /// This group chat's own Afterglow switch.
-  void updateAfterglow(bool value) {
-    _afterglowEnabled = value;
-    notifyListeners();
-    chatService.setAfterglowEnabled(value);
-  }
-
-  /// A member's own Afterglow switch, on their card in this group.
+  /// A member's Afterglow DEFAULT for the group's new chats, on their card
+  /// in this group. This chat's own switch for them is in the sidebar.
   void updateMemberAfterglow(CharacterCard char, bool value) {
     chatService.setMemberAfterglowEnabled(char, value).catchError((Object e) {
       debugPrint('[GroupSettings] Afterglow for ${char.name} not saved: $e');

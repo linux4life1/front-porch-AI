@@ -205,6 +205,12 @@ export function ChatSidebar({
   const clockRunning = t?.time.clockRunning ?? false;
   // The Pockets line's stored switch (the chat's own choice; Porch Life's
   // veto greys it without changing it) and its "name (state)" item label.
+  // In a group the Realism, Needs and Afterglow switches are the focused
+  // member's own, for this chat: they route at the member toggles with
+  // their id. A 1:1 (or a guest) has the chat's one switch.
+  const memberId = t?.memberId ?? null;
+  const switchToggle = (kind: 'Realism' | 'Needs' | 'Afterglow', fallback: string, v: boolean) =>
+    memberId ? toggle(`member${kind}`, v, { id: memberId }) : toggle(fallback, v);
   const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
@@ -440,11 +446,10 @@ export function ChatSidebar({
                   ].filter(Boolean).join(' · ')}
                 </span>
               </span>
-              {/* The window keeps the Realism engine switch in the header of a 1:1; in a
-                  group it is not shown until the per-member switches land (the
-                  chat-level one is not a member's).
+              {/* The window keeps the Realism engine switch in the header: the chat's
+                  in a 1:1, the focused member's own in a group.
                   Stopping the click/key keeps it from toggling the card. */}
-              {t && !isGroup && (
+              {t && (!isGroup || memberId) && (
                 <label
                   className="card-switch"
                   onClick={(e) => e.stopPropagation()}
@@ -455,7 +460,7 @@ export function ChatSidebar({
                     aria-label="Realism engine"
                     checked={t.realismSwitch ?? t.realismEnabled}
                     disabled={t.realismAllowed === false}
-                    onChange={(e) => toggle('realism', e.target.checked)}
+                    onChange={(e) => switchToggle('Realism', 'realism', e.target.checked)}
                   />
                 </label>
               )}
@@ -478,8 +483,8 @@ export function ChatSidebar({
                       {realism.realismAllowed === false
                         ? "The Realism Engine is off in Porch Life. This chat's own choice is kept."
                         : isGroup
-                          ? 'The Realism Engine is off for this group. Turn it on in Main Settings → ' +
-                            'Group Settings to track bond, trust, mood, and scene time for each character.'
+                          ? `The Realism Engine is off for ${focusedName ?? 'this character'} in this chat — flip ` +
+                            'the switch to track bond, trust, mood, and scene time for them.'
                           : realism.realismSwitch === true
                             ? 'Realism starts again when this reply finishes.'
                             : 'The Realism Engine is off for this chat — flip the switch to track bond, ' +
@@ -518,7 +523,7 @@ export function ChatSidebar({
                                     aria-label="Afterglow"
                             className="state-switch"
                             checked={t.nsfw.afterglowSwitch ?? t.nsfw.cooldownEnabled}
-                            onChange={(e) => toggle('nsfwCooldown', e.target.checked)}
+                            onChange={(e) => switchToggle('Afterglow', 'nsfwCooldown', e.target.checked)}
                           />
                         </label>
                       )}
@@ -544,9 +549,8 @@ export function ChatSidebar({
                   )}
                   {(isGroup || t?.needsEnabled) && (
                     <>
-                      {isGroup ? (
-                        // A group's Needs line is the heading alone, as on the
-                        // window: the chat-level switch is not a member's.
+                      {isGroup && !memberId ? (
+                        // A guest carries no Needs of its own: the heading alone.
                         <div className="state-line">
                           <span>💗 Needs</span>
                         </div>
@@ -559,7 +563,7 @@ export function ChatSidebar({
                           className="state-switch"
                           checked={t!.needsEnabled}
                           disabled={t!.needsAllowed === false}
-                          onChange={(e) => toggle('needs', e.target.checked)}
+                          onChange={(e) => switchToggle('Needs', 'needs', e.target.checked)}
                         />
                       </label>
                       )}

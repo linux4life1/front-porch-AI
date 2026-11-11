@@ -47,6 +47,45 @@ extension ChatServiceControls on ChatService {
   Future<void> persistGroupMemberExtensions({String? memberId}) =>
       controlsDoor.persistGroupMemberExtensions(memberId: memberId);
 
+  // ── A character's own switches (PR 3) ─────────────────────────────────
+  //
+  // Realism, Needs, Afterglow and Pockets are per character in this chat:
+  // the sidebar and the phone read and write them by member id. In a 1:1
+  // chat there is one character and [memberId] is ignored, so the same call
+  // reaches the one chat switch. The reads are the STORED switch (what the
+  // toggle shows, kept while Porch Life vetoes); the live gates are
+  // [realismEnabledFor], [needsActiveFor] and [afterglowRunsFor].
+
+  bool realismSwitchFor(String memberId) =>
+      isGroupMode ? realism.groups.realismOnFor(memberId) : realismChatSwitch;
+
+  bool needsSwitchFor(String memberId) =>
+      isGroupMode ? realism.groups.needsOnFor(memberId) : needsSimEnabled;
+
+  bool afterglowSwitchFor(String memberId) => isGroupMode
+      ? realism.groups.afterglowOnFor(memberId)
+      : afterglowChatSwitch;
+
+  Future<void> setMemberRealismEnabled(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setRealism(memberId, on)
+      : setRealismEnabled(on);
+
+  Future<void> setMemberNeedsEnabled(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setNeeds(memberId, on)
+      : setNeedsSimEnabled(on);
+
+  Future<void> setMemberAfterglowSwitch(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setAfterglow(memberId, on)
+      : setAfterglowEnabled(on);
+
+  /// The live Realism gate for one character, whoever speaks next.
+  bool realismEnabledFor(String memberId) =>
+      isGroupMode ? controlsDoor.realismEnabledFor(memberId) : realismEnabled;
+
+  /// The live Needs gate for one character, whoever speaks next.
+  bool needsActiveFor(String memberId) =>
+      isGroupMode ? realism.needsPass.activeFor(memberId) : needsActive;
+
   // ── The story clock's manual controls ─────────────────────────────────
 
   /// The sidebar chevrons: delta = +1 (forward) or -1 (back).

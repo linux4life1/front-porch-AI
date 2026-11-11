@@ -19,6 +19,10 @@ export interface ToolsState {
   /** This chat's own Realism switch, kept while Porch Life blocks it
    *  (additive: an older desktop sends only realismEnabled). */
   realismSwitch?: boolean;
+  /** Set only in a group, for a full member: the Realism, Needs and
+   *  Afterglow switches then route at memberRealism / memberNeeds /
+   *  memberAfterglow with this id (additive: absent = 1:1 or a guest). */
+  memberId?: string | null;
   needsEnabled: boolean;
   /** Porch Life allows Needs (additive: absent on an older desktop). */
   needsAllowed?: boolean;

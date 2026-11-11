@@ -126,7 +126,7 @@ class NsfwService {
   bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
 
   /// This chat's own Afterglow switch, without Porch Life (in a group, the
-  /// group chat's AND the loaded member's own).
+  /// loaded member's own for this chat).
   bool get chatSwitchOn => _chatSwitchOn?.call() ?? true;
   int get arousalLevel => _arousalLevel;
 

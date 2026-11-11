@@ -11,6 +11,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/enabled_needs.dart';
 import 'package:front_porch_ai/services/chat/needs_impact_evaluator.dart';
+import 'package:front_porch_ai/services/chat/needs_reprocess_baseline.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
@@ -30,7 +31,7 @@ typedef NeedsReprocessTarget = ({
 /// live model.
 ///
 /// The whole reason a baseline key exists rather than reusing realism_state is
-/// documented on [NeedsReprocess._needsPreImpactBaseline] — read it before
+/// documented on [needsPreImpactBaseline] — read it before
 /// touching either flow.
 class NeedsReprocess {
   NeedsReprocess(
@@ -76,7 +77,12 @@ class NeedsReprocess {
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
-  String _getCurrentSpeakerIdForRealism() => _scope.groups.currentSpeakerId();
+  String _getCurrentSpeakerIdForRealism() =>
+      _liveSpeakerWhilePinned ?? _scope.groups.currentSpeakerId();
+
+  /// Who was loaded before [_asSpeakerOf] pinned the target's speaker: the
+  /// pre-op state a Reprocess puts back afterwards is theirs, not the target's.
+  String? _liveSpeakerWhilePinned;
   Map<String, int> _getGroupNeeds(String id) => _scope.groups.needsOf(id);
   void _setGroupNeeds(String id, Map<String, int> needs) =>
       _scope.groups.setNeeds(id, needs);
@@ -84,53 +90,6 @@ class NeedsReprocess {
   void _saveScalarsIntoGroupRealism(String id) => saveScalarsIntoGroup(id);
   Future<void> _saveChat() => _scope.saveChat();
   void notifyListeners() => _scope.notify();
-
-  /// The needs vector as it stood BEFORE this turn touched needs at all — the
-  /// one baseline a reprocess and a revert may rebuild from.
-  ///
-  /// `realism_state['needs']['vector']` cannot serve this role, and that
-  /// conflation is the bug this exists to close. It is wrong twice over:
-  ///
-  ///  * it is captured AFTER the turn's needs impact, so rebuilding from it
-  ///    re-applies the turn on top of itself; and
-  ///  * both flows below then overwrite it with the post-correction vector,
-  ///    because it doubles as the rewind target for swipe navigation and regen.
-  ///
-  /// Either alone double-counts. Together they compounded on every pass, which
-  /// is what the report described: hygiene -6 on the message, a critique about
-  /// energy, and hygiene falling further each time while nobody had asked it to
-  /// move. `revertNeedsReprocess` rebuilt from the same field and drifted too.
-  ///
-  /// The honest baseline is `needs_pre_turn_vector` — the pre-decay snapshot
-  /// the realism dance already stamps per speaker, and the same one
-  /// `needs_deltas` is measured against. Rebuilding from it and re-applying the
-  /// message's own deltas reproduces the current state exactly, which is what
-  /// makes N passes land where one does. It is copied into `needs_pre_impact`
-  /// on first use and never rewritten, so messages that predate the dance
-  /// stamp (and the legacy realism_state fallback below) become stable too
-  /// after one pass.
-  Map<String, int> _needsPreImpactBaseline(
-    Map<String, dynamic> meta,
-    Map preState,
-  ) {
-    final stashed = _needsVectorFrom(meta['needs_pre_impact']);
-    if (stashed.isNotEmpty) return stashed;
-    final preTurn = _needsVectorFrom(meta['needs_pre_turn_vector']);
-    if (preTurn.isNotEmpty) return preTurn;
-    // Legacy messages only: no pre-turn stamp to trust. Best effort, and the
-    // stash above makes even this stable from the second pass onward.
-    return _needsVectorFrom((preState['needs'] as Map?)?['vector']);
-  }
-
-  /// Tolerant read of a persisted needs vector: these survive a JSON round trip
-  /// through the session store, so values arrive as `num` and keys as `dynamic`.
-  Map<String, int> _needsVectorFrom(Object? raw) {
-    if (raw is! Map) return <String, int>{};
-    return {
-      for (final e in raw.entries)
-        if (e.value is num) e.key.toString(): (e.value as num).toInt(),
-    };
-  }
 
   /// Re-evaluate a message's needs deltas under a user critique.
   ///
@@ -140,6 +99,30 @@ class NeedsReprocess {
   /// deltas). A non-empty selection that intersects the enabled set to nothing
   /// is a no-op (no LLM call).
   Future<bool> manualReprocessNeeds(
+    int index,
+    String critique, {
+    Set<String> onlyNeeds = const <String>{},
+  }) => _asSpeakerOf(
+    index,
+    () => _manualReprocessNeeds(index, critique, onlyNeeds: onlyNeeds),
+  );
+
+  /// Runs [body] with the reply at [index]'s speaker pinned, so every gate
+  /// it reads is theirs: a Reprocess of Ana's reply answers to Ana's Needs
+  /// switch, not to whoever is up next. A 1:1 chat has one speaker.
+  Future<bool> _asSpeakerOf(int index, Future<bool> Function() body) {
+    if (_activeGroup == null || index < 0 || index >= _messages.length) {
+      return body();
+    }
+    final card = speakerForMessage(_messages[index]);
+    if (card == null) return body();
+    _liveSpeakerWhilePinned = _scope.groups.currentSpeakerId();
+    return _scope.groups
+        .asSpeakerAsync(_getCharacterIdFromCard(card), body)
+        .whenComplete(() => _liveSpeakerWhilePinned = null);
+  }
+
+  Future<bool> _manualReprocessNeeds(
     int index,
     String critique, {
     Set<String> onlyNeeds = const <String>{},
@@ -241,8 +224,8 @@ class NeedsReprocess {
     final evalOnly = (onlyNeeds.isEmpty && allOn) ? const <String>{} : scope;
 
     // Rebuild from the immutable pre-impact baseline, never from realism_state
-    // (see _needsPreImpactBaseline for why that field drifts after pass one).
-    final Map<String, int> baseline = _needsPreImpactBaseline(meta, preState);
+    // (see needsPreImpactBaseline for why that field drifts after pass one).
+    final Map<String, int> baseline = needsPreImpactBaseline(meta, preState);
     _needsSimulation.restoreFromSnapshot({'vector': baseline});
     final Map<String, int> restoredPreVector = Map<String, int>.from(
       _needsSimulation.vector,
@@ -376,7 +359,10 @@ class NeedsReprocess {
   /// rewinds live scalars *only if last* (historical: metadata-only update, live scalars/group untouched).
   /// Safe for 1:1 and group (speaker via msg.sender + dance on last).
   /// Returns true on success.
-  Future<bool> revertNeedsReprocess(int index) async {
+  Future<bool> revertNeedsReprocess(int index) =>
+      _asSpeakerOf(index, () => _revertNeedsReprocess(index));
+
+  Future<bool> _revertNeedsReprocess(int index) async {
     if (!needsActive()) return false;
     if (index < 0 || index >= _messages.length) return false;
     if (_isTurnBusy) return false;
@@ -427,7 +413,7 @@ class NeedsReprocess {
     // time a revert is possible realism_state already holds the POST-correction
     // vector, so rebuilding from it re-applied the original deltas on top of
     // the corrected state rather than in place of it.
-    final Map<String, int> baseline = _needsPreImpactBaseline(meta, preState);
+    final Map<String, int> baseline = needsPreImpactBaseline(meta, preState);
     _needsSimulation.restoreFromSnapshot({'vector': baseline});
 
     if (oldDeltas.isNotEmpty) {

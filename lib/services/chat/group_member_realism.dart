@@ -118,6 +118,17 @@ abstract final class GroupRealismKeys {
   /// Like [pockets], deliberately absent from [runtime] — only the typed
   /// accessor may touch it.
   static const pocketsSwitch = 'pockets_switch';
+
+  /// This member's own Realism, Needs, Afterglow and Objectives switches in
+  /// THIS chat (docs/design/one-chat-ux.md PR 3), the Pockets shape: absent
+  /// means never set, and the reader falls back to the chat's older switch
+  /// (Afterglow: the group's switch AND the member copy's flag), so a chat
+  /// saved before them behaves exactly as it did. Outside [runtime] for the
+  /// same reason as [pocketsSwitch]: only the typed accessors touch them.
+  static const realismSwitch = 'realism_switch';
+  static const needsSwitch = 'needs_switch';
+  static const afterglowSwitch = 'afterglow_switch';
+  static const objectivesSwitch = 'objectives_switch';
   static const relationships = 'relationships';
 
   /// Everything the generic bridges ([GroupMemberRealism.valueFor] /
@@ -334,6 +345,27 @@ class GroupMemberRealism {
       _data.remove(GroupRealismKeys.pocketsSwitch);
     } else {
       _data[GroupRealismKeys.pocketsSwitch] = v;
+    }
+  }
+
+  /// The per-chat switches of PR 3. Null = never set (see the keys). Written
+  /// false keeps every value the member holds: off hides and holds, never
+  /// erases.
+  bool? get realismSwitch => _bool(GroupRealismKeys.realismSwitch);
+  set realismSwitch(bool? v) => _putBool(GroupRealismKeys.realismSwitch, v);
+  bool? get needsSwitch => _bool(GroupRealismKeys.needsSwitch);
+  set needsSwitch(bool? v) => _putBool(GroupRealismKeys.needsSwitch, v);
+  bool? get afterglowSwitch => _bool(GroupRealismKeys.afterglowSwitch);
+  set afterglowSwitch(bool? v) => _putBool(GroupRealismKeys.afterglowSwitch, v);
+  bool? get objectivesSwitch => _bool(GroupRealismKeys.objectivesSwitch);
+  set objectivesSwitch(bool? v) =>
+      _putBool(GroupRealismKeys.objectivesSwitch, v);
+
+  void _putBool(String key, bool? v) {
+    if (v == null) {
+      _data.remove(key);
+    } else {
+      _data[key] = v;
     }
   }
 
