@@ -376,47 +376,85 @@ test('the sidebar walks its sections in the desktop order at every width', async
   }
 });
 
-test('the Memory section: pick memory sources and keep a Data Bank, as on the desktop', async ({ page }) => {
+// Serial, and Memory put back as it was: the links only show while Memory is
+// on, and that switch is the app-wide setting the other journeys share.
+test('the Memory section: pick memory sources and keep a Data Bank, as on the desktop', { tag: SERIAL }, async ({ page }) => {
   await openPorchChat(page);
   await openSidebar(page);
-  const panel = sidebarPanel(page);
-  await panel.locator('.insight-section[data-id="journal_memory"] > summary').click();
-  const memory = panel.locator('details.tool-section', { has: page.locator(':scope > summary', { hasText: /^Memory$/ }) });
-  await memory.locator(':scope > summary').click();
-  const use = memory.getByLabel('Use memory (RAG)');
-  if (!(await use.isChecked())) await use.check();
-
-  // The links, in the desktop leaf's order.
-  const links = memory.locator('.memory-link');
-  await expect(links).toHaveText(['Settings', 'Sources', 'Data Bank']);
-
-  // Sources: pick another character; it is saved at once and survives a reload.
-  await links.nth(1).click();
-  const first = memory.getByRole('checkbox', { name: /^Include memories from / }).first();
-  await first.check();
-  await expect(links.nth(1)).toHaveText('Sources (1)');
+  const memorySection = async () => {
+    const panel = sidebarPanel(page);
+    const jm = panel.locator('.insight-section[data-id="journal_memory"] details').first();
+    if (!(await jm.evaluate((d) => (d as HTMLDetailsElement).open))) await jm.locator('summary').first().click();
+    const mem = panel.locator('details.tool-section', { has: page.locator(':scope > summary', { hasText: /^Memory$/ }) });
+    if (!(await mem.evaluate((d) => (d as HTMLDetailsElement).open))) await mem.locator(':scope > summary').click();
+    return mem;
+  };
+  // Start and end with no memory sources picked, whatever an earlier run left.
+  const clearSources = async () => {
+    const src = await (await page.request.get('/api/chat/tools/memory/sources')).json();
+    for (const id of (src.selected ?? []) as string[]) {
+      const r = await page.request.post('/api/chat/tools/memory/sources', { data: { id, selected: false } });
+      expect(r.ok(), `clearing memory source ${id}: ${r.status()}`).toBe(true);
+    }
+  };
+  await clearSources();
   await page.reload();
   await waitIdle(page);
   await openSidebar(page);
-  await expect(sidebarPanel(page).locator('.memory-link').nth(1)).toHaveText('Sources (1)');
-  await sidebarPanel(page).locator('.memory-link').nth(1).click();
-  await sidebarPanel(page).getByRole('checkbox', { name: /^Include memories from / }).first().uncheck();
-  await expect(sidebarPanel(page).locator('.memory-link').nth(1)).toHaveText('Sources');
+  const memory = await memorySection();
+  const use = memory.getByLabel('Use memory (RAG)');
+  // The app's real setting, not the box before the tools snapshot lands (it
+  // reads unchecked until then, and a click would turn Memory off).
+  const tools = await (await page.request.get('/api/chat/tools')).json();
+  const wasOn = tools.memory.ragEnabled === true;
+  await expect(use).toBeChecked({ checked: wasOn });
+  if (!wasOn) {
+    await use.click();
+    await expect(use).toBeChecked();
+  }
+  try {
+    // The links, in the desktop leaf's order.
+    const links = memory.locator('.memory-link');
+    await expect(links).toHaveText(['Settings', 'Sources', 'Data Bank']);
 
-  // Data Bank: add an entry, see it listed, delete it.
-  await sidebarPanel(page).locator('.memory-link').nth(2).click();
-  const bank = page.getByRole('dialog', { name: 'Data Bank' });
-  await expect(bank).toContainText('No entries yet');
-  await bank.getByRole('button', { name: 'Add Entry' }).click();
-  await bank.getByLabel('Title').fill('Gate');
-  await bank.getByLabel('Content').fill('The garden gate is blue.');
-  await bank.getByRole('button', { name: 'Save' }).click();
-  await expect(bank).toContainText('Gate');
-  await expect(bank).toContainText('1 entries');
-  await bank.getByRole('button', { name: 'Delete Gate' }).click();
-  await expect(bank).toContainText('No entries yet');
-  await bank.getByRole('button', { name: 'Close' }).click();
-  await expect(bank).toBeHidden();
+    // Sources: pick another character; it is saved at once and survives a reload.
+    await links.nth(1).click();
+    const first = memory.getByRole('checkbox', { name: /^Include memories from / }).first();
+    await first.check();
+    await expect(links.nth(1)).toHaveText('Sources (1)');
+    await page.reload();
+    await waitIdle(page);
+    await openSidebar(page);
+    // The reload folds the sections again; open them before using the links.
+    const after = await memorySection();
+    const linksAfter = after.locator('.memory-link');
+    await expect(linksAfter.nth(1)).toHaveText('Sources (1)');
+    await linksAfter.nth(1).click();
+    await after.getByRole('checkbox', { name: /^Include memories from / }).first().uncheck();
+    await expect(linksAfter.nth(1)).toHaveText('Sources');
+
+    // Data Bank: add an entry, see it listed, delete it.
+    await linksAfter.nth(2).click();
+    const bank = page.getByRole('dialog', { name: 'Data Bank' });
+    await expect(bank).toContainText('No entries yet');
+    await bank.getByRole('button', { name: 'Add Entry' }).click();
+    await bank.getByLabel('Title').fill('Gate');
+    await bank.getByLabel('Content').fill('The garden gate is blue.');
+    await bank.getByRole('button', { name: 'Save' }).click();
+    await expect(bank).toContainText('Gate');
+    await expect(bank).toContainText('1 entries');
+    await bank.getByRole('button', { name: 'Delete Gate' }).click();
+    await expect(bank).toContainText('No entries yet');
+    await bank.getByRole('button', { name: 'Close' }).click();
+    await expect(bank).toBeHidden();
+  } finally {
+    await clearSources();
+    if (!wasOn) {
+      const box = (await memorySection()).getByLabel('Use memory (RAG)');
+      await box.click();
+      await expect(box).not.toBeChecked();
+    }
+  }
 });
 
 test('a setting survives a reload', async ({ page }) => {
