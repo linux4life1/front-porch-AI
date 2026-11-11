@@ -241,11 +241,6 @@ class ChatAppearanceSection extends StatelessWidget {
             label: const Text('Use the theme\'s chat colors'),
           ),
         ),
-
-        const SizedBox(height: 16),
-
-        // ── Mood on Character (Realism Engine Gated) ─────────────────────
-        const MoodOnCharacterControls(),
       ],
     );
   }

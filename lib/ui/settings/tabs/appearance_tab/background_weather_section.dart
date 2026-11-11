@@ -48,29 +48,51 @@ class BackgroundWeatherSection extends StatelessWidget {
     if (!storage.realismSettings.weatherEnabled) {
       return const SizedBox.shrink(key: ValueKey('background-weather-off'));
     }
+    final corners = AppCorners.of(context);
     final appearance = storage.appearance;
-    return Column(
+    return Container(
       key: const ValueKey('background-weather'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 28),
-        // The header shrinks beside its icon so a narrow tab wraps the
-        // title instead of overflowing.
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Flexible(child: SectionHeader('Background weather')),
-            const SizedBox(width: 6),
-            Tooltip(
-              message: tooltip,
-              child: Icon(
-                Icons.info_outline,
-                size: 16,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ],
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: corners.circular(12),
+        border: Border.all(
+          color: AppColors.borderOf(context),
+          width: 1,
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Flexible(child: SectionHeader('Background weather')),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: tooltip,
+                    child: Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                'Climate Active',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.formAccentOf(context),
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 4),
         Text(
           caption,
@@ -111,10 +133,11 @@ class BackgroundWeatherSection extends StatelessWidget {
             ),
             // Rain, wind, birds or crickets for the scene, thunder after
             // a storm's flash; off by default.
-            SceneSoundControls(appearance: appearance),
-          ],
-        ),
-      ],
+              SceneSoundControls(appearance: appearance),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

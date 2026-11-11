@@ -42,16 +42,51 @@ class MoodOnCharacterControls extends StatelessWidget {
     if (!storage.realismSettings.realismAllowed) {
       return const SizedBox.shrink(key: ValueKey('mood-on-character-off'));
     }
+    final corners = AppCorners.of(context);
     final appearance = storage.appearance;
     final on = appearance.moodOnCharacter.portraitOn;
-    return Column(
+    return Container(
       key: const ValueKey('mood-on-character'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 28,
-          runSpacing: 16,
-          children: [
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: corners.circular(12),
+        border: Border.all(
+          color: AppColors.borderOf(context),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'REALISM MOOD',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+              Text(
+                'Realism Active',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.successOf(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 28,
+            runSpacing: 16,
+            children: [
             AppearanceChoice<MoodOnCharacter>(
               key: const ValueKey('appearance-mood-on-character'),
               label: 'Mood on the character',
@@ -92,6 +127,7 @@ class MoodOnCharacterControls extends StatelessWidget {
           ),
         ),
       ],
-    );
+    ),
+  );
   }
 }

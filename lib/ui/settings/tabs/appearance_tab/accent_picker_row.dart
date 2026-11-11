@@ -44,61 +44,123 @@ class AccentPickerRow extends StatelessWidget {
         ? 'Custom accent, adjusted for readability'
         : 'Custom accent';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const AppearanceCaption('Accent'),
-            const SizedBox(width: 8),
-            Text(
-              '• $note',
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 11,
-              ),
-            ),
-          ],
+    final corners = AppCorners.of(context);
+    final themeName = appearance.theme.label;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: corners.circular(12),
+        border: Border.all(
+          color: AppColors.borderOf(context),
+          width: 1,
         ),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 0,
-          runSpacing: 0,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            _Swatch(
-              key: const ValueKey('accent-theme'),
-              color: themeAccent,
-              label: 'Theme accent',
-              selected: picked == null,
-              icon: Icons.auto_awesome,
-              onTap: () => appearance.setAccentOverride(null),
-            ),
-            for (final c in kAccentSwatches)
-              _Swatch(
-                key: ValueKey('accent-${accentHex(c)}'),
-                color: c,
-                label: 'Accent ${accentHex(c)}',
-                selected: picked == c,
-                onTap: () => appearance.setAccentOverride(c),
+      ),
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 12,
+        runSpacing: 10,
+        children: [
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              Text(
+                'ACCENT',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary(context),
+                ),
               ),
-            _Swatch(
-              key: const ValueKey('accent-any'),
-              color: custom ? picked : AppColors.surfaceContainerOf(context),
-              label: 'Any color',
-              selected: custom,
-              icon: Icons.colorize,
-              onTap: () => showColorPicker(
-                context,
-                picked ?? themeAccent,
-                appearance.setAccentOverride,
+              // Theme default accent pill (Mockup: ★ Porch Amber)
+              InkWell(
+                key: const ValueKey('accent-theme'),
+                onTap: () => appearance.setAccentOverride(null),
+                borderRadius: corners.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: picked == null
+                        ? themeAccent.withValues(alpha: 0.15)
+                        : AppColors.surfaceContainerOf(context),
+                    borderRadius: corners.circular(16),
+                    border: Border.all(
+                      color: picked == null
+                          ? themeAccent
+                          : AppColors.borderOf(context),
+                      width: picked == null ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        size: 13,
+                        color: picked == null
+                            ? themeAccent
+                            : AppColors.textSecondary(context),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '$themeName Amber',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: picked == null
+                              ? AppColors.textPrimary(context)
+                              : AppColors.textSecondary(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+              // Swatches list
+              Wrap(
+                spacing: 0,
+                runSpacing: 0,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final c in kAccentSwatches)
+                    _Swatch(
+                      key: ValueKey('accent-${accentHex(c)}'),
+                      color: c,
+                      label: 'Accent ${accentHex(c)}',
+                      selected: picked == c,
+                      onTap: () => appearance.setAccentOverride(c),
+                    ),
+                  _Swatch(
+                    key: const ValueKey('accent-any'),
+                    color: custom ? picked : AppColors.surfaceContainerOf(context),
+                    label: 'Any color',
+                    selected: custom,
+                    icon: Icons.colorize,
+                    onTap: () => showColorPicker(
+                      context,
+                      picked ?? themeAccent,
+                      appearance.setAccentOverride,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Text(
+            note,
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 11,
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }

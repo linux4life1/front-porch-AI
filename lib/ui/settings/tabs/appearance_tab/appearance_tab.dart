@@ -36,68 +36,113 @@ class AppearanceTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appearance = context.watch<StorageService>().appearance;
+    final corners = AppCorners.of(context);
     return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        padding: EdgeInsets.all(constraints.maxWidth < 360 ? 12 : 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Section 1: App Shell & Theme ─────────────────────────────
-            const SectionHeader('Theme'),
-            const SizedBox(height: 12),
-            const ThemeCardGrid(),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 28,
-              runSpacing: 16,
-              children: [
-                AppearanceChoice<AppThemeMode>(
-                  key: const ValueKey('appearance-mode'),
-                  label: 'Mode',
-                  values: AppThemeMode.values,
-                  selected: appearance.mode,
-                  labelOf: (m) => m.label,
-                  onChanged: appearance.setMode,
-                ),
-                const AccentPickerRow(),
-                AppearanceChoice<UiFont>(
-                  key: const ValueKey('appearance-font'),
-                  label: 'UI font',
-                  values: UiFont.values,
-                  selected: appearance.font,
-                  labelOf: (f) => f.label,
-                  onChanged: appearance.setFont,
-                ),
-                AppearanceChoice<UiCorners>(
-                  key: const ValueKey('appearance-corners'),
-                  label: 'Corners',
-                  values: UiCorners.values,
-                  selected: appearance.corners,
-                  labelOf: (c) => c.label,
-                  onChanged: appearance.setCorners,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              key: const ValueKey('appearance-reset'),
-              onPressed: appearance.resetCustomisations,
-              icon: constraints.maxWidth < 360
-                  ? null
-                  : const Icon(Icons.restart_alt, size: 18),
-              label: const Text('Reset accent, font and corners'),
-            ),
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 540;
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(constraints.maxWidth < 360 ? 12 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Section 1: Theme & Chrome ─────────────────────────────
+              const SectionHeader('Theme & Chrome'),
+              const SizedBox(height: 12),
+              const ThemeCardGrid(),
+              const SizedBox(height: 14),
 
-            const SizedBox(height: 28),
+              // Shell Controls Container Card (Mode, Font, Corners)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerOf(context),
+                  borderRadius: corners.circular(12),
+                  border: Border.all(
+                    color: AppColors.borderOf(context),
+                    width: 1,
+                  ),
+                ),
+                child: Wrap(
+                  spacing: 24,
+                  runSpacing: 14,
+                  alignment: WrapAlignment.spaceBetween,
+                  children: [
+                    AppearanceChoice<AppThemeMode>(
+                      key: const ValueKey('appearance-mode'),
+                      label: 'Brightness Mode',
+                      values: AppThemeMode.values,
+                      selected: appearance.mode,
+                      labelOf: (m) => m.label,
+                      onChanged: appearance.setMode,
+                    ),
+                    AppearanceChoice<UiFont>(
+                      key: const ValueKey('appearance-font'),
+                      label: 'UI Typeface',
+                      values: UiFont.values,
+                      selected: appearance.font,
+                      labelOf: (f) => f.label,
+                      onChanged: appearance.setFont,
+                    ),
+                    AppearanceChoice<UiCorners>(
+                      key: const ValueKey('appearance-corners'),
+                      label: 'Corner Roundness',
+                      values: UiCorners.values,
+                      selected: appearance.corners,
+                      labelOf: (c) => c.label,
+                      onChanged: appearance.setCorners,
+                    ),
+                  ],
+                ),
+              ),
 
-            // ── Section 2: Chat Appearance (Typography, Palette, Mood) ────
-            const ChatAppearanceSection(),
+              const SizedBox(height: 12),
 
-            // ── Section 3: Background Weather (Story Weather Gated) ───────
-            const BackgroundWeatherSection(),
-          ],
-        ),
-      ),
+              // Accent Bar with Theme Default Pill & Swatches
+              const AccentPickerRow(),
+
+              const SizedBox(height: 12),
+
+              // Reset Shell Customisations
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  key: const ValueKey('appearance-reset'),
+                  onPressed: appearance.resetCustomisations,
+                  icon: constraints.maxWidth < 360
+                      ? null
+                      : const Icon(Icons.restart_alt, size: 18),
+                  label: const Text('Reset accent, font and corners'),
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              // ── Section 2: Chat Typography & Scale + Section 3: Palette ─
+              const ChatAppearanceSection(),
+
+              const SizedBox(height: 28),
+
+              // ── Section 4: Atmosphere & Immersion ─────────────────────────
+              const SectionHeader('Atmosphere & Immersion'),
+              const SizedBox(height: 12),
+              if (isNarrow) ...[
+                const BackgroundWeatherSection(),
+                const SizedBox(height: 12),
+                const MoodOnCharacterControls(),
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Expanded(child: BackgroundWeatherSection()),
+                    const SizedBox(width: 14),
+                    const Expanded(child: MoodOnCharacterControls()),
+                  ],
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

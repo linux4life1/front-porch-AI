@@ -66,14 +66,28 @@ class ChatCapsulePreview extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'LIVE PREVIEW',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: AppColors.successOf(context),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'LIVE PREVIEW',
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
               ),
               Text(
                 uiSettings.globalChatFontFamily.isEmpty
@@ -87,46 +101,72 @@ class ChatCapsulePreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // AI Character message
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 380),
-              child: Material(
-                color: aiBg,
-                shape: RoundedRectangleBorder(
-                  borderRadius: corners.circular(10),
-                  side: BorderSide(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
-                    width: 0.8,
+          const SizedBox(height: 10),
+          // AI Character message with avatar halo
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.formAccentOf(context),
+                  border: Border.all(
+                    color: AppColors.borderOf(context),
+                    width: 1.5,
                   ),
                 ),
-                child: Tooltip(
-                  message: 'Customize Character bubble color',
-                  child: Semantics(
-                    button: true,
-                    label: 'Customize Character bubble color',
-                    excludeSemantics: true,
-                    child: InkWell(
-                      onTap: onTapAiBubble,
+                alignment: Alignment.center,
+                child: Text(
+                  'AI',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: inkOn(AppColors.formAccentOf(context)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 380),
+                  child: Material(
+                    color: aiBg,
+                    shape: RoundedRectangleBorder(
                       borderRadius: corners.circular(10),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: StyledChatMessage(
-                          text:
-                              '"I found the notes," *she smiles*, right where you left them.',
-                          isUser: false,
+                      side: BorderSide(
+                        color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Tooltip(
+                      message: 'Customize Character bubble color',
+                      child: Semantics(
+                        button: true,
+                        label: 'Customize Character bubble color',
+                        excludeSemantics: true,
+                        child: InkWell(
+                          onTap: onTapAiBubble,
+                          borderRadius: corners.circular(10),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: StyledChatMessage(
+                              text:
+                                  '"I found the notes," *she smiles*, right where you left them.',
+                              isUser: false,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
           const SizedBox(height: 8),
           // User message

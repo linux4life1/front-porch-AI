@@ -153,8 +153,9 @@ void main() {
     await _pump(tester, const AppearanceTab(), width: 360);
 
     expect(tester.takeException(), isNull);
-    expect(find.text('Theme'), findsOneWidget);
+    expect(find.text('Theme & Chrome'), findsOneWidget);
     expect(find.text('Chat Appearance'), findsOneWidget);
+    expect(find.text('Atmosphere & Immersion'), findsOneWidget);
   });
 
   testWidgets('ChatAppearanceSection wires preview bubble taps to color picker', (
