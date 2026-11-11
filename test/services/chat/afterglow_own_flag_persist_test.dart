@@ -72,6 +72,12 @@ void _setupPathProviderMock() {
       });
 }
 
+/// This chat's own Afterglow switch for [card]: the live per-chat switch.
+/// (`setMemberAfterglowEnabled` is the member copy's new-chat default and
+/// never changes a chat that is open.)
+Future<void> _liveAfterglow(ChatService chat, CharacterCard card, bool on) =>
+    chat.setMemberAfterglowSwitch(chat.characterIdFor(card), on);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -434,7 +440,8 @@ void main() {
     final rue = await libraryCard('Rue');
     final group = await chat.forkToGroupChat([rue], groupRepo);
     expect(group, isNotNull);
-    await chat.setMemberAfterglowEnabled(
+    await _liveAfterglow(
+      chat,
       chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
       false,
     );
@@ -1023,7 +1030,7 @@ void main() {
       expect(chat.getArousalForGroupCharacter(rue), 40);
       expect(chat.afterglowRunsFor(rue), isTrue);
 
-      await chat.setMemberAfterglowEnabled(rue, false);
+      await _liveAfterglow(chat, rue, false);
       expect(chat.afterglowRunsFor(rue), isFalse);
       expect(chat.afterglowRunsFor(nia), isTrue, reason: 'the rest keep it');
       expect(chat.getArousalForGroupCharacter(rue), 40, reason: 'kept');
@@ -1038,10 +1045,11 @@ void main() {
         reason: 'and hidden',
       );
       expect(chat.getArousalForGroupCharacter(nia), 15, reason: 'untouched');
-      await chat.setMemberAfterglowEnabled(rue, true);
+      await _liveAfterglow(chat, rue, true);
       expect(chat.getArousalForGroupCharacter(rue), 40, reason: 'back as was');
       expect(chat.getRefractoryForGroupCharacter(rue).minutes, 45);
       expect(chat.getArousalForGroupCharacter(nia), 15);
+      // The default for new chats (the member copy's flag, kept on her row):
       await chat.setMemberAfterglowEnabled(rue, false);
       final row = await db
           .customSelect(
@@ -1095,7 +1103,7 @@ void main() {
       final judges = RefractoryJudges()..climax = true;
       chat.testLlmServiceOverride = judges;
       final rue = chat.groupCharacters.firstWhere((c) => c.name == 'Rue');
-      await chat.setMemberAfterglowEnabled(rue, false);
+      await _liveAfterglow(chat, rue, false);
 
       await chat.sendMessage('@Rue Evening.');
       await settle();

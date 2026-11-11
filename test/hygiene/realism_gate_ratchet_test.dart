@@ -80,8 +80,10 @@ const _ownSwitch = <String, (int, String)>{
     'carries a 1:1 chat\'s choice, and its state, into the group it becomes',
   ),
   'lib/services/chat/doors/realism/scalar_carries.dart': (
-    5,
-    'carries the choice back through a cast collapse',
+    3,
+    'carries the choice into a cast change (the survivor\'s own switch is '
+        'read from its member entry now, so this file only writes the '
+        'chat\'s)',
   ),
   'lib/services/chat/doors/realism/core_wiring.dart': (
     2,
@@ -93,12 +95,8 @@ const _ownSwitch = <String, (int, String)>{
 const _ownSwitchShown = <String, String>{
   'lib/services/chat/existing_chats_offer.dart':
       'counts the open chat when its own switch is off',
-  'lib/ui/chat_components/sidebar/character_state/character_state_group.dart':
-      'the 1:1 switch, greyed while Porch Life blocks Realism',
   'lib/ui/dialogs/group_settings/realism_needs_tab/group_realism_controller.dart':
       'the group chat\'s switch in Group Settings',
-  'lib/services/web/facade/chat_tools/chat_tools_snapshot.dart':
-      'the phone\'s switch',
   'lib/services/web/facade/chat_realism_read.dart':
       'the insight panel says a change waits for the reply',
 };

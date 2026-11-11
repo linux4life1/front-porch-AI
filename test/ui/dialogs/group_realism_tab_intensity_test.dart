@@ -293,7 +293,7 @@ void main() {
     expect(shown, [2], reason: 'back on Group Settings → Realism');
   });
 
-  group("the group chat's own Afterglow switch", () {
+  group("a member's Afterglow on the Realism tab", () {
     Future<void> pumpTab(WidgetTester tester, {required bool allowed}) async {
       await tester.binding.setSurfaceSize(const Size(900, 2400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -318,40 +318,13 @@ void main() {
       await tester.pump();
     }
 
-    Finder afterglowSwitch() => find.descendant(
-      of: find
-          .ancestor(of: find.text('Afterglow'), matching: find.byType(Row))
-          .first,
-      matching: find.byType(Switch),
-    );
-
-    testWidgets('Porch Life allows it: the tab shows it, and it switches '
-        'this chat', (tester) async {
-      await pumpTab(tester, allowed: true);
-      expect(tester.widget<Switch>(afterglowSwitch()).value, isTrue);
-
-      await tester.ensureVisible(afterglowSwitch());
-      await tester.tap(afterglowSwitch());
-      await tester.pump();
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
-      );
-      expect(chat.afterglowChatSwitch, isFalse);
-      expect(
-        chat.nsfwService.nsfwCooldownEnabled,
-        isFalse,
-        reason: "the gate reads this chat's switch",
-      );
-      expect(tester.widget<Switch>(afterglowSwitch()).value, isFalse);
-    });
-
     testWidgets('Porch Life Afterglow off: no switch', (tester) async {
       await pumpTab(tester, allowed: false);
       expect(find.text('Afterglow'), findsNothing);
     });
 
-    testWidgets("each member's own switch sits on their card, and switches "
-        'that member alone', (tester) async {
+    testWidgets("each member's switch on their card is their default for "
+        'new chats, and never changes this chat', (tester) async {
       await pumpTab(tester, allowed: true);
       final ada = chat.groupCharacters.firstWhere((c) => c.name == 'Ada');
       final bex = chat.groupCharacters.firstWhere((c) => c.name == 'Bex');
@@ -388,7 +361,10 @@ void main() {
         isFalse,
         reason: "kept on Ada's own row in this group",
       );
-      expect(chat.afterglowRunsFor(ada), isFalse);
+      // The card's switch is the DEFAULT for the group's next chats: this
+      // chat's own switch for Ada, in the sidebar, is where it is.
+      expect(chat.afterglowRunsFor(ada), isTrue);
+      expect(chat.afterglowSwitchFor(chat.characterIdFor(ada)), isTrue);
       expect(chat.afterglowRunsFor(bex), isTrue);
     });
 
