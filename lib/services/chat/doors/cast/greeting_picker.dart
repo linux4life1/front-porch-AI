@@ -21,6 +21,7 @@ import 'dart:async';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -146,8 +147,10 @@ class GreetingPicker {
     final cardBase = ext?.openingBase ?? const GreetingOpeningBase();
     if (_activeGroup == null || memberId == null) return cardBase;
 
-    final seeds = parseGroupRealismSeeds(
-      _activeGroup!.defaultMemberRealismState,
+    final seeds = groupStartSeeds(
+      _activeGroup!,
+      _session.groupCharacters,
+      _session.characterIdFor,
     );
     final raw = seeds[memberId];
     final time = parseGroupTimeSeedOf(_activeGroup!);

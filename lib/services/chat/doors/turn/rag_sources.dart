@@ -39,7 +39,6 @@ class RagSources {
   AppDatabase get _db => _d.services.db();
   CharacterRepository? get _characterRepository => _d.services.characters();
   GroupChat? get _activeGroup => _session.activeGroup;
-  List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   String _getCharacterIdFromCard(CharacterCard c) => _session.characterIdFor(c);
   String _getCharacterId() => _session.ragCharacterId();
 
@@ -145,18 +144,5 @@ class RagSources {
       memberName: member.name,
       libraryCharacters: library,
     ).libraryDbId;
-  }
-
-  /// Per-character memory importance, keyed the way retrieval multiplies:
-  /// by the row owner's memory key. Stored by member roster id, so it is
-  /// translated here; keying it by roster id never matched a row.
-  Map<String, double> prioritiesByMemoryKey() {
-    if (_activeGroup == null) return const {};
-    final stored = _d.doors.entry().members.currentGroupRAGPriorities;
-    final memory = _d.doors.cast().memory;
-    return {
-      for (final c in _groupCharacters)
-        memory.keyFor(c): ?stored[_getCharacterIdFromCard(c)],
-    };
   }
 }

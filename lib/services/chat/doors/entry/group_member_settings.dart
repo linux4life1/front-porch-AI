@@ -51,23 +51,6 @@ class GroupMemberSettings {
 
   double get groupMemoryBudgetPercent => _group.memoryBudgetPercent;
 
-  Map<String, double> get currentGroupRAGPriorities =>
-      Map.unmodifiable(_group.characterRAGPriorities);
-
-  /// RAG retrieval priority for [c] in the active group (1.0 = neutral).
-  /// Card-keyed on purpose: storage uses the stable character id — the same
-  /// key retrieval multiplies by (memory_service characterPriorities) — and
-  /// the settings dialog only has cards. The old NAME-keyed dialog reads
-  /// always missed and every character showed 1.0.
-  double ragPriorityForGroupCharacter(CharacterCard c) =>
-      _group.characterRAGPriorities[_getCharacterIdFromCard(c)] ?? 1.0;
-
-  void setRAGPriorityForGroupCharacter(CharacterCard c, double priority) {
-    if (_activeGroup == null) return;
-    _group.characterRAGPriorities[_getCharacterIdFromCard(c)] = priority;
-    _d.notify();
-  }
-
   void setGroupRAGEnabled(bool value) {
     if (_activeGroup == null) return;
     _group.ragEnabled = value;

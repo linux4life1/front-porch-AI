@@ -158,15 +158,6 @@ extension ChatServiceGroupSettings on ChatService {
   double get groupMemoryBudgetPercent =>
       entryDoor.members.groupMemoryBudgetPercent;
 
-  Map<String, double> get currentGroupRAGPriorities =>
-      entryDoor.members.currentGroupRAGPriorities;
-
-  double ragPriorityForGroupCharacter(CharacterCard c) =>
-      entryDoor.members.ragPriorityForGroupCharacter(c);
-
-  void setRAGPriorityForGroupCharacter(CharacterCard c, double priority) =>
-      entryDoor.members.setRAGPriorityForGroupCharacter(c, priority);
-
   void setGroupRAGEnabled(bool value) =>
       entryDoor.members.setGroupRAGEnabled(value);
 
