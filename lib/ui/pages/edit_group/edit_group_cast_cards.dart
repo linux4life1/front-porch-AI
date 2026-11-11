@@ -27,18 +27,23 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Said on the cast buttons while this group is not the one open in the chat:
-/// the roster is changed through the open chat.
-const kCastNeedsOpenChatTooltip =
-    "Open this group's chat to change who is in it.";
+/// Said on "Bring back a removed member" when nobody has been removed.
+const kNoRemovedMembersTooltip = 'No removed members to bring back.';
 
-/// What the cast buttons do; a null callback greys its button out.
+/// What the cast buttons do. "Bring back" greys out (with
+/// [kNoRemovedMembersTooltip]) while [canBringBack] is false.
 class CastActions {
-  const CastActions({this.onAdd, this.onRemove, this.onBringBack});
+  const CastActions({
+    required this.onAdd,
+    required this.onRemove,
+    required this.onBringBack,
+    this.canBringBack = true,
+  });
 
-  final VoidCallback? onAdd;
-  final void Function(CharacterCard member)? onRemove;
-  final VoidCallback? onBringBack;
+  final VoidCallback onAdd;
+  final void Function(CharacterCard member) onRemove;
+  final VoidCallback onBringBack;
+  final bool canBringBack;
 }
 
 /// Details 1: Identity. The group name, and the cast: a row per member with
@@ -66,6 +71,7 @@ class EditGroupIdentityCard extends StatelessWidget {
     required VoidCallback? onPressed,
     bool accent = false,
     bool danger = false,
+    String? greyedTooltip,
   }) {
     final color = danger
         ? AppColors.negativeAccentOf(context)
@@ -85,7 +91,7 @@ class EditGroupIdentityCard extends StatelessWidget {
       child: Text(label),
     );
     return onPressed == null
-        ? GreyedOut(tooltip: kCastNeedsOpenChatTooltip, child: button)
+        ? GreyedOut(tooltip: greyedTooltip ?? '', child: button)
         : button;
   }
 
@@ -140,9 +146,7 @@ class EditGroupIdentityCard extends StatelessWidget {
                   context,
                   label: 'Remove…',
                   danger: true,
-                  onPressed: cast.onRemove == null
-                      ? null
-                      : () => cast.onRemove!(m),
+                  onPressed: () => cast.onRemove(m),
                 ),
               ],
             ),
@@ -161,7 +165,8 @@ class EditGroupIdentityCard extends StatelessWidget {
             _button(
               context,
               label: 'Bring back a removed member',
-              onPressed: cast.onBringBack,
+              greyedTooltip: kNoRemovedMembersTooltip,
+              onPressed: cast.canBringBack ? cast.onBringBack : null,
             ),
           ],
         ),

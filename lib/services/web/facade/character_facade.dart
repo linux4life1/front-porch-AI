@@ -485,6 +485,10 @@ class CharacterFacade {
         'narrativePerspective': voice.perspective,
         'narrativeTense': voice.tense,
         'sex': voice.sex,
+        // The groups this character is also in (the editor's line at the top).
+        'inGroups': inMemory == null
+            ? const <String>[]
+            : await groupNamesOfCharacter(_db, inMemory),
         // (The old evolved*/evolutionCount fields are gone — growth is served
         // per-participant by /api/chat/tools/growth; the bundled web UI ships
         // in lockstep with this facade.)

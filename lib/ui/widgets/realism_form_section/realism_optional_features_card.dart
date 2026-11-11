@@ -50,6 +50,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
     this.chaosLockedTooltip,
+    this.verificationLockedTooltip,
     this.needsDirectorAuthority = false,
     this.onNeedsDirectorAuthorityChanged,
   });
@@ -57,6 +58,9 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   /// A group member's editor: Chaos Mode is the group's for now, so its row
   /// is greyed out with this tooltip.
   final String? chaosLockedTooltip;
+
+  /// Realism Verification is the group's too: its controls grey out.
+  final String? verificationLockedTooltip;
 
   /// The Director's authority over Needs scores; it acts only with
   /// Verification on.
@@ -173,16 +177,19 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         .withValues(alpha: 0.4),
                 height: 24,
               ),
-            RealismVerificationControls(
-              enabled: realismVerificationEnabled,
-              onEnabledChanged: onRealismVerificationChanged,
-              maxReprocesses: realismVerificationMaxReprocesses,
-              onMaxReprocessesChanged:
-                  onRealismVerificationMaxReprocessesChanged,
-              strictness: realismVerificationStrictness,
-              onStrictnessChanged: onRealismVerificationStrictnessChanged,
-              directorAuthority: needsDirectorAuthority,
-              onDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
+            _lockIf(
+              verificationLockedTooltip,
+              RealismVerificationControls(
+                enabled: realismVerificationEnabled,
+                onEnabledChanged: onRealismVerificationChanged,
+                maxReprocesses: realismVerificationMaxReprocesses,
+                onMaxReprocessesChanged:
+                    onRealismVerificationMaxReprocessesChanged,
+                strictness: realismVerificationStrictness,
+                onStrictnessChanged: onRealismVerificationStrictnessChanged,
+                directorAuthority: needsDirectorAuthority,
+                onDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
+              ),
             ),
           ],
         ],
@@ -316,3 +323,6 @@ class RealismVerificationControls extends StatelessWidget {
     );
   }
 }
+
+Widget _lockIf(String? tooltip, Widget child) =>
+    tooltip == null ? child : GreyedOut(tooltip: tooltip, child: child);

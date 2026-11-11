@@ -103,6 +103,7 @@ class _EditGroupPageState extends State<EditGroupPage>
       final roster = await loadEditGroupRoster(groupRepo, storage, g.id);
       if (!mounted) return;
       setState(() => _members.addAll(roster));
+      unawaited(_reloadMembers());
     }());
     // Parse the stored group lorebook (the raw text is kept on failure).
     try {
@@ -267,18 +268,20 @@ class _EditGroupPageState extends State<EditGroupPage>
     if (mounted) setState(() {}); // The member card was mutated in place.
   }
 
-  /// The cast buttons work through the chat that has this group open.
-  CastActions _cast(ChatService chat) {
-    if (chat.activeGroup?.id != widget.group.id) return const CastActions();
-    return CastActions(
-      onAdd: () =>
-          unawaited(castAddMember(context, chat, onDone: _reloadMembers)),
-      onRemove: (m) =>
-          unawaited(castRemoveMember(context, chat, m, onDone: _reloadMembers)),
-      onBringBack: () =>
-          unawaited(castBringBack(context, chat, onDone: _reloadMembers)),
-    );
-  }
+  late final EditGroupCast _castOps = EditGroupCast(
+    context: () => context,
+    group: widget.group,
+    chat: Provider.of<ChatService>(context, listen: false),
+    onDone: _reloadMembers,
+  );
+  int _removedCount = 0;
+
+  CastActions _cast() => CastActions(
+    onAdd: () => unawaited(_castOps.add()),
+    onRemove: (m) => unawaited(_castOps.remove(m)),
+    onBringBack: () => unawaited(_castOps.bringBack()),
+    canBringBack: _removedCount > 0,
+  );
 
   Future<void> _reloadMembers() async {
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
@@ -288,17 +291,20 @@ class _EditGroupPageState extends State<EditGroupPage>
       storage,
       widget.group.id,
     );
+    final removed = (await _castOps.editor.removedMembers(
+      widget.group.id,
+    )).length;
     if (!mounted) return;
     setState(() {
       _members
         ..clear()
         ..addAll(roster);
+      _removedCount = removed;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final chat = Provider.of<ChatService>(context);
     return UnsavedChangesGuard(
       isDirty: _isDirty,
       child: ValueListenableBuilder<TextEditingValue>(
@@ -322,13 +328,13 @@ class _EditGroupPageState extends State<EditGroupPage>
               ),
             ),
           ),
-          tabs: _tabs(chat),
+          tabs: _tabs(),
         ),
       ),
     );
   }
 
-  List<Widget> _tabs(ChatService chat) {
+  List<Widget> _tabs() {
     // A LISTENING read, as before: world changes rebuild the page.
     final worlds = Provider.of<WorldRepository>(context);
     return [
@@ -337,7 +343,7 @@ class _EditGroupPageState extends State<EditGroupPage>
         draft: _draft,
         members: _members,
         onEditMember: _editMember,
-        cast: _cast(chat),
+        cast: _cast(),
         onChanged: _rebuild,
       ),
       EditGroupDialogueTab(draft: _draft, onChanged: _rebuild),

@@ -95,6 +95,9 @@ class EditCharacterRealismSection extends StatelessWidget {
           showMasterEnabledToggle: hidden == null,
           timeDayLockedTooltip: mode == null ? null : kTimeDayLockedTooltip,
           chaosLockedTooltip: mode == null ? null : kChaosLockedTooltip,
+          verificationLockedTooltip: mode == null
+              ? null
+              : kVerificationLockedTooltip,
           onEnabledChanged: (v) => _edit(() => d.realismEnabled = v),
           // A member shows the group's own scene, read-only.
           timeOfDay: scene?.timeOfDay ?? d.realismTimeOfDay,

@@ -166,6 +166,7 @@ class RealismFormSection extends StatelessWidget {
   /// tooltip. Chaos Mode likewise, with [chaosLockedTooltip].
   final String? timeDayLockedTooltip;
   final String? chaosLockedTooltip;
+  final String? verificationLockedTooltip;
 
   /// The Director's authority over Needs scores (needs Verification on).
   /// Absent without a setter.
@@ -243,6 +244,7 @@ class RealismFormSection extends StatelessWidget {
     this.showStartingState = true,
     this.timeDayLockedTooltip,
     this.chaosLockedTooltip,
+    this.verificationLockedTooltip,
     this.needsDirectorAuthority = false,
     this.onNeedsDirectorAuthorityChanged,
     this.storyStartDate,
@@ -407,6 +409,7 @@ class RealismFormSection extends StatelessWidget {
             afterglowEnabled: afterglowEnabled,
             onAfterglowChanged: onAfterglowChanged,
             chaosLockedTooltip: chaosLockedTooltip,
+            verificationLockedTooltip: verificationLockedTooltip,
             needsDirectorAuthority: needsDirectorAuthority,
             onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),

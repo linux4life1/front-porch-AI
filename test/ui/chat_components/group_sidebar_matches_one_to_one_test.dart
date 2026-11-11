@@ -138,6 +138,9 @@ void main() {
         ),
       );
     }
+    // A group's new chats start members from their own copies; the stored
+    // start above is moved onto them, as the v67 upgrade does.
+    await moveGroupSeedsOntoMembers(db, 'grp-side', blobs.defaultMemberJson);
     await chat.setActiveGroup(
       GroupChat(
         id: 'grp-side',
@@ -320,26 +323,20 @@ void main() {
     expect(find.byType(AfkPanel), findsOneWidget);
   });
 
-  testWidgets(
-    'Group Settings… is in Main Settings; the pinned button is gone',
-    (tester) async {
-      await tester.runAsync(boot);
-      addTearDown(
-        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
-      );
-      await pumpSidebar(tester);
+  testWidgets('Edit group… is in Main Settings; the pinned button is gone', (
+    tester,
+  ) async {
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    await pumpSidebar(tester);
 
-      expect(
-        find.widgetWithText(OutlinedButton, 'Group Settings'),
-        findsNothing,
-      );
-      await tester.tap(find.text('Main Settings'));
-      await tester.pumpAndSettle();
-      expect(find.text('Group Settings…'), findsOneWidget);
-    },
-  );
+    expect(find.widgetWithText(OutlinedButton, 'Group Settings'), findsNothing);
+    await tester.tap(find.text('Main Settings'));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit group…'), findsOneWidget);
+  });
 
-  test('only a group\'s Main Settings has Group Settings…', () {
+  test('only a group\'s Main Settings has Edit group…', () {
     List<String?> values({required bool isGroup}) => [
       for (final e in mainSettingsItems(isGroup: isGroup))
         if (e is PopupMenuItem<String>) e.value,

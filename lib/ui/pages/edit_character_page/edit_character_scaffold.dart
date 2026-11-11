@@ -120,8 +120,10 @@ class EditCharacterScaffold extends StatelessWidget {
             padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
               onPressed: onSave,
+              // The arrow is the update flow's "Next"; a member editor that
+              // only hands the card back is still a plain Save.
               icon: Icon(
-                popWithCardOnSave
+                popWithCardOnSave && saveLabel != 'Save'
                     ? Icons.arrow_forward_rounded
                     : Icons.save_outlined,
                 size: 18,

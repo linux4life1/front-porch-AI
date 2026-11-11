@@ -21,6 +21,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/group_stable_id.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/group_seed_migration.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -362,6 +363,11 @@ class GroupCardImporter {
     }
 
     await _groups.save(newGroup);
+    await moveGroupSeedsOntoMembers(
+      _db,
+      newGroup.id,
+      newGroup.defaultMemberRealismState,
+    );
 
     return GroupImportResult(
       created: true,

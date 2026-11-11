@@ -65,7 +65,7 @@ List<PopupMenuEntry<String>> mainSettingsItems({required bool isGroup}) => [
     PopupMenuDivider(height: 1),
     PopupMenuItem(
       value: 'group_settings',
-      child: SettingsMenuItem(icon: Icons.settings, label: 'Group Settings…'),
+      child: SettingsMenuItem(icon: Icons.settings, label: 'Edit group…'),
     ),
   ],
 ];

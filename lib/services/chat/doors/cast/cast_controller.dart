@@ -26,6 +26,7 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_member_rows.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
@@ -191,27 +192,13 @@ class CastController {
     String? avatarFilename,
   ) async {
     final groupId = _session.activeGroup?.id;
-    await _d.db.deleteGroupMember(charId);
-    if (groupId != null && avatarFilename != null) {
-      try {
-        final f = File(
-          path.join(
-            _d.storage.groupsDir.path,
-            groupId,
-            'avatars',
-            avatarFilename,
-          ),
-        );
-        if (await f.exists()) await f.delete();
-      } catch (e) {
-        debugPrint('[Cast] avatar delete failed (non-fatal): $e');
-      }
-    }
-    // charId is the member's unique instance UUID, so these never touch
-    // another character's rows.
-    await _d.db.deleteObjectivesForCharacter(charId);
-    await _d.db.deleteEmbeddingsForCharacter(charId);
-    await _d.db.deleteDataBankEntriesForCharacter(charId);
+    await deleteGroupMemberRows(
+      db: _d.db,
+      groupsDir: _d.storage.groupsDir,
+      groupId: groupId ?? '',
+      mid: charId,
+      avatarFilename: groupId == null ? null : avatarFilename,
+    );
     _h.forgetMember(charId);
     _d.objectives().groupObjectives.remove(charId);
     // A hard-removed member leaves no growth residue, and their journal

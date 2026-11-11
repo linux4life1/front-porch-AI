@@ -31,20 +31,6 @@ const kGroupStartingFeelingsKey = 'startingFeelings';
 /// their copy in the group.
 typedef OverlayMember = ({String mid, FrontPorchExtensions? ext});
 
-bool _startUntouched(FrontPorchExtensions e) {
-  final fresh = FrontPorchExtensions();
-  return e.shortTermBond == fresh.shortTermBond &&
-      e.longTermBond == fresh.longTermBond &&
-      e.trustLevel == fresh.trustLevel &&
-      e.characterEmotion.trim() == fresh.characterEmotion.trim() &&
-      e.emotionIntensity == fresh.emotionIntensity;
-}
-
-bool _hasBonds(Map<String, dynamic> seed) =>
-    seed.containsKey(GroupRealismKeys.affection) ||
-    seed.containsKey(GroupRealismKeys.longTermScore) ||
-    seed.containsKey(GroupRealismKeys.trust);
-
 /// The starting feelings [definitionJson] holds, `{from: {to: score}}`.
 Map<String, Map<String, int>> startingFeelingsIn(String definitionJson) {
   try {
@@ -86,54 +72,40 @@ String withStartingFeeling(
   return jsonEncode(map);
 }
 
-/// The seeds a new chat of a group starts its members from: the group's
-/// stored seeds ([stored], the definition's `perChar`) with each member's
-/// own copy laid over them. A member whose copy holds a start of its own
-/// (bonds or mood moved off the defaults, edited with the 1:1 controls in
-/// their card) starts there; one whose copy is untouched keeps the start an
-/// older group saved for them, when it saved one. A member whose copy has
-/// Realism on and no stored seed gets the seed their copy starts them at, so
-/// Realism for new chats follows each member's own switch. A copy with
-/// Needs off starts without bars. The group's starting feelings
-/// ([definitionJson]) join each seed's `relationships`.
+/// The seeds a new chat of a group starts its members from: each member's
+/// own copy ([memberCopyFromGroupSeed] moved an older group's stored start
+/// onto it once; one with no extensions record at all keeps the stored seed).
+/// Realism for the new chat follows whether any member's copy
+/// has Realism on; a copy with Needs off starts without bars. Only the
+/// hidden feelings still come from the group: its starting feelings
+/// ([definitionJson]) over a seed's older `relationships` map.
 Map<String, Map<String, dynamic>> memberStartSeeds(
   Map<String, Map<String, dynamic>> stored,
   Iterable<OverlayMember> members, {
   required String definitionJson,
 }) {
-  final out = {
-    for (final e in stored.entries) e.key: Map<String, dynamic>.from(e.value),
-  };
+  final out = <String, Map<String, dynamic>>{};
   final feelings = startingFeelingsIn(definitionJson);
   for (final m in members) {
     final ext = m.ext;
-    final legacy = out[m.mid];
-    if (ext == null) continue;
-    if (legacy == null && !ext.realismEnabled) continue;
-    final copy = groupMemberStartingSeed(ext);
-    final seed = <String, dynamic>{...copy, ...?legacy};
-    if (legacy != null && _hasBonds(legacy) && _startUntouched(ext)) {
-      // The older group's start stands: nothing of the copy's start moves it.
-    } else {
-      for (final k in const [
-        GroupRealismKeys.affection,
-        GroupRealismKeys.longTermScore,
-        GroupRealismKeys.trust,
-        GroupRealismKeys.emotion,
-        GroupRealismKeys.emotionIntensity,
-      ]) {
-        seed[k] = copy[k];
-      }
+    if (ext == null) {
+      // A copy with no extensions record at all (never saved by an editor,
+      // never moved by the upgrade) has no start of its own: the group's
+      // stored seed for them stands.
+      final legacy = stored[m.mid];
+      if (legacy != null) out[m.mid] = Map<String, dynamic>.of(legacy);
+      continue;
     }
-    if (legacy == null && ext.needsSimChoice == false) seed.remove('needs');
-    final mine = feelings[m.mid];
-    if (mine != null && mine.isNotEmpty) {
-      seed['relationships'] = <String, int>{
-        for (final r in ((seed['relationships'] as Map?) ?? const {}).entries)
-          '${r.key}': (r.value as num).toInt(),
-        ...mine,
-      };
-    }
+    if (!ext.realismEnabled) continue;
+    final seed = groupMemberStartingSeed(ext);
+    if (ext.needsSimChoice == false) seed.remove('needs');
+    final rels = <String, int>{
+      for (final r
+          in ((stored[m.mid]?['relationships'] as Map?) ?? const {}).entries)
+        if (r.value is num) '${r.key}': (r.value as num).toInt(),
+      ...?feelings[m.mid],
+    };
+    if (rels.isNotEmpty) seed['relationships'] = rels;
     out[m.mid] = seed;
   }
   return out;

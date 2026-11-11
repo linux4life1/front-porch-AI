@@ -96,6 +96,12 @@ hidden behind the existing note until promoted.
 own switch, 18+ events, pressure and Spin, the member editor toggle as the
 new-chat default exactly as in 1:1) is the **next PR**, not this one.
 
+**A8. Realism Verification greyed out** (switch, Max reprocess passes,
+Strictness, Director authority): in a group it is a group setting, on the Edit
+group page (B, Realism Engine). Same grey-out as A2, tooltip:
+
+> Realism Verification is set per group, not per character.
+
 **Delete** from member mode, desktop and web: the "These are Ana's own
 settings in this group" banner, `memberGroupRows`, `memberGroupNeedsLine`,
 the read-only "Realism Engine · On / Time & Day / Chaos Mode / Afterglow /
@@ -194,7 +200,7 @@ PWA paints only `var(--…)` tokens.
 ## E. Proof the build must ship (CI)
 
 - `one_ui_parity_test`: the member editor's section and leaf order equals
-  the 1:1 editor's plus exactly A1, A4; A2, A3, A7 present and disabled.
+  the 1:1 editor's plus exactly A1, A4; A2, A3, A7, A8 present and disabled.
   Edit group page leaf order, desktop vs web.
 - Goldens: Edit group Details tab; member editor top (A1) and Realism
   bottom (A2, A4, A7). Porch and one non-Porch theme, light and dark.

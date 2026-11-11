@@ -26,6 +26,8 @@ import 'package:front_porch_ai/ui/widgets/relationship_scale.dart';
 /// The tooltips of the greyed-out pieces in a member's editor.
 const kTimeDayLockedTooltip = 'Time & Day is set per group, not per character.';
 const kWorldsLockedTooltip = 'Worlds are set per group, not per character.';
+const kVerificationLockedTooltip =
+    'Realism Verification is set per group, not per character.';
 const kChaosLockedTooltip = 'Chaos Mode is set per group for now.';
 
 /// Member mode of the character editor: the editor is opened on a member's

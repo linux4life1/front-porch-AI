@@ -67,6 +67,8 @@ import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart'
     show RealismTimeDayCard;
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_optional_features_card.dart'
+    show RealismVerificationControls;
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -729,9 +731,8 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
 
-  testWidgets("a member's Director authority saves to her own row", (
-    tester,
-  ) async {
+  testWidgets("a member's Realism Verification is the group's: greyed out, "
+      'and Save is the 1:1 Save', (tester) async {
     await tester.runAsync(() async {
       final mara = member()
         ..frontPorchExtensions = FrontPorchExtensions(realismEnabled: true);
@@ -740,18 +741,15 @@ void main() {
         chat: _SeededGroup([mara], GroupChat(id: _groupId, name: 'Pair')),
         onOpen: (context) => showEditCharacterDialog(context, mara),
       );
-
-      expect(find.text('Director authority (needs)'), findsNothing);
-      form(tester).onRealismVerificationChanged(true);
-      await tester.pump();
-      expect(find.text('Director authority (needs)'), findsOneWidget);
-      form(tester).onNeedsDirectorAuthorityChanged!(true);
-      await tester.pump();
-      await saveTwiceFast(tester);
-
-      final ext = rowExtensions(await memberRow());
-      expect(ext?.realismVerificationEnabled, isTrue);
-      expect(ext?.realismNeedsDirectorAuthority, isTrue);
+      final verification = find.ancestor(
+        of: find.byType(RealismVerificationControls),
+        matching: find.byType(GreyedOut),
+      );
+      expect(verification, findsOneWidget);
+      expect(
+        tester.widget<GreyedOut>(verification).tooltip,
+        'Realism Verification is set per group, not per character.',
+      );
     });
   });
 
@@ -796,6 +794,7 @@ void main() {
       expect(greyed, {
         'Time & Day is set per group, not per character.',
         'Chaos Mode is set per group for now.',
+        'Realism Verification is set per group, not per character.',
         'Worlds are set per group, not per character.',
       });
       expect(find.text('Time of Day'), findsOneWidget);
@@ -804,6 +803,77 @@ void main() {
       expect(find.byKey(const Key('group-member-editor-banner')), findsNothing);
       expect(find.textContaining('Group Settings'), findsNothing);
       expect(find.text('Enable Realism Engine'), findsOneWidget);
+      // Save is the 1:1 Save, not the update flow's arrow.
+      expect(find.byIcon(Icons.save_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_forward_rounded), findsNothing);
+      expect(find.text('Save'), findsOneWidget);
+    });
+  });
+
+  testWidgets("In the group: a member's system prompt, note, strength and "
+      'feeling are saved to the group store once, and Edit group holds the '
+      'same values', (tester) async {
+    await tester.runAsync(() async {
+      final saved = <GroupMemberValues>[];
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          mode: GroupMemberMode(
+            groupName: 'Pair',
+            memberId: _memberId,
+            others: const [GroupMemberRef('mem-bo', 'Bo')],
+            scene: const GroupSceneTime(),
+            values: const GroupMemberValues(),
+            saveValues: (v) async => saved.add(v),
+          ),
+        ),
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('group-member-system-prompt')),
+      );
+      await tester.enterText(
+        find.byKey(const Key('group-member-system-prompt')),
+        'Mara notices everything.',
+      );
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const Key('group-member-note')),
+        'Keep it short.',
+      );
+      await tester.pump();
+      tester
+          .widget<Slider>(find.byKey(const Key('group-member-strength')))
+          .onChanged!(7);
+      await tester.pump();
+      tester
+          .widget<Slider>(find.byKey(const Key('group-member-feeling-mem-bo')))
+          .onChanged!(120);
+      await tester.pump();
+      await doubleTapNoFrame(tester, find.text('Save'));
+      await pumpUntil(
+        tester,
+        () => find.byType(EditCharacterPage).evaluate().isEmpty,
+        why: 'Save never closed the editor',
+      );
+      expect(saved, hasLength(1), reason: 'the group store was written once');
+      expect(saved.single.systemPrompt, 'Mara notices everything.');
+      expect((saved.single.note, saved.single.strength), ('Keep it short.', 7));
+      expect(saved.single.feelings, {'mem-bo': 120});
+
+      // Edit group holds the very same store.
+      final group = GroupChat(id: _groupId, name: 'Pair');
+      applyGroupMemberValues(group, _memberId, saved.single);
+      expect(groupMemberValuesOf(group, _memberId), saved.single);
+      final draft = EditGroupDraft(group);
+      addTearDown(draft.dispose);
+      expect(draft.promptOf(_memberId).text, 'Mara notices everything.');
+      expect(draft.noteOf(_memberId).text, 'Keep it short.');
+      expect(draft.strengthOf(_memberId), 7);
+      expect(draft.feelings[_memberId]?['mem-bo'], 120);
     });
   });
 

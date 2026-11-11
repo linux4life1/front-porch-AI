@@ -46,7 +46,7 @@ import {
  *  ChatInsight's copy). */
 const GROUP_LOREBOOK_UNREADABLE_NOTE =
   "This group's lorebook couldn't be read, so its entries aren't being used. " +
-  'Open Group Settings, Lorebook & Worlds, on the computer to bring it back.';
+  'Open Edit group, Lorebook tab, to bring it back.';
 
 /** Scene-time period dots — the same table ChatTools renders (mirror the
  *  desktop realism_section _timeDotLabel: D / M / LM / A / E / N). */
@@ -344,7 +344,7 @@ export function ChatSidebar({
       { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
       { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
-        ? [{ label: 'Group Settings…', onClick: () => setShowGroupSettings(true) }]
+        ? [{ label: 'Edit group…', onClick: () => setShowGroupSettings(true) }]
         : []),
     ];
     setSettingsMenu({

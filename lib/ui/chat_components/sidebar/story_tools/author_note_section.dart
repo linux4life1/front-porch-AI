@@ -66,7 +66,7 @@ class _AuthorNoteSectionState extends State<AuthorNoteSection> {
         Tooltip(
           message: isGroup
               ? 'Author\'s Note — injected for every character in the group.\n'
-                    'For per-character author\'s notes, go to Group Settings → Prompt Engineering.'
+                    'For per-character author\'s notes, go to Edit group → Advanced Prompts.'
               : 'Author\'s Note — injected into the character\'s context.',
           child: SidebarSubHeader(
             icon: Icons.sticky_note_2_outlined,

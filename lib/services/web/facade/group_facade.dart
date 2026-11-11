@@ -27,6 +27,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
+import 'package:front_porch_ai/services/web/facade/group_editor_relay.dart';
 import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
 import 'package:front_porch_ai/services/web/facade/group_new_chats.dart';
@@ -56,6 +57,14 @@ class GroupFacade {
   /// The web wizard's Generate buttons; null when no model provider is wired.
   GroupDraftOpening? opening;
 
+  /// The Edit group page's read and cast changes.
+  late final GroupEditorRelay editor = GroupEditorRelay(
+    _groups,
+    _storage,
+    db,
+    repo,
+  );
+
   /// A member's own editor; null until the server assembly wires it.
   GroupMemberEdit? memberEdit;
 
@@ -68,6 +77,9 @@ class GroupFacade {
   );
 
   final GroupChatRepository _groups;
+
+  /// The group store, for the member editor's group values.
+  GroupChatRepository get groups => _groups;
   final StorageService _storage;
 
   /// Folder membership source so the library list can report each group's
@@ -322,6 +334,11 @@ class GroupFacade {
         loreWorldIds: where.loreWorldIds,
       ),
     );
+    await moveGroupSeedsOntoMembers(
+      database,
+      groupId,
+      realism?.defaultMemberJson ?? '{}',
+    );
     return {'id': groupId, 'name': name};
   }
 
@@ -391,6 +408,7 @@ class GroupFacade {
       g.worldIds = saved.worldIds;
       g.loreWorldIds = saved.loreWorldIds;
     }
+    editor.apply(g, f);
     await _groups.save(g);
     return true;
   }
