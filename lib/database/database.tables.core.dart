@@ -391,6 +391,24 @@ class Groups extends Table {
   /// Nullable + additive. Generated lazily in code.
   TextColumn get stableId => text().nullable()();
 
+  // v66: the group editor's fields that a 1:1 card has and a group lacked
+  // (docs/design/group-editor.md). Additive; every default is "none".
+  TextColumn get personality => text().withDefault(const Constant(''))();
+  TextColumn get postHistoryInstructions =>
+      text().withDefault(const Constant(''))();
+  TextColumn get mesExample => text().withDefault(const Constant(''))();
+  TextColumn get tags => text().withDefault(const Constant('[]'))(); // JSON
+  TextColumn get storyStartDate => text().nullable()();
+  TextColumn get storyStartTime => text().nullable()();
+  BoolColumn get realismVerificationEnabled =>
+      boolean().withDefault(const Constant(false))();
+  IntColumn get realismVerificationStrictness =>
+      integer().withDefault(const Constant(3))();
+  IntColumn get realismVerificationMaxReprocesses =>
+      integer().withDefault(const Constant(1))();
+  BoolColumn get needsDirectorAuthority =>
+      boolean().withDefault(const Constant(false))();
+
   /// Home-screen folder membership (schema v42), the group analogue of
   /// Characters.folderId. Null = top level. Nullable + additive.
   TextColumn get folderId => text().nullable()();

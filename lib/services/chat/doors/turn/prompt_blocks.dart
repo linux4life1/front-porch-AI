@@ -261,22 +261,48 @@ class PromptBlocks {
     final groupCharPrompt = _members
         .getSystemPromptForGroupCharacter(speaker)
         .trim();
+    // The group's own Personality, Example Dialogue and Post-History ride
+    // where the speaker's card ones do (schema v66, group-editor.md): the
+    // group's first, then the speaker's.
+    final group = _activeGroup;
+    final groupPersonality = resolve(
+      (group?.personality ?? '').trim(),
+      'personality',
+    );
+    final groupExamples = resolve(group?.mesExample ?? '', 'mesExample');
+    final groupPostHistory = resolve(
+      group?.postHistoryInstructions ?? '',
+      'postHistory',
+    );
+    String joined(String a, String b) =>
+        [a, b].where((t) => t.trim().isNotEmpty).join('\n');
     return buildGroupTurnCard(
       turnNote: turnNote,
-      personaLine: buildSpeakerPersonaLine(
-        name: speaker.name,
-        personality: _growthDesk.resolvedCardPersonality(speaker, userName),
+      personaLine: joined(
+        buildSpeakerPersonaLine(
+          name: speaker.name,
+          personality: _growthDesk.resolvedCardPersonality(speaker, userName),
+        ),
+        groupPersonality.isEmpty
+            ? ''
+            : "The group's personality: $groupPersonality",
       ),
       examplesBlock: buildSpeakerExamplesBlock(
         name: speaker.name,
-        examples: resolve(speaker.mesExample, 'mesExample'),
+        examples: joined(
+          groupExamples,
+          resolve(speaker.mesExample, 'mesExample'),
+        ),
       ),
       instructionsBlock: buildSpeakerInstructionsBlock(
         name: speaker.name,
         instructions: groupCharPrompt.isNotEmpty
             ? groupCharPrompt
             : speaker.systemPrompt,
-        postHistory: resolve(speaker.postHistoryInstructions, 'postHistory'),
+        postHistory: joined(
+          groupPostHistory,
+          resolve(speaker.postHistoryInstructions, 'postHistory'),
+        ),
       ),
     );
   }

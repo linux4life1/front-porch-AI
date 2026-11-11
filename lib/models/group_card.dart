@@ -76,6 +76,18 @@ class GroupCard {
   final bool chaosModeEnabled;
   final bool chaosNsfwEnabled;
 
+  /// The group's own copies of the 1:1 card fields (see GroupChat).
+  final String personality;
+  final String postHistoryInstructions;
+  final String mesExample;
+  final List<String> tags;
+  final String? storyStartDate;
+  final String? storyStartTime;
+  final bool realismVerificationEnabled;
+  final int realismVerificationStrictness;
+  final int realismVerificationMaxReprocesses;
+  final bool needsDirectorAuthority;
+
   /// The immutable creation-time baseline realism seed.
   /// This is what should be restored on import (not any evolved state).
   final String baselineRealismState;
@@ -116,6 +128,16 @@ class GroupCard {
     this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
+    this.personality = '',
+    this.postHistoryInstructions = '',
+    this.mesExample = '',
+    this.tags = const [],
+    this.storyStartDate,
+    this.storyStartTime,
+    this.realismVerificationEnabled = false,
+    this.realismVerificationStrictness = 3,
+    this.realismVerificationMaxReprocesses = 1,
+    this.needsDirectorAuthority = false,
     this.baselineRealismState = '{}',
     this.defaultMemberRealismState = '{}',
     this.memberObjectives = const {},
@@ -156,6 +178,24 @@ class GroupCard {
 
     result['chaos_mode_enabled'] = chaosModeEnabled;
     result['chaos_nsfw_enabled'] = chaosNsfwEnabled;
+
+    // Additive group-editor fields: omitted when empty so an older app
+    // reading a card that never set them sees the card it always saw.
+    if (personality.isNotEmpty) result['personality'] = personality;
+    if (postHistoryInstructions.isNotEmpty) {
+      result['post_history_instructions'] = postHistoryInstructions;
+    }
+    if (mesExample.isNotEmpty) result['mes_example'] = mesExample;
+    if (tags.isNotEmpty) result['tags'] = tags;
+    if (storyStartDate != null) result['story_start_date'] = storyStartDate;
+    if (storyStartTime != null) result['story_start_time'] = storyStartTime;
+    if (realismVerificationEnabled) {
+      result['realism_verification_enabled'] = true;
+      result['realism_verification_strictness'] = realismVerificationStrictness;
+      result['realism_verification_max_reprocesses'] =
+          realismVerificationMaxReprocesses;
+    }
+    if (needsDirectorAuthority) result['needs_director_authority'] = true;
 
     if (baselineRealismState.isNotEmpty && baselineRealismState != '{}') {
       result['baseline_realism_state'] = baselineRealismState;
@@ -268,6 +308,21 @@ class GroupCard {
       ),
       chaosModeEnabled: flag(json['chaos_mode_enabled'], false),
       chaosNsfwEnabled: flag(json['chaos_nsfw_enabled'], false),
+      personality: str(json['personality'], ''),
+      postHistoryInstructions: str(json['post_history_instructions'], ''),
+      mesExample: str(json['mes_example'], ''),
+      tags: list(json['tags']).map((e) => e.toString()).toList(),
+      storyStartDate: json['story_start_date']?.toString(),
+      storyStartTime: json['story_start_time']?.toString(),
+      realismVerificationEnabled: flag(
+        json['realism_verification_enabled'],
+        false,
+      ),
+      realismVerificationStrictness:
+          (json['realism_verification_strictness'] as num?)?.toInt() ?? 3,
+      realismVerificationMaxReprocesses:
+          (json['realism_verification_max_reprocesses'] as num?)?.toInt() ?? 1,
+      needsDirectorAuthority: flag(json['needs_director_authority'], false),
       baselineRealismState: json['baseline_realism_state']?.toString() ?? '{}',
       defaultMemberRealismState:
           json['default_member_realism_state']?.toString() ?? '{}',

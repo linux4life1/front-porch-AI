@@ -129,6 +129,26 @@ class GroupChat {
   /// Whether NSFW events are included in the Chance Time pool for this group.
   bool chaosNsfwEnabled;
 
+  /// The group's own copies of the 1:1 card fields it lacked (schema v66),
+  /// read where the 1:1 fields are: Personality joins each speaker's
+  /// persona, [mesExample] their examples, [postHistoryInstructions] their
+  /// post-history. Empty means "none".
+  String personality;
+  String postHistoryInstructions;
+  String mesExample;
+  List<String> tags;
+
+  /// The Story Calendar start for new chats (ISO date, HH:MM), as a 1:1
+  /// card's own. Null means the group starts on the time-of-day default.
+  String? storyStartDate;
+  String? storyStartTime;
+
+  /// Realism Verification, as a 1:1 card sets it, for the whole cast.
+  bool realismVerificationEnabled;
+  int realismVerificationStrictness;
+  int realismVerificationMaxReprocesses;
+  bool needsDirectorAuthority;
+
   GroupChat({
     required this.id,
     required this.name,
@@ -150,6 +170,16 @@ class GroupChat {
     this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
+    this.personality = '',
+    this.postHistoryInstructions = '',
+    this.mesExample = '',
+    this.tags = const [],
+    this.storyStartDate,
+    this.storyStartTime,
+    this.realismVerificationEnabled = false,
+    this.realismVerificationStrictness = 3,
+    this.realismVerificationMaxReprocesses = 1,
+    this.needsDirectorAuthority = false,
   }) : characterSystemPrompts = characterSystemPrompts ?? {};
 
   /// Custom group opener + alts. Empty when the group uses a member greet.
@@ -189,6 +219,16 @@ class GroupChat {
       'inherit_character_lorebooks': inheritCharacterLorebooks,
       'chaos_mode_enabled': chaosModeEnabled,
       'chaos_nsfw_enabled': chaosNsfwEnabled,
+      'personality': personality,
+      'post_history_instructions': postHistoryInstructions,
+      'mes_example': mesExample,
+      'tags': tags,
+      'story_start_date': storyStartDate,
+      'story_start_time': storyStartTime,
+      'realism_verification_enabled': realismVerificationEnabled,
+      'realism_verification_strictness': realismVerificationStrictness,
+      'realism_verification_max_reprocesses': realismVerificationMaxReprocesses,
+      'needs_director_authority': needsDirectorAuthority,
     };
   }
 
@@ -245,6 +285,20 @@ class GroupChat {
       inheritCharacterLorebooks: json['inherit_character_lorebooks'] ?? false,
       chaosModeEnabled: json['chaos_mode_enabled'] ?? false,
       chaosNsfwEnabled: json['chaos_nsfw_enabled'] ?? false,
+      personality: json['personality'] ?? '',
+      postHistoryInstructions: json['post_history_instructions'] ?? '',
+      mesExample: json['mes_example'] ?? '',
+      tags: json['tags'] is List
+          ? [for (final t in json['tags'] as List) t.toString()]
+          : const [],
+      storyStartDate: json['story_start_date'] as String?,
+      storyStartTime: json['story_start_time'] as String?,
+      realismVerificationEnabled: json['realism_verification_enabled'] ?? false,
+      realismVerificationStrictness:
+          (json['realism_verification_strictness'] as num?)?.toInt() ?? 3,
+      realismVerificationMaxReprocesses:
+          (json['realism_verification_max_reprocesses'] as num?)?.toInt() ?? 1,
+      needsDirectorAuthority: json['needs_director_authority'] ?? false,
     );
   }
 }

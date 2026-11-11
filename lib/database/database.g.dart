@@ -6504,6 +6504,128 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _personalityMeta = const VerificationMeta(
+    'personality',
+  );
+  @override
+  late final GeneratedColumn<String> personality = GeneratedColumn<String>(
+    'personality',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _postHistoryInstructionsMeta =
+      const VerificationMeta('postHistoryInstructions');
+  @override
+  late final GeneratedColumn<String> postHistoryInstructions =
+      GeneratedColumn<String>(
+        'post_history_instructions',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(''),
+      );
+  static const VerificationMeta _mesExampleMeta = const VerificationMeta(
+    'mesExample',
+  );
+  @override
+  late final GeneratedColumn<String> mesExample = GeneratedColumn<String>(
+    'mes_example',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _storyStartDateMeta = const VerificationMeta(
+    'storyStartDate',
+  );
+  @override
+  late final GeneratedColumn<String> storyStartDate = GeneratedColumn<String>(
+    'story_start_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _storyStartTimeMeta = const VerificationMeta(
+    'storyStartTime',
+  );
+  @override
+  late final GeneratedColumn<String> storyStartTime = GeneratedColumn<String>(
+    'story_start_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _realismVerificationEnabledMeta =
+      const VerificationMeta('realismVerificationEnabled');
+  @override
+  late final GeneratedColumn<bool> realismVerificationEnabled =
+      GeneratedColumn<bool>(
+        'realism_verification_enabled',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("realism_verification_enabled" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
+  static const VerificationMeta _realismVerificationStrictnessMeta =
+      const VerificationMeta('realismVerificationStrictness');
+  @override
+  late final GeneratedColumn<int> realismVerificationStrictness =
+      GeneratedColumn<int>(
+        'realism_verification_strictness',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(3),
+      );
+  static const VerificationMeta _realismVerificationMaxReprocessesMeta =
+      const VerificationMeta('realismVerificationMaxReprocesses');
+  @override
+  late final GeneratedColumn<int> realismVerificationMaxReprocesses =
+      GeneratedColumn<int>(
+        'realism_verification_max_reprocesses',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(1),
+      );
+  static const VerificationMeta _needsDirectorAuthorityMeta =
+      const VerificationMeta('needsDirectorAuthority');
+  @override
+  late final GeneratedColumn<bool> needsDirectorAuthority =
+      GeneratedColumn<bool>(
+        'needs_director_authority',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("needs_director_authority" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _folderIdMeta = const VerificationMeta(
     'folderId',
   );
@@ -6559,6 +6681,16 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
     baselineRealismState,
     characterSystemPrompts,
     stableId,
+    personality,
+    postHistoryInstructions,
+    mesExample,
+    tags,
+    storyStartDate,
+    storyStartTime,
+    realismVerificationEnabled,
+    realismVerificationStrictness,
+    realismVerificationMaxReprocesses,
+    needsDirectorAuthority,
     folderId,
     updatedAt,
     deletedAt,
@@ -6729,6 +6861,90 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         stableId.isAcceptableOrUnknown(data['stable_id']!, _stableIdMeta),
       );
     }
+    if (data.containsKey('personality')) {
+      context.handle(
+        _personalityMeta,
+        personality.isAcceptableOrUnknown(
+          data['personality']!,
+          _personalityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('post_history_instructions')) {
+      context.handle(
+        _postHistoryInstructionsMeta,
+        postHistoryInstructions.isAcceptableOrUnknown(
+          data['post_history_instructions']!,
+          _postHistoryInstructionsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('mes_example')) {
+      context.handle(
+        _mesExampleMeta,
+        mesExample.isAcceptableOrUnknown(data['mes_example']!, _mesExampleMeta),
+      );
+    }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
+    if (data.containsKey('story_start_date')) {
+      context.handle(
+        _storyStartDateMeta,
+        storyStartDate.isAcceptableOrUnknown(
+          data['story_start_date']!,
+          _storyStartDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('story_start_time')) {
+      context.handle(
+        _storyStartTimeMeta,
+        storyStartTime.isAcceptableOrUnknown(
+          data['story_start_time']!,
+          _storyStartTimeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('realism_verification_enabled')) {
+      context.handle(
+        _realismVerificationEnabledMeta,
+        realismVerificationEnabled.isAcceptableOrUnknown(
+          data['realism_verification_enabled']!,
+          _realismVerificationEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('realism_verification_strictness')) {
+      context.handle(
+        _realismVerificationStrictnessMeta,
+        realismVerificationStrictness.isAcceptableOrUnknown(
+          data['realism_verification_strictness']!,
+          _realismVerificationStrictnessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('realism_verification_max_reprocesses')) {
+      context.handle(
+        _realismVerificationMaxReprocessesMeta,
+        realismVerificationMaxReprocesses.isAcceptableOrUnknown(
+          data['realism_verification_max_reprocesses']!,
+          _realismVerificationMaxReprocessesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('needs_director_authority')) {
+      context.handle(
+        _needsDirectorAuthorityMeta,
+        needsDirectorAuthority.isAcceptableOrUnknown(
+          data['needs_director_authority']!,
+          _needsDirectorAuthorityMeta,
+        ),
+      );
+    }
     if (data.containsKey('folder_id')) {
       context.handle(
         _folderIdMeta,
@@ -6832,6 +7048,46 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         DriftSqlType.string,
         data['${effectivePrefix}stable_id'],
       ),
+      personality: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}personality'],
+      )!,
+      postHistoryInstructions: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}post_history_instructions'],
+      )!,
+      mesExample: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mes_example'],
+      )!,
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      )!,
+      storyStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}story_start_date'],
+      ),
+      storyStartTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}story_start_time'],
+      ),
+      realismVerificationEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}realism_verification_enabled'],
+      )!,
+      realismVerificationStrictness: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}realism_verification_strictness'],
+      )!,
+      realismVerificationMaxReprocesses: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}realism_verification_max_reprocesses'],
+      )!,
+      needsDirectorAuthority: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}needs_director_authority'],
+      )!,
       folderId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}folder_id'],
@@ -6906,6 +7162,16 @@ class Group extends DataClass implements Insertable<Group> {
   /// after switching devices — the group analogue of a character's stable id.
   /// Nullable + additive. Generated lazily in code.
   final String? stableId;
+  final String personality;
+  final String postHistoryInstructions;
+  final String mesExample;
+  final String tags;
+  final String? storyStartDate;
+  final String? storyStartTime;
+  final bool realismVerificationEnabled;
+  final int realismVerificationStrictness;
+  final int realismVerificationMaxReprocesses;
+  final bool needsDirectorAuthority;
 
   /// Home-screen folder membership (schema v42), the group analogue of
   /// Characters.folderId. Null = top level. Nullable + additive.
@@ -6932,6 +7198,16 @@ class Group extends DataClass implements Insertable<Group> {
     required this.baselineRealismState,
     required this.characterSystemPrompts,
     this.stableId,
+    required this.personality,
+    required this.postHistoryInstructions,
+    required this.mesExample,
+    required this.tags,
+    this.storyStartDate,
+    this.storyStartTime,
+    required this.realismVerificationEnabled,
+    required this.realismVerificationStrictness,
+    required this.realismVerificationMaxReprocesses,
+    required this.needsDirectorAuthority,
     this.folderId,
     required this.updatedAt,
     this.deletedAt,
@@ -6966,6 +7242,28 @@ class Group extends DataClass implements Insertable<Group> {
     if (!nullToAbsent || stableId != null) {
       map['stable_id'] = Variable<String>(stableId);
     }
+    map['personality'] = Variable<String>(personality);
+    map['post_history_instructions'] = Variable<String>(
+      postHistoryInstructions,
+    );
+    map['mes_example'] = Variable<String>(mesExample);
+    map['tags'] = Variable<String>(tags);
+    if (!nullToAbsent || storyStartDate != null) {
+      map['story_start_date'] = Variable<String>(storyStartDate);
+    }
+    if (!nullToAbsent || storyStartTime != null) {
+      map['story_start_time'] = Variable<String>(storyStartTime);
+    }
+    map['realism_verification_enabled'] = Variable<bool>(
+      realismVerificationEnabled,
+    );
+    map['realism_verification_strictness'] = Variable<int>(
+      realismVerificationStrictness,
+    );
+    map['realism_verification_max_reprocesses'] = Variable<int>(
+      realismVerificationMaxReprocesses,
+    );
+    map['needs_director_authority'] = Variable<bool>(needsDirectorAuthority);
     if (!nullToAbsent || folderId != null) {
       map['folder_id'] = Variable<String>(folderId);
     }
@@ -7001,6 +7299,22 @@ class Group extends DataClass implements Insertable<Group> {
       stableId: stableId == null && nullToAbsent
           ? const Value.absent()
           : Value(stableId),
+      personality: Value(personality),
+      postHistoryInstructions: Value(postHistoryInstructions),
+      mesExample: Value(mesExample),
+      tags: Value(tags),
+      storyStartDate: storyStartDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storyStartDate),
+      storyStartTime: storyStartTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(storyStartTime),
+      realismVerificationEnabled: Value(realismVerificationEnabled),
+      realismVerificationStrictness: Value(realismVerificationStrictness),
+      realismVerificationMaxReprocesses: Value(
+        realismVerificationMaxReprocesses,
+      ),
+      needsDirectorAuthority: Value(needsDirectorAuthority),
       folderId: folderId == null && nullToAbsent
           ? const Value.absent()
           : Value(folderId),
@@ -7044,6 +7358,26 @@ class Group extends DataClass implements Insertable<Group> {
         json['characterSystemPrompts'],
       ),
       stableId: serializer.fromJson<String?>(json['stableId']),
+      personality: serializer.fromJson<String>(json['personality']),
+      postHistoryInstructions: serializer.fromJson<String>(
+        json['postHistoryInstructions'],
+      ),
+      mesExample: serializer.fromJson<String>(json['mesExample']),
+      tags: serializer.fromJson<String>(json['tags']),
+      storyStartDate: serializer.fromJson<String?>(json['storyStartDate']),
+      storyStartTime: serializer.fromJson<String?>(json['storyStartTime']),
+      realismVerificationEnabled: serializer.fromJson<bool>(
+        json['realismVerificationEnabled'],
+      ),
+      realismVerificationStrictness: serializer.fromJson<int>(
+        json['realismVerificationStrictness'],
+      ),
+      realismVerificationMaxReprocesses: serializer.fromJson<int>(
+        json['realismVerificationMaxReprocesses'],
+      ),
+      needsDirectorAuthority: serializer.fromJson<bool>(
+        json['needsDirectorAuthority'],
+      ),
       folderId: serializer.fromJson<String?>(json['folderId']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -7078,6 +7412,24 @@ class Group extends DataClass implements Insertable<Group> {
         characterSystemPrompts,
       ),
       'stableId': serializer.toJson<String?>(stableId),
+      'personality': serializer.toJson<String>(personality),
+      'postHistoryInstructions': serializer.toJson<String>(
+        postHistoryInstructions,
+      ),
+      'mesExample': serializer.toJson<String>(mesExample),
+      'tags': serializer.toJson<String>(tags),
+      'storyStartDate': serializer.toJson<String?>(storyStartDate),
+      'storyStartTime': serializer.toJson<String?>(storyStartTime),
+      'realismVerificationEnabled': serializer.toJson<bool>(
+        realismVerificationEnabled,
+      ),
+      'realismVerificationStrictness': serializer.toJson<int>(
+        realismVerificationStrictness,
+      ),
+      'realismVerificationMaxReprocesses': serializer.toJson<int>(
+        realismVerificationMaxReprocesses,
+      ),
+      'needsDirectorAuthority': serializer.toJson<bool>(needsDirectorAuthority),
       'folderId': serializer.toJson<String?>(folderId),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -7104,6 +7456,16 @@ class Group extends DataClass implements Insertable<Group> {
     String? baselineRealismState,
     String? characterSystemPrompts,
     Value<String?> stableId = const Value.absent(),
+    String? personality,
+    String? postHistoryInstructions,
+    String? mesExample,
+    String? tags,
+    Value<String?> storyStartDate = const Value.absent(),
+    Value<String?> storyStartTime = const Value.absent(),
+    bool? realismVerificationEnabled,
+    int? realismVerificationStrictness,
+    int? realismVerificationMaxReprocesses,
+    bool? needsDirectorAuthority,
     Value<String?> folderId = const Value.absent(),
     DateTime? updatedAt,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -7130,6 +7492,26 @@ class Group extends DataClass implements Insertable<Group> {
     characterSystemPrompts:
         characterSystemPrompts ?? this.characterSystemPrompts,
     stableId: stableId.present ? stableId.value : this.stableId,
+    personality: personality ?? this.personality,
+    postHistoryInstructions:
+        postHistoryInstructions ?? this.postHistoryInstructions,
+    mesExample: mesExample ?? this.mesExample,
+    tags: tags ?? this.tags,
+    storyStartDate: storyStartDate.present
+        ? storyStartDate.value
+        : this.storyStartDate,
+    storyStartTime: storyStartTime.present
+        ? storyStartTime.value
+        : this.storyStartTime,
+    realismVerificationEnabled:
+        realismVerificationEnabled ?? this.realismVerificationEnabled,
+    realismVerificationStrictness:
+        realismVerificationStrictness ?? this.realismVerificationStrictness,
+    realismVerificationMaxReprocesses:
+        realismVerificationMaxReprocesses ??
+        this.realismVerificationMaxReprocesses,
+    needsDirectorAuthority:
+        needsDirectorAuthority ?? this.needsDirectorAuthority,
     folderId: folderId.present ? folderId.value : this.folderId,
     updatedAt: updatedAt ?? this.updatedAt,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -7181,6 +7563,35 @@ class Group extends DataClass implements Insertable<Group> {
           ? data.characterSystemPrompts.value
           : this.characterSystemPrompts,
       stableId: data.stableId.present ? data.stableId.value : this.stableId,
+      personality: data.personality.present
+          ? data.personality.value
+          : this.personality,
+      postHistoryInstructions: data.postHistoryInstructions.present
+          ? data.postHistoryInstructions.value
+          : this.postHistoryInstructions,
+      mesExample: data.mesExample.present
+          ? data.mesExample.value
+          : this.mesExample,
+      tags: data.tags.present ? data.tags.value : this.tags,
+      storyStartDate: data.storyStartDate.present
+          ? data.storyStartDate.value
+          : this.storyStartDate,
+      storyStartTime: data.storyStartTime.present
+          ? data.storyStartTime.value
+          : this.storyStartTime,
+      realismVerificationEnabled: data.realismVerificationEnabled.present
+          ? data.realismVerificationEnabled.value
+          : this.realismVerificationEnabled,
+      realismVerificationStrictness: data.realismVerificationStrictness.present
+          ? data.realismVerificationStrictness.value
+          : this.realismVerificationStrictness,
+      realismVerificationMaxReprocesses:
+          data.realismVerificationMaxReprocesses.present
+          ? data.realismVerificationMaxReprocesses.value
+          : this.realismVerificationMaxReprocesses,
+      needsDirectorAuthority: data.needsDirectorAuthority.present
+          ? data.needsDirectorAuthority.value
+          : this.needsDirectorAuthority,
       folderId: data.folderId.present ? data.folderId.value : this.folderId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
@@ -7209,6 +7620,20 @@ class Group extends DataClass implements Insertable<Group> {
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
           ..write('stableId: $stableId, ')
+          ..write('personality: $personality, ')
+          ..write('postHistoryInstructions: $postHistoryInstructions, ')
+          ..write('mesExample: $mesExample, ')
+          ..write('tags: $tags, ')
+          ..write('storyStartDate: $storyStartDate, ')
+          ..write('storyStartTime: $storyStartTime, ')
+          ..write('realismVerificationEnabled: $realismVerificationEnabled, ')
+          ..write(
+            'realismVerificationStrictness: $realismVerificationStrictness, ',
+          )
+          ..write(
+            'realismVerificationMaxReprocesses: $realismVerificationMaxReprocesses, ',
+          )
+          ..write('needsDirectorAuthority: $needsDirectorAuthority, ')
           ..write('folderId: $folderId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt')
@@ -7237,6 +7662,16 @@ class Group extends DataClass implements Insertable<Group> {
     baselineRealismState,
     characterSystemPrompts,
     stableId,
+    personality,
+    postHistoryInstructions,
+    mesExample,
+    tags,
+    storyStartDate,
+    storyStartTime,
+    realismVerificationEnabled,
+    realismVerificationStrictness,
+    realismVerificationMaxReprocesses,
+    needsDirectorAuthority,
     folderId,
     updatedAt,
     deletedAt,
@@ -7264,6 +7699,18 @@ class Group extends DataClass implements Insertable<Group> {
           other.baselineRealismState == this.baselineRealismState &&
           other.characterSystemPrompts == this.characterSystemPrompts &&
           other.stableId == this.stableId &&
+          other.personality == this.personality &&
+          other.postHistoryInstructions == this.postHistoryInstructions &&
+          other.mesExample == this.mesExample &&
+          other.tags == this.tags &&
+          other.storyStartDate == this.storyStartDate &&
+          other.storyStartTime == this.storyStartTime &&
+          other.realismVerificationEnabled == this.realismVerificationEnabled &&
+          other.realismVerificationStrictness ==
+              this.realismVerificationStrictness &&
+          other.realismVerificationMaxReprocesses ==
+              this.realismVerificationMaxReprocesses &&
+          other.needsDirectorAuthority == this.needsDirectorAuthority &&
           other.folderId == this.folderId &&
           other.updatedAt == this.updatedAt &&
           other.deletedAt == this.deletedAt);
@@ -7289,6 +7736,16 @@ class GroupsCompanion extends UpdateCompanion<Group> {
   final Value<String> baselineRealismState;
   final Value<String> characterSystemPrompts;
   final Value<String?> stableId;
+  final Value<String> personality;
+  final Value<String> postHistoryInstructions;
+  final Value<String> mesExample;
+  final Value<String> tags;
+  final Value<String?> storyStartDate;
+  final Value<String?> storyStartTime;
+  final Value<bool> realismVerificationEnabled;
+  final Value<int> realismVerificationStrictness;
+  final Value<int> realismVerificationMaxReprocesses;
+  final Value<bool> needsDirectorAuthority;
   final Value<String?> folderId;
   final Value<DateTime> updatedAt;
   final Value<DateTime?> deletedAt;
@@ -7313,6 +7770,16 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
     this.stableId = const Value.absent(),
+    this.personality = const Value.absent(),
+    this.postHistoryInstructions = const Value.absent(),
+    this.mesExample = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.storyStartDate = const Value.absent(),
+    this.storyStartTime = const Value.absent(),
+    this.realismVerificationEnabled = const Value.absent(),
+    this.realismVerificationStrictness = const Value.absent(),
+    this.realismVerificationMaxReprocesses = const Value.absent(),
+    this.needsDirectorAuthority = const Value.absent(),
     this.folderId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -7338,6 +7805,16 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     this.baselineRealismState = const Value.absent(),
     this.characterSystemPrompts = const Value.absent(),
     this.stableId = const Value.absent(),
+    this.personality = const Value.absent(),
+    this.postHistoryInstructions = const Value.absent(),
+    this.mesExample = const Value.absent(),
+    this.tags = const Value.absent(),
+    this.storyStartDate = const Value.absent(),
+    this.storyStartTime = const Value.absent(),
+    this.realismVerificationEnabled = const Value.absent(),
+    this.realismVerificationStrictness = const Value.absent(),
+    this.realismVerificationMaxReprocesses = const Value.absent(),
+    this.needsDirectorAuthority = const Value.absent(),
     this.folderId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -7364,6 +7841,16 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Expression<String>? baselineRealismState,
     Expression<String>? characterSystemPrompts,
     Expression<String>? stableId,
+    Expression<String>? personality,
+    Expression<String>? postHistoryInstructions,
+    Expression<String>? mesExample,
+    Expression<String>? tags,
+    Expression<String>? storyStartDate,
+    Expression<String>? storyStartTime,
+    Expression<bool>? realismVerificationEnabled,
+    Expression<int>? realismVerificationStrictness,
+    Expression<int>? realismVerificationMaxReprocesses,
+    Expression<bool>? needsDirectorAuthority,
     Expression<String>? folderId,
     Expression<DateTime>? updatedAt,
     Expression<DateTime>? deletedAt,
@@ -7393,6 +7880,22 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       if (characterSystemPrompts != null)
         'character_system_prompts': characterSystemPrompts,
       if (stableId != null) 'stable_id': stableId,
+      if (personality != null) 'personality': personality,
+      if (postHistoryInstructions != null)
+        'post_history_instructions': postHistoryInstructions,
+      if (mesExample != null) 'mes_example': mesExample,
+      if (tags != null) 'tags': tags,
+      if (storyStartDate != null) 'story_start_date': storyStartDate,
+      if (storyStartTime != null) 'story_start_time': storyStartTime,
+      if (realismVerificationEnabled != null)
+        'realism_verification_enabled': realismVerificationEnabled,
+      if (realismVerificationStrictness != null)
+        'realism_verification_strictness': realismVerificationStrictness,
+      if (realismVerificationMaxReprocesses != null)
+        'realism_verification_max_reprocesses':
+            realismVerificationMaxReprocesses,
+      if (needsDirectorAuthority != null)
+        'needs_director_authority': needsDirectorAuthority,
       if (folderId != null) 'folder_id': folderId,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -7420,6 +7923,16 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     Value<String>? baselineRealismState,
     Value<String>? characterSystemPrompts,
     Value<String?>? stableId,
+    Value<String>? personality,
+    Value<String>? postHistoryInstructions,
+    Value<String>? mesExample,
+    Value<String>? tags,
+    Value<String?>? storyStartDate,
+    Value<String?>? storyStartTime,
+    Value<bool>? realismVerificationEnabled,
+    Value<int>? realismVerificationStrictness,
+    Value<int>? realismVerificationMaxReprocesses,
+    Value<bool>? needsDirectorAuthority,
     Value<String?>? folderId,
     Value<DateTime>? updatedAt,
     Value<DateTime?>? deletedAt,
@@ -7448,6 +7961,22 @@ class GroupsCompanion extends UpdateCompanion<Group> {
       characterSystemPrompts:
           characterSystemPrompts ?? this.characterSystemPrompts,
       stableId: stableId ?? this.stableId,
+      personality: personality ?? this.personality,
+      postHistoryInstructions:
+          postHistoryInstructions ?? this.postHistoryInstructions,
+      mesExample: mesExample ?? this.mesExample,
+      tags: tags ?? this.tags,
+      storyStartDate: storyStartDate ?? this.storyStartDate,
+      storyStartTime: storyStartTime ?? this.storyStartTime,
+      realismVerificationEnabled:
+          realismVerificationEnabled ?? this.realismVerificationEnabled,
+      realismVerificationStrictness:
+          realismVerificationStrictness ?? this.realismVerificationStrictness,
+      realismVerificationMaxReprocesses:
+          realismVerificationMaxReprocesses ??
+          this.realismVerificationMaxReprocesses,
+      needsDirectorAuthority:
+          needsDirectorAuthority ?? this.needsDirectorAuthority,
       folderId: folderId ?? this.folderId,
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -7523,6 +8052,46 @@ class GroupsCompanion extends UpdateCompanion<Group> {
     if (stableId.present) {
       map['stable_id'] = Variable<String>(stableId.value);
     }
+    if (personality.present) {
+      map['personality'] = Variable<String>(personality.value);
+    }
+    if (postHistoryInstructions.present) {
+      map['post_history_instructions'] = Variable<String>(
+        postHistoryInstructions.value,
+      );
+    }
+    if (mesExample.present) {
+      map['mes_example'] = Variable<String>(mesExample.value);
+    }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
+    if (storyStartDate.present) {
+      map['story_start_date'] = Variable<String>(storyStartDate.value);
+    }
+    if (storyStartTime.present) {
+      map['story_start_time'] = Variable<String>(storyStartTime.value);
+    }
+    if (realismVerificationEnabled.present) {
+      map['realism_verification_enabled'] = Variable<bool>(
+        realismVerificationEnabled.value,
+      );
+    }
+    if (realismVerificationStrictness.present) {
+      map['realism_verification_strictness'] = Variable<int>(
+        realismVerificationStrictness.value,
+      );
+    }
+    if (realismVerificationMaxReprocesses.present) {
+      map['realism_verification_max_reprocesses'] = Variable<int>(
+        realismVerificationMaxReprocesses.value,
+      );
+    }
+    if (needsDirectorAuthority.present) {
+      map['needs_director_authority'] = Variable<bool>(
+        needsDirectorAuthority.value,
+      );
+    }
     if (folderId.present) {
       map['folder_id'] = Variable<String>(folderId.value);
     }
@@ -7560,6 +8129,20 @@ class GroupsCompanion extends UpdateCompanion<Group> {
           ..write('baselineRealismState: $baselineRealismState, ')
           ..write('characterSystemPrompts: $characterSystemPrompts, ')
           ..write('stableId: $stableId, ')
+          ..write('personality: $personality, ')
+          ..write('postHistoryInstructions: $postHistoryInstructions, ')
+          ..write('mesExample: $mesExample, ')
+          ..write('tags: $tags, ')
+          ..write('storyStartDate: $storyStartDate, ')
+          ..write('storyStartTime: $storyStartTime, ')
+          ..write('realismVerificationEnabled: $realismVerificationEnabled, ')
+          ..write(
+            'realismVerificationStrictness: $realismVerificationStrictness, ',
+          )
+          ..write(
+            'realismVerificationMaxReprocesses: $realismVerificationMaxReprocesses, ',
+          )
+          ..write('needsDirectorAuthority: $needsDirectorAuthority, ')
           ..write('folderId: $folderId, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('deletedAt: $deletedAt, ')

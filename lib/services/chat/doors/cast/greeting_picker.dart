@@ -150,10 +150,7 @@ class GreetingPicker {
       _activeGroup!.defaultMemberRealismState,
     );
     final raw = seeds[memberId];
-    final time = parseGroupTimeSeed(
-      _activeGroup!.defaultMemberRealismState,
-      _activeGroup!.baselineRealismState,
-    );
+    final time = parseGroupTimeSeedOf(_activeGroup!);
     if (raw == null && time == null) return cardBase;
 
     Map<String, int> needsOf(String key, int fallback) {
@@ -359,10 +356,7 @@ class GreetingPicker {
       index,
       firstMesEmpty: firstMesEmpty,
     );
-    final time = parseGroupTimeSeed(
-      group.defaultMemberRealismState,
-      group.baselineRealismState,
-    );
+    final time = parseGroupTimeSeedOf(group);
     final timeResolved = resolveGreetingOpening(
       GreetingOpeningBase(
         dayCount: time?.dayCount ?? 1,

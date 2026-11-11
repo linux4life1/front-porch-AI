@@ -9,6 +9,7 @@ import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
+import 'package:front_porch_ai/utils/group_time_seed.dart';
 
 /// The open chat as the story clock sees it. Every getter runs live, so
 /// Porch Life Passage of Time flips take effect on the next call.
@@ -174,10 +175,7 @@ class StoryClockReader {
     String? cardStart;
     final group = _scope.session.activeGroup;
     if (group != null) {
-      final seed = parseGroupTimeSeed(
-        group.defaultMemberRealismState,
-        group.baselineRealismState,
-      );
+      final seed = parseGroupTimeSeedOf(group);
       if (seed != null) {
         tod = seed.timeOfDay;
         startTime = seed.storyStartTime;

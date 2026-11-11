@@ -121,6 +121,17 @@ class GroupChatRepository extends ChangeNotifier {
             loreWorldIds: loreList,
             inheritCharacterLorebooks: g.inheritCharacterLorebooks,
             baselineRealismState: g.baselineRealismState,
+            personality: g.personality,
+            postHistoryInstructions: g.postHistoryInstructions,
+            mesExample: g.mesExample,
+            tags: _tagsOf(g.tags),
+            storyStartDate: g.storyStartDate,
+            storyStartTime: g.storyStartTime,
+            realismVerificationEnabled: g.realismVerificationEnabled,
+            realismVerificationStrictness: g.realismVerificationStrictness,
+            realismVerificationMaxReprocesses:
+                g.realismVerificationMaxReprocesses,
+            needsDirectorAuthority: g.needsDirectorAuthority,
           ),
         );
       }
@@ -129,6 +140,16 @@ class GroupChatRepository extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  static List<String> _tagsOf(String raw) {
+    try {
+      final d = jsonDecode(raw);
+      if (d is List) return [for (final t in d) t.toString()];
+    } catch (e) {
+      debugPrint('Group tags unreadable, read as none: $e');
+    }
+    return const [];
   }
 
   static String? _loreJson(GroupChat g) =>
@@ -176,6 +197,18 @@ class GroupChatRepository extends ChangeNotifier {
       loreWorldIds: Value(_loreJson(group)),
       inheritCharacterLorebooks: Value(group.inheritCharacterLorebooks),
       baselineRealismState: Value(group.baselineRealismState),
+      personality: Value(group.personality),
+      postHistoryInstructions: Value(group.postHistoryInstructions),
+      mesExample: Value(group.mesExample),
+      tags: Value(jsonEncode(group.tags)),
+      storyStartDate: Value(group.storyStartDate),
+      storyStartTime: Value(group.storyStartTime),
+      realismVerificationEnabled: Value(group.realismVerificationEnabled),
+      realismVerificationStrictness: Value(group.realismVerificationStrictness),
+      realismVerificationMaxReprocesses: Value(
+        group.realismVerificationMaxReprocesses,
+      ),
+      needsDirectorAuthority: Value(group.needsDirectorAuthority),
       // updateGroup now uses partial .write() (so folder_id survives saves);
       // bump updatedAt explicitly since the column default no longer applies.
       updatedAt: Value(DateTime.now()),
@@ -209,6 +242,20 @@ class GroupChatRepository extends ChangeNotifier {
           loreWorldIds: Value(_loreJson(group)),
           inheritCharacterLorebooks: Value(group.inheritCharacterLorebooks),
           baselineRealismState: Value(group.baselineRealismState),
+          personality: Value(group.personality),
+          postHistoryInstructions: Value(group.postHistoryInstructions),
+          mesExample: Value(group.mesExample),
+          tags: Value(jsonEncode(group.tags)),
+          storyStartDate: Value(group.storyStartDate),
+          storyStartTime: Value(group.storyStartTime),
+          realismVerificationEnabled: Value(group.realismVerificationEnabled),
+          realismVerificationStrictness: Value(
+            group.realismVerificationStrictness,
+          ),
+          realismVerificationMaxReprocesses: Value(
+            group.realismVerificationMaxReprocesses,
+          ),
+          needsDirectorAuthority: Value(group.needsDirectorAuthority),
         ),
       );
     }

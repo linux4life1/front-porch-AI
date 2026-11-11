@@ -319,6 +319,17 @@ class GroupCardImporter {
       inheritCharacterLorebooks: groupCard.inheritCharacterLorebooks,
       chaosModeEnabled: groupCard.chaosModeEnabled,
       chaosNsfwEnabled: groupCard.chaosNsfwEnabled,
+      personality: groupCard.personality,
+      postHistoryInstructions: groupCard.postHistoryInstructions,
+      mesExample: groupCard.mesExample,
+      tags: groupCard.tags,
+      storyStartDate: groupCard.storyStartDate,
+      storyStartTime: groupCard.storyStartTime,
+      realismVerificationEnabled: groupCard.realismVerificationEnabled,
+      realismVerificationStrictness: groupCard.realismVerificationStrictness,
+      realismVerificationMaxReprocesses:
+          groupCard.realismVerificationMaxReprocesses,
+      needsDirectorAuthority: groupCard.needsDirectorAuthority,
       baselineRealismState: finalBaseline.isNotEmpty ? finalBaseline : '{}',
       defaultMemberRealismState: finalDefaultMember.isNotEmpty
           ? finalDefaultMember
