@@ -127,8 +127,14 @@ void main() {
         );
         await tester.pumpAndSettle();
         if (scrollTo > 0) {
-          final scrollable = find.byType(Scrollable).first;
-          tester.state<ScrollableState>(scrollable).position.jumpTo(scrollTo);
+          // The page's own vertical scroll, never the tab pager (a
+          // horizontal Scrollable), which would switch tabs.
+          final position = tester
+              .stateList<ScrollableState>(find.byType(Scrollable))
+              .map((s) => s.position)
+              .where((p) => p.axis == Axis.vertical && p.maxScrollExtent > 0)
+              .reduce((a, b) => a.maxScrollExtent >= b.maxScrollExtent ? a : b);
+          position.jumpTo(scrollTo.clamp(0, position.maxScrollExtent));
           await tester.pumpAndSettle();
         }
         await expectLater(
