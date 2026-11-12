@@ -479,15 +479,20 @@ test('edit a character, save, and nothing else on the card is lost', async ({ pa
       firstMessage: string;
     };
   const before = await detail();
-  const tags = `porch, journey-${test.info().project.name}`;
+  // Tags are the desktop's chip field now ("Add a tag..." + Enter) and the
+  // button is the desktop's "Save" (PR 5: the web editor matches the desktop).
+  const tag = `journey-${test.info().project.name}`.toLowerCase();
 
   await openRoute(page, `/edit/${id}`);
-  await page.getByLabel('Tags (comma-separated)').fill(tags);
-  await page.getByRole('button', { name: 'Save character' }).click();
+  const addTag = page.getByPlaceholder('Add a tag...').first();
+  await addTag.fill(tag);
+  await addTag.press('Enter');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /Saving/ })).toHaveCount(0);
 
   await openRoute(page, `/edit/${id}`);
-  await expect(page.getByLabel('Tags (comma-separated)')).toHaveValue(tags);
+  await expect(page.getByRole('button', { name: `Remove tag ${tag}` })).toBeVisible();
+  expect((await detail()).tags).toContain(tag);
   const after = await detail();
   expect(after.alternateGreetings).toEqual(before.alternateGreetings);
   expect(after.firstMessage).toBe(before.firstMessage);
