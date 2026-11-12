@@ -16,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
 import '../../helpers/reprocess_needs_harness.dart';
 
@@ -231,18 +231,12 @@ void main() {
       // The harness boots with the clock off and a judge that moves every
       // need by 5 on each reply; the tick shows as the extra 2 / 3 / 3 on
       // the speaker alone. Ayla has social off; Bram has every need on.
+      final seed = Map<String, int>.from(
+        defaultGroupMemberRealismSeed()['needs'] as Map,
+      );
       final (a, b) = await h.groupWithTwoReplies();
       final cardA = h.chat.groupCharacters.firstWhere((c) => c.name == 'Ayla');
       final cardB = h.chat.groupCharacters.firstWhere((c) => c.name == 'Bram');
-      // Members start from their own copy's bars (PR 5: a group's untouched
-      // default bars no longer override the card's everyday levels).
-      final seed = NeedsSimulation.baselinesFromExtensions(
-        cardA.frontPorchExtensions,
-      );
-      expect(
-        NeedsSimulation.baselinesFromExtensions(cardB.frontPorchExtensions),
-        seed,
-      );
       final needsA = h.chat.getNeedsForGroupCharacter(cardA);
       final needsB = h.chat.getNeedsForGroupCharacter(cardB);
       expect(a, lessThan(b));
