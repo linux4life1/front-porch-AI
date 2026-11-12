@@ -198,3 +198,22 @@ describe('leaving the editor when it was the first page opened', () => {
     expect(router.state.location.pathname).toBe('/');
   });
 });
+
+describe('the Needs pace control', () => {
+  it('marks the chosen pace and saves it', async () => {
+    character = { ...BASE, id: 'c1', inGroups: [], realism: { realismEnabled: true, needsSimEnabled: true } };
+    await mountAt('/edit/c1');
+    const pace = (label: string) =>
+      [...container.querySelectorAll('.needs-pace button')].find((b) => b.textContent?.includes(label)) as
+        | HTMLButtonElement
+        | undefined;
+    expect(pace('Normal')?.getAttribute('aria-pressed')).toBe('true');
+    await act(async () => pace('Fast')!.click());
+    expect(pace('Fast')?.getAttribute('aria-pressed')).toBe('true');
+    expect(pace('Fast')?.textContent).toContain('✓');
+    expect(pace('Normal')?.getAttribute('aria-pressed')).toBe('false');
+    const save = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save')!;
+    await act(async () => save.click());
+    expect(post.mock.calls[0][1].needsPace ?? post.mock.calls[0][1].realism?.needsPace).toBe('fast');
+  });
+});

@@ -88,16 +88,25 @@ export function NeedsFormSection({
             <p className="muted small">
               How fast needs drop as time passes. A meal or a bath stays the same.
             </p>
-            {(['sloth', 'normal', 'fast'] as const).map((pace) => (
-              <button
-                key={pace}
-                type="button"
-                className={(v.needsPace ?? 'normal') === pace ? 'pace on' : 'pace'}
-                onClick={() => set({ needsPace: pace })}
-              >
-                {pace[0].toUpperCase() + pace.slice(1)}
-              </button>
-            ))}
+            {/* The desktop's segmented control: the chosen pace is marked with
+                a check and filled, so a tap shows it took. */}
+            <div className="pace-segments">
+              {(['sloth', 'normal', 'fast'] as const).map((pace) => {
+                const on = (v.needsPace ?? 'normal') === pace;
+                return (
+                  <button
+                    key={pace}
+                    type="button"
+                    className={on ? 'pace on' : 'pace'}
+                    aria-pressed={on}
+                    onClick={() => set({ needsPace: pace })}
+                  >
+                    {on && <span aria-hidden>✓ </span>}
+                    {pace[0].toUpperCase() + pace.slice(1)}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}

@@ -197,3 +197,9 @@
 .char-stat-value { font-size: 1rem; font-weight: 600; color: var(--text); }
 .char-stat-label { font-size: 0.78rem; color: var(--muted); }
 .char-stats-note { font-size: 0.75rem; color: var(--muted); margin: 8px 0 0; }
+
+/* Needs pace: a segmented control like the desktop's (Sloth | Normal | Fast). */
+.needs-pace .pace-segments { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; margin-top: 6px; }
+.needs-pace .pace { border: none; border-radius: 0; background: transparent; color: var(--text); padding: 6px 16px; min-height: 36px; }
+.needs-pace .pace + .pace { border-left: 1px solid var(--border); }
+.needs-pace .pace.on { background: color-mix(in srgb, var(--accent) 22%, transparent); font-weight: 600; }
