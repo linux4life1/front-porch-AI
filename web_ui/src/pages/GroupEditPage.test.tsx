@@ -180,10 +180,14 @@ describe('Edit group', () => {
     expect(text()).not.toContain('Group chats are not counted');
   });
 
-  it('keeps the header buttons whole: they never wrap or shrink', () => {
+  it('keeps the editor header buttons whole, and only the editor headers', async () => {
     const css = readFileSync(resolve(__dirname, '../styles/shell.css'), 'utf8');
-    expect(css).toMatch(/\.page-head button \{[^}]*white-space: nowrap/);
-    expect(css).toMatch(/\.page-head \.row-actions \{[^}]*flex-wrap: nowrap/);
-    expect(css).toMatch(/\.page-head > h2 \{[^}]*min-width: 0/);
+    expect(css).toMatch(/\.page-head\.editor-head button \{[^}]*white-space: nowrap/);
+    expect(css).toMatch(/\.page-head\.editor-head \.row-actions \{[^}]*flex-wrap: nowrap/);
+    expect(css).toMatch(/\.page-head\.editor-head > h2 \{[^}]*min-width: 0/);
+    // Other page heads (Worlds' toolbar) must still wrap on a phone.
+    expect(css).not.toMatch(/(^|\n)\.page-head (button|\.row-actions) \{[^}]*nowrap/);
+    await mount();
+    expect(container.querySelector('.page-head.editor-head')).not.toBeNull();
   });
 });

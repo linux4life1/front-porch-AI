@@ -121,10 +121,12 @@
 
 /* Remote access assist */
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-/* The title gives way; the buttons never wrap or shrink. */
-.page-head > h2 { min-width: 0; overflow-wrap: anywhere; }
-.page-head .row-actions { flex: 0 0 auto; flex-wrap: nowrap; }
-.page-head button { white-space: nowrap; flex-shrink: 0; }
+/* Editor headers (character, member, Edit group): the title gives way; the
+   Cancel / Save buttons never wrap or shrink. Other page heads keep wrapping
+   their toolbars on a phone. */
+.page-head.editor-head > h2 { min-width: 0; overflow-wrap: anywhere; }
+.page-head.editor-head .row-actions { flex: 0 0 auto; flex-wrap: nowrap; }
+.page-head.editor-head button { white-space: nowrap; flex-shrink: 0; }
 button.ghost { background: transparent; border-color: var(--border); }
 .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .card-head h3 { margin: 0; }

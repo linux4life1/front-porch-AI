@@ -165,3 +165,36 @@ describe('the 1:1 editor', () => {
     expect(container.querySelector('[data-testid="group-member-notice"]')).toBeNull();
   });
 });
+
+describe('leaving the editor when it was the first page opened', () => {
+  // A deep link or a fresh tab has nothing behind it; going "back" left the
+  // app for about:blank. Save and Cancel go to the group (or Home) instead.
+  async function mountFirst(path: string) {
+    const router = createMemoryRouter(
+      [
+        { path: '/', element: <h1>Home page</h1> },
+        { path: '/groups/:groupId/edit', element: <h1>Edit group page</h1> },
+        { path: '/groups/:groupId/members/:memberId/edit', element: <CharacterEditPage /> },
+        { path: '/edit/:id', element: <CharacterEditPage /> },
+      ],
+      { initialEntries: [path] },
+    );
+    await act(async () => root.render(<RouterProvider router={router} />));
+    return router;
+  }
+  const button = (label: string) =>
+    [...container.querySelectorAll('button')].find((b) => b.textContent === label)!;
+
+  it('a member Save lands on Edit group', async () => {
+    const router = await mountFirst('/groups/g1/members/mem-mara/edit');
+    await act(async () => button('Save').click());
+    expect(router.state.location.pathname).toBe('/groups/g1/edit');
+  });
+
+  it('a 1:1 Cancel lands on Home', async () => {
+    character = { ...BASE, id: 'c1', inGroups: [] };
+    const router = await mountFirst('/edit/c1');
+    await act(async () => button('Cancel').click());
+    expect(router.state.location.pathname).toBe('/');
+  });
+});

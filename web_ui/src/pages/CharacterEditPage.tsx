@@ -15,7 +15,7 @@
 // editor says when its character is also in groups.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { TagsField } from '../components/TagsField';
@@ -107,6 +107,14 @@ export function CharacterEditPage() {
     ? `/api/groups/${params.groupId}/members/${params.memberId}`
     : `/api/characters/${params.id}`;
   const navigate = useNavigate();
+  const location = useLocation();
+  // Back where the editor was opened from; opened first (a link, a fresh
+  // tab) there is nothing behind it, so go to the group or Home instead of
+  // leaving the app.
+  const leave = () => {
+    if (location.key === 'default') navigate(member ? `/groups/${params.groupId}/edit` : '/');
+    else navigate(-1);
+  };
   const [c, setC] = useState<CharDetail | null>(null);
   // The page is named for the card as it opened, not as it is being typed.
   const [title, setTitle] = useState('');
@@ -237,7 +245,7 @@ export function CharacterEditPage() {
       });
       setLoaded(editable);
       leaveWithoutAsking();
-      navigate(-1);
+      leave();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save');
       savingNow.current = false;
@@ -308,11 +316,11 @@ export function CharacterEditPage() {
   return (
     <div className="page">
       {prompt}
-      <div className="page-head">
+      <div className="page-head editor-head">
         <h2>Edit {title || c.name}</h2>
         <div className="row-actions">
           <TokenBadge chars={tokenChars} />
-          <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
+          <button className="ghost" onClick={leave}>Cancel</button>
           <button className="primary" onClick={save} disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </button>

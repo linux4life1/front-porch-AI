@@ -7,7 +7,7 @@
 // for new chats. Replaces the old Group Settings panel.
 
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { CharacterStatsCard } from '../components/CharacterStatsCard';
@@ -78,6 +78,10 @@ const TEXT: { key: keyof GroupDetail; label: string; rows: number }[] = [
 export function GroupEditPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  // Opened first (a link, a fresh tab): nothing behind it, so go Home
+  // instead of leaving the app.
+  const leave = () => (location.key === 'default' ? navigate('/') : navigate(-1));
   const clockOn = usePassageOfTime();
   const [g, setG] = useState<GroupDetail | null>(null);
   const [title, setTitle] = useState('');
@@ -210,7 +214,7 @@ export function GroupEditPage() {
       });
       setLoaded(editable);
       leaveWithoutAsking();
-      navigate(-1);
+      leave();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save');
       savingNow.current = false;
@@ -222,10 +226,10 @@ export function GroupEditPage() {
   return (
     <div className="page">
       {prompt}
-      <div className="page-head">
+      <div className="page-head editor-head">
         <h2>Edit {title || g.name}</h2>
         <div className="row-actions">
-          <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
+          <button className="ghost" onClick={leave}>Cancel</button>
           <button className="primary" onClick={save} disabled={saving || !g.name.trim()}>
             {saving ? 'Saving…' : 'Save'}
           </button>
