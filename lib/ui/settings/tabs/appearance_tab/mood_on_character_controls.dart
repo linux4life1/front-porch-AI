@@ -77,7 +77,7 @@ class MoodOnCharacterControls extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.successOf(context),
+                  color: AppColors.verifiedAccentOf(context),
                 ),
               ),
             ],

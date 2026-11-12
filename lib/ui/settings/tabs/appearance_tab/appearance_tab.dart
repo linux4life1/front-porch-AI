@@ -134,9 +134,9 @@ class AppearanceTab extends StatelessWidget {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Expanded(child: BackgroundWeatherSection()),
+                    Expanded(child: const BackgroundWeatherSection()),
                     const SizedBox(width: 14),
-                    const Expanded(child: MoodOnCharacterControls()),
+                    Expanded(child: const MoodOnCharacterControls()),
                   ],
                 ),
             ],

@@ -73,7 +73,7 @@ class ChatCapsulePreview extends StatelessWidget {
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: AppColors.successOf(context),
+                      color: AppColors.verifiedAccentOf(context),
                       shape: BoxShape.circle,
                     ),
                   ),
