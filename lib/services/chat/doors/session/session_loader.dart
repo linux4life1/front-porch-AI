@@ -92,10 +92,7 @@ class SessionLoader {
         _s.realism().groups.afterglowOn = groupAfterglowIn(
           _activeGroup!.defaultMemberRealismState,
         );
-        final timeSeed = parseGroupTimeSeed(
-          _activeGroup!.defaultMemberRealismState,
-          _activeGroup!.baselineRealismState,
-        );
+        final timeSeed = parseGroupTimeSeedOf(_activeGroup!);
         if (timeSeed != null) {
           _timeService.seedFromV2OrExt(
             dayCount: timeSeed.dayCount,

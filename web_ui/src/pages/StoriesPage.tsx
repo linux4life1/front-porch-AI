@@ -12,6 +12,7 @@ import { api, ApiError } from '../api/client';
 import type { StoryListItem } from '../storyTypes';
 import { renameStory } from '../hooks/useStory';
 import { formatRelativeTime } from './story/relativeTime';
+import { HomeModeToggle } from '../components/HomeModeToggle';
 import { ChatSourcePicker } from './story/setup/ChatSourcePicker';
 import {
   Avatar, Chip, ConfirmDialog, Dialog, MenuButton, useNarrow, type MenuEntry,
@@ -102,6 +103,9 @@ export function StoriesPage() {
 
   return (
     <div className="studio-scope" data-testid="story-shelf">
+      <div style={{ padding: '16px 24px 0' }}>
+        <HomeModeToggle mode="stories" />
+      </div>
       <header className="studio-head">
         <span className="t">Porch Stories</span>
         <span className="s">{count === 0 ? 'no stories yet' : `${count} ${count === 1 ? 'story' : 'stories'}`}</span>

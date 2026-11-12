@@ -20,7 +20,6 @@
   "lib/ui/dialogs/export_persona_dialog.dart": 2,
   "lib/ui/dialogs/group_objectives/generate_objectives_dialog.dart": 2,
   "lib/ui/dialogs/group_objectives/objective_text_prompt.dart": 2,
-  "lib/ui/dialogs/group_settings_dialog.dart": 2,
   "lib/ui/dialogs/growth_review_dialog.dart": 1,
   "lib/ui/dialogs/image_crop_dialog.dart": 1,
   "lib/ui/dialogs/image_prompt_review_dialog.dart": 1,

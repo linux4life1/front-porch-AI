@@ -21,6 +21,7 @@ import 'dart:async';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -146,14 +147,13 @@ class GreetingPicker {
     final cardBase = ext?.openingBase ?? const GreetingOpeningBase();
     if (_activeGroup == null || memberId == null) return cardBase;
 
-    final seeds = parseGroupRealismSeeds(
-      _activeGroup!.defaultMemberRealismState,
+    final seeds = groupStartSeeds(
+      _activeGroup!,
+      _session.groupCharacters,
+      _session.characterIdFor,
     );
     final raw = seeds[memberId];
-    final time = parseGroupTimeSeed(
-      _activeGroup!.defaultMemberRealismState,
-      _activeGroup!.baselineRealismState,
-    );
+    final time = parseGroupTimeSeedOf(_activeGroup!);
     if (raw == null && time == null) return cardBase;
 
     Map<String, int> needsOf(String key, int fallback) {
@@ -359,10 +359,7 @@ class GreetingPicker {
       index,
       firstMesEmpty: firstMesEmpty,
     );
-    final time = parseGroupTimeSeed(
-      group.defaultMemberRealismState,
-      group.baselineRealismState,
-    );
+    final time = parseGroupTimeSeedOf(group);
     final timeResolved = resolveGreetingOpening(
       GreetingOpeningBase(
         dayCount: time?.dayCount ?? 1,

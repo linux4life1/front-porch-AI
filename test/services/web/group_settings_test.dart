@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
-import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
@@ -22,8 +21,6 @@ import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart'
-    show legacyCardExtSeedKeys;
 
 import '../../golden/support/fakes.dart';
 
@@ -31,11 +28,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_docs_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_docs_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -247,36 +244,33 @@ void main() {
       },
     );
 
-    test(
-      'updateSettings omitted alts keep base seeds',
-      () async {
-        expect(
-          await facade.updateSettings('g1', {
-            'firstMessage': 'Come in.',
-            'alternateGreetings': ['Stay.'],
-            'greetingSeeds': [
-              {'characterEmotion': 'furious'},
-            ],
-          }),
-          isTrue,
-        );
-        expect(
-          await facade.updateSettings('g1', {
-            'name': 'Renamed-keep-seeds',
-            'systemPrompt': 'Be terse.',
-          }),
-          isTrue,
-        );
-        final g = groups.getById('g1')!;
-        expect(g.name, 'Renamed-keep-seeds');
-        expect(g.alternateGreetings, ['Stay.']);
-        expect(
-          g.greetingSeeds.single!.characterEmotion,
-          'furious',
-          reason: 'omitted alts must not wipe leftover base seeds',
-        );
-      },
-    );
+    test('updateSettings omitted alts keep base seeds', () async {
+      expect(
+        await facade.updateSettings('g1', {
+          'firstMessage': 'Come in.',
+          'alternateGreetings': ['Stay.'],
+          'greetingSeeds': [
+            {'characterEmotion': 'furious'},
+          ],
+        }),
+        isTrue,
+      );
+      expect(
+        await facade.updateSettings('g1', {
+          'name': 'Renamed-keep-seeds',
+          'systemPrompt': 'Be terse.',
+        }),
+        isTrue,
+      );
+      final g = groups.getById('g1')!;
+      expect(g.name, 'Renamed-keep-seeds');
+      expect(g.alternateGreetings, ['Stay.']);
+      expect(
+        g.greetingSeeds.single!.characterEmotion,
+        'furious',
+        reason: 'omitted alts must not wipe leftover base seeds',
+      );
+    });
 
     test(
       'updateSettings dirty alts + explicit empty greetingSeeds stays authored-empty',
@@ -324,9 +318,7 @@ void main() {
           isTrue,
         );
         expect(
-          await facade.updateSettings('g1', {
-            'greetingSeeds': [],
-          }),
+          await facade.updateSettings('g1', {'greetingSeeds': []}),
           isTrue,
         );
         final g = groups.getById('g1')!;
@@ -724,7 +716,7 @@ void main() {
       expect(e.needsOff, ['fun']);
       expect(e.needsBaselineHunger, 80);
     });
-  
+
     test('bond and trust take the desktop ranges, clamped there', () async {
       // Changed: Long-Term Bond has its own key (longTermScore, ±300) and
       // trust is Trust Level (±100). The old ±300 trust was Long-Term Bond
@@ -1473,347 +1465,52 @@ void main() {
     });
   });
 
-  // The web member editor shows the group's own switches read-only, and the
-  // member's start in the group's new chats (`groupStart`) saves to the
-  // group's seed for them, never to their card.
-  group("GroupMemberEdit: the member's group and start", () {
-    late AppDatabase db;
-    late StorageService storage;
-    final blobs = buildGroupRealismBlobs(
-      seeds: {'mem-mara': defaultGroupMemberRealismSeed()},
-      needsEnabled: true,
-      timeOfDay: 'evening',
-      dayCount: 3,
-    );
-
-    setUp(() async {
-      SharedPreferences.setMockInitialValues({});
-      db = AppDatabase.forTesting();
-      storage = StorageService();
-      await storage.setRootPath(
-        Directory.systemTemp.createTempSync('fpai_root_').path,
-      );
-      await db.insertGroup(
-        GroupsCompanion.insert(
-          id: 'g1',
-          name: 'Pair',
-          defaultMemberRealismState: Value(blobs.defaultMemberJson),
-          baselineRealismState: Value(blobs.baselineJson),
-          chaosModeEnabled: const Value(true),
-        ),
-      );
-      await db.insertGroupMember(
-        GroupMembersCompanion.insert(
-          id: 'mem-mara',
-          groupId: 'g1',
-          name: 'Mara',
-        ),
-      );
-    });
-
-    tearDown(() => db.close());
-
-    test("a closed group's detail carries its settings for new chats and "
-        'where she starts', () async {
-      final d = (await GroupMemberEdit(
-        db,
-        storage,
-        null,
-        null,
-      ).detail('g1', 'mem-mara'))!;
-      final group = d['group'] as Map<String, dynamic>;
-      expect(
-        [group['realism'], group['needs'], group['chaos'], group['timeLabel']],
-        [true, true, true, 'Evening, Day 3'],
-      );
-      expect(d['start'], {
-        'shortTermBond': 35,
-        'longTermBond': 35,
-        'trustLevel': 40,
-        'characterEmotion': 'neutral',
-        'emotionIntensity': 'mild',
-      });
-      expect(d['lite'], isFalse);
-    });
-
-    test("a posted groupStart saves to the group's seed for her, Long-Term "
-        "Bond under its own key, and never to her card", () async {
-      final edit = GroupMemberEdit(db, storage, null, null);
-      expect(
-        await edit.update('g1', 'mem-mara', {
-          'groupStart': {'longTermBond': 120, 'trustLevel': 'lots'},
-        }),
-        isTrue,
-      );
-
-      final g = (await db.getGroupById('g1'))!;
-      final seed = parseGroupRealismSeeds(
-        g.defaultMemberRealismState,
-      )['mem-mara']!;
-      expect(
-        (seed['affection'], seed['longTermScore'], seed['trust']),
-        (35, 120, 40),
-        reason: 'a field left out, or of the wrong type, keeps its value',
-      );
-      expect(
-        ((jsonDecode(g.baselineRealismState) as Map)['mem-mara']
-            as Map)['longTermScore'],
-        120,
-      );
-      final raw = (await db.getGroupMembers('g1')).single.frontPorchExtensions;
-      final ext = raw == null
-          ? null
-          : FrontPorchExtensions.fromJson(
-              jsonDecode(raw) as Map<String, dynamic>,
-            );
-      expect(ext?.longTermBond, isNot(120), reason: "never her card's bond");
-    });
-
-    test('a group whose new chats start without Realism has no start and '
-        'takes none', () async {
-      await db.updateGroup(
-        const GroupsCompanion(
-          id: Value('g1'),
-          defaultMemberRealismState: Value('{}'),
-          baselineRealismState: Value('{}'),
-        ),
-      );
-      final edit = GroupMemberEdit(db, storage, null, null);
-      expect((await edit.detail('g1', 'mem-mara'))!['start'], isNull);
-      await edit.update('g1', 'mem-mara', {
-        'groupStart': {'shortTermBond': 90},
-      });
-      expect(
-        (await db.getGroupById('g1'))!.defaultMemberRealismState,
-        '{}',
-        reason: 'a seed written here would switch Realism on for the group',
-      );
-    });
-
-    test("Group Settings' summaries say where each member starts", () async {
-      final rows = (await GroupMemberEdit(
-        db,
-        storage,
-        null,
-        null,
-      ).summaries('g1'))!;
-      expect(rows.single['id'], 'mem-mara');
-      expect((rows.single['start'] as Map)['trustLevel'], 40);
-      expect(
-        rows.single['afterglow'],
-        isNull,
-        reason: 'Porch Life keeps Afterglow off',
-      );
-      expect(
-        await GroupMemberEdit(db, storage, null, null).summaries('nope'),
-        isNull,
-      );
-    });
-
-    test("a member with no seed posting her start leaves the group's Needs "
-        'off for new chats', () async {
-      final needsOff = buildGroupRealismBlobs(
-        seeds: {'mem-bo': defaultGroupMemberRealismSeed()},
-        needsEnabled: false,
-        timeOfDay: 'morning',
-        dayCount: 1,
-      );
-      await db.updateGroup(
-        GroupsCompanion(
-          id: const Value('g1'),
-          defaultMemberRealismState: Value(needsOff.defaultMemberJson),
-          baselineRealismState: Value(needsOff.baselineJson),
-        ),
-      );
-      await GroupMemberEdit(db, storage, null, null).update('g1', 'mem-mara', {
-        'groupStart': {'trustLevel': 70},
-      });
-
-      final stored = (await db.getGroupById('g1'))!.defaultMemberRealismState;
-      expect(parseGroupRealismSeeds(stored)['mem-mara']!['trust'], 70);
-      expect(groupTemplateRealismOf(stored).needsOn, isFalse);
-    });
-
-    test("a seed an older group filed under the member's origin is the start "
-        'the phone shows and saves', () async {
-      await db.updateGroupMember(
-        GroupMembersCompanion(
-          id: const Value('mem-mara'),
-          memberState: Value(
-            GroupMember.encodeProvenance(originStableId: 'mara-origin'),
-          ),
-        ),
-      );
-      final legacy = buildGroupRealismBlobs(
-        seeds: {
-          'mara-origin': {...defaultGroupMemberRealismSeed(), 'affection': 90},
-        },
-        needsEnabled: true,
-        timeOfDay: 'morning',
-        dayCount: 1,
-      );
-      await db.updateGroup(
-        GroupsCompanion(
-          id: const Value('g1'),
-          defaultMemberRealismState: Value(legacy.defaultMemberJson),
-          baselineRealismState: Value(legacy.baselineJson),
-        ),
-      );
-      final edit = GroupMemberEdit(db, storage, null, null);
-      final start = (await edit.detail('g1', 'mem-mara'))!['start'] as Map;
-      expect(start['shortTermBond'], 90);
-      await edit.update('g1', 'mem-mara', {
-        'groupStart': {'trustLevel': 30},
-      });
-      final seeds = parseGroupRealismSeeds(
-        (await db.getGroupById('g1'))!.defaultMemberRealismState,
-      );
-      expect(seeds.keys, ['mem-mara']);
-      expect(
-        [seeds['mem-mara']!['affection'], seeds['mem-mara']!['trust']],
-        [90, 30],
-      );
-    });
-
-    // A group whose only member entries carry no bonds runs Realism in New
-    // Chat, as every reader of the blob has it, so the phone offers and
-    // saves a start there too.
-    for (final (shape, entry) in [
-      ('a Group Settings preference', {'enjoysLowHygiene': true}),
-      (
-        "an older editor's keys",
-        {'shortTermBond': 80, 'trustLevel': 20, 'characterEmotion': 'shy'},
-      ),
-    ]) {
-      test('a group whose only member entry is $shape offers and saves a '
-          'start', () async {
-        await db.updateGroup(
-          GroupsCompanion(
-            id: const Value('g1'),
-            defaultMemberRealismState: Value(
-              jsonEncode({
-                'perChar': {'mem-mara': entry},
-              }),
-            ),
-            baselineRealismState: const Value('{}'),
-          ),
+  // The web member editor: the group's scene and values for the member come
+  // with the detail, and the values it posts (`groupValues`) go to the group's
+  // store, never to the card.
+  group("GroupMemberEdit: the member's group values", () {
+    test(
+      "a posted groupValues saves to the group's store, once read back",
+      () async {
+        final db = AppDatabase.forTesting(sameIsolate: true);
+        addTearDown(db.close);
+        SharedPreferences.setMockInitialValues({});
+        final storage = StorageService();
+        await storage.setRootPath(
+          Directory.systemTemp.createTempSync('fpai_root_').path,
         );
-        final edit = GroupMemberEdit(db, storage, null, null);
-        final d = (await edit.detail('g1', 'mem-mara'))!;
-        expect(d['start'], isNotNull);
-        expect((d['group'] as Map)['realism'], isTrue);
-        await edit.update('g1', 'mem-mara', {
-          'groupStart': {'trustLevel': 70},
-        });
-        final seed = parseGroupRealismSeeds(
-          (await db.getGroupById('g1'))!.defaultMemberRealismState,
-        )['mem-mara']!;
-        expect(seed['trust'], 70);
-        for (final k in entry.keys) {
-          if (!legacyCardExtSeedKeys.contains(k)) {
-            expect(seed[k], entry[k], reason: '$k is kept');
-          }
+        await db.insertGroup(GroupsCompanion.insert(id: 'g1', name: 'Pair'));
+        for (final id in ['mem-mara', 'mem-bo']) {
+          await db.insertGroupMember(
+            GroupMembersCompanion.insert(id: id, groupId: 'g1', name: id),
+          );
         }
-      });
-    }
-
-    test("an open group's start on the phone comes from its row, not the "
-        "chat's copy", () async {
-      final chat = _OpenPair([CharacterCard(name: 'Mara')..dbId = 'mem-mara']);
-      addTearDown(chat.dispose);
-      // The chat's copy says no member entries; the row has Mara's seed.
-      final d = (await GroupMemberEdit(
-        db,
-        storage,
-        chat,
-        null,
-      ).detail('g1', 'mem-mara'))!;
-      expect((d['start'] as Map)['trustLevel'], 40);
-    });
-
-    // The lines beside the start say what each describes: for a group open
-    // in the chat, that chat's own switches, worded "in this chat" by the
-    // page; the start is still the group's new chats', from its row.
-    // While Porch Life runs no Needs, the open chat's Needs line keeps the
-    // chat's own choice and says no chat runs Needs.
-    test("an open group's Needs line on the phone says when Porch Life runs "
-        'no Needs', () async {
-      final chat = _OpenPair([CharacterCard(name: 'Mara')..dbId = 'mem-mara']);
-      addTearDown(chat.dispose);
-      await storage.realismSettings.setNeedsSimDefault(false);
-      final d = (await GroupMemberEdit(
-        db,
-        storage,
-        chat,
-        null,
-      ).detail('g1', 'mem-mara'))!;
-      final group = d['group'] as Map;
-      expect(
-        [group['open'], group['needs'], group['needsOffInPorchLife']],
-        [true, true, true],
-      );
-    });
-
-    test("an open group's lines on the phone are the chat's own switches, "
-        "and its start the row's", () async {
-      final chat = _OpenPairWithoutRealism([
-        CharacterCard(name: 'Mara')..dbId = 'mem-mara',
-      ]);
-      addTearDown(chat.dispose);
-      final d = (await GroupMemberEdit(
-        db,
-        storage,
-        chat,
-        null,
-      ).detail('g1', 'mem-mara'))!;
-      final group = d['group'] as Map;
-      expect(
-        (group['open'], group['realism']),
-        (true, false),
-        reason: 'this chat runs without Realism; its new chats start with it',
-      );
-      expect((d['start'] as Map)['trustLevel'], 40);
-    });
-
-    // New Chat seeds Chaos as the group's OR Porch Life's default, and Needs
-    // only while Porch Life runs it; the phone's lines say so.
-    test("a closed group's Chaos and Needs for new chats follow Porch "
-        'Life', () async {
-      final edit = GroupMemberEdit(db, storage, null, null);
-      await storage.realismSettings.setChaosModeDefault(false);
-      await db.updateGroup(
-        const GroupsCompanion(id: Value('g1'), chaosModeEnabled: Value(false)),
-      );
-      var group = (await edit.detail('g1', 'mem-mara'))!['group'] as Map;
-      expect(
-        [group['chaos'], group['chaosFromPorchLife'], group['needs']],
-        [false, false, true],
-      );
-
-      await storage.realismSettings.setChaosModeDefault(true);
-      await storage.realismSettings.setNeedsSimDefault(false);
-      group = (await edit.detail('g1', 'mem-mara'))!['group'] as Map;
-      expect(
-        [
-          group['chaos'],
-          group['chaosFromPorchLife'],
-          group['needs'],
-          group['needsOffInPorchLife'],
-        ],
-        [true, true, false, true],
-      );
-    });
-
-    test("the detail carries Porch Life's Realism permission", () async {
-      final edit = GroupMemberEdit(db, storage, null, null);
-      expect((await edit.detail('g1', 'mem-mara'))!['realismAllowed'], isTrue);
-      await storage.realismSettings.setRealismAllowed(false);
-      expect(
-        (await edit.detail('g1', 'mem-mara'))!['realismAllowed'],
-        isFalse,
-        reason: 'the phone hides her Realism, Needs and Afterglow',
-      );
-    });
+        final groups = GroupChatRepository(storage, db);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final edit = GroupMemberEdit(db, storage, null, null, groups);
+        final before = (await edit.detail('g1', 'mem-mara'))!;
+        expect((before['groupValues'] as Map)['systemPrompt'], '');
+        expect((before['others'] as List).single, {
+          'id': 'mem-bo',
+          'name': 'mem-bo',
+        });
+        expect(before.containsKey('start'), isFalse);
+        await edit.update('g1', 'mem-mara', {
+          'name': 'Mara',
+          'groupValues': {
+            'systemPrompt': 'Notices everything.',
+            'note': 'Keep it short.',
+            'strength': 7,
+            'feelings': {'mem-bo': 120},
+          },
+        });
+        final after =
+            (await edit.detail('g1', 'mem-mara'))!['groupValues'] as Map;
+        expect(after['systemPrompt'], 'Notices everything.');
+        expect((after['note'], after['strength']), ('Keep it short.', 7));
+        expect((after['feelings'] as Map)['mem-bo'], 120);
+      },
+    );
   });
 }
 
@@ -1847,12 +1544,4 @@ class _OpenPair extends FakeChatService {
           afterglowEnabled: on,
         );
   }
-}
-
-/// [_OpenPair] whose chat runs without Realism.
-class _OpenPairWithoutRealism extends _OpenPair {
-  _OpenPairWithoutRealism(super.members);
-
-  @override
-  bool get realismEnabled => false;
 }

@@ -45,6 +45,7 @@ export 'engine_status_chip.dart';
 export 'kobold_status_bar.dart';
 export 'folder_character_picker.dart';
 export 'realism_form_section.dart';
+export 'greyed_out.dart';
 export 'styled_dropdown.dart';
 export 'styled_text_controller.dart';
 export 'sidebar.dart';

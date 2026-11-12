@@ -3,7 +3,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import { PersonaManager } from '../components/PersonaManager';
+import { RemoteAccessPage } from './RemoteAccessPage';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
@@ -190,7 +190,6 @@ export function SettingsPage() {
   const [totpEnabled, setTotpEnabled] = useState(false);
   // savedFields of the last load or save.
   const [savedForm, setSavedForm] = useState('');
-  const [personaDirty, setPersonaDirty] = useState(false);
   // The last load or save as the host holds it, which a preset write moves.
   const base = useRef<Settings | null>(null);
   const genPresets = useGenPresets();
@@ -206,9 +205,7 @@ export function SettingsPage() {
   const onSwitchNotice = useCallback((d: GenPresets) => adoptPreset(d.live), [adoptPreset]);
   useOnFreshNotice(genPresets.data, onSwitchNotice);
   const { prompt } = useUnsavedChanges(
-    personaDirty ||
-      (s !== null &&
-        (savedFields(s) !== savedForm || apiKey.trim() !== '' || workerApiKey.trim() !== '')),
+    s !== null && (savedFields(s) !== savedForm || apiKey.trim() !== '' || workerApiKey.trim() !== ''),
   );
 
   const load = () =>
@@ -436,7 +433,6 @@ export function SettingsPage() {
           patch={(p) => patch(p as Partial<Settings>)}
         />
 
-        <PersonaManager onDirtyChange={setPersonaDirty} />
       </div>
 
       <div className="settings-section" data-section="porch-life">
@@ -654,6 +650,8 @@ export function SettingsPage() {
 
       <div className="settings-section" data-section="advanced">
         <h3 className="settings-section-heading">Advanced</h3>
+
+        <RemoteAccessPage embedded />
 
         {legacy && legacy.totalBytes > 0 && (
           <section className="card" data-testid="reclaim-disk-card">

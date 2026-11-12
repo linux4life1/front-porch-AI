@@ -16,22 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as path;
-import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
 import 'entry_door.dart';
+import 'group_member_rows.dart';
 
 /// A group's live roster: a member joins (their card copied into the
 /// group's private storage under a new member row), leaves (row, avatar
@@ -67,78 +62,14 @@ class GroupRoster {
     String groupId,
     CharacterCard character, {
     bool asLite = false,
-  }) async {
-    final mid = const Uuid().v4();
-    final avDir = Directory(
-      path.join(_s.storage.groupsDir.path, groupId, 'avatars'),
-    );
-    await avDir.create(recursive: true);
-
-    await _s.characters()!.duplicateCharacter(
-      character,
-      targetDirOverride: avDir.path,
-      forcedBasename: mid,
-      skipLibraryInsert: true,
-    );
-
-    await _db.insertGroupMember(
-      GroupMembersCompanion(
-        id: drift.Value(mid),
-        groupId: drift.Value(groupId),
-        name: drift.Value(character.name),
-        description: drift.Value(character.description),
-        personality: drift.Value(character.personality),
-        scenario: drift.Value(character.scenario),
-        firstMessage: drift.Value(character.firstMessage),
-        mesExample: drift.Value(character.mesExample),
-        systemPrompt: drift.Value(character.systemPrompt),
-        postHistoryInstructions: drift.Value(character.postHistoryInstructions),
-        alternateGreetings: drift.Value(
-          jsonEncode(character.alternateGreetings),
-        ),
-        tags: drift.Value(jsonEncode(character.tags)),
-        avatarFilename: drift.Value('$mid.png'),
-        ttsVoice: drift.Value(character.ttsVoice),
-        lorebook: drift.Value(
-          character.lorebook != null
-              ? jsonEncode(character.lorebook!.toJson())
-              : null,
-        ),
-        worldNames: drift.Value(jsonEncode(character.allWorldNames)),
-        frontPorchExtensions: drift.Value(
-          encodeMemberFrontPorch(
-            joiningMemberFrontPorch(
-              asLite
-                  ? cloneFrontPorchTier(
-                      character.frontPorchExtensions,
-                      lite: true,
-                    )
-                  : character.isLite
-                  ? cloneFrontPorchTier(
-                      character.frontPorchExtensions,
-                      lite: false,
-                    )
-                  : character.frontPorchExtensions,
-            ),
-          ),
-        ),
-        rawExtensions: drift.Value(
-          character.rawExtensions != null
-              ? jsonEncode(character.rawExtensions!)
-              : null,
-        ),
-        // Provenance: stamp which library character this member was copied from
-        // so a chat can later collapse back to a 1:1 with the original (no orphans).
-        memberState: drift.Value(
-          GroupMember.encodeProvenance(
-            originStableId: character.stableGroupId,
-            originLibraryDbId: character.dbId,
-          ),
-        ),
-      ),
-    );
-    return mid;
-  }
+  }) => insertGroupMemberRow(
+    db: _db,
+    groupsDir: _s.storage.groupsDir,
+    characters: _s.characters()!,
+    groupId: groupId,
+    character: character,
+    asLite: asLite,
+  );
 
   /// Add a character to the currently active group chat.
   Future<bool> addCharacterToGroup(

@@ -153,7 +153,7 @@ it("edits one member's emotion, verification and needs, and resets them", async 
   });
   expect(memberRealism(draft, 'm')).toEqual(NEUTRAL_MEMBER);
 
-  toggle('Needs simulation', c);
+  toggle('Needs Simulation', c);
   expect(draft.needsEnabled, "the member card's needs switch is the group's").toBe(false);
 
   button('Reset to character defaults', c);

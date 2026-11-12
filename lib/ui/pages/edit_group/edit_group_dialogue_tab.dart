@@ -18,94 +18,88 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
+import 'package:front_porch_ai/ui/pages/edit_group/edit_group_draft.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Dialogue tab of the group editor: First Message + alternate greetings
-/// with opening seeds. No Example Dialogue section exists by design
-/// (GroupChat has no mes_example).
+/// Dialogue tab of the group editor: the 1:1 editor's three cards over the
+/// group: First Message, Alternate Greetings (each with its opening seed)
+/// and Example Dialogue.
 class EditGroupDialogueTab extends StatelessWidget {
   const EditGroupDialogueTab({
     super.key,
-    required this.firstMessageController,
-    required this.altGreetings,
-    required this.altGreetingSeeds,
-    required this.onAltGreetingsChanged,
+    required this.draft,
+    required this.onChanged,
   });
 
-  final TextEditingController firstMessageController;
-  final List<String> altGreetings;
-  final List<GreetingRealismSeed?> altGreetingSeeds;
-  final void Function(List<String> greetings, List<GreetingRealismSeed?> seeds)
-  onAltGreetingsChanged;
+  final EditGroupDraft draft;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final kit = EditCharacterFormKit(context);
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.cardOf(context),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderOf(context)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.chat_bubble_outline,
-                      color: AppColors.porchAmberOf(context),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Dialogue',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.porchAmberOf(context),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                Text(
-                  'First Message (optional)',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              kit.sectionCard(
+                icon: Icons.chat_bubble_outline,
+                title: 'First Message',
+                color: AppColors.formAccentOf(context),
+                children: [
+                  kit.styledField(
+                    controller: draft.firstMessage,
+                    label: 'Opening Message',
+                    maxLines: 6,
+                    expandable: true,
+                    hint:
+                        "The group's opening line when a conversation starts...",
                   ),
-                ),
-                const SizedBox(height: 6),
-                AppTextField(
-                  controller: firstMessageController,
-                  maxLines: 8,
-                  decoration: const InputDecoration(
-                    hintText: 'The scene opens with...',
+                ],
+              ),
+              const SizedBox(height: 20),
+              kit.sectionCard(
+                icon: Icons.swap_horiz,
+                title: 'Alternate Greetings',
+                color: AppColors.porchHoneyOf(context),
+                children: [
+                  GroupAlternateGreetingsEditor(
+                    greetings: draft.altGreetings,
+                    seeds: draft.altGreetingSeeds,
+                    showNeeds: true,
+                    onChanged: (g, s) {
+                      draft.altGreetings = g;
+                      draft.altGreetingSeeds = s;
+                      onChanged();
+                    },
                   ),
-                ),
-
-                const SizedBox(height: 20),
-                GroupAlternateGreetingsEditor(
-                  greetings: altGreetings,
-                  seeds: altGreetingSeeds,
-                  showNeeds: true,
-                  onChanged: onAltGreetingsChanged,
-                ),
-              ],
-            ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              kit.sectionCard(
+                icon: Icons.format_quote_outlined,
+                title: 'Example Dialogue',
+                color: AppColors.porchTerracottaOf(context),
+                children: [
+                  kit.styledField(
+                    controller: draft.mesExample,
+                    label: 'Example Conversations',
+                    maxLines: 6,
+                    expandable: true,
+                    hint:
+                        '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 80),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

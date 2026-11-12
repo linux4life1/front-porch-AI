@@ -162,7 +162,6 @@ class TurnRag {
             currentSessionId: thisChat,
             inContextStart: _history.basePosition + t.droppedMessages,
             limit: retrievalLimit == 0 || filter ? 9999 : retrievalLimit,
-            characterPriorities: _a.ragSources.prioritiesByMemoryKey(),
             sessionScopedCharacterIds: sessionScoped,
           );
           rawMemories = !filter

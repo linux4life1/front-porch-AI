@@ -3,7 +3,9 @@
 //
 // The chat sidebar — the desktop window's right column (PR 1a), and the same
 // card tree in the drawer below 1024 (PR 1b). Portrait, Main Settings, the
-// layout pills, then the cast, Director, and the tool cards. The tools
+// layout pills, then the fixed cast roster, then the Director and tool cards
+// in the reorderable body (as on the desktop, where the roster sits outside
+// the ReorderableListView). The tools
 // snapshot plumbing (focus scoping, embedding poll, mutation helpers)
 // mirrors ChatTools.tsx so both surfaces speak to the same endpoints with the
 // same payloads.
@@ -25,7 +27,6 @@ import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
-import { GroupSettings } from './GroupSettings';
 import { BelongingsPanel } from './BelongingsPanel';
 import { PromisesPanel } from './PromisesPanel';
 import { StoryCalendarModal } from './StoryCalendarModal';
@@ -38,6 +39,7 @@ import { ChatToolsObjectives } from './ChatToolsObjectives';
 import { type ToolsState } from './ChatToolsShared';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
+import { AvatarGalleryModal } from './AvatarGalleryModal';
 import {
   firstNeedInTrouble, moodAtmosphereOf, moodVars, needTrouble, type MoodLook, type MoodPaints,
 } from '../theme/moodAtmosphere';
@@ -46,7 +48,7 @@ import {
  *  ChatInsight's copy). */
 const GROUP_LOREBOOK_UNREADABLE_NOTE =
   "This group's lorebook couldn't be read, so its entries aren't being used. " +
-  'Open Group Settings, Lorebook & Worlds, on the computer to bring it back.';
+  'Open Edit group, Lorebook tab, to bring it back.';
 
 /** Scene-time period dots — the same table ChatTools renders (mirror the
  *  desktop realism_section _timeDotLabel: D / M / LM / A / E / N). */
@@ -75,7 +77,6 @@ const NEED_TOKENS: Record<string, string> = {
 /** The reorderable cards' shipped default, after the static portrait +
  *  Main Settings + pills header. Matches the target's card order. */
 const WIDE_DEFAULTS = [
-  'cast',
   'director',
   'one_shot_eval',
   'tool_calling_pill',
@@ -86,6 +87,11 @@ const WIDE_DEFAULTS = [
   'objectives',
   'story_tools',
 ];
+
+/** Edit group is a page, opened by its route (the app routes by hash). */
+function openEditGroup(groupId: string | undefined) {
+  if (groupId) window.location.hash = `#/groups/${groupId}/edit`;
+}
 
 export function ChatSidebar({
   realism,
@@ -103,10 +109,10 @@ export function ChatSidebar({
   focusedIsHost,
   focusedAvatarUrl,
   focusedPlaceholderPortrait,
+  portraitMemberId,
   toolsKey,
   focusedId,
   groupId,
-  onCommand,
   loreTokens,
   loreBudget,
   loreOverflow,
@@ -136,6 +142,9 @@ export function ChatSidebar({
   focusedIsHost: boolean;
   focusedAvatarUrl?: string;
   focusedPlaceholderPortrait?: boolean;
+  /** In a group: the member whose portrait shows (the tapped one, else the
+   *  page's default member). */
+  portraitMemberId?: string | null;
   toolsKey: number;
   focusedId: string | null;
   groupId: string | null;
@@ -145,7 +154,8 @@ export function ChatSidebar({
   loreOverflow?: string[];
   draft?: string;
   toolSupport?: ToolSupport;
-  /** The CastBar element the page assembled (moved here on wide, PR 1a). */
+  /** The CastBar element the page assembled (moved here on wide, PR 1a).
+   *  Rendered fixed below the layout pills, never reorderable. */
   castBar?: ReactNode;
   /** Director as the card's subtitle prefix, as the group target shows
    *  ("Vivian · Warming · Trusting · Evening"); absent in a plain 1:1. */
@@ -272,9 +282,9 @@ export function ChatSidebar({
   const [importMsg, setImportMsg] = useState('');
 
   // ── Main Settings menu ────────────────────────────────────────────────
+  const [gallery, setGallery] = useState<{ id: string; name: string } | null>(null);
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
-  const [showGroupSettings, setShowGroupSettings] = useState(false);
 
   // ── Reorder (one order for every width) ──────────────────────────────
   // The host 'insight' surface still carries the OLD flat-panel ids, and
@@ -324,9 +334,7 @@ export function ChatSidebar({
     }
     resetSidebarLayout();
   };
-  const visible = WIDE_DEFAULTS.filter((id) =>
-    id === 'cast' ? !!castBar : id === 'director' ? !!director : true,
-  );
+  const visible = WIDE_DEFAULTS.filter((id) => id === 'director' ? !!director : true);
   const ordered = resolveOrder(storedWide, visible, WIDE_DEFAULTS);
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
@@ -341,10 +349,27 @@ export function ChatSidebar({
     const r = settingsBtnRef.current?.getBoundingClientRect();
     const items: import('./library/CardMenu').CardMenuItem[] = [
       ...(onEditCharacter ? [{ label: 'Edit Character', onClick: onEditCharacter }] : []),
+      {
+        label: 'Avatar Gallery',
+        onClick: () => {
+          onOpenOverlay?.();
+          if (!(t?.group && groupId)) {
+            setGallery({ id: characterId, name: focusedName ?? '' });
+            return;
+          }
+          // A group member's gallery is its library character's, as on the desktop.
+          api
+            .get<{ id: string; name: string }>(
+              `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(focusedId ?? '')}/library`,
+            )
+            .then(setGallery)
+            .catch((e) => console.warn('[sidebar] no library character for this member', e));
+        },
+      },
       { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
       { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
-        ? [{ label: 'Group Settings…', onClick: () => setShowGroupSettings(true) }]
+        ? [{ label: 'Edit group…', onClick: () => openEditGroup(groupId) }]
         : []),
     ];
     setSettingsMenu({
@@ -370,15 +395,9 @@ export function ChatSidebar({
 
   const section = (id: string) => {
     switch (id) {
-      case 'cast':
-        return castBar;
       case 'director':
-        return director ? (
-          <details className="tool-section">
-            <summary><span className="card-chev" aria-hidden>❯</span>🎬 Director</summary>
-            <div className="tool-body">{director}</div>
-          </details>
-        ) : null;
+        // Always open, as the desktop's Director card is.
+        return director ? <div className="tool-section director-card">{director}</div> : null;
       case 'one_shot_eval':
         return <OneShotEvalControl reloadKey={toolsKey} />;
       case 'tool_calling_pill':
@@ -984,9 +1003,11 @@ export function ChatSidebar({
       <div className="insight-section" data-id="portrait">
         <div className={moodClass} style={moodStyle as React.CSSProperties | undefined} data-testid="mood-portrait" data-tone={atmosphere.tone ?? ''}>
           {isGroup ? (
-            focusedId ? (
+            // Before any chip is tapped the portrait is the member the page
+            // shows by default (as the desktop does), not a bare initial.
+            (portraitMemberId ?? focusedId) ? (
               <Portrait
-                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent(focusedId)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
+                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent((portraitMemberId ?? focusedId)!)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
                 fallback={focusedPlaceholderPortrait ? undefined : focusedAvatarUrl}
                 mood={realism.mood || realism.emotion}
                 initial={focusedName ?? portraitName}
@@ -1030,33 +1051,28 @@ export function ChatSidebar({
           Main Settings
         </button>
         {settingsMenu && <CardMenu menu={settingsMenu} onClose={() => setSettingsMenu(null)} />}
+        {gallery && (
+          <AvatarGalleryModal characterId={gallery.id} name={gallery.name} onClose={() => setGallery(null)} />
+        )}
       </div>
       <div className="sidebar-layout-pills">
         <SidebarResetPill onReset={wideReset} />
         <SidebarLockPill locked={locked} onToggle={() => setLocked(!locked)} />
       </div>
+      {castBar && (
+        // The cast roster is fixed above the reorderable body, as on the
+        // desktop (chat_page.sidebar.dart renders the roster outside the
+        // ReorderableListView): it never carries a drag grip and never
+        // takes part in ordering. `data-id="cast"` stays for probes.
+        <div className="insight-section sidebar-cast-fixed" data-id="cast">
+          {castBar}
+        </div>
+      )}
       {ordered.map((id) => (
         <div key={id} className={`wide-card${dragId === id ? ' dragging' : ''}`}>
           {card(id, section(id))}
         </div>
       ))}
-      {showGroupSettings && t?.group && groupId && (
-        <div className="drawer-backdrop" onClick={() => setShowGroupSettings(false)}>
-          <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-head">
-              <span>Group settings</span>
-              <button className="link-btn" onClick={() => setShowGroupSettings(false)}>Close</button>
-            </div>
-            <GroupSettings
-              group={t.group}
-              groupId={groupId}
-              onCommand={onCommand}
-              onToggleDirector={(v) => toggle('director', v)}
-              clockOn={t.time.passageEnabled}
-            />
-          </div>
-        </div>
-      )}
       {showCalendar && (
         <StoryCalendarModal
           focusedId={focusedId}

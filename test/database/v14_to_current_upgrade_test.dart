@@ -146,8 +146,10 @@ void main() {
     // 2026-11-04: v64 adds sessions.pockets_enabled (the per-chat Pockets
     // & Wardrobe switch, docs/design/pockets-wardrobe-chat-toggle.md).
     // 2026-11-07: v65 adds sessions.composer_draft (the half-typed message
-    // left in the box survives a chat close), so the ladder ends at 65.
-    expect(first['_meta']!['user_version'], 65);
+    // left in the box survives a chat close).
+    // 2026-11-11: v66 adds the group editor's columns on groups; v67 moves each
+    // group's stored member start onto the member copies. The ladder ends at 67.
+    expect(first['_meta']!['user_version'], 67);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -172,7 +174,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 65);
+    expect(second['_meta']!['user_version'], 67);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

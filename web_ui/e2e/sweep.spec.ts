@@ -65,7 +65,11 @@ const ROUTES: ((i: { character: string; story: string; group: string; member: st
   () => '/settings',
   () => '/account',
   () => '/backups',
-  () => '/remote',
+  // Was '/remote'. Remote access is no longer a page of its own: the desktop
+  // sets web access up in Settings > Advanced, so the web does too (covered by
+  // '/settings'). '/persona' (User Persona) takes this slot, keeping the
+  // screen numbers of the routes below it.
+  () => '/persona',
   () => '/models',
   () => '/images',
   () => '/create',
@@ -92,7 +96,8 @@ const ROUTES: ((i: { character: string; story: string; group: string; member: st
   (i) => `/stories/${i.story}/lore`,
   (i) => `/stories/${i.story}/log`,
   (i) => `/edit/${i.character}`,
-  // A group member's own editor.
+  // The Edit group page, and a group member's own editor.
+  (i) => `/groups/${i.group}/edit`,
   (i) => `/groups/${i.group}/members/${i.member}/edit`,
 ];
 

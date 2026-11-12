@@ -149,6 +149,7 @@ class NeedsImpactEvaluator {
       String effectiveText = text;
       final authority = getNeedsModelAuthorityEnabled();
       final cardVerifEnabled =
+          getActiveGroup()?.realismVerificationEnabled ??
           getActiveCharacter()
               ?.frontPorchExtensions
               ?.realismVerificationEnabled ??

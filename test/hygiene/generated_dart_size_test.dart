@@ -51,7 +51,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// (a real schema or provider addition); lower it when the file shrinks, so
 /// freed headroom cannot quietly grow back.
 const Map<String, int> kGeneratedCeilings = {
-  'lib/database/database.g.dart': 18000,
+  'lib/database/database.g.dart': 18600, // v66: eleven group columns
   'lib/services/chat/weather_providers.g.dart': 400,
   'lib/services/chat/milestone_providers.g.dart': 320,
   'lib/ui/chat_components/overlays/absence_recap_banner.g.dart': 160,

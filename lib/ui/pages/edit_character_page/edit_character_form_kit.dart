@@ -130,6 +130,37 @@ class EditCharacterFormKit {
     );
   }
 
+  /// The playful note above the Realism settings: [text] in the accent.
+  Widget disclaimer(String text) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.formAccentOf(context).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.formAccentOf(context).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('😉', style: TextStyle(fontSize: 18)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: AppColors.formAccentOf(context).withValues(alpha: 0.8),
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Styled text field matching the manual creator design.
   Widget styledField({
     required TextEditingController controller,

@@ -34,11 +34,11 @@ const _desktopOnlySections = {
       'same thing inside Character State ("Lite NPC — no realism or needs '
       'tracking for this guest."), which is the only place it matters there.',
 };
-const _webOnlySections = {
-  'cast':
-      'The web keeps the cast roster chips in the reorderable list; the '
-      'desktop draws its roster chips above the sidebar body, outside the '
-      'reorderable list, in the same place on screen (top).',
+const _webOnlySections = <String, String>{
+  // Empty: the web cast roster moved out of the reorderable list to a fixed
+  // header (PR 5), the same place the desktop draws it. The exemption that
+  // tolerated the old web-only reorderable 'cast' id is retired with the
+  // drift it excused.
 };
 
 /// Desktop section id -> web section id, when they are spelled differently.
@@ -111,7 +111,709 @@ List<String> _byOffset(Map<String, int> at) {
   return [for (final e in entries) e.key];
 }
 
+// ── Leaf-by-leaf editor parity (docs/design/character-editor-parity.md) ──
+//
+// The desktop editor is the baseline. Each list below is the leaf labels of
+// one surface in the order the desktop renders them. The test finds every
+// label, in that order, in the desktop sources (helper widgets spliced in
+// where the editor calls them) and again in the web sources. A label that is
+// missing or moved on either side names itself in the failure.
+// ONE_UI_WEB_ROOT points the web side at another copy of `web_ui/src`; the
+// red proof runs the test against origin/Rawhide's.
+
+String get _webSrc => Platform.environment['ONE_UI_WEB_ROOT'] ?? 'web_ui/src';
+
+String _w(String rel) {
+  final f = File('$_webSrc/$rel');
+  // A file the other tree does not have yields no labels, so the failure
+  // names the leaves it lacks rather than a missing path.
+  return (f.existsSync() ? f.readAsStringSync() : '')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&apos;', "'")
+      .replaceAll('&quot;', '"');
+}
+
+String _d(String rel) => File('lib/ui/$rel').readAsStringSync();
+
+/// Splices [extra] into [text] right where [marker] first occurs.
+String _splice(String text, String marker, String extra) {
+  final at = text.indexOf(marker);
+  if (at < 0) fail('"$marker" is gone from the source it is spliced into.');
+  return text.substring(0, at) + extra + text.substring(at);
+}
+
+/// [_splice] and [_between] for the web side: a marker the tree lacks leaves
+/// the text as it is, so the leaves are reported rather than the marker.
+String _wSplice(String text, String marker, String extra) =>
+    text.contains(marker) ? _splice(text, marker, extra) : text;
+
+String _wBetween(String text, String from, [String? to]) =>
+    text.contains(from) ? _between(text, from, to) : '';
+
+/// Text from the first [from] to the next [to] (or the end).
+String _between(String text, String from, [String? to]) {
+  final a = text.indexOf(from);
+  if (a < 0) fail('"$from" is gone from the source.');
+  final b = to == null ? -1 : text.indexOf(to, a + from.length);
+  return b < 0 ? text.substring(a) : text.substring(a, b);
+}
+
+/// Labels not found in [source] as a quoted or tag-wrapped string, each after
+/// the one before it.
+List<String> _orderProblems(String source, List<String> labels) {
+  final problems = <String>[];
+  var cursor = 0;
+  for (final l in labels) {
+    final re = RegExp(
+      r"['\x22>`]\s*" +
+          RegExp.escape(l) +
+          r"(?=['\x22<:`]|\s*\$\{|\s*\{|\s\(|\s·|\s*<|\sChats)",
+    );
+    final m = re.firstMatch(source.substring(cursor));
+    if (m == null) {
+      problems.add(
+        re.hasMatch(source) ? '"$l" is out of order' : '"$l" is missing',
+      );
+      continue;
+    }
+    cursor += m.end;
+  }
+  return problems;
+}
+
+void _expectLeaves(String surface, String desktop, String web, List<String> l) {
+  expect(
+    _orderProblems(desktop, l),
+    isEmpty,
+    reason:
+        '$surface: the desktop sources lost or moved a leaf. Fix the list '
+        'with the maintainer; never just the web.',
+  );
+  expect(
+    _orderProblems(web, l),
+    isEmpty,
+    reason: '$surface: the web editor differs from the desktop editor.',
+  );
+}
+
+/// `field('key')` renders the label the page's FIELDS table gives that key.
+String _webFields(String text, String page) => text.replaceAllMapped(
+  RegExp(r"field\('(\w+)'\)"),
+  (m) {
+    final f = RegExp("key: '${m.group(1)}', label: '([^']+)'").firstMatch(page);
+    return f == null ? m.group(0)! : '>${f.group(1)}<';
+  },
+);
+
+/// The desktop Details tab in render order, 1:1, Realism on.
+String _desktopDetails() {
+  var identity = _d('widgets/identity_chip_lists.dart');
+  for (final (call, file) in [
+    ('PlanLinesEditor(', 'widgets/plan_lines_editor.dart'),
+    ('WorkRow(', 'widgets/work_row.dart'),
+    ('BirthdayRow(', 'widgets/birthday_row.dart'),
+    ('WardrobeChipSection(', 'widgets/wardrobe_chip_section.dart'),
+  ]) {
+    identity = _splice(identity, call, _d(file));
+  }
+  var tab = _d('pages/edit_character_page/edit_character_details_tab.dart');
+  tab = _splice(
+    tab,
+    'EditorTagsField(',
+    _d('pages/edit_character_page/editor_tags_field.dart'),
+  );
+  tab = _splice(tab, 'EditCharacterRealismSection(', identity);
+  var form = _d('widgets/realism_form_section.dart');
+  form = _splice(
+    form,
+    'RealismTimeDayCard(',
+    _d('widgets/realism_form_section/realism_time_day_card.dart'),
+  );
+  form = _splice(form, 'StoryBeginsRow(', _d('widgets/story_begins_row.dart'));
+  form = _splice(
+    form,
+    'needsFormSection!',
+    _d('widgets/needs_form_section.dart'),
+  );
+  form = _splice(
+    form,
+    'RealismRelationshipCard(',
+    _d('widgets/realism_form_section/realism_relationship_card.dart'),
+  );
+  form = _splice(
+    form,
+    'RealismOptionalFeaturesCard(',
+    _d('widgets/realism_form_section/realism_optional_features_card.dart'),
+  );
+  return tab +
+      _d('widgets/realism_form_section/realism_master_toggle.dart') +
+      form +
+      _d('pages/edit_character_page/group_member_mode.dart');
+}
+
+/// The web Details tab in render order, 1:1, Realism on.
+String _webDetails() {
+  final page = _w('pages/CharacterEditPage.tsx');
+  final realism = _w('components/realism/RealismFormSection.tsx');
+  var identity = _wBetween(realism, 'export function IdentitySections');
+  for (final name in ['WorkFields', 'BirthdayFields']) {
+    identity = _wSplice(
+      identity,
+      '<$name',
+      _wBetween(identity, 'function $name(', '\nfunction '),
+    );
+  }
+  var form = _wBetween(
+    realism,
+    'export function RealismFormSection',
+    'export function IdentitySections',
+  );
+  // The needs form lists its bars from a table above the markup.
+  var needsSrc = _w('components/realism/NeedsFormSection.tsx');
+  final bars = RegExp(
+    r"\['(\w+)', 'needsBaseline",
+  ).allMatches(needsSrc).map((m) => '>${m.group(1)}<').join();
+  needsSrc = needsSrc
+      .replaceFirst(RegExp(r'const NEEDS.*?\n\];', dotAll: true), '')
+      .replaceFirst('{NEEDS.map(', '$bars{NEEDS.map(');
+  form = _wSplice(form, '{needs}', needsSrc);
+  form = _wSplice(
+    form,
+    '<RelationshipFields',
+    _w('components/realism/RelationshipFields.tsx'),
+  );
+  var details = _wBetween(page, "tab === 'Details'", "tab === 'Dialogue'");
+  // field('key') renders the label FIELDS gives that key.
+  details = details.replaceAllMapped(RegExp(r"field\('(\w+)'\)"), (m) {
+    final f = RegExp("key: '${m.group(1)}', label: '([^']+)'").firstMatch(page);
+    return f == null ? m.group(0)! : '>${f.group(1)}<';
+  });
+  details = _wSplice(details, '<TagsField', _w('components/TagsField.tsx'));
+  details = _wSplice(details, '<IdentitySections', identity);
+  details = _wSplice(details, '<RealismFormSection', form);
+  return details;
+}
+
+const _detailsLeaves = [
+  'Identity',
+  'Name',
+  'Tags',
+  'Voice',
+  'Personality & World',
+  'Description',
+  'Personality',
+  'Scenario',
+  'Advanced Prompts',
+  'System Prompt',
+  'Post-History Instructions',
+  'Ambitions',
+  'Long-term goals',
+  'Plan lines',
+  'Work',
+  'Occupation',
+  'What the job is',
+  'Start',
+  'End',
+  'Birthday',
+  'Likes & Dislikes',
+  'Drawn to',
+  'Put off by',
+  'Pockets & Wardrobe',
+  'Wearing',
+  'Carrying',
+  'Intimate preferences',
+  'Warms to',
+  'Not interested in',
+  'Enable Realism Engine',
+  'Time & Day',
+  'Time of Day',
+  'Day Number',
+  'Story begins',
+  'Needs Simulation',
+  'Hunger',
+  'Bladder',
+  'Energy',
+  'Social',
+  'Fun',
+  'Hygiene',
+  'Comfort',
+  'Enjoys low hygiene',
+  'Pace',
+  'Relationship',
+  'Short-Term Bond',
+  'Long-Term Bond',
+  'Trust Level',
+  'Starting Emotion',
+  'Optional Features',
+  'Afterglow',
+  'Chaos Mode (Chance Time)',
+  'Realism Verification (Director/Verifier)',
+  'Max reprocess passes',
+  'Strictness',
+  'Director authority (needs)',
+];
+
+const _groupLeaves = [
+  'Identity',
+  'Group name',
+  'Cast',
+  'Remove…',
+  '+ Add a character',
+  'Bring back a removed member',
+  'Turns',
+  'Turn order',
+  'Auto-advance',
+  'Start this group in Director Mode',
+  'Voice',
+  'Personality & World',
+  'Personality',
+  'Scenario',
+  'Advanced Prompts',
+  'System Prompt',
+  'Post-History Instructions',
+  'Per-character, in this group only (optional)',
+  'Strength',
+  'Tags',
+  'Realism Engine',
+  'These settings only affect new chats with this group.',
+  'Time & Day',
+  'Time of Day',
+  'Day Number',
+  'Story begins',
+  'Chaos Mode (Chance Time)',
+  'Realism Verification (Director/Verifier)',
+  'Max reprocess passes',
+  'Strictness',
+  'Director authority (needs)',
+  'Starting feelings between members',
+];
+
+String _desktopGroupDetails() {
+  const files = [
+    'pages/edit_group/edit_group_cast_cards.dart',
+    'pages/edit_group/edit_group_prompt_cards.dart',
+    'pages/edit_group/edit_group_realism_card.dart',
+  ];
+  final all = files.map(_d).join('\n');
+  String cls(String name) => _between(all, 'class $name ', '\nclass ');
+  var form = '';
+  final tab = _d('pages/edit_group/edit_group_details_tab.dart');
+  for (final m in RegExp(r'(EditGroup\w+Card)\(').allMatches(tab)) {
+    var c = cls(m.group(1)!);
+    if (m.group(1) == 'EditGroupRealismCard') {
+      c = _splice(
+        c,
+        'RealismTimeDayCard(',
+        _d('widgets/realism_form_section/realism_time_day_card.dart'),
+      );
+      c = _splice(c, 'StoryBeginsRow(', _d('widgets/story_begins_row.dart'));
+      c = _splice(
+        c,
+        'RealismVerificationControls(',
+        _d('widgets/realism_form_section/realism_optional_features_card.dart'),
+      );
+    }
+    form += c;
+  }
+  return form;
+}
+
+void _leafTests() {
+  test('character editor Details: every leaf, in order, desktop and web '
+      '(1:1, Realism on)', () {
+    _expectLeaves('Details', _desktopDetails(), _webDetails(), _detailsLeaves);
+  });
+
+  test('member editor Details: the same leaves, then "In the group"', () {
+    final w = _webDetails() + _w('components/GroupMemberSection.tsx');
+    _expectLeaves('Member Details', _desktopDetails(), w, [
+      ..._detailsLeaves,
+      'In',
+    ]);
+  });
+
+  test('character editor Dialogue: every leaf, in order', () {
+    final d = _d('pages/edit_character_page/edit_character_dialogue_tab.dart');
+    final page = _w('pages/CharacterEditPage.tsx');
+    final w = _wSplice(
+      _webFields(
+        _wBetween(page, "tab === 'Dialogue'", "tab === 'Lorebook'"),
+        page,
+      ),
+      '<AltGreetingsEditor',
+      _w('components/AltGreetingsEditor.tsx'),
+    );
+    _expectLeaves('Dialogue', d, w, [
+      'First Message',
+      'Opening Message',
+      'Alternate Greetings',
+      'Add',
+      'No alternate greetings yet',
+      'Greeting',
+      'Remove greeting',
+      'Example Dialogue',
+      'Example Conversations',
+    ]);
+  });
+
+  test('character editor Lorebook: header, actions, empty state and every '
+      'entry field, in order', () {
+    final d =
+        _d('pages/edit_character_page/edit_character_lorebook_tab.dart') +
+        _d('pages/edit_character_page/edit_character_lore_card.dart') +
+        _d('dialogs/lorebook_entry_dialog.dart') +
+        _d('dialogs/lorebook_entry/lorebook_entry_advanced.dart');
+    final page = _w('pages/CharacterEditPage.tsx');
+    final editor = _w('components/LoreEntriesEditor.tsx');
+    final w = _wSplice(
+      _wBetween(page, "tab === 'Lorebook'", "tab === 'Worlds'"),
+      '<LoreEntriesEditor',
+      _wSplice(
+        _wBetween(editor, 'export function LoreEntriesEditor'),
+        '<LoreEntryFields',
+        _wBetween(
+          editor,
+          'export function LoreEntryFields',
+          'export function LoreEntriesEditor',
+        ),
+      ),
+    );
+    _expectLeaves('Lorebook', d, w, [
+      'Lorebook',
+      'World lore entries inject context when keywords are detected.',
+      'Import file',
+      'Export file',
+      'From character',
+      'Add Entry',
+      'No lorebook entries yet',
+      'Add entries to inject context-aware world lore.',
+      'Always Active',
+      'Depth',
+      'Edit entry',
+      'Delete entry',
+      'Add Lorebook Entry',
+      'Edit Lorebook Entry',
+      'Simple',
+      'Advanced',
+      'Name (optional)',
+      'Keywords (comma separated)',
+      'Enabled',
+      'Always Active',
+      'Sticky Depth',
+      'Chance to trigger',
+      'Placement',
+      'Conditions',
+      'Secondary keywords (comma separated)',
+      'Secondary logic',
+      'Keywords are regex patterns',
+      'Placement & priority',
+      'Position',
+      'Depth',
+      'Speak as',
+      'Order',
+      'Ignore token budget',
+      'Timing (messages)',
+      'Sticky',
+      'Cooldown',
+      'Delay',
+      'Chain reactions',
+      'Can be triggered by other lore',
+      'Can trigger other lore',
+      'Only via chaining, level',
+      'Matching overrides',
+      'Scan depth',
+      'Case sensitive',
+      'Whole words',
+      'Variety group',
+      'Weight',
+      'Prioritize in group',
+      'Score by matched keys',
+    ]);
+  });
+
+  test('Edit group Details: every leaf, in order, desktop and web', () {
+    final page = _w('pages/GroupEditPage.tsx');
+    var web = _wBetween(page, "tab === 'Details'", "tab === 'Dialogue'");
+    web = web.replaceAllMapped(RegExp(r"field\('(\w+)'\)"), (m) {
+      final f = RegExp(
+        "key: '${m.group(1)}', label: '([^']+)'",
+      ).firstMatch(page);
+      return f == null ? m.group(0)! : '>${f.group(1)}<';
+    });
+    _expectLeaves(
+      'Edit group Details',
+      _desktopGroupDetails(),
+      web,
+      _groupLeaves,
+    );
+  });
+
+  test('the web editor has nothing the desktop editor lacks, and the removed '
+      'controls live where the desktop keeps them', () {
+    final editor = [
+      _w('pages/CharacterEditPage.tsx'),
+      _w('components/realism/RealismFormSection.tsx'),
+    ].join();
+    for (final gone in [
+      'Auto passage of time',
+      'Avatars & expressions',
+      'Delete character',
+      'AvatarManager',
+    ]) {
+      expect(
+        editor,
+        isNot(contains(gone)),
+        reason: '$gone is not in the desktop editor',
+      );
+    }
+    // Avatar Gallery: the card menu and the chat's Main Settings menu.
+    expect(
+      _d('pages/home/cards/home_card_menu.dart'),
+      contains("'Avatar Gallery'"),
+    );
+    expect(
+      _d('pages/chat_page.main_settings_items.dart'),
+      contains("'Avatar Gallery'"),
+    );
+    expect(_w('components/library/cardMenus.ts'), contains("'Avatar Gallery'"));
+    expect(_w('components/ChatSidebar.tsx'), contains("'Avatar Gallery'"));
+    // In a group the gallery is the member's library character's, looked up
+    // through the relay, as on the desktop.
+    expect(_w('components/ChatSidebar.tsx'), contains('/library'));
+    expect(
+      File('lib/services/web/routes/group_routes.dart').readAsStringSync(),
+      contains('/api/groups/<id>/members/<memberId>/library'),
+    );
+    expect(_w('components/AvatarGalleryModal.tsx'), contains('Avatar Gallery'));
+    // Passage of Time stays a Porch Life setting on both.
+    expect(
+      _d('settings/tabs/porch_life_tab.dart'),
+      contains("'Passage of Time'"),
+    );
+    expect(
+      _w('components/PorchLifeSettings.tsx'),
+      contains('label="Passage of Time"'),
+    );
+    // The character card menu: same items, same order, Delete included.
+    List<String> labels(String src, RegExp re) => [
+      for (final m in re.allMatches(src)) m.group(1)!,
+    ];
+    final dartMenu = _between(
+      _d('pages/home/cards/home_card_menu.dart'),
+      'characterCardMenuItems',
+      'groupCardMenuItems',
+    );
+    final webMenu = _wBetween(
+      _w('components/library/cardMenus.ts'),
+      'export function characterCardMenu',
+      'export function groupCardMenu',
+    );
+    expect(
+      labels(webMenu, RegExp(r"label: '([^']+)'")),
+      labels(dartMenu, RegExp(r"label: '([^']+)'")),
+      reason: 'the character card menu differs from the desktop menu',
+    );
+  });
+
+  test(
+    'the group, folder and import menus list the desktop items in order',
+    () {
+      List<String> labels(String src, RegExp re) => [
+        for (final m in re.allMatches(src)) m.group(1)!,
+      ];
+      final label = RegExp(r"label: '([^']+)'");
+      final menus = _w('components/library/cardMenus.ts');
+      final home = _d('pages/home/cards/home_card_menu.dart');
+      expect(
+        labels(
+          _wBetween(
+            menus,
+            'export function groupCardMenu',
+            'export function folderCardMenu',
+          ),
+          label,
+        ),
+        labels(_between(home, 'groupCardMenuItems', '\n}\n'), label),
+        reason: 'the group card menu differs from the desktop menu',
+      );
+      expect(
+        labels(
+          _wBetween(
+            menus,
+            'export function folderCardMenu',
+            'export function importCardMenu',
+          ),
+          label,
+        ),
+        labels(_d('pages/home/cards/folder_grid_card.dart'), label),
+        reason: 'the folder card menu differs from the desktop menu',
+      );
+      expect(
+        labels(_wBetween(menus, 'export function importCardMenu'), label),
+        labels(
+          _d('pages/home/widgets/toolbar/home_toolbar_actions.dart'),
+          RegExp(r"row\(Icons\.\w+, '([^']+)'\)"),
+        ),
+        reason: 'the import menu differs from the desktop menu',
+      );
+      final bar = _w('components/library/LibraryToolbar.tsx');
+      for (final t in [
+        'Multi-select characters (for organizing, moving, etc.)',
+        'Import or discover characters',
+      ]) {
+        expect(bar, contains('title="$t"'));
+      }
+      expect(bar, contains("inFolder ? 'New Subfolder' : 'New Folder'"));
+    },
+  );
+
+  test('the home toolbar, selection bar, nav and Delete Folder match the '
+      'desktop', () {
+    // Duplicate Group is real on both: no stub, one relay route behind it.
+    expect(
+      _d('pages/home/home_actions/home_card_menu_actions.dart'),
+      isNot(contains('not yet implemented')),
+    );
+    expect(
+      _w('pages/CharactersPage.tsx'),
+      isNot(contains('not yet implemented')),
+    );
+    expect(_w('hooks/useLibrary.actions.ts'), contains('/duplicate'));
+    expect(
+      File('lib/services/web/routes/group_routes.dart').readAsStringSync(),
+      contains("'/api/groups/<id>/duplicate'"),
+    );
+    final bar = _w('components/library/LibraryToolbar.tsx');
+    final actions = _d('pages/home/widgets/toolbar/home_toolbar_actions.dart');
+    final selection = _d(
+      'pages/home/widgets/toolbar/home_toolbar_selection.dart',
+    );
+    // Toolbar buttons, in the desktop's order.
+    final desktopTips = [
+      for (final m in RegExp(r"tooltip:\s*'([^']+)'").allMatches(
+        _between(actions, 'homeToolbarActionButtons', 'homeToolbarImportItems'),
+      ))
+        m.group(1)!,
+    ];
+    final webTips = [
+      for (final m in RegExp(r'title=\{?"([^"]+)"').allMatches(bar))
+        m.group(1)!,
+    ];
+    final wanted = [
+      for (final t in desktopTips)
+        if (t != 'New Subfolder') t,
+    ];
+    expect(_orderProblems(bar, wanted.map((t) => t).toList()), isEmpty);
+    expect(webTips, containsAll(wanted.where((t) => t.startsWith('Refresh'))));
+    // Create, AI Create and New Group are nav items on both, not toolbar buttons.
+    final nav = _w('components/Layout.tsx');
+    final side = _d('widgets/sidebar.dart');
+    for (final l in [
+      'AI Character Creator',
+      'Create Character',
+      'Create Group Chat',
+    ]) {
+      expect(side, contains("'$l'"));
+      expect(nav, contains("label: '$l'"));
+      expect(bar, isNot(contains(l)));
+    }
+    // Selection bar: Cancel selection, Select all, Select none.
+    for (final l in ['Cancel selection', 'Select all', 'Select none']) {
+      expect(selection, contains("'$l'"));
+      expect(bar, contains(l));
+    }
+    // Delete Folder: counts, and "+ Characters…" only with characters.
+    final dartDlg = _d('pages/home/home_actions/home_folder_dialogs.dart');
+    final webPage = _w('pages/CharactersPage.tsx');
+    for (final t in [
+      'Delete Folder Only',
+      'Delete Folder + Characters…',
+      'return to the top level.',
+      'groups are kept and return to the top level',
+    ]) {
+      expect(dartDlg, contains(t));
+      expect(webPage, contains(t));
+    }
+    expect(dartDlg, contains('if (charCount > 0)'));
+    expect(webPage, contains('characterCount ?? 1) > 0'));
+    // Organize is a second picking mode in both.
+    expect(_d('pages/home/library_selection.dart'), contains('organize'));
+    expect(_w('hooks/useLibrary.ts'), contains('startOrganizing'));
+  });
+
+  test(
+    'the web nav is the desktop sidebar, plus only Account (web sign-in)',
+    () {
+      final side = _between(
+        _d('widgets/sidebar.dart'),
+        'static const labels = [',
+        '];',
+      );
+      final dartNav = [
+        for (final m in RegExp(r"'([^']+)'").allMatches(side)) m.group(1)!,
+      ];
+      final nav = _wBetween(_w('components/Layout.tsx'), 'const NAV', '];');
+      final webNav = [
+        for (final m in RegExp(r"label: '([^']+)'").allMatches(nav))
+          if (m.group(1) != 'Account') m.group(1)!,
+      ];
+      expect(webNav, dartNav, reason: 'the web nav differs from the sidebar');
+      // Chat, Stories and Remote are not nav items: Home's mode toggle reaches
+      // Porch Stories and Settings holds the web server, as on the desktop.
+      for (final gone in ["'Chat'", "'Stories'", "'Remote'", "'Characters'"]) {
+        expect(nav, isNot(contains('label: $gone')));
+      }
+      expect(
+        _w('components/HomeModeToggle.tsx'),
+        allOf(contains("'Chats'"), contains("'Porch Stories'")),
+      );
+      expect(
+        _w('pages/SettingsPage.tsx'),
+        contains('<RemoteAccessPage embedded'),
+      );
+      expect(_w('App.tsx'), contains('path="/persona"'));
+    },
+  );
+
+  test('the lore entry editor is a dialog with the desktop controls', () {
+    final dart = _d('dialogs/lorebook_entry_dialog.dart');
+    final web = _w('components/LoreEntriesEditor.tsx');
+    expect(web, contains('data-testid="lore-entry-dialog"'));
+    expect(
+      _orderProblems(_wBetween(web, 'export function LoreEntriesEditor'), [
+        'Cancel',
+        'Add',
+        'Save',
+      ]),
+      isEmpty,
+    );
+    expect(_orderProblems(dart, ['Cancel', 'Add', 'Save']), isEmpty);
+    // Control kinds: Sticky Depth and Chance to trigger are sliders, hidden
+    // while the entry is Always Active.
+    expect(RegExp('Slider\\(').allMatches(dart).length, 2);
+    final fields = _wBetween(
+      web,
+      'export function LoreEntryFields',
+      'export function LoreEntriesEditor',
+    );
+    expect(RegExp('type="range"').allMatches(fields).length, 2);
+    expect(fields, contains('!entry.constant'));
+  });
+
+  test('character editor Worlds: the same section copy', () {
+    final d = _d('widgets/group_setting_picker/group_worlds_section.dart');
+    final w = _w('components/groupSetting/CharacterWorldsSection.tsx');
+    _expectLeaves('Worlds', d, w, [
+      'Where new chats meet',
+      'New chats',
+      'Applies to new chats of this group.',
+      'Worlds now have two roles.',
+    ]);
+  });
+}
+
 void main() {
+  _leafTests();
   final layout = _read(_layout);
   final stateDart = _read(_stateDart);
   final bodyDart = _read(_bodyDart);
@@ -316,5 +1018,169 @@ void main() {
     ).firstMatch(_read('web_ui/src/components/ChatToolsMemory.tsx'));
     expect(webNote, isNotNull);
     expect(dartText, webNote!.group(1));
+  });
+
+  // PR 5: one editor for 1:1 and group members (docs/design/group-editor.md).
+  test(
+    'the member editor is the 1:1 editor plus the notice and "In the group", '
+    'with Time & Day, Worlds and Chaos Mode greyed',
+    () {
+      final details = File(
+        'lib/ui/pages/edit_character_page/edit_character_details_tab.dart',
+      ).readAsStringSync();
+      final order = RegExp(
+        r"title: '(Identity|Voice|Personality & World|Advanced Prompts)'|"
+        r'IdentityChipLists\(|EditCharacterRealismSection\(|'
+        r'GroupMemberSection\(|groupMemberNotice\(|characterInGroupsNote\(',
+      ).allMatches(details).map((m) => m.group(0)!).toList();
+      expect(order, [
+        'groupMemberNotice(',
+        'characterInGroupsNote(',
+        "title: 'Identity'",
+        "title: 'Voice'",
+        "title: 'Personality & World'",
+        "title: 'Advanced Prompts'",
+        'IdentityChipLists(',
+        'EditCharacterRealismSection(',
+        'GroupMemberSection(',
+      ], reason: 'member mode adds the notice first and its section last');
+      final realism = File(
+        'lib/ui/pages/edit_character_page/edit_character_realism_section.dart',
+      ).readAsStringSync();
+      expect(realism, contains('timeDayLockedTooltip'));
+      expect(realism, contains('chaosLockedTooltip'));
+      expect(
+        File(
+          'lib/ui/pages/edit_character_page/edit_character_page.dart',
+        ).readAsStringSync(),
+        isNot(contains('member_group_view')),
+        reason: 'there is no member-only twin of the editor',
+      );
+    },
+  );
+
+  test('Edit group has the 1:1 editor\'s four tabs and the spec\'s Details '
+      'sections in order', () {
+    final tabs = File(
+      'lib/ui/pages/edit_character_page/edit_character_scaffold.dart',
+    ).readAsStringSync();
+    expect(
+      RegExp(r"text: '(\w+)'").allMatches(tabs).map((m) => m.group(1)).toList(),
+      ['Details', 'Dialogue', 'Lorebook', 'Worlds'],
+    );
+    final page = File('lib/ui/pages/edit_group_page.dart').readAsStringSync();
+    expect(page, contains('EditCharacterScaffold('));
+    final tab = File(
+      'lib/ui/pages/edit_group/edit_group_details_tab.dart',
+    ).readAsStringSync();
+    expect(
+      RegExp(
+        r'(Edit\w+Card)\(',
+      ).allMatches(tab).map((m) => m.group(1)).toList(),
+      [
+        'EditGroupIdentityCard',
+        'EditGroupTurnsCard',
+        'EditGroupVoiceCard',
+        'EditGroupPersonalityCard',
+        'EditGroupAdvancedPromptsCard',
+        'EditGroupTagsCard',
+        'EditGroupRealismCard',
+        'EditGroupStatsCard',
+      ],
+    );
+  });
+
+  test('Edit group and the member editor list the same sections in the same '
+      'order on desktop and web', () {
+    // Edit group, Details tab.
+    final dartGroup = [
+      for (final m in RegExp(r"title: '([^']+)'").allMatches(
+        File(
+              'lib/ui/pages/edit_group/edit_group_cast_cards.dart',
+            ).readAsStringSync() +
+            File(
+              'lib/ui/pages/edit_group/edit_group_prompt_cards.dart',
+            ).readAsStringSync() +
+            File(
+              'lib/ui/pages/edit_group/edit_group_realism_card.dart',
+            ).readAsStringSync(),
+      ))
+        m.group(1)!,
+    ];
+    final tab = File(
+      'lib/ui/pages/edit_group/edit_group_details_tab.dart',
+    ).readAsStringSync();
+    const cardTitle = {
+      'EditGroupIdentityCard': 'Identity',
+      'EditGroupTurnsCard': 'Turns',
+      'EditGroupVoiceCard': 'Voice',
+      'EditGroupPersonalityCard': 'Personality & World',
+      'EditGroupAdvancedPromptsCard': 'Advanced Prompts',
+      'EditGroupTagsCard': 'Tags',
+      'EditGroupRealismCard': 'Realism Engine',
+      'EditGroupStatsCard': 'Your chats together',
+    };
+    final dartOrder = [
+      for (final m in RegExp(r'(EditGroup\w+Card)\(').allMatches(tab))
+        cardTitle[m.group(1)]!,
+    ];
+    for (final t in dartOrder) {
+      if (t == 'Your chats together') continue;
+      expect(dartGroup, contains(t), reason: 'the desktop card titled $t');
+    }
+    final web = File('web_ui/src/pages/GroupEditPage.tsx').readAsStringSync();
+    final webOrder = [
+      for (final m in RegExp(
+        r'section-label">([^<]+)</h3>|<summary>([^<]+)</summary>|(CharacterStatsCard\s+characterId)',
+      ).allMatches(web))
+        (m.group(1) ?? m.group(2) ?? 'Your chats together').replaceAll(
+          '&amp;',
+          '&',
+        ),
+    ];
+    // The web's Details tab, up to the Dialogue tab's own headings.
+    final webDetails = webOrder.takeWhile((t) => t != 'First Message').toList();
+    expect(webDetails, dartOrder);
+
+    // The member editor: its notice first, "In the group" last.
+    final dartMember = [
+      for (final m
+          in RegExp(
+            r"groupMemberNotice\(|title: '(Identity|Voice|Personality & World|Advanced Prompts)'|"
+            r'EditCharacterRealismSection\(|GroupMemberSection\(',
+          ).allMatches(
+            File(
+              'lib/ui/pages/edit_character_page/edit_character_details_tab.dart',
+            ).readAsStringSync(),
+          ))
+        m.group(1) ?? m.group(0)!,
+    ];
+    final webChar = File(
+      'web_ui/src/pages/CharacterEditPage.tsx',
+    ).readAsStringSync();
+    final webMember = [
+      for (final m in RegExp(
+        r'data-testid="group-member-notice"|section-label">(Identity|Voice|Personality &amp; World)</h3>|<summary>(Advanced Prompts)</summary>|<RealismFormSection|<GroupMemberSection',
+      ).allMatches(webChar))
+        m.group(1)?.replaceAll('&amp;', '&') ??
+            m.group(2) ??
+            (m.group(0)!.contains('notice')
+                ? 'groupMemberNotice('
+                : m.group(0)!.contains('Realism')
+                ? 'EditCharacterRealismSection('
+                : 'GroupMemberSection('),
+    ];
+    expect(dartMember.first, 'groupMemberNotice(');
+    expect(dartMember.last, 'GroupMemberSection(');
+    expect(webMember, [
+      'groupMemberNotice(',
+      'Identity',
+      'Voice',
+      'Personality & World',
+      'Advanced Prompts',
+      'EditCharacterRealismSection(',
+      'GroupMemberSection(',
+    ]);
+    expect(dartMember, webMember);
   });
 }

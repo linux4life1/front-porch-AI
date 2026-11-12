@@ -31,6 +31,7 @@ import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 import 'entry_door.dart';
+import 'group_start_seeds.dart';
 
 /// Open a group: the departing chat flushed and detached, every per-chat
 /// register reset, the roster resolved from the member table, Chaos seeded
@@ -269,6 +270,12 @@ class GroupEntry {
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_session.messages.isEmpty && _activeGroup != null) {
         await _store.groupState.loadGroupRealismState(null);
+        // Each member's own copy lays its start over the group's seeds.
+        _groupStore.members = groupStartMembers(
+          group,
+          resolved,
+          _getCharacterIdFromCard,
+        );
 
         // Promote the group definition's realism/needs intent on first entry.
         // The creator (and Group Card import) express "realism on" by writing non-empty
@@ -322,6 +329,9 @@ class GroupEntry {
       // that loader at all; see its group branch.) `addAll`, not assign, so a
       // legacy blob that did carry entries keeps them.
       _group.characterSystemPrompts.addAll(group.characterSystemPrompts);
+      // The group's own Author's Notes for its members open the chat; an
+      // existing chat reloads its own from its session below.
+      _group.seedNewChatDefaults(group);
 
       // Seed objectives that came from an imported Group Card (one-time)
       await _s.objectives().writer.seedImportedMemberObjectivesIfPresent();

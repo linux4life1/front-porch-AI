@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
@@ -163,12 +162,6 @@ void main() {
       'greeting seed Needs block': () => GreetingSeedForm(
         seed: const GreetingRealismSeed(),
         onChanged: (_) {},
-      ),
-      'group Needs tab': () => GroupNeedsTab(
-        chatService: groupChat = _GroupChat(
-          GroupChat(id: 'g1', name: 'The Stoop'),
-          [CharacterCard(name: 'Aerin')],
-        ),
       ),
     };
 

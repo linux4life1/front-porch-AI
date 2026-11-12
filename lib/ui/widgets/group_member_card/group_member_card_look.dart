@@ -372,7 +372,7 @@ class GroupMemberCardLook {
         Padding(
           padding: const EdgeInsets.only(top: 2),
           child: Text(
-            'Realism off — turn it on in Main Settings → Group Settings',
+            'Realism off — turn it on with the Realism switch above',
             style: TextStyle(
               fontSize: 9,
               color: AppColors.textTertiary(context),

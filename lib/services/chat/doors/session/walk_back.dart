@@ -20,7 +20,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 
 import 'session_deps.dart';
 
@@ -127,8 +127,10 @@ class WalkBack {
     _s.expression().resetForFreshChat();
     _needsSimulation.resetBuffers();
 
-    final seeds = parseGroupRealismSeeds(
-      _activeGroup!.defaultMemberRealismState,
+    final seeds = groupStartSeeds(
+      _activeGroup!,
+      _groupCharacters,
+      _getCharacterIdFromCard,
     );
 
     for (final c in _groupCharacters) {

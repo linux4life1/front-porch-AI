@@ -103,7 +103,7 @@ describe('Edit character with unsaved edits', () => {
     typeName('Juniper Vale');
     await act(async () => router.navigate('/'));
     expect(confirm).toHaveBeenCalledWith(UNSAVED_QUESTION);
-    expect(heading()).toBe('Edit character');
+    expect(heading()).toBe('Edit Juniper');
     expect(nameBox().value).toBe('Juniper Vale');
 
     // The page's own Cancel (browser back) asks the same way.
@@ -128,7 +128,7 @@ describe('Edit character with unsaved edits', () => {
     post.mockResolvedValue({});
     await mount();
     typeName('Juniper Vale');
-    await click('Save character');
+    await click('Save');
     expect(post).toHaveBeenCalledWith('/api/characters/c1', expect.objectContaining({ name: 'Juniper Vale' }));
     expect(heading()).toBe('Library page');
     expect(confirm).not.toHaveBeenCalled();
@@ -160,13 +160,15 @@ describe('Edit character: where new chats meet', () => {
   it('shows the card as it seeds today and saves a picked world as a split', async () => {
     serve({ settingId: 'vale', loreIds: ['attic'], legacyWorldCount: 2 });
     await mount();
+    await click('Worlds');
     expect(container.querySelector('[data-testid="character-worlds-split-banner"]')?.textContent).toContain(
       'Juniper linked 2 worlds',
     );
     expect(tile('group-setting-world-vale').getAttribute('aria-checked')).toBe('true');
 
+    await click('Worlds');
     await act(async () => tile('group-setting-world-attic').click());
-    await click('Save character');
+    await click('Save');
     const body = post.mock.calls.find(([url]) => url === '/api/characters/c1')?.[1];
     expect(body.worlds).toEqual({ settingId: 'attic', loreIds: [] });
     expect(body.worldNames).toBeUndefined();
@@ -180,7 +182,7 @@ describe('Edit character: where new chats meet', () => {
     );
     post.mockResolvedValue({});
     await mount();
-    await click('Save character');
+    await click('Save');
     const body = post.mock.calls.find(([url]) => url === '/api/characters/c1')?.[1];
     expect(body.worlds).toBeUndefined();
   });

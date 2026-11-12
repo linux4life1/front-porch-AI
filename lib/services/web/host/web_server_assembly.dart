@@ -124,7 +124,15 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   if (llm != null) {
     groupFacade?.opening = GroupDraftOpening(llm, characters, worlds);
   }
-  groupFacade?.memberEdit = GroupMemberEdit(db, storage, chatService, worlds);
+  groupFacade?.memberEdit = GroupMemberEdit(
+    db,
+    storage,
+    chatService,
+    worlds,
+    groupFacade.groups,
+  );
+
+  groupFacade?.editor.chat = chatService;
 
   final settingsFacade = llm != null
       ? SettingsFacade(storage, llm, chat: chatService)

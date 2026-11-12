@@ -85,9 +85,17 @@ export function DirectorStrip({
   };
   return (
     <div className={`director-strip${directing ? ' directing' : ''}`}>
-      <span className="director-status">
-        🎬 {directing ? 'You’re directing' : 'You’re in the scene'}
-      </span>
+      {/* The desktop card (director_panel.dart): a header with the status
+          pill, one line on what stepping out does, then the button. */}
+      <div className="director-head">
+        <span className="director-title">🎬 Director</span>
+        <span className="director-status">{directing ? 'You’re directing' : 'You’re in the scene'}</span>
+      </div>
+      <p className="director-blurb">
+        {directing
+          ? 'The cast plays on without you. Type a note to steer the scene. Bond and trust toward you hold still.'
+          : 'Step out to watch the cast play the scene and steer it with notes.'}
+      </p>
       {directing && (
         <button
           className="ghost small"
@@ -119,7 +127,7 @@ export function DirectorStrip({
         </button>
       )}
       <button
-        className="ghost small"
+        className="director-step"
         disabled={turnBusy}
         onClick={() => onCommand(directing ? '/director off' : '/director')}
         title={

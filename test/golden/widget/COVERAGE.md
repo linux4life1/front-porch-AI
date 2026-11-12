@@ -168,7 +168,7 @@ The June-6 "Stage 4" refactor shipped a *functionally dead* creator to stable
   _buildColorRow() globalXxxColor fallbacks. settle:false (StyledTextControllers).
 - ✅ `image_crop_dialog.dart` — 64×64 grey PNG bytes generated via image package;
   no Provider tree needed.
-- ✅ `group_settings_dialog.dart` — activeGroup==null renders "No active group chat"
+- `group_settings_dialog.dart` — replaced by the Edit group page (PR 5)
   empty state in tab 0; FakeChatService + FakeGroupChatRepository injected as
   constructor params. settle:false (TabController).
 - 🚫 `rocm_guidance_dialog.dart` — inner widget `_RocmGuidanceDialog` is private; public API

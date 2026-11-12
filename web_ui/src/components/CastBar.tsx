@@ -26,8 +26,6 @@ export interface CastMember {
   presence?: 'withYou' | 'away' | 'atWork' | null;
 }
 
-const PRESENCE_WORD = { withYou: 'with you', away: 'away', atWork: 'at work' } as const;
-
 export function CastBar({
   cast,
   focusedId,
@@ -37,10 +35,8 @@ export function CastBar({
   guestIsError,
   pendingDetection,
   onFocus,
-  onAdd,
   onCommand,
   onSetAway,
-  canRemoveMember = true,
 }: {
   cast: CastMember[];
   focusedId: string | null;
@@ -51,88 +47,68 @@ export function CastBar({
   guestIsError: boolean;
   pendingDetection: string | null;
   onFocus: (id: string) => void;
-  onAdd: () => void;
+  /** Kept for callers; the strip has no add button (the desktop's has none). */
+  onAdd?: () => void;
   onCommand: (cmd: string) => void;
   /** A group member's Away / Back (desktop's presence word). */
   onSetAway?: (id: string, away: boolean) => void;
-  /** False while directing with two characters left (one more exit would
-   *  end Director Mode). Guests count too: they are cast members. */
+  /** Kept for callers; removing a member is Edit group's Cast, as on desktop. */
   canRemoveMember?: boolean;
 }) {
-  // A lone host is the classic 1:1 — no roster chrome needed.
-  const soloHost = cast.length <= 1;
-  const hasLiteGuest = cast.some((c) => c.isLite);
-  const isOneToOne = cast.some((c) => c.isHost);
-
+  // The desktop cast strip (cast_roster_chip.dart), face for face: a round
+  // avatar (the picture, else the initial) ringed when focused, the name
+  // under it, Away / Back for a member, GUEST and Promote for a guest.
+  const focused = focusedId ?? cast[0]?.id ?? null;
   return (
     <div className="cast-bar">
       <div className="cast-row">
-        {cast.map((c) => (
-          <div
-            key={c.id}
-            className={`cast-chip${c.id === focusedId ? ' focused' : ''}${c.isNext ? ' next' : ''}${c.presence && c.presence !== 'withYou' ? ' away' : ''}`}
-          >
-            <button className="cast-chip-main" onClick={() => onFocus(c.id)} title="Focus this character">
-              <span className="cast-name">{c.name}</span>
-              <span className="cast-role">
-                {c.isHost ? 'host' : c.isLite ? 'guest' : 'member'}
-                {c.emotion ? ` · ${c.emotion}` : ''}
-                {c.presence ? ` · ${PRESENCE_WORD[c.presence]}` : ''}
-              </span>
-            </button>
-            {!c.isHost && (
-              <span className="cast-actions">
-                {onSetAway && (c.presence === 'withYou' || c.presence === 'away') && (
+        {cast.map((c) => {
+          const isFocused = c.id === focused;
+          const awayControl =
+            !!onSetAway && !c.isLite && (c.presence === 'withYou' || c.presence === 'away');
+          const showPicture = c.hasAvatar && !c.placeholderPortrait && !!c.avatarUrl;
+          return (
+            <div
+              key={c.id}
+              className={`cast-chip${isFocused ? ' focused' : ''}${c.isLite ? ' lite' : ''}${c.presence && c.presence !== 'withYou' ? ' away' : ''}`}
+            >
+              <button className="cast-chip-main" onClick={() => onFocus(c.id)} title={c.name}>
+                <span className="cast-face">
+                  {showPicture ? (
+                    <img src={c.avatarUrl} alt="" />
+                  ) : (
+                    <span className="cast-initial" aria-hidden>
+                      {(c.name || '?').charAt(0)}
+                    </span>
+                  )}
+                </span>
+                <span className="cast-name">{c.name}</span>
+              </button>
+              {awayControl && (
+                <button
+                  className="cast-away"
+                  disabled={busy || settling}
+                  onClick={() => onSetAway!(c.id, c.presence === 'withYou')}
+                  title={c.presence === 'withYou' ? 'Mark as away' : 'Bring back'}
+                >
+                  {c.presence === 'withYou' ? 'Away' : 'Back'}
+                </button>
+              )}
+              {c.isLite && (
+                <>
+                  <span className="cast-guest">GUEST</span>
                   <button
-                    className="ghost small"
-                    disabled={busy || settling}
-                    onClick={() => onSetAway(c.id, c.presence === 'withYou')}
-                    title={c.presence === 'withYou' ? 'Mark as away' : 'Bring back into the scene'}
-                  >
-                    {c.presence === 'withYou' ? 'Away' : 'Back'}
-                  </button>
-                )}
-                <button className="icon-btn" title="Speak now" disabled={busy} onClick={() => onCommand(`/speak ${c.name}`)}>🗣</button>
-                {c.isLite && (
-                  <button
-                    className="ghost small"
+                    className="cast-promote"
                     disabled={busy}
                     onClick={() => onCommand(`/promote ${c.name}`)}
-                    title="Make this guest a full member"
                   >
                     Promote
                   </button>
-                )}
-                <button
-                  className="icon-btn"
-                  title={
-                    canRemoveMember
-                      ? 'Remove from scene'
-                      : 'While you direct, the scene keeps at least two characters'
-                  }
-                  disabled={busy || !canRemoveMember}
-                  onClick={() => onCommand(`/exit ${c.name}`)}
-                >
-                  ✕
-                </button>
-              </span>
-            )}
-          </div>
-        ))}
-        <button className="cast-add" disabled={busy} onClick={onAdd} title="Add a character to the scene">＋</button>
-      </div>
-
-      <div className="cast-controls">
-        {hasLiteGuest && isOneToOne && (
-          <button className="ghost small" disabled={busy} onClick={() => onCommand('/promote')} title="Turn this scene into a group (guests stay lite until you promote them)">
-            Promote to group
-          </button>
-        )}
-        {!soloHost && (
-          <button className="ghost small" disabled={busy} onClick={() => onCommand('/scan')} title="Scan the scene for a new character to add">
-            Scan scene
-          </button>
-        )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {guestStatus && (

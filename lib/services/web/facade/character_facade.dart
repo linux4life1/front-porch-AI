@@ -287,9 +287,8 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The character folder tree (id, name, parentId) so the web library can show
-  /// folder navigation. Character membership is queried separately via
-  /// `list(folder: id)`, which already routes through FolderService.
+  /// The folder tree (id, name, parentId, and the recursive character and
+  /// group counts Delete Folder shows). Membership is `list(folder: id)`.
   List<Map<String, dynamic>> folders() {
     final svc = _folders;
     if (svc == null) return const [];
@@ -299,6 +298,8 @@ class CharacterFacade {
             'id': f.id,
             'name': f.name,
             if (f.parentId != null) 'parentId': f.parentId,
+            'characterCount': svc.getCharactersInFolderRecursive(f.id).length,
+            'groupCount': svc.groupIdsInFolderRecursive(f.id).length,
           },
         )
         .toList();
@@ -447,8 +448,7 @@ class CharacterFacade {
     }
   }
 
-  /// Full character card detail, matching the legacy `/detail` payload
-  /// (including session-scoped evolution state when a chat is active).
+  /// Full character card detail (the legacy `/detail` payload).
   Future<Map<String, dynamic>?> detail(String id) async {
     try {
       final c = await _db.getCharacterById(id);
@@ -485,9 +485,8 @@ class CharacterFacade {
         'narrativePerspective': voice.perspective,
         'narrativeTense': voice.tense,
         'sex': voice.sex,
-        // (The old evolved*/evolutionCount fields are gone — growth is served
-        // per-participant by /api/chat/tools/growth; the bundled web UI ships
-        // in lockstep with this facade.)
+        'inGroups': await groupNamesOfCharacter(_db, inMemory),
+        // (Growth is served per-participant by /api/chat/tools/growth.)
       };
     } catch (_) {
       return null;

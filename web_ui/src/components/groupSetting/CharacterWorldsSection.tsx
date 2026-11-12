@@ -17,6 +17,7 @@ export function CharacterWorldsSection({
   onChange,
   worlds,
   legacyWorldCount = 0,
+  forGroup = false,
 }: {
   name: string;
   value: WorldChoice;
@@ -25,6 +26,8 @@ export function CharacterWorldsSection({
   worlds: TreeWorld[];
   /** How many worlds an unsplit card links; above one, the banner shows. */
   legacyWorldCount?: number;
+  /** The group editor: the worlds apply to the whole cast. */
+  forGroup?: boolean;
 }) {
   const [climates, setClimates] = useState<{ id: string; displayName: string }[]>([]);
   useEffect(() => {
@@ -41,7 +44,7 @@ export function CharacterWorldsSection({
         Where new chats meet <span className="gs-chip">New chats</span>
       </h3>
       <p className="muted small">
-        Applies to {owner}&apos;s new chats. Chats you&apos;ve already started keep their worlds.
+        {forGroup ? 'Applies to new chats of this group.' : `Applies to ${owner}'s new chats.`} Chats you&apos;ve already started keep their worlds.
       </p>
       {legacyWorldCount > 1 && (
         <div className="gs-banner" role="status" data-testid="character-worlds-split-banner">

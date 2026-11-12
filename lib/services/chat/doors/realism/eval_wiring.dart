@@ -164,7 +164,10 @@ extension RealismEvalWiring on RealismGraph {
       getUserName: () => deps.services.personas.persona.name,
       getMessages: () => session.messages,
       getRealismVerificationEnabled: () =>
-          (session
+          // A group's Director / Verifier is the group's own (Edit group →
+          // Realism Engine); a 1:1 reads the card.
+          (session.activeGroup?.realismVerificationEnabled ??
+              session
                   .activeCharacter
                   ?.frontPorchExtensions
                   ?.realismVerificationEnabled ??
@@ -173,12 +176,14 @@ extension RealismEvalWiring on RealismGraph {
           (session.activeGroup == null ||
               !_doors.entry().director.observerMode),
       getVerificationMaxReprocesses: () =>
+          session.activeGroup?.realismVerificationMaxReprocesses ??
           session
               .activeCharacter
               ?.frontPorchExtensions
               ?.realismVerificationMaxReprocesses ??
           1,
       getVerificationStrictness: () =>
+          session.activeGroup?.realismVerificationStrictness ??
           session
               .activeCharacter
               ?.frontPorchExtensions
@@ -226,11 +231,12 @@ extension RealismEvalWiring on RealismGraph {
       getNeedsSimEnabled: () => needsPass.active,
       getRealismEnabled: () => controls.realismEnabled,
       getNeedsModelAuthorityEnabled: () =>
+          session.activeGroup?.needsDirectorAuthority ??
           (session
-              .activeCharacter
-              ?.frontPorchExtensions
-              ?.realismNeedsDirectorAuthority ??
-          false),
+                  .activeCharacter
+                  ?.frontPorchExtensions
+                  ?.realismNeedsDirectorAuthority ??
+              false),
     );
   }
 

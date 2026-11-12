@@ -103,6 +103,8 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     'deleted_at INTEGER',
     // v62 — lore-only worlds for new chats; NULL = never split (legacy seed)
     'lore_world_ids TEXT',
+    // v66 — the group editor's own fields (docs/design/group-editor.md)
+    ...kGroupEditorColumnsV66,
   ],
   'sessions': [
     // v12–v19 Realism columns. All added with the same silent catch, and
@@ -245,3 +247,19 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     'created_at INTEGER NOT NULL DEFAULT 0',
   ],
 };
+
+/// v66: the group editor's own fields, the one list the upgrade ladder and
+/// the schema repair share.
+const kGroupEditorColumnsV66 = [
+  "personality TEXT NOT NULL DEFAULT ''",
+  "post_history_instructions TEXT NOT NULL DEFAULT ''",
+  "mes_example TEXT NOT NULL DEFAULT ''",
+  "tags TEXT NOT NULL DEFAULT '[]'",
+  'story_start_date TEXT',
+  'story_start_time TEXT',
+  'realism_verification_enabled INTEGER NOT NULL DEFAULT 0',
+  'realism_verification_strictness INTEGER NOT NULL DEFAULT 3',
+  'realism_verification_max_reprocesses INTEGER NOT NULL DEFAULT 1',
+  'needs_director_authority INTEGER NOT NULL DEFAULT 0',
+  "character_author_notes TEXT NOT NULL DEFAULT '{}'",
+];

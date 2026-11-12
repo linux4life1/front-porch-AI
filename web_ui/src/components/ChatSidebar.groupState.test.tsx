@@ -163,3 +163,34 @@ describe('Character State in a group', () => {
     expect(container.querySelector('.state-card > summary input[aria-label="Realism engine"]')).not.toBeNull();
   });
 });
+
+describe('the group portrait', () => {
+  it("shows the page's default member before any chip is tapped, not a bare initial", async () => {
+    await act(async () => {
+      root.render(
+        createElement(ChatSidebar, {
+          realism: off as never,
+          authorNote: '',
+          authorNoteDepth: 4,
+          onSaveAuthorNote: vi.fn(),
+          characterId: 'mara',
+          isGroup: true,
+          focusedIsHost: false,
+          focusedAvatarUrl: '/api/groups/g1/members/m1/avatar',
+          toolsKey: 1,
+          focusedId: null,
+          portraitMemberId: 'm1',
+          groupId: 'g1',
+          onCommand: vi.fn(),
+          focusedName: 'Mara',
+          portraitName: 'Mara Quill',
+          onChatSettings: vi.fn(),
+        }),
+      );
+      await Promise.resolve();
+    });
+    const img = container.querySelector('[data-testid="mood-portrait"] img');
+    expect(img?.getAttribute('src')).toContain('participant=m1');
+    expect(container.querySelector('[data-testid="mood-portrait"] .portrait-initial')).toBeNull();
+  });
+});

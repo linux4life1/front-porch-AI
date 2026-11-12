@@ -95,8 +95,6 @@ const _ownSwitch = <String, (int, String)>{
 const _ownSwitchShown = <String, String>{
   'lib/services/chat/existing_chats_offer.dart':
       'counts the open chat when its own switch is off',
-  'lib/ui/dialogs/group_settings/realism_needs_tab/group_realism_controller.dart':
-      'the group chat\'s switch in Group Settings',
   'lib/services/web/facade/chat_realism_read.dart':
       'the insight panel says a change waits for the reply',
 };

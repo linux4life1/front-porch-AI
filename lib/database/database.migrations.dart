@@ -27,5 +27,7 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
     await _upgradeThroughV26(m, from, to);
     await _upgradeV27toV39(m, from, to);
     await _upgradeFromV40(m, from, to);
+    // v66→v67: each group's stored member start moves onto the member's copy.
+    if (from < 67) await migrateGroupSeedsToMemberCopies(this);
   }
 }

@@ -21,6 +21,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/group_stable_id.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/group_seed_migration.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
@@ -274,6 +275,7 @@ class GroupCardImporter {
     Map<String, String> finalCharPrompts = importedCharPrompts;
     Map<String, List<Map<String, dynamic>>> finalObjectives =
         groupCard.memberObjectives;
+    var finalAuthorNotes = groupCard.characterAuthorNotes;
 
     if (oldStableIdToNewStableId.isNotEmpty) {
       finalBaseline = _remapIdsInJson(
@@ -290,6 +292,10 @@ class GroupCardImporter {
         remappedPrompts[oldStableIdToNewStableId[e.key] ?? e.key] = e.value;
       }
       finalCharPrompts = remappedPrompts;
+      finalAuthorNotes = {
+        for (final e in groupCard.characterAuthorNotes.entries)
+          oldStableIdToNewStableId[e.key] ?? e.key: e.value,
+      };
 
       final remappedObjectives = <String, List<Map<String, dynamic>>>{};
       for (final e in groupCard.memberObjectives.entries) {
@@ -319,6 +325,18 @@ class GroupCardImporter {
       inheritCharacterLorebooks: groupCard.inheritCharacterLorebooks,
       chaosModeEnabled: groupCard.chaosModeEnabled,
       chaosNsfwEnabled: groupCard.chaosNsfwEnabled,
+      personality: groupCard.personality,
+      postHistoryInstructions: groupCard.postHistoryInstructions,
+      mesExample: groupCard.mesExample,
+      tags: groupCard.tags,
+      storyStartDate: groupCard.storyStartDate,
+      storyStartTime: groupCard.storyStartTime,
+      realismVerificationEnabled: groupCard.realismVerificationEnabled,
+      realismVerificationStrictness: groupCard.realismVerificationStrictness,
+      realismVerificationMaxReprocesses:
+          groupCard.realismVerificationMaxReprocesses,
+      needsDirectorAuthority: groupCard.needsDirectorAuthority,
+      characterAuthorNotes: finalAuthorNotes,
       baselineRealismState: finalBaseline.isNotEmpty ? finalBaseline : '{}',
       defaultMemberRealismState: finalDefaultMember.isNotEmpty
           ? finalDefaultMember
@@ -345,6 +363,11 @@ class GroupCardImporter {
     }
 
     await _groups.save(newGroup);
+    await moveGroupSeedsOntoMembers(
+      _db,
+      newGroup.id,
+      newGroup.defaultMemberRealismState,
+    );
 
     return GroupImportResult(
       created: true,

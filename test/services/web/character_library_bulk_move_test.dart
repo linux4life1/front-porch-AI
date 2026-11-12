@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/facade/character_library_facade.dart';
 
 void main() {
@@ -108,4 +109,21 @@ void main() {
     expect(await facade.bulkMove([ids[1]], 'not-a-folder'), 0);
     expect(folders.getFolderForCharacter('Bo.png')?.id, porch.id);
   });
+
+  test(
+    'the folder list counts characters and groups, subfolders included',
+    () async {
+      final porch = await folders.createFolder('Porch');
+      final sub = await folders.createFolder('Attic', parentId: porch.id);
+      await facade.bulkMove([ids[0]], porch.id);
+      await facade.bulkMove([ids[1], 'group_crew'], sub.id);
+      final list = CharacterFacade(db, storage, folders, null, repo).folders();
+      Map<String, dynamic> of(String id) =>
+          list.firstWhere((f) => f['id'] == id);
+      expect(of(porch.id)['characterCount'], 2);
+      expect(of(porch.id)['groupCount'], 1);
+      expect(of(sub.id)['characterCount'], 1);
+      expect(of(sub.id)['groupCount'], 1);
+    },
+  );
 }

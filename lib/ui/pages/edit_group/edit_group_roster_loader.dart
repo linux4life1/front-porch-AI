@@ -22,36 +22,22 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor.dart';
 
-/// A group's members as the editor needs them: cards for the Details tab and
-/// realism rows (mid, name, origin, avatar) for the Realism tab. The origin
-/// lets the realism editor recover seeds from groups made before the
-/// id-keying fix. A member whose private avatar is gone is skipped.
-Future<({List<CharacterCard> cards, List<GroupRealismMember> realism})>
-loadEditGroupRoster(
+/// A group's members as the editor needs them: their cards, with each
+/// card's `dbId` the member's id in the group. A member whose private avatar
+/// is gone is skipped.
+Future<List<CharacterCard>> loadEditGroupRoster(
   GroupChatRepository groupRepo,
   StorageService storage,
   String groupId,
 ) async {
   final cards = <CharacterCard>[];
-  final realism = <GroupRealismMember>[];
   for (final m in await groupRepo.getMembersForGroup(groupId)) {
     final fn = m.avatarFilename;
     if (fn == null) continue;
     final avatarPath = p.join(storage.groupsDir.path, groupId, 'avatars', fn);
     if (!await File(avatarPath).exists()) continue;
-    final card = m.toCharacterCard(resolvedImagePath: avatarPath);
-    cards.add(card);
-    realism.add(
-      GroupRealismMember(
-        mid: m.id,
-        name: m.name,
-        originStableId: m.originStableId,
-        avatarPath: avatarPath,
-        extensions: card.frontPorchExtensions,
-      ),
-    );
+    cards.add(m.toCharacterCard(resolvedImagePath: avatarPath));
   }
-  return (cards: cards, realism: realism);
+  return cards;
 }

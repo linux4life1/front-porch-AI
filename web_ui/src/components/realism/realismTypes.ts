@@ -232,6 +232,9 @@ export interface RealismValues {
   emotionIntensity: string;
   nsfwCooldownEnabled: boolean;
   passageOfTimeEnabled: boolean;
+  /** The Story begins row: an ISO date and an HH:MM, null for "not set". */
+  storyStartDate?: string | null;
+  storyStartTime?: string | null;
   chaosModeEnabled: boolean;
   /**
    * No longer authored anywhere (Ambitions replaced the field in both editors);

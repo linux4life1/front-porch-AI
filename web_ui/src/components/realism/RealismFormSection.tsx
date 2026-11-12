@@ -11,13 +11,8 @@
 import { Slider, ToggleRow, SelectRow } from './controls';
 import { ChipList } from './ChipList';
 import { RecoveryBlock } from './RecoveryBlock';
-import {
-  type GroupLines,
-  type MemberStart,
-  GroupLine,
-  RelationshipFields,
-  groupLineTexts,
-} from './memberGroup';
+import { GreyedOut } from '../GreyedOut';
+import { RelationshipFields } from './RelationshipFields';
 import {
   type RealismValues,
   chipsToInventory,
@@ -45,12 +40,14 @@ export function RealismFormSection({
   showIntimate = false,
   afterglowOn = false,
   showChargenSuggestion = false,
-  member,
-  group,
-  start,
-  setStart,
   hiddenNote,
-  noStartNote,
+  scene,
+  lockTimeDay,
+  lockChaos,
+  lockVerification,
+  disclaimer,
+  needs,
+  showIdentity = true,
 }: {
   v: RealismValues;
   set: Patch;
@@ -63,194 +60,208 @@ export function RealismFormSection({
   /// The create wizard only: suggests a recovery preset from the authored
   /// intimacy notes, confirmed by the author, never applied silently.
   showChargenSuggestion?: boolean;
-  /// A group member's editor: the member's name. Their own settings are
-  /// switches; the group's (Realism, time and day, Chaos, Afterglow) show as
-  /// read-only lines from [group].
-  member?: string;
-  /// The member's group, read-only (absent from an older app).
-  group?: GroupLines | null;
-  /// Where the member starts in new chats of the group: the group's seed for
-  /// them. Absent when the group's new chats start without Realism.
-  start?: MemberStart | null;
-  setStart?: (start: MemberStart) => void;
+  /// A group member's editor: what the group owns is greyed out with a tooltip: Time & Day
+  /// (showing the group's [scene]), Chaos Mode and Realism Verification.
   /// Why the member's Realism, Needs and Afterglow are hidden (a lite member,
   /// or Realism not allowed in Porch Life); their settings are kept.
   hiddenNote?: string;
-  /** Said in the start's place when the group's new chats start without
-   *  Realism, and where that is set. */
-  noStartNote?: string;
+  scene?: {
+    timeOfDay: string;
+    dayCount: number;
+    storyStartDate?: string | null;
+    storyStartTime?: string | null;
+  };
+  lockTimeDay?: string;
+  lockChaos?: string;
+  lockVerification?: string;
+  /** The playful note above the engine switch (the character editor's). */
+  disclaimer?: string;
+  /** Needs Simulation, rendered where the desktop form puts it: under Time & Day. */
+  needs?: React.ReactNode;
+  /** Ambitions … Intimate preferences follow the engine (create wizards); the
+   *  character editor shows them first and passes false. */
+  showIdentity?: boolean;
 }) {
-  const engineOn = member !== undefined ? !hiddenNote : v.realismEnabled;
-  const lines = group ? groupLineTexts(group) : null;
+  const engineOn = hiddenNote ? false : v.realismEnabled;
+  const lock = (tip: string | undefined, node: React.ReactNode) =>
+    tip ? <GreyedOut tooltip={tip}>{node}</GreyedOut> : node;
   return (
     <div className="realism-section">
-      {member !== undefined && (
-        <p className="muted small" data-testid="member-own-settings-note">
-          These are {member}&apos;s own settings in this group. A read-only line is the
-          group&apos;s own, set for everyone in it.
+      {disclaimer && (
+        <p className="card muted small" data-testid="realism-disclaimer">
+          {disclaimer}
         </p>
       )}
-      {member !== undefined && lines && (
-        <>
-          <GroupLine line={lines.realism} testId="group-line-realism" />
-          <GroupLine line={lines.time} testId="group-line-time" />
-          {hiddenNote && <GroupLine line={lines.chaos} testId="group-line-chaos" />}
-        </>
-      )}
-      {member !== undefined && hiddenNote && (
+      {hiddenNote && (
         <p className="card muted small" data-testid="member-hidden-note">
           {hiddenNote}
         </p>
       )}
-      {member === undefined && (
-      <>
-      <ToggleRow
-        label="Enable Realism Engine"
-        hint={
-          v.realismEnabled
-            ? 'Character starts with the pre-configured state below'
-            : 'Wardrobe, likes, time and Chaos still apply. Bond, mood and Needs stay off.'
-        }
-        value={v.realismEnabled}
-        onChange={(b) => set({ realismEnabled: b })}
-      />
+      {!hiddenNote && (
+        <ToggleRow
+          label="Enable Realism Engine"
+          hint={
+            v.realismEnabled
+              ? 'Character will start with pre-configured state'
+              : 'Wardrobe, likes, time and Chaos still apply. Bond, mood and Needs stay off.'
+          }
+          value={v.realismEnabled}
+          onChange={(b) => set({ realismEnabled: b })}
+        />
+      )}
 
-      {/* Time, Chaos, identity chips are Porch Life — they run without the
-          Realism Engine. Bond/emotion/afterglow/verifier stay behind the
-          switch (those need the engine). */}
-          {/* ── Time & Day ── */}
+      {/* ── Time & Day (the group's, greyed, in a member's editor) and the
+          story-start row under it ── */}
+      {lock(
+        lockTimeDay,
+        <>
           <h4 className="realism-head">Time &amp; Day</h4>
           <div className="realism-grid-2">
             <SelectRow
-              label="Time of day"
-              value={v.timeOfDay}
+              label="Time of Day"
+              value={scene?.timeOfDay ?? v.timeOfDay}
               options={TIME_OPTIONS.map((t) => ({ value: t, label: titleCase(t) }))}
               onChange={(s) => set({ timeOfDay: s })}
             />
             <label className="realism-field">
-              <span>Day number</span>
+              <span>Day Number</span>
               <input
                 type="number"
                 min={1}
-                value={v.dayCount}
+                value={scene?.dayCount ?? v.dayCount}
                 onChange={(e) => set({ dayCount: Math.max(1, parseInt(e.target.value, 10) || 1) })}
               />
             </label>
           </div>
-
-          <ToggleRow
-            label="Chaos mode (Chance Time)"
-            hint="Random narrative events during roleplay — works with the engine off"
-            value={v.chaosModeEnabled}
-            onChange={(b) => set({ chaosModeEnabled: b })}
-          />
-          <ToggleRow
-            label="Auto passage of time"
-            hint="Advance the scene clock automatically — works with the engine off"
-            value={v.passageOfTimeEnabled}
-            onChange={(b) => set({ passageOfTimeEnabled: b })}
-          />
-      </>
+          <div className="realism-grid-2" data-testid="story-begins-row">
+            <label className="realism-field">
+              <span>
+                {(scene?.storyStartDate ?? v.storyStartDate)
+                  ? `Story begins ${scene?.storyStartDate ?? v.storyStartDate}`
+                  : 'Story begins: the day the chat starts'}
+              </span>
+              <input
+                type="date"
+                value={scene?.storyStartDate ?? v.storyStartDate ?? ''}
+                onChange={(e) => set({ storyStartDate: e.target.value || null })}
+              />
+            </label>
+            <label className="realism-field">
+              <span>
+                {(scene?.storyStartTime ?? v.storyStartTime)
+                  ? `Opens at ${scene?.storyStartTime ?? v.storyStartTime}`
+                  : 'Opens at: time-of-day default'}
+              </span>
+              <input
+                type="time"
+                value={scene?.storyStartTime ?? v.storyStartTime ?? ''}
+                onChange={(e) => set({ storyStartTime: e.target.value || null })}
+              />
+            </label>
+          </div>
+        </>,
       )}
 
-          {engineOn && (
-          <>
-          {/* ── Relationship + Starting emotion: the card's own in a 1:1
-              editor; in a member's, the group's seed for them. ── */}
-          {member === undefined && <RelationshipFields v={v} set={set} />}
-          {member !== undefined && start && setStart && (
-            <RelationshipFields
-              v={start}
-              set={(p) => setStart({ ...start, ...p })}
-              note={`Where ${member} starts in this group's new chats.`}
-            />
-          )}
-          {member !== undefined && !start && noStartNote && (
-            <p className="muted small" data-testid="member-no-start-note">
-              {noStartNote}
-            </p>
-          )}
+      {engineOn && (
+        <>
+          {needs}
+          <RelationshipFields v={v} set={set} />
+        </>
+      )}
 
-          {/* ── Optional features ── */}
-          <h4 className="realism-head">Optional features</h4>
-          <div className="card realism-card">
-            {member !== undefined && lines && (
-              <>
-                <GroupLine line={lines.chaos} testId="group-line-chaos" />
-                {showIntimate && afterglowOn && (
-                  <GroupLine line={lines.afterglow} testId="group-line-afterglow" />
-                )}
-              </>
-            )}
-            {/* The card's Afterglow switch: how new chats with this character
-                start. Absent, not greyed, unless Porch Life (with 18+) allows
-                Afterglow. Its Recovery block shows while the switch is on
-                (desktop RealismOptionalFeaturesCard). */}
-            {showIntimate && afterglowOn && (
-              <>
-                <ToggleRow
-                  label={member !== undefined ? `Afterglow for ${member}` : 'Afterglow'}
-                  hint={
-                    member !== undefined
-                      ? `Track ${member}'s Lust and recovery in this group. The group's Afterglow has to be on too.`
-                      : 'Lust and recovery in new chats with this character. Chats you already have keep their own switch.'
-                  }
-                  value={v.afterglowEnabled !== false}
-                  onChange={(b) => set({ afterglowEnabled: b })}
-                />
-                {v.afterglowEnabled !== false && (
-                  <RecoveryBlock
-                    recovery={v.recovery}
-                    sex={v.sex}
-                    intimateInto={v.intimateInto}
-                    intimateNotInto={v.intimateNotInto}
-                    onChange={(recovery) => set({ recovery })}
-                    showChargenSuggestion={showChargenSuggestion}
-                  />
-                )}
-              </>
-            )}
+      {/* ── Optional Features: with the engine on, Afterglow (and its Recovery),
+          Chaos and Verification; off, Chaos alone ── */}
+      <h4 className="realism-head">Optional Features</h4>
+      <div className="card realism-card">
+        {engineOn && showIntimate && afterglowOn && (
+          <>
             <ToggleRow
-              label="Realism verification (Director/Verifier)"
-              hint="Optional director thread validates realism + needs deltas (extra eval cost; strong models recommended)"
-              value={v.realismVerificationEnabled}
-              onChange={(b) => set({ realismVerificationEnabled: b })}
+              label="Afterglow"
+              hint="Lust and recovery in new chats with this character. Chats you already have keep their own switch."
+              value={v.afterglowEnabled !== false}
+              onChange={(b) => set({ afterglowEnabled: b })}
             />
-            {v.realismVerificationEnabled && (
-              <>
-                <Slider
-                  label="Max reprocess passes"
-                  min={1}
-                  max={5}
-                  value={v.realismVerificationMaxReprocesses}
-                  badge={`${v.realismVerificationMaxReprocesses}`}
-                  onChange={(n) => set({ realismVerificationMaxReprocesses: n })}
-                />
-                <Slider
-                  label="Strictness (1 lenient … 5 strict)"
-                  min={1}
-                  max={5}
-                  value={v.realismVerificationStrictness}
-                  badge={`${v.realismVerificationStrictness}`}
-                  onChange={(n) => set({ realismVerificationStrictness: n })}
-                />
+            {v.afterglowEnabled !== false && (
+              <RecoveryBlock
+                recovery={v.recovery}
+                sex={v.sex}
+                intimateInto={v.intimateInto}
+                intimateNotInto={v.intimateNotInto}
+                onChange={(recovery) => set({ recovery })}
+                showChargenSuggestion={showChargenSuggestion}
+              />
+            )}
+          </>
+        )}
+        {lock(
+          lockChaos,
+          <ToggleRow
+            label="Chaos Mode (Chance Time)"
+            hint="Random narrative events during roleplay"
+            value={v.chaosModeEnabled}
+            onChange={(b) => set({ chaosModeEnabled: b })}
+          />,
+        )}
+        {engineOn &&
+          lock(
+            lockVerification,
+            <>
+              <ToggleRow
+                label="Realism Verification (Director/Verifier)"
+                hint="Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)"
+                value={v.realismVerificationEnabled}
+                onChange={(b) => set({ realismVerificationEnabled: b })}
+              />
+              <Slider
+                label={`Max reprocess passes: ${v.realismVerificationMaxReprocesses}`}
+                min={1}
+                max={5}
+                value={v.realismVerificationMaxReprocesses}
+                onChange={(n) => set({ realismVerificationMaxReprocesses: n })}
+              />
+              <Slider
+                label={`Strictness (1=lenient … 5=strict): ${v.realismVerificationStrictness}`}
+                min={1}
+                max={5}
+                value={v.realismVerificationStrictness}
+                onChange={(n) => set({ realismVerificationStrictness: n })}
+              />
+              {v.realismVerificationEnabled && (
                 <ToggleRow
-                  label="Director authority over needs"
-                  hint="Verified/corrected needs deltas take authority"
+                  label="Director authority (needs)"
+                  hint="The director's corrections to Needs scores are the ones used."
                   value={v.realismNeedsDirectorAuthority}
                   onChange={(b) => set({ realismNeedsDirectorAuthority: b })}
                 />
-              </>
-            )}
-          </div>
-          </>
+              )}
+            </>,
           )}
+      </div>
+      {showIdentity && <IdentitySections v={v} set={set} showIntimate={showIntimate} />}
+    </div>
+  );
+}
 
-          {/* ── Ambitions (approved sketch §4) ──
+/** Ambitions, Work, Birthday, Likes & Dislikes, Pockets & Wardrobe and (18+)
+ *  Intimate preferences: the desktop IdentityChipLists, in its order. The
+ *  character editor shows them before the Realism Engine block. */
+export function IdentitySections({
+  v,
+  set,
+  showIntimate = false,
+}: {
+  v: RealismValues;
+  set: Patch;
+  showIntimate?: boolean;
+}) {
+  return (
+    <>
+      {/* ── Ambitions (approved sketch §4) ──
               "Ambitions — long-term goals, one per chip (replaces 'Current
               Task / Quest' in this editor)". Mirrors the desktop editor. */}
+          <h4 className="realism-head">Ambitions</h4>
           <ChipList
-            label="Ambitions"
+            label="Long-term goals"
             accent
             values={v.ambitions}
             onChange={(a) => set({ ambitions: a })}
@@ -278,6 +289,7 @@ export function RealismFormSection({
 
           {/* ── Likes & Dislikes ── mirrors identity_chip_lists.dart. Two
               plain (non-accent) chip lists, exactly as the sketch draws them. */}
+          <h4 className="realism-head">Likes &amp; Dislikes</h4>
           <ChipList
             label="Drawn to"
             values={v.likes}
@@ -340,12 +352,15 @@ export function RealismFormSection({
           {/* The 18+ pair, only for an install that asked for it. */}
           {showIntimate && (
             <>
+              <h4 className="realism-head">Intimate preferences</h4>
+              <p className="muted small">
+                Suggestive tastes for 18+ scenes. Hidden unless 18+ is on. With the engine on these own the sign: pinning, struggle, or being fled from that they warm to raises desire (and can raise bond), not humiliation.
+              </p>
               <ChipList
                 label="Warms to"
                 values={v.intimateInto}
                 onChange={(a) => set({ intimateInto: a })}
                 placeholder="e.g. slow mornings"
-                helper="Suggestive tastes for 18+ scenes. Hidden unless 18+ is on. With the engine on these own the sign: pinning, struggle, or being fled from that they warm to raises desire (and can raise bond), not humiliation."
               />
               <ChipList
                 label="Not interested in"
@@ -356,12 +371,7 @@ export function RealismFormSection({
             </>
           )}
 
-          {/* Ambitions replaced the "Current task / quest" textarea here, exactly
-              as on desktop. `currentTask` stays in RealismValues (seeded from
-              /detail, sent straight back on save) so a card authored before the
-              swap keeps its task on disk — the chat now imports it as a starting
-              objective instead of asking the author to maintain it by hand. */}
-    </div>
+    </>
   );
 }
 

@@ -24,7 +24,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show GroupRealismKeys;
 import 'package:front_porch_ai/services/chat_service.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
+import 'package:front_porch_ai/utils/member_baseline_seed.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Where a group member starts in new chats of their group: the bonds and

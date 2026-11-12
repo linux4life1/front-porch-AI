@@ -268,7 +268,9 @@ class RealismEvalSupport {
     // (rule checks + possible LLM critique + re-fire up to max reprocesses) still runs.
     final char = evals.getActiveCharacter();
     final verifOn =
-        (char?.frontPorchExtensions?.realismVerificationEnabled ?? false) &&
+        (evals.getActiveGroup()?.realismVerificationEnabled ??
+            char?.frontPorchExtensions?.realismVerificationEnabled ??
+            false) &&
         evals.getRealismEnabled() &&
         (evals.getActiveGroup() == null || !evals.getIsObserverMode());
     if (!verifOn) return textAfterStrip;

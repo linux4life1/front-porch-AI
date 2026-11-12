@@ -35,13 +35,17 @@ class WebGroupRoutes {
     router.get('/api/groups', _list);
     router.post('/api/groups', _create);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
+    router.get('/api/groups/<id>/members/<memberId>/library', _memberLibrary);
     router.get('/api/groups/<id>/members/<memberId>/detail', _memberDetail);
     router.post('/api/groups/<id>/members/<memberId>', _memberUpdate);
-    router.get('/api/groups/<id>/member-summaries', _memberSummaries);
     router.get('/api/groups/<id>/export.png', _export);
     router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
+    router.post('/api/groups/<id>/duplicate', _duplicate);
     router.post('/api/groups/<id>/settings', _settings);
+    router.get('/api/groups/<id>/detail', _detail);
+    router.get('/api/groups/<id>/stats', _stats);
+    router.post('/api/groups/<id>/cast', _cast);
     router.get('/api/groups/<id>/worlds', _worlds);
     router.get('/api/groups/<id>/new-chats', _newChats);
     router.post('/api/groups/<id>/new-chats', _setNewChats);
@@ -114,6 +118,34 @@ class WebGroupRoutes {
     return JsonResponse.ok({'status': 'deleted'});
   }
 
+  /// The Edit group page's detail: every field the desktop page shows.
+  Future<shelf.Response> _detail(shelf.Request request, String id) async {
+    final d = await _facade.editor.detail(id);
+    if (d == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(d);
+  }
+
+  Future<shelf.Response> _stats(shelf.Request request, String id) async {
+    final d = await _facade.editor.stats(id);
+    if (d == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(d);
+  }
+
+  /// Cast changes: {action: add|remove|bringBack, characterId?, memberId?}.
+  Future<shelf.Response> _cast(shelf.Request request, String id) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final d = await _facade.editor.cast(id, body);
+    if (d == null) {
+      return JsonResponse.badRequest('That cast change could not be made');
+    }
+    return JsonResponse.ok(d);
+  }
+
   /// Update a group's settings (name / prompts / scenario / turn order /
   /// per-member overrides) — settings-only, not membership.
   Future<shelf.Response> _settings(shelf.Request request, String id) async {
@@ -138,17 +170,6 @@ class WebGroupRoutes {
     final detail = await _facade.memberEdit?.detail(id, memberId);
     if (detail == null) return JsonResponse.error(404, 'Member not found');
     return JsonResponse.ok(detail);
-  }
-
-  /// Each member's start in the group's new chats and own Afterglow, for
-  /// the phone's Group Settings summaries.
-  Future<shelf.Response> _memberSummaries(
-    shelf.Request request,
-    String id,
-  ) async {
-    final rows = await _facade.memberEdit?.summaries(id);
-    if (rows == null) return JsonResponse.error(404, 'Group not found');
-    return JsonResponse.ok({'members': rows});
   }
 
   /// Save the member editor's fields to the member's row, then return the
@@ -230,4 +251,25 @@ class WebGroupRoutes {
     String memberId,
   ) async =>
       _thumbs.serve(request, await _facade.memberAvatarFile(id, memberId));
+
+  /// {id, name} of the library character a member was copied from, whose
+  /// Avatar Gallery the chat's Main Settings opens for that member.
+  Future<shelf.Response> _memberLibrary(
+    shelf.Request request,
+    String id,
+    String memberId,
+  ) async {
+    final lib = await _facade.memberLibrary(id, memberId);
+    if (lib == null) {
+      return JsonResponse.error(404, 'No library character for this member');
+    }
+    return JsonResponse.ok(lib);
+  }
+
+  /// Duplicate Group; answers `{id, name}` of the copy.
+  Future<shelf.Response> _duplicate(shelf.Request request, String id) async {
+    final copy = await _facade.duplicate(id);
+    if (copy == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(copy);
+  }
 }

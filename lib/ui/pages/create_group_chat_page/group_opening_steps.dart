@@ -308,7 +308,7 @@ class GroupPromptsStep extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Every group uses the Group system prompt in Settings → '
-                'General. To give this group its own, open Group Settings '
+                'General. To give this group its own, open Edit group '
                 'after it is created.',
                 style: TextStyle(
                   fontSize: 13,

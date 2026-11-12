@@ -134,8 +134,8 @@ const _relays = <String, ({Set<String> set, Set<String> get})>{
     get: {'GroupMemberEdit.detail'},
   ),
   'ext': (
-    set: {'frontPorchFromFields', 'GroupMemberStart.fromJson'},
-    get: {'frontPorchToJson', 'GroupMemberStart.toJson'},
+    set: {'frontPorchFromFields'},
+    get: {'frontPorchToJson'},
   ),
   'ext.recovery': (
     set: {'RecoveryProfile.fromFields'},
@@ -582,7 +582,8 @@ const _desktopEditorSurfaces = [
   'lib/ui/widgets/greeting_seed_form/',
   'lib/ui/dialogs/ui_settings_dialog.dart',
   'lib/ui/dialogs/ui_settings/',
-  'lib/ui/dialogs/group_settings/',
+  'lib/ui/pages/edit_group_page.dart',
+  'lib/ui/pages/edit_group/',
   'lib/services/chat/group_lite.dart',
 ];
 
@@ -590,7 +591,7 @@ const _desktopEditorSurfaces = [
 /// imports reach.
 const _webEditorRoots = [
   'web_ui/src/pages/CharacterEditPage.tsx',
-  'web_ui/src/components/GroupSettings.tsx',
+  'web_ui/src/pages/GroupEditPage.tsx',
 ];
 
 /// The editor surfaces: the desktop list and the phone's import walk. The

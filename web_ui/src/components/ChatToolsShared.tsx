@@ -6,8 +6,19 @@
 // do not circular-import ChatTools.tsx.
 
 import { useEffect, useState } from 'react';
-import { type GroupBlock } from './GroupSettings';
 import { type ObjectiveView } from './ObjectivesPanel';
+
+export interface GroupBlock {
+  name: string;
+  turnOrder: string;
+  directorMode: boolean;
+  systemPrompt: string;
+  scenario: string;
+  firstMessage: string;
+  alternateGreetings?: string[];
+  greetingSeeds?: unknown[];
+  members: { id: string; name: string; prompt: string; dbId?: string }[];
+}
 
 export interface ToolsState {
   wikiBaseUrl?: string;

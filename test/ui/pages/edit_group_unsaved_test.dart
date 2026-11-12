@@ -83,7 +83,7 @@ Future<_RecordingGroups> _openEditGroup(WidgetTester tester) async {
   for (var i = 0; i < 4; i++) {
     await tester.pump(const Duration(milliseconds: 300));
   }
-  expect(find.text('Edit Group'), findsOneWidget);
+  expect(find.text('Edit Porch Regulars'), findsOneWidget);
   return groups;
 }
 
@@ -103,7 +103,7 @@ void main() {
     await _openEditGroup(tester);
     await _back(tester);
     expect(find.text(_question), findsNothing);
-    expect(find.text('Edit Group'), findsNothing);
+    expect(find.text('Edit Porch Regulars'), findsNothing);
   });
 
   testWidgets('a renamed group asks on back; Save leaves without asking', (
@@ -117,7 +117,7 @@ void main() {
     expect(find.text(_question), findsOneWidget);
     await tester.tap(find.text('Keep editing'));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('Edit Group'), findsOneWidget);
+    expect(find.text('Edit Porch Regulars'), findsOneWidget);
     expect(find.text('Night Owls'), findsOneWidget);
 
     await tester.tap(find.text('Save'));
@@ -126,16 +126,16 @@ void main() {
     }
     expect(find.text(_question), findsNothing);
     expect(groups.saved?.name, 'Night Owls');
-    expect(find.text('Edit Group'), findsNothing);
+    expect(find.text('Edit Porch Regulars'), findsNothing);
   });
 
   testWidgets('a lore entry edit keeps its imported fields', (tester) async {
     final groups = await _openEditGroup(tester);
-    await tester.tap(find.text('Lore & Worlds'));
+    await tester.tap(find.text('Lorebook'));
     for (var i = 0; i < 3; i++) {
       await tester.pump(const Duration(milliseconds: 300));
     }
-    await tester.tap(find.byIcon(Icons.edit).first);
+    await tester.tap(find.byIcon(Icons.edit_outlined).first);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Edit Lorebook Entry'), findsOneWidget);
     await tester.enterText(
