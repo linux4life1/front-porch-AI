@@ -18,12 +18,12 @@ export function LibraryToolbar({
   gridMin,
   setGridMin,
   importing,
+  inFolder,
+  onRefresh,
   onNewFolder,
-  onCreate,
-  onAiCreate,
-  onNewGroup,
   onImportMenu,
   onStartSelect,
+  onStartOrganize,
 }: {
   search: string;
   setSearch: (v: string) => void;
@@ -35,12 +35,13 @@ export function LibraryToolbar({
   gridMin: number;
   setGridMin: (v: number) => void;
   importing: boolean;
+  /** Inside a folder the button makes a subfolder. */
+  inFolder: boolean;
+  onRefresh: () => void;
   onNewFolder: () => void;
-  onCreate: () => void;
-  onAiCreate: () => void;
-  onNewGroup: () => void;
   onImportMenu: (e: MouseEvent) => void;
   onStartSelect: () => void;
+  onStartOrganize: () => void;
 }) {
   return (
     <div className="search-row">
@@ -86,20 +87,29 @@ export function LibraryToolbar({
           aria-label="Card size"
         />
       </label>
-      <button className="ghost import-btn" onClick={onNewFolder} title="New Folder">
+      <button
+        className="ghost import-btn"
+        onClick={onRefresh}
+        title="Refresh character list (pick up external changes, e.g. Character Card Forge)"
+      >
+        ⟳
+      </button>
+      <button
+        className="ghost import-btn"
+        onClick={onStartSelect}
+        title="Multi-select characters (for organizing, moving, etc.)"
+      >
+        ☑
+      </button>
+      <button className="ghost import-btn" onClick={onStartOrganize} title="Organize into folders">
+        📂
+      </button>
+      <button
+        className="ghost import-btn"
+        onClick={onNewFolder}
+        title={inFolder ? 'New Subfolder' : 'New Folder'}
+      >
         📁＋
-      </button>
-      <button className="ghost import-btn" onClick={onStartSelect} title="Multi-select characters (for organizing, moving, etc.)">
-        ☑ Select
-      </button>
-      <button className="primary import-btn" onClick={onCreate} title="Create a new character">
-        ＋ Create
-      </button>
-      <button className="ghost import-btn" onClick={onAiCreate} title="Generate a character with AI">
-        ✨ AI Create
-      </button>
-      <button className="ghost import-btn" onClick={onNewGroup} title="Create a new group chat">
-        👥 New Group
       </button>
       <button
         className="ghost import-btn"
@@ -115,6 +125,9 @@ export function LibraryToolbar({
 
 export function SelectionBar({
   count,
+  organizing = false,
+  onSelectAll,
+  onSelectNone,
   onMove,
   onExport,
   exporting = false,
@@ -122,6 +135,9 @@ export function SelectionBar({
   onCancel,
 }: {
   count: number;
+  organizing?: boolean;
+  onSelectAll: () => void;
+  onSelectNone: () => void;
   onMove: () => void;
   /** Save the selection as a .porch (one) or .porchpack (two or more). */
   onExport?: () => void;
@@ -131,7 +147,18 @@ export function SelectionBar({
 }) {
   return (
     <div className="selection-bar">
-      <span className="sel-count">{count} selected</span>
+      <button className="icon-btn" title="Cancel selection" aria-label="Cancel selection" onClick={onCancel}>
+        ✕
+      </button>
+      <span className="sel-count" data-organizing={organizing || undefined}>
+        {count} selected
+      </span>
+      <button className="link-btn" onClick={onSelectAll}>
+        Select all
+      </button>
+      <button className="link-btn" disabled={count === 0} onClick={onSelectNone}>
+        Select none
+      </button>
       <div className="sel-actions">
         <button className="ghost small" disabled={count === 0} onClick={onMove}>
           📁 Move to folder
@@ -143,9 +170,6 @@ export function SelectionBar({
         )}
         <button className="danger-btn small" disabled={count === 0} onClick={onDelete}>
           🗑 Delete
-        </button>
-        <button className="ghost small" onClick={onCancel}>
-          Cancel
         </button>
       </div>
     </div>

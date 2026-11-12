@@ -481,4 +481,19 @@ class GroupFacade {
         groupId,
         memberId,
       );
+
+  /// Duplicate Group: the new group's `{id, name}`, or null when there is no
+  /// such group (or no database wired).
+  Future<Map<String, String>?> duplicate(String groupId) async {
+    final d = db;
+    if (d == null) return null;
+    final id = await GroupDuplicator(
+      db: d,
+      groupsDir: _storage.groupsDir,
+    ).duplicate(groupId);
+    if (id == null) return null;
+    await _groups.reload();
+    await folders?.reload();
+    return {'id': id, 'name': _groups.getById(id)?.name ?? ''};
+  }
 }

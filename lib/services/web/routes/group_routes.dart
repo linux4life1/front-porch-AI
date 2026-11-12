@@ -41,6 +41,7 @@ class WebGroupRoutes {
     router.get('/api/groups/<id>/export.png', _export);
     router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
+    router.post('/api/groups/<id>/duplicate', _duplicate);
     router.post('/api/groups/<id>/settings', _settings);
     router.get('/api/groups/<id>/detail', _detail);
     router.get('/api/groups/<id>/stats', _stats);
@@ -263,5 +264,12 @@ class WebGroupRoutes {
       return JsonResponse.error(404, 'No library character for this member');
     }
     return JsonResponse.ok(lib);
+  }
+
+  /// Duplicate Group; answers `{id, name}` of the copy.
+  Future<shelf.Response> _duplicate(shelf.Request request, String id) async {
+    final copy = await _facade.duplicate(id);
+    if (copy == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(copy);
   }
 }

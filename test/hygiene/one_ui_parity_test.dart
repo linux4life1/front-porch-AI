@@ -667,6 +667,80 @@ void _leafTests() {
     },
   );
 
+  test('the home toolbar, selection bar, nav and Delete Folder match the '
+      'desktop', () {
+    // Duplicate Group is real on both: no stub, one relay route behind it.
+    expect(
+      _d('pages/home/home_actions/home_card_menu_actions.dart'),
+      isNot(contains('not yet implemented')),
+    );
+    expect(
+      _w('pages/CharactersPage.tsx'),
+      isNot(contains('not yet implemented')),
+    );
+    expect(_w('hooks/useLibrary.actions.ts'), contains('/duplicate'));
+    expect(
+      File('lib/services/web/routes/group_routes.dart').readAsStringSync(),
+      contains("'/api/groups/<id>/duplicate'"),
+    );
+    final bar = _w('components/library/LibraryToolbar.tsx');
+    final actions = _d('pages/home/widgets/toolbar/home_toolbar_actions.dart');
+    final selection = _d(
+      'pages/home/widgets/toolbar/home_toolbar_selection.dart',
+    );
+    // Toolbar buttons, in the desktop's order.
+    final desktopTips = [
+      for (final m in RegExp(r"tooltip:\s*'([^']+)'").allMatches(
+        _between(actions, 'homeToolbarActionButtons', 'homeToolbarImportItems'),
+      ))
+        m.group(1)!,
+    ];
+    final webTips = [
+      for (final m in RegExp(r'title=\{?"([^"]+)"').allMatches(bar))
+        m.group(1)!,
+    ];
+    final wanted = [
+      for (final t in desktopTips)
+        if (t != 'New Subfolder') t,
+    ];
+    expect(_orderProblems(bar, wanted.map((t) => t).toList()), isEmpty);
+    expect(webTips, containsAll(wanted.where((t) => t.startsWith('Refresh'))));
+    // Create, AI Create and New Group are nav items on both, not toolbar buttons.
+    final nav = _w('components/Layout.tsx');
+    final side = _d('widgets/sidebar.dart');
+    for (final l in [
+      'AI Character Creator',
+      'Create Character',
+      'Create Group Chat',
+    ]) {
+      expect(side, contains("'$l'"));
+      expect(nav, contains("label: '$l'"));
+      expect(bar, isNot(contains(l)));
+    }
+    // Selection bar: Cancel selection, Select all, Select none.
+    for (final l in ['Cancel selection', 'Select all', 'Select none']) {
+      expect(selection, contains("'$l'"));
+      expect(bar, contains(l));
+    }
+    // Delete Folder: counts, and "+ Characters…" only with characters.
+    final dartDlg = _d('pages/home/home_actions/home_folder_dialogs.dart');
+    final webPage = _w('pages/CharactersPage.tsx');
+    for (final t in [
+      'Delete Folder Only',
+      'Delete Folder + Characters…',
+      'return to the top level.',
+      'groups are kept and return to the top level',
+    ]) {
+      expect(dartDlg, contains(t));
+      expect(webPage, contains(t));
+    }
+    expect(dartDlg, contains('if (charCount > 0)'));
+    expect(webPage, contains('characterCount ?? 1) > 0'));
+    // Organize is a second picking mode in both.
+    expect(_d('pages/home/library_selection.dart'), contains('organize'));
+    expect(_w('hooks/useLibrary.ts'), contains('startOrganizing'));
+  });
+
   test('the lore entry editor is a dialog with the desktop controls', () {
     final dart = _d('dialogs/lorebook_entry_dialog.dart');
     final web = _w('components/LoreEntriesEditor.tsx');

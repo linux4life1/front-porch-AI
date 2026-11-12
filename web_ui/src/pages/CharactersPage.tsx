@@ -40,6 +40,21 @@ import { UseAsPersonaDialog } from '../components/library/PersonaConvertDialogs'
 import { EnhanceReviewModal } from '../components/aichargen/EnhanceReviewModal';
 import type { EnhanceProposal, EnhanceSelection } from '../components/aichargen/enhanceForm';
 
+/** The Delete Folder text, with the counts the desktop gives. */
+export function folderDeleteMessage(f: LibFolder): string {
+  const chars = f.characterCount ?? 0;
+  const groups = f.groupCount ?? 0;
+  const inside = `the ${chars} character${chars === 1 ? '' : 's'}${
+    groups > 0 ? ` and ${groups} group${groups === 1 ? '' : 's'}` : ''
+  } inside return to the top level.`;
+  return (
+    `Delete "${f.name}"?\n\n• Delete Folder Only: ${inside}\n` +
+    `• Delete Folder + Characters: PERMANENTLY deletes the folder AND every character inside it (including subfolders)${
+      groups > 0 ? '; groups are kept and return to the top level' : ''
+    }.`
+  );
+}
+
 type Dialog =
   | { kind: 'newFolder' }
   | { kind: 'renameFolder'; folder: LibFolder }
@@ -143,8 +158,7 @@ export function CharactersPage() {
         setDialog({ kind: 'newChat', subject: g.name, target: { groupId: g.id } }),
       onHistory: () => setDialog({ kind: 'chatHistory', subject: g.name, groupId: g.id }),
       onEdit: () => navigate(`/groups/${g.id}/edit`),
-      // The desktop's Duplicate Group is a stub that says so; so is this.
-      onDuplicate: () => setPersonaNotice(`Duplicate Group not yet implemented: ${g.name}`),
+      onDuplicate: () => void lib.duplicateGroup(g.id),
       onExportPng: () => lib.exportGroupPng(g),
       onExtract: () => setDialog({ kind: 'extractGroup', group: g }),
       onMove: () => setDialog({ kind: 'move', ids: [g.id] }),
@@ -162,7 +176,11 @@ export function CharactersPage() {
 
   // ── Drag-and-drop (desktop/tablet only; phone uses the menu's Move action) ─
   const dropOnFolder = (folderId: string | null) => {
-    if (draggedId) lib.moveToFolder([draggedId], folderId);
+    // A picked card carries every pick, as on the desktop.
+    if (draggedId) {
+      const carried = lib.selecting && lib.selectedIds.has(draggedId) ? Array.from(lib.selectedIds) : [draggedId];
+      lib.moveToFolder(carried, folderId);
+    }
     setDraggedId(null);
   };
 
@@ -219,12 +237,12 @@ export function CharactersPage() {
         gridMin={lib.gridMin}
         setGridMin={lib.setGridMin}
         importing={lib.importing}
+        inFolder={lib.folderId !== null}
+        onRefresh={lib.reload}
         onNewFolder={() => setDialog({ kind: 'newFolder' })}
-        onCreate={() => navigate('/create')}
-        onAiCreate={() => navigate('/create-ai')}
-        onNewGroup={() => navigate('/create-group')}
         onImportMenu={(e) => openMenu(e, importMenu())}
-        onStartSelect={lib.startSelecting}
+        onStartSelect={lib.selecting && !lib.organizing ? lib.cancelSelecting : lib.startSelecting}
+        onStartOrganize={lib.organizing ? lib.cancelSelecting : lib.startOrganizing}
       />
       {/* Hidden import inputs (cards + whole folder). */}
       <input
@@ -274,6 +292,9 @@ export function CharactersPage() {
       {lib.selecting && (
         <SelectionBar
           count={lib.selectedIds.size}
+          organizing={lib.organizing}
+          onSelectAll={() => lib.selectAll([...visibleGroups.map((g) => g.id), ...lib.chars.map((c) => c.id)])}
+          onSelectNone={lib.selectNone}
           onMove={() => setDialog({ kind: 'move', ids: Array.from(lib.selectedIds) })}
           onExport={() => void porch.exportPorch(Array.from(lib.selectedIds))}
           exporting={porch.busy}
@@ -457,7 +478,7 @@ export function CharactersPage() {
               <span>Delete Folder</span>
             </div>
             <p className="muted dialog-msg" style={{ whiteSpace: 'pre-line' }}>
-              {`Delete "${dialog.folder.name}"?\n\n• Delete Folder Only: the characters and groups inside return to the top level.\n• Delete Folder + Characters: PERMANENTLY deletes the folder AND every character inside it (including subfolders); groups are kept and return to the top level.`}
+              {folderDeleteMessage(dialog.folder)}
             </p>
             <div className="modal-actions">
               <button className="ghost" onClick={() => setDialog(null)}>
@@ -472,12 +493,14 @@ export function CharactersPage() {
               >
                 Delete Folder Only
               </button>
-              <button
-                className="danger-btn"
-                onClick={() => setDialog({ kind: 'deleteFolderDeep', folder: dialog.folder })}
-              >
-                Delete Folder + Characters…
-              </button>
+              {(dialog.folder.characterCount ?? 1) > 0 && (
+                <button
+                  className="danger-btn"
+                  onClick={() => setDialog({ kind: 'deleteFolderDeep', folder: dialog.folder })}
+                >
+                  Delete Folder + Characters…
+                </button>
+              )}
             </div>
           </div>
         </div>

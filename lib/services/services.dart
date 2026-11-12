@@ -64,6 +64,7 @@ export 'group_member_start_overlay.dart';
 export 'groups_of_character.dart';
 export 'group_member_values.dart';
 export 'group_cast_ops.dart';
+export 'group_duplicator.dart';
 export 'group_roster_editor.dart';
 export 'group_seed_migration.dart';
 export 'group_member_extractor.dart';

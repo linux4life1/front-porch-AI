@@ -195,3 +195,4 @@
   padding: 4px 10px; border-radius: 8px;
 }
 
+.sel-count[data-organizing] { color: var(--porch-honey); }

@@ -153,9 +153,12 @@ the character card menu, the group card menu (Start New Chat, Manage Chats,
 Edit Group, Duplicate Group, Export PNG, Extract Characters, Move to Folder,
 Remove from Folder, Delete), the folder card menu (Rename Folder, New Subfolder,
 Delete Folder...) and the import menu (Import Cards, Import Folder, Import
-Backyard AI (.byaf), Import .porch / .porchpack). "Duplicate Group" is a stub on
-the desktop ("not yet implemented") and is the same stub on the web. The web's
-two "Browse ..." links were not on the desktop and are gone.
+Backyard AI (.byaf), Import .porch / .porchpack). "Duplicate Group" is real on both
+(`GroupDuplicator`: name "<name> (copy)", fresh group and member ids, avatars
+copied under the new group, every setting, the group lorebook, worlds and the
+per-member prompts, notes and feelings; no chats, memories or journals; web
+route `POST /api/groups/<id>/duplicate`). The web's two "Browse ..." links were
+not on the desktop and are gone.
 
 Toolbar buttons: New Folder, Multi-select and Import carry the desktop tooltips.
 
@@ -165,12 +168,13 @@ The date and time fields (Story begins, Opens at, Birthday, work hours) use the
 browser's native date and time inputs where the desktop draws Flutter pickers.
 Same fields, same values; this is the one accepted difference.
 
-## Open differences, listed not built (whole features, not menus)
+## Open differences
 
-- Home toolbar: the desktop has "Refresh list", an "Organize into folders"
-  mode and "Select all" / "Select none" in the selection bar; the web has none
-  of them. The web toolbar also carries Create, AI Create and New Group buttons
-  in a place where the desktop has them elsewhere.
-- Delete Folder: the desktop's dialog states the character and group counts
-  (and shows "Delete Folder + Characters..." only when there are characters);
-  the web dialog has the same choices without the counts.
+None, except the accepted platform date and time pickers above.
+
+Built on the web to match the desktop: Refresh list, the Organize into folders
+mode (a second picking mode; dragging a picked card carries every pick), Select
+all / Select none and Cancel selection in the selection bar, Create Character /
+AI Character Creator / Create Group Chat as nav items (the toolbar has none of
+them), and the Delete Folder dialog with character and group counts and
+"Delete Folder + Characters..." only when the folder holds characters.

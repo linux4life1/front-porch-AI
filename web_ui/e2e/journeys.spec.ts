@@ -1067,7 +1067,7 @@ test('New Story walks four steps, keeps the draft when you leave, and the shelf 
 // chat that was open, so the journeys after this one find it unchanged.
 test('export two characters as one .porchpack; importing it back skips both by name', async ({ page }) => {
   await openRoute(page, '/');
-  await page.getByRole('button', { name: '☑ Select' }).click();
+  await page.getByTitle('Multi-select characters (for organizing, moving, etc.)').click();
   for (const name of ['Porch Tester', 'Second Guest']) {
     await page.locator('.lib-card', { hasText: name }).locator('.lib-open').click();
   }
