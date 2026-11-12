@@ -129,14 +129,14 @@ class AppearanceTab extends StatelessWidget {
               if (isNarrow) ...[
                 const BackgroundWeatherSection(),
                 const SizedBox(height: 12),
-                const MoodOnCharacterControls(),
+                MoodOnCharacterControls(),
               ] else
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: const BackgroundWeatherSection()),
                     const SizedBox(width: 14),
-                    Expanded(child: const MoodOnCharacterControls()),
+                    Expanded(child: MoodOnCharacterControls()),
                   ],
                 ),
             ],
