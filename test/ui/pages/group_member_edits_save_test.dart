@@ -772,14 +772,15 @@ void main() {
       );
       expect(find.text('In Pair'), findsOneWidget);
       expect(find.text('Toward Bo · ', findRichText: true), findsNothing);
-      // Time & Day, Chaos Mode and the Worlds tab are present but greyed.
+      // Time & Day and the Worlds tab are present but greyed. PR 5b:
+      // Chaos Mode is off the locked pile — the member's card carries
+      // their own default, editable here.
       final greyed = tester
           .widgetList<GreyedOut>(find.byType(GreyedOut))
           .map((g) => g.tooltip)
           .toSet();
       expect(greyed, {
         'Time & Day is set per group, not per character.',
-        'Chaos Mode is set per group for now.',
         'Realism Verification is set per group, not per character.',
         'Worlds are set per group, not per character.',
       });

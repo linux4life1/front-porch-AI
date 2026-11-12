@@ -103,6 +103,12 @@ export interface ToolsState {
     base?: number;
     growth?: number;
     cooldownTurns?: number;
+    /** PR 5b: set in a group — this block speaks for that member, and
+     *  the chaos toggles route at memberChaos / memberChaosNsfw with the
+     *  id, and the spin carries it (additive: absent = 1:1 or a guest). */
+    memberId?: string | null;
+    /** Every full cast member's on/off, for the dice on the cast chips. */
+    cast?: { memberId: string; name: string; enabled: boolean }[];
   };
   // refractoryLabel is the desktop chip's own text ("Refractory: about 45 min",
   // or "Refractory: 3 replies" with Passage of Time off), ready-made so the

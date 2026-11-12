@@ -51,6 +51,10 @@ class StoryToolsGroup extends StatelessWidget {
   final VoidCallback onSpinRequested;
   final CharacterCard? character;
 
+  /// PR 5b: the focused group member the Chaos leaf belongs to (null in
+  /// 1:1, where the chat owns it).
+  final CharacterCard? chaosMember;
+
   /// The composer draft (chat_page's input controller) — powers the
   /// lorebook "would trigger next" preview.
   final ValueListenable<TextEditingValue>? draft;
@@ -67,6 +71,7 @@ class StoryToolsGroup extends StatelessWidget {
     this.onExpansionChanged,
     required this.onSpinRequested,
     this.character,
+    this.chaosMember,
     this.draft,
     this.dragHandle,
   });
@@ -145,6 +150,7 @@ class StoryToolsGroup extends StatelessWidget {
         return ChaosPanel(
           chat: chat,
           onSpinRequested: onSpinRequested,
+          member: chaosMember,
           dragHandle: grip,
         );
       case 'afk':

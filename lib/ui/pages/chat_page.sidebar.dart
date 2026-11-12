@@ -215,7 +215,13 @@ class ChatRightSidebar extends StatelessWidget {
             child: SidebarBody(
               chatService: chatService,
               focused: focused,
-              onSpinRequested: () => showChanceTimeOverlay(context),
+              // PR 5b: in a group the spin belongs to the focused member —
+              // the wheel gates on their switch and names them. 1:1 stays
+              // the chat's own spin.
+              onSpinRequested: () => showChanceTimeOverlay(
+                context,
+                memberName: chatService.isGroupMode ? focused.name : null,
+              ),
               onJumpToMessage: onJumpToMessage,
               resolveCharImage: resolveCharImage,
               draft: draft,
@@ -301,6 +307,13 @@ class _ParticipantRoster extends StatelessWidget {
             imageFile: img,
             promoteEnabled: !chatService.isGenerating,
             presence: presenceOf(p),
+            // PR 5b: the dice rides the face of every member whose own
+            // Chaos Mode is on — the cast bar answers "who rolls" at a
+            // glance; lite guests never roll.
+            chaosOn:
+                chatService.isGroupMode &&
+                !p.isLite &&
+                chatService.chaosSwitchFor(p.id),
             // The same busy read the service refuses on.
             onSetAway: chatService.isTurnBusy
                 ? null

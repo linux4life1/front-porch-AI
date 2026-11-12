@@ -28,7 +28,9 @@ const kTimeDayLockedTooltip = 'Time & Day is set per group, not per character.';
 const kWorldsLockedTooltip = 'Worlds are set per group, not per character.';
 const kVerificationLockedTooltip =
     'Realism Verification is set per group, not per character.';
-const kChaosLockedTooltip = 'Chaos Mode is set per group for now.';
+// PR 5b: Chaos Mode no longer has a locked tooltip — a member's card
+// carries their own default, and the member editor edits it (the
+// group-wide "for now" lock retired with the per-character work).
 
 /// Member mode of the character editor: the editor is opened on a member's
 /// own copy in [groupName]. It only adds the notice and the "In the group"

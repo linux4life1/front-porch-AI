@@ -99,13 +99,15 @@ describe('the group member editor', () => {
       "You're editing Mara in Pair only.",
     );
     expect(text()).toContain('In Pair');
+    // PR 5b: Chaos Mode left the locked pile — a member's card carries
+    // their own new-chat default, editable here like the 1:1 editor's.
     expect(greyed()).toEqual(
       expect.arrayContaining([
         'Time & Day is set per group, not per character.',
-        'Chaos Mode is set per group for now.',
         'Realism Verification is set per group, not per character.',
       ]),
     );
+    expect(greyed()).not.toContain('Chaos Mode is set per group for now.');
     const worlds = [...container.querySelectorAll('[role="tab"]')].find((t) => t.textContent === 'Worlds')!;
     expect(worlds.getAttribute('aria-disabled')).toBe('true');
     expect(worlds.getAttribute('title')).toBe('Worlds are set per group, not per character.');

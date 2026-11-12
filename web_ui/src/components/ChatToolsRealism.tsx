@@ -154,22 +154,40 @@ export function ChatToolsPockets({
   );
 }
 
+// PR 5b (docs/design/chaos-per-character.md): in a group the snapshot's
+// chaos block speaks for the FOCUSED member — the header names them, the
+// toggles and the spin carry their id, and an event belongs to them alone.
+// Without a member id this is the 1:1 chat-level card, unchanged.
 export function ChatToolsChaos({ t, toggle }: { t: ToolsState; toggle: ToolsToggle }) {
+  const mid = t.chaos.memberId ?? null;
+  const who = mid ? t.chaos.cast?.find((c) => c.memberId === mid)?.name ?? null : null;
   return (
     <details className="tool-section">
-      <summary>Chaos mode{t.chaos.enabled ? ` · ${t.chaos.pressure}%` : ''}</summary>
+      <summary>
+        Chaos mode{who ? ` · ${who}` : ''}{t.chaos.enabled ? ` · ${t.chaos.pressure}%` : ''}
+      </summary>
       <div className="tool-body">
-        <Toggle label="Chaos mode" value={t.chaos.enabled} onChange={(v) => toggle('chaos', v)} />
+        <Toggle
+          label="Chaos mode"
+          value={t.chaos.enabled}
+          onChange={(v) => toggle(mid ? 'memberChaos' : 'chaos', v, mid ? { id: mid } : undefined)}
+        />
         {t.chaos.enabled && (
           <>
             <div className="stat-line"><span>Pressure</span><span className="muted">{t.chaos.pressure}%{t.chaos.hasPendingEvent ? ' · event ready' : ''}</span></div>
             {t.chaos.adultAllowed && (
-              <Toggle label="Allow NSFW events" value={t.chaos.nsfwEnabled} onChange={(v) => toggle('chaosNsfw', v)} />
+              <Toggle
+                label="Allow NSFW events"
+                value={t.chaos.nsfwEnabled}
+                onChange={(v) =>
+                  toggle(mid ? 'memberChaosNsfw' : 'chaosNsfw', v, mid ? { id: mid } : undefined)
+                }
+              />
             )}
             <button
               disabled={t.chaos.hasPendingEvent}
               onClick={() => {
-                void api.post('/api/chat/chance-time/spin').catch(() => {});
+                void api.post('/api/chat/chance-time/spin', mid ? { memberId: mid } : {}).catch(() => {});
               }}
             >
               {t.chaos.hasPendingEvent ? 'EVENT PENDING' : 'SPIN NOW'}

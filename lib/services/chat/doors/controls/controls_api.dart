@@ -35,6 +35,41 @@ extension ChatServiceControls on ChatService {
   Future<void> setChaosNsfwEnabled(bool enabled) =>
       controlsDoor.setChaosNsfwEnabled(enabled);
 
+  // ── Chaos per member (PR 5b, docs/design/chaos-per-character.md) ─────
+  // The sidebar's focused-member Chaos card and the web twin read and
+  // write these by member id; the turn pipeline reaches the bag directly.
+  // Bodies on [MemberChaos] behind the controls door.
+
+  bool chaosSwitchFor(String memberId) =>
+      controlsDoor.chaosMembers.switchFor(memberId);
+
+  bool chaosNsfwFor(String memberId) =>
+      controlsDoor.chaosMembers.nsfwFor(memberId);
+
+  int chaosPressureFor(String memberId) =>
+      controlsDoor.chaosMembers.pressureFor(memberId);
+
+  int chaosCooldownFor(String memberId) =>
+      controlsDoor.chaosMembers.cooldownFor(memberId);
+
+  bool chaosHasPendingFor(String memberId) =>
+      controlsDoor.chaosMembers.hasPendingFor(memberId);
+
+  String? chaosPendingFor(String memberId) =>
+      controlsDoor.chaosMembers.pendingFor(memberId);
+
+  bool chaosSpicyFor(String memberId) =>
+      controlsDoor.chaosMembers.spicyFor(memberId);
+
+  List<({String memberId, String name, bool enabled})> chaosCastDigest() =>
+      controlsDoor.chaosMembers.castDigest();
+
+  Future<void> setMemberChaosEnabled(String memberId, bool on) =>
+      controlsDoor.chaosMembers.setSwitch(memberId, on);
+
+  Future<void> setMemberChaosNsfw(String memberId, bool on) =>
+      controlsDoor.chaosMembers.setNsfw(memberId, on);
+
   /// The active character's "enjoys low hygiene", live from the card.
   bool get enjoysLowHygiene => controlsDoor.enjoysLowHygiene;
 
@@ -103,7 +138,13 @@ extension ChatServiceControls on ChatService {
   // ── Chance Time ───────────────────────────────────────────────────────
 
   /// Returns 8 raw events for the wheel.
-  List<String> spinWheelEvents() => controlsDoor.chance.spinWheelEvents();
+  List<String> spinWheelEvents({String? forName}) =>
+      controlsDoor.chance.spinWheelEvents(
+        forName: forName,
+        memberBag: forName == null
+            ? null
+            : controlsDoor.chance.bagForName(forName),
+      );
 
   /// A raw event with its placeholders filled for [charName].
   String resolveChanceTimeEvent(String raw, String charName) =>

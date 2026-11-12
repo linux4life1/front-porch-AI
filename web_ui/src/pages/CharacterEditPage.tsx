@@ -257,7 +257,6 @@ export function CharacterEditPage() {
     ? { Worlds: 'Worlds are set per group, not per character.' }
     : {};
   const TIME_DAY_LOCK = 'Time & Day is set per group, not per character.';
-  const CHAOS_LOCK = 'Chaos Mode is set per group for now.';
   const VERIFICATION_LOCK = 'Realism Verification is set per group, not per character.';
 
   const importLore = async () => {
@@ -447,7 +446,6 @@ export function CharacterEditPage() {
                 : undefined
             }
             lockTimeDay={member ? TIME_DAY_LOCK : undefined}
-            lockChaos={member ? CHAOS_LOCK : undefined}
             lockVerification={member ? VERIFICATION_LOCK : undefined}
             needs={<NeedsFormSection v={rv} set={patch} clockOn={clockOn} />}
           />

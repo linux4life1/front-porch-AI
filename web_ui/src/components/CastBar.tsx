@@ -24,6 +24,9 @@ export interface CastMember {
   placeholderPortrait?: boolean;
   /** Group members only: where they are. Absent on older apps and in 1:1. */
   presence?: 'withYou' | 'away' | 'atWork' | null;
+  /** PR 5b: this member's Chaos Mode is on — the face rides a dice, the
+   *  cast bar's answer to "who rolls" at a glance. Group-only, additive. */
+  chaos?: boolean | null;
 }
 
 export function CastBar({
@@ -79,6 +82,11 @@ export function CastBar({
                   ) : (
                     <span className="cast-initial" aria-hidden>
                       {(c.name || '?').charAt(0)}
+                    </span>
+                  )}
+                  {c.chaos && (
+                    <span className="cast-chaos" title={`${c.name} rolls with Chaos Mode`} aria-label="Chaos Mode on">
+                      🎲
                     </span>
                   )}
                 </span>

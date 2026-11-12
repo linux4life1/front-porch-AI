@@ -364,7 +364,17 @@ a.model-switch-settings {
 .cast-chip-main { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; padding: 0; min-height: 0; color: inherit; }
 .cast-face {
   width: 36px; height: 36px; border-radius: 50%; padding: 2px; border: 2px solid transparent;
-  display: grid; place-items: center; box-sizing: border-box;
+  display: grid; place-items: center; box-sizing: border-box; position: relative;
+}
+/* PR 5b: the dice rides the face of a member whose own Chaos Mode is on
+   (the desktop's CastRosterChip badge). Gold is the Chance Time identity,
+   theme-keep as in overlays.css. */
+.cast-chaos {
+  position: absolute; right: -3px; bottom: -3px;
+  font-size: 10px; line-height: 1; padding: 1.5px;
+  background: rgba(255, 209, 102, 0.9); /* theme-keep: Chance Time game identity */
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--surface-1, rgba(0, 0, 0, 0.35));
 }
 .cast-chip.focused .cast-face { border-color: var(--accent); }
 .cast-face img, .cast-initial { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }

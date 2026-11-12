@@ -26,4 +26,7 @@ final memberToggles =
       'memberAfterglow': (f, id, v) => f.setMemberAfterglow(id, v),
       'memberRealism': (f, id, v) => f.setMemberRealism(id, v),
       'memberNeeds': (f, id, v) => f.setMemberNeeds(id, v),
+      // PR 5b: Chaos per member (docs/design/chaos-per-character.md).
+      'memberChaos': (f, id, v) => f.setMemberChaos(id, v),
+      'memberChaosNsfw': (f, id, v) => f.setMemberChaosNsfw(id, v),
     };

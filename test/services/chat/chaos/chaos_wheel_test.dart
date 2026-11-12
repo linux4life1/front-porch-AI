@@ -602,7 +602,13 @@ void main() {
     test("random order: a turn between the phone's spin and Accept, and "
         'Accept applies what the reveal showed', () async {
       await enter(TurnOrder.random);
-      await chat.setChaosModeEnabled(true);
+      // PR 5b: chaos belongs to a member now. Turning it on for the whole
+      // cast is the same condition the old group-wide switch made, per
+      // member. A spin with no member named (an older phone surface) is
+      // still attributed to the member who rises.
+      for (final c in chat.groupCharacters) {
+        await chat.setMemberChaosEnabled(chat.characterIdFor(c), true);
+      }
       expect(chat.requestManualChanceTime(), isTrue);
       final shown = chat.webChanceTimeDisplay;
       final named = chat.nextCharacter?.name;
@@ -614,7 +620,14 @@ void main() {
       expect(chat.webChanceTimeDisplay, shown, reason: 'the reveal holds');
 
       await chat.acceptPendingChanceTime();
-      expect(chat.chaosModeService.pendingChaosInjection, shown);
+      final namedId = chat.characterIdFor(
+        chat.groupCharacters.firstWhere((c) => c.name == named),
+      );
+      expect(
+        chat.chaosPendingFor(namedId),
+        shown,
+        reason: 'the event landed on the named member\'s own state',
+      );
       expect(chat.nextCharacter?.name, named, reason: 'held as the next pick');
       await chat.sendMessage('What was that?');
       await settle();
