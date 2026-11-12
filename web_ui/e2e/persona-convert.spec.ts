@@ -50,7 +50,8 @@ test('a character becomes a persona, and the persona starts a character both way
     expect(detail.persona).toBe('{{user}} lives next door to {{char}}.\n\nPersonality: Nosy but kind.');
 
     // ── Persona → character, Manual ────────────────────────────────────
-    await openRoute(page, '/settings');
+    // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    await openRoute(page, '/persona');
     await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
     const make = page.getByRole('dialog', { name: 'Make a character' });
     await make.getByRole('button', { name: 'Manual' }).click();
@@ -81,7 +82,8 @@ test('a character becomes a persona, and the persona starts a character both way
     expect(madeId, 'the character made from the persona is in the library').toBeTruthy();
 
     // ── Persona → character, AI Assist (pre-fill only; nothing generates) ──
-    await openRoute(page, '/settings');
+    // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    await openRoute(page, '/persona');
     await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
     await page.getByRole('dialog', { name: 'Make a character' }).getByRole('button', { name: 'AI Assist' }).click();
     await expect(page).toHaveURL(/\/create-ai\?fromPersona=/);
