@@ -173,11 +173,17 @@ void main() {
     await h.settleTurn();
 
     expectNoBodyDistress(llm.replyPrompts.first);
+    // A member's everyday hunger is their own copy's baseline (PR 5: the
+    // copy is a 1:1 card, where start and everyday are one value).
+    final base = NeedsSimulation.baselinesFromExtensions(
+      h.chat.groupCharacters.first.frontPorchExtensions,
+    );
+    final everyday = base['hunger'];
     for (final id in ids) {
       final bars = h.chat.debugGroupNeeds(id);
-      expect(bars['hunger'], 80, reason: '$id ate');
-      expect(bars['energy'], 80, reason: '$id slept');
-      expect(bars['hygiene'], 80, reason: '$id washed');
+      expect(bars['hunger'], everyday, reason: '$id ate');
+      expect(bars['energy'], base['energy'], reason: '$id slept');
+      expect(bars['hygiene'], base['hygiene'], reason: '$id washed');
     }
 
     llm.replyPrompts.clear();
@@ -185,7 +191,7 @@ void main() {
     await h.settleTurn();
     expectNoBodyDistress(llm.replyPrompts.first);
     for (final id in ids) {
-      expect(h.chat.debugGroupNeeds(id)['hunger'], 80);
+      expect(h.chat.debugGroupNeeds(id)['hunger'], everyday);
     }
   });
 

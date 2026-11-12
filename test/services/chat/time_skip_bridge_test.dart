@@ -28,6 +28,7 @@
 // bridgeOverstatesSpan check in _bridgeLongSkip each turns its test red.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show
@@ -259,7 +260,14 @@ void main() {
     for (final name in ['Ayla', 'Bram']) {
       final card = h.chat.groupCharacters.firstWhere((c) => c.name == name);
       final bars = h.chat.getNeedsForGroupCharacter(card);
-      expect(bars['hunger'], 80, reason: '$name ate in those three weeks');
+      // Everyday hunger is the member copy's own baseline (PR 5).
+      expect(
+        bars['hunger'],
+        NeedsSimulation.baselinesFromExtensions(
+          card.frontPorchExtensions,
+        )['hunger'],
+        reason: '$name ate in those three weeks',
+      );
       expect(bars['energy'], 80, reason: '$name slept in those three weeks');
     }
   });

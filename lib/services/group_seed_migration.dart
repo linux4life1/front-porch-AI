@@ -66,17 +66,12 @@ FrontPorchExtensions memberCopyFromGroupSeed(
   if (seed == null) return out;
   final start = groupMemberStartOfSeed(seed);
   // On the card a need's baseline is both where new chats start and the
-  // character's everyday level. A seed bar left at the group default is no
-  // choice anyone made, so the card keeps its own everyday level; a bar set
-  // away from the default (or the seed's own baseline key) moves onto it.
+  // character's everyday level (as in 1:1); the seed's bar is where the
+  // group started them, so it becomes the copy's baseline.
   final bars = seed['needs'];
-  final stock = defaultGroupMemberRealismSeed()['needs'];
   int? bar(String need) {
     final key = 'needsBaseline${need[0].toUpperCase()}${need.substring(1)}';
-    final set = bars is Map ? bars[need] : null;
-    final v = (set is num && !(stock is Map && stock[need] == set))
-        ? set
-        : seed[key];
+    final v = (bars is Map ? bars[need] : null) ?? seed[key];
     return v is num ? v.toInt().clamp(0, 100) : null;
   }
 
