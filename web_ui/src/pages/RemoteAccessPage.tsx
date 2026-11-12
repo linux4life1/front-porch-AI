@@ -53,7 +53,8 @@ function TunnelResult({ url }: { url: string }) {
   );
 }
 
-export function RemoteAccessPage() {
+/** `embedded`: the "Web Server" section of Settings > Advanced, where the desktop sets web access up. */
+export function RemoteAccessPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [status, setStatus] = useState<RemoteStatus | null>(null);
   const [ngrokToken, setNgrokToken] = useState('');
   const [password, setPassword] = useState('');
@@ -111,13 +112,13 @@ export function RemoteAccessPage() {
     ? 'Turning a tunnel on publishes this app beyond this computer — confirm your web login password and a 2FA code.'
     : 'Turning a tunnel on publishes this app beyond this computer — confirm your web login password.';
 
-  if (!status) return <div className="centered"><div className="spinner" /></div>;
+  if (!status?.tailscale || !status.ngrok) return <div className="centered"><div className="spinner" /></div>;
   const { tailscale: ts, ngrok } = status;
 
   return (
-    <div className="page">
+    <div className={embedded ? 'web-server-section' : 'page'} data-testid="web-server-section">
       <div className="page-head">
-        <h2>Remote access</h2>
+        {embedded ? <h3>Web Server</h3> : <h2>Remote access</h2>}
         <button className="ghost" onClick={() => void load()}>Re-check</button>
       </div>
 

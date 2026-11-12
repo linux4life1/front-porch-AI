@@ -10,7 +10,7 @@ import { LoginPage } from './pages/LoginPage';
 import { UnreachablePage } from './pages/UnreachablePage';
 import { CharactersPage } from './pages/CharactersPage';
 import { ChatPage } from './pages/ChatPage';
-import { RemoteAccessPage } from './pages/RemoteAccessPage';
+import { PersonaPage } from './pages/PersonaPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GroupEditPage } from './pages/GroupEditPage';
 import { CharacterEditPage } from './pages/CharacterEditPage';
@@ -70,7 +70,8 @@ export function App() {
       <Routes>
         <Route path="/" element={<CharactersPage />} />
         <Route path="/chat" element={<ChatPage />} />
-        <Route path="/remote" element={<RemoteAccessPage />} />
+        <Route path="/remote" element={<Navigate to="/settings" replace />} />
+        <Route path="/persona" element={<PersonaPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/create" element={<CreateCharacterPage />} />
         <Route path="/create-ai" element={<CreateAiCharacterPage />} />

@@ -7,21 +7,23 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useLayout } from '../hooks/useBreakpoint';
 
-const NAV = [
-  { to: '/', label: 'Characters', icon: '👤', end: true },
-  { to: '/images', label: 'Image Studio', icon: '🖼️', end: false },
-  { to: '/chat', label: 'Chat', icon: '💬', end: false },
-  { to: '/worlds', label: 'Worlds', icon: '🗺️', end: false },
-  { to: '/stories', label: 'Stories', icon: '📖', end: false },
-  { to: '/stoop', label: 'The Stoop', icon: '🏘️', end: false },
+// The desktop sidebar's items, labels and order (lib/ui/widgets/sidebar.dart),
+// then Account (the web sign-in, the one platform-only item) and Log out.
+const NAV: { to?: string; href?: string; label: string; icon: string; end?: boolean }[] = [
+  { to: '/', label: 'Home', icon: '🏠', end: true },
+  { to: '/images', label: 'Image Studio', icon: '🖼️' },
+  { to: '/stoop', label: 'The Stoop', icon: '🏘️' },
   { to: '/create-ai', label: 'AI Character Creator', icon: '✨', end: true },
   { to: '/create', label: 'Create Character', icon: '➕', end: true },
   { to: '/create-group', label: 'Create Group Chat', icon: '👥', end: true },
-  { to: '/models', label: 'Models', icon: '🧠', end: false },
-  { to: '/remote', label: 'Remote', icon: '🌐', end: false },
-  { to: '/settings', label: 'Settings', icon: '🎛️', end: false },
-  { to: '/backups', label: 'Backups', icon: '💾', end: false },
-  { to: '/account', label: 'Account', icon: '⚙️', end: false },
+  { to: '/models', label: 'Manage Models', icon: '🧠' },
+  { to: '/settings', label: 'Settings', icon: '🎛️' },
+  { to: '/persona', label: 'User Persona', icon: '👤' },
+  { to: '/worlds', label: 'Worlds', icon: '🗺️' },
+  { to: '/backups', label: 'Backups & Restore', icon: '💾' },
+  { href: 'https://discord.gg/e4tET6rpdv', label: 'Join the Discord', icon: '💬' },
+  { href: 'https://ko-fi.com/sosukeaizen37411', label: 'Buy Me a Coffee ☕', icon: '☕' },
+  { to: '/account', label: 'Account', icon: '⚙️' },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -53,25 +55,24 @@ export function Layout({ children }: { children: ReactNode }) {
 
   const links = (onPick?: () => void) => (
     <nav className="side-links">
-      {NAV.map((n) => (
-        <NavLink key={n.to} to={n.to} end={n.end} className={navItem} onClick={onPick}>
-          <span className="nav-icon" aria-hidden>{n.icon}</span>
-          <span className="nav-label">{n.label}</span>
-        </NavLink>
-      ))}
+      {NAV.map((n) =>
+        n.to ? (
+          <NavLink key={n.to} to={n.to} end={n.end} className={navItem} onClick={onPick}>
+            <span className="nav-icon" aria-hidden>{n.icon}</span>
+            <span className="nav-label">{n.label}</span>
+          </NavLink>
+        ) : (
+          <a key={n.href} className="nav-item" href={n.href} target="_blank" rel="noopener noreferrer" onClick={onPick}>
+            <span className="nav-icon" aria-hidden>{n.icon}</span>
+            <span className="nav-label">{n.label}</span>
+          </a>
+        ),
+      )}
     </nav>
   );
 
   const footer = (
     <div className="side-footer">
-      <a
-        className="side-discord-btn"
-        href="https://discord.gg/e4tET6rpdv"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        <span aria-hidden>💬</span> Join the Discord
-      </a>
       <button className="side-logout link-btn" onClick={logout}>Log out</button>
     </div>
   );

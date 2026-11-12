@@ -117,12 +117,6 @@
       "dartMarker": "Additional post-history instructions",
       "webMarker": "Additional post-history instructions"
     },
-    "personas": {
-      "section": "general",
-      "dart": "lib/ui/pages/user_persona_page.dart",
-      "dartMarker": "User Personas",
-      "webMarker": "User personas"
-    },
     "porchLife": {
       "section": "porch-life",
       "dart": "lib/ui/settings/tabs/general_tab.dart",

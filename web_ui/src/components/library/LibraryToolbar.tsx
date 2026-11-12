@@ -6,6 +6,7 @@
 
 import type { MouseEvent } from 'react';
 import type { SearchScope } from '../../hooks/useLibrary';
+import { HomeModeToggle } from '../HomeModeToggle';
 
 export function LibraryToolbar({
   search,
@@ -45,6 +46,7 @@ export function LibraryToolbar({
 }) {
   return (
     <div className="search-row">
+      <HomeModeToggle mode="chats" />
       <input
         className="search"
         placeholder="Search characters…"

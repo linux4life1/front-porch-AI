@@ -10,6 +10,7 @@
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LibraryToolbar, SelectionBar } from './LibraryToolbar';
 import { folderDeleteMessage } from '../../pages/CharactersPage';
@@ -28,7 +29,7 @@ afterEach(() => {
 });
 
 const toolbar = (inFolder: boolean, over: Record<string, unknown> = {}) =>
-  createElement(LibraryToolbar, {
+  createElement(MemoryRouter, null, createElement(LibraryToolbar, {
     search: '',
     setSearch: vi.fn(),
     sort: 'name',
@@ -46,13 +47,15 @@ const toolbar = (inFolder: boolean, over: Record<string, unknown> = {}) =>
     onStartSelect: vi.fn(),
     onStartOrganize: vi.fn(),
     ...over,
-  } as never);
+  } as never));
 
 describe('library toolbar', () => {
   it('has the desktop buttons and no create buttons', () => {
     act(() => root.render(toolbar(false)));
     const titles = [...container.querySelectorAll('button[title]')].map((b) => b.getAttribute('title'));
     expect(titles).toEqual([
+      'Chats',
+      'Porch Stories',
       'Refresh character list (pick up external changes, e.g. Character Card Forge)',
       'Multi-select characters (for organizing, moving, etc.)',
       'Organize into folders',

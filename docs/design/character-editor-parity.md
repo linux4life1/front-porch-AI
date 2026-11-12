@@ -162,15 +162,30 @@ not on the desktop and are gone.
 
 Toolbar buttons: New Folder, Multi-select and Import carry the desktop tooltips.
 
-## Accepted platform-input difference
+## Navigation (desktop sidebar vs web nav)
 
-The date and time fields (Story begins, Opens at, Birthday, work hours) use the
-browser's native date and time inputs where the desktop draws Flutter pickers.
-Same fields, same values; this is the one accepted difference.
+The web nav lists the desktop sidebar's items in its order and wording
+(`Sidebar.labels`): Home, Image Studio, The Stoop, AI Character Creator, Create
+Character, Create Group Chat, Manage Models, Settings, User Persona, Worlds,
+Backups & Restore, Join the Discord, Buy Me a Coffee. User Persona is its own
+page on both. Chat, Stories and Remote are not nav items (maintainer ruling):
+Home's Chats / Porch Stories toggle reaches the story shelf, and the web server
+(Remote Access) sits in Settings > Advanced, where the desktop sets web access
+up. Pinned by the nav test in `one_ui_parity_test.dart`.
+
+## Accepted platform differences (maintainer rulings)
+
+- The date and time fields (Story begins, Opens at, Birthday, work hours) use
+  the browser's native date and time inputs where the desktop draws Flutter
+  pickers. Same fields, same values.
+- Account and Log out in the web nav: the web app needs a sign-in; the desktop
+  has none.
 
 ## Open differences
 
-None, except the accepted platform date and time pickers above.
+None, except the accepted platform differences above, and the desktop Home
+toggle's third mode (the Waifu Coder), which the web does not have; that is a
+whole feature awaiting a maintainer ruling.
 
 Built on the web to match the desktop: Refresh list, the Organize into folders
 mode (a second picking mode; dragging a picked card carries every pick), Select

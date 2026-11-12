@@ -196,3 +196,10 @@
 }
 
 .sel-count[data-organizing] { color: var(--porch-honey); }
+
+/* Home mode switch (Chats / Porch Stories). */
+.home-mode-toggle { display: inline-flex; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); flex: none; }
+.home-mode-toggle .mode-btn { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border: 1px solid transparent; border-radius: 10px; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.home-mode-toggle .mode-btn.active { color: var(--text); font-weight: 600; background: color-mix(in srgb, var(--porch-amber) 15%, transparent); border-color: color-mix(in srgb, var(--porch-amber) 45%, transparent); }
+[data-layout="phone"] .home-mode-toggle .mode-label { display: none; }
+[data-layout="phone"] .home-mode-toggle .mode-btn { padding: 8px 10px; }

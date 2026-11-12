@@ -741,6 +741,40 @@ void _leafTests() {
     expect(_w('hooks/useLibrary.ts'), contains('startOrganizing'));
   });
 
+  test(
+    'the web nav is the desktop sidebar, plus only Account (web sign-in)',
+    () {
+      final side = _between(
+        _d('widgets/sidebar.dart'),
+        'static const labels = [',
+        '];',
+      );
+      final dartNav = [
+        for (final m in RegExp(r"'([^']+)'").allMatches(side)) m.group(1)!,
+      ];
+      final nav = _wBetween(_w('components/Layout.tsx'), 'const NAV', '];');
+      final webNav = [
+        for (final m in RegExp(r"label: '([^']+)'").allMatches(nav))
+          if (m.group(1) != 'Account') m.group(1)!,
+      ];
+      expect(webNav, dartNav, reason: 'the web nav differs from the sidebar');
+      // Chat, Stories and Remote are not nav items: Home's mode toggle reaches
+      // Porch Stories and Settings holds the web server, as on the desktop.
+      for (final gone in ["'Chat'", "'Stories'", "'Remote'", "'Characters'"]) {
+        expect(nav, isNot(contains('label: $gone')));
+      }
+      expect(
+        _w('components/HomeModeToggle.tsx'),
+        allOf(contains("'Chats'"), contains("'Porch Stories'")),
+      );
+      expect(
+        _w('pages/SettingsPage.tsx'),
+        contains('<RemoteAccessPage embedded'),
+      );
+      expect(_w('App.tsx'), contains('path="/persona"'));
+    },
+  );
+
   test('the lore entry editor is a dialog with the desktop controls', () {
     final dart = _d('dialogs/lorebook_entry_dialog.dart');
     final web = _w('components/LoreEntriesEditor.tsx');

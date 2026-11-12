@@ -65,7 +65,11 @@ const ROUTES: ((i: { character: string; story: string; group: string; member: st
   () => '/settings',
   () => '/account',
   () => '/backups',
-  () => '/remote',
+  // Was '/remote'. Remote access is no longer a page of its own: the desktop
+  // sets web access up in Settings > Advanced, so the web does too (covered by
+  // '/settings'). '/persona' (User Persona) takes this slot, keeping the
+  // screen numbers of the routes below it.
+  () => '/persona',
   () => '/models',
   () => '/images',
   () => '/create',
