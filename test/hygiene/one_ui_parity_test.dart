@@ -658,12 +658,12 @@ void _leafTests() {
       );
       final bar = _w('components/library/LibraryToolbar.tsx');
       for (final t in [
-        'New Folder',
         'Multi-select characters (for organizing, moving, etc.)',
         'Import or discover characters',
       ]) {
         expect(bar, contains('title="$t"'));
       }
+      expect(bar, contains("inFolder ? 'New Subfolder' : 'New Folder'"));
     },
   );
 

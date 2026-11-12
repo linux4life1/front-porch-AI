@@ -254,10 +254,14 @@ void main() {
       ),
     );
     await doubleTapNoFrame(tester, find.text('Duplicate Group'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 1)),
-    );
-    await tester.pump();
+    // The copy runs on real I/O: give it real time, then let the fake
+    // clock's microtasks catch up, until the snackbar says it finished.
+    for (var i = 0; i < 40 && find.byType(SnackBar).evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 100)),
+      );
+      await tester.pump();
+    }
     final all = await tester.runAsync(db.getAllGroups);
     expect(all!.where((g) => g.name == 'Porch Night (copy)'), hasLength(1));
     expect(find.text('Group duplicated successfully.'), findsOneWidget);
