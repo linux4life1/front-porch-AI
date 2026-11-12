@@ -215,11 +215,49 @@ toggle, pressure gauge and Spin, and a Chance Time event only reaches that
 member. Existing groups seed every member from the group's switch. Sketch
 the sidebar before building.
 
+### PR 6 — Helper model reaches the web model sheet
+
+The desktop Model Settings dialog embeds the whole Realism-evals
+(`WorkerBackendSection`) group in-chat; the web chat sheet
+(`ChatModelSwitcher`) offers provider + chat model only. Mount the existing
+`WorkerBackendCard` inside the sheet (the `/api` worker facade already reads
+and saves it); the GGUF control stays the served `localModels` dropdown —
+no file browser on web. Ledger #1.
+
+### PR 7 — Group-only settings in one place
+
+Group-scoped Realism defaults currently sit in the group editor's Details
+tab mixed with identity fields; gather them the way 1:1 scatters none —
+per the ruling thread in group-editor.md (A2/A7). Sketch before building.
+
+### PR 8 — Settings page rebuild + drift closure (priority 1: the settings page)
+
+The web Settings is folded into six flat sections and never got the
+desktop's Appearance tab: no theme gallery, accent, UI font or corners.
+Rebuild Settings so every desktop tab maps to a web section one-for-one,
+then close the rest of the drift ledger in its ranked order
+(`dev-notes/drift-ledger-726.md`, tabled 2026-11-12 — full inventories of
+both UIs are already in that audit; do not sweep again).
+
+Priority order inside the PR, maintainer-ruled 2026-11-12:
+
+1. Settings structure + Appearance controls (ledger #5) — this PR's namesake.
+2. Voice & Media controls the web never got (ledger #13).
+3. Small fills: slash catalog `/afk` `/image` (ledger #14), folder-tile
+   avatars and shape (ledger #4).
+4. Verify-and-close the suspects (ledger #15).
+
+Not this PR: Waifu Coder (ruled desktop-only, permanent), per-character
+Chaos (PR 5b), helper model (PR 6), the web voice call and Stoop upload
+wizard (ledger #10, #11 — next SOW's candidates), local `.gguf`/`.kcpps`
+pickers (⏳ by design).
+
 ### Later, not yet sketched for approval
 
 - A small desktop window (under ~700 px): the sidebar as a slide-over like
   the phone drawer. CLAUDE.md asks for 400 px and 1440 px on new screens;
   sketch it before building.
+- Dead-code sweep (queued at PR 5 handoff).
 
 ## Poke scripts (maintainer)
 
@@ -234,3 +272,6 @@ the sidebar before building.
   them about what happened while they were gone; they should not know.
 - PR 5: Main Settings → Group Settings…; every old tab's item is there, and
   changing a default does not change the chat you are in.
+- PR 8: open Settings in the browser and the app side by side; every app
+  tab is a web section with the same controls, and changing theme or accent
+  on the web changes the desktop too.
