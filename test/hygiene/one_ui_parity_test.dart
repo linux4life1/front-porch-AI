@@ -167,7 +167,7 @@ List<String> _orderProblems(String source, List<String> labels) {
     final re = RegExp(
       r"['\x22>`]\s*" +
           RegExp.escape(l) +
-          r"(?=['\x22<:`]|\s*\$\{|\s*\{|\s\(|\s·|\s*<)",
+          r"(?=['\x22<:`]|\s*\$\{|\s*\{|\s\(|\s·|\s*<|\sChats)",
     );
     final m = re.firstMatch(source.substring(cursor));
     if (m == null) {
