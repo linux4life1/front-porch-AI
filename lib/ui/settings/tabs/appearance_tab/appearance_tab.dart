@@ -26,6 +26,7 @@ import 'accent_picker_row.dart';
 import 'appearance_choice.dart';
 import 'background_weather_section.dart';
 import 'chat_appearance_section.dart';
+import 'mood_on_character_controls.dart';
 import 'theme_card_grid.dart';
 
 /// Settings → Appearance: the app theme, light/dark/system mode, accent, UI
