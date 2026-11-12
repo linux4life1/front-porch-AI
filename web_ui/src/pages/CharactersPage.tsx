@@ -44,6 +44,7 @@ type Dialog =
   | { kind: 'newFolder' }
   | { kind: 'renameFolder'; folder: LibFolder }
   | { kind: 'newSubfolder'; folder: LibFolder }
+  | { kind: 'deleteFolderChoice'; folder: LibFolder }
   | { kind: 'deleteFolder'; folder: LibFolder }
   | { kind: 'deleteFolderDeep'; folder: LibFolder }
   | { kind: 'deleteChar'; char: LibChar }
@@ -132,8 +133,7 @@ export function CharactersPage() {
     folderCardMenu(f, {
       onRename: () => setDialog({ kind: 'renameFolder', folder: f }),
       onNewSubfolder: () => setDialog({ kind: 'newSubfolder', folder: f }),
-      onDeleteFolder: () => setDialog({ kind: 'deleteFolder', folder: f }),
-      onDeleteDeep: () => setDialog({ kind: 'deleteFolderDeep', folder: f }),
+      onDelete: () => setDialog({ kind: 'deleteFolderChoice', folder: f }),
     });
 
   const groupMenu = (g: LibGroup) =>
@@ -142,6 +142,9 @@ export function CharactersPage() {
       onNewChat: () =>
         setDialog({ kind: 'newChat', subject: g.name, target: { groupId: g.id } }),
       onHistory: () => setDialog({ kind: 'chatHistory', subject: g.name, groupId: g.id }),
+      onEdit: () => navigate(`/groups/${g.id}/edit`),
+      // The desktop's Duplicate Group is a stub that says so; so is this.
+      onDuplicate: () => setPersonaNotice(`Duplicate Group not yet implemented: ${g.name}`),
       onExportPng: () => lib.exportGroupPng(g),
       onExtract: () => setDialog({ kind: 'extractGroup', group: g }),
       onMove: () => setDialog({ kind: 'move', ids: [g.id] }),
@@ -446,6 +449,38 @@ export function CharactersPage() {
           onConfirm={(name) => lib.renameFolder(dialog.folder.id, name)}
           onClose={() => setDialog(null)}
         />
+      )}
+      {dialog?.kind === 'deleteFolderChoice' && (
+        <div className="drawer-backdrop center" onClick={() => setDialog(null)}>
+          <div className="modal" role="dialog" aria-label="Delete Folder" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-head">
+              <span>Delete Folder</span>
+            </div>
+            <p className="muted dialog-msg" style={{ whiteSpace: 'pre-line' }}>
+              {`Delete "${dialog.folder.name}"?\n\n• Delete Folder Only: the characters and groups inside return to the top level.\n• Delete Folder + Characters: PERMANENTLY deletes the folder AND every character inside it (including subfolders); groups are kept and return to the top level.`}
+            </p>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setDialog(null)}>
+                Cancel
+              </button>
+              <button
+                className="danger-btn"
+                onClick={() => {
+                  lib.deleteFolder(dialog.folder.id);
+                  setDialog(null);
+                }}
+              >
+                Delete Folder Only
+              </button>
+              <button
+                className="danger-btn"
+                onClick={() => setDialog({ kind: 'deleteFolderDeep', folder: dialog.folder })}
+              >
+                Delete Folder + Characters…
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {dialog?.kind === 'deleteFolder' && (
         <ConfirmDialog

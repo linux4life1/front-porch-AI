@@ -577,6 +577,13 @@ void _leafTests() {
     );
     expect(_w('components/library/cardMenus.ts'), contains("'Avatar Gallery'"));
     expect(_w('components/ChatSidebar.tsx'), contains("'Avatar Gallery'"));
+    // In a group the gallery is the member's library character's, looked up
+    // through the relay, as on the desktop.
+    expect(_w('components/ChatSidebar.tsx'), contains('/library'));
+    expect(
+      File('lib/services/web/routes/group_routes.dart').readAsStringSync(),
+      contains('/api/groups/<id>/members/<memberId>/library'),
+    );
     expect(_w('components/AvatarGalleryModal.tsx'), contains('Avatar Gallery'));
     // Passage of Time stays a Porch Life setting on both.
     expect(
@@ -607,6 +614,58 @@ void _leafTests() {
       reason: 'the character card menu differs from the desktop menu',
     );
   });
+
+  test(
+    'the group, folder and import menus list the desktop items in order',
+    () {
+      List<String> labels(String src, RegExp re) => [
+        for (final m in re.allMatches(src)) m.group(1)!,
+      ];
+      final label = RegExp(r"label: '([^']+)'");
+      final menus = _w('components/library/cardMenus.ts');
+      final home = _d('pages/home/cards/home_card_menu.dart');
+      expect(
+        labels(
+          _wBetween(
+            menus,
+            'export function groupCardMenu',
+            'export function folderCardMenu',
+          ),
+          label,
+        ),
+        labels(_between(home, 'groupCardMenuItems', '\n}\n'), label),
+        reason: 'the group card menu differs from the desktop menu',
+      );
+      expect(
+        labels(
+          _wBetween(
+            menus,
+            'export function folderCardMenu',
+            'export function importCardMenu',
+          ),
+          label,
+        ),
+        labels(_d('pages/home/cards/folder_grid_card.dart'), label),
+        reason: 'the folder card menu differs from the desktop menu',
+      );
+      expect(
+        labels(_wBetween(menus, 'export function importCardMenu'), label),
+        labels(
+          _d('pages/home/widgets/toolbar/home_toolbar_actions.dart'),
+          RegExp(r"row\(Icons\.\w+, '([^']+)'\)"),
+        ),
+        reason: 'the import menu differs from the desktop menu',
+      );
+      final bar = _w('components/library/LibraryToolbar.tsx');
+      for (final t in [
+        'New Folder',
+        'Multi-select characters (for organizing, moving, etc.)',
+        'Import or discover characters',
+      ]) {
+        expect(bar, contains('title="$t"'));
+      }
+    },
+  );
 
   test('the lore entry editor is a dialog with the desktop controls', () {
     final dart = _d('dialogs/lorebook_entry_dialog.dart');

@@ -35,6 +35,7 @@ class WebGroupRoutes {
     router.get('/api/groups', _list);
     router.post('/api/groups', _create);
     router.get('/api/groups/<id>/members/<memberId>/avatar', _avatar);
+    router.get('/api/groups/<id>/members/<memberId>/library', _memberLibrary);
     router.get('/api/groups/<id>/members/<memberId>/detail', _memberDetail);
     router.post('/api/groups/<id>/members/<memberId>', _memberUpdate);
     router.get('/api/groups/<id>/export.png', _export);
@@ -249,4 +250,18 @@ class WebGroupRoutes {
     String memberId,
   ) async =>
       _thumbs.serve(request, await _facade.memberAvatarFile(id, memberId));
+
+  /// {id, name} of the library character a member was copied from, whose
+  /// Avatar Gallery the chat's Main Settings opens for that member.
+  Future<shelf.Response> _memberLibrary(
+    shelf.Request request,
+    String id,
+    String memberId,
+  ) async {
+    final lib = await _facade.memberLibrary(id, memberId);
+    if (lib == null) {
+      return JsonResponse.error(404, 'No library character for this member');
+    }
+    return JsonResponse.ok(lib);
+  }
 }

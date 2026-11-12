@@ -52,6 +52,8 @@ export function groupCardMenu(
     inFolder: boolean;
     onNewChat: () => void;
     onHistory: () => void;
+    onEdit: () => void;
+    onDuplicate: () => void;
     onExportPng: () => void;
     onExtract: () => void;
     onMove: () => void;
@@ -60,13 +62,15 @@ export function groupCardMenu(
   },
 ): CardMenuItem[] {
   return [
-    { label: 'Start new chat', icon: '💬', onClick: a.onNewChat },
+    { label: 'Start New Chat', icon: '💬', onClick: a.onNewChat },
     { label: 'Manage Chats', icon: '📂', onClick: a.onHistory },
-    { label: 'Export Group PNG', icon: '🖼', onClick: a.onExportPng },
-    { label: 'Extract characters', icon: '👥', onClick: a.onExtract },
-    { label: 'Move to folder…', icon: '📁', onClick: a.onMove },
+    { label: 'Edit Group', icon: '✏️', onClick: a.onEdit },
+    { label: 'Duplicate Group', icon: '⧉', onClick: a.onDuplicate },
+    { label: 'Export PNG', icon: '🖼', onClick: a.onExportPng },
+    { label: 'Extract Characters', icon: '👥', onClick: a.onExtract },
+    { label: 'Move to Folder', icon: '📁', onClick: a.onMove },
     ...(a.inFolder
-      ? [{ label: 'Remove from folder', icon: '📤', onClick: a.onRemoveFolder }]
+      ? [{ label: 'Remove from Folder', icon: '📤', onClick: a.onRemoveFolder }]
       : []),
     { label: 'Delete', icon: '🗑', danger: true, onClick: a.onDelete },
   ];
@@ -77,20 +81,14 @@ export function folderCardMenu(
   a: {
     onRename: () => void;
     onNewSubfolder: () => void;
-    onDeleteFolder: () => void;
-    onDeleteDeep: () => void;
+    /** "Delete Folder…" opens the one dialog that offers both deletions. */
+    onDelete: () => void;
   },
 ): CardMenuItem[] {
   return [
-    { label: 'Rename', icon: '✏️', onClick: a.onRename },
-    { label: 'New subfolder', icon: '📂', onClick: a.onNewSubfolder },
-    { label: 'Delete folder only', icon: '🗑', onClick: a.onDeleteFolder },
-    {
-      label: 'Delete folder + characters',
-      icon: '💥',
-      danger: true,
-      onClick: a.onDeleteDeep,
-    },
+    { label: 'Rename Folder', icon: '✏️', onClick: a.onRename },
+    { label: 'New Subfolder', icon: '📂', onClick: a.onNewSubfolder },
+    { label: 'Delete Folder…', icon: '🗑', danger: true, onClick: a.onDelete },
   ];
 }
 
@@ -102,25 +100,15 @@ export function importCardMenu(a: {
   onImportPorch?: () => void;
 }): CardMenuItem[] {
   return [
-    { label: 'Import cards…', icon: '🖼', onClick: a.onImportCards },
-    { label: 'Import a folder…', icon: '📁', onClick: a.onImportFolder },
+    { label: 'Import Cards', icon: '🖼', onClick: a.onImportCards },
+    { label: 'Import Folder', icon: '📁', onClick: a.onImportFolder },
     {
-      label: 'Import Backyard AI (.byaf)…',
+      label: 'Import Backyard AI (.byaf)',
       icon: '📦',
       onClick: a.onImportByaf,
     },
     ...(a.onImportPorch
-      ? [{ label: 'Import .porch / .porchpack…', icon: '🗂', onClick: a.onImportPorch }]
+      ? [{ label: 'Import .porch / .porchpack', icon: '🗂', onClick: a.onImportPorch }]
       : []),
-    {
-      label: 'Browse AI Character Cards ↗',
-      icon: '🌐',
-      onClick: () => window.open('https://aicharactercards.com/', '_blank', 'noopener'),
-    },
-    {
-      label: 'Browse Chub.ai ↗',
-      icon: '🌐',
-      onClick: () => window.open('https://chub.ai/', '_blank', 'noopener'),
-    },
   ];
 }

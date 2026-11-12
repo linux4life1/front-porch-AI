@@ -23,6 +23,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/group_editor_relay.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_library.dart';
 
 import '../../helpers/group_memory_harness.dart';
 
@@ -64,6 +65,43 @@ void main() {
 
       await relay.cast(GroupMemoryHarness.groupId, {'action': 'bringBack'});
       expect(h.chat.groupCharacters.map((c) => c.name), contains('Cy'));
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  test(
+    'a member maps to its library character, whose Avatar Gallery the chat opens',
+    () async {
+      final h = await GroupMemoryHarness.open(withCy: true);
+      addTearDown(h.close);
+      final groups = GroupChatRepository(h.storage, h.db);
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      final ada = await memberLibraryCharacter(
+        groups,
+        h.library.characters,
+        GroupMemoryHarness.groupId,
+        'mem-ada',
+      );
+      expect(ada, {'id': 'lib-ada', 'name': 'Ada'});
+      // A member with no library origin has no gallery to open.
+      expect(
+        await memberLibraryCharacter(
+          groups,
+          h.library.characters,
+          GroupMemoryHarness.groupId,
+          'mem-bea',
+        ),
+        isNull,
+      );
+      expect(
+        await memberLibraryCharacter(
+          groups,
+          h.library.characters,
+          GroupMemoryHarness.groupId,
+          'nobody',
+        ),
+        isNull,
+      );
     },
     timeout: const Timeout(Duration(minutes: 3)),
   );

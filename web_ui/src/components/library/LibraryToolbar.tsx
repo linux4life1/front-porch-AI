@@ -86,10 +86,10 @@ export function LibraryToolbar({
           aria-label="Card size"
         />
       </label>
-      <button className="ghost import-btn" onClick={onNewFolder} title="New folder">
+      <button className="ghost import-btn" onClick={onNewFolder} title="New Folder">
         📁＋
       </button>
-      <button className="ghost import-btn" onClick={onStartSelect} title="Select multiple">
+      <button className="ghost import-btn" onClick={onStartSelect} title="Multi-select characters (for organizing, moving, etc.)">
         ☑ Select
       </button>
       <button className="primary import-btn" onClick={onCreate} title="Create a new character">
@@ -105,7 +105,7 @@ export function LibraryToolbar({
         className="ghost import-btn"
         disabled={importing}
         onClick={onImportMenu}
-        title="Import a character card"
+        title="Import or discover characters"
       >
         {importing ? 'Importing…' : '⬆ Import ▾'}
       </button>

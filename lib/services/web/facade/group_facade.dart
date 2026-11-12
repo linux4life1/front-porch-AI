@@ -30,6 +30,7 @@ import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
 import 'package:front_porch_ai/services/web/facade/group_editor_relay.dart';
 import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_library.dart';
 import 'package:front_porch_ai/services/web/facade/group_new_chats.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -471,4 +472,13 @@ class GroupFacade {
     );
     return file.existsSync() ? file : null;
   }
+
+  /// The library character behind a member (its Avatar Gallery), or null.
+  Future<Map<String, String>?> memberLibrary(String groupId, String memberId) =>
+      memberLibraryCharacter(
+        _groups,
+        repo?.characters ?? const <CharacterCard>[],
+        groupId,
+        memberId,
+      );
 }

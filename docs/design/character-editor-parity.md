@@ -136,8 +136,41 @@ character editor.)
 | Pace | segmented button | segmented buttons |
 | Story begins / Opens at, Birthday, work hours | Flutter date and time pickers | the browser's own date and time inputs |
 
-## Open differences
+## Avatar Gallery in a group chat
 
-None in sections, leaves, labels, helper text or order. The one thing that
-cannot be identical is the picker widget itself: the browser draws its own
-date and time pickers where Flutter draws its own (same fields, same values).
+Desktop opens the gallery of the library character behind the tapped member
+(a member copy has one avatar file and no expression set). The web chat's Main
+Settings menu does the same: it asks `GET /api/groups/<id>/members/<memberId>/library`
+(`{id, name}`, 404 when the member has no resolvable origin) and opens the
+gallery of that library character. The member's own avatar file under
+`groups/<id>/avatars/` is never touched, so its storage key stays as it is.
+Pinned by `group_cast_relay_test.dart` and `ChatSidebar.gallery.test.tsx`.
+
+## Home menus (desktop vs web)
+
+Same items, labels and order, pinned by label-list equality in the parity test:
+the character card menu, the group card menu (Start New Chat, Manage Chats,
+Edit Group, Duplicate Group, Export PNG, Extract Characters, Move to Folder,
+Remove from Folder, Delete), the folder card menu (Rename Folder, New Subfolder,
+Delete Folder...) and the import menu (Import Cards, Import Folder, Import
+Backyard AI (.byaf), Import .porch / .porchpack). "Duplicate Group" is a stub on
+the desktop ("not yet implemented") and is the same stub on the web. The web's
+two "Browse ..." links were not on the desktop and are gone.
+
+Toolbar buttons: New Folder, Multi-select and Import carry the desktop tooltips.
+
+## Accepted platform-input difference
+
+The date and time fields (Story begins, Opens at, Birthday, work hours) use the
+browser's native date and time inputs where the desktop draws Flutter pickers.
+Same fields, same values; this is the one accepted difference.
+
+## Open differences, listed not built (whole features, not menus)
+
+- Home toolbar: the desktop has "Refresh list", an "Organize into folders"
+  mode and "Select all" / "Select none" in the selection bar; the web has none
+  of them. The web toolbar also carries Create, AI Create and New Group buttons
+  in a place where the desktop has them elsewhere.
+- Delete Folder: the desktop's dialog states the character and group counts
+  (and shows "Delete Folder + Characters..." only when there are characters);
+  the web dialog has the same choices without the counts.

@@ -11,11 +11,11 @@ describe('importCardMenu', () => {
       onImportFolder: () => {},
       onImportByaf: () => {},
     }).map((i) => i.label);
-    expect(labels).toContain('Import cards…');
-    expect(labels).toContain('Import a folder…');
-    expect(labels).toContain('Import Backyard AI (.byaf)…');
-    expect(labels.indexOf('Import Backyard AI (.byaf)…')).toBe(
-      labels.indexOf('Import a folder…') + 1,
+    expect(labels).toContain('Import Cards');
+    expect(labels).toContain('Import Folder');
+    expect(labels).toContain('Import Backyard AI (.byaf)');
+    expect(labels.indexOf('Import Backyard AI (.byaf)')).toBe(
+      labels.indexOf('Import Folder') + 1,
     );
   });
 });

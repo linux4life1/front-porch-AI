@@ -276,7 +276,7 @@ export function ChatSidebar({
   const [importMsg, setImportMsg] = useState('');
 
   // ── Main Settings menu ────────────────────────────────────────────────
-  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [gallery, setGallery] = useState<{ id: string; name: string } | null>(null);
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -345,9 +345,23 @@ export function ChatSidebar({
     const r = settingsBtnRef.current?.getBoundingClientRect();
     const items: import('./library/CardMenu').CardMenuItem[] = [
       ...(onEditCharacter ? [{ label: 'Edit Character', onClick: onEditCharacter }] : []),
-      ...(!t?.group
-        ? [{ label: 'Avatar Gallery', onClick: () => { onOpenOverlay?.(); setGalleryOpen(true); } }]
-        : []),
+      {
+        label: 'Avatar Gallery',
+        onClick: () => {
+          onOpenOverlay?.();
+          if (!(t?.group && groupId)) {
+            setGallery({ id: characterId, name: focusedName ?? '' });
+            return;
+          }
+          // A group member's gallery is its library character's, as on the desktop.
+          api
+            .get<{ id: string; name: string }>(
+              `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(focusedId ?? '')}/library`,
+            )
+            .then(setGallery)
+            .catch((e) => console.warn('[sidebar] no library character for this member', e));
+        },
+      },
       { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
       { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
@@ -1037,12 +1051,8 @@ export function ChatSidebar({
           Main Settings
         </button>
         {settingsMenu && <CardMenu menu={settingsMenu} onClose={() => setSettingsMenu(null)} />}
-        {galleryOpen && (
-          <AvatarGalleryModal
-            characterId={characterId}
-            name={focusedName ?? ''}
-            onClose={() => setGalleryOpen(false)}
-          />
+        {gallery && (
+          <AvatarGalleryModal characterId={gallery.id} name={gallery.name} onClose={() => setGallery(null)} />
         )}
       </div>
       <div className="sidebar-layout-pills">
