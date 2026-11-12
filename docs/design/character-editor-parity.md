@@ -50,8 +50,8 @@ Sources. Desktop: `lib/ui/pages/edit_character_page/`, `lib/ui/widgets/`
 | 22 | Optional Features: Afterglow (+ Recovery, 18+), Chaos Mode (Chance Time), Realism Verification (Director/Verifier), Max reprocess passes, Strictness, Director authority (needs) | Chaos and Verification first; other labels | desktop order and labels | yes |
 | 23 | In the group (member mode, last) | present | same | yes |
 
-Realism off: desktop hides rows 19 to 22 except Afterglow-free Chaos; web does
-the same (the engine switch gates the same rows). Time & Day, Chaos and
+Realism off: both sides keep Time & Day and the identity rows, drop rows 19,
+20, 21 and the rest of 22, and show only Optional Features with Chaos Mode. Time & Day, Chaos and
 Realism Verification grey out in member mode (A2, A7, A8) on both sides.
 
 ## Dialogue
