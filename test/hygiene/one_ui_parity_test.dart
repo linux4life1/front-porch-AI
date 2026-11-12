@@ -892,12 +892,14 @@ void main() {
     ).readAsStringSync();
     final webMember = [
       for (final m in RegExp(
-        r'data-testid="group-member-notice"|section-label">(Identity|Voice|Personality &amp; World|Realism Engine)</h3>|<summary>(Advanced Prompts)</summary>|<GroupMemberSection',
+        r'data-testid="group-member-notice"|section-label">(Identity|Voice|Personality &amp; World)</h3>|<summary>(Advanced Prompts)</summary>|<RealismFormSection|<GroupMemberSection',
       ).allMatches(webChar))
         m.group(1)?.replaceAll('&amp;', '&') ??
             m.group(2) ??
             (m.group(0)!.contains('notice')
                 ? 'groupMemberNotice('
+                : m.group(0)!.contains('Realism')
+                ? 'EditCharacterRealismSection('
                 : 'GroupMemberSection('),
     ];
     expect(dartMember.first, 'groupMemberNotice(');
@@ -908,12 +910,9 @@ void main() {
       'Voice',
       'Personality & World',
       'Advanced Prompts',
-      'Realism Engine',
+      'EditCharacterRealismSection(',
       'GroupMemberSection(',
     ]);
-    expect([
-      for (final t in dartMember)
-        t == 'EditCharacterRealismSection(' ? 'Realism Engine' : t,
-    ], webMember);
+    expect(dartMember, webMember);
   });
 }
