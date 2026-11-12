@@ -34,11 +34,11 @@ const _desktopOnlySections = {
       'same thing inside Character State ("Lite NPC — no realism or needs '
       'tracking for this guest."), which is the only place it matters there.',
 };
-const _webOnlySections = {
-  'cast':
-      'The web keeps the cast roster chips in the reorderable list; the '
-      'desktop draws its roster chips above the sidebar body, outside the '
-      'reorderable list, in the same place on screen (top).',
+const _webOnlySections = <String, String>{
+  // Empty: the web cast roster moved out of the reorderable list to a fixed
+  // header (PR 5), the same place the desktop draws it. The exemption that
+  // tolerated the old web-only reorderable 'cast' id is retired with the
+  // drift it excused.
 };
 
 /// Desktop section id -> web section id, when they are spelled differently.
