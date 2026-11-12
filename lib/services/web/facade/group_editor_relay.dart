@@ -24,7 +24,7 @@ import 'package:front_porch_ai/services/web/facade/character/character.dart'
     show normalizeLorebookJson;
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/database/database.dart'
-    show AppDatabase, AppDatabaseGroupQueries;
+    show AppDatabase;
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// The phone's Edit group page: one read of everything the desktop page

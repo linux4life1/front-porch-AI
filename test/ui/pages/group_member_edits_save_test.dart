@@ -717,20 +717,6 @@ void main() {
     ),
   );
 
-  RealismFormSection form(WidgetTester tester) =>
-      tester.widget<RealismFormSection>(find.byType(RealismFormSection));
-
-  Future<void> saveTwiceFast(WidgetTester tester) async {
-    await doubleTapNoFrame(tester, find.text('Save'));
-    await pumpUntil(
-      tester,
-      () => find.byType(EditCharacterPage).evaluate().isEmpty,
-      why: 'Save never closed the editor (it failed)',
-    );
-    // Let the change notifications of the last write arrive.
-    await Future<void>.delayed(const Duration(milliseconds: 100));
-  }
-
   testWidgets("a member's Realism Verification is the group's: greyed out, "
       'and Save is the 1:1 Save', (tester) async {
     await tester.runAsync(() async {

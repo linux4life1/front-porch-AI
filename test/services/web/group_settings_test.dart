@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
-import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
@@ -22,8 +21,6 @@ import 'package:front_porch_ai/models/lorebook_import.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
-import 'package:front_porch_ai/utils/member_baseline_seed.dart'
-    show legacyCardExtSeedKeys;
 
 import '../../golden/support/fakes.dart';
 
@@ -1547,12 +1544,4 @@ class _OpenPair extends FakeChatService {
           afterglowEnabled: on,
         );
   }
-}
-
-/// [_OpenPair] whose chat runs without Realism.
-class _OpenPairWithoutRealism extends _OpenPair {
-  _OpenPairWithoutRealism(super.members);
-
-  @override
-  bool get realismEnabled => false;
 }

@@ -22,7 +22,6 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/group_roster_editor.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 
 /// Edit group's cast changes for desktop and phone: on the group's rows
 /// ([GroupRosterEditor]), or, while the group is open in [chat], through the

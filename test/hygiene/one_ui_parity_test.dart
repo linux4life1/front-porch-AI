@@ -196,6 +196,15 @@ void _expectLeaves(String surface, String desktop, String web, List<String> l) {
   );
 }
 
+/// `field('key')` renders the label the page's FIELDS table gives that key.
+String _webFields(String text, String page) => text.replaceAllMapped(
+  RegExp(r"field\('(\w+)'\)"),
+  (m) {
+    final f = RegExp("key: '${m.group(1)}', label: '([^']+)'").firstMatch(page);
+    return f == null ? m.group(0)! : '>${f.group(1)}<';
+  },
+);
+
 /// The desktop Details tab in render order, 1:1, Realism on.
 String _desktopDetails() {
   var identity = _d('widgets/identity_chip_lists.dart');
@@ -427,7 +436,10 @@ void _leafTests() {
     final d = _d('pages/edit_character_page/edit_character_dialogue_tab.dart');
     final page = _w('pages/CharacterEditPage.tsx');
     final w = _wSplice(
-      _wBetween(page, "tab === 'Dialogue'", "tab === 'Lorebook'"),
+      _webFields(
+        _wBetween(page, "tab === 'Dialogue'", "tab === 'Lorebook'"),
+        page,
+      ),
       '<AltGreetingsEditor',
       _w('components/AltGreetingsEditor.tsx'),
     );
@@ -851,7 +863,7 @@ void main() {
     final web = File('web_ui/src/pages/GroupEditPage.tsx').readAsStringSync();
     final webOrder = [
       for (final m in RegExp(
-        r'section-label">([^<]+)</h3>|<summary>([^<]+)</summary>|(CharacterStatsCard characterId)',
+        r'section-label">([^<]+)</h3>|<summary>([^<]+)</summary>|(CharacterStatsCard\s+characterId)',
       ).allMatches(web))
         (m.group(1) ?? m.group(2) ?? 'Your chats together').replaceAll(
           '&amp;',

@@ -636,14 +636,6 @@ class _RealismOffChat extends FakeChatService {
   bool get realismChatSwitch => false;
 }
 
-/// A chat whose own Realism switch is on; [realismEnabled] is the gate.
-class _RealismChat extends FakeChatService {
-  _RealismChat({required super.realismEnabled});
-
-  @override
-  bool get realismChatSwitch => true;
-}
-
 /// Records what the Afterglow line asks of the chat.
 class _SwitchChat extends FakeChatService {
   final asked = <bool>[];

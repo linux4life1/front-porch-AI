@@ -18,7 +18,6 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show GroupRealismKeys;
 import 'package:front_porch_ai/utils/group_member_card_seed.dart';
 
 /// The top-level key of a group's definition blob holding the starting
