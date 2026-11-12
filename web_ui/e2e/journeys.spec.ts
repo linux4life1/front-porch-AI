@@ -145,15 +145,12 @@ async function closeSidebar(page: Page) {
   if (await close.isVisible()) await close.click();
 }
 
-/** The Director card starts closed and only mounts once a guest has joined. */
+/** The Director card is always open, as on the desktop (PR 5), and only
+ *  mounts once a guest has joined. */
 async function openDirectorCard(page: Page) {
   await openSidebar(page);
-  const card = sidebarPanel(page).locator('details', { hasText: '🎬 Director' }).first();
+  const card = sidebarPanel(page).locator('.director-card').first();
   await expect(card).toBeVisible();
-  // Clicking a summary toggles: only open a closed card.
-  if (!(await card.evaluate((el) => (el as HTMLDetailsElement).open))) {
-    await card.locator('summary').click();
-  }
   await expect(card.locator('.director-strip')).toBeVisible();
 }
 

@@ -162,8 +162,10 @@ describe('Director Mode on the web', () => {
     expect(onDelay).toHaveBeenCalledWith(4.5);
   });
 
-  it('keeps two characters while directing, guests included', () => {
-    const onCommand = vi.fn();
+  // The strip is the desktop's (cast_roster_chip.dart): faces, names, Away /
+  // Back and Promote only. Removing a member is Edit group's Cast; the old
+  // web-only ✕ (and its "at least two characters" refusal) left the strip.
+  it('draws the desktop faces: no remove, speak or add control on the strip', () => {
     render(
       createElement(CastBar, {
         cast: [member('Ayla'), member('Bram'), member('Nell', true)],
@@ -174,15 +176,18 @@ describe('Director Mode on the web', () => {
         pendingDetection: null,
         onFocus: () => {},
         onAdd: () => {},
-        onCommand,
+        onCommand: () => {},
         canRemoveMember: false,
       }),
     );
-    const removes = [...container.querySelectorAll<HTMLButtonElement>('button[title]')].filter(
-      (b) => b.textContent?.trim() === '✕',
-    );
-    expect(removes.map((b) => b.disabled)).toEqual([true, true, true]);
-    expect(removes[0].title).toContain('at least two characters');
+    const labels = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim());
+    expect(labels).not.toContain('✕');
+    expect(labels).not.toContain('🗣');
+    expect(labels).not.toContain('＋');
+    expect(labels).not.toContain('Scan scene');
+    expect(container.querySelectorAll('.cast-face').length).toBe(3);
+    expect(container.textContent).toContain('GUEST');
+    expect(labels).toContain('Promote');
   });
 
   it('marks a member away and brings one back; at work has no switch', () => {
@@ -205,7 +210,6 @@ describe('Director Mode on the web', () => {
         onSetAway,
       }),
     );
-    expect(container.textContent).toContain('with you');
     act(() => button('Away')!.click());
     expect(onSetAway).toHaveBeenLastCalledWith('Ayla', true);
     act(() => button('Back')!.click());

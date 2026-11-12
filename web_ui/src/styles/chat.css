@@ -353,23 +353,29 @@ a.model-switch-settings {
 /* ── Unified cast bar ─────────────────────────────────────────── */
 .cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }
 .cast-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+/* One face per member, as the desktop strip draws it (cast_roster_chip.dart):
+   a 32px round avatar ringed when focused, the name under it, then Away /
+   Back, or GUEST and Promote. */
 .cast-chip {
-  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
-  border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 2px; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;
+  width: 56px;
 }
-.cast-chip.focused { border-color: var(--accent); }
-.cast-chip.next { box-shadow: 0 0 0 1px var(--ok) inset; }
-/* Away / At work: dimmed like the desktop card, still tappable. */
-.cast-chip.away .cast-chip-main { opacity: 0.55; }
-.cast-chip-main { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px 4px; }
-.cast-name { font-size: 0.82rem; font-weight: 600; }
-.cast-role { font-size: 0.62rem; color: var(--muted); text-transform: capitalize; }
-.cast-actions { display: flex; }
-.cast-add {
-  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; padding: 0;
-  display: grid; place-items: center; font-size: 1rem; background: var(--surface-2);
+.cast-chip.lite { width: 76px; }
+.cast-chip-main { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; padding: 0; min-height: 0; color: inherit; }
+.cast-face {
+  width: 36px; height: 36px; border-radius: 50%; padding: 2px; border: 2px solid transparent;
+  display: grid; place-items: center; box-sizing: border-box;
 }
-.cast-controls { display: flex; gap: 6px; margin-top: 4px; }
+.cast-chip.focused .cast-face { border-color: var(--accent); }
+.cast-face img, .cast-initial { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.cast-initial { display: grid; place-items: center; background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 0.75rem; }
+.cast-name { font-size: 0.66rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-chip.focused .cast-name { color: var(--text); }
+/* Away / At work: dimmed like the desktop, still tappable. */
+.cast-chip.away .cast-face { opacity: 0.55; }
+.cast-away { background: none; border: none; padding: 0 4px; min-height: 18px; font-size: 0.62rem; color: var(--accent); }
+.cast-guest { font-size: 0.56rem; font-weight: 700; color: var(--porch-amber); }
+.cast-promote { font-size: 0.6rem; padding: 1px 6px; min-height: 18px; border-radius: 6px; border: none; background: var(--accent); color: var(--accent-ink); }
 button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; background: transparent; border-color: var(--border); }
 .cast-banner {
   margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
@@ -378,17 +384,26 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 .cast-banner.error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .cast-banner.detect { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--text); }
-/* Director Mode: the desktop sidebar's Director card, as one strip. */
+/* Director Mode: the desktop sidebar's Director card (director_panel.dart):
+   header + status pill, a line of copy, a full-width step button. */
 .director-strip {
-  margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
-  display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap;
-  align-content: flex-start;
-  background: var(--surface-2); color: var(--muted);
+  padding: 4px 2px; font-size: 0.82rem;
+  display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap;
+  color: var(--muted);
 }
-.director-strip.directing {
-  color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
+.director-head { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+.director-title { flex: 1; min-width: 0; color: var(--muted); }
+.director-status {
+  flex: none; font-size: 0.72rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text);
 }
-.director-status { flex: 1; min-width: 0; font-weight: 600; }
+.director-strip.directing .director-status { color: var(--porch-amber); border-color: color-mix(in srgb, var(--porch-amber) 55%, transparent); }
+.director-strip.directing .director-title { color: var(--porch-amber); }
+.director-blurb { flex-basis: 100%; margin: 0; font-size: 0.78rem; color: var(--muted); }
+.director-step {
+  flex-basis: 100%; min-height: 40px; border-radius: 10px; background: transparent;
+  color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 50%, transparent); font-weight: 600;
+}
 .director-delay {
   flex-basis: 100%; display: flex; align-items: center; gap: 8px; color: var(--muted);
 }

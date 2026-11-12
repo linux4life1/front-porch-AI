@@ -381,8 +381,6 @@
    fully visible in the column at 1024 and 1440, and in the drawer below. */
 .chat-sidebar .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
 .chat-sidebar .cast-row { flex-wrap: wrap; overflow-x: visible; }
-.chat-sidebar .cast-chip { max-width: 100%; }
-.chat-sidebar .cast-role { display: none; }
 /* Card headers carry the window's padlock + chevron (pass 4): the grip
    sits inside the header's left edge instead of floating above the card. */
 .chat-sidebar .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
@@ -451,3 +449,6 @@
    for the content of a closed <details>, so its controls sat under the next
    card and the sweep hit-tested them as covered (2026-11-09). */
 .chat-sidebar details:not([open]) > .tool-body { display: none; }
+
+/* The Director card is open like the desktop card: clear the padlock grip. */
+.chat-sidebar .director-card { padding: 10px 12px 12px 34px; }

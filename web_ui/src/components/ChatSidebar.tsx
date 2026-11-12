@@ -108,6 +108,7 @@ export function ChatSidebar({
   focusedIsHost,
   focusedAvatarUrl,
   focusedPlaceholderPortrait,
+  portraitMemberId,
   toolsKey,
   focusedId,
   groupId,
@@ -140,6 +141,9 @@ export function ChatSidebar({
   focusedIsHost: boolean;
   focusedAvatarUrl?: string;
   focusedPlaceholderPortrait?: boolean;
+  /** In a group: the member whose portrait shows (the tapped one, else the
+   *  page's default member). */
+  portraitMemberId?: string | null;
   toolsKey: number;
   focusedId: string | null;
   groupId: string | null;
@@ -394,12 +398,8 @@ export function ChatSidebar({
       case 'cast':
         return castBar;
       case 'director':
-        return director ? (
-          <details className="tool-section">
-            <summary><span className="card-chev" aria-hidden>❯</span>🎬 Director</summary>
-            <div className="tool-body">{director}</div>
-          </details>
-        ) : null;
+        // Always open, as the desktop's Director card is.
+        return director ? <div className="tool-section director-card">{director}</div> : null;
       case 'one_shot_eval':
         return <OneShotEvalControl reloadKey={toolsKey} />;
       case 'tool_calling_pill':
@@ -1005,9 +1005,11 @@ export function ChatSidebar({
       <div className="insight-section" data-id="portrait">
         <div className={moodClass} style={moodStyle as React.CSSProperties | undefined} data-testid="mood-portrait" data-tone={atmosphere.tone ?? ''}>
           {isGroup ? (
-            focusedId ? (
+            // Before any chip is tapped the portrait is the member the page
+            // shows by default (as the desktop does), not a bare initial.
+            (portraitMemberId ?? focusedId) ? (
               <Portrait
-                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent(focusedId)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
+                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent((portraitMemberId ?? focusedId)!)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
                 fallback={focusedPlaceholderPortrait ? undefined : focusedAvatarUrl}
                 mood={realism.mood || realism.emotion}
                 initial={focusedName ?? portraitName}
