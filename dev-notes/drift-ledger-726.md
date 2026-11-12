@@ -81,3 +81,21 @@ Delete the throwaway characters/chats after capture and say which were used.
   mid-sweep browser crash (`controls seen: 0`). Rawhide's own latest CI
   (`89e0f393`) fails the same Playwright job. File separately; do not widen
   PR 5 for it.
+
+## Playwright flake pattern on head 6621b8be2 (three runs, three different failures)
+
+1. `sweep` — /models "📄 Model card" dialog usability flag (also red on
+   Rawhide `89e0f393`).
+2. rerun-1 — serial `Stories from group chats` @serial: first attempt
+   timeout `waiting for locator('.chat-view')`.
+3. rerun-2 — serial `a member's start in the group's new chats saves`:
+   `HTTP 404 from GET /api/groups/group_<fresh>/stats` — the route exists
+   (`lib/services/web/routes/group_routes.dart:47`) and 404s only for
+   unknown ids: the page polled stats after the test deleted its group.
+
+All three surface through the same `crashRetry` guard
+(`web_ui/e2e/support/fixtures.ts:155`), which turns any first-attempt
+non-crash error into a failure. None involve the cast roster or the
+sidebar section list; the 208 other tests passed every run. Morning
+triage belongs to the serial-block + stats-poll race on phone-webkit,
+not to PR 5's diff.
