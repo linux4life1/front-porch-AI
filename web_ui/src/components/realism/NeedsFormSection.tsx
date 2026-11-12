@@ -35,8 +35,8 @@ export function NeedsFormSection({
   return (
     <div className="realism-section">
       <ToggleRow
-        label="Needs simulation"
-        hint="Hunger, bladder, energy… (100 = full, 0 = critical) influence prompts & behavior when low"
+        label="Needs Simulation"
+        hint="Hunger etc. (higher = more sated/less urgent; 100=full, 0=critical) — influences prompts & behavior when low"
         value={v.needsSimEnabled}
         onChange={(b) => set({ needsSimEnabled: b })}
       />
@@ -78,13 +78,16 @@ export function NeedsFormSection({
 
           <ToggleRow
             label="Enjoys low hygiene"
-            hint="Prefers being sweaty, musky, or filthy (inverts hygiene behavior)"
+            hint="Character prefers being sweaty, musky, or filthy (inverts hygiene behavior)"
             value={v.enjoysLowHygiene}
             onChange={(b) => set({ enjoysLowHygiene: b })}
           />
 
           <div className="needs-pace" role="group" aria-label="Pace">
-            <span>Pace — how fast needs drop as time passes</span>
+            <span>Pace</span>
+            <p className="muted small">
+              How fast needs drop as time passes. A meal or a bath stays the same.
+            </p>
             {(['sloth', 'normal', 'fast'] as const).map((pace) => (
               <button
                 key={pace}

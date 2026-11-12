@@ -111,7 +111,429 @@ List<String> _byOffset(Map<String, int> at) {
   return [for (final e in entries) e.key];
 }
 
+// ── Leaf-by-leaf editor parity (docs/design/character-editor-parity.md) ──
+//
+// The desktop editor is the baseline. Each list below is the leaf labels of
+// one surface in the order the desktop renders them. The test finds every
+// label, in that order, in the desktop sources (helper widgets spliced in
+// where the editor calls them) and again in the web sources. A label that is
+// missing or moved on either side names itself in the failure.
+// ONE_UI_WEB_ROOT points the web side at another copy of `web_ui/src`; the
+// red proof runs the test against origin/Rawhide's.
+
+String get _webSrc => Platform.environment['ONE_UI_WEB_ROOT'] ?? 'web_ui/src';
+
+String _w(String rel) {
+  final f = File('$_webSrc/$rel');
+  // A file the other tree does not have yields no labels, so the failure
+  // names the leaves it lacks rather than a missing path.
+  return (f.existsSync() ? f.readAsStringSync() : '')
+      .replaceAll('&amp;', '&')
+      .replaceAll('&apos;', "'")
+      .replaceAll('&quot;', '"');
+}
+
+String _d(String rel) => File('lib/ui/$rel').readAsStringSync();
+
+/// Splices [extra] into [text] right where [marker] first occurs.
+String _splice(String text, String marker, String extra) {
+  final at = text.indexOf(marker);
+  if (at < 0) fail('"$marker" is gone from the source it is spliced into.');
+  return text.substring(0, at) + extra + text.substring(at);
+}
+
+/// [_splice] and [_between] for the web side: a marker the tree lacks leaves
+/// the text as it is, so the leaves are reported rather than the marker.
+String _wSplice(String text, String marker, String extra) =>
+    text.contains(marker) ? _splice(text, marker, extra) : text;
+
+String _wBetween(String text, String from, [String? to]) =>
+    text.contains(from) ? _between(text, from, to) : '';
+
+/// Text from the first [from] to the next [to] (or the end).
+String _between(String text, String from, [String? to]) {
+  final a = text.indexOf(from);
+  if (a < 0) fail('"$from" is gone from the source.');
+  final b = to == null ? -1 : text.indexOf(to, a + from.length);
+  return b < 0 ? text.substring(a) : text.substring(a, b);
+}
+
+/// Labels not found in [source] as a quoted or tag-wrapped string, each after
+/// the one before it.
+List<String> _orderProblems(String source, List<String> labels) {
+  final problems = <String>[];
+  var cursor = 0;
+  for (final l in labels) {
+    final re = RegExp(
+      r"['\x22>`]\s*" +
+          RegExp.escape(l) +
+          r"(?=['\x22<:`]|\s*\$\{|\s*\{|\s\(|\s·|\s*<)",
+    );
+    final m = re.firstMatch(source.substring(cursor));
+    if (m == null) {
+      problems.add(
+        re.hasMatch(source) ? '"$l" is out of order' : '"$l" is missing',
+      );
+      continue;
+    }
+    cursor += m.end;
+  }
+  return problems;
+}
+
+void _expectLeaves(String surface, String desktop, String web, List<String> l) {
+  expect(
+    _orderProblems(desktop, l),
+    isEmpty,
+    reason:
+        '$surface: the desktop sources lost or moved a leaf. Fix the list '
+        'with the maintainer; never just the web.',
+  );
+  expect(
+    _orderProblems(web, l),
+    isEmpty,
+    reason: '$surface: the web editor differs from the desktop editor.',
+  );
+}
+
+/// The desktop Details tab in render order, 1:1, Realism on.
+String _desktopDetails() {
+  var identity = _d('widgets/identity_chip_lists.dart');
+  for (final (call, file) in [
+    ('PlanLinesEditor(', 'widgets/plan_lines_editor.dart'),
+    ('WorkRow(', 'widgets/work_row.dart'),
+    ('BirthdayRow(', 'widgets/birthday_row.dart'),
+    ('WardrobeChipSection(', 'widgets/wardrobe_chip_section.dart'),
+  ]) {
+    identity = _splice(identity, call, _d(file));
+  }
+  var tab = _d('pages/edit_character_page/edit_character_details_tab.dart');
+  tab = _splice(
+    tab,
+    'EditorTagsField(',
+    _d('pages/edit_character_page/editor_tags_field.dart'),
+  );
+  tab = _splice(tab, 'EditCharacterRealismSection(', identity);
+  var form = _d('widgets/realism_form_section.dart');
+  form = _splice(
+    form,
+    'RealismTimeDayCard(',
+    _d('widgets/realism_form_section/realism_time_day_card.dart'),
+  );
+  form = _splice(form, 'StoryBeginsRow(', _d('widgets/story_begins_row.dart'));
+  form = _splice(
+    form,
+    'needsFormSection!',
+    _d('widgets/needs_form_section.dart'),
+  );
+  form = _splice(
+    form,
+    'RealismRelationshipCard(',
+    _d('widgets/realism_form_section/realism_relationship_card.dart'),
+  );
+  form = _splice(
+    form,
+    'RealismOptionalFeaturesCard(',
+    _d('widgets/realism_form_section/realism_optional_features_card.dart'),
+  );
+  return tab +
+      _d('widgets/realism_form_section/realism_master_toggle.dart') +
+      form +
+      _d('pages/edit_character_page/group_member_mode.dart');
+}
+
+/// The web Details tab in render order, 1:1, Realism on.
+String _webDetails() {
+  final page = _w('pages/CharacterEditPage.tsx');
+  final realism = _w('components/realism/RealismFormSection.tsx');
+  var identity = _wBetween(realism, 'export function IdentitySections');
+  for (final name in ['WorkFields', 'BirthdayFields']) {
+    identity = _wSplice(
+      identity,
+      '<$name',
+      _wBetween(identity, 'function $name(', '\nfunction '),
+    );
+  }
+  var form = _wBetween(
+    realism,
+    'export function RealismFormSection',
+    'export function IdentitySections',
+  );
+  // The needs form lists its bars from a table above the markup.
+  var needsSrc = _w('components/realism/NeedsFormSection.tsx');
+  final bars = RegExp(
+    r"\['(\w+)', 'needsBaseline",
+  ).allMatches(needsSrc).map((m) => '>${m.group(1)}<').join();
+  needsSrc = needsSrc
+      .replaceFirst(RegExp(r'const NEEDS.*?\n\];', dotAll: true), '')
+      .replaceFirst('{NEEDS.map(', '$bars{NEEDS.map(');
+  form = _wSplice(form, '{needs}', needsSrc);
+  form = _wSplice(
+    form,
+    '<RelationshipFields',
+    _w('components/realism/RelationshipFields.tsx'),
+  );
+  var details = _wBetween(page, "tab === 'Details'", "tab === 'Dialogue'");
+  // field('key') renders the label FIELDS gives that key.
+  details = details.replaceAllMapped(RegExp(r"field\('(\w+)'\)"), (m) {
+    final f = RegExp("key: '${m.group(1)}', label: '([^']+)'").firstMatch(page);
+    return f == null ? m.group(0)! : '>${f.group(1)}<';
+  });
+  details = _wSplice(details, '<TagsField', _w('components/TagsField.tsx'));
+  details = _wSplice(details, '<IdentitySections', identity);
+  details = _wSplice(details, '<RealismFormSection', form);
+  return details;
+}
+
+const _detailsLeaves = [
+  'Identity',
+  'Name',
+  'Tags',
+  'Voice',
+  'Personality & World',
+  'Description',
+  'Personality',
+  'Scenario',
+  'Advanced Prompts',
+  'System Prompt',
+  'Post-History Instructions',
+  'Ambitions',
+  'Long-term goals',
+  'Plan lines',
+  'Work',
+  'Occupation',
+  'What the job is',
+  'Start',
+  'End',
+  'Birthday',
+  'Likes & Dislikes',
+  'Drawn to',
+  'Put off by',
+  'Pockets & Wardrobe',
+  'Wearing',
+  'Carrying',
+  'Intimate preferences',
+  'Warms to',
+  'Not interested in',
+  'Enable Realism Engine',
+  'Time & Day',
+  'Time of Day',
+  'Day Number',
+  'Story begins',
+  'Needs Simulation',
+  'Hunger',
+  'Bladder',
+  'Energy',
+  'Social',
+  'Fun',
+  'Hygiene',
+  'Comfort',
+  'Enjoys low hygiene',
+  'Pace',
+  'Relationship',
+  'Short-Term Bond',
+  'Long-Term Bond',
+  'Trust Level',
+  'Starting Emotion',
+  'Optional Features',
+  'Afterglow',
+  'Chaos Mode (Chance Time)',
+  'Realism Verification (Director/Verifier)',
+  'Max reprocess passes',
+  'Strictness',
+  'Director authority (needs)',
+];
+
+const _groupLeaves = [
+  'Identity',
+  'Group name',
+  'Cast',
+  'Remove…',
+  '+ Add a character',
+  'Bring back a removed member',
+  'Turns',
+  'Turn order',
+  'Auto-advance',
+  'Start this group in Director Mode',
+  'Voice',
+  'Personality & World',
+  'Personality',
+  'Scenario',
+  'Advanced Prompts',
+  'System Prompt',
+  'Post-History Instructions',
+  'Per-character, in this group only (optional)',
+  'Strength',
+  'Tags',
+  'Realism Engine',
+  'These settings only affect new chats with this group.',
+  'Time & Day',
+  'Time of Day',
+  'Day Number',
+  'Story begins',
+  'Chaos Mode (Chance Time)',
+  'Realism Verification (Director/Verifier)',
+  'Max reprocess passes',
+  'Strictness',
+  'Director authority (needs)',
+  'Starting feelings between members',
+];
+
+String _desktopGroupDetails() {
+  const files = [
+    'pages/edit_group/edit_group_cast_cards.dart',
+    'pages/edit_group/edit_group_prompt_cards.dart',
+    'pages/edit_group/edit_group_realism_card.dart',
+  ];
+  final all = files.map(_d).join('\n');
+  String cls(String name) => _between(all, 'class $name ', '\nclass ');
+  var form = '';
+  final tab = _d('pages/edit_group/edit_group_details_tab.dart');
+  for (final m in RegExp(r'(EditGroup\w+Card)\(').allMatches(tab)) {
+    var c = cls(m.group(1)!);
+    if (m.group(1) == 'EditGroupRealismCard') {
+      c = _splice(
+        c,
+        'RealismTimeDayCard(',
+        _d('widgets/realism_form_section/realism_time_day_card.dart'),
+      );
+      c = _splice(c, 'StoryBeginsRow(', _d('widgets/story_begins_row.dart'));
+      c = _splice(
+        c,
+        'RealismVerificationControls(',
+        _d('widgets/realism_form_section/realism_optional_features_card.dart'),
+      );
+    }
+    form += c;
+  }
+  return form;
+}
+
+void _leafTests() {
+  test('character editor Details: every leaf, in order, desktop and web '
+      '(1:1, Realism on)', () {
+    _expectLeaves('Details', _desktopDetails(), _webDetails(), _detailsLeaves);
+  });
+
+  test('member editor Details: the same leaves, then "In the group"', () {
+    final w = _webDetails() + _w('components/GroupMemberSection.tsx');
+    _expectLeaves('Member Details', _desktopDetails(), w, [
+      ..._detailsLeaves,
+      'In',
+    ]);
+  });
+
+  test('character editor Dialogue: every leaf, in order', () {
+    final d = _d('pages/edit_character_page/edit_character_dialogue_tab.dart');
+    final page = _w('pages/CharacterEditPage.tsx');
+    final w = _wSplice(
+      _wBetween(page, "tab === 'Dialogue'", "tab === 'Lorebook'"),
+      '<AltGreetingsEditor',
+      _w('components/AltGreetingsEditor.tsx'),
+    );
+    _expectLeaves('Dialogue', d, w, [
+      'First Message',
+      'Opening Message',
+      'Alternate Greetings',
+      'Add',
+      'No alternate greetings yet',
+      'Greeting',
+      'Remove greeting',
+      'Example Dialogue',
+      'Example Conversations',
+    ]);
+  });
+
+  test('character editor Lorebook: header, actions, empty state and every '
+      'entry field, in order', () {
+    final d =
+        _d('pages/edit_character_page/edit_character_lorebook_tab.dart') +
+        _d('dialogs/lorebook_entry_dialog.dart') +
+        _d('dialogs/lorebook_entry/lorebook_entry_advanced.dart');
+    final page = _w('pages/CharacterEditPage.tsx');
+    final w = _wSplice(
+      _wBetween(page, "tab === 'Lorebook'", "tab === 'Worlds'"),
+      '<LoreEntriesEditor',
+      _w('components/LoreEntriesEditor.tsx'),
+    );
+    _expectLeaves('Lorebook', d, w, [
+      'Lorebook',
+      'World lore entries inject context when keywords are detected.',
+      'Import file',
+      'Export file',
+      'From character',
+      'Add Entry',
+      'No lorebook entries yet',
+      'Add entries to inject context-aware world lore.',
+      'Simple',
+      'Advanced',
+      'Name (optional)',
+      'Keywords (comma separated)',
+      'Enabled',
+      'Always Active',
+      'Sticky Depth',
+      'Chance to trigger',
+      'Placement',
+      'Conditions',
+      'Secondary keywords (comma separated)',
+      'Secondary logic',
+      'Keywords are regex patterns',
+      'Placement & priority',
+      'Position',
+      'Depth',
+      'Speak as',
+      'Order',
+      'Ignore token budget',
+      'Timing (messages)',
+      'Sticky',
+      'Cooldown',
+      'Delay',
+      'Chain reactions',
+      'Can be triggered by other lore',
+      'Can trigger other lore',
+      'Only via chaining, level',
+      'Matching overrides',
+      'Scan depth',
+      'Case sensitive',
+      'Whole words',
+      'Variety group',
+      'Weight',
+      'Prioritize in group',
+      'Score by matched keys',
+    ]);
+  });
+
+  test('Edit group Details: every leaf, in order, desktop and web', () {
+    final page = _w('pages/GroupEditPage.tsx');
+    var web = _wBetween(page, "tab === 'Details'", "tab === 'Dialogue'");
+    web = web.replaceAllMapped(RegExp(r"field\('(\w+)'\)"), (m) {
+      final f = RegExp(
+        "key: '${m.group(1)}', label: '([^']+)'",
+      ).firstMatch(page);
+      return f == null ? m.group(0)! : '>${f.group(1)}<';
+    });
+    _expectLeaves(
+      'Edit group Details',
+      _desktopGroupDetails(),
+      web,
+      _groupLeaves,
+    );
+  });
+
+  test('character editor Worlds: the same section copy', () {
+    final d = _d('widgets/group_setting_picker/group_worlds_section.dart');
+    final w = _w('components/groupSetting/CharacterWorldsSection.tsx');
+    _expectLeaves('Worlds', d, w, [
+      'Where new chats meet',
+      'New chats',
+      'Applies to new chats of this group.',
+      'Worlds now have two roles.',
+    ]);
+  });
+}
+
 void main() {
+  _leafTests();
   final layout = _read(_layout);
   final stateDart = _read(_stateDart);
   final bodyDart = _read(_bodyDart);

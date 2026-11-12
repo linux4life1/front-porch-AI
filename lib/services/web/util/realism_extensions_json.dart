@@ -117,8 +117,13 @@ FrontPorchExtensions frontPorchFromFields(
     // chat starts") and un-starred the canonical avatar. The desktop twin
     // (edit_character_page.dart, via copyWith) preserves them, so carrying them
     // from the base is also what restores desktop↔web parity.
-    storyStartDate: b.storyStartDate,
-    storyStartTime: b.storyStartTime,
+    // The editor's Story begins row posts both; blank means "not set".
+    storyStartDate: fields.containsKey('storyStartDate')
+        ? _blankToNull(fields['storyStartDate'])
+        : b.storyStartDate,
+    storyStartTime: fields.containsKey('storyStartTime')
+        ? _blankToNull(fields['storyStartTime'])
+        : b.storyStartTime,
     favoriteAvatarId: b.favoriteAvatarId,
     // Same class of bug as inventory/storyStart: the React editor used to
     // omit greetingSeeds, and rebuilding without carrying the base wiped
@@ -266,6 +271,8 @@ Map<String, dynamic> frontPorchToJson(
   'emotionIntensity': e.emotionIntensity,
   'nsfwCooldownEnabled': e.nsfwCooldownEnabled,
   'passageOfTimeEnabled': e.passageOfTimeEnabled,
+  'storyStartDate': e.storyStartDate,
+  'storyStartTime': e.storyStartTime,
   'chaosModeEnabled': e.chaosModeEnabled,
   'currentTask': e.currentTask,
   'ambitions': e.ambitions,
@@ -301,3 +308,6 @@ Map<String, dynamic> frontPorchToJson(
   'needsBaselineComfort': e.needsBaselineComfort,
   'greetingSeeds': [for (final s in e.greetingSeeds) s?.toFields()],
 };
+
+String? _blankToNull(Object? v) =>
+    v is String && v.trim().isNotEmpty ? v.trim() : null;

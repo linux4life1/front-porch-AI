@@ -19,10 +19,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AvatarManager } from '../components/AvatarManager';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
+import { TagsField } from '../components/TagsField';
 import { CharacterStatsCard } from '../components/CharacterStatsCard';
 import { MacroField } from '../components/MacroField';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
-import { RealismFormSection } from '../components/realism/RealismFormSection';
+import { IdentitySections, RealismFormSection } from '../components/realism/RealismFormSection';
 import { useAdultFlags } from '../components/realism/useAdultThemes';
 import { usePassageOfTime } from '../components/realism/usePassageOfTime';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
@@ -68,7 +69,7 @@ interface CharDetail {
   /** The member editor's group (its detail only). */
   groupName?: string;
   /** The group's shared scene, greyed in a member's Time & Day. */
-  scene?: { timeOfDay?: string; dayCount?: number };
+  scene?: { timeOfDay?: string; dayCount?: number; storyStartDate?: string | null; storyStartTime?: string | null };
   /** The other members, for "how they start out feeling about the others". */
   others?: { id: string; name: string }[];
   /** The group's values for the member (the store Edit group shows). */
@@ -91,10 +92,10 @@ const FIELDS: { key: keyof CharDetail; label: string; rows: number }[] = [
   { key: 'description', label: 'Description', rows: 5 },
   { key: 'personality', label: 'Personality', rows: 3 },
   { key: 'scenario', label: 'Scenario', rows: 3 },
-  { key: 'firstMessage', label: 'First message', rows: 4 },
-  { key: 'mesExample', label: 'Example dialogue', rows: 4 },
-  { key: 'systemPrompt', label: 'System prompt', rows: 3 },
-  { key: 'postHistoryInstructions', label: 'Post-history instructions', rows: 3 },
+  { key: 'firstMessage', label: 'Opening Message', rows: 4 },
+  { key: 'mesExample', label: 'Example Conversations', rows: 4 },
+  { key: 'systemPrompt', label: 'System Prompt', rows: 3 },
+  { key: 'postHistoryInstructions', label: 'Post-History Instructions', rows: 3 },
 ];
 
 export function CharacterEditPage() {
@@ -110,7 +111,7 @@ export function CharacterEditPage() {
   const [c, setC] = useState<CharDetail | null>(null);
   // The page is named for the card as it opened, not as it is being typed.
   const [title, setTitle] = useState('');
-  const [tags, setTags] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
   const [greetings, setGreetings] = useState<string[]>([]);
   const [lore, setLore] = useState<LoreEntry[]>([]);
   const [rv, setRv] = useState<RealismValues | null>(null);
@@ -147,7 +148,7 @@ export function CharacterEditPage() {
       .then((d) => {
         setC(d);
         setTitle(d.name);
-        setTags((d.tags ?? []).join(', '));
+        setTags(d.tags ?? []);
         setGreetings(d.alternateGreetings ?? []);
         setWorldChoice({
           settingId: d.worlds?.settingId ?? null,
@@ -221,7 +222,7 @@ export function CharacterEditPage() {
         mesExample: c.mesExample,
         systemPrompt: c.systemPrompt,
         postHistoryInstructions: c.postHistoryInstructions,
-        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+        tags,
         ...(() => {
           const paired = compactGreetingPairs(greetings, rv.greetingSeeds);
           return {
@@ -359,17 +360,27 @@ export function CharacterEditPage() {
               </div>
             )
           )}
+          <div className="editor-avatar" data-testid="editor-avatar">
+            <img
+              src={
+                member
+                  ? `/api/groups/${params.groupId}/members/${params.memberId}/avatar`
+                  : `/api/characters/${c.id}/avatar`
+              }
+              alt=""
+              width={160}
+              height={160}
+              onError={(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')}
+            />
+          </div>
           {!member && <CharacterStatsCard characterId={c.id} />}
 
           <h3 className="section-label">Identity</h3>
           <label>
-            Name
+            <span>Name</span>
             <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
           </label>
-          <label>
-            Tags (comma-separated)
-            <input value={tags} onChange={(e) => setTags(e.target.value)} />
-          </label>
+          <TagsField tags={tags} onChange={setTags} />
 
           {/* A character voice OVERRIDES the global Settings voice, and one can
               arrive without the user picking it (imported cards carry tts_voice).
@@ -421,29 +432,32 @@ export function CharacterEditPage() {
             {field('postHistoryInstructions')}
           </details>
 
-          <h3 className="section-label">Realism Engine</h3>
+          {/* Ambitions … Intimate preferences, then the Realism Engine block, as
+              the desktop editor lays them out. */}
+          <IdentitySections v={rv} set={patch} showIntimate={adultThemes} />
           <RealismFormSection
             v={rv}
             set={patch}
             showIntimate={adultThemes}
             afterglowOn={afterglow}
+            showIdentity={false}
+            disclaimer="These settings only affect new conversations with this character — your existing chats won't be changed. No cheating with the relationship values!"
             hiddenNote={hiddenNote}
             scene={
               member && c.scene
-                ? { timeOfDay: c.scene.timeOfDay ?? rv.timeOfDay, dayCount: c.scene.dayCount ?? rv.dayCount }
+                ? {
+                    timeOfDay: c.scene.timeOfDay ?? rv.timeOfDay,
+                    dayCount: c.scene.dayCount ?? rv.dayCount,
+                    storyStartDate: c.scene.storyStartDate ?? null,
+                    storyStartTime: c.scene.storyStartTime ?? null,
+                  }
                 : undefined
             }
             lockTimeDay={member ? TIME_DAY_LOCK : undefined}
             lockChaos={member ? CHAOS_LOCK : undefined}
             lockVerification={member ? VERIFICATION_LOCK : undefined}
+            needs={<NeedsFormSection v={rv} set={patch} clockOn={clockOn} />}
           />
-
-          {!hiddenNote && rv.realismEnabled && (
-            <>
-              <h3 className="section-label">Needs Simulation</h3>
-              <NeedsFormSection v={rv} set={patch} clockOn={clockOn} />
-            </>
-          )}
 
           {member && gv && (
             <GroupMemberSection
@@ -468,8 +482,8 @@ export function CharacterEditPage() {
         <>
           <h3 className="section-label">First Message</h3>
           {field('firstMessage')}
-          <h3 className="section-label">Alternate Greetings</h3>
           <AltGreetingsEditor
+            editorCopy
             greetings={greetings}
             onChange={setGreetings}
             seeds={rv.greetingSeeds}
@@ -485,12 +499,12 @@ export function CharacterEditPage() {
       {tab === 'Lorebook' && (
         <>
           <h3 className="section-label">Lorebook</h3>
-          <LoreEntriesEditor entries={lore} onChange={setLore} />
-          <div className="row-actions" style={{ marginTop: 8 }}>
-            <button type="button" className="ghost" onClick={importLore}>
-              From character…
-            </button>
-          </div>
+          <p className="muted small">World lore entries inject context when keywords are detected.</p>
+          <LoreEntriesEditor
+            entries={lore}
+            onChange={setLore}
+            editorChrome={{ onFromCharacter: importLore, fileName: `${(c.name || 'lorebook').replace(/[^a-zA-Z0-9_-]+/g, '_')}_lorebook.json` }}
+          />
         </>
       )}
 

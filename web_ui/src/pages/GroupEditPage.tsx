@@ -237,7 +237,7 @@ export function GroupEditPage() {
         <>
           <h3 className="section-label">Identity</h3>
           <label>
-            Group name
+            <span>Group name</span>
             <input value={g.name} onChange={(e) => set({ name: e.target.value })} />
           </label>
           <p className="muted small">Cast</p>
@@ -401,13 +401,13 @@ export function GroupEditPage() {
           <h4 className="realism-head">Time &amp; Day</h4>
           <div className="realism-grid-2">
             <SelectRow
-              label="Time of day"
+              label="Time of Day"
               value={real.timeOfDay}
               options={TIME_OPTIONS.map((t) => ({ value: t, label: titleCase(t) }))}
               onChange={(s) => setReal({ timeOfDay: s })}
             />
             <label className="realism-field">
-              <span>Day number</span>
+              <span>Day Number</span>
               <input
                 type="number"
                 min={1}
@@ -418,7 +418,7 @@ export function GroupEditPage() {
           </div>
           <div className="realism-grid-2">
             <label className="realism-field">
-              <span>The story begins on…</span>
+              <span>{real.storyStartDate ? `Story begins ${real.storyStartDate}` : 'Story begins: the day the chat starts'}</span>
               <input
                 type="date"
                 value={real.storyStartDate ?? ''}
@@ -426,7 +426,7 @@ export function GroupEditPage() {
               />
             </label>
             <label className="realism-field">
-              <span>The story opens at…</span>
+              <span>{real.storyStartTime ? `Opens at ${real.storyStartTime}` : 'Opens at: time-of-day default'}</span>
               <input
                 type="time"
                 value={real.storyStartTime ?? ''}
@@ -435,38 +435,36 @@ export function GroupEditPage() {
             </label>
           </div>
           <ToggleRow
-            label="Chaos mode (Chance Time)"
-            hint="Random narrative events during roleplay — works with the engine off"
+            label="Chaos Mode (Chance Time)"
+            hint="Random narrative events during roleplay"
             value={g.chaosModeEnabled}
             onChange={(b) => set({ chaosModeEnabled: b })}
           />
           <ToggleRow
-            label="Realism verification (Director/Verifier)"
-            hint="Optional director thread validates realism + needs deltas (extra eval cost; strong models recommended)"
+            label="Realism Verification (Director/Verifier)"
+            hint="Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)"
             value={real.verificationEnabled}
             onChange={(b) => setReal({ verificationEnabled: b })}
           />
           {real.verificationEnabled && (
             <>
               <Slider
-                label="Max reprocess passes"
+                label={`Max reprocess passes: ${real.verificationMaxReprocesses}`}
                 min={1}
                 max={5}
                 value={real.verificationMaxReprocesses}
-                badge={`${real.verificationMaxReprocesses}`}
                 onChange={(n) => setReal({ verificationMaxReprocesses: n })}
               />
               <Slider
-                label="Strictness (1 lenient … 5 strict)"
+                label={`Strictness (1=lenient … 5=strict): ${real.verificationStrictness}`}
                 min={1}
                 max={5}
                 value={real.verificationStrictness}
-                badge={`${real.verificationStrictness}`}
                 onChange={(n) => setReal({ verificationStrictness: n })}
               />
               <ToggleRow
-                label="Director authority over needs"
-                hint="Verified/corrected needs deltas take authority"
+                label="Director authority (needs)"
+                hint="The director's corrections to Needs scores are the ones used."
                 value={real.directorAuthority}
                 onChange={(b) => setReal({ directorAuthority: b })}
               />

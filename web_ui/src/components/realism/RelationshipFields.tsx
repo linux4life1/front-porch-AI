@@ -36,7 +36,7 @@ export function RelationshipFields({
       )}
       <div className="card realism-card">
         <Slider
-          label="Short-term bond"
+          label="Short-Term Bond"
           min={-300}
           max={300}
           value={v.shortTermBond}
@@ -44,7 +44,7 @@ export function RelationshipFields({
           onChange={(n) => set({ shortTermBond: n })}
         />
         <Slider
-          label="Long-term bond"
+          label="Long-Term Bond"
           min={-300}
           max={300}
           value={v.longTermBond}
@@ -52,7 +52,7 @@ export function RelationshipFields({
           onChange={(n) => set({ longTermBond: n })}
         />
         <Slider
-          label="Trust level"
+          label="Trust Level"
           min={-100}
           max={100}
           value={v.trustLevel}
@@ -61,7 +61,7 @@ export function RelationshipFields({
         />
       </div>
 
-      <h4 className="realism-head">Starting emotion</h4>
+      <h4 className="realism-head">Starting Emotion</h4>
       <div className="realism-grid-2">
         <label className="realism-field">
           <span>Emotion</span>

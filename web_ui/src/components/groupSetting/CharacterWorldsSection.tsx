@@ -44,7 +44,7 @@ export function CharacterWorldsSection({
         Where new chats meet <span className="gs-chip">New chats</span>
       </h3>
       <p className="muted small">
-        {forGroup ? 'Applies to the whole cast.' : `Applies to ${owner}'s new chats.`} Chats you&apos;ve already started keep their worlds.
+        {forGroup ? 'Applies to new chats of this group.' : `Applies to ${owner}'s new chats.`} Chats you&apos;ve already started keep their worlds.
       </p>
       {legacyWorldCount > 1 && (
         <div className="gs-banner" role="status" data-testid="character-worlds-split-banner">
