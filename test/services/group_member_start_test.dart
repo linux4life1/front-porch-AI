@@ -54,8 +54,9 @@ FrontPorchExtensions _ext(String? json) => json == null
 
 void main() {
   group('the upgrade moves a stored start onto the member copy', () {
-    test('a member with a seed keeps Realism and their start; one without '
-        'keeps Realism off, even when their card had it on', () {
+    test('a member with a seed keeps Realism and their start; one the blob '
+        'does not name starts from the default seed with Realism on, as a '
+        'group with any seed ran its whole cast', () {
       final ana = memberCopyFromGroupSeed(
         FrontPorchExtensions(),
         _blob.defaultMemberJson,
@@ -71,9 +72,33 @@ void main() {
       );
       expect(
         bo.realismEnabled,
-        isFalse,
-        reason: 'the group started Bo without Realism',
+        isTrue,
+        reason: 'a group storing any seed switched Realism on for every member',
       );
+      expect(
+        (bo.shortTermBond, bo.longTermBond),
+        isNot((61, 70)),
+        reason: 'Bo does not take Ana\'s start',
+      );
+    });
+
+    test('a member keyed by their avatar basename (older libraries) keeps '
+        'their start', () {
+      final legacy = buildGroupRealismBlobs(
+        seeds: {
+          'Ana': {...defaultGroupMemberRealismSeed(), 'affection': 35},
+        },
+        needsEnabled: false,
+        timeOfDay: 'morning',
+        dayCount: 1,
+      );
+      final ana = memberCopyFromGroupSeed(
+        FrontPorchExtensions(),
+        legacy.defaultMemberJson,
+        'mem-ana',
+        legacyId: 'Ana',
+      );
+      expect((ana.realismEnabled, ana.shortTermBond), (true, 35));
     });
 
     test('a group that started without Realism leaves every member off', () {
@@ -125,7 +150,8 @@ void main() {
       await migrateGroupSeedsToMemberCopies(db);
       final once = await read();
       expect(_ext(once[0]).realismEnabled, isTrue);
-      expect(_ext(once[1]).realismEnabled, isFalse);
+      expect(_ext(once[1]).realismEnabled, isTrue);
+      expect(_ext(once[0]).shortTermBond, 61);
       await migrateGroupSeedsToMemberCopies(db);
       expect(await read(), once);
     });

@@ -17,6 +17,7 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 import 'package:front_porch_ai/utils/group_member_card_seed.dart';
 
@@ -91,7 +92,12 @@ Map<String, Map<String, dynamic>> memberStartSeeds(
       // A copy with no extensions record at all (never saved by an editor,
       // never moved by the upgrade) has no start of its own: the group's
       // stored seed for them stands.
-      final legacy = stored[m.mid];
+      // A group that stores any seed runs Realism for its whole cast, as it
+      // always did: a member the blob does not name starts from the
+      // default seed, not with Realism off.
+      final legacy =
+          stored[m.mid] ??
+          (stored.isEmpty ? null : defaultGroupMemberRealismSeed());
       if (legacy != null) out[m.mid] = Map<String, dynamic>.of(legacy);
       continue;
     }

@@ -27,24 +27,35 @@ import 'package:front_porch_ai/models/group_member.dart';
 import 'package:front_porch_ai/services/chat/group_lite.dart'
     show encodeMemberFrontPorch;
 import 'package:front_porch_ai/services/group_member_start.dart';
+import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 /// The member copy [ext] with what group [definitionJson] stored for member
-/// [mid] (their `perChar` seed, under [mid] or their origin key
-/// [originId]) written onto it: Realism on only when they had a seed, their
-/// bonds and mood, Needs on only when the seed held bars (and the bars'
+/// [mid] (their `perChar` seed, under [mid], their origin key [originId] or
+/// their legacy avatar-basename key [legacyId]) written onto it: their bonds
+/// and mood, Needs on only when the seed held bars (and the bars'
 /// baselines), and the group-wide Afterglow and Pockets defaults when those
-/// were off. A group that stored nothing for them leaves them with Realism
-/// off, as its new chats started them. Running it again changes nothing.
+/// were off. A group that stores any seed starts its whole cast with Realism,
+/// as its new chats did; one that stored none leaves Realism off. Running it
+/// again changes nothing.
 FrontPorchExtensions memberCopyFromGroupSeed(
   FrontPorchExtensions? ext,
   String definitionJson,
   String mid, {
   String? originId,
+  String? legacyId,
 }) {
   final base = ext ?? FrontPorchExtensions();
   final seeds = parseGroupRealismSeeds(definitionJson);
-  final seed = seeds[mid] ?? (originId == null ? null : seeds[originId]);
+  // Older libraries key a member's seed by its avatar's basename (the
+  // legacy stable id) rather than its row id; a group that stores any seed
+  // ran Realism for its whole cast, so a member it does not name starts
+  // from the default seed.
+  final seed =
+      seeds[mid] ??
+      (originId == null ? null : seeds[originId]) ??
+      (legacyId == null ? null : seeds[legacyId]) ??
+      (seeds.isEmpty ? null : defaultGroupMemberRealismSeed());
   var out = base.copyWith(realismEnabled: seed != null);
   if (!groupAfterglowIn(definitionJson)) {
     out = out.copyWith(afterglowEnabled: false);
@@ -54,12 +65,18 @@ FrontPorchExtensions memberCopyFromGroupSeed(
   }
   if (seed == null) return out;
   final start = groupMemberStartOfSeed(seed);
-  // A need's baseline is its bar in the seed (a seed starts each need at its
-  // bar), else the seed's own baseline key.
+  // On the card a need's baseline is both where new chats start and the
+  // character's everyday level. A seed bar left at the group default is no
+  // choice anyone made, so the card keeps its own everyday level; a bar set
+  // away from the default (or the seed's own baseline key) moves onto it.
   final bars = seed['needs'];
+  final stock = defaultGroupMemberRealismSeed()['needs'];
   int? bar(String need) {
     final key = 'needsBaseline${need[0].toUpperCase()}${need.substring(1)}';
-    final v = (bars is Map ? bars[need] : null) ?? seed[key];
+    final set = bars is Map ? bars[need] : null;
+    final v = (set is num && !(stock is Map && stock[need] == set))
+        ? set
+        : seed[key];
     return v is num ? v.toInt().clamp(0, 100) : null;
   }
 
@@ -114,6 +131,7 @@ Future<void> moveGroupSeedsOntoMembers(
       definitionJson,
       row.id,
       originId: GroupMember.fromRow(row).originStableId,
+      legacyId: stableGroupIdFrom(row.avatarFilename, row.name),
     );
     await db.updateGroupMember(
       GroupMembersCompanion(

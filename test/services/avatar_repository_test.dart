@@ -131,7 +131,11 @@ void main() {
       //      a chat close. Guarded by test/services/composer_draft_store_test
       //      (save/load routing: row-backed drafts ride the session, a
       //      never-sent new chat's draft rides prefs by owner).
-      expect(db.schemaVersion, 65);
+      // v66: the Edit group page's group columns (personality, post-history,
+      //      example dialogue, tags, story start, verification, author's
+      //      notes). v67: each group's stored member start moves onto the
+      //      members' own copies (One Chat UX PR 5).
+      expect(db.schemaVersion, 67);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
