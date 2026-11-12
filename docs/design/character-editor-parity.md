@@ -98,12 +98,46 @@ Control kind (slider vs number box), colours, spacing, and the way a lore
 entry opens (desktop: dialog; web: in the card; a layout adaptation). Those are
 checked by eye and by the golden and screenshot rules.
 
-## Controls the web editor has that the desktop editor does not
+## Controls removed from the web editor (maintainer ruling)
 
-Not decided here; listed for the maintainer.
+The desktop editor does not have these, so the web editor does not either. Each
+lives where the desktop keeps it, and the parity test pins both the absence and
+the new entry points.
 
-| Web control | Where desktop offers it, if anywhere |
-|---|---|
-| Auto passage of time (Realism block) | Not in the character editor. Porch Life settings has the passage-of-time switch. |
-| Avatars & expressions (Upload look, Expressions) | Not in the editor, which shows a read-only avatar. The Avatar Gallery opens from the home grid and the chat sidebar. |
-| Delete character | Not in the editor. The home grid offers delete. |
+| Was on the web editor | Now | Desktop place, and the web twin |
+|---|---|---|
+| Auto passage of time | removed | Settings, Porch Life, "Passage of Time" (web `PorchLifeSettings` has the same row) |
+| Avatars & expressions (Upload look, Expressions) | removed | "Avatar Gallery" in the character card menu (home grid) and in the chat's Main Settings menu. Web: `AvatarGalleryModal` ("Avatar Gallery - name"), opened from the same two menus, with all the looks, expressions, favourite and portrait-swap controls the old section had |
+| Delete character | removed | "Delete" in the character card menu; web grid menu has it with its confirm dialog |
+
+The web character card menu now has the desktop's items, labels and order
+(Start New Chat, Manage Chats, Edit Character, AI Enhance, Avatar Gallery,
+Duplicate Character, Use as Persona, Export PNG, Export JSON, Move to Folder...,
+Remove from Folder, Delete); the test compares the two lists.
+
+## Lore entry editor
+
+Desktop edits an entry in a dialog; the web character editor now does too:
+cards with the Always Active / Depth chip, enable switch, "Edit entry" and
+"Delete entry"; "Add Lorebook Entry" / "Edit Lorebook Entry" with Simple and
+Advanced tabs and Cancel / Add or Save. Sticky Depth and Chance to trigger are
+sliders and are hidden while the entry is Always Active, as on desktop. (The
+group and chat lorebook editors keep the inline card; they are not the
+character editor.)
+
+## Control kinds
+
+| Control | Desktop | Web |
+|---|---|---|
+| Bonds, Needs bars, Max reprocess, Strictness, Sticky Depth, Chance | slider | slider |
+| Time of Day, Position, Speak as, Secondary logic | dropdown | select |
+| Day Number, Order, Timing fields | number box | number input |
+| Tags | chips with "Add a tag..." | chips with "Add a tag..." |
+| Pace | segmented button | segmented buttons |
+| Story begins / Opens at, Birthday, work hours | Flutter date and time pickers | the browser's own date and time inputs |
+
+## Open differences
+
+None in sections, leaves, labels, helper text or order. The one thing that
+cannot be identical is the picker widget itself: the browser draws its own
+date and time pickers where Flutter draws its own (same fields, same values).

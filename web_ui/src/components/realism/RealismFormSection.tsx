@@ -237,15 +237,6 @@ export function RealismFormSection({
             </>,
           )}
       </div>
-      {/* Not on the desktop editor; kept for now, ruled on by the maintainer
-          (docs/design/character-editor-parity.md). */}
-      <ToggleRow
-        label="Auto passage of time"
-        hint="Advance the scene clock automatically — works with the engine off"
-        value={v.passageOfTimeEnabled}
-        onChange={(b) => set({ passageOfTimeEnabled: b })}
-      />
-
       {showIdentity && <IdentitySections v={v} set={set} showIntimate={showIntimate} />}
     </div>
   );

@@ -460,13 +460,23 @@ void _leafTests() {
       'entry field, in order', () {
     final d =
         _d('pages/edit_character_page/edit_character_lorebook_tab.dart') +
+        _d('pages/edit_character_page/edit_character_lore_card.dart') +
         _d('dialogs/lorebook_entry_dialog.dart') +
         _d('dialogs/lorebook_entry/lorebook_entry_advanced.dart');
     final page = _w('pages/CharacterEditPage.tsx');
+    final editor = _w('components/LoreEntriesEditor.tsx');
     final w = _wSplice(
       _wBetween(page, "tab === 'Lorebook'", "tab === 'Worlds'"),
       '<LoreEntriesEditor',
-      _w('components/LoreEntriesEditor.tsx'),
+      _wSplice(
+        _wBetween(editor, 'export function LoreEntriesEditor'),
+        '<LoreEntryFields',
+        _wBetween(
+          editor,
+          'export function LoreEntryFields',
+          'export function LoreEntriesEditor',
+        ),
+      ),
     );
     _expectLeaves('Lorebook', d, w, [
       'Lorebook',
@@ -477,6 +487,12 @@ void _leafTests() {
       'Add Entry',
       'No lorebook entries yet',
       'Add entries to inject context-aware world lore.',
+      'Always Active',
+      'Depth',
+      'Edit entry',
+      'Delete entry',
+      'Add Lorebook Entry',
+      'Edit Lorebook Entry',
       'Simple',
       'Advanced',
       'Name (optional)',
@@ -530,6 +546,91 @@ void _leafTests() {
       web,
       _groupLeaves,
     );
+  });
+
+  test('the web editor has nothing the desktop editor lacks, and the removed '
+      'controls live where the desktop keeps them', () {
+    final editor = [
+      _w('pages/CharacterEditPage.tsx'),
+      _w('components/realism/RealismFormSection.tsx'),
+    ].join();
+    for (final gone in [
+      'Auto passage of time',
+      'Avatars & expressions',
+      'Delete character',
+      'AvatarManager',
+    ]) {
+      expect(
+        editor,
+        isNot(contains(gone)),
+        reason: '$gone is not in the desktop editor',
+      );
+    }
+    // Avatar Gallery: the card menu and the chat's Main Settings menu.
+    expect(
+      _d('pages/home/cards/home_card_menu.dart'),
+      contains("'Avatar Gallery'"),
+    );
+    expect(
+      _d('pages/chat_page.main_settings_items.dart'),
+      contains("'Avatar Gallery'"),
+    );
+    expect(_w('components/library/cardMenus.ts'), contains("'Avatar Gallery'"));
+    expect(_w('components/ChatSidebar.tsx'), contains("'Avatar Gallery'"));
+    expect(_w('components/AvatarGalleryModal.tsx'), contains('Avatar Gallery'));
+    // Passage of Time stays a Porch Life setting on both.
+    expect(
+      _d('settings/tabs/porch_life_tab.dart'),
+      contains("'Passage of Time'"),
+    );
+    expect(
+      _w('components/PorchLifeSettings.tsx'),
+      contains('label="Passage of Time"'),
+    );
+    // The character card menu: same items, same order, Delete included.
+    List<String> labels(String src, RegExp re) => [
+      for (final m in re.allMatches(src)) m.group(1)!,
+    ];
+    final dartMenu = _between(
+      _d('pages/home/cards/home_card_menu.dart'),
+      'characterCardMenuItems',
+      'groupCardMenuItems',
+    );
+    final webMenu = _wBetween(
+      _w('components/library/cardMenus.ts'),
+      'export function characterCardMenu',
+      'export function groupCardMenu',
+    );
+    expect(
+      labels(webMenu, RegExp(r"label: '([^']+)'")),
+      labels(dartMenu, RegExp(r"label: '([^']+)'")),
+      reason: 'the character card menu differs from the desktop menu',
+    );
+  });
+
+  test('the lore entry editor is a dialog with the desktop controls', () {
+    final dart = _d('dialogs/lorebook_entry_dialog.dart');
+    final web = _w('components/LoreEntriesEditor.tsx');
+    expect(web, contains('data-testid="lore-entry-dialog"'));
+    expect(
+      _orderProblems(_wBetween(web, 'export function LoreEntriesEditor'), [
+        'Cancel',
+        'Add',
+        'Save',
+      ]),
+      isEmpty,
+    );
+    expect(_orderProblems(dart, ['Cancel', 'Add', 'Save']), isEmpty);
+    // Control kinds: Sticky Depth and Chance to trigger are sliders, hidden
+    // while the entry is Always Active.
+    expect(RegExp('Slider\\(').allMatches(dart).length, 2);
+    final fields = _wBetween(
+      web,
+      'export function LoreEntryFields',
+      'export function LoreEntriesEditor',
+    );
+    expect(RegExp('type="range"').allMatches(fields).length, 2);
+    expect(fields, contains('!entry.constant'));
   });
 
   test('character editor Worlds: the same section copy', () {

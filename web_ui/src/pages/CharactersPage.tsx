@@ -15,6 +15,7 @@ import { useLayout } from '../hooks/useBreakpoint';
 import { useLibrary, type LibChar, type LibFolder, type LibGroup } from '../hooks/useLibrary';
 import { usePorchTransfer } from '../hooks/usePorchTransfer';
 import { useProgressiveList } from '../hooks/useProgressiveList';
+import { AvatarGalleryModal } from '../components/AvatarGalleryModal';
 import { CardMenu, type CardMenuItem, type MenuState } from '../components/library/CardMenu';
 import { CharacterCard, FolderCard, GroupCard } from '../components/library/LibraryCards';
 import { LibraryToolbar, SelectionBar } from '../components/library/LibraryToolbar';
@@ -55,6 +56,7 @@ type Dialog =
   // AI Enhance: pre-flight (chat pick + field checklist + progress), then the
   // old-vs-new review once the proposal arrives over the socket.
   | { kind: 'aiEnhance'; char: LibChar }
+  | { kind: 'avatarGallery'; char: LibChar }
   | { kind: 'enhanceReview'; char: LibChar; proposal: EnhanceProposal; selection: EnhanceSelection }
   | { kind: 'chatHistory'; subject: string; characterId?: string; groupId?: string }
   | { kind: 'useAsPersona'; char: LibChar }
@@ -116,6 +118,7 @@ export function CharactersPage() {
       onHistory: () => setDialog({ kind: 'chatHistory', subject: c.name, characterId: c.id }),
       onEdit: () => lib.editCharacter(c.id),
       onEnhance: () => setDialog({ kind: 'aiEnhance', char: c }),
+      onAvatarGallery: () => setDialog({ kind: 'avatarGallery', char: c }),
       onDuplicate: () => lib.duplicateCharacter(c.id),
       onUseAsPersona: () => setDialog({ kind: 'useAsPersona', char: c }),
       onExportPng: () => lib.exportPng(c.id),
@@ -385,6 +388,14 @@ export function CharactersPage() {
       )}
 
       {menu && <CardMenu menu={menu} onClose={() => setMenu(null)} />}
+
+      {dialog?.kind === 'avatarGallery' && (
+        <AvatarGalleryModal
+          characterId={dialog.char.id}
+          name={dialog.char.name}
+          onClose={() => setDialog(null)}
+        />
+      )}
 
       {dialog?.kind === 'aiEnhance' && (
         <EnhanceDialog

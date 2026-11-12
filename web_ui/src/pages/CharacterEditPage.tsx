@@ -17,7 +17,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import { AvatarManager } from '../components/AvatarManager';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { TagsField } from '../components/TagsField';
 import { CharacterStatsCard } from '../components/CharacterStatsCard';
@@ -128,7 +127,6 @@ export function CharacterEditPage() {
   const [saving, setSaving] = useState(false);
   // A second tap before the first save returns writes nothing.
   const savingNow = useRef(false);
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
   // The editable state as loaded; anything else is an unsaved edit.
   const [loaded, setLoaded] = useState<string | null>(null);
@@ -244,20 +242,6 @@ export function CharacterEditPage() {
       setError(e instanceof ApiError ? e.message : 'Could not save');
       savingNow.current = false;
       setSaving(false);
-    }
-  };
-
-  const del = async () => {
-    if (!window.confirm(`Delete "${c.name}"? This removes the character and its chat history.`)) return;
-    setDeleting(true);
-    setError('');
-    try {
-      await api.post(`/api/characters/${id}/delete`);
-      leaveWithoutAsking();
-      navigate('/');
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Could not delete');
-      setDeleting(false);
     }
   };
 
@@ -468,13 +452,6 @@ export function CharacterEditPage() {
               onChange={setGv}
             />
           )}
-
-          {!member && (
-            <>
-              <h3 className="section-label">Avatars &amp; expressions</h3>
-              <AvatarManager characterId={c.id} />
-            </>
-          )}
         </>
       )}
 
@@ -519,13 +496,6 @@ export function CharacterEditPage() {
       )}
 
       {error && <p className="error">{error}</p>}
-      {!member && (
-        <div className="wizard-nav">
-          <button className="danger" disabled={deleting} onClick={del}>
-            {deleting ? 'Deleting…' : 'Delete character'}
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -37,6 +37,7 @@ import { ChatToolsObjectives } from './ChatToolsObjectives';
 import { type ToolsState } from './ChatToolsShared';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
+import { AvatarGalleryModal } from './AvatarGalleryModal';
 import {
   firstNeedInTrouble, moodAtmosphereOf, moodVars, needTrouble, type MoodLook, type MoodPaints,
 } from '../theme/moodAtmosphere';
@@ -275,6 +276,7 @@ export function ChatSidebar({
   const [importMsg, setImportMsg] = useState('');
 
   // ── Main Settings menu ────────────────────────────────────────────────
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -343,6 +345,9 @@ export function ChatSidebar({
     const r = settingsBtnRef.current?.getBoundingClientRect();
     const items: import('./library/CardMenu').CardMenuItem[] = [
       ...(onEditCharacter ? [{ label: 'Edit Character', onClick: onEditCharacter }] : []),
+      ...(!t?.group
+        ? [{ label: 'Avatar Gallery', onClick: () => { onOpenOverlay?.(); setGalleryOpen(true); } }]
+        : []),
       { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
       { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
@@ -1032,6 +1037,13 @@ export function ChatSidebar({
           Main Settings
         </button>
         {settingsMenu && <CardMenu menu={settingsMenu} onClose={() => setSettingsMenu(null)} />}
+        {galleryOpen && (
+          <AvatarGalleryModal
+            characterId={characterId}
+            name={focusedName ?? ''}
+            onClose={() => setGalleryOpen(false)}
+          />
+        )}
       </div>
       <div className="sidebar-layout-pills">
         <SidebarResetPill onReset={wideReset} />

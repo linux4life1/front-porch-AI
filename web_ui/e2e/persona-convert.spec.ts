@@ -35,8 +35,8 @@ test('a character becomes a persona, and the persona starts a character both way
     await openRoute(page, '/');
     const card = page.locator('.lib-card', { hasText: charName });
     await card.getByRole('button', { name: 'More actions' }).click();
-    await page.getByRole('menuitem', { name: 'Use as persona' }).click();
-    const convert = page.getByRole('dialog', { name: 'Use as persona' });
+    await page.getByRole('menuitem', { name: 'Use as Persona' }).click();
+    const convert = page.getByRole('dialog', { name: 'Use as Persona' });
     await expect(convert.getByRole('checkbox')).toBeChecked();
     await convert.getByRole('button', { name: 'Create persona' }).click();
     await expect(page.getByTestId('persona-notice')).toContainText(`"${charName}" is now a persona`);

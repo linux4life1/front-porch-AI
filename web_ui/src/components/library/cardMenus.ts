@@ -15,6 +15,7 @@ export function characterCardMenu(
     onHistory: () => void;
     onEdit: () => void;
     onEnhance: () => void;
+    onAvatarGallery: () => void;
     onDuplicate: () => void;
     /** "Use as persona" — omitted when the host can't convert. */
     onUseAsPersona?: () => void;
@@ -26,19 +27,20 @@ export function characterCardMenu(
   },
 ): CardMenuItem[] {
   return [
-    { label: 'Start new chat', icon: '💬', onClick: a.onNewChat },
+    { label: 'Start New Chat', icon: '💬', onClick: a.onNewChat },
     { label: 'Manage Chats', icon: '📂', onClick: a.onHistory },
-    { label: 'Edit', icon: '✏️', onClick: a.onEdit },
+    { label: 'Edit Character', icon: '✏️', onClick: a.onEdit },
     { label: 'AI Enhance', icon: '✨', onClick: a.onEnhance },
-    { label: 'Duplicate', icon: '⧉', onClick: a.onDuplicate },
+    { label: 'Avatar Gallery', icon: '🖼', onClick: a.onAvatarGallery },
+    { label: 'Duplicate Character', icon: '⧉', onClick: a.onDuplicate },
     ...(a.onUseAsPersona
-      ? [{ label: 'Use as persona', icon: '🎭', onClick: a.onUseAsPersona }]
+      ? [{ label: 'Use as Persona', icon: '🎭', onClick: a.onUseAsPersona }]
       : []),
     { label: 'Export PNG', icon: '🖼', onClick: a.onExportPng },
     { label: 'Export JSON', icon: '📄', onClick: a.onExportJson },
-    { label: 'Move to folder…', icon: '📁', onClick: a.onMove },
+    { label: 'Move to Folder…', icon: '📁', onClick: a.onMove },
     ...(a.inFolder
-      ? [{ label: 'Remove from folder', icon: '📤', onClick: a.onRemoveFolder }]
+      ? [{ label: 'Remove from Folder', icon: '📤', onClick: a.onRemoveFolder }]
       : []),
     { label: 'Delete', icon: '🗑', danger: true, onClick: a.onDelete },
   ];
