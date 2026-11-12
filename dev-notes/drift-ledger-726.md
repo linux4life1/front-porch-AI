@@ -62,3 +62,22 @@ neutral/initials avatars, short synthetic SFW exchanges, captured from the
 web at 1440px and 390px via the scripted browser; desktop app shots are
 taken by the maintainer (the agent shell has no screen-recording rights).
 Delete the throwaway characters/chats after capture and say which were used.
+
+## CI triage, 2026-11-12 (heads 73aae5f8b → d173f58be)
+
+- **Tests (unit + integration) 2/4 — ours, fixed.** `one_ui_parity_test.dart:869`
+  "the exemption tables name ids that exist" went red because the cast fix
+  removed `'cast'` from web `WIDE_DEFAULTS` while `_webOnlySections`
+  (test/hygiene/one_ui_parity_test.dart:37) still carried the exemption that
+  had excused the drift. Exemption retired in `d173f58be` (label
+  `approved-test-change`). Lesson: when a parity fix deletes a section, the
+  guard's exemption tables must lose the row in the same commit.
+- **Playwright "WebUI in real browsers" — pre-existing, NOT this PR.**
+  Failure: `/models: the dialog opened by "📄 Model card" has no Close/Cancel
+  and ignores a tap outside` (e2e/support/fixtures.ts:155 via sweep).
+  `ModelCardDialog.tsx` (commit `077b3c4b6`) predates the PR and is already
+  on Rawhide — and it *does* render a Close action, so the sweep likely hit a
+  different "📄 Model card" trigger on /models or misattributed after a
+  mid-sweep browser crash (`controls seen: 0`). Rawhide's own latest CI
+  (`89e0f393`) fails the same Playwright job. File separately; do not widen
+  PR 5 for it.
