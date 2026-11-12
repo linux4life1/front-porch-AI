@@ -297,6 +297,7 @@ export function CharacterEditPage() {
     return (
       <MacroField
         label={f.label}
+        ariaLabel={f.label}
         rows={f.rows}
         value={(c[f.key] as string) ?? ''}
         onChange={(val) => setField(f.key, val)}

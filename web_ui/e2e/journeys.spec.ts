@@ -2327,10 +2327,14 @@ test(
   },
 );
 
-// Group Settings' "Realism for new chats": the switches save the group's
-// settings for new chats, and a group made on the web (not from a 1:1)
-// shows no forked-group notice.
-test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, async ({ page }) => {
+// REWRITTEN for the Edit group rework (docs/design/group-editor.md). The old
+// journey drove the Group Settings sheet's "Realism for new chats" switches,
+// which no longer exist: Realism and Needs for new chats are now set per member
+// on the member's own card (the same Realism block as a 1:1 editor), and are
+// saved to the member's copy inside the group. Same intent, new surface: the
+// switches save, Needs follows Realism, and a group made on the web shows no
+// forked-group notice.
+test("a member's card switches Realism and Needs for the group's new chats", { tag: SERIAL }, async ({ page }) => {
   const request = page.request;
   const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
   const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
@@ -2338,42 +2342,49 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
   const created = await request.post('/api/groups', { data: { name, memberIds } });
   expect(created.ok(), `create group: ${created.status()}`).toBe(true);
   const groupId = ((await created.json()) as { id: string }).id;
-  const newChats = async () =>
-    (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as {
-      realism: boolean;
-      needs: boolean;
-      forkSource: unknown;
-    };
+  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
+  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
+  const realism = async () =>
+    (
+      (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
+        realism: { realismEnabled: boolean; needsSimEnabled: boolean };
+      }
+    ).realism;
+  const edit = async () => {
+    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
+    await expect(page.getByText(/You're editing .* in .* only\./)).toBeVisible();
+  };
+  const save = async () => {
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+  };
   try {
-    await openRoute(page, '/');
-    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
-    await expect(page.locator('.chat-view')).toBeVisible();
-    await waitIdle(page);
-
-    // Main Settings → Group Settings… opens the same settings in a sheet at
-    // every width (PR 1b: the phone opens the sidebar first).
-    await openSidebar(page);
-    await page.locator('.sidebar-main-settings').click();
-    await page.getByRole('menuitem', { name: /Group Settings/ }).click();
-    const panel = page.locator('.settings-drawer');
-    // The settings sheet keeps the section collapsed, as it always has.
-    await panel.locator('summary', { hasText: 'Group settings' }).click();
-    const section = panel.getByTestId('group-new-chats-section');
-    await expect(section).toContainText('Realism for new chats');
-    await expect(panel.getByTestId('group-fork-notice')).toHaveCount(0);
-    expect(await newChats()).toMatchObject({ realism: true, needs: true, forkSource: null });
-
-    const realism = section.getByRole('checkbox', { name: 'Realism Engine' });
-    const needs = section.getByRole('checkbox', { name: 'Needs' });
-    await expect(realism).toBeChecked();
+    await edit();
+    const engine = page.getByRole('checkbox', { name: /^Enable Realism Engine/ });
+    const needs = page.getByRole('checkbox', { name: /^Needs Simulation/ });
+    await expect(engine).toBeChecked();
+    await expect(needs).toBeChecked();
     await needs.uncheck();
-    await expect.poll(async () => (await newChats()).needs).toBe(false);
-    await expect(realism).toBeChecked();
-    await realism.uncheck();
-    await expect.poll(async () => (await newChats()).realism).toBe(false);
-    await expect(needs).toBeDisabled();
-    await realism.check();
-    await expect.poll(async () => (await newChats()).realism).toBe(true);
+    await save();
+    await expect.poll(async () => (await realism()).needsSimEnabled).toBe(false);
+    expect((await realism()).realismEnabled).toBe(true);
+
+    await edit();
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).uncheck();
+    // Needs only shows while the engine is on.
+    await expect(page.getByRole('checkbox', { name: /^Needs Simulation/ })).toHaveCount(0);
+    await save();
+    await expect.poll(async () => (await realism()).realismEnabled).toBe(false);
+
+    await edit();
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).check();
+    await save();
+    await expect.poll(async () => (await realism()).realismEnabled).toBe(true);
+
+    // A group made on the web (not from a 1:1) shows no forked-group notice.
+    const fork = (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as { forkSource: unknown };
+    expect(fork.forkSource).toBeNull();
   } finally {
     await request.post(`/api/groups/${groupId}/delete`);
   }
@@ -2540,40 +2551,44 @@ test('a new group starts each member from their character card', { tag: SERIAL }
   }
 });
 
-// A group member's editor on the phone shows the group's own switches as
-// read-only lines, and where the member starts in the group's new chats
-// saves to the group's seed for them (Long-Term Bond under its own key),
-// never to their card.
-test("a member's start in the group's new chats saves to the group", { tag: SERIAL }, async ({ page }) => {
+// REWRITTEN for the Edit group rework. The old journey saved a member's start
+// to the group's per-member seed and checked read-only "group lines" on the
+// member editor; both are gone. A member's start (Realism, bonds, Needs) is now
+// stored on the member's own copy in the group, edited with the same Realism
+// block as a 1:1 card. Same intent: the start saves for the group's new chats
+// (Long-Term Bond under its own key, Trust untouched) and never reaches the
+// library character.
+test("a member's start in the group's new chats saves to the member's copy", { tag: SERIAL }, async ({ page }) => {
   const request = page.request;
   const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const libId = chars.find((c) => c.name === 'Porch Tester')!.id;
   const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
   const name = `Start Crew ${test.info().project.name}`;
   const created = await request.post('/api/groups', { data: { name, memberIds } });
   expect(created.ok(), `create group: ${created.status()}`).toBe(true);
   const groupId = ((await created.json()) as { id: string }).id;
-  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  type Groups = { groups?: { id: string; members: { id: string; name: string }[] }[] };
   const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
-  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
-  type Start = { longTermBond: number; trustLevel: number };
-  const detail = async () =>
-    (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
-      start: Start | null;
-      group: { realism: boolean } | null;
-    };
+  const member = groups.find((g) => g.id === groupId)!.members.find((m) => m.name === 'Porch Tester')!;
+  type Start = { realism: { longTermBond: number; trustLevel: number } };
+  const memberStart = async () =>
+    ((await (await request.get(`/api/groups/${groupId}/members/${member.id}/detail`)).json()) as Start).realism;
+  const libraryStart = async () =>
+    ((await (await request.get(`/api/characters/${libId}/detail`)).json()) as Start).realism;
   try {
-    const before = (await detail()).start!;
-    expect((await detail()).group?.realism).toBe(true);
-    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
-    await expect(page.getByTestId('group-line-realism')).toContainText("Realism Engine · On for this group's new chats");
-    await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
+    const before = await memberStart();
+    const libBefore = await libraryStart();
+    await openRoute(page, `/groups/${groupId}/members/${member.id}/edit`);
+    await expect(page.getByText(/You're editing .* in .* only\./)).toBeVisible();
 
-    const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');
+    const longTerm = page.locator('.realism-slider', { hasText: 'Long-Term Bond' }).locator('input');
     await longTerm.focus();
     await longTerm.press('End');
-    await page.getByRole('button', { name: 'Save character' }).click();
-    await expect.poll(async () => (await detail()).start?.longTermBond).toBe(300);
-    expect((await detail()).start?.trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    await expect.poll(async () => (await memberStart()).longTermBond).toBe(300);
+    expect((await memberStart()).trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+    expect(await libraryStart(), 'the library character is unchanged').toEqual(libBefore);
   } finally {
     await request.post(`/api/groups/${groupId}/delete`);
   }

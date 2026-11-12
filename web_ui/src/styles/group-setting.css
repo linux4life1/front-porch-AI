@@ -97,7 +97,7 @@
 
 /* A control the group owns: present, faded, taking no taps (GreyedOut). */
 .greyed-out { position: relative; }
-.greyed-out-body { opacity: 0.45; pointer-events: none; user-select: none; }
+.greyed-out-body { opacity: 0.45; user-select: none; border: 0; margin: 0; padding: 0; min-width: 0; }
 .greyed-out-tip {
   position: absolute; left: 0; bottom: 100%; z-index: 5; max-width: 90%;
   padding: 6px 10px; border-radius: var(--radius);

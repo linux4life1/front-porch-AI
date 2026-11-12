@@ -287,9 +287,8 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The character folder tree (id, name, parentId) so the web library can show
-  /// folder navigation. Character membership is queried separately via
-  /// `list(folder: id)`, which already routes through FolderService.
+  /// The folder tree (id, name, parentId, and the recursive character and
+  /// group counts Delete Folder shows). Membership is `list(folder: id)`.
   List<Map<String, dynamic>> folders() {
     final svc = _folders;
     if (svc == null) return const [];
@@ -299,7 +298,6 @@ class CharacterFacade {
             'id': f.id,
             'name': f.name,
             if (f.parentId != null) 'parentId': f.parentId,
-            // What "Delete Folder" counts out, subfolders included.
             'characterCount': svc.getCharactersInFolderRecursive(f.id).length,
             'groupCount': svc.groupIdsInFolderRecursive(f.id).length,
           },

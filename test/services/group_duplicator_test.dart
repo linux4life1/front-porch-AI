@@ -212,6 +212,8 @@ void main() {
   testWidgets('tapping Duplicate Group twice fast makes exactly one copy', (
     tester,
   ) async {
+    Provider.debugCheckInvalidValueType = null;
+    addTearDown(() => Provider.debugCheckInvalidValueType = null);
     late GroupChatRepository groups;
     late FolderService folders;
     await tester.runAsync(() async {

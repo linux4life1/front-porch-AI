@@ -120,7 +120,8 @@ describe('the group member editor', () => {
   it("a greyed control takes no input", async () => {
     await mountAt('/groups/g1/members/mem-mara/edit');
     const body = container.querySelector('.greyed-out-body') as HTMLElement;
-    expect(body.hasAttribute('inert')).toBe(true);
+    // Really disabled (a fieldset), not inert: nothing is drawn over the controls.
+    expect((body as HTMLFieldSetElement).disabled).toBe(true);
   });
 
   it("saves the group's values once and the member's card, never the library", async () => {

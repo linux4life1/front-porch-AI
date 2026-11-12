@@ -5,21 +5,30 @@
 // or focus, saying why on hover (pointer) or long-press (touch). The web twin
 // of the desktop GreyedOut (docs/design/group-editor.md A2).
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
 
 const LONG_PRESS_MS = 500;
 const SHOWN_MS = 2500;
 
+/** Anything a keyboard can land on that a disabled fieldset does not cover. */
+const FOCUSABLE = 'a[href], [tabindex], [contenteditable="true"], [role="slider"], [role="switch"], [role="button"]';
+
 export function GreyedOut({ tooltip, children }: { tooltip: string; children: ReactNode }) {
-  const body = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLFieldSetElement>(null);
   const [shown, setShown] = useState(false);
   const press = useRef<number | undefined>(undefined);
   const hide = useRef<number | undefined>(undefined);
-  // `inert` takes the body out of the tab order and the accessibility tree's
-  // actions; React 18 does not type it, so it is set on the element.
+  // Native controls are disabled by the fieldset (not focusable, not
+  // changeable, whatever the input). Custom ones (role=slider and the like)
+  // are taken out of the tab order here, and the capture handlers below stop
+  // a click or key reaching them. Nothing covers the controls, so a person
+  // or a test sees exactly what is there.
   useEffect(() => {
-    body.current?.setAttribute('inert', '');
-  }, []);
+    body.current?.querySelectorAll(FOCUSABLE).forEach((el) => {
+      el.setAttribute('tabindex', '-1');
+      el.setAttribute('aria-disabled', 'true');
+    });
+  });
   useEffect(
     () => () => {
       window.clearTimeout(press.current);
@@ -34,6 +43,10 @@ export function GreyedOut({ tooltip, children }: { tooltip: string; children: Re
     }, LONG_PRESS_MS);
   };
   const cancel = () => window.clearTimeout(press.current);
+  const block = (e: SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
   return (
     <div
       className="greyed-out"
@@ -45,9 +58,19 @@ export function GreyedOut({ tooltip, children }: { tooltip: string; children: Re
       onTouchMove={cancel}
       onTouchCancel={cancel}
     >
-      <div className="greyed-out-body" ref={body}>
+      <fieldset
+        className="greyed-out-body"
+        ref={body}
+        disabled
+        onClickCapture={block}
+        onKeyDownCapture={block}
+        onKeyUpCapture={block}
+        onInputCapture={block}
+        onChangeCapture={block}
+        onPointerDownCapture={block}
+      >
         {children}
-      </div>
+      </fieldset>
       {shown && (
         <span role="tooltip" className="greyed-out-tip">
           {tooltip}
