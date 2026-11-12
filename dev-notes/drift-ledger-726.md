@@ -99,3 +99,22 @@ non-crash error into a failure. None involve the cast roster or the
 sidebar section list; the 208 other tests passed every run. Morning
 triage belongs to the serial-block + stats-poll race on phone-webkit,
 not to PR 5's diff.
+
+## Playwright flake — fourth run (head e0e1107eb, run 43195224027)
+
+Fourth run, fourth different failure, all [phone-webkit]: this time
+`journeys.spec.ts:502 the creator's Greetings step` caught
+`HTTP 500 from GET /api/characters/<fresh>/avatar` (209 passed).
+The route is healthy on the local backend (200 x3 on an existing
+character). The runner log is flooded with
+`ImageGen: switchLocalModel failed … 127.0.0.1:9/sdapi/v1 … Connection
+refused` — port 9 (discard): local imagegen is not configured in CI, so
+avatar/expression synthesis 500s intermittently in the sandbox, and the
+crashRetry/page-problems guard turns any such 5xx into a test failure.
+
+Conclusion (four runs, four endpoints, one surface): pre-existing
+phone-webkit serial-block flakiness from an unconfigured imagegen in CI
++ the strict page-problems guard — already red on Rawhide `89e0f393`,
+not caused by PR 5's diff. Recommend a separate issue: configure or
+stub imagegen in the e2e sandbox, and/or exempt imagegen-dependent
+endpoints from the page-problems guard.
