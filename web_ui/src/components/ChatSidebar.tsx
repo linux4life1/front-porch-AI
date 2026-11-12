@@ -3,7 +3,9 @@
 //
 // The chat sidebar — the desktop window's right column (PR 1a), and the same
 // card tree in the drawer below 1024 (PR 1b). Portrait, Main Settings, the
-// layout pills, then the cast, Director, and the tool cards. The tools
+// layout pills, then the fixed cast roster, then the Director and tool cards
+// in the reorderable body (as on the desktop, where the roster sits outside
+// the ReorderableListView). The tools
 // snapshot plumbing (focus scoping, embedding poll, mutation helpers)
 // mirrors ChatTools.tsx so both surfaces speak to the same endpoints with the
 // same payloads.
@@ -75,7 +77,6 @@ const NEED_TOKENS: Record<string, string> = {
 /** The reorderable cards' shipped default, after the static portrait +
  *  Main Settings + pills header. Matches the target's card order. */
 const WIDE_DEFAULTS = [
-  'cast',
   'director',
   'one_shot_eval',
   'tool_calling_pill',
@@ -153,7 +154,8 @@ export function ChatSidebar({
   loreOverflow?: string[];
   draft?: string;
   toolSupport?: ToolSupport;
-  /** The CastBar element the page assembled (moved here on wide, PR 1a). */
+  /** The CastBar element the page assembled (moved here on wide, PR 1a).
+   *  Rendered fixed below the layout pills, never reorderable. */
   castBar?: ReactNode;
   /** Director as the card's subtitle prefix, as the group target shows
    *  ("Vivian · Warming · Trusting · Evening"); absent in a plain 1:1. */
@@ -332,9 +334,7 @@ export function ChatSidebar({
     }
     resetSidebarLayout();
   };
-  const visible = WIDE_DEFAULTS.filter((id) =>
-    id === 'cast' ? !!castBar : id === 'director' ? !!director : true,
-  );
+  const visible = WIDE_DEFAULTS.filter((id) => id === 'director' ? !!director : true);
   const ordered = resolveOrder(storedWide, visible, WIDE_DEFAULTS);
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
@@ -395,8 +395,6 @@ export function ChatSidebar({
 
   const section = (id: string) => {
     switch (id) {
-      case 'cast':
-        return castBar;
       case 'director':
         // Always open, as the desktop's Director card is.
         return director ? <div className="tool-section director-card">{director}</div> : null;
@@ -1061,6 +1059,15 @@ export function ChatSidebar({
         <SidebarResetPill onReset={wideReset} />
         <SidebarLockPill locked={locked} onToggle={() => setLocked(!locked)} />
       </div>
+      {castBar && (
+        // The cast roster is fixed above the reorderable body, as on the
+        // desktop (chat_page.sidebar.dart renders the roster outside the
+        // ReorderableListView): it never carries a drag grip and never
+        // takes part in ordering. `data-id="cast"` stays for probes.
+        <div className="insight-section sidebar-cast-fixed" data-id="cast">
+          {castBar}
+        </div>
+      )}
       {ordered.map((id) => (
         <div key={id} className={`wide-card${dragId === id ? ' dragging' : ''}`}>
           {card(id, section(id))}
