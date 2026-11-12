@@ -33,7 +33,16 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// through [GroupRosterEditor], the same row writers the desktop page and
 /// the chat's roster use.
 class GroupEditorRelay {
-  GroupEditorRelay(this._groups, this._storage, this._db, this._characters);
+  GroupEditorRelay(
+    this._groups,
+    this._storage,
+    this._db,
+    this._characters, [
+    this.chat,
+  ]);
+
+  /// The running chat, so a cast change reaches a group that is open in it.
+  ChatService? chat;
 
   final GroupChatRepository _groups;
   final StorageService _storage;
@@ -194,26 +203,26 @@ class GroupEditorRelay {
     final roster = _roster;
     final characters = _characters;
     if (roster == null || _groups.getById(groupId) == null) return null;
+    final ops = GroupCastOps(
+      editor: roster,
+      groups: _groups,
+      characters: characters,
+      chat: chat,
+    );
     switch (body['action']) {
       case 'add':
         final card = characters?.characters
             .where((c) => c.dbId == body['characterId'])
             .firstOrNull;
-        if (card == null) return null;
-        await roster.add(
-          characters: characters!,
-          groupId: groupId,
-          character: card,
-        );
+        if (card == null || !await ops.add(groupId, card)) return null;
       case 'remove':
-        if (!await roster.remove(groupId, '${body['memberId']}')) return null;
+        if (!await ops.remove(groupId, '${body['memberId']}')) return null;
       case 'bringBack':
-        final kept = await roster.removedMembers(groupId);
-        final row = kept
+        final row = (await roster.removedMembers(groupId))
             .where((r) => body['memberId'] == null || r.id == body['memberId'])
             .firstOrNull;
         if (row == null) return null;
-        await roster.bringBack(groupId, row);
+        await ops.bringBack(groupId, row);
       default:
         return null;
     }

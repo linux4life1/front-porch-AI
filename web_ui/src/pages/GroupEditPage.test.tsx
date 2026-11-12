@@ -5,6 +5,8 @@
 // Details sections in the spec's order, one write on Save, the removed
 // controls absent, and Bring back greyed while nobody has been removed.
 
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
@@ -13,9 +15,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('../api/client', () => ({ api: { get, post }, ApiError: class extends Error {} }));
 vi.mock('../components/realism/usePassageOfTime', () => ({ usePassageOfTime: () => true }));
-vi.mock('../components/CharacterStatsCard', () => ({
-  CharacterStatsCard: () => <p>Your chats together</p>,
-}));
 
 import { GroupEditPage } from './GroupEditPage';
 
@@ -66,7 +65,9 @@ beforeEach(() => {
     Promise.resolve(
       url === '/api/groups/g1/detail'
         ? GROUP
-        : url === '/api/groups/g1/worlds'
+        : url === '/api/groups/g1/stats'
+          ? { chats: 0, theirMessages: 0, yourMessages: 0, theirWords: 0, yourWords: 0, longestChat: 0, firstChat: null, lastChat: null }
+          : url === '/api/groups/g1/worlds'
           ? { settingId: null, loreIds: [] }
           : url === '/api/worlds'
             ? { worlds: [] }
@@ -154,5 +155,35 @@ describe('Edit group', () => {
     expect(post).toHaveBeenCalledTimes(1);
     expect(post.mock.calls[0][0]).toBe('/api/groups/g1/settings');
     expect(post.mock.calls[0][1].personality).toBe('Close and teasing.');
+  });
+
+  it('draws each member\'s avatar in the cast, from the group member route', async () => {
+    await mount();
+    const img = container.querySelector('[data-testid="cast-avatar-a"]') as HTMLImageElement;
+    expect(img.getAttribute('src')).toBe('/api/groups/g1/members/a/avatar');
+  });
+
+  it("the stats footnote speaks of this group's chats", async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/groups/g1/detail'
+          ? GROUP
+          : url === '/api/groups/g1/stats'
+            ? { chats: 2, theirMessages: 3, yourMessages: 4, theirWords: 9, yourWords: 9, longestChat: 5, firstChat: null, lastChat: null }
+            : url === '/api/groups/g1/worlds'
+              ? { settingId: null, loreIds: [] }
+              : { worlds: [] },
+      ),
+    );
+    await mount();
+    expect(text()).toContain("From this group's chats.");
+    expect(text()).not.toContain('Group chats are not counted');
+  });
+
+  it('keeps the header buttons whole: they never wrap or shrink', () => {
+    const css = readFileSync(resolve(__dirname, '../styles/shell.css'), 'utf8');
+    expect(css).toMatch(/\.page-head button \{[^}]*white-space: nowrap/);
+    expect(css).toMatch(/\.page-head \.row-actions \{[^}]*flex-wrap: nowrap/);
+    expect(css).toMatch(/\.page-head > h2 \{[^}]*min-width: 0/);
   });
 });

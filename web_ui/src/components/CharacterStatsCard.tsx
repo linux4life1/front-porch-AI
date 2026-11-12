@@ -39,7 +39,16 @@ export function statTiles(s: CharacterStats): [string, string][] {
   return tiles;
 }
 
-export function CharacterStatsCard({ characterId, url }: { characterId: string; url?: string }) {
+export function CharacterStatsCard({
+  characterId,
+  url,
+  note = 'From your 1:1 chats. Group chats are not counted.',
+}: {
+  characterId: string;
+  url?: string;
+  /** The footnote under the tiles; a group says its own. */
+  note?: string;
+}) {
   const [stats, setStats] = useState<CharacterStats | null>(null);
 
   useEffect(() => {
@@ -68,7 +77,7 @@ export function CharacterStatsCard({ characterId, url }: { characterId: string; 
           </div>
         ))}
       </div>
-      <p className="char-stats-note">From your 1:1 chats. Group chats are not counted.</p>
+      <p className="char-stats-note">{note}</p>
     </section>
   );
 }

@@ -41,7 +41,12 @@ class EditGroupCast {
   final ChatService chat;
   final Future<void> Function() onDone;
 
-  bool get _open => chat.activeGroup?.id == group.id;
+  GroupCastOps get _ops => GroupCastOps(
+    editor: editor,
+    groups: Provider.of<GroupChatRepository>(context(), listen: false),
+    characters: Provider.of<CharacterRepository>(context(), listen: false),
+    chat: chat,
+  );
 
   GroupRosterEditor get editor => GroupRosterEditor(
     db: liveDatabase(context()),
@@ -86,12 +91,8 @@ class EditGroupCast {
       actions: [warmDialogCancel(c)],
     );
     if (picked == null) return;
-    if (_open) {
-      if (!await chat.addCharacterToGroup(picked, groupRepo)) {
-        _say("Couldn't add them right now. Try again in a moment.");
-      }
-    } else {
-      await editor.add(characters: repo, groupId: group.id, character: picked);
+    if (!await _ops.add(group.id, picked)) {
+      _say("Couldn't add them right now. Try again in a moment.");
     }
     await onDone();
   }
@@ -122,21 +123,9 @@ class EditGroupCast {
       ],
     );
     if (go != true) return;
-    final ed = editor;
-    if (await ed.count(group.id) <= GroupRosterEditor.minMembers) {
+    if (!await _ops.remove(group.id, mid)) {
       _say('A group needs at least two members.');
       return;
-    }
-    if (_open) {
-      final row = await ed.rowOf(group.id, mid);
-      if (row != null) await ed.keepCopy(group.id, row);
-      if (!context().mounted) return;
-      await chat.removeCharacterFromGroup(
-        member,
-        Provider.of<GroupChatRepository>(context(), listen: false),
-      );
-    } else {
-      await ed.remove(group.id, mid);
     }
     await onDone();
   }
@@ -167,20 +156,7 @@ class EditGroupCast {
             actions: [warmDialogCancel(c)],
           );
     if (pick == null) return;
-    if (_open) {
-      // The chat re-adds their copy; the kept one is then spent.
-      if (!context().mounted) return;
-      final member = GroupMember.fromRow(
-        pick,
-      ).toCharacterCard(resolvedImagePath: '');
-      await chat.addCharacterToGroup(
-        member,
-        Provider.of<GroupChatRepository>(context(), listen: false),
-      );
-      await ed.discardKept(group.id, pick);
-    } else {
-      await ed.bringBack(group.id, pick);
-    }
+    await _ops.bringBack(group.id, pick);
     await onDone();
   }
 }

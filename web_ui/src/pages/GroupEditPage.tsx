@@ -243,6 +243,14 @@ export function GroupEditPage() {
           <p className="muted small">Cast</p>
           {g.members.map((m) => (
             <div key={m.id} className="row-actions" data-testid={`cast-row-${m.id}`}>
+              <img
+                className="cast-avatar"
+                data-testid={`cast-avatar-${m.id}`}
+                src={`/api/groups/${groupId}/members/${m.id}/avatar`}
+                alt=""
+                width={32}
+                height={32}
+              />
               <strong>{m.name}</strong>
               <button
                 type="button"
@@ -484,7 +492,11 @@ export function GroupEditPage() {
             </>
           )}
 
-          <CharacterStatsCard characterId={g.id} url={`/api/groups/${g.id}/stats`} />
+          <CharacterStatsCard
+            characterId={g.id}
+            url={`/api/groups/${g.id}/stats`}
+            note="From this group's chats."
+          />
         </>
       )}
 

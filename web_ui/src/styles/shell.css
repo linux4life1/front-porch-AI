@@ -120,7 +120,11 @@
 .tunnel-url { display: block; color: var(--accent); word-break: break-all; margin: 8px 0; }
 
 /* Remote access assist */
-.page-head { display: flex; align-items: center; justify-content: space-between; }
+.page-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+/* The title gives way; the buttons never wrap or shrink. */
+.page-head > h2 { min-width: 0; overflow-wrap: anywhere; }
+.page-head .row-actions { flex: 0 0 auto; flex-wrap: nowrap; }
+.page-head button { white-space: nowrap; flex-shrink: 0; }
 button.ghost { background: transparent; border-color: var(--border); }
 .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .card-head h3 { margin: 0; }

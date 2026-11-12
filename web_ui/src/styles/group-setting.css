@@ -120,3 +120,5 @@
 }
 .editor-section { margin-bottom: 20px; }
 .editor-section > summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+
+.cast-avatar { border-radius: 50%; object-fit: cover; flex: 0 0 auto; background: var(--surface); }
