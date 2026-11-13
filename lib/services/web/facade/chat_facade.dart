@@ -270,10 +270,6 @@ class ChatFacade {
     _notify();
   }
 
-  /// Manual SPIN NOW. Parks a pre-picked event; the web reveal modal
-  /// opens via the chance_time WS edge (isAwaitingChanceTime).
-  bool requestChanceTimeSpin() => _chat.requestManualChanceTime();
-
   /// The realism-processing overlay's "Stop this reply" button — aborts an
   /// in-flight Realism eval and the reply (mirrors the desktop overlay).
   void cancelRealismEval() {

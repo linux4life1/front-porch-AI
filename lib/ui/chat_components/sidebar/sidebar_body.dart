@@ -420,6 +420,7 @@ class _SidebarBodyState extends State<SidebarBody> {
           isGroup: isGroup,
           isLite: isLite,
           character: widget.focused.card,
+          chaosMember: isGroup ? widget.focused.card : null,
           onSpinRequested: widget.onSpinRequested,
           initiallyExpanded: ui.sidebarGroupExpanded(
             'story_tools',

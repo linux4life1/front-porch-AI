@@ -21,6 +21,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 
 import 'chaos/chaos.dart';
+import 'group_member_realism.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the Chaos Mode / Chance Time
 /// state and logic (pressure gauge growth + auto-trigger roll, wheel sampling,
@@ -37,7 +38,8 @@ import 'chaos/chaos.dart';
 /// sim core (enabled, nsfw, pressure, cooldown, pendingInjection for prompt,
 /// delivered flag, recently used events).
 ///
-/// Pressure is chat-scoped, not per speaker, so group and 1:1 behave the same;
+/// Pressure is chat-scoped in 1:1 and per-member in groups (PR 5b,
+/// `member*` methods below — the bag is the member's truth);
 /// `{{char}}` and the other placeholders resolve at apply time in ChatService.
 ///
 /// The event pools live in `chaos/`. Adult events need BOTH the chat's spicy
@@ -209,15 +211,25 @@ class ChaosModeService {
   /// [allowPair] admits events naming a second cast member (`{{other}}`);
   /// [allowUser] admits events naming the user. Recently used events are
   /// skipped while enough others remain.
+  ///
+  /// PR 5b: with [memberBag] the 18+ gate reads that member's spicy
+  /// switch (a group spin belongs to one member), and [hardLockOverride]
+  /// carries the named member's hard lock — the caller looks it up with
+  /// the same `hardLockForSpeakerNamed` accept re-gates through, so spin
+  /// and accept keep one chokepoint. Absent both, 1:1 unchanged.
   List<String> spinWheelEvents({
     bool allowPair = false,
     bool allowUser = true,
+    GroupMemberRealism? memberBag,
+    bool? hardLockOverride,
   }) {
     return buildChaosWheel(
-      includeAdult: spicyActive,
+      includeAdult: memberBag == null
+          ? spicyActive
+          : memberSpicyActive(memberBag),
       allowPair: allowPair,
       allowUser: allowUser,
-      hardLockActive: isHardLockActive?.call() ?? false,
+      hardLockActive: hardLockOverride ?? (isHardLockActive?.call() ?? false),
       recent: _recentEvents,
       random: _random,
     );
@@ -271,5 +283,95 @@ class ChaosModeService {
 
   void markEventDelivered() {
     _chaosEventDelivered = true;
+  }
+
+  // ── Per-member state (PR 5b, docs/design/chaos-per-character.md) ──────────
+  //
+  // In a group each member's whole chaos state rides their
+  // [GroupMemberRealism] bag — persisted by the paths that already save that
+  // blob, seeded once by MemberSwitches.seedMissing. These are the bag-shaped
+  // twins of the scalar methods above; the roll/growth/cooldown math is the
+  // same code path with the bag in place of the scalars, so 1:1 (which never
+  // passes a bag) is bit-for-bit untouched. A group turn reads and mutates
+  // ONLY the member whose turn it is — the group-tick-everyone trap
+  // (Error Book 2026-10-06) is why these take the bag, not an id to guess.
+
+  bool memberEnabled(GroupMemberRealism? bag) => bag?.chaosSwitch ?? false;
+  bool memberNsfw(GroupMemberRealism? bag) => bag?.chaosNsfw ?? false;
+  int memberPressure(GroupMemberRealism? bag) => bag?.chaosPressure ?? 0;
+  int memberCooldown(GroupMemberRealism? bag) => bag?.chaosCooldown ?? 0;
+  String? memberPending(GroupMemberRealism? bag) => bag?.chaosPendingEvent;
+
+  /// The member-facing twin of [hasPendingChaosEvent]: their parked event
+  /// reads as pending until it has been delivered once.
+  bool memberHasPending(GroupMemberRealism? bag) =>
+      bag?.chaosPendingEvent != null && !(bag?.chaosEventDelivered ?? false);
+
+  /// Whether adult events can reach THIS member's wheel right now.
+  bool memberSpicyActive(GroupMemberRealism? bag) =>
+      memberNsfw(bag) && adultAllowed;
+
+  /// Per-member turn tick: grows the speaking member's pressure and rolls
+  /// their chance. Members who don't speak this turn are not read, not
+  /// grown, not rolled.
+  bool checkAndTickMember(GroupMemberRealism bag) {
+    if (!memberEnabled(bag)) return false;
+    if (bag.chaosCooldown > 0) {
+      bag.chaosCooldown = bag.chaosCooldown - 1;
+      return false;
+    }
+    final f = frequency;
+    bag.chaosPressure = (bag.chaosPressure + f.growth).clamp(0, pressureCap);
+    final effectiveChance = (f.base + bag.chaosPressure).clamp(0, pressureCap);
+    final roll = _random.nextInt(100);
+    final fires = roll < effectiveChance;
+    if (fires) {
+      debugPrint(
+        '[ChanceTime] Auto-trigger (${bag.chaosPressure}%) roll=$roll',
+      );
+    }
+    return fires;
+  }
+
+  /// Bag twin of [applyPreparedEvent]: park the resolved event on the
+  /// member, zero their gauge, start their cooldown, then the same
+  /// metadata/save/notify side effects.
+  Future<void> applyPreparedEventMember(
+    GroupMemberRealism bag,
+    String display,
+  ) async {
+    bag.chaosPendingEvent = display;
+    bag.chaosEventDelivered = false;
+    bag.chaosPressure = 0;
+    bag.chaosCooldown = frequency.cooldown;
+
+    onSetPendingRealismMetadata('chance_time_event', display);
+
+    await onSaveChat();
+    onNotify();
+    debugPrint('[ChanceTime] Applied for member: $display');
+  }
+
+  /// Bag twin of [markEventDelivered].
+  void markEventDeliveredMember(GroupMemberRealism bag) {
+    bag.chaosEventDelivered = true;
+  }
+
+  /// Bag twin of [clearDeliveredPendingIfAny], called per member where the
+  /// scalar one runs in the user-turn path.
+  void clearDeliveredPendingMemberIfAny(GroupMemberRealism bag) {
+    if (bag.chaosEventDelivered) {
+      bag.chaosPendingEvent = null;
+      bag.chaosEventDelivered = false;
+    }
+  }
+
+  /// A member leaving the cast drops their parked event with them; their
+  /// gauge and cooldown simply ride along in whatever state copy survives.
+  void resetMember(GroupMemberRealism bag) {
+    bag.chaosPendingEvent = null;
+    bag.chaosEventDelivered = false;
+    bag.chaosPressure = 0;
+    bag.chaosCooldown = 0;
   }
 }

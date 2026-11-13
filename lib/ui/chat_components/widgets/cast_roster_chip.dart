@@ -49,6 +49,11 @@ class CastRosterChip extends StatelessWidget {
   /// Null while a turn is busy: the service refuses until post-gen settles.
   final ValueChanged<bool>? onSetAway;
 
+  /// PR 5b: this member's Chaos Mode is on — a dice rides the face so the
+  /// cast bar shows which members Chance Time rolls for without selecting
+  /// each one. Web mirrors this on its cast chips.
+  final bool chaosOn;
+
   /// Whether this chip draws the Away / Back control at all.
   bool get hasAwayControl =>
       !isLite &&
@@ -66,6 +71,7 @@ class CastRosterChip extends StatelessWidget {
     this.onPromote,
     this.presence,
     this.onSetAway,
+    this.chaosOn = false,
   });
 
   Widget _initial() => Text(
@@ -118,25 +124,53 @@ class CastRosterChip extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: color,
-                // No portrait, or only the flat placeholder a character
-                // made without one carries: the initial.
-                child: RealPortrait(
-                  file: imageFile,
-                  portrait: (_, file) => ClipOval(
-                    child: Image.file(
-                      file,
-                      width: 32,
-                      height: 32,
-                      cacheWidth: kPortraitAvatarDecodeWidth,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _initial(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: color,
+                    // No portrait, or only the flat placeholder a character
+                    // made without one carries: the initial.
+                    child: RealPortrait(
+                      file: imageFile,
+                      portrait: (_, file) => ClipOval(
+                        child: Image.file(
+                          file,
+                          width: 32,
+                          height: 32,
+                          cacheWidth: kPortraitAvatarDecodeWidth,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _initial(),
+                        ),
+                      ),
+                      noPortrait: (_) => _initial(),
                     ),
                   ),
-                  noPortrait: (_) => _initial(),
-                ),
+                  if (chaosOn)
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Tooltip(
+                        message: '$name rolls with Chaos Mode',
+                        child: Container(
+                          padding: const EdgeInsets.all(1.5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.chaosAccentOf(
+                              context,
+                            ).withValues(alpha: 0.9),
+                          ),
+                          child: const Icon(
+                            Icons.casino,
+                            size: 9,
+                            // theme-keep: ink on the chaos gold badge.
+                            color: AppColors.onChaosAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 2),

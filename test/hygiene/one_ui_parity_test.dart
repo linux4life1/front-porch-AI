@@ -1023,7 +1023,8 @@ void main() {
   // PR 5: one editor for 1:1 and group members (docs/design/group-editor.md).
   test(
     'the member editor is the 1:1 editor plus the notice and "In the group", '
-    'with Time & Day, Worlds and Chaos Mode greyed',
+    'with Time & Day and Worlds greyed (Chaos is the member\'s own as of '
+    'PR 5b)',
     () {
       final details = File(
         'lib/ui/pages/edit_character_page/edit_character_details_tab.dart',
@@ -1048,7 +1049,9 @@ void main() {
         'lib/ui/pages/edit_character_page/edit_character_realism_section.dart',
       ).readAsStringSync();
       expect(realism, contains('timeDayLockedTooltip'));
-      expect(realism, contains('chaosLockedTooltip'));
+      // PR 5b: Chaos Mode is the member's own now — the editor edits it,
+      // so it must NOT be in the locked pile.
+      expect(realism, isNot(contains('chaosLockedTooltip')));
       expect(
         File(
           'lib/ui/pages/edit_character_page/edit_character_page.dart',

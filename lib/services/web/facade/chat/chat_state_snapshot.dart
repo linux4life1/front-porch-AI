@@ -391,6 +391,9 @@ class ChatStateSnapshot {
         'isNext': card.dbId != null && card.dbId == nextDbId,
         // Group members only: withYou / away / atWork (additive).
         'presence': isGroup ? _chat.groupMemberPresence(p.id)?.name : null,
+        // PR 5b: whose face carries the dice — the member's own Chaos Mode
+        // is on. Group-only, additive: 1:1 chaos belongs to the chat.
+        'chaos': isGroup && !p.isLite ? _chat.chaosSwitchFor(p.id) : null,
         'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
         'avatarUrl': avatarUrl,
         // The picture is only the flat no-portrait colour: the header and

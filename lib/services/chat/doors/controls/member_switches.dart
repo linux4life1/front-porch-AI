@@ -61,6 +61,7 @@ class MemberSwitches {
   /// reach into a chat that is open.
   void seedMissing() {
     if (deps.session.activeGroup == null) return;
+    final group = deps.session.activeGroup!;
     for (final c in _members) {
       final id = deps.session.characterIdFor(c);
       if (id.isEmpty) continue;
@@ -74,6 +75,15 @@ class MemberSwitches {
       own.needsSwitch ??= needs;
       own.objectivesSwitch ??= objectives;
       own.afterglowSwitch ??= afterglow;
+      // PR 5b (docs/design/chaos-per-character.md): the same OR the 1:1
+      // and group entry seeds already use (card OR the chat's switch).
+      // An existing group enters with every member exactly as the group's
+      // old single switch had them — the one-time seed the design locks.
+      // After this write the member's switch is theirs: never re-derived.
+      own.chaosSwitch ??=
+          (c.frontPorchExtensions?.chaosModeEnabled ?? false) ||
+          group.chaosModeEnabled;
+      own.chaosNsfw ??= group.chaosNsfwEnabled;
     }
   }
 
@@ -88,6 +98,11 @@ class MemberSwitches {
       bag?.needsSwitch = null;
       bag?.objectivesSwitch = null;
       bag?.afterglowSwitch = null;
+      // PR 5b: afresh means afresh — the 1:1 chat's own Chaos choice is
+      // carried onto the group column before this runs (scalar carries),
+      // so the seed below lands it on every member like the others.
+      bag?.chaosSwitch = null;
+      bag?.chaosNsfw = null;
     }
     seedMissing();
   }
@@ -116,6 +131,22 @@ class MemberSwitches {
 
   void _setObjectives(String id, bool on) {
     _groups.memberForWrite(id).objectivesSwitch = on;
+  }
+
+  /// PR 5b: a member's Chaos off zeroes their gauge and cooldown exactly
+  /// like the 1:1 switch does (the service's own setModeEnabled rule);
+  /// a parked event holds — off hides, never erases.
+  void _setChaos(String id, bool on) {
+    final own = _groups.memberForWrite(id);
+    own.chaosSwitch = on;
+    if (!on) {
+      own.chaosPressure = 0;
+      own.chaosCooldown = 0;
+    }
+  }
+
+  void _setChaosNsfw(String id, bool on) {
+    _groups.memberForWrite(id).chaosNsfw = on;
   }
 
   Future<void> _commit() async {
@@ -149,6 +180,18 @@ class MemberSwitches {
     await _commit();
   }
 
+  Future<void> setChaos(String id, bool on) async {
+    seedMissing();
+    _setChaos(id, on);
+    await _commit();
+  }
+
+  Future<void> setChaosNsfw(String id, bool on) async {
+    seedMissing();
+    _setChaosNsfw(id, on);
+    await _commit();
+  }
+
   /// The chat-wide cards of Group Settings turn a switch on or off for the
   /// whole cast in one go; the sidebar's switches are the per-member ones.
   /// Null leaves a switch alone. The caller saves.
@@ -157,6 +200,7 @@ class MemberSwitches {
     bool? needs,
     bool? afterglow,
     bool? objectives,
+    bool? chaos,
   }) {
     if (deps.session.activeGroup == null) return;
     seedMissing();
@@ -167,6 +211,7 @@ class MemberSwitches {
       if (needs != null) _setNeeds(id, needs);
       if (afterglow != null) _setAfterglow(id, afterglow);
       if (objectives != null) _setObjectives(id, objectives);
+      if (chaos != null) _setChaos(id, chaos);
     }
   }
 }

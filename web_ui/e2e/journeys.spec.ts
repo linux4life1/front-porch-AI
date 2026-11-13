@@ -2388,6 +2388,11 @@ test("a member's card switches Realism and Needs for the group's new chats", { t
     const fork = (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as { forkSource: unknown };
     expect(fork.forkSource).toBeNull();
   } finally {
+    // Save returns to the group editor, whose stats card refetches
+    // /api/groups/<id>/stats on mount; deleting first races that fetch
+    // (trace run 43389757090: delete mono 196765.2, the stats 404 at
+    // 196804.9). Leave the page first so nothing polls the deleted group.
+    await openRoute(page, '/');
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
@@ -2592,6 +2597,9 @@ test("a member's start in the group's new chats saves to the member's copy", { t
     expect((await memberStart()).trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
     expect(await libraryStart(), 'the library character is unchanged').toEqual(libBefore);
   } finally {
+    // Same stats-poll race as the Realism/Needs journey above: leave the
+    // group editor before deleting, or its stats card can poll the corpse.
+    await openRoute(page, '/');
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });

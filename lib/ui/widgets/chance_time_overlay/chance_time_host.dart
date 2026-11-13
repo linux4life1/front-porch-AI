@@ -31,19 +31,24 @@ abstract interface class ChanceTimeHost {
 }
 
 /// The overlay's host in the app: the chance door through its old names.
+/// PR 5b: a group's manual spin from a member's card passes [memberName] —
+/// the wheel gates on that member (their spicy switch, their hard lock)
+/// and the event lands on their state. Null keeps the pre-PR surface: the
+/// upcoming speaker, the chat's gate.
 class ChatChanceTimeHost implements ChanceTimeHost {
-  const ChatChanceTimeHost(this.chat);
+  const ChatChanceTimeHost(this.chat, {this.memberName});
 
   final ChatService chat;
+  final String? memberName;
 
   @override
   void consumeTrigger() => chat.consumeChanceTimeTrigger();
 
   @override
-  List<String> spinWheelEvents() => chat.spinWheelEvents();
+  List<String> spinWheelEvents() => chat.spinWheelEvents(forName: memberName);
 
   @override
-  String get speakerName => chat.chanceTimeSpeakerName;
+  String get speakerName => memberName ?? chat.chanceTimeSpeakerName;
 
   @override
   String resolve(String raw, String charName) =>

@@ -94,7 +94,8 @@ class EditCharacterRealismSection extends StatelessWidget {
           enabled: hidden == null && d.realismEnabled,
           showMasterEnabledToggle: hidden == null,
           timeDayLockedTooltip: mode == null ? null : kTimeDayLockedTooltip,
-          chaosLockedTooltip: mode == null ? null : kChaosLockedTooltip,
+          // PR 5b: Chaos Mode belongs to the member — their card carries
+          // their new-chat default, editable here like the 1:1 editor's.
           verificationLockedTooltip: mode == null
               ? null
               : kVerificationLockedTooltip,

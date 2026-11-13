@@ -21,6 +21,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 
@@ -173,18 +174,12 @@ class ChatToolsSnapshot {
         'isGenerating': _chat.isSummaryGenerating,
         'lastIndex': _chat.summaryLastIndex,
       },
-      'chaos': {
-        'enabled': chaos.chaosModeEnabled,
-        'nsfwEnabled': chaos.chaosNsfwEnabled,
-        'pressure': chaos.chaosPressure,
-        'hasPendingEvent': chaos.hasPendingChaosEvent,
-        // Additive: the spicy row shows only with 18+ themes on, and the
-        // hint reads the Porch Life frequency and any cooldown.
-        'adultAllowed': chaos.adultAllowed,
-        'base': chaos.frequency.base,
-        'growth': chaos.frequency.growth,
-        'cooldownTurns': chaos.cooldownTurns,
-      },
+      'chaos': chaosBlock(
+        _chat,
+        chaos,
+        switchOwner: switchOwner,
+        switchId: switchId,
+      ),
       'nsfw': {
         // The live gate: Porch Life (with 18+) allows Afterglow AND this
         // chat's own switch is on. The phone shows the switch while Porch

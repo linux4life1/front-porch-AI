@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/chance_time.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/group_member_ext_writer.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/member_chaos.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/member_switches.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/story_clock_nudges.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
@@ -419,6 +420,11 @@ class ControlsDoor {
     await deps.saveChat();
     deps.notify();
   }
+
+  // ── Chaos per member (PR 5b, docs/design/chaos-per-character.md) ─────
+  // The member-scoped reads/writes the sidebar's Chaos card and the web
+  // twin go through; bodies in [MemberChaos].
+  late final MemberChaos chaosMembers = MemberChaos(deps, memberSwitches);
 
   /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or, in a
   /// group, the older chat-wide one. Nothing shows it in a group any more:

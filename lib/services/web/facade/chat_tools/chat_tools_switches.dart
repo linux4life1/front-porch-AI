@@ -116,6 +116,13 @@ class ChatToolsSwitches {
   Future<bool> setMemberNeeds(String id, bool v) =>
       _forMember(id, (m) => _chat.setMemberNeedsEnabled(m, v));
 
+  // PR 5b: the member's own Chaos Mode and its 18+ events toggle.
+  Future<bool> setMemberChaos(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberChaosEnabled(m, v));
+
+  Future<bool> setMemberChaosNsfw(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberChaosNsfw(m, v));
+
   Future<bool> _forMember(
     String id,
     Future<void> Function(String) write,

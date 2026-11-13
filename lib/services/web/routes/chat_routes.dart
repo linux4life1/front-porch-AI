@@ -21,6 +21,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/services.dart' show FeelingsRescore;
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'chat_place_move_route.dart';
 import 'chat_host_turn_route.dart';
@@ -221,8 +222,15 @@ class WebChatRoutes {
     return JsonResponse.ok({'status': 'ok'});
   }
 
-  shelf.Response _spinChanceTime(shelf.Request request) {
-    if (!_facade.requestChanceTimeSpin()) {
+  Future<shelf.Response> _spinChanceTime(shelf.Request request) async {
+    // PR 5b: in a group the body names the cast member whose card spun
+    // (`memberId`); 1:1 stays bodyless like it always was.
+    final body = await _json(request);
+    final memberId = body['memberId']?.toString();
+    if (!requestManualSpin(
+      chat: _facade.chat,
+      memberId: memberId == null || memberId.isEmpty ? null : memberId,
+    )) {
       return JsonResponse.badRequest(
         'Chaos is off or an event is already pending',
       );

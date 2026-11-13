@@ -198,6 +198,12 @@ class ChatToolsFacade {
   Future<bool> setMemberRealism(String id, bool v) =>
       _switches.setMemberRealism(id, v);
 
+  Future<bool> setMemberChaos(String id, bool v) =>
+      _switches.setMemberChaos(id, v);
+
+  Future<bool> setMemberChaosNsfw(String id, bool v) =>
+      _switches.setMemberChaosNsfw(id, v);
+
   Future<bool> setMemberNeeds(String id, bool v) =>
       _switches.setMemberNeeds(id, v);
   Future<bool> setMemberRecovery(String id, Object? fields) =>

@@ -84,7 +84,8 @@ class SendTurn {
     token: token,
   );
   bool checkAndTickChaosPressure() => _chance.checkAndTickChaosPressure();
-  List<String> spinWheelEvents() => _chance.spinWheelEvents();
+  List<String> spinWheelEvents({GroupMemberRealism? memberBag}) =>
+      _chance.spinWheelEvents(memberBag: memberBag);
   String get chanceTimeSpeakerName => _s.chanceReveal.chanceTimeSpeakerName;
   void _enterCallEvalModelSwap() => _s.enterCallModelSwap();
   void _exitCallEvalModelSwap() => _s.exitCallModelSwap();
@@ -241,8 +242,10 @@ class SendTurn {
     // ── Clear consumed chaos event from the previous turn ───────────────
     // Only clear if the event was already delivered in a response.
     // This preserves manual-spin events that haven't been used yet.
-    // Delegated to service (core state moved).
-    _chaosModeService.clearDeliveredPendingIfAny();
+    // Delegated to service (core state moved). PR 5b: the same clear per
+    // member's parked event — delivered ones rode THEIR regen, not a
+    // stranger's.
+    _chance.clearDeliveredPendingsAllOwners();
     // Clear Mafia force-ack only after a prior turn *showed* it and the user
     // is now continuing (regen of that AI reply still re-injects until here).
     unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
@@ -261,17 +264,27 @@ class SendTurn {
     );
 
     // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
-    // Guard + tick delegated (pendingInjection check via service getter).
-    if (addressedGuest == null &&
-        _chaosModeService.chaosModeEnabled &&
-        _chaosModeService.pendingChaosInjection == null) {
-      if (checkAndTickChaosPressure()) {
+    // 1:1 rolls the chat's own gauge, exactly as always. A group turn
+    // belongs to ONE member (PR 5b): the gate resolves the pinned
+    // upcoming speaker and ticks, rolls and parks THEIR gauge and wheel —
+    // a chaos-off owner ticks nobody, and a parked event for another
+    // member never rides this turn (Error Book: the tick-that-hit-everyone
+    // trap, scoped here and in the injection, not just the UI).
+    final chaosGate = addressedGuest == null
+        ? _chance.chaosGateForTurn()
+        : null;
+    if (chaosGate != null) {
+      final gateBag = chaosGate.bag;
+      final fires = gateBag == null
+          ? checkAndTickChaosPressure()
+          : _chaosModeService.checkAndTickMember(gateBag);
+      if (fires) {
         // Create a completer so sendMessage pauses here until the wheel resolves
         _chance.completer = Completer<void>();
         _chance.pendingTrigger = true;
         // Pre-pick the one event the web/mobile reveal modal shows + accepts
         // (the desktop spins its own wheel instead — same pool, same accept).
-        final webWheel = spinWheelEvents();
+        final webWheel = spinWheelEvents(memberBag: gateBag);
         _chance.webEvent = webWheel.isNotEmpty
             ? webWheel.first
             : 'Fate intervenes in an unexpected way.';

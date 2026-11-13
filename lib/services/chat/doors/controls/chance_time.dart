@@ -49,6 +49,52 @@ class ChanceTime {
   /// True for one cycle to pop the overlay.
   bool pendingTrigger = false;
 
+  /// PR 5b: the chaos gate for the turn about to run (docs/design/
+  /// chaos-per-character.md). Returns the [bag] whose gauge ticks and
+  /// whose wheel may roll — the pinned upcoming speaker's bag in a group,
+  /// `null` (the chat's own scalar) in 1:1 — or `null` overall when
+  /// nothing may roll: switch off, one of the member's events already
+  /// parked, or a lite guest with no bag. A group turn rolls ONLY the
+  /// member who owns it; a turn owned by a chaos-off member ticks nobody.
+  /// Previewing the random speaker happens here so the pin and the gate
+  /// name one member, as the spin's preview always has.
+  ({bool mayRoll, GroupMemberRealism? bag})? chaosGateForTurn() {
+    if (_activeGroup == null) {
+      final chaos = _g.chaos;
+      if (!chaos.chaosModeEnabled || chaos.pendingChaosInjection != null) {
+        return null;
+      }
+      return (mayRoll: true, bag: null);
+    }
+    final chaos = _g.chaos;
+    // Nobody's chaos on: skip without touching the rotation's random pick
+    // (previewing early is only owed to a spin).
+    if (!_g.groups.members.values.any((b) => b.chaosSwitch == true)) {
+      return null;
+    }
+    _previewSpeaker();
+    final card = _upcomingSpeaker;
+    if (card == null) return null;
+    final id = _session.characterIdFor(card);
+    if (id.isEmpty) return null;
+    final bag = _g.groups.members[id];
+    if (!chaos.memberEnabled(bag) || chaos.memberPending(bag) != null) {
+      return null;
+    }
+    return (mayRoll: true, bag: bag);
+  }
+
+  /// The user-turn clear: the scalar if it was delivered, and every
+  /// member's delivered event. Delivered ones hold through regen/swipe of
+  /// THEIR reply and clear on the next user turn, per member.
+  void clearDeliveredPendingsAllOwners() {
+    _g.chaos.clearDeliveredPendingIfAny();
+    if (_activeGroup == null) return;
+    for (final bag in _g.groups.members.values) {
+      _g.chaos.clearDeliveredPendingMemberIfAny(bag);
+    }
+  }
+
   /// Pauses sendMessage while the wheel is up; whoever accepts first
   /// completes it.
   Completer<void>? completer;
@@ -64,11 +110,25 @@ class ChanceTime {
 
   /// Returns 8 raw events for the wheel. Pair events (`{{other}}`) need a
   /// second group member; user events need the user in the scene.
-  List<String> spinWheelEvents() {
-    _previewSpeaker();
+  ///
+  /// PR 5b: [forName]/[memberBag] belong the spin to one member — the 18+
+  /// gate reads their spicy switch and the hard-lock re-gate reads THEIR
+  /// refractory through the same `hardLockForSpeakerNamed` accept uses,
+  /// so the named body's legality has one chokepoint. Absent: today's
+  /// upcoming-speaker behavior, 1:1 included.
+  List<String> spinWheelEvents({
+    String? forName,
+    GroupMemberRealism? memberBag,
+  }) {
+    if (forName == null) _previewSpeaker();
+    final name = forName ?? _speakerName;
     return _g.chaos.spinWheelEvents(
-      allowPair: _partners(_speakerName).isNotEmpty,
+      allowPair: _partners(name).isNotEmpty,
       allowUser: !(_session.groupManager?.observerMode ?? false),
+      memberBag: memberBag,
+      hardLockOverride: forName == null
+          ? null
+          : hardLockForSpeakerNamed(forName),
     );
   }
 
@@ -82,6 +142,10 @@ class ChanceTime {
     if (_activeGroup == null || _upcomingSpeaker != null) return;
     _session.groupManager?.previewRandomSpeaker();
   }
+
+  /// PR 5b: exposed for the manual spin's no-member fallback — an older
+  /// bundle spinning a group still attributes to the member who rises.
+  void previewUpcomingSpeaker() => _previewSpeaker();
 
   /// Accepting an event holds the member it names as the next random pick,
   /// in case a turn since the spin used that pick up.
@@ -145,6 +209,15 @@ class ChanceTime {
     return text;
   }
 
+  /// PR 5b: the bag of the group member a Chance Time names. Null for a
+  /// 1:1 host or a member who has left the cast.
+  GroupMemberRealism? bagForName(String name) {
+    if (_activeGroup == null) return null;
+    final card = _groupCharacters.where((c) => c.name == name).firstOrNull;
+    if (card == null) return null;
+    return _g.groups.members[_session.characterIdFor(card)];
+  }
+
   /// Called by the wheel overlay once the animation lands on an event.
   /// Thin wrapper: resolve the placeholders, remember the event so the next
   /// wheels skip it, delegate core (pressure/cooldown/injection/metadata/save/
@@ -156,6 +229,17 @@ class ChanceTime {
     // already-completed completer (which would throw a StateError).
     final parked = completer;
     if (parked != null && parked.isCompleted) return;
+    // PR 5b: in a group the event lands on the member it names. A member
+    // who left the cast since the spin takes the event with them — it is
+    // not floated on the chat's scalar, where it could haunt a stranger's
+    // turn. The parked send, if any, resumes.
+    final bag = bagForName(charName);
+    if (_activeGroup != null && bag == null) {
+      webEvent = null;
+      webName = null;
+      if (parked != null && !parked.isCompleted) parked.complete();
+      return;
+    }
     _holdSpeaker(charName);
     // PR 6 re-gate at ACCEPT (review M1): a manual SPIN NOW parks without
     // halting generation, so between spin and accept a group pointer can
@@ -168,7 +252,7 @@ class ChanceTime {
     var applied = event;
     if (chaosEventFor(event)?.desireAsserting == true &&
         hardLockForSpeakerNamed(charName)) {
-      final wheel = spinWheelEvents();
+      final wheel = spinWheelEvents(forName: charName, memberBag: bag);
       applied = wheel.firstWhere(
         (t) => chaosEventFor(t)?.desireAsserting != true,
         // A wheel always carries SFW events (adults take only
@@ -178,7 +262,11 @@ class ChanceTime {
     }
     final display = resolveChanceTimeEvent(applied, charName);
     _g.chaos.rememberEvent(applied);
-    await _g.chaos.applyPreparedEvent(display);
+    if (bag != null) {
+      await _g.chaos.applyPreparedEventMember(bag, display);
+    } else {
+      await _g.chaos.applyPreparedEvent(display);
+    }
     webEvent = null;
     webName = null;
     // Resume a parked send if one is waiting. Manual SPIN NOW has no

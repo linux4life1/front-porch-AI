@@ -21,10 +21,12 @@
 library;
 
 // The Edit group Details tab and the member editor (top, with the notice;
-// bottom, with Time & Day, Chaos Mode and Realism Verification greyed and
-// the group section), under Porch and one non-Porch theme, light and dark
-// (docs/design/group-editor.md E). The images are generated on the Linux CI
-// image by the Update Goldens workflow (label `update-goldens`).
+// bottom, with Time & Day and Realism Verification greyed and the group
+// section — Chaos Mode joined the editable pile in PR 5b, docs/design/
+// chaos-per-character.md), under Porch and one non-Porch theme, light and
+// dark (docs/design/group-editor.md E). The images are generated on the
+// Linux CI image by the Update Goldens workflow (label `update-goldens`)
+// — the member_bottom goldens show the un-greyed Chaos row.
 
 import 'dart:io';
 
