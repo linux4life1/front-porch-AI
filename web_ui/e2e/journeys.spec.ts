@@ -970,7 +970,9 @@ test('the chat model sheet lists models you can tap, and offers providers', asyn
   await openPorchChat(page);
   await openModelSheet(page);
   const sheet = page.getByRole('dialog', { name: 'Change model' });
-  await expect(sheet.locator('.model-switch-provider select')).toBeVisible();
+  const providerBar = sheet.getByRole('group', { name: 'Provider' });
+  await expect(providerBar.getByRole('button', { name: 'Nano-GPT' })).toBeVisible();
+  await expect(providerBar.getByRole('button', { name: 'xAI' })).toBeVisible();
   await sheet.locator('.model-picker-trigger').click();
   const option = sheet.locator('.mp-option').first();
   await expect(option).toBeVisible({ timeout: 30_000 });
@@ -981,6 +983,12 @@ test('the chat model sheet lists models you can tap, and offers providers', asyn
     return !!at && el.contains(at);
   });
   expect(hit).toBe(true);
+  await sheet.locator('.model-picker-trigger').click();
+  // The Realism evals lane rides the sheet (docs/design/one-chat-ux.md PR 6),
+  // on phone too: same controls as the desktop dialog, in the same order.
+  await expect(sheet.getByRole('heading', { name: 'Realism evals' })).toBeVisible();
+  await expect(sheet.getByTestId('side-jobs-same-as-chat')).toBeVisible();
+  await expect(sheet.getByTestId('side-jobs-host')).toHaveCount(0);
   await sheet.getByRole('button', { name: 'Close' }).click();
   await expect(sheet).toHaveCount(0);
 });

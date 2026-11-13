@@ -192,7 +192,35 @@ label input { margin-top: 6px; }
 .side-jobs {
   margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border);
 }
-.side-jobs h4 { margin: 0 0 6px; font-size: 1rem; }
+.side-jobs h4 { margin: 0 0 6px; font-size: 1rem; color: var(--accent); }
+/* The desktop wraps the evals controls in one rounded card; the header and
+   its sentence sit outside above it (worker_backend_section.dart). */
+.side-jobs-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* Desktop WorkerLaneWarnBanner: tinted box + warning icon, not plain red.
+   The icon is decoration, so it rides a pseudo-element and the message
+   stays the exact sentence for readers and tests. */
+.worker-lane-warn {
+  margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 0.82rem;
+  color: var(--logwarn);
+  background: color-mix(in srgb, var(--logwarn) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--logwarn) 40%, transparent);
+}
+.worker-lane-warn::before { content: '⚠ '; }
+/* RemoteProviderBar twin: one wrapping row of host chips, selected filled. */
+.provider-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.provider-chip {
+  border-radius: 999px; padding: 8px 14px; font-size: 0.85rem; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-strong); cursor: pointer;
+}
+.provider-chip.chip-on {
+  background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+}
+.provider-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .side-jobs-seg {
   display: flex; gap: 8px; margin: 10px 0;
 }

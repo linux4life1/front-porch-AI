@@ -25,10 +25,13 @@ type WorkerBackendFields = import('./WorkerBackendCard').WorkerBackendFields;
 let container: HTMLDivElement;
 let root: Root;
 let latest: WorkerBackendFields;
+let patchCount = 0;
 
 function render(s: WorkerBackendFields, workerApiKey = '') {
   latest = { ...s };
+  patchCount = 0;
   const onPatch = (p: Partial<WorkerBackendFields>) => {
+    patchCount += 1;
     latest = { ...latest, ...p };
     act(() => {
       root.render(
@@ -133,7 +136,7 @@ describe('WorkerBackendCard', () => {
     expect(banner?.textContent).toBe(kWorkerDualLocalMessage);
   });
 
-  it('lists compact host families without an Off row when Different host', () => {
+  it('lists compact host families as chips when Different host', () => {
     render({
       backend: 'openRouter',
       remoteApiUrl: 'https://nano-gpt.com/api/v1',
@@ -141,17 +144,18 @@ describe('WorkerBackendCard', () => {
     });
     const different = container.querySelector('[data-testid="side-jobs-different-host"]') as HTMLButtonElement;
     act(() => different.click());
-    const labels = [...container.querySelectorAll('[data-testid="side-jobs-host"] option')].map((o) => o.textContent);
+    const labels = [...container.querySelectorAll('[data-testid="side-jobs-host"] .provider-chip')].map((o) => o.textContent);
     expect(labels).toEqual([
-      'Choose a host…',
       'KoboldCpp',
       'OpenRouter',
       'Nano-GPT',
+      'xAI',
       'LM Studio',
       'oMLX',
       'Custom',
     ]);
-    expect(labels).not.toContain('Off — same as chat');
+    expect(container.querySelector('[data-testid="side-jobs-pick-host"]')?.textContent)
+      .toContain('Pick a host for Realism evals');
   });
 
   it('clears the worker model when the custom URL is edited', () => {
@@ -184,13 +188,24 @@ describe('WorkerBackendCard', () => {
       workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
       workerRemoteModelName: 'z-ai/glm-5.3',
     });
-    const host = container.querySelector('[data-testid="side-jobs-host"]') as HTMLSelectElement;
-    act(() => {
-      host.value = 'openrouter';
-      host.dispatchEvent(new Event('change', { bubbles: true }));
-    });
+    const host = container.querySelector('[data-testid="provider-chip-openrouter"]') as HTMLButtonElement;
+    act(() => host.click());
     expect(latest.workerRemoteModelName).toBe('');
     expect(latest.workerRemoteApiUrl).toBe('https://openrouter.ai/api/v1');
+  });
+
+  it('re-tapping the selected host chip is a no-op', () => {
+    render({
+      backend: 'openRouter',
+      remoteApiUrl: 'https://nano-gpt.com/api/v1',
+      workerBackend: 'openRouter',
+      workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
+      workerRemoteModelName: 'z-ai/glm-5.3',
+    });
+    const host = container.querySelector('[data-testid="provider-chip-nanogpt"]') as HTMLButtonElement;
+    expect(host.getAttribute('aria-pressed')).toBe('true');
+    act(() => host.click());
+    expect(patchCount).toBe(0);
   });
 
   it('hides oMLX when the host does not offer it', () => {
@@ -201,7 +216,7 @@ describe('WorkerBackendCard', () => {
     });
     const different = container.querySelector('[data-testid="side-jobs-different-host"]') as HTMLButtonElement;
     act(() => different.click());
-    const labels = [...container.querySelectorAll('[data-testid="side-jobs-host"] option')].map((o) => o.textContent);
+    const labels = [...container.querySelectorAll('[data-testid="side-jobs-host"] .provider-chip')].map((o) => o.textContent);
     expect(labels).not.toContain('oMLX');
     expect(labels).toContain('KoboldCpp');
     expect(labels).toContain('Custom');

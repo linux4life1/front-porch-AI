@@ -49,8 +49,8 @@ async function open() {
 
 const kobold = () =>
   container.querySelector(
-    '[data-testid="side-jobs-host"] option[value="kobold"]',
-  ) as HTMLOptionElement;
+    '[data-testid="side-jobs-host"] [data-testid="provider-chip-kobold"]',
+  ) as HTMLButtonElement;
 const sentence = () => container.querySelector('[data-testid="side-jobs-local-unsupported"]');
 const later = async () => {
   await act(async () => {

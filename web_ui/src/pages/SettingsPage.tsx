@@ -566,55 +566,53 @@ export function SettingsPage() {
                   </span>
                 )}
               </div>
-              <label>
-                Model
-                <ModelPicker
-                  apiUrl={s.remoteApiUrl}
-                  apiKey={apiKey}
-                  savedApiUrl={savedRemoteApiUrl}
-                  currentPassword={password}
-                  totpCode={totpCode}
-                  totpEnabled={totpEnabled}
-                  onTotpRequired={() => setTotpEnabled(true)}
-                  value={s.remoteModelName}
-                  onChange={(id) => {
-                    patch({ remoteModelName: id })
-                    void (async () => {
-                      if (previewNeedsStepUp && !password) return
-                      try {
-                        const body: Record<string, unknown> = {
-                          model: id,
-                          apiUrl: s.remoteApiUrl,
-                        }
-                        if (apiKey.trim()) body.apiKey = apiKey.trim()
-                        if (previewNeedsStepUp) {
-                          attachStepUp(body, password, totpEnabled, totpCode)
-                        }
-                        const menu = await api.post<{
-                          efforts?: string[]
-                          mandatory?: boolean
-                          localSupport?: string
-                        }>('/api/backend/reasoning-menu', body)
-                        setS((prev) =>
-                          prev && prev.remoteModelName === id
-                            ? {
-                                ...prev,
-                                reasoningEfforts: menu.efforts ?? [],
-                                reasoningMandatory: Boolean(menu.mandatory),
-                                reasoningLocalSupport: menu.localSupport,
-                              }
-                            : prev,
-                        )
-                      } catch (e) {
-                        if (e instanceof ApiError && e.payload.totpRequired === true) {
-                          setTotpEnabled(true)
-                        }
-                        /* family-hint chips stay until Save */
+              <ModelPicker
+                label="Model"
+                apiUrl={s.remoteApiUrl}
+                apiKey={apiKey}
+                savedApiUrl={savedRemoteApiUrl}
+                currentPassword={password}
+                totpCode={totpCode}
+                totpEnabled={totpEnabled}
+                onTotpRequired={() => setTotpEnabled(true)}
+                value={s.remoteModelName}
+                onChange={(id) => {
+                  patch({ remoteModelName: id })
+                  void (async () => {
+                    if (previewNeedsStepUp && !password) return
+                    try {
+                      const body: Record<string, unknown> = {
+                        model: id,
+                        apiUrl: s.remoteApiUrl,
                       }
-                    })()
-                  }}
-                />
-              </label>
+                      if (apiKey.trim()) body.apiKey = apiKey.trim()
+                      if (previewNeedsStepUp) {
+                        attachStepUp(body, password, totpEnabled, totpCode)
+                      }
+                      const menu = await api.post<{
+                        efforts?: string[]
+                        mandatory?: boolean
+                        localSupport?: string
+                      }>('/api/backend/reasoning-menu', body)
+                      setS((prev) =>
+                        prev && prev.remoteModelName === id
+                          ? {
+                              ...prev,
+                              reasoningEfforts: menu.efforts ?? [],
+                              reasoningMandatory: Boolean(menu.mandatory),
+                              reasoningLocalSupport: menu.localSupport,
+                            }
+                          : prev,
+                      )
+                    } catch (e) {
+                      if (e instanceof ApiError && e.payload.totpRequired === true) {
+                        setTotpEnabled(true)
+                      }
+                      /* family-hint chips stay until Save */
+                    }
+                  })()
+                }}
+              />
             </>
           )}
           <ModelPresetSelect
