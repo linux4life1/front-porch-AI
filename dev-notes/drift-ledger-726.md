@@ -118,3 +118,28 @@ phone-webkit serial-block flakiness from an unconfigured imagegen in CI
 not caused by PR 5's diff. Recommend a separate issue: configure or
 stub imagegen in the e2e sandbox, and/or exempt imagegen-dependent
 endpoints from the page-problems guard.
+
+## stats-poll race root-caused and fixed (run 43389757090, phone-webkit)
+
+Trace forensics (run 43389757090; both trace files share one worker clock):
+the teardown `POST /api/groups/<fresh>/delete` completes at mono 196765.2,
+the editor's stats GET answers 404 at mono 196804.9 — ~40 ms later. The GET
+is real, not a webkit unload ghost: saving the member editor returns to the
+Edit group page (`CharacterEditPage.tsx` save-then-navigate), whose mount
+refetches `/api/groups/<id>/stats` (`GroupEditPage.tsx` stats card); the
+journey's `finally` deletes the group mid-refetch, so `getById` is already
+null and the route's 404 is correct — the strict monitor rightly flags it.
+
+Fix: `openRoute(page, '/')` before the teardown delete in the two journeys
+that end in the group editor (2339, 2563). Home has no stats card, so
+nothing polls the deleted group. e2e-only; no monitor seam, no backend
+semantics change.
+
+Side finding (latent, NOT this flake): `GroupChatRepository._load()` clears
+the in-memory list before awaiting the DB read, so `getById` answers null
+for live groups during any rebind/duplicate reload. An atomic swap hardens
+the read side but can drop a concurrent `save()` on the write side; if
+pursued, fix both halves together.
+
+Validation gate: `--repeat-each=20` over both tests, phone-webkit, guard
+active, against the harness sandbox.
