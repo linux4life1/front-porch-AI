@@ -23,10 +23,12 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'chat_capsule_preview.dart';
+import 'chat_color_matrix.dart';
 import 'mood_on_character_controls.dart';
 
-/// Reading size, the global chat colors and the chat font, moved here from
-/// General. Colors left unpicked follow the app theme's own defaults.
+/// Settings → Appearance → Chat Appearance: Reading Size, Chat Font,
+/// live micro-chat preview, and paired message color controls.
 class ChatAppearanceSection extends StatelessWidget {
   const ChatAppearanceSection({super.key});
 
@@ -55,142 +57,181 @@ class ChatAppearanceSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
+    final ui = storageService.uiSettings;
+    final scale = ui.textScale;
+    final percent = (scale * 100).round();
+    final corners = AppCorners.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SliderSetting(
-          label: 'Reading Size',
-          value: storageService.uiSettings.textScale,
-          min: 0.7,
-          max: 2.0,
-          onChanged: (val) => storageService.uiSettings.setTextScale(val),
-          divisions: 13,
-        ),
         const SectionHeader('Chat Appearance'),
-        const SizedBox(height: 8),
-        // Mood on the character sits with the bubble colours: it is about
-        // the character, not the weather. Only while the Realism Engine is on.
-        const MoodOnCharacterControls(),
         const SizedBox(height: 12),
-        ColorRow(
-          label: 'User Bubble',
-          color: storageService.uiSettings.globalUserBubbleColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalUserBubbleColor,
-            (color) =>
-                storageService.uiSettings.setGlobalUserBubbleColor(color),
-          ),
-        ),
-        ColorRow(
-          label: 'User Text',
-          color: storageService.uiSettings.globalUserTextColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalUserTextColor,
-            (color) => storageService.uiSettings.setGlobalUserTextColor(color),
-          ),
-        ),
-        ColorRow(
-          label: 'AI Bubble',
-          color: storageService.uiSettings.globalAiBubbleColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalAiBubbleColor,
-            (color) => storageService.uiSettings.setGlobalAiBubbleColor(color),
-          ),
-        ),
-        ColorRow(
-          label: 'AI Text',
-          color: storageService.uiSettings.globalAiTextColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalAiTextColor,
-            (color) => storageService.uiSettings.setGlobalAiTextColor(color),
-          ),
-        ),
-        ColorRow(
-          label: 'Dialogue (Quoted)',
-          color: storageService.uiSettings.globalDialogueColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalDialogueColor,
-            (color) => storageService.uiSettings.setGlobalDialogueColor(color),
-          ),
-        ),
-        ColorRow(
-          label: 'Actions (*text*)',
-          color: storageService.uiSettings.globalActionColor,
-          onPressed: () => showColorPicker(
-            context,
-            storageService.uiSettings.globalActionColor,
-            (color) => storageService.uiSettings.setGlobalActionColor(color),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Global chat font — per-character overrides still win at render time
-        // (UiSettings.getChatFontFamily). Restored after a refactor left only
-        // a placeholder here; the setter had no other UI caller.
-        SizedBox(
+
+        // ── Typography & Scale Card ──────────────────────────────────────
+        Container(
           width: double.infinity,
-          child: Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 4,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: corners.circular(12),
+            border: Border.all(
+              color: AppColors.borderOf(context),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Chat Font',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: DropdownButton<String>(
-                  // Clamp to a known item — a stored family not in the list
-                  // (older build / manual pref edit) would otherwise assert.
-                  value:
-                      _chatFonts.any(
-                        (f) =>
-                            f.$2 ==
-                            storageService.uiSettings.globalChatFontFamily,
-                      )
-                      ? storageService.uiSettings.globalChatFontFamily
-                      : '',
-                  isExpanded: true,
-                  // The button keeps focus after a pick; the theme's grey
-                  // focus wash then sat over the chosen font for good.
-                  focusColor: Colors.transparent,
-                  dropdownColor: AppColors.cardOf(context),
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 13,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Reading Size',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Scales chat bubbles and transcript text',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  underline: const SizedBox.shrink(),
-                  items: _chatFonts.map((font) {
-                    return DropdownMenuItem<String>(
-                      value: font.$2,
-                      child: Text(
-                        font.$1,
-                        overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerOf(context),
+                      borderRadius: corners.circular(6),
+                      border: Border.all(
+                        color: AppColors.borderOf(context),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      '$percent%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.formAccentOf(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Slider(
+                key: const ValueKey('appearance-reading-size'),
+                value: scale,
+                min: 0.7,
+                max: 2.0,
+                divisions: 13,
+                label: '$percent%',
+                onChanged: (val) => ui.setTextScale(val),
+              ),
+              const SizedBox(height: 8),
+              Divider(
+                height: 1,
+                color: AppColors.borderOf(context).withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      'Chat Font',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary(context),
+                      ),
+                    ),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: DropdownButton<String>(
+                        key: const ValueKey('appearance-chat-font'),
+                        value: _chatFonts.any(
+                          (f) => f.$2 == ui.globalChatFontFamily,
+                        )
+                            ? ui.globalChatFontFamily
+                            : '',
+                        isExpanded: true,
+                        focusColor: Colors.transparent,
+                        dropdownColor: AppColors.cardOf(context),
                         style: TextStyle(
-                          fontFamily: font.$2.isEmpty ? null : font.$2,
                           color: AppColors.textPrimary(context),
                           fontSize: 13,
                         ),
+                        underline: const SizedBox.shrink(),
+                        items: _chatFonts.map((font) {
+                          return DropdownMenuItem<String>(
+                            value: font.$2,
+                            child: Text(
+                              font.$1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: font.$2.isEmpty ? null : font.$2,
+                                color: AppColors.textPrimary(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) =>
+                            ui.setGlobalChatFontFamily(value ?? ''),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (value) => storageService.uiSettings
-                      .setGlobalChatFontFamily(value ?? ''),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        // ── Live WYSIWYG Capsule Preview ─────────────────────────────────
+        ChatCapsulePreview(
+          onTapAiBubble: () => showColorPicker(
+            context,
+            ui.globalAiBubbleColor,
+            ui.setGlobalAiBubbleColor,
+          ),
+          onTapUserBubble: () => showColorPicker(
+            context,
+            ui.globalUserBubbleColor,
+            ui.setGlobalUserBubbleColor,
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // ── Paired Color Matrix ──────────────────────────────────────────
+        const ChatColorMatrix(),
+
         const SizedBox(height: 8),
+
+        // ── Reset to Theme Defaults Button ───────────────────────────────
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
@@ -200,6 +241,11 @@ class ChatAppearanceSection extends StatelessWidget {
             label: const Text('Use the theme\'s chat colors'),
           ),
         ),
+
+        const SizedBox(height: 16),
+
+        // ── Mood on Character (Realism Engine Gated) ─────────────────────
+        const MoodOnCharacterControls(),
       ],
     );
   }

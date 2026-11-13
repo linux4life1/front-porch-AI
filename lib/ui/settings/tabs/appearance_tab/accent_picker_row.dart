@@ -43,11 +43,25 @@ class AccentPickerRow extends StatelessWidget {
         : appearance.accentAdjusted
         ? 'Custom accent, adjusted for readability'
         : 'Custom accent';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        const AppearanceCaption('Accent'),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppearanceCaption('Accent'),
+            const SizedBox(width: 8),
+            Text(
+              '• $note',
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 6),
         Wrap(
           spacing: 0,
@@ -83,14 +97,6 @@ class AccentPickerRow extends StatelessWidget {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 6),
-        Text(
-          note,
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-          ),
         ),
       ],
     );
