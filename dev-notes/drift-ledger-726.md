@@ -143,3 +143,15 @@ pursued, fix both halves together.
 
 Validation gate: `--repeat-each=20` over both tests, phone-webkit, guard
 active, against the harness sandbox.
+
+## FPAI_E2E_HOLD teardown timeout is benign (browser_test.dart:243-246)
+
+A hold-mode session "fails" after `touch e2e/.auth/stop` with
+`TimeoutException: Timed out after 20s waiting for in-flight screen
+refresh to finish during shutdown` (thrown twice in one run, flagged
+"Multiple exceptions (3)"). The cleanup races the external client's last
+frames; stopping via the stop file at an arbitrary moment makes the
+timeout likely. The CI path never uses hold mode and its cleanup lands
+inside the window (web-e2e green on `ef5bf0489`+). A red hold teardown
+after a green external Playwright run is not a product failure — read
+the Playwright summary, not the harness verdict.
