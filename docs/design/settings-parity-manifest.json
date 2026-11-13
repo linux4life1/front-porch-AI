@@ -89,13 +89,13 @@
     },
     "spellCheckLanguage": {
       "section": "generation",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/app_system_section.dart",
       "dartMarker": "SpellCheckLanguageRow",
       "webMarker": "Spell check language"
     },
     "systemPrompt": {
       "section": "general",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/prompts_section.dart",
       "dartMarker": "Fallback system prompt",
       "webMarker": "Fallback system prompt"
     },
@@ -119,7 +119,7 @@
     },
     "porchLife": {
       "section": "porch-life",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/general_tab/porch_life_pointer_card.dart",
       "dartMarker": "Porch Life",
       "webMarker": "Porch Life"
     },

@@ -25,7 +25,7 @@ import 'package:front_porch_ai/ui/settings/dialogs/prompt_save_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-import 'section_header.dart';
+import 'package:front_porch_ai/ui/theme/app_corners.dart';
 
 /// One Settings prompt slot over the shared pool of saved prompts: a badge
 /// saying where the text came from, Load a saved prompt, the box, then Save
@@ -145,23 +145,42 @@ class _PromptSlotCardState extends State<PromptSlotCard> {
     final pool = userSavedPrompts(storage.presetSettings.savedPrompts);
     final name = slot.savedName(storage);
     final loaded = pool.any((p) => p['name'] == name) ? name : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 12,
-          runSpacing: 6,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SectionHeader(widget.title),
-            _SlotBadge(slot: slot, status: status),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.helper,
-          style: TextStyle(color: AppColors.textSecondary(context)),
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: AppCorners.of(context).circular(12),
+        border: Border.all(color: AppColors.borderOf(context)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                widget.title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary(context),
+                ),
+              ),
+              _SlotBadge(slot: slot, status: status),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            widget.helper,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+              height: 1.45,
+            ),
+          ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -239,6 +258,7 @@ class _PromptSlotCardState extends State<PromptSlotCard> {
           ],
         ),
       ],
+    ),
     );
   }
 }
