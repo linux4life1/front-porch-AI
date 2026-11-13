@@ -177,7 +177,7 @@
 /* Settings prompt slots (PromptSlot.tsx). */
 .prompt-slot { display: flex; flex-direction: column; gap: 8px; }
 .prompt-slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.prompt-slot-head h4 { margin: 0; }
+.prompt-slot-head h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .prompt-slot-badge {
   font-size: 12px; padding: 2px 10px; border-radius: 999px;
   border: 1px solid var(--border); overflow-wrap: anywhere;
@@ -185,3 +185,67 @@
 .prompt-slot-badge.strong { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .prompt-slot-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .prompt-slot-actions label { flex: 1 1 200px; }
+
+/* ── Setting toggle card (switch on right) ─────────────────────────────── */
+.setting-toggle-card { padding: 14px 18px; margin-bottom: 12px; }
+.setting-toggle-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.setting-toggle-info { flex: 1; min-width: 0; }
+.setting-toggle-info h3 { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--text); }
+.setting-toggle-info .reading-blurb { margin: 0; font-size: 0.82rem; line-height: 1.4; color: var(--muted); }
+
+/* Toggle switch control (min 48×48px touch target with centered 44×24 visual pill) */
+.toggle-switch {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 48px; min-height: 48px;
+  flex-shrink: 0; margin: 0; cursor: pointer; touch-action: manipulation;
+}
+.toggle-switch input {
+  opacity: 0; width: 0; height: 0; position: absolute; outline: none;
+}
+.toggle-switch input:focus-visible { outline: none; }
+.toggle-slider {
+  position: relative; cursor: pointer; width: 44px; height: 24px;
+  background-color: var(--surface-2); border: 1px solid var(--border);
+  transition: 0.2s ease; border-radius: 24px; flex-shrink: 0;
+}
+.toggle-slider::before {
+  position: absolute; content: ""; height: 16px; width: 16px;
+  left: 3px; top: 3px; background-color: var(--text); opacity: 0.75;
+  transition: 0.2s ease; border-radius: 50%;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--accent); border-color: var(--accent);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px); background-color: var(--on-accent); opacity: 1;
+}
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+/* ── Macro badges row ──────────────────────────────────────────────────── */
+.macro-badges-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px;
+}
+.macro-label { font-size: 0.75rem; color: var(--muted); margin-right: 2px; }
+.macro-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px;
+  border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font-size: 0.75rem; cursor: pointer; transition: all 0.15s ease;
+}
+.macro-chip:hover {
+  border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+}
+.macro-chip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600; color: var(--accent);
+}
+.macro-desc { font-size: 0.68rem; color: var(--muted); }
+
+/* ── Refined prompt card spacing ───────────────────────────────────────── */
+.prompt-slot-card, .prompt-additions-card { margin-bottom: 14px; }
+.prompt-field-group { margin-top: 14px; }
+.prompt-field-group label { margin-bottom: 4px; font-weight: 500; }
+.prompt-field-group textarea { margin-top: 2px; }

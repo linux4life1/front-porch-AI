@@ -2,12 +2,124 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The prompt family for web Settings, mirroring the desktop General tab:
-// the Fallback system prompt slot with the Global prompt additions flat
-// under it (prompt-picker SOW Phase 2 — one prompt family, one place),
-// then the Group system prompt slot every group chat uses. Both slots pick
-// from one shared pool of saved prompts.
+// the Fallback system prompt slot, the Group system prompt slot every group
+// chat uses, and the Global prompt additions flat under them (Option A
+// layout: one prompt family, 3 stacked cards). Both slots pick from one
+// shared pool of saved prompts.
 
+import { useRef } from 'react';
 import { PromptSlot, type BuiltInPrompt, type SavedPrompt } from './PromptSlot';
+import { insertPromptMacro } from './macroInsert';
+
+function GlobalPromptAdditionsCard({
+  additionalSystemPrompt,
+  additionalPostHistoryInstructions,
+  patch,
+}: {
+  additionalSystemPrompt: string;
+  additionalPostHistoryInstructions: string;
+  patch: (p: Record<string, unknown>) => void;
+}) {
+  const sysRef = useRef<HTMLTextAreaElement>(null);
+  const postRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertSystemMacro = (macro: string) => {
+    insertPromptMacro(sysRef.current, additionalSystemPrompt, macro, (next) => {
+      patch({ additionalSystemPrompt: next });
+    });
+  };
+
+  const insertPostMacro = (macro: string) => {
+    insertPromptMacro(postRef.current, additionalPostHistoryInstructions, macro, (next) => {
+      patch({ additionalPostHistoryInstructions: next });
+    });
+  };
+
+  return (
+    <section
+      className="card prompt-additions prompt-additions-card"
+      data-testid="global-prompt-additions"
+    >
+      <div className="prompt-slot-head">
+        <h4>Global prompt additions</h4>
+      </div>
+      <p className="muted small">
+        Extra instructions for every character and chat model. Leave blank to disable. Both
+        fields support {'{{char}}'} and {'{{user}}'}. Use Save settings to apply changes.
+      </p>
+
+      <div className="prompt-field-group">
+        <label htmlFor="add-system-instructions">Additional system instructions</label>
+        <div className="macro-badges-row">
+          <span className="macro-label">Available macros:</span>
+          <button
+            type="button"
+            className="macro-chip"
+            title="Inserts character name at runtime"
+            onClick={() => insertSystemMacro('{{char}}')}
+          >
+            <code>{ '{{char}}' }</code>
+            <span className="macro-desc">Character</span>
+          </button>
+          <button
+            type="button"
+            className="macro-chip"
+            title="Inserts user persona name at runtime"
+            onClick={() => insertSystemMacro('{{user}}')}
+          >
+            <code>{ '{{user}}' }</code>
+            <span className="macro-desc">User</span>
+          </button>
+        </div>
+        <textarea
+          id="add-system-instructions"
+          ref={sysRef}
+          aria-label="Additional system instructions"
+          rows={4}
+          value={additionalSystemPrompt}
+          onChange={(e) => patch({ additionalSystemPrompt: e.target.value })}
+        />
+        <p className="muted small">
+          Appended to the selected system prompt, including character and group prompts.
+        </p>
+      </div>
+
+      <div className="prompt-field-group">
+        <label htmlFor="add-post-history">Additional post-history instructions</label>
+        <div className="macro-badges-row">
+          <span className="macro-label">Available macros:</span>
+          <button
+            type="button"
+            className="macro-chip"
+            title="Inserts character name at runtime"
+            onClick={() => insertPostMacro('{{char}}')}
+          >
+            <code>{ '{{char}}' }</code>
+            <span className="macro-desc">Character</span>
+          </button>
+          <button
+            type="button"
+            className="macro-chip"
+            title="Inserts user persona name at runtime"
+            onClick={() => insertPostMacro('{{user}}')}
+          >
+            <code>{ '{{user}}' }</code>
+            <span className="macro-desc">User</span>
+          </button>
+        </div>
+        <textarea
+          id="add-post-history"
+          ref={postRef}
+          aria-label="Additional post-history instructions"
+          rows={4}
+          value={additionalPostHistoryInstructions}
+          onChange={(e) => patch({ additionalPostHistoryInstructions: e.target.value })}
+        />
+        <p className="muted small">Appended after existing post-history instructions.</p>
+      </div>
+    </section>
+  );
+}
 
 export function PromptSettingsCard({
   systemPrompt,
@@ -40,12 +152,15 @@ export function PromptSettingsCard({
     patch({
       savedPrompts: next,
       ...(systemPromptName && !has(systemPromptName) ? { systemPromptName: null } : {}),
-      ...(groupSystemPromptName && !has(groupSystemPromptName) ? { groupSystemPromptName: null } : {}),
+      ...(groupSystemPromptName && !has(groupSystemPromptName)
+        ? { groupSystemPromptName: null }
+        : {}),
     });
   };
+
   return (
-    <section className="card" data-testid="prompt-settings-card">
-      <h3>System prompts</h3>
+    <div className="settings-group prompt-settings-group" data-testid="prompt-settings-card">
+      <h4 className="settings-group-heading">Default prompts &amp; instructions</h4>
       <PromptSlot
         testId="fallback-system-prompt"
         title="Fallback system prompt"
@@ -58,23 +173,6 @@ export function PromptSettingsCard({
         onChange={(text, name) => patch({ systemPrompt: text, systemPromptName: name })}
         onPool={onPool}
       />
-      {additionalSystemPrompt !== undefined &&
-        additionalPostHistoryInstructions !== undefined && (
-          <div className="prompt-additions" data-testid="global-prompt-additions">
-            <h4>Global prompt additions</h4>
-            <p className="muted small">Extra instructions for every character and chat model. Leave blank to disable. Both fields support {'{{char}}'} and {'{{user}}'}. Use Save settings to apply changes.</p>
-            <label>Additional system instructions
-              <textarea rows={4} value={additionalSystemPrompt}
-                onChange={(e) => patch({ additionalSystemPrompt: e.target.value })} />
-            </label>
-            <p className="muted small">Appended to the selected system prompt, including character and group prompts.</p>
-            <label>Additional post-history instructions
-              <textarea rows={4} value={additionalPostHistoryInstructions}
-                onChange={(e) => patch({ additionalPostHistoryInstructions: e.target.value })} />
-            </label>
-            <p className="muted small">Appended after existing post-history instructions.</p>
-          </div>
-        )}
       <PromptSlot
         testId="group-system-prompt"
         title="Group system prompt"
@@ -83,11 +181,23 @@ export function PromptSettingsCard({
         text={groupSystemPrompt ?? ''}
         name={groupSystemPromptName}
         pool={pool}
-        builtIns={builtInGroupSystemPrompt ? [{ label: 'Group default', text: builtInGroupSystemPrompt }] : []}
+        builtIns={
+          builtInGroupSystemPrompt
+            ? [{ label: 'Group default', text: builtInGroupSystemPrompt }]
+            : []
+        }
         blankIsBuiltIn
         onChange={(text, name) => patch({ groupSystemPrompt: text, groupSystemPromptName: name })}
         onPool={onPool}
       />
-    </section>
+      {additionalSystemPrompt !== undefined &&
+        additionalPostHistoryInstructions !== undefined && (
+          <GlobalPromptAdditionsCard
+            additionalSystemPrompt={additionalSystemPrompt}
+            additionalPostHistoryInstructions={additionalPostHistoryInstructions}
+            patch={patch}
+          />
+        )}
+    </div>
   );
 }

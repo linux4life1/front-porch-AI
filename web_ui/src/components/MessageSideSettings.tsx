@@ -39,21 +39,25 @@ export function MessageSideSettings() {
   };
 
   return (
-    <section className="card" data-testid="message-side-card">
-      <h3>My messages on the right</h3>
-      <p className="reading-blurb">
-        Off, your messages sit on the left, like the character&apos;s. On, they
-        move to the right, the way chat looked before.
-      </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={on}
-          onChange={(e) => commit(e.target.checked)}
-          aria-label="My messages on the right"
-        />
-        {' '}My messages on the right
-      </label>
+    <section className="card setting-toggle-card" data-testid="message-side-card">
+      <div className="setting-toggle-header">
+        <div className="setting-toggle-info">
+          <h3>My messages on the right</h3>
+          <p className="reading-blurb">
+            Off, your messages sit on the left, like the character&apos;s. On, they
+            move to the right, the way chat looked before.
+          </p>
+        </div>
+        <label className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={(e) => commit(e.target.checked)}
+            aria-label="My messages on the right"
+          />
+          <span className="toggle-slider" />
+        </label>
+      </div>
       {problem && <p className="error" role="alert">{problem}</p>}
     </section>
   );
