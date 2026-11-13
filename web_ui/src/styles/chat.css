@@ -280,8 +280,6 @@
 .model-switch-body .model-picker-menu {
   position: static; max-height: none; box-shadow: none;
 }
-.model-switch-provider { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
-.model-switch-provider select,
 .model-switch-body input {
   font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);

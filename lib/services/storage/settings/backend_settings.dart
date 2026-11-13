@@ -91,7 +91,16 @@ class BackendSettings
       bearerOverlay?.call(url) ?? _remoteApiKeys.keyFor(url);
 
   /// Normalized URLs that have a non-empty saved key (web placeholder).
-  List<String> get remoteApiUrlsWithKeys => _remoteApiKeys.urlsWithKeys;
+  /// A SuperGrok bearer counts as a key here, exactly as the desktop's
+  /// worker lane decides it through [remoteApiKeyFor]: a signed-in user
+  /// is never asked to paste an xAI key they already earned by signing in.
+  List<String> get remoteApiUrlsWithKeys {
+    final urls = _remoteApiKeys.urlsWithKeys.toSet();
+    if (bearerOverlay?.call(kXaiApiV1) != null) {
+      urls.add(normalizeRemoteApiUrl(kXaiApiV1));
+    }
+    return List<String>.unmodifiable(urls);
+  }
 
   /// Last model id stored for [url], independent of the live selection.
   String remoteApiModelFor(String url) =>

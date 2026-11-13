@@ -28,6 +28,7 @@ export function ModelPicker({
   onTotpRequired,
   value,
   onChange,
+  label,
 }: {
   apiUrl: string;
   /** The unsaved API key from the form (may be ''); when blank the server falls
@@ -41,6 +42,10 @@ export function ModelPicker({
   onTotpRequired?: () => void;
   value: string;
   onChange: (id: string) => void;
+  /** When set, renders the desktop field's head row: label left,
+   *  "Refresh Models" right, the picker bar below. Without it the bar
+   *  keeps its trailing icon button (callers that label it themselves). */
+  label?: string;
 }) {
   const [models, setModels] = useState<RemoteModel[]>([]);
   const [loading, setLoading] = useState(false);
@@ -115,6 +120,20 @@ export function ModelPicker({
 
   return (
     <div className="model-picker" ref={boxRef}>
+      {label && (
+        <div className="mp-head">
+          <span className="mp-head-label">{label}</span>
+          <button
+            type="button"
+            className="mp-refresh-btn"
+            onClick={() => void fetchModels()}
+            disabled={loading}
+            title="Refresh model list"
+          >
+            ⟳ Refresh Models
+          </button>
+        </div>
+      )}
       <div className="model-picker-bar">
         <button
           type="button"
@@ -126,16 +145,18 @@ export function ModelPicker({
           <span className={value ? 'mp-value' : 'mp-value muted'}>{value || 'Select a model…'}</span>
           <span className="mp-caret" aria-hidden>▾</span>
         </button>
-        <button
-          type="button"
-          className="ghost mp-refresh"
-          onClick={() => void fetchModels()}
-          disabled={loading}
-          title="Refresh model list"
-          aria-label="Refresh model list"
-        >
-          {loading ? '…' : '⟳'}
-        </button>
+        {!label && (
+          <button
+            type="button"
+            className="ghost mp-refresh"
+            onClick={() => void fetchModels()}
+            disabled={loading}
+            title="Refresh model list"
+            aria-label="Refresh model list"
+          >
+            {loading ? '…' : '⟳'}
+          </button>
+        )}
       </div>
 
       {open && (
