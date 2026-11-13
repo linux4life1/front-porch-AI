@@ -131,7 +131,7 @@ journey's `finally` deletes the group mid-refetch, so `getById` is already
 null and the route's 404 is correct — the strict monitor rightly flags it.
 
 Fix: `openRoute(page, '/')` before the teardown delete in the two journeys
-that end in the group editor (2339, 2563). Home has no stats card, so
+that end in the group editor (2339, 2568 as of this commit). Home has no stats card, so
 nothing polls the deleted group. e2e-only; no monitor seam, no backend
 semantics change.
 
