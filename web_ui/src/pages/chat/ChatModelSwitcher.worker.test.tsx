@@ -6,6 +6,9 @@
 // (xAI included), live-saves through POST /api/settings with worker keys
 // only, and holds credential-grade picks (a new helper URL) until the web
 // login password is entered — the gate settings_routes.dart enforces.
+// The save is one debounced scheduler: a keystroke burst posts once with
+// the final values (the login limiter must not see partial passwords), and
+// a pick landing while a save is in flight survives to save next.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -59,12 +62,20 @@ function snap(over: Partial<Snap> = {}): Snap {
   };
 }
 
+/** Beyond the lane's 350 ms save debounce. */
+async function settle(ms = 450) {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, ms));
+  });
+}
+
 async function flush() {
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 4; i++) {
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
   }
+  await settle();
 }
 
 async function renderSwitcher() {
@@ -88,26 +99,36 @@ function clickTestId(selector: string) {
   });
 }
 
-async function typePassword(value: string) {
+function pwInput(): HTMLInputElement | null {
   const label = [...container.querySelectorAll('label')].find((l) =>
     l.textContent?.includes('Web login password'),
   );
-  const pw = label?.querySelector('input[type="password"]') as HTMLInputElement;
-  expect(pw).toBeTruthy();
-  await act(async () => {
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-    setter.call(pw, value);
-    pw.dispatchEvent(new Event('input', { bubbles: true }));
-  });
-  await flush();
+  return (label?.querySelector('input[type="password"]') as HTMLInputElement) ?? null;
 }
 
-/** The worker keys of the last POST to /api/settings, or null. */
-function lastSettingsPost(): Record<string, unknown> | null {
-  const call = post.mock.calls
+async function typeInto(input: HTMLInputElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  await act(async () => {
+    setter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+async function typePassword(value: string) {
+  const pw = pwInput();
+  expect(pw).toBeTruthy();
+  await typeInto(pw!, value);
+  await settle();
+}
+
+function settingsBodies(): Record<string, unknown>[] {
+  return post.mock.calls
     .filter(([path]) => path === '/api/settings')
-    .pop();
-  return (call?.[1] as Record<string, unknown>) ?? null;
+    .map(([, body]) => body as Record<string, unknown>);
+}
+
+function lastSettingsPost(): Record<string, unknown> | null {
+  return settingsBodies().pop() ?? null;
 }
 
 beforeEach(() => {
@@ -133,6 +154,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  vi.useRealTimers();
   await act(async () => root.unmount());
   await flush();
   container.remove();
@@ -165,6 +187,7 @@ describe('ChatModelSwitcher worker lane', () => {
     );
     // Credential-grade (helper URL changed): nothing posted yet, step-up shown.
     expect(lastSettingsPost()).toBeNull();
+    expect(pwInput()).toBeTruthy();
     await typePassword('hunter2');
     const body = lastSettingsPost();
     expect(body).toMatchObject({
@@ -179,6 +202,89 @@ describe('ChatModelSwitcher worker lane', () => {
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
+  it('types the password key by key and posts once, with the whole password', async () => {
+    // The login limiter doubles on every failed password: a POST per
+    // keystroke would lock the account out mid-typing (review of PR 6).
+    vi.useFakeTimers();
+    const later = async (ms = 80) => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms);
+      });
+    };
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(ChatModelSwitcher)));
+    });
+    await later();
+    await act(async () => {
+      (container.querySelector('.model-switch-chip') as HTMLButtonElement).click();
+    });
+    await later();
+    clickTestId('[data-testid="side-jobs-different-host"]');
+    clickTestId('[data-testid="side-jobs-host"] [data-testid="provider-chip-nanogpt"]');
+    await later();
+    const pw = pwInput();
+    expect(pw).toBeTruthy();
+    for (const ch of 'hunter2') {
+      await typeInto(pw!, pw.value + ch);
+      await later(60); // each key restarts the debounce; none may post
+      expect(settingsBodies()).toHaveLength(0);
+    }
+    await later(600);
+    const bodies = settingsBodies();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({
+      workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
+      currentPassword: 'hunter2',
+    });
+  });
+
+  it('keeps a pick made during an in-flight save and saves it on a second confirm', async () => {
+    await renderSwitcher();
+    await openSheet();
+    clickTestId('[data-testid="side-jobs-different-host"]');
+    clickTestId('[data-testid="side-jobs-host"] [data-testid="provider-chip-nanogpt"]');
+    // Hold the first settings POST open, like a slow server.
+    let resolveFirst: ((v: unknown) => void) | undefined;
+    const base = post.getMockImplementation()!;
+    let hold = true;
+    post.mockImplementation((path: string, body?: unknown) => {
+      if (path === '/api/settings' && hold) {
+        hold = false;
+        return new Promise((res) => {
+          resolveFirst = res;
+        });
+      }
+      return base(path, body) as Promise<unknown>;
+    });
+    await typePassword('hunter2'); // the held POST is now in flight
+    expect(resolveFirst).toBeTruthy();
+    // Switch the helper host while that save is in flight.
+    clickTestId('[data-testid="side-jobs-host"] [data-testid="provider-chip-xai"]');
+    await act(async () => {
+      resolveFirst?.(
+        snap({
+          workerBackend: 'openRouter',
+          workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
+          workerRemoteModelName: 'glm-5',
+        }),
+      );
+    });
+    await settle();
+    // The xAI pick is credential-grade and the password was consumed by the
+    // first save: step-up asks again, and the pick survived the flight.
+    expect(pwInput()).toBeTruthy();
+    await typePassword('hunter3');
+    const xaiPost = settingsBodies().find(
+      (b) => b.workerRemoteApiUrl === 'https://api.x.ai/v1',
+    );
+    // Only the delta needs re-sending: workerBackend was persisted by the
+    // first save, so the second POST carries the URL change and password.
+    expect(xaiPost).toMatchObject({
+      workerRemoteApiUrl: 'https://api.x.ai/v1',
+      currentPassword: 'hunter3',
+    });
+  });
+
   it('saves Same as chat without a password', async () => {
     get.mockResolvedValue(
       snap({
@@ -190,6 +296,7 @@ describe('ChatModelSwitcher worker lane', () => {
     await renderSwitcher();
     await openSheet();
     clickTestId('[data-testid="side-jobs-same-as-chat"]');
+    await settle();
     expect(lastSettingsPost()).toMatchObject({ workerBackend: '' });
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
   });

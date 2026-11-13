@@ -123,30 +123,30 @@ export function ChatWorkerLane({
   }
 
   function patch(p: Partial<WorkerBackendFields>) {
-    const nextDraft = { ...draft, ...p };
-    setDraft(nextDraft);
-    const body = bodyFor(nextDraft, workerApiKey);
-    if (Object.keys(body).length === 0) return;
-    if (needsCredential(body, s) && !password.trim()) {
-      setNeedsStepUp(true);
-      return;
-    }
-    if (needsCredential(body, s)) attachStepUp(body, password, totpEnabled, totpCode);
-    void post(body);
+    setDraft((d) => ({ ...d, ...p }));
   }
 
-  // The password arrived (or was corrected): flush what the card held.
+  // One debounced scheduler is the only save path. Typing (password, custom
+  // URL, API key) restarts the timer, so a burst of keystrokes produces one
+  // POST with the final values — never a POST per keystroke, which would run
+  // the login limiter down on partial passwords (auth_service's lockout).
+  // When an in-flight save settles, this effect re-runs and a pick that
+  // landed mid-flight posts next instead of dying with the sheet.
   useEffect(() => {
-    if (!needsStepUp || !password.trim()) return;
+    if (saving) return;
     const body = bodyFor(draft, workerApiKey);
-    if (Object.keys(body).length === 0) {
-      setNeedsStepUp(false);
-      return;
+    if (Object.keys(body).length === 0) return;
+    if (needsCredential(body, s)) {
+      if (!password.trim()) {
+        setNeedsStepUp(true);
+        return;
+      }
+      attachStepUp(body, password, totpEnabled, totpCode);
     }
-    attachStepUp(body, password, totpEnabled, totpCode);
-    void post(body);
+    const t = setTimeout(() => void post(body), 350);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [password]);
+  }, [draft, workerApiKey, password, saving, s]);
 
   return (
     <>
@@ -154,12 +154,7 @@ export function ChatWorkerLane({
         compact
         s={view}
         workerApiKey={workerApiKey}
-        onWorkerApiKey={(v) => {
-          setWorkerApiKey(v);
-          // A typed key is credential-grade: ask for the login up front,
-          // the same moment Settings would.
-          if (v.trim()) setNeedsStepUp(true);
-        }}
+        onWorkerApiKey={setWorkerApiKey}
         onPatch={patch}
         savedRemoteApiUrl={s.remoteApiUrl ?? ''}
         chatApiKey=""
