@@ -261,7 +261,7 @@ class PromptBlocks {
     final groupCharPrompt = _members
         .getSystemPromptForGroupCharacter(speaker)
         .trim();
-    // The group's own Personality, Example Dialogue and Post-History ride
+    // The group's own Personality and Post-History ride
     // where the speaker's card ones do (schema v66, group-editor.md): the
     // group's first, then the speaker's.
     final group = _activeGroup;
@@ -269,7 +269,6 @@ class PromptBlocks {
       (group?.personality ?? '').trim(),
       'personality',
     );
-    final groupExamples = resolve(group?.mesExample ?? '', 'mesExample');
     final groupPostHistory = resolve(
       group?.postHistoryInstructions ?? '',
       'postHistory',
@@ -289,10 +288,7 @@ class PromptBlocks {
       ),
       examplesBlock: buildSpeakerExamplesBlock(
         name: speaker.name,
-        examples: joined(
-          groupExamples,
-          resolve(speaker.mesExample, 'mesExample'),
-        ),
+        examples: resolve(speaker.mesExample, 'mesExample'),
       ),
       instructionsBlock: buildSpeakerInstructionsBlock(
         name: speaker.name,

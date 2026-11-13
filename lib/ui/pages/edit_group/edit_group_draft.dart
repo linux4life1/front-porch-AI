@@ -38,7 +38,6 @@ class EditGroupDraft {
       systemPrompt = TextEditingController(text: g.systemPrompt),
       postHistory = TextEditingController(text: g.postHistoryInstructions),
       firstMessage = TextEditingController(text: g.firstMessage),
-      mesExample = TextEditingController(text: g.mesExample),
       tagController = TextEditingController(),
       tags = List.of(g.tags),
       altGreetings = List.of(g.alternateGreetings),
@@ -77,7 +76,6 @@ class EditGroupDraft {
   final TextEditingController systemPrompt;
   final TextEditingController postHistory;
   final TextEditingController firstMessage;
-  final TextEditingController mesExample;
   final TextEditingController tagController;
   final List<String> tags;
   List<String> altGreetings;
@@ -167,7 +165,6 @@ class EditGroupDraft {
     systemPrompt.text.trim(),
     postHistory.text.trim(),
     firstMessage.text.trim(),
-    mesExample.text.trim(),
     tags,
     altGreetings,
     [for (final s in altGreetingSeeds) s?.toJson()],
@@ -244,7 +241,7 @@ class EditGroupDraft {
       chaosNsfwEnabled: stored.chaosNsfwEnabled,
       personality: personality.text.trim(),
       postHistoryInstructions: postHistory.text.trim(),
-      mesExample: mesExample.text.trim(),
+      mesExample: stored.mesExample,
       tags: List.of(tags),
       storyStartDate: storyStartDate,
       storyStartTime: storyStartTime,
@@ -263,7 +260,6 @@ class EditGroupDraft {
       systemPrompt,
       postHistory,
       firstMessage,
-      mesExample,
       tagController,
       ...prompts.values,
       ...notes.values,

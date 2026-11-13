@@ -23,9 +23,9 @@ import 'package:front_porch_ai/ui/pages/edit_group/edit_group_draft.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart';
 
-/// Dialogue tab of the group editor: the 1:1 editor's three cards over the
-/// group: First Message, Alternate Greetings (each with its opening seed)
-/// and Example Dialogue.
+/// Dialogue tab of the group editor: First Message and Alternate Greetings
+/// (each with its opening seed). No Example Dialogue: one text cannot voice
+/// two characters, so each member's examples live in their own card.
 class EditGroupDialogueTab extends StatelessWidget {
   const EditGroupDialogueTab({
     super.key,
@@ -86,13 +86,15 @@ class EditGroupDialogueTab extends StatelessWidget {
                 title: 'Example Dialogue',
                 color: AppColors.porchTerracottaOf(context),
                 children: [
-                  kit.styledField(
-                    controller: draft.mesExample,
-                    label: 'Example Conversations',
-                    maxLines: 6,
-                    expandable: true,
-                    hint:
-                        '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+                  Text(
+                    'Example dialogue is set per character, not per group. '
+                    'Open each member on the Details tab ("Edit Ana\'s '
+                    'card") to write how that character talks.',
+                    key: const ValueKey('group-example-dialogue-note'),
+                    style: TextStyle(
+                      color: AppColors.textSecondary(context),
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),

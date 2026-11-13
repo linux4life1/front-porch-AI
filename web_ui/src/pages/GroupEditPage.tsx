@@ -72,7 +72,6 @@ const TEXT: { key: keyof GroupDetail; label: string; rows: number }[] = [
   { key: 'systemPrompt', label: 'System Prompt', rows: 3 },
   { key: 'postHistoryInstructions', label: 'Post-History Instructions', rows: 3 },
   { key: 'firstMessage', label: 'Opening Message', rows: 4 },
-  { key: 'mesExample', label: 'Example Conversations', rows: 4 },
 ];
 
 export function GroupEditPage() {
@@ -516,7 +515,10 @@ export function GroupEditPage() {
             onSeedsChange={setSeeds}
           />
           <h3 className="section-label">Example Dialogue</h3>
-          {field('mesExample')}
+          <p className="card muted small" data-testid="group-example-dialogue-note">
+            Example dialogue is set per character, not per group. Open each member on the Details tab (&quot;Edit
+            Ana&apos;s card&quot;) to write how that character talks.
+          </p>
         </>
       )}
 

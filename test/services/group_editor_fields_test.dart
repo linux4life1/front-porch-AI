@@ -96,8 +96,8 @@ void main() {
     expect(back.realismVerificationStrictness, 3);
   });
 
-  test("the group's Personality, Example Dialogue and Post-History reach "
-      "each speaker's prompt", () async {
+  test("the group's Personality and Post-History reach "
+      "each speaker's prompt, its old Example Dialogue does not", () async {
     final h = await GroupMemoryHarness.open();
     addTearDown(h.close);
     await h.chat.setActiveGroup(
@@ -107,7 +107,7 @@ void main() {
     await h.say('Ada', 'Ada, what do you think?');
     final body = h.backend.lastChatBody;
     expect(body, contains('GROUPPERSONALITYMARK'));
-    expect(body, contains('GROUPEXAMPLEMARK'));
+    expect(body, isNot(contains('GROUPEXAMPLEMARK')));
     expect(body, contains('GROUPPOSTHISTORYMARK'));
   }, timeout: const Timeout(Duration(minutes: 3)));
 }

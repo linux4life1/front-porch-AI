@@ -149,8 +149,12 @@ this page. Same four tabs, same order, same icons as the 1:1 editor:
 
 ### Dialogue tab
 
-The 1:1 Dialogue tab: First Message, Alternate Greetings (with today's
-greeting seeds), Example Dialogue (new group field).
+The 1:1 Dialogue tab minus Example Dialogue: First Message, Alternate
+Greetings (with today's greeting seeds). A group has no Example Dialogue: one
+text would be handed to every speaker as their own voice, and cannot be an
+exchange between two characters. Each member's examples live in their card
+(Edit Ana's card). The stored `mes_example` column and Group Card field stay
+for old data and are no longer read into prompts.
 
 ### Lorebook tab
 
