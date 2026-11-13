@@ -224,13 +224,11 @@ The desktop Model Settings dialog embeds the whole Realism-evals
 and saves it); the GGUF control stays the served `localModels` dropdown —
 no file browser on web. Ledger #1.
 
-### PR 7 — Group-only settings in one place
+### PR 7 — Settings page rebuild + drift closure (priority 1: the settings page)
 
-Group-scoped Realism defaults currently sit in the group editor's Details
-tab mixed with identity fields; gather them the way 1:1 scatters none —
-per the ruling thread in group-editor.md (A2/A7). Sketch before building.
-
-### PR 8 — Settings page rebuild + drift closure (priority 1: the settings page)
+Bumped from PR 8 on 2026-11-13. The earlier PR 7 (gather the group-only
+Realism settings) was done by PR 5, the Edit group page
+([group-editor.md](group-editor.md)), and was retired with nothing left.
 
 The web Settings is folded into six flat sections and never got the
 desktop's Appearance tab: no theme gallery, accent, UI font or corners.
@@ -247,10 +245,44 @@ Priority order inside the PR, maintainer-ruled 2026-11-12:
    avatars and shape (ledger #4).
 4. Verify-and-close the suspects (ledger #15).
 
+Four chunks, one draft PR each (the PR 1a/1b precedent). Verified
+inventories with file:line evidence, the prep checklist and the open
+rulings live in [settings-rebuild-scope.md](settings-rebuild-scope.md):
+
+- **7a — structure.** Web Settings becomes seven sections in desktop tab
+  order; Appearance folds out of general (the chat-appearance group
+  moves with it). Layout only, no new controls. The parity manifest's
+  section list is rebuilt in the same PR. Prep lands first: the four
+  open settings-redesign PRs (#716–#719) get disposed of, and
+  `dev-notes/web-parity.md`'s "Theme … No-go" row is reversed by
+  maintainer ruling (scope doc §3–§4).
+- **7b — host theme controls.** Theme gallery (the eight `AppThemeId`
+  themes), accent picker, UI font, corners, and "Reset accent, font and
+  corners". Host work: `themeId`/`accent`/`uiFont`/`corners` through the
+  settings snapshot, writer and the `settings_changed` relay — none of
+  those keys are in the web API today. The web paints the host-resolved
+  token maps, never its own theme math. Changes are host-wide: a browser
+  tab changes the desktop (that is the poke script).
+- **7c — Voice & Media.** Expression controls (classification, display
+  mode, re-roll, emoji burst + size, fallback, ONNX download), Whisper
+  model choice + download with progress, auto-send transcription, the
+  photo-understanding card, the image-gen toggle. The voice facade
+  writes only `ttsEnabled`/`sttEnabled` today; new keys and download
+  progress are the cost. Mic device list is `⚙️` desktop-only unless the
+  maintainer rules otherwise (scope doc §5). Voice-call settings stay
+  desktop (ruling 9).
+- **7d — small fills + suspects.** `/afk` and `/image` into the web
+  slash sheet — preferred: serve the catalog from `/api` so it cannot
+  drift again. Home folder tiles become portrait tiles with the 2×2
+  member montage (`/api/folders` must gain preview members; it ships
+  counts only). Then verify-and-close ledger #15: each suspect lands as
+  a fix or a pinned ◑/❌ row in `dev-notes/web-parity.md`.
+
 Not this PR: Waifu Coder (ruled desktop-only, permanent), per-character
 Chaos (PR 5b), helper model (PR 6), the web voice call and Stoop upload
-wizard (ledger #10, #11 — next SOW's candidates), local `.gguf`/`.kcpps`
-pickers (⏳ by design).
+wizard (ledger #10, #11 — next SOW's candidates), the creator Realism
+step (ledger #12, same next SOW), local `.gguf`/`.kcpps` pickers (⏳ by
+design).
 
 ### Later, not yet sketched for approval
 
@@ -272,6 +304,13 @@ pickers (⏳ by design).
   them about what happened while they were gone; they should not know.
 - PR 5: Main Settings → Group Settings…; every old tab's item is there, and
   changing a default does not change the chat you are in.
-- PR 8: open Settings in the browser and the app side by side; every app
-  tab is a web section with the same controls, and changing theme or accent
-  on the web changes the desktop too.
+- PR 7: open Settings in the browser and the app side by side; every app
+  tab is a web section with the same controls, and changing theme or
+  accent on the web changes the desktop too (and every other open
+  session follows within a second).
+- PR 7 (Voice chunk): set the expression classification mode and burst
+  size in the browser; the app's Voice & Media tab shows the same
+  values.
+- PR 7 (fills chunk): type `/` in the web composer and compare with the
+  app's list — same commands, `/afk` and `/image` included; and a home
+  folder tile shows member faces like the app's montage tile.

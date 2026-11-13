@@ -1,8 +1,11 @@
 # Dart ⇄ PWA drift ledger (PR 726 audit, started 2026-11-11)
 
 **Status: TABLED 2026-11-12.** Both UI inventories are complete; no further
-sweep needed. Closure happens in **PR 8 of `docs/design/one-chat-ux.md`**,
-settings page (ledger #5) first, then the ranked list below.
+sweep needed. Closure happens in **PR 7 of `docs/design/one-chat-ux.md`**
+(the Settings page rebuild — bumped from PR 8 on 2026-11-13 when the
+dropped group-only-settings PR was retired; scope split in
+`docs/design/settings-rebuild-scope.md`), settings page (ledger #5) first,
+then the ranked list below.
 
 Maintainer-confirmed items get a ✅ in *Found by*; code evidence is verified in
 this worktree's `web_ui/src` and `lib/`. Full inventories from the two audit
