@@ -46,6 +46,7 @@ vi.mock('../../api/client', () => ({
 }));
 
 const { ChatModelSwitcher } = await import('./ChatModelSwitcher');
+const { ApiError } = await import('../../api/client');
 
 let container: HTMLDivElement;
 let root: Root;
@@ -282,6 +283,67 @@ describe('ChatModelSwitcher worker lane', () => {
     expect(xaiPost).toMatchObject({
       workerRemoteApiUrl: 'https://api.x.ai/v1',
       currentPassword: 'hunter3',
+    });
+  });
+
+  it('a failed save stops: the same payload never re-sends itself unasked', async () => {
+    // The login limiter counts every failed step-up; a retry loop over the
+    // same wrong password would lock the account out in seconds.
+    post.mockImplementation(async (path: string, body?: unknown) => {
+      if (path === '/api/backend/remote-models') {
+        return { models: [{ id: 'glm-5', name: 'GLM 5', pricing: '', free: true }] };
+      }
+      throw new ApiError(401, 'Current password is incorrect');
+    });
+    await renderSwitcher();
+    await openSheet();
+    clickTestId('[data-testid="side-jobs-different-host"]');
+    clickTestId('[data-testid="side-jobs-host"] [data-testid="provider-chip-nanogpt"]');
+    await typePassword('wrong1');
+    // Well past the debounce: a retry loop would have fired several by now.
+    await settle(900);
+    const bodies = settingsBodies();
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0]).toMatchObject({ currentPassword: 'wrong1' });
+    expect(container.textContent).toContain('Current password is incorrect');
+    expect(container.textContent).toContain('Retry');
+    // An edit moves it again: the corrected password posts once more.
+    await typeInto(pwInput()!, 'right1');
+    await settle();
+    const after = settingsBodies();
+    expect(after).toHaveLength(2);
+    expect(after[1]).toMatchObject({ currentPassword: 'right1' });
+  });
+
+  it('a two-factor challenge takes the typed code and posts it with the login', async () => {
+    let first = true;
+    post.mockImplementation(async (path: string, body?: unknown) => {
+      if (path === '/api/backend/remote-models') {
+        return { models: [{ id: 'glm-5', name: 'GLM 5', pricing: '', free: true }] };
+      }
+      if (path === '/api/settings' && first) {
+        first = false;
+        throw new ApiError(401, 'Two-factor code required', { totpRequired: true });
+      }
+      return snap({ ...(body as Partial<Snap>) });
+    });
+    await renderSwitcher();
+    await openSheet();
+    clickTestId('[data-testid="side-jobs-different-host"]');
+    clickTestId('[data-testid="side-jobs-host"] [data-testid="provider-chip-nanogpt"]');
+    await typePassword('hunter2');
+    // The 401 asks for the code; typing it must arm a send (it is part of
+    // the payload the scheduler compares against the failed one).
+    const totp = container.querySelector('input[inputmode="numeric"]') as HTMLInputElement;
+    expect(totp).toBeTruthy();
+    await typeInto(totp, '123456');
+    await settle();
+    const bodies = settingsBodies();
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toMatchObject({
+      workerRemoteApiUrl: 'https://nano-gpt.com/api/v1',
+      currentPassword: 'hunter2',
+      totpCode: '123456',
     });
   });
 

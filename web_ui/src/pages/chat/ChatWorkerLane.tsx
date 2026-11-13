@@ -74,6 +74,12 @@ export function ChatWorkerLane({
   const [needsStepUp, setNeedsStepUp] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // The exact payload a save failed with. The scheduler refuses to re-send
+  // it on its own: every failed step-up counts against the login limiter's
+  // small free allowance, so a wrong password must not become a retry loop.
+  // A changed payload (new pick, edited password, typed TOTP code) posts
+  // again; so does the Retry button, which clears this.
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -86,7 +92,7 @@ export function ChatWorkerLane({
   // The card is fully controlled: server truth with the unsaved draft on top.
   const view: WorkerBackendFields = { ...s, ...draft };
 
-  async function post(body: Record<string, unknown>) {
+  async function post(body: Record<string, unknown>, key: string) {
     if (saving) return;
     setSaving(true);
     setError('');
@@ -98,9 +104,9 @@ export function ChatWorkerLane({
       // flight stays in the draft and saves next.
       setDraft((d) => {
         const rest: Partial<WorkerBackendFields> = { ...d };
-        for (const key of WORKER_KEYS) {
-          if (key in body && String(rest[key] ?? '') === String(body[key] ?? '')) {
-            delete rest[key];
+        for (const key2 of WORKER_KEYS) {
+          if (key2 in body && String(rest[key2] ?? '') === String(body[key2] ?? '')) {
+            delete rest[key2];
           }
         }
         return rest;
@@ -109,8 +115,10 @@ export function ChatWorkerLane({
       setPassword('');
       setTotpCode('');
       setNeedsStepUp(false);
+      setFailedKey(null);
     } catch (e) {
       if (!alive.current) return;
+      setFailedKey(key);
       if (e instanceof ApiError && e.payload.totpRequired === true) {
         setTotpEnabled(true);
         setError('Enter your two-factor code to save the helper model.');
@@ -131,7 +139,9 @@ export function ChatWorkerLane({
   // POST with the final values — never a POST per keystroke, which would run
   // the login limiter down on partial passwords (auth_service's lockout).
   // When an in-flight save settles, this effect re-runs and a pick that
-  // landed mid-flight posts next instead of dying with the sheet.
+  // landed mid-flight posts next instead of dying with the sheet. A payload
+  // that already failed never re-sends itself: only an edit (pick, password,
+  // TOTP code) or the Retry button moves it again.
   useEffect(() => {
     if (saving) return;
     const body = bodyFor(draft, workerApiKey);
@@ -143,10 +153,12 @@ export function ChatWorkerLane({
       }
       attachStepUp(body, password, totpEnabled, totpCode);
     }
-    const t = setTimeout(() => void post(body), 350);
+    const key = JSON.stringify(body);
+    if (key === failedKey) return;
+    const t = setTimeout(() => void post(body, key), 350);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, workerApiKey, password, saving, s]);
+  }, [draft, workerApiKey, password, totpCode, saving, failedKey, s]);
 
   return (
     <>
@@ -176,7 +188,14 @@ export function ChatWorkerLane({
       {saving && <p className="muted small">Saving…</p>}
       {error && (
         <p className="error" role="alert">
-          {error}
+          {error}{' '}
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => setFailedKey(null)}
+          >
+            Retry
+          </button>
         </p>
       )}
     </>
