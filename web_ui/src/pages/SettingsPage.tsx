@@ -9,7 +9,12 @@ import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
 import { BubbleOpacitySettings } from '../components/BubbleOpacitySettings';
 import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
-import { AppearanceSettings } from '../components/AppearanceSettings';
+import { ThemeModeSettings } from '../components/ThemeModeSettings';
+import { BackgroundWeatherSettings } from '../components/BackgroundWeatherSettings';
+import { MoodOnCharacterSettings } from '../components/MoodOnCharacterSettings';
+import { SpellCheckSettings } from '../components/SpellCheckSettings';
+import { AdultThemesCard } from '../components/AdultThemesCard';
+import { PorchLifePointerCard } from '../components/PorchLifePointerCard';
 import { MessageSideSettings } from '../components/MessageSideSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { PromptSettingsCard } from '../components/PromptSettingsCard';
@@ -410,14 +415,20 @@ export function SettingsPage() {
       <div className="settings-section" data-section="general">
         <h3 className="settings-section-heading">General</h3>
 
-        <div className="settings-group" data-testid="chat-appearance-group">
-          <h4 className="settings-group-heading">Chat appearance</h4>
-          <MessageSideSettings />
-          <FollowStreamingSettings />
-          <AppearanceSettings />
-          <ReadingSizeSettings />
-          <BubbleOpacitySettings />
-          <ChatColorsSettings />
+        <MessageSideSettings />
+        <FollowStreamingSettings />
+        {/* Auto-check for Updates sits here on the desktop; its host keys
+            are not on /api/settings yet — PR 7b adds them. */}
+        <SpellCheckSettings
+          spellCheckLanguage={s.spellCheckLanguage}
+          spellCheckLanguages={s.spellCheckLanguages}
+          onChange={(tag) => patch({ spellCheckLanguage: tag })}
+        />
+
+        <div className="settings-group" data-testid="porch-life-group">
+          <h4 className="settings-group-heading">Porch Life</h4>
+          <AdultThemesCard />
+          <PorchLifePointerCard />
         </div>
 
         <PromptSettingsCard
@@ -433,6 +444,57 @@ export function SettingsPage() {
           patch={(p) => patch(p as Partial<Settings>)}
         />
 
+        <section className="card" data-testid="about-license-card">
+          <h2>About &amp; License</h2>
+          <p className="muted small" style={{ lineHeight: 1.5 }}>
+            Front Porch AI is free, open-source software © 2026 Front Porch AI,
+            licensed under the GNU Affero General Public License v3.0. You are
+            free to use, study, modify, and redistribute it under the AGPL. The
+            complete source code is available below; if you received this app
+            without that source, or as part of a closed-source product, that is a
+            license violation.
+          </p>
+          <div className="about-links">
+            <a
+              className="btn-link"
+              href="https://github.com/linux4life1/front-porch-ai"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Source code
+            </a>
+            <a
+              className="btn-link"
+              href="https://github.com/linux4life1/front-porch-ai/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Report a license violation
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <div className="settings-section" data-section="appearance">
+        <h3 className="settings-section-heading">Appearance</h3>
+
+        {/* Desktop order: Theme (mode now; gallery, accent, UI font,
+            corners and the reset arrive with PR 7b), then the weather's
+            own section, then chat appearance. */}
+        <div className="settings-group" data-testid="theme-group">
+          <h4 className="settings-group-heading">Theme</h4>
+          <ThemeModeSettings />
+        </div>
+
+        <BackgroundWeatherSettings />
+
+        <div className="settings-group" data-testid="chat-appearance-group">
+          <h4 className="settings-group-heading">Chat appearance</h4>
+          <ReadingSizeSettings />
+          <MoodOnCharacterSettings />
+          <BubbleOpacitySettings />
+          <ChatColorsSettings />
+        </div>
       </div>
 
       <div className="settings-section" data-section="porch-life">
@@ -458,8 +520,6 @@ export function SettingsPage() {
           contextLocked={presetOwnsContext(s.backend, s.activeKcppsPath)}
           generation={s.generation}
           bannedPhrases={s.bannedPhrases}
-          spellCheckLanguage={s.spellCheckLanguage}
-          spellCheckLanguages={s.spellCheckLanguages}
           reasoningEnabled={s.reasoningEnabled}
           reasoningEffort={s.reasoningEffort}
           reasoningMandatory={s.reasoningMandatory}
@@ -708,36 +768,6 @@ export function SettingsPage() {
         >
           {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}
         </button>
-
-        <section className="card" data-testid="about-license-card">
-          <h2>About &amp; License</h2>
-          <p className="muted small" style={{ lineHeight: 1.5 }}>
-            Front Porch AI is free, open-source software © 2026 Front Porch AI,
-            licensed under the GNU Affero General Public License v3.0. You are
-            free to use, study, modify, and redistribute it under the AGPL. The
-            complete source code is available below; if you received this app
-            without that source, or as part of a closed-source product, that is a
-            license violation.
-          </p>
-          <div className="about-links">
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Source code
-            </a>
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report a license violation
-            </a>
-          </div>
-        </section>
       </div>
     </div>
   );

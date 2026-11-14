@@ -173,6 +173,11 @@
 }
 .settings-group { margin-bottom: 16px; }
 .settings-group-heading { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+/* Settings → General: the Porch Life pointer card (desktop twin is an
+   amber cottage icon beside one muted line). */
+.porch-life-pointer { display: flex; align-items: flex-start; gap: 10px; }
+.porch-life-pointer-icon { font-size: 1rem; line-height: 1.4; }
+.porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); }
 
 /* Settings prompt slots (PromptSlot.tsx). */
 .prompt-slot { display: flex; flex-direction: column; gap: 8px; }

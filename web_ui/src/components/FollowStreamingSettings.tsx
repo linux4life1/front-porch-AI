@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Web mirror of Settings → General → Follow streaming replies.
-// Desktop sits this immediately above Dark mode, and so does the web
-// (AppearanceSettings).
+// Web mirror of Settings → General → Follow streaming replies. The desktop
+// puts it second in General, under My messages on the right, above the
+// update row (lib/ui/settings/tabs/general_tab.dart:45-102); the web
+// matches that order (one-chat-ux PR 7a).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';

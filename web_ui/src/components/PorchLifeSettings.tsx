@@ -440,20 +440,11 @@ export function PorchLifeSettings() {
         Everything that makes a character feel like they live somewhere. Each switch says plainly what it needs — many need nothing at all.
       </p>
 
-      {/* 18+ master switch — always visible (desktop Settings → General).
-          After Dark is hidden when this is off, so the switch cannot live
-          inside that group or there is no way back on (audit P2.14). */}
-      <FeatureGroup title="Content" subtitle="what surfaces are allowed to appear">
-        <FeatureRow
-          icon="🔞"
-          label="18+ themes"
-          need="alone"
-          blurb="Shows the adult features — the After Dark group below, and intimate preferences in the character editor. Off means they are simply not there. Turning this off never erases what you already set; it only hides the switches."
-          value={adultOn}
-          onChange={(v) => set('adultThemesEnabled', v)}
-        />
-      </FeatureGroup>
-
+      {/* The 18+ master switch moved to General (desktop parity, PR 7a):
+          After Dark is hidden when it is off, so it cannot live inside
+          that group or there is no way back on (audit P2.14). The state
+          stays here; AdultThemesCard writes it and `settings_changed`
+          keeps this card's gating in step. */}
       <FeatureGroup title="The Engine" subtitle="feelings about what you do">
         <FeatureRow
           icon="🎭"

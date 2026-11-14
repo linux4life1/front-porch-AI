@@ -9,7 +9,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppearanceSettings } from './AppearanceSettings';
+import { ThemeModeSettings } from './ThemeModeSettings';
 import { receiveThemeWire } from '../theme/appTheme';
 
 let host: HTMLDivElement;
@@ -32,7 +32,7 @@ it('unlocks Dark mode once the desktop speaks, even with storage refused', () =>
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
     throw new Error('QuotaExceededError');
   });
-  act(() => root.render(createElement(AppearanceSettings)));
+  act(() => root.render(createElement(ThemeModeSettings)));
   const dark = host.querySelector<HTMLInputElement>('input[aria-label="Dark mode"]')!;
   expect(dark.disabled).toBe(true);
 

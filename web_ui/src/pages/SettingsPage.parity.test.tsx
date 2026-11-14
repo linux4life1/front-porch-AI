@@ -3,8 +3,8 @@
 //
 // SETTINGS PARITY — WEB SIDE. docs/design/settings-parity-manifest.json maps
 // every Settings control to its home on each surface. This guard proves the
-// web half: SettingsPage renders the six desktop-tab sections in order, and
-// each control sits in its pinned section (the chat-appearance controls also
+// web half: SettingsPage renders the seven desktop-tab sections in order,
+// and each control sits in its pinned section (the grouped controls also
 // inside their group). The desktop half is guarded by
 // test/hygiene/settings_parity_manifest_test.dart. Move a card in the page
 // without the manifest, and this fails.
@@ -42,13 +42,37 @@ vi.mock('../components/ChatColorsSettings', async () => {
   const { createElement: h } = await import('react');
   return { ChatColorsSettings: () => h('div', { 'data-testid': 'chat-colors-card' }, 'Chat colors') };
 });
+vi.mock('../components/ThemeModeSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { ThemeModeSettings: () => h('div', { 'data-testid': 'theme-mode-card' }, 'Dark mode') };
+});
+vi.mock('../components/BackgroundWeatherSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    BackgroundWeatherSettings: () =>
+      h('div', { 'data-testid': 'background-weather' },
+        'Ambient scene · Pause effects while generating · Scene sound · Scene sound volume'),
+  };
+});
+vi.mock('../components/MoodOnCharacterSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { MoodOnCharacterSettings: () => h('div', { 'data-testid': 'mood-on-character' }, 'Mood on the character · Drama') };
+});
+vi.mock('../components/SpellCheckSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { SpellCheckSettings: () => h('div', { 'data-testid': 'spell-check-card' }, 'Spell check language') };
+});
+vi.mock('../components/AdultThemesCard', async () => {
+  const { createElement: h } = await import('react');
+  return { AdultThemesCard: () => h('div', { 'data-testid': 'adult-themes-card' }, '18+ themes') };
+});
 vi.mock('../components/PorchLifeSettings', async () => {
   const { createElement: h } = await import('react');
   return { PorchLifeSettings: () => h('div', { 'data-testid': 'porch-life-card' }, 'Porch Life') };
 });
 vi.mock('../components/GenerationSettingsFields', async () => {
   const { createElement: h } = await import('react');
-  return { GenerationSettingsFields: () => h('div', { 'data-testid': 'generation-fields' }, 'Temperature · Spell check language') };
+  return { GenerationSettingsFields: () => h('div', { 'data-testid': 'generation-fields' }, 'Temperature') };
 });
 vi.mock('../components/ModelTransportCard', async () => {
   const { createElement: h } = await import('react');
@@ -136,7 +160,7 @@ afterEach(() => {
 });
 
 describe('Settings sections mirror the desktop tabs', () => {
-  it('renders the six sections in the manifest order', async () => {
+  it('renders the seven sections in the manifest order', async () => {
     await open();
     const rendered = [...container.querySelectorAll('[data-section]')].map((el) =>
       el.getAttribute('data-section'),
@@ -160,18 +184,38 @@ describe('Settings sections mirror the desktop tabs', () => {
     }
   });
 
-  it('keeps the chat-appearance controls inside their group in General', async () => {
+  it('keeps the chat-appearance controls inside their group in Appearance', async () => {
     await open();
     const group = container.querySelector(
-      '[data-section="general"] [data-testid="chat-appearance-group"]',
+      '[data-section="appearance"] [data-testid="chat-appearance-group"]',
     );
     expect(group).not.toBeNull();
-    for (const key of ['userMessagesOnRight', 'followStreamingReplies', 'readingSize', 'chatColors']) {
+    for (const key of ['readingSize', 'moodOnCharacter', 'bubbleOpacity', 'chatColors']) {
       expect(
         textOf(group).includes(manifest.controls[key].webMarker),
         `${key} left the chat-appearance group`,
       ).toBe(true);
     }
+  });
+
+  it('keeps the bubble-less chat rows in General, as the desktop does', async () => {
+    await open();
+    const general = textOf(section('general'));
+    expect(general).toContain(manifest.controls.userMessagesOnRight.webMarker);
+    expect(general).toContain(manifest.controls.followStreamingReplies.webMarker);
+    expect(general).toContain(manifest.controls.spellCheckLanguage.webMarker);
+    const appearance = textOf(section('appearance'));
+    expect(appearance).not.toContain(manifest.controls.userMessagesOnRight.webMarker);
+  });
+
+  it('keeps the 18+ themes switch in the General Porch Life group', async () => {
+    await open();
+    const group = container.querySelector(
+      '[data-section="general"] [data-testid="porch-life-group"]',
+    );
+    expect(group).not.toBeNull();
+    expect(textOf(group)).toContain('18+ themes');
+    expect(textOf(group)).toContain('live in the Porch Life section now');
   });
 
   it('moves the prompt family out of Generation into General, flat', async () => {
