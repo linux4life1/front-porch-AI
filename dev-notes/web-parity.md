@@ -122,7 +122,7 @@ recomputed in the web layer).
 | Backend / model selection, samplers, generation params | ✅ | |
 | Account: username + Argon2id password + TOTP 2FA | ✅ | First-run setup, recovery codes. |
 | Sessions: per-device, "log out everywhere" | ✅ | |
-| Remote access: Tailscale / ngrok guided setup | ✅ | |
+| Remote access: Tailscale / ngrok guided setup | ❌ | Desktop-only (maintainer ruling, 2026-11-13, PR 7a): a browser session exists only because a tunnel is already up, so managing tunnels in it is circular. The web's Advanced settings tab and `/remote` route are gone; setup lives in the desktop's Advanced tab. |
 | PWA install (Add to Home Screen) | ✅ | `InstallHint`: `beforeinstallprompt` button + iOS manual steps; auto-hides once installed. |
 | Theme — dark mode, per-device follow | ✅ | Dark mode is the host's: changing it in the browser changes the desktop and every open session follows (host-wide ruling, 2026-11-13). |
 | Theme gallery, accent, UI font, corners | ⏳ | Arriving with PR 7b; host-wide like dark mode. |
