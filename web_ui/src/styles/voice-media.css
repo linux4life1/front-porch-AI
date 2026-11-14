@@ -76,7 +76,12 @@
   background: var(--surface-2);
 }
 .vm-progress span { display: block; height: 100%; background: var(--bond-up); transition: width 0.3s; }
-.vm-danger { color: var(--danger); display: inline-flex; align-items: center; gap: 6px; }
+/* The desktop's TextButtons: no outline, just the label. */
+button.ghost.vm-text-btn {
+  background: none; border-color: transparent;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.vm-danger { color: var(--danger); }
 @media (max-width: 768px) {
   .vm-card-head { align-items: flex-start; }
   .vm-card-control { padding-top: 2px; }

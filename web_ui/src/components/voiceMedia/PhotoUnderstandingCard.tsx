@@ -38,7 +38,7 @@ export function PhotoUnderstandingCard({
         downloading ? (
           <button
             type="button"
-            className="ghost"
+            className="ghost vm-text-btn"
             onClick={() => act('/api/voice/photo/cancel', 'Could not cancel the download:')}
           >
             Cancel
@@ -46,7 +46,7 @@ export function PhotoUnderstandingCard({
         ) : (
           <button
             type="button"
-            className="ghost vm-danger"
+            className="ghost vm-text-btn vm-danger"
             disabled={photo.captioning}
             onClick={() => act('/api/voice/photo/remove', 'Could not remove the helper:')}
           >
