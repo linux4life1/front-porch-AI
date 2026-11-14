@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { ChatSocket } from '../api/ws';
 import { ExistingChatsOffer, type OfferFeature } from './ExistingChatsOffer';
 import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
@@ -388,10 +389,30 @@ export function PorchLifeSettings() {
   const [offer, setOffer] = useState<OfferFeature | null>(null);
 
   useEffect(() => {
-    void api
-      .get<{ realism?: Partial<PorchLifeState> }>('/api/settings')
-      .then((r) => setSt({ ...DEFAULTS, ...r.realism }))
-      .catch(() => setSt({ ...DEFAULTS }));
+    // Live: the 18+ master switch now lives in General (AdultThemesCard)
+    // and any surface can write the realism keys; the server broadcasts
+    // `settings_changed` on every write, so this card re-reads instead of
+    // showing an After Dark group whose master switch just went off.
+    let alive = true;
+    const read = () => {
+      void api
+        .get<{ realism?: Partial<PorchLifeState> }>('/api/settings')
+        .then((r) => {
+          if (alive) setSt({ ...DEFAULTS, ...r.realism });
+        })
+        .catch(() => {
+          if (alive) setSt({ ...DEFAULTS });
+        });
+    };
+    read();
+    const socket = new ChatSocket((e) => {
+      if (e.event === 'settings_changed' || e.event === 'connected') read();
+    });
+    socket.connect();
+    return () => {
+      alive = false;
+      socket.close();
+    };
   }, []);
 
   if (!st) return null;

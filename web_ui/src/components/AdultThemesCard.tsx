@@ -34,7 +34,7 @@ export function AdultThemesCard() {
           setSt({
             adultThemesEnabled: r.realism?.adultThemesEnabled === true,
             realismAllowed: r.realism?.realismAllowed !== false,
-            nsfwCooldownDefault: r.realism?.nsfwCooldownDefault !== false,
+            nsfwCooldownDefault: r.realism?.nsfwCooldownDefault === true,
           });
         })
         .catch((e: unknown) => console.warn('Could not read the 18+ themes setting', e));
