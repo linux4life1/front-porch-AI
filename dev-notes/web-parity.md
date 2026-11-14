@@ -30,7 +30,7 @@ recomputed in the web layer).
 | Edit / delete message | ✅ | |
 | Thinking (`<think>`) blocks | ✅ | Collapsible per message. |
 | Author's note | ✅ | |
-| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included. |
+| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`, `/afk`, `/image`, …) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included, and its rows are served from the host (`GET /api/chat/slash-commands` renders `kSlashCommands`) so the sheet cannot drift from the desktop helper (ledger #14). |
 | Inline images in messages (`![](url)`) | ✅ | `MessageContent` renders them (parity with desktop `ExternalImageWidget`). |
 | Insert a generated image into chat | ✅ | "Insert into chat" in the image panel → appends to the latest message. |
 | Sessions / conversations drawer | ✅ | List, resume, new. |

@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat/chat_command_handler/slash_command_catalog.dart';
 import 'package:front_porch_ai/services/services.dart' show FeelingsRescore;
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
@@ -36,6 +37,7 @@ class WebChatRoutes {
     router.post('/api/chat/context-budget/refresh', _refreshContextBudget);
     router.get('/api/chat/participant/<id>/realism', _participantRealism);
     router.get('/api/chat/sessions', _sessions);
+    router.get('/api/chat/slash-commands', _slashCommands);
     registerPersonaRoutes(router, _facade);
     router.post('/api/chat/select', _select);
     router.post('/api/chat/select-group', _selectGroup);
@@ -137,6 +139,19 @@ class WebChatRoutes {
           groupId: request.url.queryParameters['groupId'],
         ),
       });
+
+  /// The "type /" cheat-sheet catalog, served so the web sheet renders the
+  /// desktop helper's own list ([kSlashCommands], the single source of truth)
+  /// instead of a hand-copy that drifts from it (drift ledger #14). Aliases
+  /// stay omitted here for the same reason as on desktop: scannability.
+  shelf.Response _slashCommands(shelf.Request request) => JsonResponse.ok([
+    for (final c in kSlashCommands)
+      {
+        'command': c.command,
+        'example': c.example,
+        'description': c.description,
+      },
+  ]);
 
   Future<shelf.Response> _select(shelf.Request request) async {
     final body = await _json(request);
