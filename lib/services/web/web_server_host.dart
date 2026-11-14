@@ -189,6 +189,7 @@ class WebServerHost extends ChangeNotifier {
   void setTtsService(TtsService service) => _services.tts = service;
   void setSttService(SttService service) => _services.stt = service;
   void setStoryRepository(StoryRepository repo) => _services.stories = repo;
+  void setUpdateService(UpdateService service) => _services.update = service;
 
   /// The app makes a new pipeline when the chat backend switches and disposes
   /// the old one, so a running server's story routes move to the new one.

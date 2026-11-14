@@ -37,4 +37,5 @@ class WebHostServices {
   SttService? stt;
   StoryRepository? stories;
   StoryPipelineService? storyPipeline;
+  UpdateService? update;
 }

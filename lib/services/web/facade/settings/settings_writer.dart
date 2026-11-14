@@ -32,11 +32,20 @@ import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 
 /// Applies a web Settings POST body to storage and the live backend.
 class SettingsWriter {
-  SettingsWriter(this._storage, this._llm, this._reasoning);
+  SettingsWriter(
+    this._storage,
+    this._llm,
+    this._reasoning, {
+    UpdateService? update,
+  }) : _update = update;
 
   final StorageService _storage;
   final LLMProvider _llm;
   final SettingsReasoning _reasoning;
+
+  /// The desktop's update service, when the host has one: the PWA's
+  /// auto-check switch writes straight through to it.
+  final UpdateService? _update;
 
   /// Why [body] must not be stored, in plain words, or null. Asked before
   /// anything is written, so a refused save changes nothing.
@@ -92,6 +101,11 @@ class SettingsWriter {
     // General → Dark Mode, the desktop's own switch.
     final darkMode = body['darkMode'];
     if (darkMode is bool) await _storage.uiSettings.setIsDark(darkMode);
+
+    // General → Auto-check for Updates, the desktop's own switch. Absent on
+    // a host without the update service.
+    final autoCheck = body['autoCheckForUpdates'];
+    if (autoCheck is bool) await _update?.setAutoCheckEnabled(autoCheck);
 
     // Appearance → Ambient scene. Only a key this build knows is written.
     final ambient = body['ambientScene'];
