@@ -37,6 +37,61 @@
       "dartMarker": "label: 'Mode'",
       "webMarker": "Dark mode"
     },
+    "themeGallery": {
+      "section": "appearance",
+      "group": "theme",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "ThemeCardGrid()",
+      "webMarker": "High Contrast"
+    },
+    "accentPicker": {
+      "section": "appearance",
+      "group": "theme",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "AccentPickerRow()",
+      "webMarker": "Theme accent"
+    },
+    "uiFont": {
+      "section": "appearance",
+      "group": "theme",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "label: 'UI font'",
+      "webMarker": "UI font"
+    },
+    "corners": {
+      "section": "appearance",
+      "group": "theme",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "label: 'Corners'",
+      "webMarker": "Corners"
+    },
+    "appearanceReset": {
+      "section": "appearance",
+      "group": "theme",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "Reset accent, font and corners",
+      "webMarker": "Reset accent, font and corners"
+    },
+    "chatFont": {
+      "section": "appearance",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/chat_appearance_section.dart",
+      "dartMarker": "Chat Font",
+      "webMarker": "Chat Font"
+    },
+    "chatColorsReset": {
+      "section": "appearance",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/chat_appearance_section.dart",
+      "dartMarker": "chat-colors-use-theme",
+      "webMarker": "Use the theme's chat colors"
+    },
+    "autoCheckForUpdates": {
+      "section": "general",
+      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dartMarker": "Auto-check for Updates",
+      "webMarker": "Auto-check for Updates"
+    },
     "readingSize": {
       "section": "appearance",
       "group": "chat-appearance",
