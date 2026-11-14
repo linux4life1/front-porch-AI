@@ -144,16 +144,23 @@ Host work:
 
 1. `settings_theme.dart` (30 lines, the file whose contract is exactly
    this): add raw-pick keys `themeId`, `accent` (`null` | `#RRGGBB`),
-   `uiFont`, `corners` (key + scale), `chatFont`, six `chatColors` raw
-   values for the active brightness (`null` = theme default), and
-   `autoCheckForUpdates`; add `themeGallery` — 8 ×
-   `{key,label,tag,blurb}` + the slim preview set per brightness (only the
-   ~12 tokens the mini-chat draws: bg, surface, surface-2, card, border,
-   text, muted, user-bubble, ai-bubble, dialogue, action) via
+   `accentAdjusted`, `uiFont` + `uiFontFamily`, `corners` (key + scale),
+   `chatFont` + the served 18-entry `chatFontChoices` catalog (shared with
+   the desktop dropdown as `kChatFontChoices`), the six `chatColors` **as
+   the chat paints them** (pick, else theme default) plus
+   `chatColorDefaults` so the PWA leaves an unpicked role to the theme and
+   light mode keeps its own ink, and `autoCheckForUpdates`; add
+   `themeGallery` — 8 × `{key,label,tag,blurb}` + the slim preview set per
+   brightness, exactly the 9 tokens the mini-chat draws (bg, surface, card,
+   border, text, muted, user-bubble, ai-bubble, porch-amber) via
    `WebThemeTokens.resolve` + `palettesFor`; serve `accentSwatches` (the
    12 hexes) so the web hard-codes nothing; add the
    `appearanceWireFields` extension for the relay. Slim payload ≈ 3–4 KB
-   per snapshot/`settings_changed` — accepted.
+   per snapshot/`settings_changed` — accepted. (Design change from the
+   first draft, recorded 2026-11-13: raw `null` picks need new getters in
+   `ui_settings.dart`, which sits at 499 lines; the resolved+defaults pair
+   gives the web the same information. Known edge: a pick that equals the
+   theme's own colour reads as unpicked — visually identical.)
 2. Snapshot: mount the block beside `theme` (`settings_snapshot.dart:215`);
    plumb `UpdateService` into `SettingsFacade`
    (`settings_facade.dart:55-65`) — state at `update_service.dart:99,191`.
