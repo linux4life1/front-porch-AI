@@ -258,7 +258,16 @@ jobs:
   # run covers, so scripts/ci-local.sh keeps running the whole suite at once.
   test-shard:
     name: Tests (unit + integration) ${{ matrix.shard }}/4
-    runs-on: ubuntu-latest
+    # Pinned to 24.04 on purpose. On ubuntu-latest's 26.04 image (rolled
+    # 2026-11-14) /bin/sleep is uutils coreutils, which refuses to run under
+    # another name: "Security violation: Requested utility `koboldcpp` does
+    # not match executable name". The real-process tests
+    # (test/services/kobold_owned_kill_test.dart, kobold_orphan_sweep_log_test)
+    # spawn a stand-in engine as a link to /bin/sleep, so on 26.04 it dies
+    # instantly and both shards fail on every branch. Pin until the tests stop
+    # relying on argv[0] aliasing (or the image changes); the other jobs run
+    # fine on ubuntu-latest. Probe: actions run 43620040224 on the debug branch.
+    runs-on: ubuntu-24.04
     needs: [analyze, changes]
     # Skipped when all four shards already passed on this commit (see the
     # file header). One shard missing from `passed` re-runs all four: a
