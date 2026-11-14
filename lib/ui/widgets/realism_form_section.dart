@@ -161,18 +161,18 @@ class RealismFormSection extends StatelessWidget {
   /// The starting bonds and emotion (a creator surface may hide them).
   final bool showStartingState;
 
+  /// How this group member starts in every chat the group CREATES: Away
+  /// at the door (docs/design/group-initial-presence.md). Absent without
+  /// a setter — the member editor is the only one.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
   /// A group member's editor: Time & Day (and the story-start row under it)
   /// is the group's, so it shows the group's values greyed out with this
   /// tooltip. Chaos Mode likewise, with [chaosLockedTooltip].
   final String? timeDayLockedTooltip;
   final String? chaosLockedTooltip;
   final String? verificationLockedTooltip;
-
-  /// How this group member starts in every chat the group CREATES: Away at
-  /// the door (docs/design/group-initial-presence.md). Absent without a
-  /// setter — the member editor is the only one.
-  final bool startsAwayEnabled;
-  final ValueChanged<bool>? onStartsAwayChanged;
 
   /// The Director's authority over Needs scores (needs Verification on).
   /// Absent without a setter.
@@ -344,23 +344,10 @@ class RealismFormSection extends StatelessWidget {
         const SizedBox(height: 20),
         if (showTimeAndDay) ...[_timeAndDay(context, labelStyle)],
         // A group member's Starts Away pick: a door fact, not a Realism
-        // Engine feature (R6 in docs/design/group-initial-presence.md) — it
-        // shows with the engine off too, where the member's other own
-        // settings are hidden and kept. With the engine on the row rides the
-        // Optional Features card instead.
+        // Engine feature (R6) — it shows alone with the engine off too.
         if (!enabled && onStartsAwayChanged != null) ...[
           const SizedBox(height: 20),
-          buildRealismToggleRow(
-            icon: Icons.pause_circle_outline,
-            label: 'Starts away',
-            subtitle:
-                'Every chat you make with this group starts them Away, before '
-                'any turn runs. Only Back at the door brings them in — a chat '
-                'you reopen keeps its own.',
-            value: startsAwayEnabled,
-            onChanged: onStartsAwayChanged!,
-            context: context,
-          ),
+          memberStartsAwayRow(context, startsAwayEnabled, onStartsAwayChanged!),
         ],
         if (enabled) ...[
           // Needs Simulation (rendered separately when provided by caller).

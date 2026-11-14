@@ -425,7 +425,6 @@ class ChatService extends ChangeNotifier {
       editsDoor.regen.hostBelowGuestsIndex;
   void editMessage(int index, String newText) =>
       editsDoor.editor.edit(index, newText);
-
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
   bool get isGrowthPassRunning => realism.growthPassRunning;
 

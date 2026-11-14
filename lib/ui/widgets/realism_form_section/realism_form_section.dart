@@ -18,6 +18,7 @@
 
 export 'realism_emotion_card.dart';
 export 'member_editor_note.dart';
+export 'member_starts_away_row.dart';
 export 'realism_form_controls.dart';
 export 'realism_master_toggle.dart';
 export 'realism_optional_features_card.dart';
