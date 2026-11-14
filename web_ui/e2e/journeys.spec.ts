@@ -1710,6 +1710,53 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
   }
 });
 
+// The Appearance tab is host-wide (PR 7b): a gallery card, an accent swatch,
+// the corner scale and the UI font set here are the desktop's settings, the
+// page repaints at once, and a reload reads them back.
+test('the theme gallery, accent, corners and font set on the web are the desktop settings', { tag: SERIAL }, async ({ page }) => {
+  type Appearance = { themeId?: string; accent?: string | null; corners?: string; uiFont?: string };
+  const read = async () =>
+    ((await (await page.request.get('/api/settings')).json()) as { appearance?: Appearance }).appearance ?? {};
+  const radiusScale = () =>
+    page.evaluate(() => document.documentElement.style.getPropertyValue('--radius-scale'));
+  const uiFont = () =>
+    page.evaluate(() => document.documentElement.style.getPropertyValue('--ui-font'));
+  const was = await read();
+  await openRoute(page, '/settings');
+  await openSettingsTab(page, 'appearance');
+  try {
+    await page.getByRole('radio', { name: 'Harbor theme' }).click();
+    await expect.poll(async () => (await read()).themeId).toBe('harbor');
+
+    await page.getByRole('radio', { name: /^Accent #/ }).first().click();
+    await expect.poll(async () => (await read()).accent).not.toBeNull();
+
+    await page.getByRole('radio', { name: 'Sharp' }).click();
+    await expect.poll(async () => (await read()).corners).toBe('sharp');
+    await expect.poll(radiusScale).toBe('0.25');
+
+    await page.getByRole('radio', { name: 'Atkinson' }).click();
+    await expect.poll(async () => (await read()).uiFont).toBe('atkinson');
+    await expect.poll(uiFont).toContain('Atkinson');
+
+    await page.reload();
+    await openSettingsTab(page, 'appearance');
+    await expect(page.getByRole('radio', { name: 'Harbor theme' })).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(radiusScale).toBe('0.25');
+    await expect.poll(uiFont).toContain('Atkinson');
+  } finally {
+    const back = await page.request.post('/api/settings', {
+      data: {
+        themeId: was.themeId ?? 'porch',
+        accent: was.accent ?? '',
+        corners: was.corners ?? 'default',
+        uiFont: was.uiFont ?? 'inter',
+      },
+    });
+    expect(back.ok(), `restoring the appearance: ${back.status()}`).toBe(true);
+  }
+});
+
 // Bubble opacity is the desktop's own setting: the phone's slider writes it,
 // this page's bubbles fade at once, and a reload reads the stored value back.
 test('bubble opacity set on the phone is the desktop setting and survives a reload', { tag: SERIAL }, async ({ page }) => {
