@@ -227,7 +227,79 @@
       "section": "voice-media",
       "dart": "lib/ui/settings/tabs/voice_media_tab.dart",
       "dartMarker": "Text-to-Speech",
-      "webMarker": "Voice & Media"
+      "webMarker": "Text-to-Speech"
+    },
+    "sttEnabled": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/stt_section.dart",
+      "dartMarker": "Enable Voice Input",
+      "webMarker": "Enable Voice Input"
+    },
+    "autoSendTranscription": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/voice_call_settings.dart",
+      "dartMarker": "Auto-send transcription",
+      "webMarker": "Auto-send transcription"
+    },
+    "photoUnderstanding": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/widgets/photo_understanding_card.dart",
+      "dartMarker": "Offline vision helper",
+      "webMarker": "Offline vision helper"
+    },
+    "expressionImages": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Expression Images",
+      "webMarker": "Expression Images"
+    },
+    "expressionClassification": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "LLM (Realism Engine)",
+      "webMarker": "LLM (Realism Engine)"
+    },
+    "expressionOnnxModel": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "_OnnxDownloadButton",
+      "webMarker": "Download ONNX model for local expression classification"
+    },
+    "expressionDisplay": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Sidebar Only",
+      "webMarker": "Sidebar Only"
+    },
+    "expressionReroll": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Re-roll if same sprite repeats",
+      "webMarker": "Re-roll if same sprite repeats"
+    },
+    "expressionEmojiBurst": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Expression Emoji Burst",
+      "webMarker": "Expression Emoji Burst"
+    },
+    "expressionEmojiBurstSize": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Burst emoji size",
+      "webMarker": "Burst emoji size"
+    },
+    "expressionFallback": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/tabs/voice_media_tab/expression_section.dart",
+      "dartMarker": "Neutral Sprite",
+      "webMarker": "Neutral Sprite"
+    },
+    "imageGenEnabled": {
+      "section": "voice-media",
+      "dart": "lib/ui/settings/widgets/image_gen_enable_section.dart",
+      "dartMarker": "Image Studio button shown in chat",
+      "webMarker": "Image Studio button shown in chat"
     },
     "reclaimDiskSpace": {
       "section": "voice-media",

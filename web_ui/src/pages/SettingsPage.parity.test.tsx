@@ -124,7 +124,17 @@ vi.mock('../components/ModelTransportCard', async () => {
 });
 vi.mock('../components/VoiceMediaSettings', async () => {
   const { createElement: h } = await import('react');
-  return { VoiceMediaSettings: () => h('div', { 'data-testid': 'voice-media-card' }, 'Voice & Media') };
+  // The groups the real component renders (VoiceMediaSettings.test.tsx pins
+  // them) with every sub-control showing: the switches on, the photo helper
+  // installed, the ONNX button's label.
+  return {
+    VoiceMediaSettings: () =>
+      h('div', { 'data-testid': 'voice-media-card' },
+        'Text-to-Speech · Enable Voice Input · Auto-send transcription · Offline vision helper · ' +
+        'Expression Images · LLM (Realism Engine) · Download ONNX model for local expression classification · ' +
+        'Sidebar Only · Re-roll if same sprite repeats · Expression Emoji Burst · Burst emoji size · ' +
+        'Neutral Sprite · Image Studio button shown in chat'),
+  };
 });
 vi.mock('../components/IdleUnloadSettings', async () => {
   const { createElement: h } = await import('react');
