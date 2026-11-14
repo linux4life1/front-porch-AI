@@ -118,3 +118,12 @@ it('re-derives the user quote tint from the card bubble when the card leaves dia
   expect(cardLookStyle(undefined, 'ai')).toBeUndefined();
   expect(cardLookStyle({}, 'ai')).toBeUndefined();
 });
+
+it('marks only card-look bubbles, so their name and tools take the bubble ink', () => {
+  renderList();
+  const [reply, user, other, note] = bubbles();
+  expect(reply.hasAttribute('data-card-look')).toBe(true);
+  expect(user.hasAttribute('data-card-look')).toBe(true);
+  expect(other.hasAttribute('data-card-look')).toBe(false);
+  expect(note.hasAttribute('data-card-look')).toBe(false);
+});

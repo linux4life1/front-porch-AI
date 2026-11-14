@@ -287,6 +287,7 @@ const TranscriptRows = memo(function TranscriptRows({
                 <div
                   className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
                   style={bubbleStyle(m, isDirectorNote)}
+                  data-card-look={m.look && !isDirectorNote ? '' : undefined}
                 >
                   <div className={`msg-actions bubble-actions${m.isUser ? ' user' : ''}`}>
                     <span className="msg-speaker">{markSpeaker(m, speakerName)}</span>
@@ -387,6 +388,7 @@ const TranscriptRows = memo(function TranscriptRows({
             <div
               className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
               style={bubbleStyle(m, isDirectorNote)}
+              data-card-look={m.look && !isDirectorNote ? '' : undefined}
             >
               {isDirectorNote && (
                 <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
