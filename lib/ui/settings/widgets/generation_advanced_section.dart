@@ -19,9 +19,23 @@ class GenerationAdvancedSection extends StatelessWidget {
   final StorageService storage;
   final Color accent;
 
+  /// One bordered tile per option group, matching the slider cards.
+  Widget _tile(BuildContext context, Widget child) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.hairlineOf(context, 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.hairlineOf(context, 0.12)),
+        ),
+        child: child,
+      );
+
   @override
   Widget build(BuildContext context) {
-    final transportCol = Column(
+    final transportCol = _tile(
+      context,
+      Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader('Model transport'),
@@ -63,9 +77,12 @@ class GenerationAdvancedSection extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
 
-    final displayCol = Column(
+    final displayCol = _tile(
+      context,
+      Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader('Display Output'),
@@ -106,6 +123,7 @@ class GenerationAdvancedSection extends StatelessWidget {
           ),
         ],
       ],
+      ),
     );
 
     return LayoutBuilder(
@@ -116,7 +134,7 @@ class GenerationAdvancedSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: transportCol),
-              const SizedBox(width: 24),
+              const SizedBox(width: 16),
               Expanded(child: displayCol),
             ],
           );
@@ -125,7 +143,7 @@ class GenerationAdvancedSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             transportCol,
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             displayCol,
           ],
         );

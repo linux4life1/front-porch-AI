@@ -272,37 +272,16 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     final toggleOnly =
         templateSupport == ThinkingSupport.toggle ||
         reasoningEffortIsToggleOnly(effectiveModelId);
-    final strengthChips = reasoningEffortChipsFor(effectiveModelId);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Request thinking',
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontSize: widget.compact ? 14 : null,
-                ),
-              ),
-            ),
-            Switch(
-              value: thinkingOn,
-              onChanged: mandatory || localCannotThink
-                  ? null
-                  : widget.onEnabledChanged,
-              activeTrackColor: AppColors.formAccentOf(context),
-            ),
-          ],
-        ),
         if (localCannotThink)
           Padding(
             padding: EdgeInsets.only(top: widget.compact ? 2 : 4),
             child: Text(
               'This model has no thinking mode — its chat template never '
-              'produces think-steps, so this switch would do nothing.',
+              'produces think-steps, so there is nothing to turn on.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 12,
@@ -314,8 +293,8 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
           Padding(
             padding: EdgeInsets.only(top: widget.compact ? 2 : 4),
             child: Text(
-              'This model thinks on or off only — it has no strength levels, '
-              'so there are no chips to pick.',
+              'This model thinks on or off only — it has no strength levels '
+              'to pick.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 12,
@@ -354,7 +333,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
             padding: EdgeInsets.only(top: widget.compact ? 2 : 4),
             child: Text(
               'Couldn\'t read this model\'s thinking mode, so it simply '
-              'follows the Request thinking switch as you set it.',
+              'follows the Off / On choice as you set it.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 12,
@@ -362,40 +341,18 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
               ),
             ),
           ),
-        if (thinkingOn && !localCannotThink && strengthChips.isNotEmpty)
+        if (!localCannotThink)
           Padding(
-            padding: EdgeInsets.only(top: widget.compact ? 4 : 12),
+            padding: EdgeInsets.only(top: widget.compact ? 4 : 8),
             child: ThinkingStrengthControl(
               compact: widget.compact,
               value: widget.effort,
               modelId: effectiveModelId,
+              thinkingOn: thinkingOn,
+              offDisabled: mandatory,
+              onTurnOff: () => widget.onEnabledChanged(false),
+              onTurnOn: () => widget.onEnabledChanged(true),
               onChanged: widget.onEffortChanged,
-            ),
-          )
-        else if (!widget.compact)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              'Turn on for reasoning models so their think-steps are '
-              'captured under each reply. The chips then show this '
-              'model\'s real levels.',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-                height: 1.35,
-              ),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Enable to request thinking from compatible models. '
-              'Strength maps to the levels the model accepts.',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-              ),
             ),
           ),
       ],

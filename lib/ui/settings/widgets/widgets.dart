@@ -22,6 +22,7 @@ export 'legacy_cleanup_card.dart';
 export 'photo_understanding_card.dart';
 export 'remote_ready_badge.dart';
 export 'porch_life_row_children.dart';
+export 'generation_section_card.dart';
 export 'section_header.dart';
 export 'slider_setting.dart';
 export 'spell_check_language_row.dart';

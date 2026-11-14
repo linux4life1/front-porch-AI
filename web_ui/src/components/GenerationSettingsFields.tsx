@@ -93,6 +93,11 @@ export function replyFillsContextWarning(context: number, maxOutput: number): st
   );
 }
 
+/** A slider's end label, at the precision its step implies (0.00 / 1.35 / 64). */
+function formatEnd(v: number, step: number): string {
+  return step >= 1 ? tokens(v) : v.toFixed(2);
+}
+
 export function SliderField({
   label,
   value,
@@ -105,6 +110,7 @@ export function SliderField({
   defaultVal,
   dangerMin,
   dangerMax,
+  info,
 }: {
   label: string;
   value: number;
@@ -118,7 +124,10 @@ export function SliderField({
   defaultVal?: number;
   dangerMin?: number;
   dangerMax?: number;
+  /** Plain-language explanation behind the ⓘ beside the label. */
+  info?: string;
 }) {
+  const [showInfo, setShowInfo] = useState(false);
   const valPct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
   const dMaxPct =
     dangerMax !== undefined
@@ -162,7 +171,15 @@ export function SliderField({
   return (
     <div className="slider-field">
       <div className="slider-head">
-        <span>{label}</span>
+        <span className="slider-label">
+          {label}
+          {info && (
+            <button type="button" className="slider-info" aria-label={`About ${label}`}
+              aria-expanded={showInfo} title={info} onClick={() => setShowInfo((v) => !v)}>
+              ⓘ
+            </button>
+          )}
+        </span>
         <span className="slider-head-right">
         {reset && (
           <button type="button" className="slider-reset" title={reset.title}
@@ -203,6 +220,11 @@ export function SliderField({
           />
         )}
       </div>
+      <div className="slider-ends" aria-hidden="true">
+        <span>{formatEnd(min, step)}</span>
+        <span>{formatEnd(max, step)}</span>
+      </div>
+      {info && showInfo && <p className="muted small slider-info-text">{info}</p>}
     </div>
   );
 }
@@ -253,6 +275,14 @@ export function GenerationSettingsFields({
   patchGen: (p: Partial<GenSettings>) => void;
 }) {
   const g = generation;
+  const model = isLocal ? '' : (remoteModelName ?? '');
+  const thinkingOn = Boolean(reasoningEnabled) || Boolean(reasoningMandatory);
+  const offLocked = Boolean(reasoningMandatory) || reasoningLocalSupport === 'none';
+  const levelIds: string[] = reasoningEfforts?.length
+    ? reasoningEfforts
+    : reasoningLocalSupport
+      ? []
+      : reasoningEffortChipsFor(model);
   const replyFills = replyFillsContextWarning(contextSize, g.maxLength);
   // Only what this backend's requests carry; a hidden value is kept.
   const shown = (knob: SamplerKnob) => samplerKnobShown(knob, backend, samplerKnobs);
@@ -265,95 +295,91 @@ export function GenerationSettingsFields({
     <section className="card" data-testid="generation-fields">
       <h3>Generation</h3>
 
-      {/* ── Category 1: Thinking / Model Reasoning ── */}
-      <label className="row-label">
-        <span>Request thinking</span>
-        <input
-          type="checkbox"
-          checked={Boolean(reasoningEnabled) || Boolean(reasoningMandatory)}
-          disabled={Boolean(reasoningMandatory) || reasoningLocalSupport === 'none'}
-          onChange={(e) => {
-            if (!reasoningMandatory && reasoningLocalSupport !== 'none') {
-              patch({ reasoningEnabled: e.target.checked });
-            }
-          }}
-        />
-      </label>
+      <div className="gen-subcard">
+      <h4 className="gen-subcard-title">Thinking</h4>
+      {/* ── Category 1: Thinking — Off and the strength levels are one control ── */}
+      <div className="thinking-strength">
+        <div className="thinking-strength-chips" role="group" aria-label="Thinking">
+          <button
+            type="button"
+            className={`thinking-strength-chip${thinkingOn ? '' : ' on'}`}
+            disabled={offLocked}
+            aria-pressed={!thinkingOn}
+            onClick={() => patch({ reasoningEnabled: false })}
+          >
+            <span className="thinking-strength-chip-title">Off</span>
+            <span className="thinking-strength-chip-sub">No thinking</span>
+          </button>
+          {levelIds.map((id) => {
+            const on =
+              thinkingOn &&
+              reasoningEffortDisplayedSelection(
+                model,
+                reasoningEffort || 'medium',
+                reasoningEfforts?.length ? reasoningEfforts : undefined,
+              ) === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                className={`thinking-strength-chip${on ? ' on' : ''}`}
+                aria-pressed={on}
+                onClick={() => patch({ reasoningEnabled: true, reasoningEffort: id })}
+              >
+                <span className="thinking-strength-chip-title">{reasoningEffortTitle(id)}</span>
+                <span className="thinking-strength-chip-sub">{reasoningEffortBlurb(id)}</span>
+              </button>
+            );
+          })}
+          {levelIds.length === 0 && reasoningLocalSupport !== 'none' && (
+            <button
+              type="button"
+              className={`thinking-strength-chip${thinkingOn ? ' on' : ''}`}
+              aria-pressed={thinkingOn}
+              onClick={() => patch({ reasoningEnabled: true })}
+            >
+              <span className="thinking-strength-chip-title">On</span>
+              <span className="thinking-strength-chip-sub">Think before replying</span>
+            </button>
+          )}
+        </div>
+        {thinkingOn && levelIds.length > 0 && (
+          <p className="muted small thinking-strength-caption">
+            {reasoningEffortMappingCaption(
+              model,
+              reasoningEffort || 'medium',
+              reasoningEfforts,
+              reasoningMandatory,
+            )}
+          </p>
+        )}
+      </div>
       {Boolean(reasoningMandatory) && (
         <p className="muted small">This model always thinks — Off is not available.</p>
       )}
       {reasoningLocalSupport === 'none' && (
         <p className="muted small">
           This model has no thinking mode — its chat template never produces
-          think-steps, so this switch would do nothing.
+          think-steps, so there is nothing to turn on.
         </p>
       )}
       {reasoningLocalSupport === 'toggle' && (
         <p className="muted small">
-          This model thinks on or off only — it has no strength levels, so
-          there are no chips to pick.
+          This model thinks on or off only — it has no strength levels to pick.
         </p>
       )}
-      {(reasoningEnabled || Boolean(reasoningMandatory)) &&
-        reasoningLocalSupport !== 'none' &&
-        ((reasoningEfforts?.length ?? 0) > 0 || !reasoningLocalSupport) && (
-        <div className="thinking-strength">
-          <div className="thinking-strength-label">Thinking strength</div>
-          <div className="thinking-strength-chips" role="group" aria-label="Thinking strength">
-            {(reasoningEfforts?.length
-              ? reasoningEfforts
-              : reasoningLocalSupport
-                ? []
-                : reasoningEffortChipsFor(isLocal ? '' : (remoteModelName ?? ''))
-            ).map((id) => {
-              const model = isLocal ? '' : (remoteModelName ?? '');
-              const on = reasoningEffortDisplayedSelection(
-                model,
-                reasoningEffort || 'medium',
-                reasoningEfforts?.length ? reasoningEfforts : undefined,
-              ) === id;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className={`thinking-strength-chip${on ? ' on' : ''}`}
-                  onClick={() => patch({ reasoningEffort: id })}
-                >
-                  <span className="thinking-strength-chip-title">
-                    {reasoningEffortTitle(id)}
-                  </span>
-                  <span className="thinking-strength-chip-sub">
-                    {reasoningEffortBlurb(id)}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <p className="muted small thinking-strength-caption">
-            {reasoningEffortMappingCaption(
-              isLocal ? '' : (remoteModelName ?? ''),
-              reasoningEffort || 'medium',
-              reasoningEfforts,
-              reasoningMandatory,
-            )}
-          </p>
-        </div>
-      )}
-      {!reasoningEnabled && !reasoningMandatory && (
-        <p className="muted small">
-          Turn on for reasoning models so their think-steps are captured under each reply.
-          The chips then show this model&apos;s real levels.
-        </p>
-      )}
+</div>
 
+      <div className="gen-subcard">
+      <h4 className="gen-subcard-title">Generation Parameters</h4>
       {/* ── Category 2: Generation Parameters (Studio Console) ── */}
-      <h4 style={{ marginTop: 24, marginBottom: 8 }}>Generation Parameters</h4>
       <div className="studio-sampler-grid">
         <div className="studio-col">
           <div className="studio-column-heading">Creativity & Probability</div>
           <div className="studio-slider-card">
             <SliderField
               label="Temperature"
+              info="Controls randomness. 0.70 is balanced; values above 1.60 risk extreme incoherence."
               value={g.temperature}
               min={0}
               max={2.0}
@@ -368,6 +394,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="Min-P"
+              info="Probability threshold relative to top token. Above 0.15 heavily starves vocabulary."
                 value={g.minP}
                 min={0}
                 max={0.25}
@@ -383,6 +410,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="Top-P"
+              info="Nucleus sampling: cumulative probability pool. 0.90 is standard; below 0.65 risks over-pruning."
                 value={g.topP}
                 min={0.50}
                 max={1.0}
@@ -398,6 +426,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="Top-K"
+              info="Limits candidate pool to K words. 0 = disabled."
                 value={g.topK}
                 min={0}
                 max={100}
@@ -423,6 +452,7 @@ export function GenerationSettingsFields({
                 <div style={{ marginTop: 8 }}>
                   <SliderField
                     label="Dynatemp range"
+              info="Variance range around base temperature based on entropy."
                     value={g.dynamicTempRange}
                     min={0}
                     max={2.0}
@@ -444,6 +474,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="DRY strength"
+              info={"Don't Repeat Yourself: catches repeated n-gram phrases. 0.80 is recommended when active; >1.20 over-penalizes."}
                 value={g.dryMultiplier}
                 min={0}
                 max={1.6}
@@ -459,6 +490,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="Repeat penalty"
+              info="Token-level penalty. 1.10 is gentle; values above 1.20 cause severe syntax breakdown and synonym hunting."
                 value={g.repeatPenalty}
                 min={1.0}
                 max={1.35}
@@ -474,6 +506,7 @@ export function GenerationSettingsFields({
             <div className="studio-slider-card">
               <SliderField
                 label="Rep pen tokens"
+              info="How many tokens back the repetition penalty checks. 1024 is community standard."
                 value={g.repeatPenaltyTokens}
                 min={0}
                 max={2048}
@@ -490,6 +523,7 @@ export function GenerationSettingsFields({
               <div className="studio-slider-card">
                 <SliderField
                   label="XTC threshold"
+              info="Exclude Top Choices threshold. Removes obvious clichés if top token probability exceeds this."
                   value={g.xtcThreshold}
                   min={0}
                   max={1.00}
@@ -503,6 +537,7 @@ export function GenerationSettingsFields({
               <div className="studio-slider-card">
                 <SliderField
                   label="XTC probability"
+              info="How frequently XTC activates. 0 = off, 0.30–0.50 is balanced."
                   value={g.xtcProbability}
                   min={0}
                   max={1.0}
@@ -518,11 +553,15 @@ export function GenerationSettingsFields({
         </div>
       </div>
 
+      </div>
+
+      <div className="gen-subcard">
+      <h4 className="gen-subcard-title">Output Limits &amp; Context Budgets</h4>
       {/* ── Category 3: Output Limits & Context Budgets ── */}
-      <h4 style={{ marginTop: 24, marginBottom: 8 }}>Output Limits</h4>
       <div className="studio-slider-card">
         <SliderField
           label="Max output tokens"
+              info="Maximum tokens generated in a single reply. 2,048 is standard; higher values allow deep reasoning chains."
           value={g.maxLength}
           min={64}
           max={65536}
@@ -552,6 +591,10 @@ export function GenerationSettingsFields({
         <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
       )}
 
+      </div>
+
+      <div className="gen-subcard">
+      <h4 className="gen-subcard-title">Output Pipeline &amp; Rules</h4>
       {/* ── Category 4: Output Pipeline & Controls ── */}
       {spellCheckLanguage !== undefined && (
         <div style={{ marginTop: 16 }}>
@@ -689,6 +732,7 @@ export function GenerationSettingsFields({
           )}
         </>
       )}
+      </div>
     </section>
   );
 }
@@ -899,7 +943,7 @@ function SanitizerRulesEditor({
           <div className="sanitizer-input-divider" />
           <input
             className="sanitizer-replace-input"
-            placeholder="Replace..."
+            placeholder="Replace with..."
             value={replaceInput}
             onChange={(e) => {
               if (duplicateWarning) setDuplicateWarning(false);

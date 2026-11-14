@@ -287,8 +287,26 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
               },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(_endLabel(widget.min), style: _endStyle(context)),
+                Text(_endLabel(widget.max), style: _endStyle(context)),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  String _endLabel(double v) => _format(v);
+
+  TextStyle _endStyle(BuildContext context) => TextStyle(
+        fontSize: 11,
+        fontFeatures: const [FontFeature.tabularFigures()],
+        color: AppColors.textTertiary(context),
+      );
 }

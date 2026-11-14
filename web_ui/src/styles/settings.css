@@ -500,3 +500,31 @@
 .prompt-slot-badge.strong { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .prompt-slot-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .prompt-slot-actions label { flex: 1 1 200px; }
+
+/* ── Generation settings: one card per concern (mockup structure) ── */
+.gen-subcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 16px;
+}
+.gen-subcard-title {
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.slider-label { display: inline-flex; align-items: center; gap: 4px; }
+.slider-info {
+  background: none; border: none; padding: 0 2px; cursor: pointer;
+  color: var(--muted); font-size: 0.8rem; line-height: 1;
+}
+.slider-info:hover, .slider-info[aria-expanded='true'] { color: var(--accent); }
+.slider-ends {
+  display: flex; justify-content: space-between; margin-top: 2px;
+  font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.slider-info-text { margin: 4px 0 0; }
