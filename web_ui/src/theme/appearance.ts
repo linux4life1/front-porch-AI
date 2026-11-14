@@ -104,7 +104,8 @@ function parseCard(raw: unknown): ThemeCard | null {
 /**
  * A block from the desktop, or null when it is not one. The gallery and the
  * chat colours are the minimum: without them the Settings tab has nothing to
- * show, and the page's own defaults are the honest fallback.
+ * show, and the cards stay hidden (the additive pattern — an older host
+ * sends no block, and the page's own theme keeps painting).
  */
 export function parseAppearanceWire(raw: unknown): AppearanceWire | null {
   if (!isMap(raw)) return null;

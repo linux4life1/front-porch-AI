@@ -4,7 +4,9 @@
 // One Appearance card's live view of the host's choices: the block the page
 // already heard (theme/appearance.ts caches it), a read on mount and on every
 // reconnect, then each `settings_changed`. Every Settings card opens its own
-// socket, as the rest of the page does; the block itself is shared.
+// socket, as the rest of the page does; the block itself is shared. A null
+// return means this host has not sent one (older host): the card renders
+// nothing rather than inventing choices.
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';

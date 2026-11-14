@@ -88,6 +88,7 @@ it('renders the host gallery and marks the host theme', async () => {
   expect(cards()[1].getAttribute('aria-checked')).toBe('false');
   expect(cards()[1].textContent).toContain('Harbor');
   // Each card paints that theme's own tokens, host-resolved — not the page's.
+  expect(cards()[1].style.background).toBe('rgb(37, 30, 23)');
   const preview = cards()[1].querySelector<HTMLElement>('.theme-gallery-preview')!;
   expect(preview.style.background).toBe('rgb(27, 22, 17)');
   const bubble = cards()[1].querySelector<HTMLElement>('.theme-gallery-bar.left')!;

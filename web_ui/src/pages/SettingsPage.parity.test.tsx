@@ -77,6 +77,13 @@ vi.mock('../components/ChatFontSettings', async () => {
   const { createElement: h } = await import('react');
   return { ChatFontSettings: () => h('div', { 'data-testid': 'chat-font-card' }, 'Chat Font') };
 });
+vi.mock('../components/ChatColorsResetSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ChatColorsResetSettings: () =>
+      h('div', { 'data-testid': 'chat-colors-reset-card' }, "Use the theme's chat colors"),
+  };
+});
 vi.mock('../components/AutoCheckSettings', async () => {
   const { createElement: h } = await import('react');
   return {

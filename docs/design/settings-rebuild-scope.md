@@ -161,8 +161,10 @@ Host work:
    per snapshot/`settings_changed` — accepted. (Design change from the
    first draft, recorded 2026-11-13: raw `null` picks need new getters in
    `ui_settings.dart`, which sits at 499 lines; the resolved+defaults pair
-   gives the web the same information. Known edge: a pick that equals the
-   theme's own colour reads as unpicked — visually identical.)
+   gives the web the same information. Known edges, both visually identical
+   or host-ruled: a pick that equals the theme's own colour reads as
+   unpicked; and a device forcing the other brightness paints that theme's
+   tokens with the host's picks resolved for the host's brightness.)
 2. Snapshot: mount the block beside `theme` (`settings_snapshot.dart:215`);
    plumb `UpdateService` into `SettingsFacade`
    (`settings_facade.dart:55-65`) — state at `update_service.dart:99,191`.
@@ -182,7 +184,10 @@ Web work:
    paints `--ui-font` and `--radius*` (`calc(base × host scale)` — scaling
    the web's own tokens, not palette math) and the resolved chat font as
    default `--chat-font` (per-chat `ChatThemeSettings` still overrides).
-   Paint-only, no theme math (that file's header rule).
+   Paint-only, no theme math (that file's header rule). UI fonts ship as
+   the desktop's own TTFs in `web_ui/public/fonts/` (amended at build: no
+   woff2 converter on the machine; ~2 MB for Inter + Atkinson, convert in
+   a follow-up if size matters).
 6. New components in the `theme-group` slot: `ThemeGallerySettings.tsx`
    (reuse the `.theme-preset-card` pattern, `ChatThemeSettings.tsx:168-191`;
    preview colors inline from the gallery payload — `colorLiterals.test.ts`

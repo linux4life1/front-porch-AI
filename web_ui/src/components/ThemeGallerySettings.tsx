@@ -55,6 +55,7 @@ export function ThemeGallerySettings() {
               aria-label={`${card.label} theme`}
               title={card.blurb}
               className={`theme-gallery-card${selected ? ' selected' : ''}`}
+              style={{ background: tokens.card }}
               onClick={() => choose(card.key)}
             >
               <span
