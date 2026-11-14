@@ -12,25 +12,26 @@ class StudioSliderTrackShape extends RoundedRectSliderTrackShape {
   const StudioSliderTrackShape({
     required this.min,
     required this.max,
-    required this.defaultVal,
+    required this.dangerActiveColor,
+    required this.dangerInactiveColor,
+    required this.pipColor,
+    this.defaultVal,
     this.dangerMin,
     this.dangerMax,
-    this.dangerActiveColor,
-    this.dangerInactiveColor,
-    this.pipColor,
   });
 
   final double min;
   final double max;
-  final double defaultVal;
+  final double? defaultVal;
   final double? dangerMin;
   final double? dangerMax;
-  final Color? dangerActiveColor;
-  final Color? dangerInactiveColor;
-  final Color? pipColor;
+  final Color dangerActiveColor;
+  final Color dangerInactiveColor;
+  final Color pipColor;
 
-  double get normalizedDefault =>
-      max > min ? ((defaultVal - min) / (max - min)).clamp(0.0, 1.0) : 0.0;
+  double? get normalizedDefault => defaultVal != null && max > min
+      ? ((defaultVal! - min) / (max - min)).clamp(0.0, 1.0)
+      : null;
 
   double? get normalizedDangerMin => dangerMin != null && max > min
       ? ((dangerMin! - min) / (max - min)).clamp(0.0, 1.0)
@@ -75,21 +76,22 @@ class StudioSliderTrackShape extends RoundedRectSliderTrackShape {
 
     final Color baseInactiveColor = (isEnabled
             ? sliderTheme.inactiveTrackColor
-            : sliderTheme.disabledInactiveTrackColor) ??
-        Colors.grey.withValues(alpha: 0.3);
+            : sliderTheme.disabledInactiveTrackColor ??
+                sliderTheme.inactiveTrackColor) ??
+        pipColor.withValues(alpha: 0.3);
 
     final Color baseActiveColor = (isEnabled
             ? sliderTheme.activeTrackColor
-            : sliderTheme.disabledActiveTrackColor) ??
-        Colors.blue;
+            : sliderTheme.disabledActiveTrackColor ??
+                sliderTheme.activeTrackColor) ??
+        pipColor;
 
     final Color effectiveDangerActive =
-        (dangerActiveColor ?? Colors.redAccent).withValues(alpha: opacity);
+        dangerActiveColor.withValues(alpha: dangerActiveColor.a * opacity);
     final Color effectiveDangerInactive =
-        (dangerInactiveColor ?? Colors.redAccent.withValues(alpha: 0.35))
-            .withValues(alpha: opacity);
+        dangerInactiveColor.withValues(alpha: dangerInactiveColor.a * opacity);
     final Color effectivePipColor =
-        (pipColor ?? Colors.grey).withValues(alpha: isEnabled ? 0.75 : 0.38);
+        pipColor.withValues(alpha: isEnabled ? 0.75 : 0.38);
 
     final baseInactivePaint = Paint()
       ..color = baseInactiveColor.withValues(alpha: baseInactiveColor.a * opacity);
@@ -212,19 +214,22 @@ class StudioSliderTrackShape extends RoundedRectSliderTrackShape {
     canvas.restore();
 
     // 3. Paint Graphical Default Pip (indicator notch)
-    final double defX = toX(normalizedDefault);
-    final double pipHeight = trackRect.height + 8.0;
-    final Rect pipRect = Rect.fromCenter(
-      center: Offset(defX, trackRect.center.dy),
-      width: 2.5,
-      height: pipHeight,
-    );
+    final double? defNorm = normalizedDefault;
+    if (defNorm != null) {
+      final double defX = toX(defNorm);
+      final double pipHeight = trackRect.height + 8.0;
+      final Rect pipRect = Rect.fromCenter(
+        center: Offset(defX, trackRect.center.dy),
+        width: 2.5,
+        height: pipHeight,
+      );
 
-    final Paint pipPaint = Paint()..color = effectivePipColor;
+      final Paint pipPaint = Paint()..color = effectivePipColor;
 
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(pipRect, const Radius.circular(1.25)),
-      pipPaint,
-    );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(pipRect, const Radius.circular(1.25)),
+        pipPaint,
+      );
+    }
   }
 }

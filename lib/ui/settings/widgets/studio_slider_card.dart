@@ -19,22 +19,23 @@ class StudioSliderCard extends StatefulWidget {
     required this.value,
     required this.min,
     required this.max,
-    required this.defaultVal,
+    required this.onChanged,
+    this.defaultVal,
     this.dangerMin,
     this.dangerMax,
-    required this.onChanged,
     this.divisions,
     this.isInteger = false,
     this.decimalPlaces = 2,
     this.reset,
     this.tooltip,
+    this.embedded = false,
   });
 
   final String label;
   final double value;
   final double min;
   final double max;
-  final double defaultVal;
+  final double? defaultVal;
   final double? dangerMin;
   final double? dangerMax;
   final ValueChanged<double> onChanged;
@@ -43,6 +44,7 @@ class StudioSliderCard extends StatefulWidget {
   final int decimalPlaces;
   final ResetTarget? reset;
   final String? tooltip;
+  final bool embedded;
 
   @override
   State<StudioSliderCard> createState() => _StudioSliderCardState();
@@ -70,7 +72,9 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
   @override
   void didUpdateWidget(covariant StudioSliderCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.value != widget.value) {
+    if (oldWidget.value != widget.value ||
+        oldWidget.decimalPlaces != widget.decimalPlaces ||
+        oldWidget.isInteger != widget.isInteger) {
       _formattedValue = _format(widget.value);
       if (!_focusNode.hasFocus) {
         _controller.text = _formattedValue;
@@ -132,30 +136,20 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
   @override
   Widget build(BuildContext context) {
     final resetButton = _buildResetButton();
-    final clampedSliderValue =
-        (_dragValue ?? widget.value).clamp(widget.min, widget.max);
+    final current = _dragValue ?? widget.value;
+    final clampedSliderValue = current.clamp(widget.min, widget.max);
 
-    final bool inUpperDanger = (widget.dangerMax != null &&
-            (_dragValue ?? widget.value) > widget.dangerMax!) ||
-        (_dragValue ?? widget.value) > widget.max;
-    final bool inLowerDanger = (widget.dangerMin != null &&
-            (_dragValue ?? widget.value) < widget.dangerMin!) ||
-        (_dragValue ?? widget.value) < widget.min;
+    final bool inUpperDanger =
+        (widget.dangerMax != null && current > widget.dangerMax!) ||
+        current > widget.max;
+    final bool inLowerDanger =
+        (widget.dangerMin != null && current < widget.dangerMin!) ||
+        current < widget.min;
     final bool inDanger = inUpperDanger || inLowerDanger;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.hairlineOf(context, 0.04),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.hairlineOf(context, 0.12),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
           Row(
             children: [
               Expanded(
@@ -298,7 +292,23 @@ class _StudioSliderCardState extends State<StudioSliderCard> {
             ),
           ),
         ],
+    );
+
+    if (widget.embedded) {
+      return body;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.hairlineOf(context, 0.04),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.hairlineOf(context, 0.12),
+          width: 1,
+        ),
       ),
+      child: body,
     );
   }
 

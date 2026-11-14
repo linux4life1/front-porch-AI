@@ -161,6 +161,7 @@ class GenerationSamplerSliders extends StatelessWidget {
                   dangerMax: 1.60,
                   divisions: 40,
                   decimalPlaces: 2,
+                  embedded: true,
                   reset: r((v) => v.dynamicTempRange),
                   onChanged: (val) => g.setDynamicTempRange(val),
                   tooltip:

@@ -96,4 +96,55 @@ describe('slider range and info', () => {
     await act(async () => btn.click());
     expect(container.textContent).toContain('Controls randomness');
   });
+
+  it('commits typed values beyond slider max without clamping', async () => {
+    const genPatches: Partial<GenSettings>[] = [];
+    await show({ patchGen: (p: Partial<GenSettings>) => genPatches.push(p) });
+    const numInput = container.querySelector<HTMLInputElement>('.slider-val')!;
+    await act(async () => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(numInput, '2.5');
+      numInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(genPatches).toEqual([{ temperature: 2.5 }]);
+  });
+});
+
+describe('Output pipeline editors', () => {
+  it('supports adding, duplicate warning, inline editing, and reordering sanitizer rules', async () => {
+    const genPatches: Partial<GenSettings>[] = [];
+    const rules = [
+      { id: 1, find: '—', replace: ' - ', stop_after_match: false },
+      { id: 2, find: '…', replace: '...', stop_after_match: false },
+    ];
+    await show({
+      generation: { ...GEN, outputSanitizerEnabled: true, outputSanitizerRules: rules },
+      patchGen: (p: Partial<GenSettings>) => genPatches.push(p),
+    });
+
+    const findBox = container.querySelector<HTMLInputElement>('.sanitizer-find-input')!;
+    const replaceBox = container.querySelector<HTMLInputElement>('.sanitizer-replace-input')!;
+    const addBtn = container.querySelector<HTMLButtonElement>('.sanitizer-add-btn')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+
+    await act(async () => {
+      setter.call(findBox, '—');
+      findBox.dispatchEvent(new Event('input', { bubbles: true }));
+      setter.call(replaceBox, ' - ');
+      replaceBox.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => addBtn.click());
+    expect(container.querySelector('.sanitizer-warn-text')?.textContent).toBe('Rule already exists');
+
+    const moveDownFirst = container.querySelectorAll<HTMLButtonElement>('button[aria-label="Move rule down"]')[0]!;
+    await act(async () => moveDownFirst.click());
+    expect(genPatches.at(-1)?.outputSanitizerRules?.map((r) => r.id)).toEqual([2, 1]);
+
+    const inlineFind = container.querySelectorAll<HTMLInputElement>('.sanitizer-inline-input')[0]!;
+    await act(async () => {
+      setter.call(inlineFind, '***');
+      inlineFind.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(genPatches.at(-1)?.outputSanitizerRules?.[0].find).toBe('***');
+  });
 });

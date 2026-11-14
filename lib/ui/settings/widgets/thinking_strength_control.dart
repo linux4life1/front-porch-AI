@@ -18,6 +18,7 @@ class ThinkingStrengthControl extends StatelessWidget {
     required this.onChanged,
     this.modelId = '',
     this.compact = false,
+    this.showHeading = true,
     this.thinkingOn,
     this.onTurnOff,
     this.onTurnOn,
@@ -46,6 +47,9 @@ class ThinkingStrengthControl extends StatelessWidget {
   /// Tighter padding for dialogs.
   final bool compact;
 
+  /// False when an outer card/section already renders the "Thinking" title.
+  final bool showHeading;
+
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.porchAmberOf(context);
@@ -61,17 +65,19 @@ class ThinkingStrengthControl extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          thinkingOn == null && onTurnOff == null
-              ? 'Thinking strength'
-              : 'Thinking',
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontWeight: FontWeight.w600,
-            fontSize: compact ? 13 : 14,
+        if (showHeading) ...[
+          Text(
+            thinkingOn == null && onTurnOff == null
+                ? 'Thinking strength'
+                : 'Thinking',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w600,
+              fontSize: compact ? 13 : 14,
+            ),
           ),
-        ),
-        SizedBox(height: compact ? 6 : 8),
+          SizedBox(height: compact ? 6 : 8),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 360;

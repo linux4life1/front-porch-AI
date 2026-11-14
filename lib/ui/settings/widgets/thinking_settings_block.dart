@@ -1,9 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Request-thinking switch + this model's real strength chips. Off is locked
-// when the model cannot disable reasoning. A Nano poke at pick time fills
-// the menu when the provider does not advertise it.
+// Off chip + this model's real strength chips. Off is locked when the model
+// cannot disable reasoning. A Nano poke at pick time fills the menu when the
+// provider does not advertise it.
 
 import 'dart:async';
 
@@ -15,7 +15,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/thinking_strength_control.dart';
 
-/// Thinking switch + strength chips for Settings and per-chat settings.
+/// Thinking Off chip + strength chips for Settings and per-chat settings.
 class ThinkingSettingsBlock extends StatefulWidget {
   const ThinkingSettingsBlock({
     super.key,
@@ -25,6 +25,7 @@ class ThinkingSettingsBlock extends StatefulWidget {
     required this.onEffortChanged,
     this.modelId = '',
     this.compact = false,
+    this.showHeading = true,
   });
 
   final bool enabled;
@@ -33,6 +34,7 @@ class ThinkingSettingsBlock extends StatefulWidget {
   final ValueChanged<String> onEffortChanged;
   final String modelId;
   final bool compact;
+  final bool showHeading;
 
   @override
   State<ThinkingSettingsBlock> createState() => _ThinkingSettingsBlockState();
@@ -264,8 +266,9 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     final unanswered = _stillReading(widget.modelId);
     final unread = unanswered && _unread.contains(widget.modelId);
     final pending = unanswered && !unread;
-    // A model whose template has no thinking machinery at all: the switch and
-    // the chips would both be no-ops, so say that instead of implying they work.
+    // A model whose template has no thinking machinery at all: the Off chip and
+    // the strength chips would both be no-ops, so say that instead of implying
+    // they work.
     final localCannotThink = templateSupport == ThinkingSupport.none;
     // Template toggle (oMLX/GGUF) OR a remote poke that learned on/off only
     // (NanoGPT returning the host enum, not this model's levels).
@@ -343,9 +346,12 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
           ),
         if (!localCannotThink)
           Padding(
-            padding: EdgeInsets.only(top: widget.compact ? 4 : 8),
+            padding: EdgeInsets.only(
+              top: widget.showHeading ? (widget.compact ? 4 : 8) : 0,
+            ),
             child: ThinkingStrengthControl(
               compact: widget.compact,
+              showHeading: widget.showHeading,
               value: widget.effort,
               modelId: effectiveModelId,
               thinkingOn: thinkingOn,

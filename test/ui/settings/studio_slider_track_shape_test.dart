@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/settings/widgets/studio_slider_track_shape.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 void main() {
   testWidgets(
@@ -15,6 +16,9 @@ void main() {
         defaultVal: 0.7,
         dangerMax: 0.85,
         dangerMin: 0.15,
+        dangerActiveColor: AppColors.negativeAccent,
+        dangerInactiveColor: AppColors.negativeAccent,
+        pipColor: AppColors.slateMuted,
       );
 
       expect(shape.defaultVal, 0.7);
@@ -39,9 +43,9 @@ void main() {
                   max: 2.0,
                   defaultVal: 0.70,
                   dangerMax: 1.60,
-                  dangerActiveColor: Colors.red,
-                  dangerInactiveColor: Colors.redAccent,
-                  pipColor: Colors.grey,
+                  dangerActiveColor: AppColors.negativeAccent,
+                  dangerInactiveColor: AppColors.negativeAccent,
+                  pipColor: AppColors.slateMuted,
                 ),
                 trackHeight: 4,
               ),
@@ -75,9 +79,9 @@ void main() {
                     max: 2.0,
                     defaultVal: 0.70,
                     dangerMax: 1.60,
-                    dangerActiveColor: Colors.red,
-                    dangerInactiveColor: Colors.redAccent,
-                    pipColor: Colors.grey,
+                    dangerActiveColor: AppColors.negativeAccent,
+                    dangerInactiveColor: AppColors.negativeAccent,
+                    pipColor: AppColors.slateMuted,
                   ),
                   trackHeight: 4,
                 ),
@@ -110,6 +114,9 @@ void main() {
                   max: 2.0,
                   defaultVal: 0.70,
                   dangerMax: 1.60,
+                  dangerActiveColor: AppColors.negativeAccent,
+                  dangerInactiveColor: AppColors.negativeAccent,
+                  pipColor: AppColors.slateMuted,
                 ),
                 trackHeight: 4,
               ),

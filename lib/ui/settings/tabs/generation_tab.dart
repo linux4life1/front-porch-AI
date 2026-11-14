@@ -65,6 +65,7 @@ class _GenerationTabState extends State<GenerationTab> {
             title: 'Thinking',
             children: [
               ThinkingSettingsBlock(
+                showHeading: false,
                 enabled: storage.backendSettings.reasoningEnabled,
                 onEnabledChanged: storage.backendSettings.setReasoningEnabled,
                 effort: storage.backendSettings.reasoningEffort,
@@ -94,7 +95,7 @@ class _GenerationTabState extends State<GenerationTab> {
             children: [
               RecommendedSamplersBuilder(
                 storage: storage,
-                builder: (context, rec) => StudioSliderCard(
+                builder: (context, rec) => SliderSetting(
                   label: 'Max Output Tokens',
                   value: storage.generationSettings.maxLength.toDouble(),
                   min: 64,
@@ -103,6 +104,7 @@ class _GenerationTabState extends State<GenerationTab> {
                   dangerMin: 128,
                   divisions: (65536 - 64) ~/ 64,
                   isInteger: true,
+                  studioStyle: true,
                   reset: resetTargetFor(rec, (v) => v.maxLength),
                   onChanged: (val) =>
                       storage.generationSettings.setMaxLength(val.toInt()),
@@ -114,7 +116,7 @@ class _GenerationTabState extends State<GenerationTab> {
               // Context size — wider range for remote backends.
               PresetContextLock(
                 locked: storage.backendSettings.presetOwnsContext,
-                child: StudioSliderCard(
+                child: SliderSetting(
                   label: 'Context Size',
                   value: storage.backendSettings.contextSize.toDouble(),
                   min: 512,
@@ -122,6 +124,7 @@ class _GenerationTabState extends State<GenerationTab> {
                   defaultVal: 16384,
                   divisions: isRemote ? null : ((131072 - 512) ~/ 512),
                   isInteger: true,
+                  studioStyle: true,
                   onChanged: (val) =>
                       storage.backendSettings.setContextSize(val.toInt()),
                   tooltip:

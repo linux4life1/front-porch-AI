@@ -84,4 +84,44 @@ void main() {
     expect(find.text('Thinking'), findsOneWidget);
     expect(find.text('inside'), findsOneWidget);
   });
+
+  testWidgets('SliderSetting studioStyle preserves SliderSetting finder', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        SliderSetting(
+          label: 'Context Size',
+          value: 16384,
+          min: 512,
+          max: 131072,
+          defaultVal: 16384,
+          isInteger: true,
+          studioStyle: true,
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    expect(find.widgetWithText(SliderSetting, 'Context Size'), findsOneWidget);
+    expect(find.byType(StudioSliderCard), findsOneWidget);
+  });
+
+  testWidgets('ThinkingStrengthControl hides duplicate heading when false', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ThinkingStrengthControl(
+          value: 'medium',
+          thinkingOn: true,
+          showHeading: false,
+          onTurnOff: () {},
+          onTurnOn: () {},
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    expect(find.text('Thinking'), findsNothing);
+    expect(find.text('Off'), findsOneWidget);
+  });
 }

@@ -231,6 +231,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       const SizedBox(height: 8),
                       ThinkingSettingsBlock(
                         compact: true,
+                        showHeading: false,
                         enabled: _gen.resolveReasoningEnabled(storage),
                         onEnabledChanged: (val) {
                           setState(() => _gen.reasoningEnabled = val);
