@@ -66,7 +66,7 @@ recomputed in the web layer).
 | Expression portrait (mood-driven) | ✅ | Swaps on `chat_updated`. |
 | Import character card (PNG / .byaf) | ✅ | Upload → desktop import path. |
 | Delete character | ✅ | |
-| Avatar **crop** UI | ◑ | `ImageCropModal` crops portraits and expression uploads in the browser (`AvatarManager.tsx`); Looks upload as-is on purpose (a full outfit or scene is not square-cropped). Not re-verified for every avatar entry point. |
+| Avatar **crop** UI | ◑ | Audited PR 8b. Where both surfaces upload, they match: Looks upload as-is on both; the Stoop profile photo is square-cropped automatically on both (no crop UI). The web also face-crops Expression uploads (`AvatarManager.tsx` → `ImageCropModal`), which the desktop gallery does not. Open gaps are missing upload controls, not missing crops: the desktop crops a picked portrait in the create-character Portrait step, the AI Character Creator's review step, the Avatar Gallery's Set/Replace portrait and Image Studio's accept-as-avatar; the web has no portrait upload in any of those (portrait changes only by Swap portrait from a look). Persona avatars are not cropped on the desktop and have no upload on the web. |
 | Export character card | ✅ | Library actions download the PNG card and the JSON (`useLibrary.actions.ts`: `/api/characters/<id>/export.png`, `export.json`); groups export as PNG too. |
 
 ## Groups / Cast (unified model)
@@ -138,7 +138,7 @@ recomputed in the web layer).
 | Corners on every surface | ◑ | The corner scale drives the three radius tokens (`--radius`, `--radius-card`, `--radius-badge`); ~380 literal radii in `web_ui/src/styles` still ignore it. Migration follow-up, pinned by ruling 2026-11-13. |
 | Chat colors | ✅ | Host settings since PR 7b: the six roles read and write the desktop's own colours (per brightness), with "Use the theme's chat colors". |
 | Chat Font | ✅ | The desktop's 18-face catalog is served by the host so the two pickers cannot drift; the chosen face loads from Google Fonts at runtime like the desktop, with the system stack offline. |
-| Per-character chat font override | ◑ | Desktop-side (`UiSettings.getChatFontFamily` per character); the web paints the chat's own theme font or the host's global chat font. |
+| Per-character chat font and colours | ◑ | Painting ✅ (PR 8b): a card's own chat font and six chat colours paint its bubbles on the web as on the desktop (chat theme → card → global; in a group the speaking member's card on a reply, none on the user's lines), and a card saved elsewhere repaints an open chat. Editing: the font has no editor on either surface (it arrives with an imported card); the six colours are edited on the desktop in the chat's UI Settings dialog (no chat theme on), which the web's Chat theme panel does not offer. A reply still streaming wears the global look until it lands. |
 | Hardware/GPU flags, KCPPS presets, cloud sync, backups, data-dir | ❌ | No-go (see below). |
 
 ## The Stoop
