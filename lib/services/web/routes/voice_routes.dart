@@ -29,6 +29,9 @@ class WebVoiceRoutes {
   WebVoiceRoutes(this._facade, Router router) {
     router.get('/api/voice/status', _status);
     router.post('/api/voice/settings', _settings);
+    router.post('/api/voice/onnx/download', _onnxDownload);
+    router.post('/api/voice/photo/cancel', _photoCancel);
+    router.post('/api/voice/photo/remove', _photoRemove);
     router.post('/api/tts/speak', _speak);
     router.post('/api/stt/transcribe', _transcribe);
   }
@@ -45,6 +48,33 @@ class WebVoiceRoutes {
       body = const {};
     }
     return JsonResponse.ok(await _facade.apply(body));
+  }
+
+  /// The Expression Images ONNX download button: starts the download and
+  /// answers at once with the status (the page polls it for progress).
+  shelf.Response _onnxDownload(shelf.Request r) {
+    if (!_facade.media.startOnnxDownload()) {
+      return JsonResponse.error(503, 'The expression model is not available');
+    }
+    return JsonResponse.ok(_facade.status());
+  }
+
+  shelf.Response _photoCancel(shelf.Request r) {
+    if (!_facade.media.cancelPhotoDownload()) {
+      return JsonResponse.error(503, 'Photo understanding is not available');
+    }
+    return JsonResponse.ok(_facade.status());
+  }
+
+  Future<shelf.Response> _photoRemove(shelf.Request r) async {
+    final removed = await _facade.media.removePhotoHelper();
+    if (removed == null) {
+      return JsonResponse.error(409, 'A photo is being described right now');
+    }
+    if (!removed) {
+      return JsonResponse.error(503, 'Photo understanding is not available');
+    }
+    return JsonResponse.ok(_facade.status());
   }
 
   Future<shelf.Response> _speak(shelf.Request r) async {
