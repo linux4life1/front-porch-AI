@@ -42,11 +42,16 @@ Future<void> applyAppearanceWrite(
     await appearance.setTheme(AppThemeId.fromKey(themeId));
   }
 
-  // An empty or malformed string is the theme's own accent; the picker's
-  // "theme accent" swatch sends ''.
+  // '' is the picker's "theme accent" swatch; any other string must parse
+  // as #RRGGBB or it is ignored, like every other unknown value here.
   final accent = body['accent'];
   if (accent is String) {
-    await appearance.setAccentOverride(parseAccentHex(accent));
+    if (accent.isEmpty) {
+      await appearance.setAccentOverride(null);
+    } else {
+      final pick = parseAccentHex(accent);
+      if (pick != null) await appearance.setAccentOverride(pick);
+    }
   }
 
   final font = body['uiFont'];

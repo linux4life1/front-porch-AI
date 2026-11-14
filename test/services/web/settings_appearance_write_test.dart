@@ -65,7 +65,11 @@ void main() {
 
     await applyAppearanceWrite(storage, {'accent': '#2E7D32'});
     await applyAppearanceWrite(storage, {'accent': 'rgb(1,2,3)'});
-    expect(a.accentOverride, isNull, reason: 'anything not hex is no accent');
+    expect(
+      a.accentOverride,
+      const Color(0xFF2E7D32),
+      reason: 'a malformed accent is ignored, never stored or cleared',
+    );
   });
 
   test('the reset clears accent, font and corners, never the theme', () async {
