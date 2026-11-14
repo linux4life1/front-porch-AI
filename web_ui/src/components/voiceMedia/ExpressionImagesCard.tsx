@@ -65,19 +65,23 @@ function Choice({
   options: [string, string][];
   onPick: (v: string) => void;
 }) {
+  // The desktop's dense DropdownButton with no underline: the chosen words
+  // and a small arrow, right after the label, no box. Still a real <select>.
   return (
-    <select
-      className="setting-row-select vm-select"
-      aria-label={label}
-      value={value}
-      onChange={(e) => onPick(e.target.value)}
-    >
-      {options.map(([v, text]) => (
-        <option key={v} value={v}>
-          {text}
-        </option>
-      ))}
-    </select>
+    <span className="vm-select-wrap">
+      <select
+        className="vm-select"
+        aria-label={label}
+        value={value}
+        onChange={(e) => onPick(e.target.value)}
+      >
+        {options.map(([v, text]) => (
+          <option key={v} value={v}>
+            {text}
+          </option>
+        ))}
+      </select>
+    </span>
   );
 }
 

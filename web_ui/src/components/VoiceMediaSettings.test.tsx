@@ -254,6 +254,33 @@ describe('Voice & Media settings', () => {
     }
   });
 
+  it('shows the ONNX circle in every classification mode, as the desktop does', async () => {
+    for (const expressionMode of ['llm', 'onnx', 'manual']) {
+      for (const [state, label] of [
+        ['missing', 'Download ONNX model for local expression classification'],
+        ['ready', 'Expression model downloaded and ready'],
+        ['downloading', 'Downloading the ONNX model'],
+      ] as const) {
+        act(() => root.unmount());
+        root = createRoot(host);
+        vi.restoreAllMocks();
+        await mount({ ...base(), expressionMode, onnxModel: { state, progress: null, failed: false } });
+        expect(control(label), `${expressionMode} / ${state}`).not.toBeNull();
+      }
+    }
+  });
+
+  it('draws the hairline under the Expression Images title row only while enabled', async () => {
+    await mount(base());
+    const card = host.querySelector('[data-testid="vm-expressions"]')!;
+    expect(card.querySelector('.vm-card-body')).not.toBeNull();
+    act(() => root.unmount());
+    root = createRoot(host);
+    vi.restoreAllMocks();
+    await mount({ ...base(), expressionEnabled: false });
+    expect(host.querySelector('[data-testid="vm-expressions"] .vm-card-body')).toBeNull();
+  });
+
   it('says so when the ONNX download failed', async () => {
     await mount({ ...base(), onnxModel: { state: 'missing', progress: null, failed: true } });
     expect(text()).toContain('Download failed. Check your internet connection and try again.');
