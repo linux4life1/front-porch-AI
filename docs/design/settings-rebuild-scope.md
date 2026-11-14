@@ -154,8 +154,9 @@ Host work:
    brightness, exactly the 9 tokens the mini-chat draws (bg, surface, card,
    border, text, muted, user-bubble, ai-bubble, porch-amber) via
    `WebThemeTokens.resolve` + `palettesFor`; serve `accentSwatches` (the
-   12 hexes) so the web hard-codes nothing; add the
-   `appearanceWireFields` extension for the relay. Slim payload ≈ 3–4 KB
+   12 hexes) so the web hard-codes nothing; the relay spreads the same
+   `appearanceWire` in its one budgeted line (a separate extension was
+   planned, then dropped: the function call is already one line). Slim payload ≈ 3–4 KB
    per snapshot/`settings_changed` — accepted. (Design change from the
    first draft, recorded 2026-11-13: raw `null` picks need new getters in
    `ui_settings.dart`, which sits at 499 lines; the resolved+defaults pair

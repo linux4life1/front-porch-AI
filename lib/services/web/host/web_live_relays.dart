@@ -411,13 +411,13 @@ class WebLiveRelays {
     void onSettingsChanged() {
       _settingsDebounce?.cancel();
       _settingsDebounce = Timer(const Duration(milliseconds: 150), () {
-        // The theme rides the event so every open page repaints at once.
+        // The theme and the Appearance picks/catalogs ride every event.
         streamHub.broadcast({
           'event': 'settings_changed',
           'theme': webThemeWire(_storage.appearance),
-          // Additive: the bubbles' opacity follows the Ambient scene default.
           'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
           ..._storage.uiSettings.sidebarWireFields, // live sidebar orders
+          ...appearanceWire(_storage.appearance, _storage.uiSettings),
         });
       });
     }
