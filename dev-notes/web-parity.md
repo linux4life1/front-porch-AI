@@ -125,7 +125,11 @@ recomputed in the web layer).
 | Remote access: Tailscale / ngrok guided setup | ❌ | Desktop-only (maintainer ruling, 2026-11-13, PR 7a): a browser session exists only because a tunnel is already up, so managing tunnels in it is circular. The web's Advanced settings tab and `/remote` route are gone; setup lives in the desktop's Advanced tab. |
 | PWA install (Add to Home Screen) | ✅ | `InstallHint`: `beforeinstallprompt` button + iOS manual steps; auto-hides once installed. |
 | Theme — dark mode, per-device follow | ✅ | Dark mode is the host's: changing it in the browser changes the desktop and every open session follows (host-wide ruling, 2026-11-13). |
-| Theme gallery, accent, UI font, corners | ⏳ | Arriving with PR 7b; host-wide like dark mode. |
+| Theme gallery, accent, UI font, corners | ✅ | Host-wide like dark mode (PR 7b): the gallery previews all eight themes from host-resolved palettes, the accent picker writes the desktop's accent (the host fits it for readability and says so), and the UI font and corners paint from the host. |
+| Corners on every surface | ◑ | The corner scale drives the three radius tokens (`--radius`, `--radius-card`, `--radius-badge`); ~380 literal radii in `web_ui/src/styles` still ignore it. Migration follow-up, pinned by ruling 2026-11-13. |
+| Chat colors | ✅ | Host settings since PR 7b: the six roles read and write the desktop's own colours (per brightness), with "Use the theme's chat colors". |
+| Chat Font | ✅ | The desktop's 18-face catalog is served by the host so the two pickers cannot drift; the chosen face loads from Google Fonts at runtime like the desktop, with the system stack offline. |
+| Per-character chat font override | ◑ | Desktop-side (`UiSettings.getChatFontFamily` per character); the web paints the chat's own theme font or the host's global chat font. |
 | Hardware/GPU flags, KCPPS presets, cloud sync, backups, data-dir | ❌ | No-go (see below). |
 
 ## Accessibility / PWA (code-level — done here)
