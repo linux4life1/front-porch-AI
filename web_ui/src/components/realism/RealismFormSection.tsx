@@ -48,6 +48,7 @@ export function RealismFormSection({
   disclaimer,
   needs,
   showIdentity = true,
+  startsAway,
 }: {
   v: RealismValues;
   set: Patch;
@@ -81,6 +82,10 @@ export function RealismFormSection({
   /** Ambitions … Intimate preferences follow the engine (create wizards); the
    *  character editor shows them first and passes false. */
   showIdentity?: boolean;
+  /** A group member's own Starts Away pick: how every chat the group CREATES
+   *  starts them (docs/design/group-initial-presence.md). Member-only — a
+   *  1:1 card has no hold to author, so it stays undefined there. */
+  startsAway?: { name: string; value: boolean; onChange: (b: boolean) => void };
 }) {
   const engineOn = hiddenNote ? false : v.realismEnabled;
   const lock = (tip: string | undefined, node: React.ReactNode) =>
@@ -192,6 +197,18 @@ export function RealismFormSection({
               />
             )}
           </>
+        )}
+        {/* This group member Starts Away: lands held in every chat the group
+            CREATES (docs/design/group-initial-presence.md). Member-only — a
+            1:1 card has no hold to author. Not an 18+ feature: it shows even
+            when Porch Life keeps Afterglow hidden. */}
+        {engineOn && startsAway && (
+          <ToggleRow
+            label="Starts away"
+            hint={`Every chat you make with this group starts ${startsAway.name} Away, before any turn runs. Only Back at the door brings them in — a chat you reopen keeps its own.`}
+            value={startsAway.value}
+            onChange={(b) => startsAway.onChange(b)}
+          />
         )}
         {lock(
           lockChaos,

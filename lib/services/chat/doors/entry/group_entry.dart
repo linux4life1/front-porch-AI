@@ -31,6 +31,7 @@ import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 import 'entry_door.dart';
+import 'group_member_starts_away.dart';
 import 'group_start_seeds.dart';
 
 /// Open a group: the departing chat flushed and detached, every per-chat
@@ -390,6 +391,17 @@ class GroupEntry {
             target: c,
           );
         }
+
+        // Starts Away (docs/design/group-initial-presence.md): seed each
+        // member's runtime hold from their card once, at chat creation.
+        // This branch runs only when nothing was restored — the restored
+        // chat's saved holds are the ones that survive a re-open — and it
+        // runs outside every realism gate, like the import above.
+        seedMemberStartsAway(
+          _groupCharacters,
+          _groupStore,
+          idOf: _getCharacterIdFromCard,
+        );
 
         String greetingText;
         String greetingSender;

@@ -168,6 +168,12 @@ class RealismFormSection extends StatelessWidget {
   final String? chaosLockedTooltip;
   final String? verificationLockedTooltip;
 
+  /// How this group member starts in every chat the group CREATES: Away at
+  /// the door (docs/design/group-initial-presence.md). Absent without a
+  /// setter — the member editor is the only one.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
   /// The Director's authority over Needs scores (needs Verification on).
   /// Absent without a setter.
   final bool needsDirectorAuthority;
@@ -223,6 +229,8 @@ class RealismFormSection extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.startsAwayEnabled = false,
+    this.onStartsAwayChanged,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -335,6 +343,25 @@ class RealismFormSection extends StatelessWidget {
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
         if (showTimeAndDay) ...[_timeAndDay(context, labelStyle)],
+        // A group member's Starts Away pick: a door fact, not a Realism
+        // Engine feature (R6 in docs/design/group-initial-presence.md) — it
+        // shows with the engine off too, where the member's other own
+        // settings are hidden and kept. With the engine on the row rides the
+        // Optional Features card instead.
+        if (!enabled && onStartsAwayChanged != null) ...[
+          const SizedBox(height: 20),
+          buildRealismToggleRow(
+            icon: Icons.pause_circle_outline,
+            label: 'Starts away',
+            subtitle:
+                'Every chat you make with this group starts them Away, before '
+                'any turn runs. Only Back at the door brings them in — a chat '
+                'you reopen keeps its own.',
+            value: startsAwayEnabled,
+            onChanged: onStartsAwayChanged!,
+            context: context,
+          ),
+        ],
         if (enabled) ...[
           // Needs Simulation (rendered separately when provided by caller).
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
@@ -410,6 +437,8 @@ class RealismFormSection extends StatelessWidget {
             onAfterglowChanged: onAfterglowChanged,
             chaosLockedTooltip: chaosLockedTooltip,
             verificationLockedTooltip: verificationLockedTooltip,
+            startsAwayEnabled: startsAwayEnabled,
+            onStartsAwayChanged: onStartsAwayChanged,
             needsDirectorAuthority: needsDirectorAuthority,
             onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),

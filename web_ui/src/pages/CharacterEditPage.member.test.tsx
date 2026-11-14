@@ -148,6 +148,25 @@ describe('the group member editor', () => {
     expect(body.groupValues.note).toBe('Keep it short.');
     expect(url).not.toContain('/api/characters/');
   });
+
+  // Starts Away (docs/design/group-initial-presence.md): a member's hold the
+  // group's chats seed from. It is not an 18+ feature, so the row shows even
+  // though this fixture lights Porch Life off, and it rides the flat save
+  // like every other extension field.
+  it('the member can start Away in every chat the group creates', async () => {
+    await mountAt('/groups/g1/members/mem-mara/edit');
+    const row = [...container.querySelectorAll('label.realism-toggle')].find(
+      (l) => l.querySelector('.realism-toggle-text > span')?.textContent === 'Starts away',
+    );
+    if (!row) throw new Error('no toggle "Starts away"');
+    await act(async () => (row.querySelector('input') as HTMLInputElement).click());
+    const save = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save')!;
+    await act(async () => save.click());
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, body] = post.mock.calls[0];
+    expect(url).toBe('/api/groups/g1/members/mem-mara');
+    expect(body.startsAway).toBe(true);
+  });
 });
 
 describe('the 1:1 editor', () => {
