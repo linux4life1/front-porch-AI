@@ -24,6 +24,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_appearance_write.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_sidebar_order.dart';
@@ -151,6 +152,10 @@ class SettingsWriter {
     // The chat sidebar's remembered order, per surface (split out of this
     // near-cap file: settings_sidebar_order.dart).
     await applySidebarOrderWrite(_storage, body);
+
+    // Appearance → theme, accent, UI font, corners, chat font and colours
+    // (split out of this near-cap file: settings_appearance_write.dart).
+    await applyAppearanceWrite(_storage, body);
 
     final realism = body['realism'];
     if (realism is Map) {
