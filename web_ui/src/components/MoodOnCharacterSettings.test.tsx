@@ -1,16 +1,18 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Appearance → Mood on the character on the web: the row reads the desktop's
-// level and Drama and writes a change back; the Drama only moves while the
-// row is on; the row is not shown while Porch Life's Realism Engine is off,
-// and the Background weather group is not shown while Story Weather is off.
+// Appearance → Chat appearance → Mood on the character on the web: the
+// card reads the desktop's level and Drama and writes a change back; the
+// Drama only moves while the row is on; the card is not shown while Porch
+// Life's Realism Engine is off. Split out of the Appearance card with the
+// seven-section rebuild (one-chat-ux PR 7a); Story Weather gating moved to
+// the BackgroundWeatherSettings tests, where the weather card now lives.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppearanceSettings } from './AppearanceSettings';
+import { MoodOnCharacterSettings } from './MoodOnCharacterSettings';
 import { api } from '../api/client';
 
 vi.mock('../api/ws', () => ({
@@ -40,7 +42,7 @@ const render = async (settings: Record<string, unknown>) => {
   vi.spyOn(api, 'get').mockResolvedValue(settings);
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(MoodOnCharacterSettings));
   });
   await act(async () => {});
   return post;
@@ -70,19 +72,14 @@ it('the Drama only moves while the row is on', async () => {
   expect(host.textContent).toContain('Drama');
 });
 
-it('is not shown while Porch Life runs no Realism, and the weather group goes with Story Weather', async () => {
-  await render({ moodOnCharacter: 'all', realism: { realismAllowed: false, weatherEnabled: false } });
+it('is not shown while Porch Life runs no Realism', async () => {
+  await render({ moodOnCharacter: 'all', realism: { realismAllowed: false } });
   expect(host.querySelector('[data-testid="mood-on-character"]')).toBeNull();
   expect(moodSelect()).toBeNull();
-  expect(host.querySelector('[data-testid="background-weather"]')).toBeNull();
-  expect(host.querySelector('select[aria-label="Ambient scene"]')).toBeNull();
-  // Dark mode and the device theme stay.
-  expect(host.querySelector('input[aria-label="Dark mode"]')).not.toBeNull();
 });
 
-it('shows both groups when the desktop sends no Porch Life flags (an older desktop)', async () => {
-  await render({ ambientScene: 'tint' });
-  expect(host.querySelector('[data-testid="background-weather"]')).not.toBeNull();
+it('shows the card when the desktop sends no Porch Life flags (an older desktop)', async () => {
+  await render({});
   expect(host.querySelector('[data-testid="mood-on-character"]')).not.toBeNull();
-  expect(host.textContent).toContain('Only in chats with a world that has climate on');
+  expect(moodSelect()!.value).toBe('off');
 });

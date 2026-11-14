@@ -759,7 +759,13 @@ void _leafTests() {
       ];
       expect(webNav, dartNav, reason: 'the web nav differs from the sidebar');
       // Chat, Stories and Remote are not nav items: Home's mode toggle reaches
-      // Porch Stories and Settings holds the web server, as on the desktop.
+      // Porch Stories, as on the desktop. The web server's tunnel setup
+      // (RemoteAccessPage / the desktop's Advanced tab) is now desktop-only by
+      // maintainer ruling 2026-11-13: a browser session exists only because one
+      // of those tunnels is already up, so the web Settings tab strip omits it.
+      // The one non-tunnel control from that tab — the legacy-models cleanup —
+      // lives under Voice & Media here, where the desktop's LegacyCleanupCard
+      // lives too. See docs/design/settings-parity-manifest.json sectionsComment.
       for (final gone in ["'Chat'", "'Stories'", "'Remote'", "'Characters'"]) {
         expect(nav, isNot(contains('label: $gone')));
       }
@@ -769,7 +775,13 @@ void _leafTests() {
       );
       expect(
         _w('pages/SettingsPage.tsx'),
-        contains('<RemoteAccessPage embedded'),
+        isNot(contains('<RemoteAccessPage embedded')),
+        reason: 'remote-access/tunnel setup is desktop-only (maintainer 2026-11-13)',
+      );
+      expect(
+        _w('pages/SettingsPage.tsx'),
+        contains('data-section="voice-media"'),
+        reason: 'the web tab strip keeps Voice & Media (where cleanup moved)',
       );
       expect(_w('App.tsx'), contains('path="/persona"'));
     },

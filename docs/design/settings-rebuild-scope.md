@@ -1,6 +1,10 @@
 # Settings rebuild — scope and verified inventory (PR 7, chunks 7a–7d)
 
-Status: scoped 2026-11-13 against Rawhide head `3fad54abf`. This is the
+Status: scoped 2026-11-13 against Rawhide head `3fad54abf`. Ruled the same
+day: theme is **host-wide** (§3), voice-call and mic/host-capture controls
+are **desktop-only** (§5). **7a built** on `feat/settings-rebuild-7a` —
+web lint, full vitest (1593) and `flutter test test/hygiene/` (92) green;
+screenshots and PR page pending. This is the
 work file for **PR 7 of [one-chat-ux.md](one-chat-ux.md)** (bumped from
 PR 8; closes `dev-notes/drift-ledger-726.md` ledger #5, #13, #14, #4, #15).
 Every file:line here was read this sitting — do not re-sweep, and do not
@@ -62,6 +66,10 @@ general.
   prompt card (`lib/services/web/facade/settings/`).
 - No new host-backed controls in 7a. If a control has no web API key
   yet, it waits for 7b — do not fake it with localStorage in this chunk.
+  Consequence built as noted: the desktop General *Auto-check for
+  Updates* row has no key on `/api/settings` (verified: no update code
+  in `settings_snapshot.dart`/`settings_writer.dart`), so it waits for
+  7b; the page carries a comment where it will sit.
 - Parity: rebuild the `sections` list in
   `docs/design/settings-parity-manifest.json:11` (currently the six
   above), move the affected control entries' `section` fields, and land
@@ -182,18 +190,16 @@ Sketch the progress plumbing before building.
   app-bar actions (`user_persona_page.dart`); (c) models-folder ops on
   `/models` (`model_manager_page.dart`).
 
-## 3. Ruling needed — web theme becomes host-wide (reverses the ❌)
+## 3. Ruled 2026-11-13 — web theme is host-wide (❌ reversed)
 
-`dev-notes/web-parity.md:118-125` marks Theme (among others) `❌` "no-go"
-for web. The drift ledger and the one-chat-ux poke script both require
-"changing theme or accent on the web changes the desktop too" — one
-shared prefs store, so **any browser tab changes every surface**, other
-browsers included. Proposed ruling: keep the ledger's line — theme,
-accent, UI font and corners are host settings, all surfaces follow
-within a second over `settings_changed`; flip that ❌ row to ✅ in 7b
-with this doc as the justification. Per-device taste (reading size, chat
-colors, the device 4-way dark choice) stays device-local where it already
-is. Needs the maintainer's explicit OK before 7b merges.
+`dev-notes/web-parity.md` marked Theme `❌` "no-go" for web. Maintainer
+ruled: **theme, accent, UI font and corners are host settings** — one
+shared prefs store, changing theme on the web changes the desktop and
+every open session follows (within a second over `settings_changed`).
+The parity doc now carries a ✅ row for the host-wide dark mode (live
+since 7a) and an ⏳ row for the gallery/accent/font/corners that 7b
+ships. Per-device taste (the 4-way device choice, reading size, chat
+colors) stays device-local where it already is.
 
 ## 4. Prep — before the first 7a commit
 
@@ -211,14 +217,17 @@ is. Needs the maintainer's explicit OK before 7b merges.
 4. `dev-notes/web-parity.md`: pre-stage the ✅/◑/❌ row changes 7a–7d
    will need so the parity doc never lags a shipped chunk.
 
-## 5. Ruling needed — microphone devices
+## 5. Ruled 2026-11-13 — voice/mic stays desktop
 
-Desktop lists the **host's** input devices (`stt_section.dart:280-340`).
-A browser can only enumerate the **client's** devices, and the host's
-capture happens on the host machine. Proposal: mic device selection
-stays `⚙️` desktop-only (engine/hardware setup, same legend as the rest
-of first-time setup); the web gets everything else in 7c. Maintainer's
-call before 7c.
+Maintainer ruling: the browser round trip makes interactive voice
+unreasonable off desktop. Recorded in `dev-notes/web-parity.md`:
+voice call `❌` forever (already ruling 9 of one-chat-ux); mic device
+list + Whisper model download + engine setup `⚙️` desktop-only — the
+host captures on the host machine and a browser only sees its own
+devices. Existing web TTS playback and upload-based STT dictation stay
+as they are (✅ rows). What 7c still ports: expression controls,
+photo-understanding card, image-gen toggle, auto-send transcription —
+pure host settings with no round-trip cost.
 
 ## 6. Open decisions (small, pick inside the chunk)
 

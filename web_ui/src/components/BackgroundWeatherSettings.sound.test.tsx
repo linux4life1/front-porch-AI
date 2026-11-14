@@ -11,7 +11,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppearanceSettings } from './AppearanceSettings';
+import { BackgroundWeatherSettings } from './BackgroundWeatherSettings';
 import { api } from '../api/client';
 
 type Listener = (e: { event: string }) => void;
@@ -54,7 +54,7 @@ it('reads Scene sound off at half volume, with the slider held until it is on', 
   vi.spyOn(api, 'get').mockResolvedValue({ sceneSound: false, sceneSoundVolume: 0.5 });
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   expect(host.textContent).toContain('Scene sound');
   expect(host.textContent).toContain('Scene sound volume');
@@ -75,7 +75,7 @@ it('writes the volume once a drag settles', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({ sceneSound: true, sceneSoundVolume: 0.3 });
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   vi.useFakeTimers();
   const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
@@ -98,7 +98,7 @@ it('follows a change made on the desktop, and puts a failed switch back', async 
   const get = vi.spyOn(api, 'get').mockResolvedValue({ sceneSound: false, sceneSoundVolume: 0.5 });
   vi.spyOn(api, 'post').mockRejectedValue(new Error('offline'));
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   await act(async () => {
     toggle().click();
@@ -121,7 +121,7 @@ it('posts a volume still waiting when the card closes', async () => {
   document.body.appendChild(own);
   const ownRoot = createRoot(own);
   await act(async () => {
-    ownRoot.render(createElement(AppearanceSettings));
+    ownRoot.render(createElement(BackgroundWeatherSettings));
   });
   vi.useFakeTimers();
   const input = own.querySelector<HTMLInputElement>('input[aria-label="Scene sound volume"]')!;

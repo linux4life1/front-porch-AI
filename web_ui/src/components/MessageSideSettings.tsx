@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { applyUserMessageSide } from '../userMessageSide';
+import { SettingRow } from './SettingRow';
 
 export function MessageSideSettings() {
   const [on, setOn] = useState(false);
@@ -39,22 +40,21 @@ export function MessageSideSettings() {
   };
 
   return (
-    <section className="card" data-testid="message-side-card">
-      <h3>My messages on the right</h3>
-      <p className="reading-blurb">
-        Off, your messages sit on the left, like the character&apos;s. On, they
-        move to the right, the way chat looked before.
-      </p>
-      <label>
+    <>
+      <SettingRow
+        title="My messages on the right"
+        blurb="Off, your messages sit on the left, like the character's. On, they move to the right, the way chat looked before."
+        testid="message-side-card"
+      >
         <input
+          className="switch"
           type="checkbox"
           checked={on}
           onChange={(e) => commit(e.target.checked)}
           aria-label="My messages on the right"
         />
-        {' '}My messages on the right
-      </label>
+      </SettingRow>
       {problem && <p className="error" role="alert">{problem}</p>}
-    </section>
+    </>
   );
 }

@@ -1,0 +1,89 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Settings → Appearance → Theme: the desktop's Dark Mode switch and this
+// device's own choice: follow the desktop, or keep dark, light or the
+// browser's setting here. Both palettes come from the desktop; this card
+// only picks one. Split out of AppearanceSettings when the web Settings
+// matched the desktop's seven tabs (one-chat-ux PR 7a).
+
+import { useEffect, useState } from 'react';
+import { api } from '../api/client';
+import {
+  THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
+} from '../theme/appTheme';
+import { SettingRow } from './SettingRow';
+
+const CHOICES: { value: ThemeChoice; label: string }[] = [
+  { value: 'desktop', label: 'Follow the desktop' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'light', label: 'Light' },
+  { value: 'system', label: 'Match this device' },
+];
+
+export function ThemeModeSettings() {
+  const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice);
+  // Null until the desktop has said which mode it is in.
+  const [desktopDark, setDesktopDark] = useState<boolean | null>(() => {
+    const mode = currentThemeWire()?.mode;
+    return mode ? mode === 'dark' : null;
+  });
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const onWire = () => {
+      const mode = currentThemeWire()?.mode;
+      if (mode) setDesktopDark(mode === 'dark');
+    };
+    window.addEventListener(THEME_EVENT, onWire);
+    // A wire that landed between the first render and this subscription
+    // fired no event this card heard.
+    onWire();
+    return () => window.removeEventListener(THEME_EVENT, onWire);
+  }, []);
+
+  const pick = (next: ThemeChoice) => {
+    setChoice(next);
+    saveThemeChoice(next);
+  };
+
+  const setDark = (dark: boolean) => {
+    setDesktopDark(dark);
+    setError('');
+    api.post('/api/settings', { darkMode: dark }).catch((e: unknown) => {
+      setDesktopDark(!dark);
+      setError(`Could not change the desktop's mode: ${String(e)}`);
+    });
+  };
+
+  return (
+    <section data-testid="theme-mode-card">
+      <SettingRow
+        title="Dark mode"
+        blurb="The desktop app's own switch. Changing it here changes it there too."
+      >
+        <input
+          className="switch"
+          type="checkbox"
+          checked={desktopDark ?? true}
+          disabled={desktopDark === null}
+          onChange={(e) => setDark(e.target.checked)}
+          aria-label="Dark mode"
+        />
+      </SettingRow>
+      {error && <p className="error">{error}</p>}
+      <SettingRow title="On this device">
+        <select
+          className="setting-row-select"
+          value={choice}
+          onChange={(e) => pick(e.target.value as ThemeChoice)}
+          aria-label="Theme on this device"
+        >
+          {CHOICES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </SettingRow>
+    </section>
+  );
+}

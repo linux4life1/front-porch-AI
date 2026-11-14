@@ -11,7 +11,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppearanceSettings } from './AppearanceSettings';
+import { BackgroundWeatherSettings } from './BackgroundWeatherSettings';
 import { api } from '../api/client';
 
 type Listener = (e: { event: string }) => void;
@@ -50,7 +50,7 @@ it('offers Tint and effects and keeps the desktop choice', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'effects', pauseEffectsWhileGenerating: true });
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
   expect([...select.options].map((o) => o.textContent)).toEqual(['Off', 'Tint only', 'Tint and effects']);
@@ -66,7 +66,7 @@ it('reads the pause switch from the desktop and writes a change back', async () 
   vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'effects', pauseEffectsWhileGenerating: false });
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const box = host.querySelector<HTMLInputElement>('input[aria-label="Pause effects while generating"]')!;
   expect(box.disabled).toBe(false);
@@ -82,7 +82,7 @@ it('puts the switch back when the desktop refuses the change', async () => {
   vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'effects' });
   vi.spyOn(api, 'post').mockRejectedValue(new Error('offline'));
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const box = host.querySelector<HTMLInputElement>('input[aria-label="Pause effects while generating"]')!;
   expect(box.checked).toBe(true);
@@ -97,7 +97,7 @@ it('follows the pause switch and Tint and effects changed on the desktop', async
   let desktop: Record<string, unknown> = { ambientScene: 'tint', pauseEffectsWhileGenerating: true };
   vi.spyOn(api, 'get').mockImplementation(async () => desktop);
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
   const box = host.querySelector<HTMLInputElement>('input[aria-label="Pause effects while generating"]')!;

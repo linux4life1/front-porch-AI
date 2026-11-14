@@ -3,13 +3,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import { RemoteAccessPage } from './RemoteAccessPage';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
 import { BubbleOpacitySettings } from '../components/BubbleOpacitySettings';
 import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
-import { AppearanceSettings } from '../components/AppearanceSettings';
+import { ThemeModeSettings } from '../components/ThemeModeSettings';
+import { BackgroundWeatherSettings } from '../components/BackgroundWeatherSettings';
+import { MoodOnCharacterSettings } from '../components/MoodOnCharacterSettings';
+import { SpellCheckSettings } from '../components/SpellCheckSettings';
+import { AdultThemesCard } from '../components/AdultThemesCard';
+import { PorchLifePointerCard } from '../components/PorchLifePointerCard';
 import { MessageSideSettings } from '../components/MessageSideSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { PromptSettingsCard } from '../components/PromptSettingsCard';
@@ -169,7 +173,26 @@ function RemoteReachabilityBadge({
   );
 }
 
+// The desktop's Settings tabs the web shows, in its order
+// (lib/ui/pages/settings_page.dart:230-280): the web tab strip renders
+// these and shows one section at a time. The desktop's Advanced tab stays
+// desktop-only (maintainer ruling, 2026-11-13): its content is the web
+// server's tunnel setup, and a browser session exists only because one of
+// those tunnels is already up. The tab's one non-tunnel control, the
+// legacy-models cleanup, lives in Voice & Media here, as its
+// LegacyCleanupCard twin lives in the desktop's Voice tab.
+const SECTIONS: [string, string][] = [
+  ['general', 'General'],
+  ['appearance', 'Appearance'],
+  ['porch-life', 'Porch Life'],
+  ['generation', 'Generation'],
+  ['voice-media', 'Voice & Media'],
+  ['backend', 'Backend'],
+];
+
 export function SettingsPage() {
+  // Active tab, the desktop's first. Each section mounts only while active.
+  const [tab, setTab] = useState('general');
   const [s, setS] = useState<Settings | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [workerApiKey, setWorkerApiKey] = useState('');
@@ -403,21 +426,48 @@ export function SettingsPage() {
     selectedId === 'custom';
 
   return (
-    <div className="page">
+    <div className="page settings-page">
       {prompt}
       <h2>Settings</h2>
 
-      <div className="settings-section" data-section="general">
-        <h3 className="settings-section-heading">General</h3>
+      {/* One tab at a time, like the desktop window: the strip sits under the
+          title, the active tab carries the accent underline, and only that
+          section renders. The form Save lives in a footer under the tab
+          content so it is reachable from every tab (prompts in General and
+          speech in Backend both save through it). */}
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        {SECTIONS.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            data-tab={id}
+            className="settings-tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-        <div className="settings-group" data-testid="chat-appearance-group">
-          <h4 className="settings-group-heading">Chat appearance</h4>
-          <MessageSideSettings />
-          <FollowStreamingSettings />
-          <AppearanceSettings />
-          <ReadingSizeSettings />
-          <BubbleOpacitySettings />
-          <ChatColorsSettings />
+      {tab === 'general' && (
+      <div className="settings-section" data-section="general">
+
+        <MessageSideSettings />
+        <FollowStreamingSettings />
+        {/* Auto-check for Updates sits here on the desktop; its host keys
+            are not on /api/settings yet — PR 7b adds them. */}
+        <SpellCheckSettings
+          spellCheckLanguage={s.spellCheckLanguage}
+          spellCheckLanguages={s.spellCheckLanguages}
+          onChange={(tag) => patch({ spellCheckLanguage: tag })}
+        />
+
+        <div className="settings-group" data-testid="porch-life-group">
+          <h4 className="settings-group-heading">Porch Life</h4>
+          <AdultThemesCard />
+          <PorchLifePointerCard />
         </div>
 
         <PromptSettingsCard
@@ -433,15 +483,69 @@ export function SettingsPage() {
           patch={(p) => patch(p as Partial<Settings>)}
         />
 
+        <section className="card" data-testid="about-license-card">
+          <h2>About &amp; License</h2>
+          <p className="muted small" style={{ lineHeight: 1.5 }}>
+            Front Porch AI is free, open-source software © 2026 Front Porch AI,
+            licensed under the GNU Affero General Public License v3.0. You are
+            free to use, study, modify, and redistribute it under the AGPL. The
+            complete source code is available below; if you received this app
+            without that source, or as part of a closed-source product, that is a
+            license violation.
+          </p>
+          <div className="about-links">
+            <a
+              className="btn-link"
+              href="https://github.com/linux4life1/front-porch-ai"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Source code
+            </a>
+            <a
+              className="btn-link"
+              href="https://github.com/linux4life1/front-porch-ai/issues"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Report a license violation
+            </a>
+          </div>
+        </section>
       </div>
+      )}
 
+      {tab === 'appearance' && (
+      <div className="settings-section" data-section="appearance">
+
+        {/* Desktop order: Theme (mode now; gallery, accent, UI font,
+            corners and the reset arrive with PR 7b), then the weather's
+            own section, then chat appearance. */}
+        <div className="settings-group" data-testid="theme-group">
+          <h4 className="settings-group-heading">Theme</h4>
+          <ThemeModeSettings />
+        </div>
+
+        <BackgroundWeatherSettings />
+
+        <div className="settings-group" data-testid="chat-appearance-group">
+          <h4 className="settings-group-heading">Chat appearance</h4>
+          <ReadingSizeSettings />
+          <MoodOnCharacterSettings />
+          <BubbleOpacitySettings />
+          <ChatColorsSettings />
+        </div>
+      </div>
+      )}
+
+      {tab === 'porch-life' && (
       <div className="settings-section" data-section="porch-life">
-        <h3 className="settings-section-heading">Porch Life</h3>
         <PorchLifeSettings />
       </div>
+      )}
 
+      {tab === 'generation' && (
       <div className="settings-section" data-section="generation">
-        <h3 className="settings-section-heading">Generation</h3>
         <GenPresetBar
           data={genPresets.data}
           error={genPresets.error}
@@ -458,8 +562,6 @@ export function SettingsPage() {
           contextLocked={presetOwnsContext(s.backend, s.activeKcppsPath)}
           generation={s.generation}
           bannedPhrases={s.bannedPhrases}
-          spellCheckLanguage={s.spellCheckLanguage}
-          spellCheckLanguages={s.spellCheckLanguages}
           reasoningEnabled={s.reasoningEnabled}
           reasoningEffort={s.reasoningEffort}
           reasoningMandatory={s.reasoningMandatory}
@@ -474,14 +576,36 @@ export function SettingsPage() {
             Generation on both surfaces (desktop parity). */}
         <ModelTransportCard />
       </div>
+      )}
 
+      {tab === 'voice-media' && (
       <div className="settings-section" data-section="voice-media">
-        <h3 className="settings-section-heading">Voice &amp; Media</h3>
         <VoiceMediaSettings />
-      </div>
 
+        {/* The desktop keeps this cleanup (LegacyCleanupCard) in its Voice
+            tab; it came over with the Advanced tab's removal. */}
+        {legacy && legacy.totalBytes > 0 && (
+          <section className="card" data-testid="reclaim-disk-card">
+            <h3>Reclaim disk space</h3>
+            <p className="muted small">
+              The new built-in speech engines use their own models. These files
+              from the old engines are no longer used:
+            </p>
+            {legacy.groups.map((g) => (
+              <p key={g.label} className="muted small" style={{ margin: '4px 0' }}>
+                • {g.label} — {fmtBytes(g.bytes)}
+              </p>
+            ))}
+            <button className="ghost" onClick={() => void reclaim()} disabled={reclaiming}>
+              {reclaiming ? 'Reclaiming…' : `Reclaim ${fmtBytes(legacy.totalBytes)}`}
+            </button>
+          </section>
+        )}
+      </div>
+      )}
+
+      {tab === 'backend' && (
       <div className="settings-section" data-section="backend">
-        <h3 className="settings-section-heading">Backend</h3>
         <section className="card" data-testid="chat-speech-card">
           <h3>Chat speech</h3>
           <label>
@@ -645,30 +769,12 @@ export function SettingsPage() {
         )}
         <HfTokenCard hasToken={!!s.hasHfToken} totpEnabled={totpEnabled} />
       </div>
+      )}
 
-      <div className="settings-section" data-section="advanced">
-        <h3 className="settings-section-heading">Advanced</h3>
-
-        <RemoteAccessPage embedded />
-
-        {legacy && legacy.totalBytes > 0 && (
-          <section className="card" data-testid="reclaim-disk-card">
-            <h3>Reclaim disk space</h3>
-            <p className="muted small">
-              The new built-in speech engines use their own models. These files
-              from the old engines are no longer used:
-            </p>
-            {legacy.groups.map((g) => (
-              <p key={g.label} className="muted small" style={{ margin: '4px 0' }}>
-                • {g.label} — {fmtBytes(g.bytes)}
-              </p>
-            ))}
-            <button className="ghost" onClick={() => void reclaim()} disabled={reclaiming}>
-              {reclaiming ? 'Reclaiming…' : `Reclaim ${fmtBytes(legacy.totalBytes)}`}
-            </button>
-          </section>
-        )}
-
+      {/* Persistent Save footer: the form's Save must be reachable from every
+          tab — prompts save from General, speech from Backend — and the step-up
+          question belongs beside the button it unlocks. */}
+      <div className="settings-save">
         {error && <p className="error">{error}</p>}
         {settingsPersistNeedsStepUp({
           remoteApiUrl: s.remoteApiUrl,
@@ -678,18 +784,20 @@ export function SettingsPage() {
           savedWorkerRemoteApiUrl,
           workerApiKey,
         }) && (
-          <StepUpFields
-            password={password}
-            onPassword={setPassword}
-            totpEnabled={totpEnabled}
-            totpCode={totpCode}
-            onTotp={setTotpCode}
-            reason={
-              totpEnabled
-                ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
-                : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
-            }
-          />
+          <div className="step-up">
+            <StepUpFields
+              password={password}
+              onPassword={setPassword}
+              totpEnabled={totpEnabled}
+              totpCode={totpCode}
+              onTotp={setTotpCode}
+              reason={
+                totpEnabled
+                  ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
+                  : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
+              }
+            />
+          </div>
         )}
         <button
           className="primary"
@@ -708,36 +816,6 @@ export function SettingsPage() {
         >
           {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save settings'}
         </button>
-
-        <section className="card" data-testid="about-license-card">
-          <h2>About &amp; License</h2>
-          <p className="muted small" style={{ lineHeight: 1.5 }}>
-            Front Porch AI is free, open-source software © 2026 Front Porch AI,
-            licensed under the GNU Affero General Public License v3.0. You are
-            free to use, study, modify, and redistribute it under the AGPL. The
-            complete source code is available below; if you received this app
-            without that source, or as part of a closed-source product, that is a
-            license violation.
-          </p>
-          <div className="about-links">
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Source code
-            </a>
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report a license violation
-            </a>
-          </div>
-        </section>
       </div>
     </div>
   );

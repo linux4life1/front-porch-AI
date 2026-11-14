@@ -10,7 +10,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { AppearanceSettings } from './AppearanceSettings';
+import { BackgroundWeatherSettings } from './BackgroundWeatherSettings';
 import { api } from '../api/client';
 
 type Listener = (e: { event: string }) => void;
@@ -49,7 +49,7 @@ it('reads the ambient scene from the desktop and writes a change back', async ()
   const get = vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'tint' });
   const post = vi.spyOn(api, 'post').mockResolvedValue({});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
   expect(get).toHaveBeenCalledWith('/api/settings');
@@ -68,7 +68,7 @@ it('follows a change made on the desktop while the card is open', async () => {
   let desktop = 'off';
   vi.spyOn(api, 'get').mockImplementation(async () => ({ ambientScene: desktop }));
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
   expect(select.value).toBe('off');
@@ -89,10 +89,30 @@ it('stays disabled and harmless when the desktop cannot be read', async () => {
   vi.spyOn(api, 'get').mockRejectedValue(new Error('offline'));
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   await act(async () => {
-    root.render(createElement(AppearanceSettings));
+    root.render(createElement(BackgroundWeatherSettings));
   });
   const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
   expect(select.disabled).toBe(true);
   expect(select.value).toBe('off');
   expect(warn).toHaveBeenCalled();
+});
+
+// The gating the Appearance card used to hold (PR 7a split): the weather
+// section rides Story Weather, exactly as the desktop hides it with the
+// clock's weather off.
+it('is not shown while Porch Life has Story Weather off', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'tint', realism: { weatherEnabled: false } });
+  await act(async () => {
+    root.render(createElement(BackgroundWeatherSettings));
+  });
+  expect(host.querySelector('[data-testid="background-weather"]')).toBeNull();
+});
+
+it('shows when the desktop sends no Porch Life flags (an older desktop)', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'tint' });
+  await act(async () => {
+    root.render(createElement(BackgroundWeatherSettings));
+  });
+  expect(host.querySelector('[data-testid="background-weather"]')).not.toBeNull();
+  expect(host.textContent).toContain('Only in chats with a world that has climate on');
 });
