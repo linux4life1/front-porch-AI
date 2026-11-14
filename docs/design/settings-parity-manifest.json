@@ -8,7 +8,8 @@
     "test/hygiene/settings_parity_manifest_test.dart (Dart side) and",
     "web_ui/src/pages/SettingsPage.parity.test.tsx (web side + section order)."
   ],
-  "sections": ["general", "appearance", "porch-life", "generation", "voice-media", "backend", "advanced"],
+  "sections": ["general", "appearance", "porch-life", "generation", "voice-media", "backend"],
+  "sectionsComment": "The desktop has a seventh tab, Advanced (web-server tunnel setup); the web omits it by maintainer ruling 2026-11-13 — a browser session exists only because one of those tunnels is already up. Its one non-tunnel control, reclaimDiskSpace, lives under voice-media here, where the desktop's LegacyCleanupCard lives too.",
   "controls": {
     "userMessagesOnRight": {
       "section": "general",
@@ -174,7 +175,7 @@
       "webMarker": "Voice & Media"
     },
     "reclaimDiskSpace": {
-      "section": "advanced",
+      "section": "voice-media",
       "dart": "lib/ui/settings/tabs/voice_media_tab.dart",
       "dartMarker": "LegacyCleanupCard",
       "webMarker": "Reclaim disk space"

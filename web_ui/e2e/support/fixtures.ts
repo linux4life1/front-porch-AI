@@ -220,7 +220,7 @@ export async function openRoute(page: Page, route: string) {
  */
 export async function openSettingsTab(
   page: Page,
-  tab: 'general' | 'appearance' | 'porch-life' | 'generation' | 'voice-media' | 'backend' | 'advanced',
+  tab: 'general' | 'appearance' | 'porch-life' | 'generation' | 'voice-media' | 'backend',
 ) {
   await page.click(`.settings-tabs button[role="tab"][data-tab="${tab}"]`);
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});

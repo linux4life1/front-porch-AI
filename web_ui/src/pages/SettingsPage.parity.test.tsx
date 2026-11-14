@@ -3,9 +3,10 @@
 //
 // SETTINGS PARITY — WEB SIDE. docs/design/settings-parity-manifest.json maps
 // every Settings control to its home on each surface. This guard proves the
-// web half: SettingsPage offers the seven desktop tabs in order and shows one
-// section at a time, and each control sits in its pinned section (the grouped
-// controls also inside their group). The desktop half is guarded by
+// web half: SettingsPage offers the desktop's tabs in order (minus Advanced,
+// a desktop-only ruling recorded in the manifest) and shows one section at a
+// time, and each control sits in its pinned section (the grouped controls
+// also inside their group). The desktop half is guarded by
 // test/hygiene/settings_parity_manifest_test.dart. Move a card in the page
 // without the manifest, and this fails.
 
@@ -192,7 +193,7 @@ afterEach(() => {
 });
 
 describe('Settings sections mirror the desktop tabs', () => {
-  it('renders the seven tabs in the manifest order, one section at a time', async () => {
+  it('renders the desktop\u2019s tabs (minus its desktop-only Advanced), one section at a time', async () => {
     await open();
     const tabs = [...container.querySelectorAll('button[role="tab"]')].map((el) =>
       el.getAttribute('data-tab'),

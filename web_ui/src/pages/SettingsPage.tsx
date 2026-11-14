@@ -3,7 +3,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import { RemoteAccessPage } from './RemoteAccessPage';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
@@ -174,8 +173,14 @@ function RemoteReachabilityBadge({
   );
 }
 
-// The desktop's seven Settings tabs, in its order (lib/ui/pages/settings_page.dart
-// :230-280): the web tab strip renders these and shows one section at a time.
+// The desktop's Settings tabs the web shows, in its order
+// (lib/ui/pages/settings_page.dart:230-280): the web tab strip renders
+// these and shows one section at a time. The desktop's Advanced tab stays
+// desktop-only (maintainer ruling, 2026-11-13): its content is the web
+// server's tunnel setup, and a browser session exists only because one of
+// those tunnels is already up. The tab's one non-tunnel control, the
+// legacy-models cleanup, lives in Voice & Media here, as its
+// LegacyCleanupCard twin lives in the desktop's Voice tab.
 const SECTIONS: [string, string][] = [
   ['general', 'General'],
   ['appearance', 'Appearance'],
@@ -183,7 +188,6 @@ const SECTIONS: [string, string][] = [
   ['generation', 'Generation'],
   ['voice-media', 'Voice & Media'],
   ['backend', 'Backend'],
-  ['advanced', 'Advanced'],
 ];
 
 export function SettingsPage() {
@@ -422,7 +426,7 @@ export function SettingsPage() {
     selectedId === 'custom';
 
   return (
-    <div className="page">
+    <div className="page settings-page">
       {prompt}
       <h2>Settings</h2>
 
@@ -577,6 +581,26 @@ export function SettingsPage() {
       {tab === 'voice-media' && (
       <div className="settings-section" data-section="voice-media">
         <VoiceMediaSettings />
+
+        {/* The desktop keeps this cleanup (LegacyCleanupCard) in its Voice
+            tab; it came over with the Advanced tab's removal. */}
+        {legacy && legacy.totalBytes > 0 && (
+          <section className="card" data-testid="reclaim-disk-card">
+            <h3>Reclaim disk space</h3>
+            <p className="muted small">
+              The new built-in speech engines use their own models. These files
+              from the old engines are no longer used:
+            </p>
+            {legacy.groups.map((g) => (
+              <p key={g.label} className="muted small" style={{ margin: '4px 0' }}>
+                • {g.label} — {fmtBytes(g.bytes)}
+              </p>
+            ))}
+            <button className="ghost" onClick={() => void reclaim()} disabled={reclaiming}>
+              {reclaiming ? 'Reclaiming…' : `Reclaim ${fmtBytes(legacy.totalBytes)}`}
+            </button>
+          </section>
+        )}
       </div>
       )}
 
@@ -744,30 +768,6 @@ export function SettingsPage() {
           </div>
         )}
         <HfTokenCard hasToken={!!s.hasHfToken} totpEnabled={totpEnabled} />
-      </div>
-      )}
-
-      {tab === 'advanced' && (
-      <div className="settings-section" data-section="advanced">
-        <RemoteAccessPage embedded />
-
-        {legacy && legacy.totalBytes > 0 && (
-          <section className="card" data-testid="reclaim-disk-card">
-            <h3>Reclaim disk space</h3>
-            <p className="muted small">
-              The new built-in speech engines use their own models. These files
-              from the old engines are no longer used:
-            </p>
-            {legacy.groups.map((g) => (
-              <p key={g.label} className="muted small" style={{ margin: '4px 0' }}>
-                • {g.label} — {fmtBytes(g.bytes)}
-              </p>
-            ))}
-            <button className="ghost" onClick={() => void reclaim()} disabled={reclaiming}>
-              {reclaiming ? 'Reclaiming…' : `Reclaim ${fmtBytes(legacy.totalBytes)}`}
-            </button>
-          </section>
-        )}
       </div>
       )}
 
