@@ -14,22 +14,24 @@
   border-radius: calc(8px * var(--radius-scale));
   padding: 12px;
 }
-.vm-card-head { display: flex; align-items: center; gap: 12px; }
+/* The desktop row: a 48px Material switch target sets its height, so the
+   title and its line sit with room above and below. */
+.vm-card-head { display: flex; align-items: center; gap: 12px; min-height: 48px; }
 .vm-card-icon { display: inline-flex; flex-shrink: 0; color: var(--porch-amber); }
 .vm-card-icon.off { color: var(--faint); }
 /* The desktop's photo icon is its relationship pink, fixed in every theme
    there; on the web the bond-up token carries the same pink per brightness. */
 .vm-card-icon.photo { color: var(--bond-up); }
-.vm-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.vm-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 4px 0; line-height: 1.4; }
 .vm-card-title { font-weight: 700; }
 .vm-card-subtitle { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
 .vm-card-control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 .vm-card-body {
-  margin-top: 10px; padding-top: 8px;
+  margin-top: 8px; padding-top: 16px;
   border-top: 1px solid color-mix(in srgb, var(--border) 30%, transparent);
   display: flex; flex-direction: column; gap: 8px;
 }
-.vm-subrow { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+.vm-subrow { display: flex; align-items: center; gap: 8px; min-height: 40px; }
 .vm-subrow-icon { display: inline-flex; flex-shrink: 0; color: var(--muted); }
 .vm-subrow-label { flex: 1; font-size: 0.75rem; color: var(--muted); }
 .vm-subrow-control { display: flex; align-items: center; gap: 8px; }
