@@ -653,7 +653,13 @@ jobs:
     name: WebUI in real browsers (Playwright)
     needs: changes
     if: needs.changes.outputs.heavy == 'true'
-    runs-on: ubuntu-latest
+    # Pinned like the test shards (see test-shard): on 26.04 the suite failed
+    # wholesale (57 specs, nearly every phone-webkit screen plus a few heavy
+    # Chromium flows), while the same code passed on 24.04 on Rawhide. No
+    # branch-specific cause: the failures are in studio, persona and sweep
+    # specs this PR does not touch, and desktop-chromium otherwise passed.
+    # Re-test on latest once the image settles.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout Code
