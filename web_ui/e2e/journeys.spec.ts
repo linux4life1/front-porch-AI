@@ -288,6 +288,50 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect(count).toHaveText('1/2');
   });
 
+  // The buried-host regen (drift ledger #15a): a Scene Guest chime after the
+  // host's reply moves the plain ⟳ off the host bubble; the desktop's second
+  // ⟳ "Regenerate main character (removes the NPC’s reply)" then pops the
+  // stale guest tail, regrows the host as a new swipe, and lets the chime
+  // gate re-run. The stand-in backend's junk is not a chime verdict, so the
+  // guest does not speak again — the row count returning to its pre-chime
+  // value is the removal's proof.
+  test('regenerate the main character under a guest chime drops the stale bubble', async ({ page }) => {
+    await openRoute(page, '/');
+    await page.locator('.lib-card', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await openConversations(page);
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    await sendLine(page, 'Evening, neighbor.');
+    await waitIdle(page);
+    await sendLine(page, '/join Porch Tester');
+    await waitIdle(page);
+    // Make the guest speak last on purpose: that buries the host reply and
+    // the plain ⟳ can no longer reach it.
+    await sendLine(page, '/speak Porch Tester');
+    await waitIdle(page);
+    const hostRows = await rows(page).count();
+    // user line + host reply + guest chime at minimum, so nth(-2) is the host.
+    expect(hostRows).toBeGreaterThanOrEqual(3);
+    const hostRow = rows(page).nth(hostRows - 2);
+    await expect(hostRow.locator('.bubble.ai')).toBeVisible();
+
+    const buried = action(hostRow, 'Regenerate main character (removes the NPC’s reply)');
+    await expect(buried).toBeVisible();
+    await buried.click();
+    const dialog = page.getByTestId('regen-critique-dialog');
+    await dialog.getByRole('button', { name: 'Regenerate' }).click();
+    await waitIdle(page);
+
+    // The host came back as a second take…
+    await expect(hostRow.locator('.swipe-count')).toHaveText('2/2', { timeout: 60_000 });
+    // …and the stale chime it was answering is gone: the transcript is back
+    // to its length before the guest spoke.
+    await expect(page.locator('.msg-row')).toHaveCount(hostRows - 1);
+  });
+
   test('continue adds to the last reply', async ({ page }) => {
     await openPorchChat(page);
     const bubble = lastRow(page).locator('.bubble.ai');

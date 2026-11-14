@@ -25,7 +25,7 @@ recomputed in the web layer).
 | Feature | Status | Notes |
 |--------|:--:|------|
 | Send / stream replies (WebSocket) | ✅ | Tokens stream over the single multiplexed `/api/ws`. |
-| Stop / regenerate / continue | ✅ | |
+| Stop / regenerate / continue | ✅ | Buried-host regen included: when a Scene Guest chimes after the host's reply, the host bubble offers the desktop's "Regenerate main character (removes the NPC’s reply)" (`regenerableHostBelowGuests` in chat state, `target=mainCharacter` on `/api/chat/regenerate`). |
 | Swipes (alt generations) | ✅ | |
 | Edit / delete message | ✅ | |
 | Thinking (`<think>`) blocks | ✅ | Collapsible per message. |

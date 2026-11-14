@@ -144,7 +144,11 @@ type TranscriptProps = {
   onRegenerate: (
     critique?: string,
     lookup?: { source: 'web' | 'wiki'; query: string },
+    target?: 'mainCharacter',
   ) => void;
+  /** The host reply buried under Scene Guest chimes; its bubble gets the
+   *  second ⟳ (desktop `regenerableHostBelowGuestsIndex`). */
+  regenerableHostBelowGuests?: number | null;
   lookupWeb?: boolean;
   lookupWiki?: boolean;
   onContinue: () => void;
@@ -187,6 +191,7 @@ const TranscriptRows = memo(function TranscriptRows({
   onBeginEdit,
   onSwipe,
   onRegenerate,
+  regenerableHostBelowGuests = null,
   lookupWeb,
   lookupWiki,
   onContinue,
@@ -348,6 +353,7 @@ const TranscriptRows = memo(function TranscriptRows({
                         userHasReplied={userHasReplied}
                         onSwipe={onSwipe}
                         onRegenerate={onRegenerate}
+                        regenerableHostBelowGuests={regenerableHostBelowGuests}
                         lookupWeb={lookupWeb}
                         lookupWiki={lookupWiki}
                         onContinue={onContinue}
@@ -435,6 +441,7 @@ const TranscriptRows = memo(function TranscriptRows({
                 userHasReplied={userHasReplied}
                 onSwipe={onSwipe}
                 onRegenerate={onRegenerate}
+                regenerableHostBelowGuests={regenerableHostBelowGuests}
                 lookupWeb={lookupWeb}
                 lookupWiki={lookupWiki}
                 onContinue={onContinue}

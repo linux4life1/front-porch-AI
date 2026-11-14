@@ -260,10 +260,19 @@ class WebChatRoutes {
 
   Future<shelf.Response> _regenerate(shelf.Request request) async {
     final body = await _json(request);
+    // Absent is the normal last-reply regen. `mainCharacter` is the desktop's
+    // second ⟳ for a host reply buried under Scene Guest chimes. Anything
+    // else is a 400 rather than a silent fallback: guessing would run the
+    // other action, and these two are not interchangeable.
+    final target = body['target'];
+    if (target != null && target != 'mainCharacter') {
+      return JsonResponse.badRequest('unknown regenerate target');
+    }
     _facade.regenerate(
       critique: body['critique']?.toString(),
       webQuery: body['webQuery']?.toString(),
       wikiQuery: body['wikiQuery']?.toString(),
+      mainCharacter: target == 'mainCharacter',
     );
     return JsonResponse.ok({'status': 'ok'});
   }
