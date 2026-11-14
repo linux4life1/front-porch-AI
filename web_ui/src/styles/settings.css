@@ -279,25 +279,37 @@
 }
 .setting-row-select:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 1px; }
 .setting-row-slider { accent-color: var(--accent); }
-/* The desktop's pill switch, on a plain checkbox — and it carries a porch
-   light when it's on. */
-.switch {
+/* The desktop's Material 3 switch, on a plain checkbox: a 52x32 pill. Off is
+   the raised ground with a grey outline and a small grey knob at the left;
+   on is the accent with a larger knob at the right in the accent's own ink
+   (dark in a dark theme, white in a light one — the desktop's onPrimary).
+   `input.switch` so it outranks base.css's `input[type='checkbox']` (which
+   set width: auto) and the generic input padding. The outline is an inset
+   shadow, not a border, so the touch rule below can widen the hit area with
+   a transparent border without moving what is drawn. */
+input.switch {
   appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0;
-  width: 44px; height: 24px; border-radius: 12px; cursor: pointer;
-  background: var(--surface-2); border: 1px solid var(--border);
-  transition: background 0.15s, border-color 0.15s, box-shadow 0.2s;
+  box-sizing: content-box; width: 52px; height: 32px; padding: 0; margin: 0;
+  border: 0 solid transparent; border-radius: 16px; cursor: pointer;
+  background-color: var(--surface-2); background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px var(--faint);
+  transition: background-color 0.15s, box-shadow 0.15s;
 }
-.switch::after {
-  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
-  border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s;
+input.switch::after {
+  content: ''; position: absolute; top: 50%; left: 8px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--faint); transform: translateY(-50%);
+  transition: left 0.15s, width 0.15s, height 0.15s, background 0.15s;
 }
-.switch:checked {
-  background: linear-gradient(90deg, var(--porch-terracotta), var(--porch-amber));
-  border-color: var(--porch-amber);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--porch-amber) 40%, transparent);
+input.switch:checked { background-color: var(--porch-amber); box-shadow: none; }
+input.switch:checked::after { left: 24px; width: 24px; height: 24px; background: var(--on-accent); }
+input.switch:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 2px; }
+input.switch:disabled { opacity: 0.5; cursor: default; }
+/* Touch: a 44px-tall tap area (touch.css's rule) from a transparent border,
+   pulled back by an equal negative margin so the row's layout and the drawn
+   pill stay exactly as with a mouse. */
+@media (pointer: coarse) {
+  input.switch { border-width: 6px; margin: -6px; border-radius: 22px; }
 }
-.switch:checked::after { transform: translateX(20px); background: var(--accent-ink); }
-.switch:disabled { opacity: 0.5; cursor: default; }
 .settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 .settings-save .step-up { flex: 1 1 320px; }
 .settings-save .primary:hover:not(:disabled) {
@@ -311,22 +323,11 @@
   .setting-row-select { flex: 1; }
 }
 .settings-group { margin: 20px 0; }
-/* Accent headings with a lamp-glow rule trailing off to the right — the
-   Porch Life header from the desktop screenshot, given the porch's own
-   light. */
+/* Accent group headings, as the desktop's SectionHeader paints them: bold
+   accent text and nothing else (no trailing rule, no glow). */
 .settings-group-heading {
-  display: flex; align-items: center; gap: 12px;
   margin: 0 0 4px; font-size: 0.95rem; font-weight: 700;
   color: var(--porch-amber);
-  text-shadow: 0 0 16px color-mix(in srgb, var(--porch-amber) 35%, transparent);
-}
-.settings-group-heading::after {
-  content: ''; flex: 1; height: 1px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--porch-terracotta) 55%, transparent),
-    transparent
-  );
 }
 /* Settings → General: the Porch Life pointer row (desktop twin is an
    amber cottage icon beside one muted line, no card outline). */
