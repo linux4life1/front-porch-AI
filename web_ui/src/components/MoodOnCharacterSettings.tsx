@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
+import { SettingRow } from './SettingRow';
 
 type MoodLevel = 'off' | 'portrait' | 'all';
 const MOOD: { value: MoodLevel; label: string }[] = [
@@ -104,10 +105,19 @@ export function MoodOnCharacterSettings() {
   if (!realismAllowed) return null;
 
   return (
-    <section className="card" data-testid="mood-on-character">
-      <label>
-        Mood on the character
+    <section data-testid="mood-on-character">
+      <SettingRow
+        title="Mood on the character"
+        blurb={
+          <>
+            Each character&apos;s mood on their portrait and needs bars, in their
+            own Realism colours. Needs Realism on for the chat. The desktop&apos;s
+            settings; changing them here changes them there too.
+          </>
+        }
+      >
         <select
+          className="setting-row-select"
           value={mood ?? 'off'}
           disabled={mood === null}
           onChange={(e) => setMoodLevel(e.target.value as MoodLevel)}
@@ -117,10 +127,10 @@ export function MoodOnCharacterSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </label>
-      <label>
-        Drama
+      </SettingRow>
+      <SettingRow title="Drama" blurb="How far the moods swing, from the calm end to the theatrical one.">
         <input
+          className="setting-row-slider"
           type="range"
           min={40}
           max={160}
@@ -130,9 +140,8 @@ export function MoodOnCharacterSettings() {
           onChange={(e) => changeDrama(Number(e.target.value) / 100)}
           aria-label="Drama"
         />
-      </label>
+      </SettingRow>
       {error && <p className="error">{error}</p>}
-      <p className="reading-blurb">Each character's mood on their portrait and needs bars, in their own Realism colours. Needs Realism on for the chat. The desktop's settings; changing them here changes them there too.</p>
     </section>
   );
 }

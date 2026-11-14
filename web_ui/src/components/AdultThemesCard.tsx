@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { ExistingChatsOffer, type OfferFeature } from './ExistingChatsOffer';
+import { SettingRow } from './SettingRow';
 
 export function AdultThemesCard() {
   // Null until the host has answered; each field gates its own control.
@@ -73,23 +74,27 @@ export function AdultThemesCard() {
   };
 
   return (
-    <section className="card" data-testid="adult-themes-card">
+    <section data-testid="adult-themes-card">
       {offer && <ExistingChatsOffer key={offer} feature={offer} onClose={() => setOffer(null)} />}
-      <label className="row-label">
-        <span>18+ themes</span>
+      <SettingRow
+        title="18+ themes"
+        blurb={
+          <>
+            Shows the adult features — the After Dark group in Porch Life, and
+            intimate preferences in the character editor. Off means they are
+            simply not there. Turning this off never erases what you already set;
+            it only hides the switches.
+          </>
+        }
+      >
         <input
+          className="switch"
           type="checkbox"
           checked={st.adultThemesEnabled}
           onChange={(e) => set(e.target.checked)}
           aria-label="18+ themes"
         />
-      </label>
-      <p className="muted small">
-        Shows the adult features — the After Dark group in Porch Life, and
-        intimate preferences in the character editor. Off means they are
-        simply not there. Turning this off never erases what you already set;
-        it only hides the switches.
-      </p>
+      </SettingRow>
       {error && <p className="error">{error}</p>}
     </section>
   );

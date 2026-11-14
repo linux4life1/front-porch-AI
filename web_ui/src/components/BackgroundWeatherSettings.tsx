@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
+import { SettingRow } from './SettingRow';
 
 type AmbientScene = 'off' | 'tint' | 'effects';
 const AMBIENT: { value: AmbientScene; label: string }[] = [
@@ -130,8 +131,8 @@ export function BackgroundWeatherSettings() {
   if (!weatherOn) return null;
 
   return (
-    <section className="card" data-testid="background-weather">
-      <h4 className="subgroup-head">
+    <section className="settings-group" data-testid="background-weather">
+      <h4 className="settings-group-heading">
         Background weather
         <span
           className="info-tip"
@@ -140,11 +141,22 @@ export function BackgroundWeatherSettings() {
           aria-label="About background weather"
         >ⓘ</span>
       </h4>
-      <p className="reading-blurb">Only in chats with a world that has climate on. Other chats keep their plain background.</p>
-      {error && <p className="error">{error}</p>}
-      <label>
-        Ambient scene
+      <SettingRow
+        title="Ambient scene"
+        blurb={
+          <>
+            The story&apos;s weather as a wash over the chat background, in a world
+            with climate on; Tint and effects adds rain, snow, clouds, fog and
+            lightning, held still while a reply is written if you like, so a local
+            model keeps the graphics card. The High Contrast theme stays at the
+            wash. The desktop&apos;s settings; changing them here changes them
+            there too. Only in chats with a world that has climate on — other
+            chats keep their plain background.
+          </>
+        }
+      >
         <select
+          className="setting-row-select"
           value={ambient ?? 'off'}
           disabled={ambient === null}
           onChange={(e) => setScene(e.target.value as AmbientScene)}
@@ -154,30 +166,42 @@ export function BackgroundWeatherSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </label>
-      <label>
+      </SettingRow>
+      <SettingRow
+        title="Pause effects while generating"
+        blurb="Hold the scene still while a reply is writing, so a local model keeps the graphics card."
+      >
         <input
+          className="switch"
           type="checkbox"
           checked={pauseGen ?? true}
           disabled={pauseGen === null}
           onChange={(e) => setPause(e.target.checked)}
           aria-label="Pause effects while generating"
         />
-        {' '}Pause effects while generating
-      </label>
-      <label>
+      </SettingRow>
+      <SettingRow
+        title="Scene sound"
+        blurb={
+          <>
+            Rain, wind, birds or crickets with the scene and thunder after a
+            storm&apos;s flash, quieter while a voice speaks. Browsers start sound
+            only once you have touched the page, so a tap in the chat may be needed.
+          </>
+        }
+      >
         <input
+          className="switch"
           type="checkbox"
           checked={sound ?? false}
           disabled={sound === null}
           onChange={(e) => setSoundOn(e.target.checked)}
           aria-label="Scene sound"
         />
-        {' '}Scene sound
-      </label>
-      <label>
-        Scene sound volume
+      </SettingRow>
+      <SettingRow title="Scene sound volume">
         <input
+          className="setting-row-slider"
           type="range"
           min={0}
           max={100}
@@ -187,9 +211,8 @@ export function BackgroundWeatherSettings() {
           onChange={(e) => changeVolume(Number(e.target.value) / 100)}
           aria-label="Scene sound volume"
         />
-      </label>
-      <p className="reading-blurb">The story's weather as a wash over the chat background, in a world with climate on; Tint and effects adds rain, snow, clouds, fog and lightning, held still while a reply is written if you like, so a local model keeps the graphics card. The High Contrast theme stays at the wash. The desktop's settings; changing them here changes them there too.</p>
-      <p className="reading-blurb">Scene sound plays rain, wind, birds or crickets with the scene and thunder after a storm's flash, quieter while a voice speaks. Browsers start sound only once you have touched the page, so a tap in the chat may be needed.</p>
+      </SettingRow>
+      {error && <p className="error">{error}</p>}
     </section>
   );
 }

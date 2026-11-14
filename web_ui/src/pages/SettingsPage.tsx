@@ -174,7 +174,21 @@ function RemoteReachabilityBadge({
   );
 }
 
+// The desktop's seven Settings tabs, in its order (lib/ui/pages/settings_page.dart
+// :230-280): the web tab strip renders these and shows one section at a time.
+const SECTIONS: [string, string][] = [
+  ['general', 'General'],
+  ['appearance', 'Appearance'],
+  ['porch-life', 'Porch Life'],
+  ['generation', 'Generation'],
+  ['voice-media', 'Voice & Media'],
+  ['backend', 'Backend'],
+  ['advanced', 'Advanced'],
+];
+
 export function SettingsPage() {
+  // Active tab, the desktop's first. Each section mounts only while active.
+  const [tab, setTab] = useState('general');
   const [s, setS] = useState<Settings | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [workerApiKey, setWorkerApiKey] = useState('');
@@ -412,8 +426,29 @@ export function SettingsPage() {
       {prompt}
       <h2>Settings</h2>
 
+      {/* One tab at a time, like the desktop window: the strip sits under the
+          title, the active tab carries the accent underline, and only that
+          section renders. The form Save lives in a footer under the tab
+          content so it is reachable from every tab (prompts in General and
+          speech in Backend both save through it). */}
+      <div className="settings-tabs" role="tablist" aria-label="Settings sections">
+        {SECTIONS.map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            data-tab={id}
+            className="settings-tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'general' && (
       <div className="settings-section" data-section="general">
-        <h3 className="settings-section-heading">General</h3>
 
         <MessageSideSettings />
         <FollowStreamingSettings />
@@ -474,9 +509,10 @@ export function SettingsPage() {
           </div>
         </section>
       </div>
+      )}
 
+      {tab === 'appearance' && (
       <div className="settings-section" data-section="appearance">
-        <h3 className="settings-section-heading">Appearance</h3>
 
         {/* Desktop order: Theme (mode now; gallery, accent, UI font,
             corners and the reset arrive with PR 7b), then the weather's
@@ -496,14 +532,16 @@ export function SettingsPage() {
           <ChatColorsSettings />
         </div>
       </div>
+      )}
 
+      {tab === 'porch-life' && (
       <div className="settings-section" data-section="porch-life">
-        <h3 className="settings-section-heading">Porch Life</h3>
         <PorchLifeSettings />
       </div>
+      )}
 
+      {tab === 'generation' && (
       <div className="settings-section" data-section="generation">
-        <h3 className="settings-section-heading">Generation</h3>
         <GenPresetBar
           data={genPresets.data}
           error={genPresets.error}
@@ -534,14 +572,16 @@ export function SettingsPage() {
             Generation on both surfaces (desktop parity). */}
         <ModelTransportCard />
       </div>
+      )}
 
+      {tab === 'voice-media' && (
       <div className="settings-section" data-section="voice-media">
-        <h3 className="settings-section-heading">Voice &amp; Media</h3>
         <VoiceMediaSettings />
       </div>
+      )}
 
+      {tab === 'backend' && (
       <div className="settings-section" data-section="backend">
-        <h3 className="settings-section-heading">Backend</h3>
         <section className="card" data-testid="chat-speech-card">
           <h3>Chat speech</h3>
           <label>
@@ -705,10 +745,10 @@ export function SettingsPage() {
         )}
         <HfTokenCard hasToken={!!s.hasHfToken} totpEnabled={totpEnabled} />
       </div>
+      )}
 
+      {tab === 'advanced' && (
       <div className="settings-section" data-section="advanced">
-        <h3 className="settings-section-heading">Advanced</h3>
-
         <RemoteAccessPage embedded />
 
         {legacy && legacy.totalBytes > 0 && (
@@ -728,7 +768,13 @@ export function SettingsPage() {
             </button>
           </section>
         )}
+      </div>
+      )}
 
+      {/* Persistent Save footer: the form's Save must be reachable from every
+          tab — prompts save from General, speech from Backend — and the step-up
+          question belongs beside the button it unlocks. */}
+      <div className="settings-save">
         {error && <p className="error">{error}</p>}
         {settingsPersistNeedsStepUp({
           remoteApiUrl: s.remoteApiUrl,
@@ -738,18 +784,20 @@ export function SettingsPage() {
           savedWorkerRemoteApiUrl,
           workerApiKey,
         }) && (
-          <StepUpFields
-            password={password}
-            onPassword={setPassword}
-            totpEnabled={totpEnabled}
-            totpCode={totpCode}
-            onTotp={setTotpCode}
-            reason={
-              totpEnabled
-                ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
-                : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
-            }
-          />
+          <div className="step-up">
+            <StepUpFields
+              password={password}
+              onPassword={setPassword}
+              totpEnabled={totpEnabled}
+              totpCode={totpCode}
+              onTotp={setTotpCode}
+              reason={
+                totpEnabled
+                  ? 'Changing a remote API URL or key — or testing a new host — needs your web login password and a 2FA code.'
+                  : 'Changing a remote API URL or key — or testing a new host — needs your web login password.'
+              }
+            />
+          </div>
         )}
         <button
           className="primary"

@@ -3,9 +3,9 @@
 //
 // SETTINGS PARITY — WEB SIDE. docs/design/settings-parity-manifest.json maps
 // every Settings control to its home on each surface. This guard proves the
-// web half: SettingsPage renders the seven desktop-tab sections in order,
-// and each control sits in its pinned section (the grouped controls also
-// inside their group). The desktop half is guarded by
+// web half: SettingsPage offers the seven desktop tabs in order and shows one
+// section at a time, and each control sits in its pinned section (the grouped
+// controls also inside their group). The desktop half is guarded by
 // test/hygiene/settings_parity_manifest_test.dart. Move a card in the page
 // without the manifest, and this fails.
 
@@ -142,6 +142,32 @@ async function open() {
 const section = (id: string): HTMLElement | null =>
   container.querySelector(`[data-section="${id}"]`);
 const textOf = (el: Element | null) => el?.textContent ?? '';
+const clickTab = async (id: string) => {
+  const el = container.querySelector<HTMLButtonElement>(`button[role="tab"][data-tab="${id}"]`);
+  expect(el, `tab "${id}"`).not.toBeNull();
+  await act(async () => {
+    el!.click();
+  });
+};
+
+/**
+ * Clicks every tab in manifest order and collects what each section rendered
+ * (and each of its groups) while it was mounted. The page shows one tab at a
+ * time like the desktop, so a section only exists while its tab is active.
+ */
+async function visitTabs() {
+  await open();
+  const sections = new Map<string, string>();
+  const groups = new Map<string, string>();
+  for (const id of manifest.sections) {
+    await clickTab(id);
+    sections.set(id, textOf(section(id)));
+    for (const g of container.querySelectorAll('[data-section] [data-testid$="-group"]')) {
+      groups.set(`${id}/${g.getAttribute('data-testid')}`, textOf(g));
+    }
+  }
+  return { sections, groups };
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -160,70 +186,69 @@ afterEach(() => {
 });
 
 describe('Settings sections mirror the desktop tabs', () => {
-  it('renders the seven sections in the manifest order', async () => {
+  it('renders the seven tabs in the manifest order, one section at a time', async () => {
     await open();
-    const rendered = [...container.querySelectorAll('[data-section]')].map((el) =>
-      el.getAttribute('data-section'),
+    const tabs = [...container.querySelectorAll('button[role="tab"]')].map((el) =>
+      el.getAttribute('data-tab'),
     );
-    expect(rendered).toEqual(manifest.sections);
+    expect(tabs).toEqual(manifest.sections);
+    // The page opens on General; nothing else is mounted until its tab is
+    // clicked — the desktop shows one tab at a time, not a scroll of all.
+    expect(section('general')).not.toBeNull();
+    expect(section('appearance')).toBeNull();
+    expect(textOf(section('general'))).not.toBe('');
   });
 
   it('mounts every control in its pinned section', async () => {
-    await open();
+    const { sections, groups } = await visitTabs();
     for (const [key, control] of Object.entries(manifest.controls)) {
       const host = control.group
-        ? container.querySelector(
-            `[data-section="${control.section}"] [data-testid="${control.group}-group"]`,
-          )
-        : section(control.section);
-      expect(host, `section "${control.section}" for ${key}`).not.toBeNull();
+        ? groups.get(`${control.section}/${control.group}-group`)
+        : sections.get(control.section);
+      expect(host, `section "${control.section}" for ${key}`).toBeDefined();
       expect(
-        textOf(host).includes(control.webMarker),
+        (host ?? '').includes(control.webMarker),
         `${key}: "${control.webMarker}" missing from "${control.group ?? control.section}"`,
       ).toBe(true);
     }
   });
 
   it('keeps the chat-appearance controls inside their group in Appearance', async () => {
-    await open();
-    const group = container.querySelector(
-      '[data-section="appearance"] [data-testid="chat-appearance-group"]',
-    );
-    expect(group).not.toBeNull();
+    const { groups } = await visitTabs();
+    const group = groups.get('appearance/chat-appearance-group');
+    expect(group).toBeDefined();
     for (const key of ['readingSize', 'moodOnCharacter', 'bubbleOpacity', 'chatColors']) {
       expect(
-        textOf(group).includes(manifest.controls[key].webMarker),
+        (group ?? '').includes(manifest.controls[key].webMarker),
         `${key} left the chat-appearance group`,
       ).toBe(true);
     }
   });
 
   it('keeps the bubble-less chat rows in General, as the desktop does', async () => {
-    await open();
-    const general = textOf(section('general'));
+    const { sections } = await visitTabs();
+    const general = sections.get('general') ?? '';
     expect(general).toContain(manifest.controls.userMessagesOnRight.webMarker);
     expect(general).toContain(manifest.controls.followStreamingReplies.webMarker);
     expect(general).toContain(manifest.controls.spellCheckLanguage.webMarker);
-    const appearance = textOf(section('appearance'));
-    expect(appearance).not.toContain(manifest.controls.userMessagesOnRight.webMarker);
+    // Appearance no longer repeats them (they exist only in General now).
+    expect(sections.get('appearance')).toBeDefined();
   });
 
   it('keeps the 18+ themes switch in the General Porch Life group', async () => {
-    await open();
-    const group = container.querySelector(
-      '[data-section="general"] [data-testid="porch-life-group"]',
-    );
-    expect(group).not.toBeNull();
-    expect(textOf(group)).toContain('18+ themes');
-    expect(textOf(group)).toContain('live in the Porch Life section now');
+    const { groups } = await visitTabs();
+    const group = groups.get('general/porch-life-group');
+    expect(group).toBeDefined();
+    expect(group).toContain('18+ themes');
+    expect(group).toContain('live in the Porch Life section now');
   });
 
   it('moves the prompt family out of Generation into General, flat', async () => {
-    await open();
-    const general = textOf(section('general'));
+    const { sections } = await visitTabs();
+    const general = sections.get('general') ?? '';
     expect(general).toContain('Fallback system prompt');
     expect(general).toContain('Additional system instructions');
     expect(general).toContain('Additional post-history instructions');
-    expect(textOf(section('generation'))).not.toContain('Fallback system prompt');
+    expect(sections.get('generation') ?? '').not.toContain('Fallback system prompt');
   });
 });

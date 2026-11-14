@@ -9,13 +9,13 @@
 
 export function PorchLifePointerCard() {
   return (
-    <section className="card porch-life-pointer" data-testid="porch-life-pointer">
+    <div className="porch-life-pointer" data-testid="porch-life-pointer">
       <span className="porch-life-pointer-icon" aria-hidden="true">🛖</span>
       <p>
         The Realism Engine, passage of time, weather, the Journal, dreams,
         promises, ambitions and the welcome-back recap all live in the Porch
         Life section now — each one saying plainly what it needs.
       </p>
-    </section>
+    </div>
   );
 }

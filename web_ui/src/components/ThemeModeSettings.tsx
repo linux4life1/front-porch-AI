@@ -12,6 +12,7 @@ import { api } from '../api/client';
 import {
   THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
 } from '../theme/appTheme';
+import { SettingRow } from './SettingRow';
 
 const CHOICES: { value: ThemeChoice; label: string }[] = [
   { value: 'desktop', label: 'Follow the desktop' },
@@ -56,22 +57,24 @@ export function ThemeModeSettings() {
   };
 
   return (
-    <section className="card" data-testid="theme-mode-card">
-      <label>
+    <section data-testid="theme-mode-card">
+      <SettingRow
+        title="Dark mode"
+        blurb="The desktop app's own switch. Changing it here changes it there too."
+      >
         <input
+          className="switch"
           type="checkbox"
           checked={desktopDark ?? true}
           disabled={desktopDark === null}
           onChange={(e) => setDark(e.target.checked)}
           aria-label="Dark mode"
         />
-        {' '}Dark mode
-      </label>
-      <p className="reading-blurb">The desktop app's own switch. Changing it here changes it there too.</p>
+      </SettingRow>
       {error && <p className="error">{error}</p>}
-      <label>
-        On this device
+      <SettingRow title="On this device">
         <select
+          className="setting-row-select"
           value={choice}
           onChange={(e) => pick(e.target.value as ThemeChoice)}
           aria-label="Theme on this device"
@@ -80,7 +83,7 @@ export function ThemeModeSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </label>
+      </SettingRow>
     </section>
   );
 }

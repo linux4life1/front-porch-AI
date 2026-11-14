@@ -165,17 +165,76 @@
 .sg-signed-in { margin: 0; font-weight: 600; color: var(--ok); }
 .sg-fine { margin: 0; font-size: 0.75rem; color: var(--porch-amber); }
 
-/* ── Settings sections (desktop-tab parity: General → Advanced) ─────────── */
-.settings-section { margin-bottom: 28px; }
-.settings-section-heading {
-  margin: 0 0 12px; font-size: 1.15rem; color: var(--text);
-  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+/* ── Settings tabs + rows (one-chat-ux PR 7a: the desktop's look) ─────────
+   A tab strip under the title with the accent underline on the active tab,
+   and flat setting rows — title + muted explanation left, control right,
+   hairline divider below. No card outlines where the desktop shows rows. */
+.settings-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  border-bottom: 1px solid var(--border); margin: -4px 0 8px;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.settings-group { margin-bottom: 16px; }
-.settings-group-heading { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
-/* Settings → General: the Porch Life pointer card (desktop twin is an
-   amber cottage icon beside one muted line). */
-.porch-life-pointer { display: flex; align-items: flex-start; gap: 10px; }
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 10px 14px; font: inherit; color: var(--muted); cursor: pointer;
+  white-space: nowrap;
+}
+.settings-tab:hover { color: var(--text); }
+.settings-tab[aria-selected="true"] {
+  color: var(--text); border-bottom-color: var(--accent); font-weight: 600;
+}
+.settings-section { max-width: 980px; }
+.setting-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; padding: 14px 2px; border-bottom: 1px solid var(--border);
+}
+.setting-row-title { font-weight: 600; }
+.setting-row-blurb {
+  margin: 6px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5;
+  max-width: 60ch;
+}
+.setting-row-control {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-top: 2px;
+}
+.setting-row-control input[type='range'] { width: 180px; accent-color: var(--accent); }
+.setting-row-select {
+  padding: 6px 10px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 0.85rem; min-width: 190px;
+}
+.setting-row-slider { accent-color: var(--accent); }
+/* The desktop's pill switch, on a plain checkbox. */
+.switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0;
+  width: 44px; height: 24px; border-radius: 12px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border);
+  transition: background 0.15s, border-color 0.15s;
+}
+.switch::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s;
+}
+.switch:checked { background: var(--accent); border-color: var(--accent); }
+.switch:checked::after { transform: translateX(20px); background: var(--accent-ink); }
+.switch:disabled { opacity: 0.5; cursor: default; }
+.settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.settings-save .step-up { flex: 1 1 320px; }
+@media (max-width: 768px) {
+  .setting-row { flex-direction: column; gap: 10px; }
+  .setting-row-control { width: 100%; }
+  .setting-row-control input[type='range'] { flex: 1; width: auto; }
+  .setting-row-select { flex: 1; }
+}
+.settings-group { margin: 20px 0; }
+.settings-group-heading {
+  margin: 0 0 4px; font-size: 0.95rem; color: var(--accent); font-weight: 700;
+}
+/* Settings → General: the Porch Life pointer row (desktop twin is an
+   amber cottage icon beside one muted line, no card outline). */
+.porch-life-pointer {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 2px; border-bottom: 1px solid var(--border);
+}
 .porch-life-pointer-icon { font-size: 1rem; line-height: 1.4; }
 .porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); }
 

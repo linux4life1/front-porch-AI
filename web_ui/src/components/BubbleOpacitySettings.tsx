@@ -18,6 +18,7 @@ import {
   applyBubbleOpacity,
   asBubbleOpacity,
 } from '../theme/bubbleOpacity';
+import { SettingRow } from './SettingRow';
 
 /** Writes the opacity; on unmount nobody is left to show a failure, so it is logged. */
 const postOpacity = (value: number) =>
@@ -119,13 +120,18 @@ export function BubbleOpacitySlider() {
 
 export function BubbleOpacitySettings() {
   return (
-    <section className="card" data-testid="bubble-opacity-card">
-      <h3>Bubble opacity</h3>
-      <p className="reading-blurb">
-        How solid the chat bubbles are; the text stays crisp. With the Ambient scene on they start at 25% so
-        the weather shows through. The desktop's setting; changing it here changes it there too.
-      </p>
+    <SettingRow
+      title="Bubble opacity"
+      blurb={
+        <>
+          How solid the chat bubbles are; the text stays crisp. With the Ambient
+          scene on they start at 25% so the weather shows through. The
+          desktop&apos;s setting; changing it here changes it there too.
+        </>
+      }
+      testid="bubble-opacity-card"
+    >
       <BubbleOpacitySlider />
-    </section>
+    </SettingRow>
   );
 }
