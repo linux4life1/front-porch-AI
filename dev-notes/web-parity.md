@@ -59,14 +59,15 @@ recomputed in the web layer).
 | Open / start chat | ✅ | |
 | Manual creation wizard | ✅ | Step-indicator wizard mirroring `create_character_page`. |
 | **AI character creator** | ✅ | `/create-ai`: describe → generate (live steps over WS) → editor. Thin driver over the existing headless `CharacterGenService`. |
+| AI creator **Realism step** | ⏳ | The desktop wizard has a Realism step (needs, relationships, starting emotion, optional features) between Greetings and Review; the web wizard goes Mode → Details → Output → Generate → Profile → Greetings with no equivalent (drift ledger #12). Not built; next SOW candidate. |
 | Edit character (all fields) | ✅ | |
 | Per-character lorebook editor | ✅ | |
 | Multi-avatar management + set prime | ✅ | Upload / remove / set prime. |
 | Expression portrait (mood-driven) | ✅ | Swaps on `chat_updated`. |
 | Import character card (PNG / .byaf) | ✅ | Upload → desktop import path. |
 | Delete character | ✅ | |
-| Avatar **crop** UI | ◑ | Upload replaces the avatar; in-browser cropping is not yet a dedicated tool. |
-| Export character card | ⏳ | Not yet surfaced on the web. |
+| Avatar **crop** UI | ◑ | `ImageCropModal` crops portraits and expression uploads in the browser (`AvatarManager.tsx`); Looks upload as-is on purpose (a full outfit or scene is not square-cropped). Not re-verified for every avatar entry point. |
+| Export character card | ✅ | Library actions download the PNG card and the JSON (`useLibrary.actions.ts`: `/api/characters/<id>/export.png`, `export.json`); groups export as PNG too. |
 
 ## Groups / Cast (unified model)
 
@@ -140,6 +141,13 @@ recomputed in the web layer).
 | Per-character chat font override | ◑ | Desktop-side (`UiSettings.getChatFontFamily` per character); the web paints the chat's own theme font or the host's global chat font. |
 | Hardware/GPU flags, KCPPS presets, cloud sync, backups, data-dir | ❌ | No-go (see below). |
 
+## The Stoop
+
+| Feature | Status | Notes |
+|--------|:--:|------|
+| Browse, card detail, comments, creator pages | ✅ | Through the `/api/stoop` relay; the PWA never talks to the backend directly. |
+| Share a card (4-step upload wizard: Pick / Details / Content / Review) | ⏳ | The web Share tab is a "Sharing — coming soon" placeholder (`StoopSection.tsx`); the desktop wizard is `stoop_upload_page.dart` + `stoop_upload/` (~1,400 lines). Not built; next SOW candidate (drift ledger #11). |
+
 ## Accessibility / PWA (code-level — done here)
 
 - Icon-only buttons carry `title` + (for the new emoji voice controls) `aria-label` / `aria-pressed`.
@@ -178,7 +186,7 @@ desktop-only by design.
 | Beat-by-beat prose writer | ✅ | Per-beat (re)generate; auto-write scene; per-beat 🔊. |
 | Reader | ✅ | Assembled prose in reading order, per-scene read-aloud (reuses voice). |
 | Export (.txt / .md) | ✅ | |
-| Export (.epub / audiobook) | ⏳ | Desktop has dedicated generators; not yet exposed as web download routes. |
+| Export (.epub / audiobook) | ✅ | The Studio header's exports (`useStoryExports.ts`): the eBook downloads at once; the audiobook compiles on the host with live status over WS, then downloads. Routes: `/api/stories/<id>/ebook`, `/audiobook`, `/audiobook/status`. |
 
 The whole pipeline is driven by the headless `StoryPipelineService` over the web
 facade — no desktop code changed.

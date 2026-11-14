@@ -1,6 +1,7 @@
 # One chat UX: group chats work and look like 1:1, web looks like desktop
 
-Status: rulings final (2026-11-07), build not started. The maintainer holds
+Status: rulings final (2026-11-07). PRs 1–6 and PR 7 chunks 7a–7c are built
+and merged or in review; 7d is in flight (2026-11-14). The maintainer holds
 the approved sketch (desktop 1:1 and group windows, both sidebars scrolled
 out, wide web and phone boards, and a "where every control goes" table).
 CLAUDE.md "Parity" carries the short form of rules 1 to 3.
