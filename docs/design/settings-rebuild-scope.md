@@ -2,9 +2,10 @@
 
 Status: scoped 2026-11-13 against Rawhide head `3fad54abf`. Ruled the same
 day: theme is **host-wide** (§3), voice-call and mic/host-capture controls
-are **desktop-only** (§5). **7a built** on `feat/settings-rebuild-7a` —
-web lint, full vitest (1593) and `flutter test test/hygiene/` (92) green;
-screenshots and PR page pending. This is the
+are **desktop-only** (§5). **7a merged** (#729, Rawhide `94ab08b97`).
+**7b re-scoped and ruled 2026-11-13 against `94ab08b97`** (§2-7b): slim
+gallery previews, bundled Inter/Atkinson, corners token-only, auto-check
+keys in, chat font + chat colors folded in, #716–#719 ignored. This is the
 work file for **PR 7 of [one-chat-ux.md](one-chat-ux.md)** (bumped from
 PR 8; closes `dev-notes/drift-ledger-726.md` ledger #5, #13, #14, #4, #15).
 Every file:line here was read this sitting — do not re-sweep, and do not
@@ -81,48 +82,143 @@ general.
 - `SettingsPage.tsx` is over any split threshold already: new sections
   go into new component files, following the existing per-card pattern.
 
-### 7b — host theme controls (ledger #5, the named five)
+### 7b — host theme controls (ledger #5) — re-scoped on `94ab08b97`
 
-Desktop Appearance tab inventory (`lib/ui/settings/tabs/appearance_tab/`):
+Maintainer rulings (2026-11-13; binding): gallery previews serve a **slim
+host-resolved token set** per theme; the web **bundles Inter + Atkinson
+Hyperlegible Next woff2** so UI fonts paint their real face; **corners drive
+the token-driven surfaces only** (`--radius*` + new controls follow), the
+literal radii migrate later — pin ◑; the **Auto-check for Updates keys ship
+in 7b** (7a's promise, `SettingsPage.tsx:459-460`); **#716–#719 are
+ignored** — 7b branches Rawhide and re-pins markers if one lands; the
+**Chat Font and the six chat colors join 7b** (§6 closed; this supersedes
+§3's device-local ruling for chat colors only).
+
+Desktop Appearance inventory, re-verified at `94ab08b97`:
 
 | Control | Dart | Web today |
 |---|---|---|
-| Theme gallery, 8 `AppThemeId` themes, mini-chat previews | `theme_card_grid.dart:29`, `theme_preview_card.dart:25`, enum `lib/ui/theme/themes/app_theme_id.dart:29` (porch, slate, graphite, midnight, evergreen, plum, harbor, high_contrast) | missing |
-| Mode Dark/Light/System | `appearance_tab.dart:53-60` | web has a per-device 4-way choice + dark switch (`AppearanceSettings.tsx:232-254`) |
-| Accent picker: theme accent + swatches + free color, readability-adjusted | `appearance_tab.dart:61`, `accent_picker_row.dart:30-98` | missing |
-| UI font: Inter/System/Atkinson/Literata | `appearance_tab.dart:62-69`, enum `lib/ui/theme/appearance_options.dart:36-40` | missing |
-| Corners: Sharp/Default/Round | `appearance_tab.dart:70-77`, enum `appearance_options.dart:56-59` | missing |
-| Reset accent, font and corners | `appearance_tab.dart:81-89` | missing |
-| Ambient scene / pause-effects (only when Story Weather on) | `background_weather_section.dart:33` | present (`AppearanceSettings.tsx:255-316`) |
-| Scene sound + volume | `scene_sound_controls.dart:31` | present |
-| Reading size slider (0.7–2.0) | `chat_appearance_section.dart:61-68` | present (`ReadingSizeSettings.tsx:45-56`, device-local) |
-| Mood on the character + Drama | `mood_on_character_controls.dart:32` | present (`AppearanceSettings.tsx:317-348`) |
-| 6 chat colors | `chat_appearance_section.dart:75-129` | present but device-local localStorage (`web_ui/src/chatColors.ts:32`) vs host prefs — see §6 |
-| Chat Font dropdown (18 fonts, ''= UI font) | `chat_appearance_section.dart:34-53,134-192` | missing — see §6 |
-| "Use the theme's chat colors" reset | `chat_appearance_section.dart:194-202` | web has "Reset to defaults" to its own local defaults |
+| Theme gallery, 8 `AppThemeId`, mini-chat previews | `appearance_tab.dart:47`; `theme_card_grid.dart:29-62`; `theme_preview_card.dart:107-153`; enum `app_theme_id.dart:29-42` | missing; the slot exists — `theme-group` at `SettingsPage.tsx:524-527` names 7b in its comment |
+| Mode Dark/Light/System | `appearance_tab.dart:53-60` | partial: `ThemeModeSettings.tsx` (89 lines) writes `darkMode`, which collapses System to Dark/Light on the host (`settings_writer.dart:92-94` → `ui_settings.dart:306-308`) |
+| Accent: theme default + 12 swatches + free color, readability note | `appearance_tab.dart:61`; `accent_picker_row.dart:52-84`; swatches `accent_swatches.dart:24-37`; dialog `color_picker_dialog.dart:38-145` | missing |
+| UI font Inter/System/Atkinson/Literata (segmented) | `appearance_tab.dart:62-69`; enum `appearance_options.dart:36-53` | missing; body font is hard-coded (`base.css:124`; Figtree served, `studio.css:14-17`) |
+| Corners Sharp/Default/Round (scales 0.25/1/1.6) | `appearance_tab.dart:70-77`; enum `appearance_options.dart:56-72` | missing; 372 literal `border-radius` uses vs 3 vars (`base.css:44-46`) |
+| Reset accent, font and corners | `appearance_tab.dart:81-89` → `resetCustomisations` `appearance_settings.dart:257-265` | missing |
+| Chat colors, six, per brightness | `chat_appearance_section.dart:75-129`; setters `ui_settings.dart:209-275` | device-local (`chatColors.ts:32`) — **moves to host keys in 7b** |
+| Chat Font dropdown, 18 Google Fonts, `''` = UI font | `chat_appearance_section.dart:34-53,134-192`; `setGlobalChatFontFamily` `ui_settings.dart:301`; runtime-loaded via `google_fonts` (`pubspec.yaml:44`) | missing (the web's 3-option per-chat font, `ChatThemeSettings.tsx:29`, is unrelated) |
+| Use the theme's chat colors | `chat_appearance_section.dart:194-202` → `resetChatColors` `ui_settings.dart:276` | web "Reset to defaults" goes to its own local defaults |
+| Reading size / mood / ambient / scene sound / bubble opacity | 7a rows | present; device-local taste stays (§3) |
+
+Confirmed ground (re-read this sitting):
+
+- No `themeId`/`accent`/`uiFont`/`corners` keys in snapshot, writer, relays
+  or routes. The only theme key is the resolved `theme` wire
+  (`settings_snapshot.dart:215-217`, `web_live_relays.dart:417`) and it is
+  what paints (`appTheme.ts:86-111`); 7b **adds to it, never replaces it**.
+- `webThemeWire` ships only the *selected* theme's maps
+  (`settings_theme.dart:26-30`, `web_theme_tokens.dart:41-48`) — a gallery
+  cannot preview 8 themes from it. Host preview source:
+  `palettesFor(theme)` `appearance_settings.dart:96`.
+- Dart setters all exist (`appearance_settings.dart:168-208,257-265`);
+  prefs `app_theme`/`accent_override`/`ui_font`/`ui_radius` (beta-prefixed
+  in prerelease, `settings_base.dart:44-45`). Traps: `UiCorners.standard`
+  wires as `'default'` (`appearance_options.dart:58`) — round-trip keys,
+  not enum names; accent is `#RRGGBB` uppercased with alpha forced
+  (`appearance_settings.dart:186-192`, `accent_fit.dart:145-154`) — never
+  feed an `rgba(...)` token to `setAccentOverride`; invalid values are
+  **silently ignored** (`:97-100` precedent) — no per-key 400s (a malformed
+  `ambientScene` never 400s either; the earlier "invalid → 400" note dies
+  here).
+- Desktop changes already reach the relay: setter → `notify()`
+  (`settings_base.dart:50`) → `StorageService.notifyListeners`
+  (`storage_service.dart:352`) → the debounced broadcast
+  (`web_live_relays.dart:426`). No new stream.
+- Line caps: `web_live_relays.dart` is **499/500** — 7b spends exactly one
+  line there, a spread `...appearanceWireFields` (the `sidebarWireFields`
+  precedent at `:420`), the extension living in `settings_theme.dart`.
+  `settings_writer.dart` is **472** — the new branches do not fit; split
+  `settings_appearance_write.dart` like `settings_sidebar_order.dart`
+  (precedent comment `settings_writer.dart:137-139`).
 
 Host work:
 
-- Settings snapshot gains `themeId`, `accent`, `uiFont`, `corners`; the
-  writer gains matching keys; both broadcast on `settings_changed`
-  (`lib/services/web/facade/settings/settings_snapshot.dart:217-233`,
-  `settings_writer.dart:92-135`, `lib/services/web/host/web_live_relays.dart:414-419`).
-  None of the four keys exists in the web API today (verified: no hits in
-  snapshot, writer or routes).
-- Dart setters already exist — do not write new storage:
-  `lib/services/storage/settings/appearance_settings.dart:168`
-  (`setTheme`), `:185` (`setAccentOverride`), `:196` (`setFont`),
-  `:203` (`setCorners`), `:256-264` (`resetCustomisations`). Prefs keys:
-  `app_theme`, `accent_override`, `ui_font`, `ui_radius`.
-- The snapshot already ships resolved dark/light token maps per theme
-  (`settings_theme.dart:26`): the web paints the host-resolved palette.
-  No theme math, no accent adjustment duplicated in TypeScript.
-- Theme gallery previews on web render from the same token maps.
-- Free-color accent: accept the same normalization the Dart picker
-  writes; validate server-side; invalid → 400 with a message the web
-  shows inline.
+1. `settings_theme.dart` (30 lines, the file whose contract is exactly
+   this): add raw-pick keys `themeId`, `accent` (`null` | `#RRGGBB`),
+   `uiFont`, `corners` (key + scale), `chatFont`, six `chatColors` raw
+   values for the active brightness (`null` = theme default), and
+   `autoCheckForUpdates`; add `themeGallery` — 8 ×
+   `{key,label,tag,blurb}` + the slim preview set per brightness (only the
+   ~12 tokens the mini-chat draws: bg, surface, surface-2, card, border,
+   text, muted, user-bubble, ai-bubble, dialogue, action) via
+   `WebThemeTokens.resolve` + `palettesFor`; serve `accentSwatches` (the
+   12 hexes) so the web hard-codes nothing; add the
+   `appearanceWireFields` extension for the relay. Slim payload ≈ 3–4 KB
+   per snapshot/`settings_changed` — accepted.
+2. Snapshot: mount the block beside `theme` (`settings_snapshot.dart:215`);
+   plumb `UpdateService` into `SettingsFacade`
+   (`settings_facade.dart:55-65`) — state at `update_service.dart:99,191`.
+3. New `settings_appearance_write.dart`, called from `update()` like
+   `applySidebarOrderWrite`: enum-key-gated `themeId`/`uiFont`/`corners`
+   (the `:98-99` pattern), `accent` via `parseAccentHex` (`''` → null),
+   `chatFont` gated to the catalog, per-key `chatColors` hex-or-null,
+   `resetAppearance: true` → `resetCustomisations()`, `resetChatColors:
+   true` → `resetChatColors()`, `autoCheckForUpdates` bool. POST already
+   returns the full snapshot (`settings_routes.dart:127`), so every picker
+   refreshes free; routes stay GET/POST only.
+4. Relay: the one spread line, nothing else.
 
-Multi-surface behavior is ruled in §3.
+Web work:
+
+5. `useDesktopTheme.ts` + `api/ws.ts` carry the new keys; `appTheme.ts`
+   paints `--ui-font` and `--radius*` (`calc(base × host scale)` — scaling
+   the web's own tokens, not palette math) and the resolved chat font as
+   default `--chat-font` (per-chat `ChatThemeSettings` still overrides).
+   Paint-only, no theme math (that file's header rule).
+6. New components in the `theme-group` slot: `ThemeGallerySettings.tsx`
+   (reuse the `.theme-preset-card` pattern, `ChatThemeSettings.tsx:168-191`;
+   preview colors inline from the gallery payload — `colorLiterals.test.ts`
+   has an **empty baseline**, no hex in new CSS), `AccentPickerSettings.tsx`
+   (theme-default swatch + served swatches + native `<input type="color">`),
+   `UiFontSettings.tsx` (`.mode-seg` radiogroup), `CornersSettings.tsx`,
+   the reset row; rewrite `ChatColorsSettings.tsx` to host round-trip
+   (keep the dialogue/action contrast mirror, `chatColors.ts:167-192`) and
+   add the Chat Font select from the served catalog. House pattern each:
+   own `/api/settings` fetch + `settings_changed` socket, optimistic write
+   with rollback, `SettingRow`. Chat fonts load from the Google Fonts CDN
+   at runtime like the desktop's `google_fonts`; UI fonts never — Inter +
+   Atkinson woff2 join `web_ui/public/fonts/` beside Literata.
+7. Do not inline anything in `SettingsPage.tsx` (822 lines). Corners'
+   literal-radius migration is a follow-up; pin ◑ rows in
+   `dev-notes/web-parity.md` (partial corners; per-character chat-font
+   override `ui_settings.dart:495-497` is desktop-side).
+
+Parity + tests:
+
+8. Manifest (`settings-parity-manifest.json`, sections unchanged): new
+   `controls` entries, `section: "appearance"`, group `theme` for the five
+   theme controls and `chat-appearance` for chat font/colors/reset, with
+   verified dartMarkers — `"ThemeCardGrid()"` (`appearance_tab.dart:47`),
+   `"AccentPickerRow()"` (`:61`), `"label: 'UI font'"` (`:64`),
+   `"label: 'Corners'"` (`:72`), `"Reset accent, font and corners"`
+   (`:88`) — plus `SettingsPage.parity.test.tsx` stubs per new component
+   (it mocks sub-panels to marker text, `:38-49`; un-stubbed `api.get`
+   leaks); `chatColors` entry loses its device-local wording. Edited guards
+   take `approved-test-change`. If a #716–#719 PR lands mid-flight,
+   re-pin markers in the same change.
+9. Dart facade tests: snapshot keys + gallery shape, writer gating and
+   normalization (uppercased accent, corners `'default'`, bad enum
+   ignored-not-400), relay spread carries the picks, auto-check round
+   trip. Vitest per new component (read/post/rollback/follow, the house
+   family); `appTheme` tests for `--ui-font`/`--radius*`/`--chat-font`
+   paint. One e2e journey: set gallery theme, accent, font, corners and a
+   chat color on the web → tokens repaint, survives reload, restore in
+   `finally`. `capture-settings-7b.mjs` twin of 7a's script; screenshots
+   uploaded to GitHub, not linked (Error Book, 2026-11-13).
+10. Poke: one-chat-ux PR 7 line — Settings open side by side; changing
+    theme/accent on the web changes the desktop, every session follows
+    within a second.
+
+
 
 ### 7c — Voice & Media (ledger #13)
 
@@ -198,8 +294,9 @@ shared prefs store, changing theme on the web changes the desktop and
 every open session follows (within a second over `settings_changed`).
 The parity doc now carries a ✅ row for the host-wide dark mode (live
 since 7a) and an ⏳ row for the gallery/accent/font/corners that 7b
-ships. Per-device taste (the 4-way device choice, reading size, chat
-colors) stays device-local where it already is.
+ships. Per-device taste (the 4-way device choice, reading size) stays
+device-local where it already is. Chat colors moved out of that list into
+host keys by the 7b ruling (2026-11-13, §2-7b).
 
 ## 4. Prep — before the first 7a commit
 
@@ -229,17 +326,20 @@ as they are (✅ rows). What 7c still ports: expression controls,
 photo-understanding card, image-gen toggle, auto-send transcription —
 pure host settings with no round-trip cost.
 
-## 6. Open decisions (small, pick inside the chunk)
+## 6. Decisions — resolved 2026-11-13
 
-- Slash catalog: serve from `/api` (kills the drift class) vs add two
-  lines. Recommend serving.
-- Chat Font dropdown + "use the theme's chat colors": desktop-only, or
-  join 7b? Ledger #5 doesn't name them; §1 reference is tabs, not
-  this control. Either port in 7b or pin `◑` so the next audit doesn't
-  rediscover it.
-- Web chat colors are device-local (`chatColors.ts:32`) while desktop's
-  are host prefs. Keep the split (pin `◑`) or move web to host keys.
-  Keep-the-split is cheaper and matches per-device taste in §3.
+- Slash catalog (7d): serve from `/api` (kills the drift class) vs add two
+  lines. Recommend serving; still open for the 7d sitting.
+- Chat Font dropdown + "use the theme's chat colors": **join 7b**
+  (maintainer ruling) — `chatFont` + the six chat-color keys ship in
+  §2-7b, not a ◑ pin.
+- Web chat colors: **move to host keys in 7b** (maintainer ruling); the
+  dialogue/action contrast mirror (`chatColors.ts:167-192`) stays web-side.
+- Wire validation: invalid enum/accent values are silently ignored, the
+  house pattern (`settings_writer.dart:97-100`); the earlier
+  "invalid → 400" note is dead.
+- #716–#719: **not ours, still drafts — pretend they don't exist**; 7b
+  branches Rawhide and re-pins manifest markers only if one lands first.
 
 ## 7. Parity and test wiring (every chunk)
 
