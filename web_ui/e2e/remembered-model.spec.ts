@@ -5,7 +5,7 @@
 // and back brings that model back, on the host and in Settings, instead of
 // an empty picker. Against the real app; nothing here sends a chat.
 
-import { expect, openRoute, test } from './support/fixtures';
+import { expect, openRoute, openSettingsTab, test } from './support/fixtures';
 
 const NANO = 'https://nano-gpt.com/api/v1';
 const NANO_MODEL = 'journey/remembered-on-nano';
@@ -54,6 +54,7 @@ test.describe('the model last used on each backend', () => {
 
     // Settings: choosing Nano-GPT shows its model again before any save.
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'backend');
     const card = page.getByTestId('chat-speech-card');
     await card.getByLabel('Backend').selectOption({ label: 'Nano-GPT' });
     await expect(card.locator('.model-picker-trigger')).toContainText(NANO_MODEL);

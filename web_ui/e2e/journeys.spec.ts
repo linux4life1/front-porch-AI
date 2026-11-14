@@ -10,7 +10,7 @@
 import { readFile } from 'node:fs/promises';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { sendLine } from './support/composer';
-import { expect, openRoute, SERIAL, test } from './support/fixtures';
+import { expect, openRoute, openSettingsTab, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
 
@@ -1180,6 +1180,7 @@ test.describe('the Local model card', () => {
     // The preset sets the context: Settings locks the slider, in the desktop's
     // words, and the host refuses another one however it is asked.
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'generation');
     const slider = page.locator('.slider-field', { hasText: 'Context size' });
     await expect(slider.locator('input[type="range"]')).toBeDisabled();
     await expect(
@@ -1682,6 +1683,7 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
     page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   const mode = () => page.evaluate(() => document.documentElement.dataset.theme);
   await openRoute(page, '/settings');
+  await openSettingsTab(page, 'appearance');
   const dark = page.getByLabel('Dark mode');
   await expect(dark).toBeEnabled();
   const was = await dark.isChecked();
@@ -1690,6 +1692,9 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
     await expect.poll(mode).toBe('light');
     await expect.poll(bg).toBe('#f8f4ed');
     await page.reload();
+    // A reload reopens Settings on its first tab, as the desktop does; the
+    // device controls live under Appearance, so open it again.
+    await openSettingsTab(page, 'appearance');
     await expect.poll(mode).toBe('light');
     await expect(page.getByLabel('Dark mode')).not.toBeChecked();
 
@@ -1715,6 +1720,7 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
   const was = (await read()) ?? 1;
   const target = Math.abs(was - 0.45) < 0.01 ? 0.55 : 0.45;
   await openRoute(page, '/settings');
+  await openSettingsTab(page, 'appearance');
   const slider = page.getByLabel('Bubble opacity', { exact: true });
   await expect(slider).toBeEnabled();
   try {
@@ -1722,6 +1728,9 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
     await expect.poll(alpha).toBe(String(target));
     await expect.poll(read, { message: 'the posted opacity round-trips' }).toBe(target);
     await page.reload();
+    // Reload reopens Settings on General (the desktop's first tab); the
+    // slider lives under Appearance.
+    await openSettingsTab(page, 'appearance');
     await expect(page.getByLabel('Bubble opacity', { exact: true })).toBeEnabled();
     expect(Number(await page.getByLabel('Bubble opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
     await expect.poll(alpha).toBe(String(target));
@@ -2471,6 +2480,7 @@ test('Porch Life Realism off greys the chat\'s Realism switch; on again asks abo
     await expect(panel).toContainText('The Realism Engine is off in Porch Life');
 
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'porch-life');
     const card = page.getByTestId('porch-life-card');
     const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
     await expect(engine).not.toBeChecked();
@@ -2649,6 +2659,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
   const standInModel = before.remoteModelName;
   try {
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'generation');
     const bar = page.getByTestId('gen-preset-bar');
     await expect(bar).toContainText('Generation preset');
     const temp = page

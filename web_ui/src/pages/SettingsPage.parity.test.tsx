@@ -162,6 +162,12 @@ async function visitTabs() {
   for (const id of manifest.sections) {
     await clickTab(id);
     sections.set(id, textOf(section(id)));
+    // Exactly one section mounts: the tab I just opened. (The desktop shows
+    // one tab at a time; a second [data-section] here means a leaked panel.)
+    const mounted = [...container.querySelectorAll('[data-section]')].map((el) =>
+      el.getAttribute('data-section'),
+    );
+    expect(mounted, `sections mounted on tab "${id}"`).toEqual([id]);
     for (const g of container.querySelectorAll('[data-section] [data-testid$="-group"]')) {
       groups.set(`${id}/${g.getAttribute('data-testid')}`, textOf(g));
     }
@@ -231,8 +237,12 @@ describe('Settings sections mirror the desktop tabs', () => {
     expect(general).toContain(manifest.controls.userMessagesOnRight.webMarker);
     expect(general).toContain(manifest.controls.followStreamingReplies.webMarker);
     expect(general).toContain(manifest.controls.spellCheckLanguage.webMarker);
-    // Appearance no longer repeats them (they exist only in General now).
-    expect(sections.get('appearance')).toBeDefined();
+    // Appearance must not repeat them, and while Appearance is the visible
+    // tab General is unmounted entirely — the desktop shows one tab at a
+    // time, so a control lives on exactly one tab.
+    const appearance = sections.get('appearance') ?? '';
+    expect(appearance).not.toContain(manifest.controls.userMessagesOnRight.webMarker);
+    expect(appearance).toContain(manifest.controls.darkMode.webMarker);
   });
 
   it('keeps the 18+ themes switch in the General Porch Life group', async () => {

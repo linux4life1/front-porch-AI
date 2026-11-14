@@ -8,7 +8,7 @@
 // "Long chats" preset (browser_test.dart). Nothing here loads a model.
 
 import type { Page } from '@playwright/test';
-import { expect, openRoute, test } from './support/fixtures';
+import { expect, openRoute, openSettingsTab, test } from './support/fixtures';
 
 const setBackend = (page: Page, backend: 'kobold' | 'openRouter') =>
   page.request.post('/api/settings', { data: { backend } });
@@ -53,6 +53,7 @@ test.describe('the user’s own context', () => {
 
     // Settings shows it, unlocked.
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'generation');
     const slider = page.locator('.slider-field', { hasText: 'Context size' });
     await expect(slider.locator('input[type="range"]')).toBeEnabled();
     await expect(slider.locator('input[type="range"]')).toHaveValue('65536');

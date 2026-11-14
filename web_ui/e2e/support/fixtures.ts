@@ -211,3 +211,17 @@ export async function openRoute(page: Page, route: string) {
   await page.goto(`/#${route}`);
   await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
 }
+
+/**
+ * Settings shows one tab at a time (the desktop's layout, PR 7a): open a
+ * section's tab before querying the controls inside it. `openRoute(page,
+ * '/settings')` lands on General; everything else is unmounted until its
+ * tab is clicked.
+ */
+export async function openSettingsTab(
+  page: Page,
+  tab: 'general' | 'appearance' | 'porch-life' | 'generation' | 'voice-media' | 'backend' | 'advanced',
+) {
+  await page.click(`.settings-tabs button[role="tab"][data-tab="${tab}"]`);
+  await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
+}
