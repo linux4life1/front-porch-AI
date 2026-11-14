@@ -4,6 +4,21 @@
    buttons, inputs, auth screens.
 */
 
+/* The UI typefaces the desktop bundles (Settings → Appearance → UI font:
+   Inter, Atkinson, Literata). Literata is already served for Porch Stories
+   (styles/studio.css); Inter and Atkinson are here. A browser that cannot
+   reach a file falls back to the system stack in --ui-font. */
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/Inter-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/Inter-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/Inter-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/Inter-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Inter'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/Inter-Italic.ttf') format('truetype'); }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/AtkinsonHyperlegibleNext-Regular.ttf') format('truetype'); }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; font-style: normal; font-weight: 500; font-display: swap; src: url('/fonts/AtkinsonHyperlegibleNext-Medium.ttf') format('truetype'); }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/AtkinsonHyperlegibleNext-SemiBold.ttf') format('truetype'); }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/AtkinsonHyperlegibleNext-Bold.ttf') format('truetype'); }
+@font-face { font-family: 'Atkinson Hyperlegible Next'; font-style: italic; font-weight: 400; font-display: swap; src: url('/fonts/AtkinsonHyperlegibleNext-Italic.ttf') format('truetype'); }
+
 /* Palette mirrors the Flutter app's AppColors (lib/ui/theme/app_colors.dart)
    AFTER the warm-porch overhaul: studio-brown grounds (#1B1611/#1F1913/
    #251E17) with the warm accent family — terracotta #E29578, honey #E9C46A,
@@ -41,9 +56,14 @@
   --logwarn: #f0c000;
   /* Active scene-time dot (mirrors the desktop Colors.amber period strip). */
   --accent-amber: #ffc107;
-  --radius: 12px;
-  --radius-card: 16px;
-  --radius-badge: 4px;
+  /* Corner roundness (Settings → Appearance → Corners). The host sends its
+     scale (sharp 0.25, default 1, round 1.6) and theme/appearance.ts sets
+     --radius-scale on :root; the three themed radii multiply it. Surfaces
+     that still carry a literal radius keep it until the migration sweep. */
+  --radius-scale: 1;
+  --radius: calc(12px * var(--radius-scale));
+  --radius-card: calc(16px * var(--radius-scale));
+  --radius-badge: calc(4px * var(--radius-scale));
   /* Chat message coloring (mirrors AppColors.dialogue / action). User-overridable
      via Settings → Chat colors (chatColors.ts sets these on :root at runtime). */
   --dialogue: #ffd740;
@@ -121,7 +141,9 @@ html, body, #root { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* The desktop's UI font pick (theme/appearance.ts paints the stack); the
+     page's own system stack is the fallback and the System choice. */
+  font-family: var(--ui-font, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif);
   -webkit-font-smoothing: antialiased;
 }
 button, input, textarea { font: inherit; }

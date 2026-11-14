@@ -411,13 +411,13 @@ class WebLiveRelays {
     void onSettingsChanged() {
       _settingsDebounce?.cancel();
       _settingsDebounce = Timer(const Duration(milliseconds: 150), () {
-        // The theme and the Appearance picks/catalogs ride every event.
+        final picks = appearanceWire(_storage.appearance, _storage.uiSettings);
         streamHub.broadcast({
           'event': 'settings_changed',
           'theme': webThemeWire(_storage.appearance),
           'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
           ..._storage.uiSettings.sidebarWireFields, // live sidebar orders
-          ...appearanceWire(_storage.appearance, _storage.uiSettings),
+          'appearance': picks,
         });
       });
     }

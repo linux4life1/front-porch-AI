@@ -4,12 +4,14 @@
 // Keeps the page on the desktop's theme: one read of the settings snapshot
 // when signed in (and on every reconnect), then the `theme` each
 // `settings_changed` carries. "Match this device" also follows the browser's
-// own light/dark switch. The bubble opacity rides along the same way.
+// own light/dark switch. The bubble opacity and the Appearance choices (UI
+// font, corners, chat font and colours) ride along the same way.
 
 import { useEffect } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { applyCachedTheme, loadThemeChoice, receiveThemeWire } from './appTheme';
+import { receiveAppearanceWire } from './appearance';
 import { applyBubbleOpacity } from './bubbleOpacity';
 
 export function useDesktopTheme(enabled: boolean): void {
@@ -18,11 +20,12 @@ export function useDesktopTheme(enabled: boolean): void {
     let alive = true;
     const read = () => {
       api
-        .get<{ theme?: unknown; bubbleOpacity?: unknown }>('/api/settings')
+        .get<{ theme?: unknown; bubbleOpacity?: unknown; appearance?: unknown }>('/api/settings')
         .then((s) => {
           if (!alive) return;
           receiveThemeWire(s.theme);
           applyBubbleOpacity(s.bubbleOpacity);
+          receiveAppearanceWire(s.appearance);
         })
         .catch((e: unknown) => console.warn('Could not read the desktop theme', e));
     };
@@ -31,6 +34,7 @@ export function useDesktopTheme(enabled: boolean): void {
       if (e.event === 'settings_changed') {
         if (e.theme) receiveThemeWire(e.theme);
         applyBubbleOpacity(e.bubbleOpacity);
+        if (e.appearance) receiveAppearanceWire(e.appearance);
       } else if (e.event === 'connected') read();
     });
     socket.connect();
