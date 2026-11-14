@@ -1787,6 +1787,70 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
   }
 });
 
+// Settings → Voice & Media (PR 7c): the expression controls, the Image
+// Generation switch and Auto-send transcription are the desktop's own host
+// settings — each change lands on the host, and a reload reads it back.
+test('Voice & Media set on the web are the desktop settings and survive a reload', { tag: SERIAL }, async ({ page }) => {
+  type Voice = {
+    sttEnabled?: boolean;
+    autoSendTranscription?: boolean;
+    imageGenEnabled?: boolean;
+    expressionEnabled?: boolean;
+    expressionMode?: string;
+    expressionEmojiBurst?: boolean;
+    expressionEmojiBurstSize?: number;
+  };
+  const read = async () => (await (await page.request.get('/api/voice/status')).json()) as Voice;
+  const was = await read();
+  const box = (name: string) => page.getByRole('checkbox', { name, exact: true });
+  const mode = was.expressionMode === 'manual' ? 'llm' : 'manual';
+  const size = was.expressionEmojiBurstSize === 44 ? 52 : 44;
+  await openRoute(page, '/settings');
+  await openSettingsTab(page, 'voice-media');
+  try {
+    // The sub-controls show only while their switch is on, as on the desktop.
+    await box('Expression Images').setChecked(true);
+    await expect.poll(async () => (await read()).expressionEnabled).toBe(true);
+    await page.getByLabel('Classification', { exact: true }).selectOption(mode);
+    await expect.poll(async () => (await read()).expressionMode).toBe(mode);
+    await box('Expression Emoji Burst').setChecked(true);
+    await expect.poll(async () => (await read()).expressionEmojiBurst).toBe(true);
+    await page.getByLabel('Burst emoji size', { exact: true }).fill(String(size));
+    await expect.poll(async () => (await read()).expressionEmojiBurstSize).toBe(size);
+
+    await box('Image Generation').setChecked(!was.imageGenEnabled);
+    await expect.poll(async () => (await read()).imageGenEnabled).toBe(!was.imageGenEnabled);
+
+    await box('Enable Voice Input').setChecked(true);
+    await expect.poll(async () => (await read()).sttEnabled).toBe(true);
+    await box('Auto-send transcription').setChecked(!was.autoSendTranscription);
+    await expect
+      .poll(async () => (await read()).autoSendTranscription, { message: 'auto-send reached the host' })
+      .toBe(!was.autoSendTranscription);
+
+    await page.reload();
+    await openSettingsTab(page, 'voice-media');
+    await expect(page.getByLabel('Classification', { exact: true })).toHaveValue(mode);
+    await expect(page.getByLabel('Burst emoji size', { exact: true })).toHaveValue(String(size));
+    await expect(page.getByText(`${size} px`, { exact: true })).toBeVisible();
+    await expect(box('Image Generation')).toBeChecked({ checked: !was.imageGenEnabled });
+    await expect(box('Auto-send transcription')).toBeChecked({ checked: !was.autoSendTranscription });
+  } finally {
+    const back = await page.request.post('/api/voice/settings', {
+      data: {
+        sttEnabled: was.sttEnabled ?? false,
+        autoSendTranscription: was.autoSendTranscription ?? false,
+        imageGenEnabled: was.imageGenEnabled ?? true,
+        expressionEnabled: was.expressionEnabled ?? false,
+        expressionMode: was.expressionMode ?? 'llm',
+        expressionEmojiBurst: was.expressionEmojiBurst ?? false,
+        expressionEmojiBurstSize: was.expressionEmojiBurstSize ?? 28,
+      },
+    });
+    expect(back.ok(), `restoring Voice & Media: ${back.status()}`).toBe(true);
+  }
+});
+
 test(
   'locations on the phone: the library groups, the law speaks over the wire, delete takes the places with it',
   { tag: SERIAL },
