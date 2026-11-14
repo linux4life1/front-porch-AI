@@ -117,7 +117,13 @@ void main() {
       final sub = await folders.createFolder('Attic', parentId: porch.id);
       await facade.bulkMove([ids[0]], porch.id);
       await facade.bulkMove([ids[1], 'group_crew'], sub.id);
-      final list = CharacterFacade(db, storage, folders, null, repo).folders();
+      final list = await CharacterFacade(
+        db,
+        storage,
+        folders,
+        null,
+        repo,
+      ).folders();
       Map<String, dynamic> of(String id) =>
           list.firstWhere((f) => f['id'] == id);
       expect(of(porch.id)['characterCount'], 2);

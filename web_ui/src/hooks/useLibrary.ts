@@ -42,6 +42,9 @@ export interface LibFolder {
   /** Characters and groups inside, subfolders included (absent on older apps). */
   characterCount?: number;
   groupCount?: number;
+  /** Up to 4 member portraits for the tile's montage — the desktop
+   *  folder_grid_card's 2×2 preview (drift ledger #4). Absent on older apps. */
+  preview?: LibGroupMember[];
 }
 export interface LibGroupMember {
   id: string;

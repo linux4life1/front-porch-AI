@@ -106,6 +106,12 @@ export function FolderCard({
   onDropChars: () => void;
 }) {
   const [over, setOver] = useState(false);
+  // The desktop tile (folder_grid_card.dart) montages up to 4 member
+  // portraits over the card and writes "N characters · M groups"; empty
+  // folders fall back to the folder glyph. Same walk, same cap (ledger #4).
+  const previews = (folder.preview ?? []).slice(0, 4);
+  const chars = folder.characterCount ?? 0;
+  const groups = folder.groupCount ?? 0;
   return (
     <div
       className={`lib-card folder-card${over ? ' drop-over' : ''}`}
@@ -125,14 +131,50 @@ export function FolderCard({
         onDropChars();
       }}
     >
-      <button className="lib-open folder-open" onClick={onOpen}>
-        <span className="folder-glyph" aria-hidden>
-          📁
-        </span>
-        <span className="lib-name">{folder.name}</span>
+      <button className="lib-open" onClick={onOpen}>
+        {previews.length > 0 ? (
+          <div className="lib-art group-art" data-count={previews.length}>
+            {previews.map((m) =>
+              m.hasAvatar && !m.placeholderPortrait ? (
+                <img
+                  key={m.id}
+                  src={api.avatarUrl(
+                    `/api/characters/${m.id}/avatar`,
+                    256,
+                    m.avatarVersion,
+                  )}
+                  alt=""
+                  loading="lazy"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span key={m.id} className="lib-art-fallback">
+                  {m.name.charAt(0).toUpperCase()}
+                </span>
+              ),
+            )}
+          </div>
+        ) : (
+          <div className="lib-art" data-count="0">
+            <span className="lib-art-fallback" aria-hidden>
+              📁
+            </span>
+          </div>
+        )}
+        <div className="lib-info">
+          <div className="lib-name-row">
+            <span className="lib-name">{folder.name}</span>
+          </div>
+          <span className="lib-sub">
+            {chars} character{chars === 1 ? '' : 's'}
+            {groups > 0 && <> · {groups} group{groups === 1 ? '' : 's'}</>}
+          </span>
+        </div>
       </button>
       <button
-        className="icon-btn card-kebab folder-kebab"
+        className="icon-btn card-kebab"
         title="More actions"
         aria-label="More actions"
         onClick={(e) => {
