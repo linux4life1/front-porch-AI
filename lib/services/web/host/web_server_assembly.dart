@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
@@ -168,8 +169,16 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       ? BackendFacade(llm, storage, models, services.hardware)
       : null;
 
+  // The photo helper is the same singleton the desktop's card configures.
   final voiceFacade = (tts != null && stt != null)
-      ? VoiceFacade(tts, stt, storage, chat: chatService)
+      ? VoiceFacade(
+          tts,
+          stt,
+          storage,
+          chat: chatService,
+          expressions: services.expressions,
+          caption: LocalCaptionService.instance..configure(storage.rootPath),
+        )
       : null;
 
   // Snapshots are rebuilt server-side from authoritative card text + roles, so

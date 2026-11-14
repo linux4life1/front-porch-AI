@@ -74,6 +74,7 @@ export function ChatComposer({
   isSettlingTurn = false,
   isSendWaitingOnSettle = false,
   canMic,
+  autoSendMic = false,
   onDraftChange,
   cast,
   impersonateFill,
@@ -94,6 +95,9 @@ export function ChatComposer({
   isSettlingTurn?: boolean;
   isSendWaitingOnSettle?: boolean;
   canMic: boolean;
+  /** Settings → Voice & Media → Auto-send transcription (the host's switch):
+   *  dictation into an empty box sends at once, as on the desktop. */
+  autoSendMic?: boolean;
   /** Live draft mirror for the lorebook "would trigger next" preview. */
   onDraftChange?: (text: string) => void;
   /** Present cast for the "@" autocomplete (host + guests, or group members).
@@ -343,6 +347,21 @@ export function ChatComposer({
       .finally(() => setPhotoBusy(false));
   };
 
+  // What the mic heard. The desktop (chat_page.input_actions.dart) sends it
+  // straight away when Auto-send is on and the box is empty; otherwise it
+  // joins whatever is typed. A pending photo also keeps it in the box, so the
+  // picture is never sent apart from the words meant for it.
+  const onMicText = (t: string) => {
+    if (autoSendMic && !draft.trim() && !photo && !isGenerating) {
+      setSlashDismissed(false);
+      setMentionDismissed(false);
+      if (isSettlingTurn) setHeldLocal(true);
+      onSend(t);
+      return;
+    }
+    setDraft((d) => (d ? `${d} ${t}` : t));
+  };
+
   return (
     <div className="chat-composer-wrap">
     {held && (
@@ -566,7 +585,7 @@ export function ChatComposer({
               <MicButton
                 disabled={isGenerating}
                 icon={<IconMic />}
-                onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+                onText={onMicText}
               />
             )}
             {onNextTurn && (
@@ -622,7 +641,7 @@ export function ChatComposer({
           {canMic && (
             <MicButton
               disabled={isGenerating}
-              onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+              onText={onMicText}
             />
           )}
           {isGenerating ? (

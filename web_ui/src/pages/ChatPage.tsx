@@ -562,6 +562,7 @@ export function ChatPage() {
           isSettlingTurn={!!state.isSettlingTurn}
           isSendWaitingOnSettle={!!state.isSendWaitingOnSettle}
           canMic={canMic}
+          autoSendMic={!!voice?.autoSendTranscription}
           onDraftChange={setDraft}
           cast={cast}
           impersonateFill={impersonateFill}

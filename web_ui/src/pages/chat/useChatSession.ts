@@ -22,6 +22,7 @@ import { announceSettingsChanged } from '../../components/genPresets/genPresets'
 /** The Chance Time modal's state: the parked event, whether Spin was
  * pressed, and the event's kind for the wheel's reveal. */
 type ChanceState = { event: string; revealed: boolean; kind?: string; label?: string; emoji?: string };
+type VoiceSnapshot = { ttsEnabled: boolean; sttAvailable: boolean; autoSendTranscription?: boolean };
 
 function chanceKind(from: { kind?: string; label?: string; emoji?: string }) {
   return { kind: from.kind, label: from.label, emoji: from.emoji };
@@ -64,7 +65,9 @@ export function useChatSession() {
   // sidebar refetches its own snapshot in lock-step.
   const [toolsBump, setToolsBump] = useState(0);
   // Voice capability snapshot (TTS on? STT usable?) — gates the Speak/Mic UI.
-  const [voice, setVoice] = useState<{ ttsEnabled: boolean; sttAvailable: boolean } | null>(null);
+  // autoSendTranscription is the desktop's Settings switch (additive, 7c):
+  // the mic sends what it heard instead of filling the box.
+  const [voice, setVoice] = useState<VoiceSnapshot | null>(null);
   // Live Impersonate composer fill (dedicated WS event — not the AI bubble).
   const [impersonateFill, setImpersonateFill] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -137,6 +140,14 @@ export function useChatSession() {
       void refresh();
     }, 80);
   }, [refresh]);
+
+  // Read on mount and again on each settings_changed below, so a Voice &
+  // Media switch flipped on the desktop reaches an open chat.
+  const loadVoice = useCallback(() => {
+    api.get<VoiceSnapshot>('/api/voice/status')
+      .then(setVoice)
+      .catch((e: unknown) => console.warn('Could not read the voice settings', e));
+  }, []);
 
   const wasOpening = useRef(false);
   useEffect(() => {
@@ -281,7 +292,10 @@ export function useChatSession() {
         // the refractory words, both of which follow a setting.
         scheduleRefresh();
         // A model switch made anywhere: the chat's preset toast reads it.
-        if (e.event === 'settings_changed') announceSettingsChanged();
+        if (e.event === 'settings_changed') {
+          announceSettingsChanged();
+          loadVoice();
+        }
       } else if (e.event === 'connected') {
         // (Re)connected. The socket may have been down (phone sleep, network
         // blip) while the desktop finished a generation or edited the chat, so
@@ -303,13 +317,11 @@ export function useChatSession() {
       socket.close();
       if (refreshTimer.current !== null) clearTimeout(refreshTimer.current);
     };
-  }, [refresh, scheduleRefresh]);
+  }, [refresh, scheduleRefresh, loadVoice]);
 
   useEffect(() => {
-    api.get<{ ttsEnabled: boolean; sttAvailable: boolean }>('/api/voice/status')
-      .then(setVoice)
-      .catch(() => {});
-  }, []);
+    loadVoice();
+  }, [loadVoice]);
 
   // Apply per-chat theme overrides and the Ambient Stage's scene as CSS
   // custom properties on the chat container. The scene is the desktop's

@@ -103,8 +103,16 @@ recomputed in the web layer).
 | TTS playback (🔊 per reply) | ✅ | Synthesized on host, played on the **client** device. |
 | STT dictation (🎤) | ✅ | Recorded on-device, uploaded; **gated on a secure context** (Tailscale/ngrok/localhost) — browsers block the mic over plain-LAN http. |
 | Voice calls (1:1) | ❌ | Desktop-only forever: the browser round trip is too slow for conversation (maintainer ruling, 2026-11-13). |
-| Mic device list, Whisper model + download | ⚙️ | Host-side capture and first-time engine setup stay on desktop; a browser only sees its own devices (maintainer ruling, 2026-11-13). |
-| TTS/STT **engine + voice setup** | ⚙️ | Voice uses whatever engine you configured on desktop; choosing engines / downloading voices stays in the desktop settings. |
+| Voice-call settings (call model, voice buffer, call system prompt) | ❌ | Go with voice calls: desktop-only (ruling, 2026-11-13). Settings → Voice & Media on the web leaves them out. |
+| Mic device list, Whisper model + download | ⚙️ | Host-side capture and first-time engine setup stay on desktop; a browser only sees its own devices (maintainer ruling, 2026-11-13). The web's STT card says where they live. |
+| TTS/STT **engine + voice setup** (desktop "Configure") | ⚙️ | Voice uses whatever engine you configured on desktop; choosing engines / downloading voices stays in the desktop settings. The web's Text-to-Speech card shows the engine and voice, and keeps its on/off switch where the desktop has Configure. |
+| Settings → Text-to-Speech / Voice Input (STT) switches | ✅ | Host settings (PR 7c layout: the desktop's header + card per group). |
+| Settings → Auto-send transcription | ✅ | Host setting, shown under Enable Voice Input while it is on (PR 7c). The web's own dictation honours it: into an empty box the transcript is sent; otherwise it joins the draft, as on the desktop. |
+| Settings → Expression Images (enable, Classification, Display, Re-roll, Emoji Burst + size, Fallback) | ✅ | Host settings, same words and order, sub-controls only while enabled (PR 7c). |
+| Settings → Expression ONNX model (ready check / download) | ✅ | Same button: green check when on disk, spinner while it downloads (polled), download otherwise; a failed download says so (PR 7c). |
+| Settings → Photo Understanding (offline vision helper) | ✅ | Self-hiding like the desktop card: shows only while installed (Remove) or downloading (progress + Cancel) (PR 7c). |
+| Settings → Image Generation switch | ✅ | Host setting (PR 7c). It shows or hides the desktop chat's Image Studio button; the web composer has no Image Studio button (the web reaches Image Studio from the nav). |
+| Audio-missing notice under Text-to-Speech | ❌ | Not ported: it reports the desktop machine's sound libraries, and web replies play on the browser's own device. |
 
 ## Models / Backends
 

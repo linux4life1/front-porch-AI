@@ -35,6 +35,7 @@ class WebHostServices {
   KoboldService? kobold;
   TtsService? tts;
   SttService? stt;
+  ExpressionClassifierService? expressions;
   StoryRepository? stories;
   StoryPipelineService? storyPipeline;
   UpdateService? update;
