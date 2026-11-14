@@ -24,6 +24,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_appearance_write.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_sidebar_order.dart';
@@ -32,11 +33,20 @@ import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 
 /// Applies a web Settings POST body to storage and the live backend.
 class SettingsWriter {
-  SettingsWriter(this._storage, this._llm, this._reasoning);
+  SettingsWriter(
+    this._storage,
+    this._llm,
+    this._reasoning, {
+    UpdateService? update,
+  }) : _update = update;
 
   final StorageService _storage;
   final LLMProvider _llm;
   final SettingsReasoning _reasoning;
+
+  /// The desktop's update service, when the host has one: the PWA's
+  /// auto-check switch writes straight through to it.
+  final UpdateService? _update;
 
   /// Why [body] must not be stored, in plain words, or null. Asked before
   /// anything is written, so a refused save changes nothing.
@@ -93,6 +103,11 @@ class SettingsWriter {
     final darkMode = body['darkMode'];
     if (darkMode is bool) await _storage.uiSettings.setIsDark(darkMode);
 
+    // General → Auto-check for Updates, the desktop's own switch. Absent on
+    // a host without the update service.
+    final autoCheck = body['autoCheckForUpdates'];
+    if (autoCheck is bool) await _update?.setAutoCheckEnabled(autoCheck);
+
     // Appearance → Ambient scene. Only a key this build knows is written.
     final ambient = body['ambientScene'];
     if (ambient is String && AmbientScene.values.any((v) => v.key == ambient)) {
@@ -137,6 +152,10 @@ class SettingsWriter {
     // The chat sidebar's remembered order, per surface (split out of this
     // near-cap file: settings_sidebar_order.dart).
     await applySidebarOrderWrite(_storage, body);
+
+    // Appearance → theme, accent, UI font, corners, chat font and colours
+    // (split out of this near-cap file: settings_appearance_write.dart).
+    await applyAppearanceWrite(_storage, body);
 
     final realism = body['realism'];
     if (realism is Map) {

@@ -9,6 +9,14 @@ import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
 import { BubbleOpacitySettings } from '../components/BubbleOpacitySettings';
 import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
 import { ThemeModeSettings } from '../components/ThemeModeSettings';
+import { ThemeGallerySettings } from '../components/ThemeGallerySettings';
+import { AccentPickerSettings } from '../components/AccentPickerSettings';
+import { UiFontSettings } from '../components/UiFontSettings';
+import { CornersSettings } from '../components/CornersSettings';
+import { ThemeResetSettings } from '../components/ThemeResetSettings';
+import { ChatFontSettings } from '../components/ChatFontSettings';
+import { ChatColorsResetSettings } from '../components/ChatColorsResetSettings';
+import { AutoCheckSettings } from '../components/AutoCheckSettings';
 import { BackgroundWeatherSettings } from '../components/BackgroundWeatherSettings';
 import { MoodOnCharacterSettings } from '../components/MoodOnCharacterSettings';
 import { SpellCheckSettings } from '../components/SpellCheckSettings';
@@ -456,8 +464,7 @@ export function SettingsPage() {
 
         <MessageSideSettings />
         <FollowStreamingSettings />
-        {/* Auto-check for Updates sits here on the desktop; its host keys
-            are not on /api/settings yet — PR 7b adds them. */}
+        <AutoCheckSettings />
         <SpellCheckSettings
           spellCheckLanguage={s.spellCheckLanguage}
           spellCheckLanguages={s.spellCheckLanguages}
@@ -518,12 +525,17 @@ export function SettingsPage() {
       {tab === 'appearance' && (
       <div className="settings-section" data-section="appearance">
 
-        {/* Desktop order: Theme (mode now; gallery, accent, UI font,
-            corners and the reset arrive with PR 7b), then the weather's
-            own section, then chat appearance. */}
+        {/* Desktop order (appearance_tab.dart): the theme gallery, mode,
+            accent, UI font, corners, the reset — then the weather's own
+            section, then chat appearance. */}
         <div className="settings-group" data-testid="theme-group">
           <h4 className="settings-group-heading">Theme</h4>
+          <ThemeGallerySettings />
           <ThemeModeSettings />
+          <AccentPickerSettings />
+          <UiFontSettings />
+          <CornersSettings />
+          <ThemeResetSettings />
         </div>
 
         <BackgroundWeatherSettings />
@@ -534,6 +546,8 @@ export function SettingsPage() {
           <MoodOnCharacterSettings />
           <BubbleOpacitySettings />
           <ChatColorsSettings />
+          <ChatFontSettings />
+          <ChatColorsResetSettings />
         </div>
       </div>
       )}

@@ -51,6 +51,7 @@ WebServerHost createWiredWebServerHost(BuildContext context, AppDatabase db) {
   host.setTtsService(Provider.of<TtsService>(context, listen: false));
   host.setSttService(Provider.of<SttService>(context, listen: false));
   host.setStoryRepository(Provider.of<StoryRepository>(context, listen: false));
+  host.setUpdateService(Provider.of<UpdateService>(context, listen: false));
   host.setStoryPipelineService(
     Provider.of<StoryPipelineService>(context, listen: false),
   );

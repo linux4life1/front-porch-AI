@@ -47,6 +47,49 @@ vi.mock('../components/ThemeModeSettings', async () => {
   const { createElement: h } = await import('react');
   return { ThemeModeSettings: () => h('div', { 'data-testid': 'theme-mode-card' }, 'Dark mode') };
 });
+vi.mock('../components/ThemeGallerySettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ThemeGallerySettings: () =>
+      h('div', { 'data-testid': 'theme-gallery-card' }, 'Porch · Slate · High Contrast'),
+  };
+});
+vi.mock('../components/AccentPickerSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { AccentPickerSettings: () => h('div', { 'data-testid': 'accent-card' }, 'Theme accent') };
+});
+vi.mock('../components/UiFontSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { UiFontSettings: () => h('div', { 'data-testid': 'ui-font-card' }, 'UI font') };
+});
+vi.mock('../components/CornersSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { CornersSettings: () => h('div', { 'data-testid': 'corners-card' }, 'Corners') };
+});
+vi.mock('../components/ThemeResetSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ThemeResetSettings: () =>
+      h('div', { 'data-testid': 'appearance-reset-card' }, 'Reset accent, font and corners'),
+  };
+});
+vi.mock('../components/ChatFontSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { ChatFontSettings: () => h('div', { 'data-testid': 'chat-font-card' }, 'Chat Font') };
+});
+vi.mock('../components/ChatColorsResetSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ChatColorsResetSettings: () =>
+      h('div', { 'data-testid': 'chat-colors-reset-card' }, "Use the theme's chat colors"),
+  };
+});
+vi.mock('../components/AutoCheckSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    AutoCheckSettings: () => h('div', { 'data-testid': 'auto-check-card' }, 'Auto-check for Updates'),
+  };
+});
 vi.mock('../components/BackgroundWeatherSettings', async () => {
   const { createElement: h } = await import('react');
   return {

@@ -18,6 +18,7 @@ export 'app_theme.dart';
 export 'appearance_options.dart';
 export 'book_page_colors.dart';
 export 'chat_default_colors.dart';
+export 'chat_font_choices.dart';
 export 'chat_colors.dart';
 export 'download_status_colors.dart';
 export 'ink_colors.dart';

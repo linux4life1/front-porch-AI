@@ -305,9 +305,10 @@ design).
 - PR 5: Main Settings → Group Settings…; every old tab's item is there, and
   changing a default does not change the chat you are in.
 - PR 7: open Settings in the browser and the app side by side; every app
-  tab is a web section with the same controls, and changing theme or
-  accent on the web changes the desktop too (and every other open
-  session follows within a second).
+  tab is a web section with the same controls, and changing theme, accent,
+  UI font, corners, the chat font or a chat colour on the web changes the
+  desktop too (and every other open session follows within a second). The
+  Auto-check for Updates switch is the same host setting on both.
 - PR 7 (Voice chunk): set the expression classification mode and burst
   size in the browser; the app's Voice & Media tab shows the same
   values.

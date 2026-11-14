@@ -30,28 +30,6 @@ import 'mood_on_character_controls.dart';
 class ChatAppearanceSection extends StatelessWidget {
   const ChatAppearanceSection({super.key});
 
-  /// Curated chat-suitable Google Fonts. ('' == the UI font.)
-  static const List<(String, String)> _chatFonts = [
-    ('Same as the UI font', ''),
-    ('Roboto', 'Roboto'),
-    ('Open Sans', 'Open Sans'),
-    ('Lato', 'Lato'),
-    ('Source Sans 3', 'Source Sans 3'),
-    ('Nunito', 'Nunito'),
-    ('Poppins', 'Poppins'),
-    ('Montserrat', 'Montserrat'),
-    ('Raleway', 'Raleway'),
-    ('Work Sans', 'Work Sans'),
-    ('DM Sans', 'DM Sans'),
-    ('Quicksand', 'Quicksand'),
-    ('Rubik', 'Rubik'),
-    ('Karla', 'Karla'),
-    ('Merriweather', 'Merriweather'),
-    ('Playfair Display', 'Playfair Display'),
-    ('Roboto Mono', 'Roboto Mono'),
-    ('Fira Code', 'Fira Code'),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
@@ -152,7 +130,7 @@ class ChatAppearanceSection extends StatelessWidget {
                   // Clamp to a known item — a stored family not in the list
                   // (older build / manual pref edit) would otherwise assert.
                   value:
-                      _chatFonts.any(
+                      kChatFontChoices.any(
                         (f) =>
                             f.$2 ==
                             storageService.uiSettings.globalChatFontFamily,
@@ -169,7 +147,7 @@ class ChatAppearanceSection extends StatelessWidget {
                     fontSize: 13,
                   ),
                   underline: const SizedBox.shrink(),
-                  items: _chatFonts.map((font) {
+                  items: kChatFontChoices.map((font) {
                     return DropdownMenuItem<String>(
                       value: font.$2,
                       child: Text(

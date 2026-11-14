@@ -135,7 +135,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   groupFacade?.editor.chat = chatService;
 
   final settingsFacade = llm != null
-      ? SettingsFacade(storage, llm, chat: chatService)
+      ? SettingsFacade(storage, llm, chat: chatService, update: services.update)
       : null;
 
   // The Stoop relay. The web client keeps its own Stoop session (tokens in
