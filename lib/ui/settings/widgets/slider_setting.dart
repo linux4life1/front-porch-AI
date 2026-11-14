@@ -22,8 +22,11 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import 'studio_slider_card.dart';
+
 /// Slider setting widget extracted from settings_page (Stage 5).
-/// Pure lift of _buildSlider with AppColors exclusive.
+/// Pure lift of _buildSlider with AppColors exclusive; delegates to
+/// [StudioSliderCard] when studio track/card styling is requested.
 class SliderSetting extends StatelessWidget {
   const SliderSetting({
     super.key,
@@ -38,6 +41,10 @@ class SliderSetting extends StatelessWidget {
     this.isInteger = false,
     this.decimalPlaces = 2,
     this.reset,
+    this.defaultVal,
+    this.dangerMin,
+    this.dangerMax,
+    this.studioStyle = false,
   });
 
   final String label;
@@ -54,6 +61,11 @@ class SliderSetting extends StatelessWidget {
   /// Where a ↺ beside the value goes back to; shown only when the value
   /// differs from it.
   final ResetTarget? reset;
+
+  final double? defaultVal;
+  final double? dangerMin;
+  final double? dangerMax;
+  final bool studioStyle;
 
   String _format(double v) =>
       isInteger ? v.toInt().toString() : v.toStringAsFixed(decimalPlaces);
@@ -73,6 +85,26 @@ class SliderSetting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (studioStyle ||
+        defaultVal != null ||
+        dangerMin != null ||
+        dangerMax != null) {
+      return StudioSliderCard(
+        label: label,
+        value: value,
+        min: min,
+        max: max,
+        defaultVal: defaultVal,
+        dangerMin: dangerMin,
+        dangerMax: dangerMax,
+        onChanged: (v) => onChanged(v),
+        divisions: divisions,
+        isInteger: isInteger,
+        decimalPlaces: decimalPlaces,
+        reset: reset,
+        tooltip: tooltip,
+      );
+    }
     final resetButton = _resetButton();
     if (!showInput) {
       return Column(

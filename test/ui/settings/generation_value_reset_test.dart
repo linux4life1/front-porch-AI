@@ -17,7 +17,7 @@ import 'package:front_porch_ai/ui/settings/tabs/tabs.dart';
 import '../../golden/support/fakes.dart';
 import '../gen_preset_storage.dart';
 
-const _fromFile = 'Reset to 0.6, recommended by the model file';
+const _fromFile = 'Reset to 0.60, recommended by the model file';
 
 Future<GenPresetStorage> _mount(WidgetTester tester) async {
   await tester.binding.setSurfaceSize(const Size(1440, 4000));

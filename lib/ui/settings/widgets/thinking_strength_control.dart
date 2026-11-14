@@ -18,7 +18,23 @@ class ThinkingStrengthControl extends StatelessWidget {
     required this.onChanged,
     this.modelId = '',
     this.compact = false,
+    this.showHeading = true,
+    this.thinkingOn,
+    this.onTurnOff,
+    this.onTurnOn,
+    this.offDisabled = false,
   });
+
+  /// When [onTurnOff] is given, an Off chip leads the row so on/off and
+  /// strength are one control. [thinkingOn] says whether thinking is on;
+  /// picking a level while off calls [onTurnOn] first. A model with no
+  /// levels of its own gets a plain On chip after Off.
+  final bool? thinkingOn;
+  final VoidCallback? onTurnOff;
+  final VoidCallback? onTurnOn;
+
+  /// Off is not pickable (a model that always thinks, or can never think).
+  final bool offDisabled;
 
   /// Current pick (any ladder id: low, max, xhigh, …).
   final String value;
@@ -31,25 +47,37 @@ class ThinkingStrengthControl extends StatelessWidget {
   /// Tighter padding for dialogs.
   final bool compact;
 
+  /// False when an outer card/section already renders the "Thinking" title.
+  final bool showHeading;
+
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.porchAmberOf(context);
     final chips = reasoningEffortChipsFor(modelId);
-    final selected = reasoningEffortDisplayedSelection(modelId, value);
-    final caption = reasoningEffortMappingCaption(modelId, selected);
+    final withOff = onTurnOff != null;
+    final off = withOff && thinkingOn == false;
+    final selected =
+        off ? '' : reasoningEffortDisplayedSelection(modelId, value);
+    final caption = off
+        ? ''
+        : reasoningEffortMappingCaption(modelId, selected);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Thinking strength',
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontWeight: FontWeight.w600,
-            fontSize: compact ? 13 : 14,
+        if (showHeading) ...[
+          Text(
+            thinkingOn == null && onTurnOff == null
+                ? 'Thinking strength'
+                : 'Thinking',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w600,
+              fontSize: compact ? 13 : 14,
+            ),
           ),
-        ),
-        SizedBox(height: compact ? 6 : 8),
+          SizedBox(height: compact ? 6 : 8),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 360;
@@ -57,13 +85,36 @@ class ThinkingStrengthControl extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
+                if (withOff)
+                  _StrengthChip(
+                    id: 'off',
+                    title: 'Off',
+                    blurb: 'No thinking',
+                    selected: off,
+                    accent: accent,
+                    wide: wide && chips.length <= 4,
+                    onTap: offDisabled ? null : onTurnOff,
+                  ),
                 for (final id in chips)
                   _StrengthChip(
                     id: id,
                     selected: selected == id,
                     accent: accent,
                     wide: wide && chips.length <= 4,
-                    onTap: () => onChanged(id),
+                    onTap: () {
+                      if (withOff && off) onTurnOn?.call();
+                      onChanged(id);
+                    },
+                  ),
+                if (withOff && chips.isEmpty)
+                  _StrengthChip(
+                    id: 'on',
+                    title: 'On',
+                    blurb: 'Think before replying',
+                    selected: !off,
+                    accent: accent,
+                    wide: wide,
+                    onTap: off ? onTurnOn : null,
                   ),
               ],
             );
@@ -93,18 +144,22 @@ class _StrengthChip extends StatelessWidget {
     required this.accent,
     required this.wide,
     required this.onTap,
+    this.title,
+    this.blurb,
   });
 
+  final String? title;
+  final String? blurb;
   final String id;
   final bool selected;
   final Color accent;
   final bool wide;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final title = reasoningEffortTitle(id);
-    final blurb = reasoningEffortBlurb(id);
+    final title = this.title ?? reasoningEffortTitle(id);
+    final blurb = this.blurb ?? reasoningEffortBlurb(id);
 
     return Material(
       color: selected ? accent : AppColors.surfaceContainerOf(context),
