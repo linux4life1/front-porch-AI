@@ -161,9 +161,8 @@ class RealismFormSection extends StatelessWidget {
   /// The starting bonds and emotion (a creator surface may hide them).
   final bool showStartingState;
 
-  /// How this group member starts in every chat the group CREATES: Away
-  /// at the door (docs/design/group-initial-presence.md). Absent without
-  /// a setter — the member editor is the only one.
+  /// Every chat this group CREATES starts this member Away at the door
+  /// (group-initial-presence.md). Absent without a setter.
   final bool startsAwayEnabled;
   final ValueChanged<bool>? onStartsAwayChanged;
 

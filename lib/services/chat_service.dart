@@ -156,7 +156,6 @@ class ChatService extends ChangeNotifier {
   /// prompt injections, the Journal, Growth Rings, lore and places. The
   /// getters below forward into it; fakes override them.
   RealismGraph get realism => _wiring.realism;
-
   Biome get activeChatBiome => realism.weather.activeChatBiome;
 
   /// Today's story weather, or null when off (body in [ChatWeather]).
