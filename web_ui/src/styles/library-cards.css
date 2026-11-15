@@ -113,6 +113,8 @@
 
 /* ── Models & backends page ───────────────────────────────────── */
 .model-list, .download-list, .hf-list, .file-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+/* The local-models filter box (the desktop's "Filter models…" field). */
+.model-filter { margin-top: 8px; }
 .model-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .model-info { display: flex; flex-direction: column; min-width: 0; }
 .download-list li { display: flex; flex-direction: column; gap: 4px; }

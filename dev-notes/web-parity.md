@@ -55,7 +55,7 @@ recomputed in the web layer).
 
 | Feature | Status | Notes |
 |--------|:--:|------|
-| Library grid (search / sort / folders) | ✅ | |
+| Library grid (search / sort / folders) | ✅ | Folder tiles are portrait tiles with a 2×2 member-portrait montage (up to 4) + "N characters · M groups", the desktop's `folder_grid_card.dart` (ledger #4): `GET /api/folders` carries `preview` rows (id + avatar version) and `FolderCard` reuses the `.group-art` montage CSS. |
 | Open / start chat | ✅ | |
 | Manual creation wizard | ✅ | Step-indicator wizard mirroring `create_character_page`. |
 | **AI character creator** | ✅ | `/create-ai`: describe → generate (live steps over WS) → editor. Thin driver over the existing headless `CharacterGenService`. |
@@ -86,6 +86,7 @@ recomputed in the web layer).
 | Shared lorebook entry CRUD | ✅ | |
 | Persona switch | ✅ | |
 | Persona create / edit / delete | ✅ | |
+| Persona JSON import / export | ✅ | Import JSON button feeds the desktop's `importFromJsonFile` (FPAI bundle, SillyTavern V2/V1, V2 card, generic name+description) over `POST /api/personas/import` (raw body); each row exports one persona as the ST file the desktop writes (`<name>_FPAIpersona.json`) over `GET /api/personas/<id>/export.json`. Failure copy matches the desktop (ledger #15b). |
 
 ## Image generation
 
@@ -120,6 +121,9 @@ recomputed in the web layer).
 |--------|:--:|------|
 | LLM Local ↔ API choose + edit + flip | ✅ | |
 | Switch local model (restart Kobold) | ✅ | Confirm dialog (interrupts generation). |
+| Installed-models filter | ✅ | The desktop's "Filter models…" field (case-insensitive name substring, `model_manager_page.dart:364`); local to the list, no round trip. |
+| Models-folder ops (Change folder / Reset / Open in File Manager) | ⚙️ | Host-only (ledger #15c): a remote client must not point an internet-exposable server at an arbitrary host directory, and a browser cannot open the *host's* file manager. The path shows read-only (`GET /api/backend/models-folder`, `backend_facade.dart:196-202`); the ops stay in the desktop app. |
+| Import model from computer (.gguf / .kcpps upload) | ⏳ | By design for now — one-chat-ux.md:284: the GGUF control on the web stays the served dropdown + HF downloader; a multi-GB upload over the PWA needs its own chunked story. |
 | HuggingFace browser + downloader (progress) | ✅ | Polled progress. |
 | Backend start / stop / restart + status | ✅ | |
 
