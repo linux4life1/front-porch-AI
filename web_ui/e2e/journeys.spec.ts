@@ -546,6 +546,9 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
       .poll(async () => (await detail()).alternateGreetings)
       .toEqual(['A calm morning on the jetty.', REPLY]);
 
+    // Greetings is no longer the last step (PR 8c): Realism follows, and
+    // its nav keeps Open in editor.
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
     await page.getByRole('button', { name: 'Open in editor' }).click();
     await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
   } finally {
@@ -2907,4 +2910,54 @@ test.describe.serial('editing a group member', { tag: SERIAL }, () => {
     };
     expect(libraryAfter.description).toBe(libraryBefore.description);
   });
+});
+
+// The AI creator's Realism step (PR 8c), after Greetings: the saved
+// character's Porch Life values open there, and a change saves as you go,
+// the Realism values alone (the first message typed on Greetings stays).
+// A reload reads it back from the card. The character is deleted whatever
+// happens.
+test("the creator's Realism step saves Porch Life onto the saved character", async ({ page }) => {
+  const created = await page.request.post('/api/characters/create', {
+    data: {
+      name: `Realism Journey ${test.info().project.name}`,
+      firstMessage: '*The lamp turns.* "You came."',
+      realismEnabled: true,
+      occupation: 'lighthouse keeper',
+    },
+  });
+  expect(created.ok(), `create: ${created.status()}`).toBe(true);
+  const id = String(((await created.json()) as { id: string | number }).id);
+  type Detail = { firstMessage: string; realism: { realismEnabled: boolean; occupation: string } };
+  const detail = async () =>
+    (await (await page.request.get(`/api/characters/${id}/detail`)).json()) as Detail;
+  try {
+    await openRoute(page, `/create-ai?greetings=${id}`);
+    await expect(page.getByTestId('greetings-step')).toBeVisible();
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    const step = page.getByTestId('realism-step');
+    await expect(step).toBeVisible();
+    await expect(step.getByRole('heading', { name: 'Porch Life' })).toBeVisible();
+    await expect(page.getByTestId('work-occupation')).toHaveValue('lighthouse keeper');
+
+    await page.getByTestId('work-occupation').fill('ferry pilot');
+    await expect.poll(async () => (await detail()).realism.occupation, { message: 'occupation saved' }).toBe('ferry pilot');
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).uncheck();
+    await expect
+      .poll(async () => (await detail()).realism.realismEnabled, { message: 'engine switch saved' })
+      .toBe(false);
+    // The greetings were not sent back.
+    expect((await detail()).firstMessage).toBe('*The lamp turns.* "You came."');
+
+    await page.reload();
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await expect(page.getByTestId('work-occupation')).toHaveValue('ferry pilot');
+    await expect(page.getByRole('checkbox', { name: /^Enable Realism Engine/ })).not.toBeChecked();
+
+    await page.getByRole('button', { name: 'Open in editor' }).click();
+    await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
+  } finally {
+    const gone = await page.request.post(`/api/characters/${id}/delete`);
+    expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+  }
 });

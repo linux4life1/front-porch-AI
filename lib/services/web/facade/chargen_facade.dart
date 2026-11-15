@@ -57,12 +57,12 @@ class ChargenFacade {
   final ChatService? _chat;
 
   /// Creating and saving a whole character.
-  late final ChargenCreate _create = ChargenCreate(
-    _llm,
-    _characters,
-    _hub,
-    _imageGen,
-  )..onSaved = (id, recipe) => _greetings.rememberRecipe(id, recipe);
+  late final ChargenCreate _create =
+      ChargenCreate(_llm, _characters, _hub, _imageGen)
+        ..onSaved = ((id, recipe) => _greetings.rememberRecipe(id, recipe))
+        ..realismStartsOn = _storage == null
+            ? null
+            : () => _storage.realismSettings.realismDefault;
 
   /// The Greetings step: rewrite, add, delete or stop one greeting.
   late final ChargenGreetings _greetings = ChargenGreetings(
