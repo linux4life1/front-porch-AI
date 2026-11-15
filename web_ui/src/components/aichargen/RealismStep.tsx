@@ -9,16 +9,27 @@
 // Realism values are sent, so the greetings and profile stay as saved. The
 // engine switch shows the card's own value; the creator saved the card with
 // it where Porch Life has the engine (`realismDefault`, ruling 2026-10-14).
-// The intimate rows show only with 18+ themes on.
+// The intimate rows show only with 18+ themes on. When the first message
+// changed since the outfit was read, the outfit hint sits above Pockets &
+// Wardrobe with Re-read and Keep (#370); the re-read holds the wizard.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
+import { ChatSocket } from '../../api/ws';
 import { NeedsFormSection } from '../realism/NeedsFormSection';
 import { RealismFormSection } from '../realism/RealismFormSection';
 import { type RealismValues } from '../realism/realismTypes';
 import { useAdultFlags } from '../realism/useAdultThemes';
 import { usePassageOfTime } from '../realism/usePassageOfTime';
-import { loadRealism, saveRealism } from './realismStepApi';
+import { OutfitHint } from './OutfitHint';
+import {
+  keepOutfit,
+  loadRealism,
+  outfitStatus,
+  rereadOutfit,
+  saveRealism,
+  type OutfitStatus,
+} from './realismStepApi';
 
 export type RealismStepHandle = { flush: () => Promise<void> };
 
@@ -37,6 +48,7 @@ export const RealismStep = forwardRef<
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [outfit, setOutfit] = useState<OutfitStatus | null>(null);
   const { adult, afterglow } = useAdultFlags();
   const clockOn = usePassageOfTime();
 
@@ -56,10 +68,65 @@ export const RealismStep = forwardRef<
         console.warn('[creator] the Realism values could not be loaded', err);
         if (alive) setLoadError('This character could not be loaded. Open it from the library instead.');
       });
+    outfitStatus(id)
+      .then((o) => alive && setOutfit(o))
+      .catch((err) => console.warn('[creator] could not ask whether the first message changed', err));
+    // One socket for the step: the re-read's end.
+    const socket = new ChatSocket((e) => {
+      if (e.characterId !== undefined && String(e.characterId) !== id) return;
+      if (e.event === 'chargen_outfit_done') {
+        // Only the outfit came back; what is being typed stays.
+        loadRealism(id)
+          .then((fresh) => {
+            if (!alive) return;
+            const cur = vRef.current;
+            const next = cur ? { ...cur, inventory: fresh.inventory } : fresh;
+            vRef.current = next;
+            setV(next);
+          })
+          .catch((err) => console.warn('[creator] the new outfit could not be loaded', err));
+        outfitStatus(id)
+          .then((o) => alive && setOutfit(o))
+          .catch((err) => {
+            console.warn('[creator] the outfit status could not be read', err);
+            if (alive) setOutfit({ changed: false, reading: false, error: null });
+          });
+      } else if (e.event === 'chargen_outfit_error') {
+        if (alive) setOutfit((o) => ({ changed: o?.changed ?? true, reading: false, error: e.error ?? null }));
+      } else if (e.event === 'connected') {
+        outfitStatus(id)
+          .then((o) => alive && setOutfit(o))
+          .catch((err) => console.warn('[creator] the outfit status could not be read', err));
+      }
+    });
+    socket.connect();
     return () => {
       alive = false;
+      socket.close();
     };
   }, [id]);
+
+  const reread = () => {
+    setOutfit((o) => (o ? { ...o, reading: true, error: null } : o));
+    rereadOutfit(id).catch((err) =>
+      setOutfit((o) => ({
+        changed: o?.changed ?? true,
+        reading: false,
+        error: err instanceof ApiError && err.message ? err.message : 'The re-read could not be started. Try again.',
+      })),
+    );
+  };
+  const keep = () => {
+    keepOutfit(id)
+      .then((o) => setOutfit(o))
+      .catch((err) =>
+        setOutfit((o) => ({
+          changed: o?.changed ?? true,
+          reading: false,
+          error: err instanceof ApiError && err.message ? err.message : 'The outfit could not be kept. Try again.',
+        })),
+      );
+  };
 
   /** Write what changed now (a pause, Back, or leaving the wizard). */
   const flush = useCallback(async () => {
@@ -100,8 +167,8 @@ export const RealismStep = forwardRef<
 
   const [pending, setPending] = useState(false);
   useEffect(() => {
-    onWritingChange?.(pending || saving);
-  }, [pending, saving, onWritingChange]);
+    onWritingChange?.(pending || saving || !!outfit?.reading);
+  }, [pending, saving, outfit?.reading, onWritingChange]);
   useEffect(() => () => onWritingChange?.(false), [onWritingChange]);
 
   const set = (patch: Partial<RealismValues>) => {
@@ -137,6 +204,11 @@ export const RealismStep = forwardRef<
         afterglowOn={afterglow}
         showChargenSuggestion
         needs={<NeedsFormSection v={v} set={set} clockOn={clockOn} />}
+        wardrobeNotice={
+          outfit?.changed ? (
+            <OutfitHint reading={outfit.reading} error={outfit.error} onReread={reread} onKeep={keep} />
+          ) : undefined
+        }
       />
       {saveError && (
         <p className="error" role="alert">

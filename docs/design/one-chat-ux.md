@@ -282,7 +282,7 @@ rulings live in [settings-rebuild-scope.md](settings-rebuild-scope.md):
 Not this PR: Waifu Coder (ruled desktop-only, permanent), per-character
 Chaos (PR 5b), helper model (PR 6), the web voice call and Stoop upload
 wizard (ledger #10, #11 — next SOW's candidates), the creator Realism
-step (ledger #12, same next SOW), local `.gguf`/`.kcpps` pickers (⏳ by
+step (ledger #12, shipped later in PR 8c), local `.gguf`/`.kcpps` pickers (⏳ by
 design).
 
 ### Later, not yet sketched for approval

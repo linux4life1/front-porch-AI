@@ -15,8 +15,13 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 const { get, post } = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn() }));
 vi.mock('../../api/client', () => ({ api: { get, post }, ApiError: class extends Error {} }));
+type Listener = (e: { event: string; characterId?: string; error?: string }) => void;
+const listeners: Listener[] = [];
 vi.mock('../../api/ws', () => ({
   ChatSocket: class {
+    constructor(cb: Listener) {
+      listeners.push(cb);
+    }
     connect() {}
     close() {}
   },
@@ -28,6 +33,7 @@ let host: HTMLDivElement;
 let root: Root;
 let detail: Record<string, unknown>;
 let adult = false;
+let outfit: { changed: boolean; reading: boolean; error: string | null };
 
 const saved = () =>
   post.mock.calls.filter(([path]) => path === '/api/characters/c1').map(([, body]) => body as Record<string, unknown>);
@@ -36,6 +42,8 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   vi.useFakeTimers();
   adult = false;
+  listeners.length = 0;
+  outfit = { changed: false, reading: false, error: null };
   detail = {
     realismEnabled: true,
     occupation: 'lighthouse keeper',
@@ -48,6 +56,7 @@ beforeEach(() => {
   post.mockReset();
   get.mockImplementation((path: string) => {
     if (path === '/api/characters/c1/detail') return Promise.resolve({ realism: detail });
+    if (path === '/api/chargen/outfit?characterId=c1') return Promise.resolve(outfit);
     if (path === '/api/settings') {
       return Promise.resolve({ realism: { adultThemesEnabled: adult, nsfwCooldownDefault: false } });
     }
@@ -168,4 +177,79 @@ it('keeps a change that failed to save, and says so', async () => {
   });
   expect(saved()).toHaveLength(2);
   expect(saved()[1].realismEnabled).toBe(false);
+});
+
+// ── The outfit hint (#370) ─────────────────────────────────────────────
+
+const hint = () => host.querySelector('[data-testid="outfit-hint"]');
+const button = (label: string) =>
+  [...host.querySelectorAll('button')].find((b) => b.textContent === label)!;
+const emit = async (e: Parameters<Listener>[0]) => {
+  await act(async () => {
+    for (const l of listeners) l(e);
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+};
+
+it('shows no outfit hint while the first message is the one the outfit was read from', async () => {
+  await mount();
+  expect(hint()).toBeNull();
+});
+
+it('a changed first message raises the hint above Pockets & Wardrobe; Re-read holds the wizard and brings the new outfit', async () => {
+  outfit = { changed: true, reading: false, error: null };
+  detail.inventory = { worn: [{ name: 'wool coat' }], carrying: [] };
+  const writing: boolean[] = [];
+  await mount((w) => writing.push(w));
+  expect(hint()?.textContent).toContain('The first message changed');
+  expect(hint()?.textContent).toContain('The outfit below was set from the old first message. Nothing was changed for you.');
+  // Right above the wardrobe, as the desktop draws it.
+  const heads = [...host.querySelectorAll('h4')].map((h) => h.textContent);
+  const after = hint()!.nextElementSibling as HTMLElement;
+  expect(after.textContent).toBe('Pockets & Wardrobe');
+  expect(heads).toContain('Pockets & Wardrobe');
+
+  await act(async () => {
+    button('Re-read the outfit from it').click();
+  });
+  expect(post).toHaveBeenCalledWith('/api/chargen/outfit/reread', { characterId: 'c1' });
+  expect(button('Reading the outfit…').disabled).toBe(true);
+  expect(writing.at(-1)).toBe(true);
+
+  detail.inventory = { worn: [{ name: 'rain slicker' }], carrying: [] };
+  outfit = { changed: false, reading: false, error: null };
+  await emit({ event: 'chargen_outfit_done', characterId: 'c1' });
+  expect(hint()).toBeNull();
+  expect(host.textContent).toContain('rain slicker');
+  expect(writing.at(-1)).toBe(false);
+});
+
+it('a re-read with no answer keeps the hint and says why', async () => {
+  outfit = { changed: true, reading: false, error: null };
+  await mount();
+  await act(async () => {
+    button('Re-read the outfit from it').click();
+  });
+  await emit({ event: 'chargen_outfit_error', characterId: 'c1', error: 'Nothing was changed. Try again.' });
+  expect(hint()).not.toBeNull();
+  expect(hint()?.querySelector('[role="alert"]')?.textContent).toContain('Nothing was changed');
+  expect(button('Re-read the outfit from it').disabled).toBe(false);
+});
+
+it('Keep this outfit settles the hint', async () => {
+  outfit = { changed: true, reading: false, error: null };
+  post.mockImplementation((path: string) =>
+    Promise.resolve(path === '/api/chargen/outfit/keep' ? { changed: false, reading: false, error: null } : { ok: true }),
+  );
+  await mount();
+  await act(async () => {
+    button('Keep this outfit').click();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(post).toHaveBeenCalledWith('/api/chargen/outfit/keep', { characterId: 'c1' });
+  expect(hint()).toBeNull();
 });

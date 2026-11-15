@@ -24,3 +24,15 @@ export function saveRealism(id: string, v: RealismValues): Promise<unknown> {
   void _seeds;
   return api.post(`/api/characters/${enc(id)}`, realism);
 }
+
+/** The outfit hint (#370): the first message changed since the outfit was
+ *  read, and whether a re-read is running or came back empty. */
+export type OutfitStatus = { changed: boolean; reading: boolean; error: string | null };
+
+export const outfitStatus = (id: string) =>
+  api.get<OutfitStatus>(`/api/chargen/outfit?characterId=${enc(id)}`);
+
+/** Starts the re-read; its end arrives as `chargen_outfit_done` / `_error`. */
+export const rereadOutfit = (id: string) => api.post('/api/chargen/outfit/reread', { characterId: id });
+
+export const keepOutfit = (id: string) => api.post<OutfitStatus>('/api/chargen/outfit/keep', { characterId: id });

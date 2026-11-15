@@ -48,6 +48,7 @@ export function RealismFormSection({
   disclaimer,
   needs,
   showIdentity = true,
+  wardrobeNotice,
 }: {
   v: RealismValues;
   set: Patch;
@@ -81,6 +82,9 @@ export function RealismFormSection({
   /** Ambitions … Intimate preferences follow the engine (create wizards); the
    *  character editor shows them first and passes false. */
   showIdentity?: boolean;
+  /** Drawn right above Pockets & Wardrobe (the AI creator's outfit hint,
+   *  desktop `wardrobeNotice`). */
+  wardrobeNotice?: React.ReactNode;
 }) {
   const engineOn = hiddenNote ? false : v.realismEnabled;
   const lock = (tip: string | undefined, node: React.ReactNode) =>
@@ -237,7 +241,9 @@ export function RealismFormSection({
             </>,
           )}
       </div>
-      {showIdentity && <IdentitySections v={v} set={set} showIntimate={showIntimate} />}
+      {showIdentity && (
+        <IdentitySections v={v} set={set} showIntimate={showIntimate} wardrobeNotice={wardrobeNotice} />
+      )}
     </div>
   );
 }
@@ -249,10 +255,12 @@ export function IdentitySections({
   v,
   set,
   showIntimate = false,
+  wardrobeNotice,
 }: {
   v: RealismValues;
   set: Patch;
   showIntimate?: boolean;
+  wardrobeNotice?: React.ReactNode;
 }) {
   return (
     <>
@@ -308,6 +316,7 @@ export function IdentitySections({
           {/* ── Pockets & Wardrobe ── per-character switch lives ON the
               starting-kit card (desktop IdentityChipLists / WardrobeChipSection).
               Global Porch Life remains the master kill. */}
+          {wardrobeNotice}
           <h4 className="realism-head">Pockets &amp; Wardrobe</h4>
           <div className="card realism-card" data-testid="character-pockets-panel">
             <ToggleRow

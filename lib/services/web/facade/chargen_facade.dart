@@ -64,6 +64,15 @@ class ChargenFacade {
             ? null
             : () => _storage.realismSettings.realismDefault;
 
+  /// The Realism step's outfit hint: changed, re-read, keep.
+  late final ChargenOutfit _outfit = ChargenOutfit(
+    _llm,
+    _characters,
+    _hub,
+    busyReason: () => _busyReason(outfit: false),
+    recipeFor: _greetings.recipeFor,
+  );
+
   /// The Greetings step: rewrite, add, delete or stop one greeting.
   late final ChargenGreetings _greetings = ChargenGreetings(
     _llm,
@@ -101,7 +110,11 @@ class ChargenFacade {
     bool greetings = true,
     bool profile = true,
     bool rewrites = true,
+    bool outfit = true,
   }) {
+    if (outfit && _outfit.busy) {
+      return 'The outfit is being read. Wait for it.';
+    }
     if (_create.creating) {
       return 'A character is still being created. Wait for it.';
     }
@@ -133,6 +146,18 @@ class ChargenFacade {
   /// See [ChargenGreetings.deleteGreeting].
   Future<Map<String, dynamic>> deleteGreeting(String characterId, int index) =>
       _greetings.deleteGreeting(characterId, index);
+
+  /// See [ChargenOutfit.status].
+  Map<String, dynamic>? outfitStatus(String characterId) =>
+      _outfit.status(characterId);
+
+  /// See [ChargenOutfit.startReread].
+  Map<String, dynamic> startOutfitReread(Map<String, dynamic> body) =>
+      _outfit.startReread(body);
+
+  /// See [ChargenOutfit.keep].
+  Future<Map<String, dynamic>> keepOutfit(Map<String, dynamic> body) =>
+      _outfit.keep(body);
 
   /// Whether an LLM backend is ready to generate.
   bool get available => _llm.activeService.isReady;

@@ -59,7 +59,8 @@ recomputed in the web layer).
 | Open / start chat | ✅ | |
 | Manual creation wizard | ✅ | Step-indicator wizard mirroring `create_character_page`. |
 | **AI character creator** | ✅ | `/create-ai`: describe → generate (live steps over WS) → editor. Thin driver over the existing headless `CharacterGenService`. |
-| AI creator **Realism step** | ⏳ | The desktop wizard has a Realism step (needs, relationships, starting emotion, optional features) between Greetings and Review; the web wizard goes Mode → Details → Output → Generate → Profile → Greetings with no equivalent (drift ledger #12). Not built; next SOW candidate. |
+| AI creator **Realism step** | ✅ | PR 8c: a Realism step follows Greetings (Mode → Details → Output → Generate → Profile → Greetings → Realism) with the desktop's "Porch Life" title and paragraph and the shared Realism form, Needs inside, intimate rows only with 18+ on. It works on the already-saved character and saves as you go (the Realism values alone). The creator saves a new card with Realism where Porch Life has the engine (`realismDefault`). The outfit hint (#370) sits above Pockets & Wardrobe when the first message changed since the outfit was read, with Re-read and Keep (the record rides on the card, so it survives a reload). Its last button is the web creator's Open in editor (the desktop's is Save & Finish on Review). |
+| AI creator **Review step**: portrait source (Upload / Generate / None), gallery + expression tagging, expression pack generate / ZIP import, tags, Save & Finish | ⏳ | Desktop-only today: the web saves the character at the Profile step and has no portrait choice; the web Greetings step's foot carries only the Review rewrites (example dialogue, lorebook). Own slice. |
 | Edit character (all fields) | ✅ | |
 | Per-character lorebook editor | ✅ | |
 | Multi-avatar management + set prime | ✅ | Upload / remove / set prime. |
