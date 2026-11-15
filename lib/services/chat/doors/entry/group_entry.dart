@@ -383,6 +383,20 @@ class GroupEntry {
         // group chat (`_session.currentSessionId` already set) keeps its own.
         if (_session.currentSessionId == null) {
           await _s.personas.setActivePersona(_s.personas.defaultPersonaId);
+          // Starts Away (docs/design/group-initial-presence.md): seed each
+          // member's runtime hold from their card once, at chat creation.
+          // Same gate as the persona reset above: only a real first
+          // creation runs it. A restore re-reads the saved chat - whose
+          // holds are the ones that survive a re-open - and never re-seeds,
+          // even when the restored row's message list is empty. A chat with
+          // no row at all (e.g. no greeting anywhere) has nothing to
+          // reopen: its next entry is a creation and seeds like one. Both
+          // run outside every realism gate, like the import below.
+          seedMemberStartsAway(
+            _groupCharacters,
+            _groupStore,
+            idOf: _getCharacterIdFromCard,
+          );
         }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {
@@ -391,17 +405,6 @@ class GroupEntry {
             target: c,
           );
         }
-
-        // Starts Away (docs/design/group-initial-presence.md): seed each
-        // member's runtime hold from their card once, at chat creation.
-        // This branch runs only when nothing was restored — the restored
-        // chat's saved holds are the ones that survive a re-open — and it
-        // runs outside every realism gate, like the import above.
-        seedMemberStartsAway(
-          _groupCharacters,
-          _groupStore,
-          idOf: _getCharacterIdFromCard,
-        );
 
         String greetingText;
         String greetingSender;

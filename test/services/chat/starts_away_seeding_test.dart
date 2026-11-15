@@ -113,6 +113,7 @@ void main() {
     required bool anaStartsAway,
     bool beaStartsAway = false,
     bool realismOn = true,
+    bool zeroMessages = false,
   }) async {
     final seed = defaultGroupMemberRealismSeed();
     blobs = buildGroupRealismBlobs(
@@ -155,11 +156,12 @@ void main() {
         ),
       ),
     );
-    await member('mem-ana', 'Ana', 'Evening.', startsAway: anaStartsAway);
+    final greeting = zeroMessages ? '' : 'Evening.';
+    await member('mem-ana', 'Ana', greeting, startsAway: anaStartsAway);
     await member(
       'mem-bea',
       'Bea',
-      'The grill is already hot.',
+      zeroMessages ? '' : 'The grill is already hot.',
       startsAway: beaStartsAway,
     );
   }
@@ -277,6 +279,80 @@ void main() {
       reason: 'only Back opens the door; a restore does not seed',
     );
     expect(chat.withUserForGroupCharacter(ana()), isTrue);
+  });
+
+  test('a stored zero-message chat restores without re-seeding', () async {
+    await boot();
+    await seedGroup(
+      anaStartsAway: true,
+      beaStartsAway: true,
+      zeroMessages: true,
+    );
+    // A stored row whose message list is empty: the #328 case, a chat the
+    // DB keeps with nothing in it. _loadLastSession restores the row, so
+    // the empty branch runs with `currentSessionId` already set - a
+    // restore, never a creation - and the card's switch must not hold
+    // anyone a second time (R4).
+    await db.insertSession(
+      SessionsCompanion.insert(
+        id: 'sess-zero',
+        groupId: const Value('grp-start'),
+      ),
+    );
+    await openGroup();
+
+    expect(chat.currentSessionId, isNotNull);
+    expect(
+      chat.awayHeldForGroupCharacter(ana()),
+      isFalse,
+      reason: 'a restore does not seed, even a restored zero-message chat (R4)',
+    );
+    expect(
+      chat.awayHeldForGroupCharacter(bea()),
+      isFalse,
+      reason: 'neither member is re-held by the restore',
+    );
+  });
+
+  test('a never-stored chat has no reopen: its return is a creation', () async {
+    await boot();
+    await seedGroup(anaStartsAway: true, zeroMessages: true);
+    await openGroup();
+    final firstId = chat.currentSessionId;
+    expect(firstId, isNotNull);
+    expect(chat.awayHeldForGroupCharacter(ana()), isTrue);
+
+    final anaId = chat.characterIdFor(ana());
+    expect(await chat.setGroupMemberAway(anaId, away: false), isTrue);
+    expect(chat.awayHeldForGroupCharacter(ana()), isFalse);
+
+    // Leave and come back. Nothing was stored: the saver skips empty
+    // transcripts (session_saver.dart) and setActiveGroup nulls
+    // `currentSessionId` before _loadLastSession finds no row to restore
+    // (group_entry.dart:102, session_loader.dart:72). The return is a
+    // creation like any other - the persona, the clock and the holds all
+    // start over - so the card's switch seeds again (R3). The Back lived
+    // in runtime slots backed by a checkpoint that was never written; it
+    // died with the chat, like everything else in it.
+    await openGroup();
+
+    final rows = await db
+        .customSelect(
+          'SELECT COUNT(*) AS n FROM sessions WHERE group_id = ?',
+          variables: [Variable('grp-start')],
+        )
+        .getSingle();
+    expect(
+      rows.data['n'] as int,
+      0,
+      reason: 'a never-greeted chat stores no row, so there is no reopen',
+    );
+    expect(chat.currentSessionId, isNot(firstId));
+    expect(
+      chat.awayHeldForGroupCharacter(ana()),
+      isTrue,
+      reason: 'the return re-created the chat, so the seed ran again (R3)',
+    );
   });
 
   test('a new chat in the group seeds the hold again', () async {
