@@ -51,7 +51,9 @@ test('a character becomes a persona, and the persona starts a character both way
 
     // ── Persona → character, Manual ────────────────────────────────────
     // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    // "Make a Character" lives in each card's kebab, like the desktop's.
     await openRoute(page, '/persona');
+    await page.getByRole('button', { name: `More actions for ${charName}` }).click();
     await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
     const make = page.getByRole('dialog', { name: 'Make a character' });
     await make.getByRole('button', { name: 'Manual' }).click();

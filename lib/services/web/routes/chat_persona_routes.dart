@@ -40,6 +40,18 @@ void registerPersonaRoutes(Router router, ChatFacade facade) {
     '/api/personas/<id>/export.json',
     (r, id) => _exportPersona(facade, r, id),
   );
+  // The desktop's header upload icon exports the whole pick in one file
+  // (`FPAI_personas.json`); the web twin downloads it whole.
+  router.get(
+    '/api/personas/export-all.json',
+    (r) => _exportAllPersonas(facade, r),
+  );
+  // Imported persona avatars are files on disk; the desktop paints them in
+  // its circles, so the web needs them served to match.
+  router.get(
+    '/api/personas/<id>/avatar',
+    (r, id) => _personaAvatar(facade, r, id),
+  );
   router.post('/api/personas/<id>', (r, id) => _updatePersona(facade, r, id));
 }
 
@@ -173,6 +185,48 @@ Future<shelf.Response> _exportPersona(
       'content-type': 'application/json',
       'content-disposition': 'attachment; filename="${out.filename}"',
     },
+  );
+}
+
+/// Export every persona as one ST-format JSON download, named like the
+/// desktop's multi-persona file (`FPAI_personas.json`).
+Future<shelf.Response> _exportAllPersonas(
+  ChatFacade facade,
+  shelf.Request request,
+) async {
+  final ({String filename, List<int> bytes})? out;
+  try {
+    out = await facade.personaOps.exportAllJson();
+  } catch (_) {
+    return JsonResponse.error(500, 'Export failed');
+  }
+  if (out == null) return JsonResponse.error(503, 'Unavailable');
+  return shelf.Response.ok(
+    out.bytes,
+    headers: {
+      'content-type': 'application/json',
+      'content-disposition': 'attachment; filename="${out.filename}"',
+    },
+  );
+}
+
+/// The persona avatar image. 404 when the persona has none — the web then
+/// shows the color circle, the desktop's own fallback.
+Future<shelf.Response> _personaAvatar(
+  ChatFacade facade,
+  shelf.Request request,
+  String id,
+) async {
+  final ({List<int> bytes, String contentType})? img;
+  try {
+    img = await facade.personaOps.avatar(id);
+  } catch (_) {
+    return JsonResponse.error(500, 'Avatar read failed');
+  }
+  if (img == null) return JsonResponse.error(404, 'No avatar');
+  return shelf.Response.ok(
+    img.bytes,
+    headers: {'content-type': img.contentType},
   );
 }
 

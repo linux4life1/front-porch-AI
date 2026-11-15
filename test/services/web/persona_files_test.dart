@@ -32,11 +32,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_docs_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_docs_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -72,19 +72,18 @@ void main() {
   tearDown(() => db.close());
 
   Future<shelf.Response> post(String path, String body) => router.call(
-        shelf.Request('POST', Uri.parse('http://localhost$path'), body: body),
-      );
+    shelf.Request('POST', Uri.parse('http://localhost$path'), body: body),
+  );
 
-  test('export round-trips: an exported persona re-imports by name',
-      () async {
+  test('export round-trips: an exported persona re-imports by name', () async {
     await facade.createPersona({
       'name': 'Ada Lovelace',
       'persona': 'Counts engines in her head.',
       'title': 'Programmer',
     });
-    final created = facade
-        .personas()
-        .firstWhere((p) => p['name'] == 'Ada Lovelace');
+    final created = facade.personas().firstWhere(
+      (p) => p['name'] == 'Ada Lovelace',
+    );
 
     final out = await facade.personaOps.exportJson(created['id'] as String);
     expect(out, isNotNull);
@@ -98,7 +97,8 @@ void main() {
     final before = facade.personas().length;
     final res = await post('/api/personas/import', utf8.decode(out.bytes));
     expect(res.statusCode, 200);
-    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    final payload =
+        jsonDecode(await res.readAsString()) as Map<String, dynamic>;
     expect(payload['imported'], 'Ada Lovelace');
     final list = (payload['personas'] as List).cast<Map<String, dynamic>>();
     expect(list.length, before + 1);
@@ -118,49 +118,118 @@ void main() {
     expect(res.statusCode, 404);
   });
 
-  test('a document matching no format answers 400 with the desktop copy',
-      () async {
-    final res = await post('/api/personas/import', '{"nonsense": true}');
-    expect(res.statusCode, 400);
-    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-    expect(payload['error'], 'Import failed — unrecognized format');
-  });
+  test(
+    'a document matching no format answers 400 with the desktop copy',
+    () async {
+      final res = await post('/api/personas/import', '{"nonsense": true}');
+      expect(res.statusCode, 400);
+      final payload =
+          jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(payload['error'], 'Import failed — unrecognized format');
+    },
+  );
 
-  test('an empty body answers 400 (the desktop\'s "select a file" case)',
-      () async {
-    final res = await post('/api/personas/import', '   ');
-    expect(res.statusCode, 400);
-    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-    expect(payload['error'], 'Please select a file first');
-  });
+  test(
+    'an empty body answers 400 (the desktop\'s "select a file" case)',
+    () async {
+      final res = await post('/api/personas/import', '   ');
+      expect(res.statusCode, 400);
+      final payload =
+          jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(payload['error'], 'Please select a file first');
+    },
+  );
 
-  test('a document past the shared upload cap answers 413, not a silent read',
-      () async {
-    // RequestBody.readString's default cap — the size a persona document
-    // may never reach in practice, but the phone must be told, not hung.
-    final huge = 'x' * (RequestBody.defaultMaxBytes + 1);
-    final res = await post('/api/personas/import', huge);
-    expect(res.statusCode, 413);
-    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-    expect(payload['error'], contains('too large'));
-  });
+  test(
+    'a document past the shared upload cap answers 413, not a silent read',
+    () async {
+      // RequestBody.readString's default cap — the size a persona document
+      // may never reach in practice, but the phone must be told, not hung.
+      final huge = 'x' * (RequestBody.defaultMaxBytes + 1);
+      final res = await post('/api/personas/import', huge);
+      expect(res.statusCode, 413);
+      final payload =
+          jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(payload['error'], contains('too large'));
+    },
+  );
 
-  test('a character card (name + description) imports like the desktop\'s',
-      () async {
-    final card = jsonEncode({
-      'name': 'Cardy',
-      'description': 'A tavern card wearing a persona.',
-    });
-    final res = await post('/api/personas/import', card);
-    expect(res.statusCode, 200);
-    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
-    expect(payload['imported'], 'Cardy');
-  });
+  test(
+    'a character card (name + description) imports like the desktop\'s',
+    () async {
+      final card = jsonEncode({
+        'name': 'Cardy',
+        'description': 'A tavern card wearing a persona.',
+      });
+      final res = await post('/api/personas/import', card);
+      expect(res.statusCode, 200);
+      final payload =
+          jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+      expect(payload['imported'], 'Cardy');
+    },
+  );
 
   test('the import route wins over the /<id> update catch-all', () async {
     // If /import were shadowed by POST /api/personas/<id>, this would read
     // as an update of persona "import" (404), not a file import (400).
     final res = await post('/api/personas/import', '{"nonsense": true}');
     expect(res.statusCode, 400);
+  });
+
+  test('the list carries the card-grid fields the desktop paints', () async {
+    await facade.createPersona({
+      'name': 'Ada Lovelace',
+      'persona': 'Counts engines in her head.',
+      'title': 'Programmer',
+    });
+    final res = await router.call(
+      shelf.Request('GET', Uri.parse('http://localhost/api/personas')),
+    );
+    expect(res.statusCode, 200);
+    final list =
+        ((jsonDecode(await res.readAsString())
+                    as Map<String, dynamic>)['personas']
+                as List)
+            .cast<Map<String, dynamic>>();
+    final ada = list.firstWhere((p) => p['name'] == 'Ada Lovelace');
+    // Card subtitle source, description preview, avatar branch.
+    expect(ada['title'], 'Programmer');
+    expect(ada['description'], 'Counts engines in her head.');
+    expect(ada['hasAvatar'], false);
+  });
+
+  test('export-all downloads every persona as FPAI_personas.json', () async {
+    await facade.createPersona({'name': 'Ada', 'persona': 'Steam poet.'});
+    final res = await router.call(
+      shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/api/personas/export-all.json'),
+      ),
+    );
+    expect(res.statusCode, 200);
+    expect(
+      res.headers['content-disposition'],
+      contains('attachment; filename="FPAI_personas.json"'),
+    );
+    final doc = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    // ST layout: personas maps avatar-file → display name.
+    final names = (doc['personas'] as Map<String, dynamic>).values;
+    expect(names, contains('Ada'));
+    // Every persona rides along, not just the one created above.
+    expect(names.length, greaterThan(1));
+  });
+
+  test('an avatarless persona answers the avatar route with 404', () async {
+    await facade.createPersona({'name': 'Bare', 'persona': 'No picture.'});
+    final id =
+        facade.personas().firstWhere((p) => p['name'] == 'Bare')['id']
+            as String;
+    final res = await router.call(
+      shelf.Request(
+        'GET',
+        Uri.parse('http://localhost/api/personas/$id/avatar'),
+      ),
+    );
+    expect(res.statusCode, 404);
   });
 }

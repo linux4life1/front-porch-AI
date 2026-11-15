@@ -127,6 +127,12 @@ describe('PersonaManager JSON import/export', () => {
         blob: new Blob(['{}']),
         fileName: 'Ada_Lovelace_FPAIpersona.json',
       });
+      // Export lives in the card's kebab menu, like the desktop's.
+      await act(async () => {
+        host
+          .querySelector<HTMLButtonElement>('button[aria-label="More actions for Ada"]')!
+          .click();
+      });
       const exportBtn = host.querySelector<HTMLButtonElement>(
         'button[aria-label="Export Ada as JSON"]',
       )!;

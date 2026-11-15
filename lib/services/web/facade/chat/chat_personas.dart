@@ -48,6 +48,12 @@ class ChatPersonas {
             'name': p.name,
             'active': p.id == activeId,
             'default': p.id == defaultId,
+            // The web card grid mirrors the desktop's PersonaGridCard: it
+            // paints `name` as a subtitle only when a title exists, and
+            // clamps `description` to 3 lines. Additive, per the contract.
+            'title': p.title,
+            'description': p.persona,
+            'hasAvatar': p.avatarPath != null,
           },
         )
         .toList();
@@ -207,5 +213,49 @@ class ChatPersonas {
       // above set the pattern.
       if (File(outPath).existsSync()) File(outPath).deleteSync();
     }
+  }
+
+  /// Every persona in one ST-format JSON document, named the way the
+  /// desktop's export dialog names a multi-persona file (`FPAI_personas
+  /// .json`). Null while personas aren't wired.
+  Future<({String filename, List<int> bytes})?> exportAllJson() async {
+    final svc = _personas;
+    if (svc == null) return null;
+    final outPath =
+        '${Directory.systemTemp.path}/fpai_personas_export_${DateTime.now().microsecondsSinceEpoch}.json';
+    try {
+      await svc.exportPersonasToSTFormat(
+        svc.personas.map((p) => p.id).toList(),
+        outPath,
+      );
+      final bytes = await File(outPath).readAsBytes();
+      return (filename: 'FPAI_personas.json', bytes: bytes);
+    } finally {
+      if (File(outPath).existsSync()) File(outPath).deleteSync();
+    }
+  }
+
+  /// The persona's avatar bytes, so imported avatars paint on the web the
+  /// way they do on the desktop. Null when the persona has no avatar file
+  /// on disk (the web then shows the color circle, like the desktop's
+  /// fallback).
+  Future<({List<int> bytes, String contentType})?> avatar(String id) async {
+    final svc = _personas;
+    if (svc == null) return null;
+    String? path;
+    for (final p in svc.personas) {
+      if (p.id == id) path = p.avatarPath;
+    }
+    if (path == null) return null;
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final ext = path.split('.').last.toLowerCase();
+    final contentType = switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      _ => 'image/png',
+    };
+    return (bytes: await file.readAsBytes(), contentType: contentType);
   }
 }

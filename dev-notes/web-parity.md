@@ -85,8 +85,9 @@ recomputed in the web layer).
 | Worlds list / detail / save (rename) / delete | ✅ | |
 | Shared lorebook entry CRUD | ✅ | |
 | Persona switch | ✅ | |
-| Persona create / edit / delete | ✅ | |
-| Persona JSON import / export | ✅ | Import JSON button feeds the desktop's `importFromJsonFile` (FPAI bundle, SillyTavern V2/V1, V2 card, generic name+description) over `POST /api/personas/import` (raw body); each row exports one persona as the ST file the desktop writes (`<name>_FPAIpersona.json`) over `GET /api/personas/<id>/export.json`. Failure copy matches the desktop (ledger #15b). |
+| Persona create / edit / delete | ✅ | Redesigned to the desktop page: hero card for the default persona, "All Personas (N)" grid with description previews, name subtitle when a title exists, tap-a-card-to-set-default + "Make default", kebab (Edit / Export JSON / Make a Character / Delete, Delete only while >1), and the `PersonaColors` palette circles. |
+| Persona avatars | ✅ | Imported avatars paint from `GET /api/personas/<id>/avatar`; no avatar falls back to the palette circle + person glyph, like the desktop. |
+| Persona JSON import / export | ✅ | Import JSON button feeds the desktop's `importFromJsonFile` (FPAI bundle, SillyTavern V2/V1, V2 card, generic name+description) over `POST /api/personas/import` (raw body); each card exports one persona as the ST file the desktop writes (`<name>_FPAIpersona.json`) over `GET /api/personas/<id>/export.json`, and the header Export All downloads every persona as `FPAI_personas.json` over `GET /api/personas/export-all.json` — the desktop's multi-persona name. Failure copy matches the desktop (ledger #15b). |
 
 ## Image generation
 

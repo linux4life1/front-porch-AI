@@ -153,7 +153,9 @@
 .icon-btn.mic.recording { color: var(--danger); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ── Persona manager (card grid, not a flat list) ─────────────── */
+/* ── Persona manager (hero card + card grid, the desktop's page twin) ── */
+/* The chat's persona switcher stays a flat list (the desktop's in-chat
+   switcher is one too): the shared bits live here, manager-only styles below. */
 .persona-list {
   list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -164,16 +166,102 @@
   background: var(--surface-2);
 }
 .persona-list li.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .persona-av {
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; background: var(--surface-2);
   color: var(--accent); font-weight: 700;
 }
-.persona-list li.active .persona-av { background: var(--accent); color: var(--on-accent); }
+/* --pc is the persona's palette color, set per card in PersonaManager.tsx
+   (the desktop paints the same tints from PersonaColors). */
+.persona-hero {
+  display: flex; align-items: flex-start; gap: 16px; margin-top: 12px; padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 35%, var(--border));
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--pc, var(--accent)) 10%, var(--surface)),
+    var(--surface) 60%);
+}
+.persona-hero-main { flex: 1; min-width: 0; }
+.persona-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.persona-hero-name strong {
+  font-size: 1.15rem; letter-spacing: -0.01em; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-hero-sub { margin-top: 2px; font-size: 0.85rem; font-weight: 500; color: color-mix(in srgb, var(--pc) 80%, transparent); }
+.persona-hero-desc {
+  margin: 6px 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-badge {
+  flex-shrink: 0; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  color: var(--pc, var(--accent)); background: color-mix(in srgb, var(--pc, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+}
+.persona-chip {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+  padding: 4px 10px; border-radius: 8px; font-size: 0.68rem; color: var(--muted);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid var(--border);
+}
+.persona-chip svg { opacity: 0.7; }
+.persona-section {
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--muted);
+}
+.persona-tick { width: 3px; height: 16px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+.persona-grid {
+  list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.persona-grid li {
+  position: relative; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); cursor: pointer;
+}
+.persona-grid li.default {
+  border-color: color-mix(in srgb, var(--pc, var(--accent)) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--accent)) 40%, transparent);
+}
+.persona-card-top { display: flex; align-items: center; gap: 10px; }
+.persona-grid .persona-av, .persona-hero .persona-av {
+  overflow: hidden;
+  color: #fff; /* theme-keep: palette glyph ink, the desktop's white-on-color avatar */
+  background: var(--pc, var(--surface));
+}
+.persona-grid .persona-av img, .persona-hero .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+.persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
+.persona-grid .card-kebab { opacity: 1; margin-left: auto; }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
-.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.persona-main .psub {
+  font-size: 0.72rem; color: color-mix(in srgb, var(--pc) 75%, transparent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-desc {
+  margin: 0; font-size: 0.76rem; line-height: 1.5; color: var(--muted); min-height: 2.3em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-desc.empty { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.persona-card-foot { display: flex; justify-content: flex-end; align-items: center; }
+.persona-make {
+  font-size: 0.66rem; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  color: var(--pc, var(--accent)); border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+  background: color-mix(in srgb, var(--pc, var(--accent)) 12%, transparent);
+}
+.persona-card-menu { position: absolute; top: 38px; right: 10px; z-index: 61; width: 190px; }
+.persona-empty { text-align: center; padding: 34px 12px; }
+.persona-empty-av {
+  width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.persona-empty-title { font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 0 0 4px; }
 .persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 
 /* ── Account ──────────────────────────────────────────────────── */
