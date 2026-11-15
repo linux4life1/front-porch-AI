@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/director/director.dart'
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chance_time_wire.dart';
+import 'package:front_porch_ai/services/web/facade/chat/chat_card_look.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
@@ -96,6 +97,8 @@ class ChatStateSnapshot {
         'swipeCount': m.swipes.length,
         'swipeIndex': m.swipeIndex,
         'characterId': m.characterId,
+        // Additive (PR 8b): the speaker card's own font and colours.
+        'look': ?webCardLook(_chat, m),
         if (m.isDirectorNarration) 'isNarration': true,
         if (!m.isUser && md?[kReplyContextKey] is Map) 'hasContext': true,
         if (!m.isUser && md?[kTokenAltsKey] is List) 'hasTokenAlts': true,

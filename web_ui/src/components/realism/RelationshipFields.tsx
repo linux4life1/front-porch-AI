@@ -4,6 +4,7 @@
 // Relationship and Starting emotion, over the five values a card holds.
 
 import { Slider, SelectRow } from './controls';
+import { RlCard, RlIcon, SectionHead } from './realismChrome';
 import { INTENSITY_OPTIONS, longTermTier, shortTermTier, titleCase, trustTier } from './realismTypes';
 
 /** The five starting values a card holds. */
@@ -28,14 +29,15 @@ export function RelationshipFields({
 }) {
   return (
     <>
-      <h4 className="realism-head">Relationship</h4>
+      <SectionHead icon={<RlIcon.heart />} title="Relationship" />
       {note && (
         <p className="muted small" data-testid="member-start-note">
           {note}
         </p>
       )}
-      <div className="card realism-card">
+      <RlCard>
         <Slider
+          tone="bond"
           label="Short-Term Bond"
           min={-300}
           max={300}
@@ -44,6 +46,7 @@ export function RelationshipFields({
           onChange={(n) => set({ shortTermBond: n })}
         />
         <Slider
+          tone="bond"
           label="Long-Term Bond"
           min={-300}
           max={300}
@@ -52,6 +55,7 @@ export function RelationshipFields({
           onChange={(n) => set({ longTermBond: n })}
         />
         <Slider
+          tone="bond"
           label="Trust Level"
           min={-100}
           max={100}
@@ -59,9 +63,10 @@ export function RelationshipFields({
           badge={`${trustTier(v.trustLevel)} (${v.trustLevel})`}
           onChange={(n) => set({ trustLevel: n })}
         />
-      </div>
+      </RlCard>
 
-      <h4 className="realism-head">Starting Emotion</h4>
+      <SectionHead icon={<RlIcon.mood />} title="Starting Emotion" />
+      <RlCard>
       <div className="realism-grid-2">
         <label className="realism-field">
           <span>Emotion</span>
@@ -78,6 +83,7 @@ export function RelationshipFields({
           onChange={(s) => set({ emotionIntensity: s })}
         />
       </div>
+      </RlCard>
     </>
   );
 }

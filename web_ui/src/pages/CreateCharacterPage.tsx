@@ -54,7 +54,7 @@ const EMPTY: Draft = {
 };
 
 export function CreateCharacterPage() {
-  const { adult: adultThemes, afterglow } = useAdultFlags();
+  const { adult: adultThemes, afterglow, planner } = useAdultFlags();
   const clockOn = usePassageOfTime();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -192,7 +192,14 @@ export function CreateCharacterPage() {
 
         {step === 4 && (
           <>
-            <RealismFormSection v={d} set={patch} showIntimate={adultThemes} afterglowOn={afterglow} showChargenSuggestion />
+            <RealismFormSection
+              v={d}
+              set={patch}
+              showIntimate={adultThemes}
+              afterglowOn={afterglow}
+              showChargenSuggestion
+              planner={planner}
+            />
             {d.realismEnabled && <NeedsFormSection v={d} set={patch} clockOn={clockOn} />}
           </>
         )}
