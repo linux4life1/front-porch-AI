@@ -124,6 +124,13 @@ dependencies" never ran a test.
   mocked, the shared server untouched), the probe asserts the line is
   posted exactly twice and the box ends empty — without the 409 branch
   the old box-only check would accept the lost line as a success.
+  Harness caveat found while pinning it: once the PWA's service worker
+  controls a page, webkit answers the page's fetches through the worker
+  and neither `page.route` nor `context.route` intercepts them (zero
+  hits, real host reply; Chromium intercepts either way) — that spec
+  runs `serviceWorkers: 'block'` for exactly this reason. Any future
+  webkit route-interception probe must do the same or it will mock
+  nothing while appearing to watch everything.
 - **`web_ui/e2e/journeys.spec.ts` Director Mode journey: the whisper won't
   clear.** Phone WebKit only: after "Clear the whisper to Porch Tester"
   the whisper note stays (expected 0, got 1), and the trace has no `POST

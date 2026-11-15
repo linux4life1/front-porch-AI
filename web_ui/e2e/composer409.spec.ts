@@ -17,6 +17,14 @@ import { sendLine } from './support/composer';
 
 const LINE = 'composer-409-probe line';
 
+// The PWA's service worker (workbox) fronts this page once installed, and
+// on webkit a controlled page's fetch never meets page/context.route — the
+// probe watched zero hits while the real host answered the line (seen on
+// CI phone-webkit and reproduced locally against the live host). Blocking
+// workers for THIS test makes both browsers take the same intercepted
+// path; every other journey runs with the app's real worker policy.
+test.use({ serviceWorkers: 'block' });
+
 test('sendLine resends the line a 409 refused', async ({ page, allowHttp }) => {
   // The 409 is the point of the test; the watcher must not log it as a
   // page problem (same allowance fixture as the 401-login journey).
@@ -28,12 +36,14 @@ test('sendLine resends the line a 409 refused', async ({ page, allowHttp }) => {
     .click();
   await expect(page.locator('.chat-view')).toBeVisible();
 
-  const posts: string[] = [];
+  // First POST of the probe line gets the host's prescribed 409; later
+  // ones succeed. Both are fulfilled, so nothing reaches the server.
+  const attempts: string[] = [];
   let refused = false;
   await page.route('**/api/chat/send', async (route: Route) => {
     const body = route.request().postData() ?? '';
-    posts.push(body);
-    if (!refused && body.includes('composer-409-probe')) {
+    attempts.push(body);
+    if (!refused && body.includes(LINE)) {
       refused = true;
       await route.fulfill({
         status: 409,
@@ -58,7 +68,7 @@ test('sendLine resends the line a 409 refused', async ({ page, allowHttp }) => {
   // the box optimistically, so the old box-only check would call the lost
   // line a success.
   expect(refused, 'the first POST was refused once').toBe(true);
-  const mine = posts.filter((p) => p.includes('composer-409-probe'));
+  const mine = attempts.filter((p) => p.includes(LINE));
   expect(mine, `refused once then resent, saw ${JSON.stringify(mine)}`).toHaveLength(2);
   await expect(page.locator('textarea.composer-input')).toHaveValue('');
 });
