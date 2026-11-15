@@ -15,11 +15,6 @@ const personas = async (page: Page) =>
   ((await (await page.request.get('/api/personas')).json()) as { personas: Persona[] }).personas;
 
 test('a character becomes a persona, and the persona starts a character both ways', async ({ page }) => {
-  // Two full creator journeys (manual wizard + AI pre-fill) plus the library
-  // round trips in one test: since the wizard gained the Realism step (8c)
-  // this consistently rides past the suite's 90 s default on CI and gets
-  // caught on its cleanup POST. The budget covers the test, not a hang.
-  test.setTimeout(180_000);
   const run = test.info().project.name;
   const charName = `Porch Neighbour ${run}`;
   const created = await page.request.post('/api/characters/create', {
@@ -59,7 +54,7 @@ test('a character becomes a persona, and the persona starts a character both way
     // "Make a Character" lives in each card's kebab, like the desktop's.
     await openRoute(page, '/persona');
     await page.getByRole('button', { name: `More actions for ${charName}` }).click();
-    await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
+    await page.getByRole('menuitem', { name: `Make a character from ${charName}` }).click();
     const make = page.getByRole('dialog', { name: 'Make a character' });
     await make.getByRole('button', { name: 'Manual' }).click();
     await expect(page).toHaveURL(/\/create\?fromPersona=/);
@@ -93,7 +88,7 @@ test('a character becomes a persona, and the persona starts a character both way
     // "Make a Character" is in the card's kebab, which opens fresh closed.
     await openRoute(page, '/persona');
     await page.getByRole('button', { name: `More actions for ${charName}` }).click();
-    await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
+    await page.getByRole('menuitem', { name: `Make a character from ${charName}` }).click();
     await page.getByRole('dialog', { name: 'Make a character' }).getByRole('button', { name: 'AI Assist' }).click();
     await expect(page).toHaveURL(/\/create-ai\?fromPersona=/);
     await expect(page.getByTestId('persona-seed-note')).toContainText(charName);
