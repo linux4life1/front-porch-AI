@@ -469,6 +469,9 @@ class ChatFacade {
 
   Future<bool> deletePersona(String id) => _personaOps.deletePersona(id);
 
+  /// File import/export needs the leaf: it carries the host's avatar dir.
+  ChatPersonas get personaOps => _personaOps;
+
   // ── Sessions ────────────────────────────────────────────────────────────
   /// All saved conversations. See [ChatSessionFacade.list].
   Future<List<Map<String, dynamic>>> sessions({

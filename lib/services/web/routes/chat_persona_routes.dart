@@ -30,6 +30,16 @@ void registerPersonaRoutes(Router router, ChatFacade facade) {
     '/api/personas/<id>/delete',
     (r, id) => _deletePersona(facade, r, id),
   );
+  // Persona files (PR 7d): the desktop persona page imports from a JSON
+  // file and exports one persona to `<name>_FPAIpersona.json` (SillyTavern
+  // format). The PWA has no folder picker, so the document travels as raw
+  // bytes and the service runs the same format detection the desktop's
+  // dialog feeds it. `/import` must match before the /<id> catch-all below.
+  router.post('/api/personas/import', (r) => _importPersonas(facade, r));
+  router.get(
+    '/api/personas/<id>/export.json',
+    (r, id) => _exportPersona(facade, r, id),
+  );
   router.post('/api/personas/<id>', (r, id) => _updatePersona(facade, r, id));
 }
 
@@ -106,6 +116,57 @@ Future<shelf.Response> _deletePersona(
     return JsonResponse.error(409, 'Cannot delete (last persona or unknown)');
   }
   return JsonResponse.ok({'personas': facade.personas()});
+}
+
+/// Import a persona JSON document sent as raw text (the body IS the
+/// document, in any format UserPersonaService accepts — FPAI bundle, ST
+/// V2/V1 character export, V2 card). Raw, not a JSON envelope, so the
+/// document is never double-encoded. A body that matches no format
+/// answers 400 with the desktop's message, like its status line.
+Future<shelf.Response> _importPersonas(
+  ChatFacade facade,
+  shelf.Request request,
+) async {
+  String text;
+  try {
+    text = await RequestBody.readString(request);
+  } on BodyTooLarge {
+    return JsonResponse.error(413, 'Persona file is too large (8 MB cap).');
+  }
+  if (text.trim().isEmpty) {
+    return JsonResponse.error(400, 'Please select a file first');
+  }
+  try {
+    final imported = await facade.personaOps.importJson(text);
+    if (imported == null) {
+      return JsonResponse.error(400, 'Import failed — unrecognized format');
+    }
+    return JsonResponse.ok({
+      'status': 'ok',
+      'imported': imported,
+      'personas': facade.personas(),
+    });
+  } catch (_) {
+    return JsonResponse.error(400, 'Import failed — unrecognized format');
+  }
+}
+
+/// Export one persona as an ST-format JSON download, named like the
+/// desktop's file (`Ada_Lovelace_FPAIpersona.json`).
+Future<shelf.Response> _exportPersona(
+  ChatFacade facade,
+  shelf.Request request,
+  String id,
+) async {
+  final out = await facade.personaOps.exportJson(id);
+  if (out == null) return JsonResponse.error(404, 'Persona not found');
+  return shelf.Response.ok(
+    out.bytes,
+    headers: {
+      'content-type': 'application/json',
+      'content-disposition': 'attachment; filename="${out.filename}"',
+    },
+  );
 }
 
 Future<Map<String, dynamic>> _json(shelf.Request request) async {

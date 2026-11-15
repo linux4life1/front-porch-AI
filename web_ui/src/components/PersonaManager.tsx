@@ -11,7 +11,7 @@
 // which meant a background save could stamp a Settings change onto whatever
 // chat happened to still be loaded.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { confirmDiscard } from '../hooks/useUnsavedChanges';
 import { MakeCharacterDialog } from './library/PersonaConvertDialogs';
@@ -51,7 +51,9 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [makeFrom, setMakeFrom] = useState<PersonaDetail | null>(null);
+  const importInput = useRef<HTMLInputElement>(null);
 
   const load = () =>
     api.get<{ personas: Persona[] }>('/api/personas').then((r) => setPersonas(r.personas)).catch(() => {});
@@ -102,10 +104,69 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
 
   const fallback = personas.find((p) => p.default);
 
+  // Import a persona JSON document (FPAI bundle, SillyTavern V2/V1 export,
+  // V2 card — the same formats the desktop's picker feeds the service). The
+  // snackbar copy mirrors the desktop's status line.
+  const importJson = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    try {
+      const r = await api.upload<{ imported: string; personas: Persona[] }>(
+        '/api/personas/import',
+        file,
+      );
+      setPersonas(r.personas);
+      setNotice(`Imported "${r.imported}" successfully`);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Import failed — unrecognized format');
+    } finally {
+      setBusy(false);
+      if (importInput.current) importInput.current.value = '';
+    }
+  };
+
+  // Download one persona as the desktop names it (`Ada_Lovelace_FPAIpersona
+  // .json`); the server sets the name, this is only the fallback.
+  const exportJson = async (p: Persona) => {
+    setError('');
+    try {
+      const { blob, fileName } = await api.getForFile(
+        `/api/personas/${p.id}/export.json`,
+        `${p.name.replace(/[^\w\s]/g, '').replace(/ /g, '_')}_FPAIpersona.json`,
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Export failed');
+    }
+  };
+
   return (
     <section className="card" data-testid="persona-manager">
       <div className="card-head">
         <h3>User personas</h3>
+        <button
+          className="ghost"
+          onClick={() => importInput.current?.click()}
+          disabled={busy}
+          title="Import a persona JSON file (FPAI bundle, SillyTavern export, character card)"
+        >
+          Import JSON
+        </button>
+        <input
+          ref={importInput}
+          type="file"
+          accept=".json,application/json"
+          style={{ display: 'none' }}
+          data-testid="persona-import-file"
+          onChange={(e) => void importJson(e.target.files?.[0] ?? null)}
+        />
         <button
           className="ghost"
           onClick={() =>
@@ -140,6 +201,14 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
             </span>
             <span className="persona-actions">
               <button className="icon-btn" title="Edit" onClick={() => beginEdit(p.id)}>✎</button>
+              <button
+                className="icon-btn"
+                title="Export JSON"
+                aria-label={`Export ${p.label} as JSON`}
+                onClick={() => void exportJson(p)}
+              >
+                ⤓
+              </button>
               <button
                 className="icon-btn"
                 title="Make a character"
@@ -211,6 +280,7 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
         />
       )}
 
+      {notice && !error && <p className="small" role="status">{notice}</p>}
       {error && <p className="error">{error}</p>}
     </section>
   );
