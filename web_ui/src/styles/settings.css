@@ -185,6 +185,17 @@
     color-mix(in srgb, var(--pc, var(--accent)) 10%, var(--surface)),
     var(--surface) 60%);
 }
+/* The desktop's hero edit button is tinted with the persona colour. */
+.persona-hero > .icon-btn { color: color-mix(in srgb, var(--pc, var(--accent)) 70%, transparent); }
+/* Phone: the title takes the first line and the three buttons share the
+   next, none of them mid-word. */
+@media (max-width: 640px) {
+  [data-testid="persona-manager"] .card-head { flex-wrap: wrap; }
+  [data-testid="persona-manager"] .card-head h3 { flex-basis: 100%; }
+  [data-testid="persona-manager"] .card-head button {
+    flex: 1 1 auto; white-space: nowrap; padding: 8px 10px;
+  }
+}
 .persona-hero-main { flex: 1; min-width: 0; }
 .persona-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .persona-hero-name strong {
