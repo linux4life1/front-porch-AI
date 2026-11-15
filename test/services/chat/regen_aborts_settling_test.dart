@@ -36,6 +36,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/turn_progress.dart';
 import '../../helpers/chat_db_teardown.dart';
 
 void _setupPathProviderMock() {
@@ -235,4 +236,34 @@ void main() {
     },
     timeout: const Timeout(Duration(seconds: 30)),
   );
+
+  test('settling is a lease count: an outer hold survives a nested holder '
+      'finishing first, and only the LAST release clears', () {
+    // The wedge class: a generation that started mid-settle used to
+    // CAPTURE the raised flag and RESTORE it in its finally, after the
+    // owner that raised it had already cleared — leaving `true` with no
+    // owner and starving the web composer. Hold counts make an unowned
+    // latch impossible. This test RED on capture/restore: the outer
+    // holder's clear lands before the nested restore re-raises.
+    final p = TurnProgress(() {}, busyElsewhere: () => false);
+    expect(p.isPostGenerating, isFalse);
+
+    p.holdPostGenerating(); // the outer owner (regen's swipe-merge)
+    expect(p.isPostGenerating, isTrue);
+
+    p.holdPostGenerating(); // a nested generation takes its own lease
+    p.releasePostGenerating(); // it finishes first — must NOT clear
+    expect(
+      p.isPostGenerating,
+      isTrue,
+      reason: 'the outer owner still holds the turn',
+    );
+
+    p.releasePostGenerating(); // the last holder out
+    expect(
+      p.isPostGenerating,
+      isFalse,
+      reason: 'with every lease returned the flag must clear — no latch',
+    );
+  });
 }
