@@ -2917,7 +2917,11 @@ test.describe.serial('editing a group member', { tag: SERIAL }, () => {
 // the Realism values alone (the first message typed on Greetings stays).
 // A reload reads it back from the card. The character is deleted whatever
 // happens.
-test("the creator's Realism step saves Porch Life onto the saved character", async ({ page }) => {
+test("the creator's Realism step saves Porch Life onto the saved character", async ({ page, allowHttp }) => {
+  // The CI sandbox has no image engine, so a fresh character's portrait
+  // request can answer 500 (the creator Greetings journey above fails the
+  // same way there); that is the sandbox, not this step.
+  allowHttp((url, status) => status === 500 && /\/api\/characters\/[^/]+\/avatar$/.test(url));
   const created = await page.request.post('/api/characters/create', {
     data: {
       name: `Realism Journey ${test.info().project.name}`,
