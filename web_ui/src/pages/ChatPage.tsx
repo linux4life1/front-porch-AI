@@ -491,6 +491,7 @@ export function ChatPage() {
               lastIndex={lastIndex}
               busy={state.isGenerating}
               settling={!!state.isSettlingTurn}
+              regenerableHostBelowGuests={state.regenerableHostBelowGuests ?? null}
               streaming={streaming}
               followStreamingReplies={followStreamingReplies}
               genStatus={state.isGenerating ? genStatus : null}

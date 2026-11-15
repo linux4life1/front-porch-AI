@@ -21,6 +21,9 @@ export function LocalModels({
 }) {
   const [models, setModels] = useState<LocalModelFile[]>([]);
   const [folder, setFolder] = useState<string>('');
+  // Local list filter — same field and semantics as the desktop's
+  // "Filter models…" box (case-insensitive filename substring).
+  const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   // Why the running KoboldCpp could not load the model just switched to, shown
   // in that model's row.
@@ -67,6 +70,12 @@ export function LocalModels({
       .finally(() => setBusy(false));
   };
 
+  // `name` is the file's name on the wire (backend_facade.localModels maps
+  // filename → name), so this matches the same text the desktop filters.
+  const shown = filter
+    ? models.filter((m) => m.name.toLowerCase().includes(filter.toLowerCase()))
+    : models;
+
   return (
     <section className="card">
       <div className="card-head">
@@ -74,11 +83,19 @@ export function LocalModels({
         <button className="ghost" onClick={rescan}>Rescan</button>
       </div>
       {folder && <p className="muted small mono-path">{folder}</p>}
-      {models.length === 0 ? (
-        <p className="muted">No local models found.</p>
+      <input
+        className="model-filter"
+        type="search"
+        placeholder="Filter models..."
+        value={filter}
+        onChange={(e) => setFilter(e.target.value)}
+        aria-label="Filter models"
+      />
+      {shown.length === 0 ? (
+        <p className="muted">{models.length === 0 ? 'No local models found.' : 'No models found'}</p>
       ) : (
         <ul className="model-list">
-          {models.map((m) => (
+          {shown.map((m) => (
             <li key={m.path}>
               <div className="model-info">
                 <strong>{m.name}</strong>

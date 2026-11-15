@@ -246,6 +246,11 @@ class ChatStateSnapshot {
         'isError': _chat.guestActivityIsError,
         'busy': _chat.isGuestBusy,
       },
+      // Index of the host reply buried under trailing Scene Guest chimes —
+      // the bubble the desktop offers "Regenerate main character" on, and
+      // null whenever that regen does not apply (groups, host-last, a user
+      // or System row in the tail). Additive; older PWAs ignore it.
+      'regenerableHostBelowGuests': _chat.regenerableHostBelowGuestsIndex,
       // Director Mode: the user off stage, auto-chat, and whether a member
       // may leave (not the second-to-last while directing). Additive.
       'director': {

@@ -83,6 +83,11 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   characterFacade.personaPortrait = personaConversionFacade?.portraitPathFor;
   characterFacade.worlds = worlds;
   characterFacade.importPersonas = personas;
+  // Web persona JSON import unpacks avatars to the desktop's directory,
+  // the same path user_persona_page.dart passes to the same import.
+  chatFacade?.personaOps.avatarSaveDir = storage.rootPath == null
+      ? null
+      : '${storage.rootPath}/persona_avatars';
 
   final characterAuthoringFacade = characters != null
       ? CharacterAuthoringFacade(characters, storage)

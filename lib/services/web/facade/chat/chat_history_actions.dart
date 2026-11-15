@@ -50,6 +50,38 @@ class ChatHistoryActions {
     _notify();
   }
 
+  /// Regenerate the last reply. [mainCharacter] is the desktop's second ⟳:
+  /// the host reply buried under trailing Scene Guest chimes — the stale
+  /// guest tail is popped, the host regrows as a new swipe, and the chime
+  /// gate re-runs, all inside [ChatService.regenerateMainCharacter]. Fire-
+  /// and-forget like send; the completion `whenComplete` re-notify matters
+  /// because the reply path can end without a token stream when the popped
+  /// guest tail was all that followed — a quiet browser must still drop the
+  /// removed rows.
+  void regenerate({
+    String? critique,
+    String? webQuery,
+    String? wikiQuery,
+    bool mainCharacter = false,
+  }) {
+    unawaited(
+      withoutCity96Ask(
+        () => mainCharacter
+            ? _chat.regenerateMainCharacter(
+                critique: critique,
+                webQuery: webQuery,
+                wikiQuery: wikiQuery,
+              )
+            : _chat.regenerateLastMessage(
+                critique: critique,
+                webQuery: webQuery,
+                wikiQuery: wikiQuery,
+              ),
+      ).whenComplete(_notify),
+    );
+    _notify();
+  }
+
   /// AI writes the user's next line into the composer (desktop wand parity).
   /// Tokens ride a dedicated `impersonate` WS event — never the `token`
   /// bubble stream.

@@ -338,16 +338,17 @@ class ChatFacade {
     _notify();
   }
 
-  void regenerate({String? critique, String? webQuery, String? wikiQuery}) {
-    withoutCity96Ask(
-      () => _chat.regenerateLastMessage(
-        critique: critique,
-        webQuery: webQuery,
-        wikiQuery: wikiQuery,
-      ),
-    );
-    _notify();
-  }
+  void regenerate({
+    String? critique,
+    String? webQuery,
+    String? wikiQuery,
+    bool mainCharacter = false,
+  }) => _history.regenerate(
+    critique: critique,
+    webQuery: webQuery,
+    wikiQuery: wikiQuery,
+    mainCharacter: mainCharacter,
+  );
 
   /// The words the model weighed in reply [index] (KoboldCpp only).
   Map<String, dynamic> tokenAlternatives(int index) =>
@@ -467,6 +468,9 @@ class ChatFacade {
       _personaOps.updatePersona(id, f);
 
   Future<bool> deletePersona(String id) => _personaOps.deletePersona(id);
+
+  /// File import/export needs the leaf: it carries the host's avatar dir.
+  ChatPersonas get personaOps => _personaOps;
 
   // ── Sessions ────────────────────────────────────────────────────────────
   /// All saved conversations. See [ChatSessionFacade.list].

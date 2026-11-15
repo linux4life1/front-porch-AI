@@ -25,12 +25,12 @@ recomputed in the web layer).
 | Feature | Status | Notes |
 |--------|:--:|------|
 | Send / stream replies (WebSocket) | ✅ | Tokens stream over the single multiplexed `/api/ws`. |
-| Stop / regenerate / continue | ✅ | |
+| Stop / regenerate / continue | ✅ | Buried-host regen included: when a Scene Guest chimes after the host's reply, the host bubble offers the desktop's "Regenerate main character (removes the NPC’s reply)" (`regenerableHostBelowGuests` in chat state, `target=mainCharacter` on `/api/chat/regenerate`). |
 | Swipes (alt generations) | ✅ | |
 | Edit / delete message | ✅ | |
 | Thinking (`<think>`) blocks | ✅ | Collapsible per message. |
 | Author's note | ✅ | |
-| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included. |
+| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`, `/afk`, `/image`, …) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included, and its rows are served from the host (`GET /api/chat/slash-commands` renders `kSlashCommands`) so the sheet cannot drift from the desktop helper (ledger #14). |
 | Inline images in messages (`![](url)`) | ✅ | `MessageContent` renders them (parity with desktop `ExternalImageWidget`). |
 | Insert a generated image into chat | ✅ | "Insert into chat" in the image panel → appends to the latest message. |
 | Sessions / conversations drawer | ✅ | List, resume, new. |
@@ -55,7 +55,7 @@ recomputed in the web layer).
 
 | Feature | Status | Notes |
 |--------|:--:|------|
-| Library grid (search / sort / folders) | ✅ | |
+| Library grid (search / sort / folders) | ✅ | Folder tiles are portrait tiles with a 2×2 member-portrait montage (up to 4) + "N characters · M groups", the desktop's `folder_grid_card.dart` (ledger #4): `GET /api/folders` carries `preview` rows (id + avatar version) and `FolderCard` reuses the `.group-art` montage CSS. |
 | Open / start chat | ✅ | |
 | Manual creation wizard | ✅ | Step-indicator wizard mirroring `create_character_page`. |
 | **AI character creator** | ✅ | `/create-ai`: describe → generate (live steps over WS) → editor. Thin driver over the existing headless `CharacterGenService`. |
@@ -87,7 +87,9 @@ recomputed in the web layer).
 | Worlds list / detail / save (rename) / delete | ✅ | |
 | Shared lorebook entry CRUD | ✅ | |
 | Persona switch | ✅ | |
-| Persona create / edit / delete | ✅ | |
+| Persona create / edit / delete | ✅ | Redesigned to the desktop page: hero card for the default persona, "All Personas (N)" grid with description previews, name subtitle when a title exists, tap-a-card-to-set-default + "Make default", kebab (Edit / Export JSON / Make a Character / Delete, Delete only while >1), and the `PersonaColors` palette circles. |
+| Persona avatars | ✅ | Imported avatars paint from `GET /api/personas/<id>/avatar`; no avatar falls back to the palette circle + person glyph, like the desktop. |
+| Persona JSON import / export | ✅ | Import JSON button feeds the desktop's `importFromJsonFile` (FPAI bundle, SillyTavern V2/V1, V2 card, generic name+description) over `POST /api/personas/import` (raw body); each card exports one persona as the ST file the desktop writes (`<name>_FPAIpersona.json`) over `GET /api/personas/<id>/export.json`, and the header Export All downloads every persona as `FPAI_personas.json` over `GET /api/personas/export-all.json` — the desktop's multi-persona name. Failure copy matches the desktop (ledger #15b). |
 
 ## Image generation
 
@@ -122,6 +124,9 @@ recomputed in the web layer).
 |--------|:--:|------|
 | LLM Local ↔ API choose + edit + flip | ✅ | |
 | Switch local model (restart Kobold) | ✅ | Confirm dialog (interrupts generation). |
+| Installed-models filter | ✅ | The desktop's "Filter models…" field (case-insensitive name substring, `model_manager_page.dart:364`); local to the list, no round trip. |
+| Models-folder ops (Change folder / Reset / Open in File Manager) | ⚙️ | Host-only (ledger #15c): a remote client must not point an internet-exposable server at an arbitrary host directory, and a browser cannot open the *host's* file manager. The path shows read-only (`GET /api/backend/models-folder`, `backend_facade.dart:196-202`); the ops stay in the desktop app. |
+| Import model from computer (.gguf / .kcpps upload) | ⏳ | By design for now — one-chat-ux.md:284: the GGUF control on the web stays the served dropdown + HF downloader; a multi-GB upload over the PWA needs its own chunked story. |
 | HuggingFace browser + downloader (progress) | ✅ | Polled progress. |
 | Backend start / stop / restart + status | ✅ | |
 

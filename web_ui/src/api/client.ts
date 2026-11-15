@@ -98,6 +98,25 @@ export const api = {
     }
     return res.blob();
   },
+  /** GET a file back, named by the server's Content-Disposition (persona
+   *  JSON export). Accepts both the plain `filename="…"` the server sends
+   *  and the `filename*=UTF-8''…` form postForFile documents. */
+  getForFile: async (
+    path: string,
+    fallbackName: string,
+  ): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await fetch(path, { method: 'GET', credentials: 'include' });
+    if (!res.ok) {
+      throw parseApiErrorBody(await res.text(), res.status);
+    }
+    const cd = res.headers.get('Content-Disposition') ?? '';
+    const star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+    const plain = /filename="([^"]+)"/i.exec(cd);
+    return {
+      blob: await res.blob(),
+      fileName: star ? decodeURIComponent(star[1]) : plain?.[1] ?? fallbackName,
+    };
+  },
   /** POST JSON and get the response body as audio/binary (TTS synthesis). */
   postForBlob: async (path: string, body?: unknown): Promise<Blob> => {
     const res = await fetch(path, {

@@ -47,10 +47,9 @@
   width: 100%; height: 100%; min-height: 0; display: grid; place-items: center;
   background: var(--surface); font-size: 1.4rem;
 }
-/* Folder cards: compact row (no cover art). */
-.lib-card.folder-card { flex-direction: row; align-items: center; gap: 10px; padding: 14px 12px; }
-.lib-card.folder-card .folder-glyph { font-size: 1.6rem; flex-shrink: 0; }
-.folder-open { flex-direction: row !important; align-items: center; gap: 10px; }
+/* Folder cards: portrait tile with a member montage (`.group-art` grid),
+   empty folders fall back to the glyph — the desktop folder_grid_card
+   twin (drift ledger #4). */
 .lib-card.folder-card.drop-over { border-color: var(--accent); background: var(--surface-2); }
 .crumb-drop { border-radius: 6px; }
 
@@ -60,7 +59,6 @@
   background: color-mix(in srgb, var(--image-scrim) 70%, transparent); color: var(--image-ink);
   opacity: 0; transition: opacity 0.12s; font-size: 1.05rem; font-weight: 700;
 }
-.folder-kebab { background: var(--surface-2); }
 .lib-card:hover .card-kebab, .card-kebab:focus-visible { opacity: 1; }
 @media (hover: none) { .card-kebab { opacity: 1; } }
 .select-check {
@@ -115,6 +113,8 @@
 
 /* ── Models & backends page ───────────────────────────────────── */
 .model-list, .download-list, .hf-list, .file-list { list-style: none; padding: 0; margin: 8px 0 0; display: flex; flex-direction: column; gap: 8px; }
+/* The local-models filter box (the desktop's "Filter models…" field). */
+.model-filter { margin-top: 8px; }
 .model-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .model-info { display: flex; flex-direction: column; min-width: 0; }
 .download-list li { display: flex; flex-direction: column; gap: 4px; }

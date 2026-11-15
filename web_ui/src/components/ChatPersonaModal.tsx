@@ -21,6 +21,7 @@ interface Persona {
   name: string;
   active: boolean;
   default: boolean;
+  hasAvatar?: boolean;
 }
 
 export function ChatPersonaModal({
@@ -71,7 +72,9 @@ export function ChatPersonaModal({
           {personas.map((p) => (
             <li key={p.id} className={p.active ? 'active' : undefined}>
               <span className="persona-av" aria-hidden>
-                {(p.name || p.label || '?').charAt(0).toUpperCase()}
+                {p.hasAvatar
+                  ? <img src={`/api/personas/${p.id}/avatar`} alt="" />
+                  : (p.name || p.label || '?').charAt(0).toUpperCase()}
               </span>
               <span className="persona-main">
                 <span className="pname">{p.label}</span>

@@ -287,22 +287,21 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The folder tree (id, name, parentId, and the recursive character and
-  /// group counts Delete Folder shows). Membership is `list(folder: id)`.
-  List<Map<String, dynamic>> folders() {
+  /// The folder tree (id, name, parentId, the recursive counts Delete
+  /// Folder shows plus the tile's direct-member counts, and up to 4 member
+  /// previews for the web's portrait tile — drift ledger #4). Membership
+  /// is `list(folder: id)`.
+  Future<List<Map<String, dynamic>>> folders() async {
     final svc = _folders;
     if (svc == null) return const [];
-    return svc.folders
-        .map(
-          (f) => {
-            'id': f.id,
-            'name': f.name,
-            if (f.parentId != null) 'parentId': f.parentId,
-            'characterCount': svc.getCharactersInFolderRecursive(f.id).length,
-            'groupCount': svc.groupIdsInFolderRecursive(f.id).length,
-          },
-        )
-        .toList();
+    final characters = await _db.getAllCharacters();
+    return folderListPayload(
+      svc,
+      characters,
+      cards,
+      _placeholderPortraitIds,
+      _avatarVersion,
+    );
   }
 
   /// Edit an existing character's fields through the desktop save path (the

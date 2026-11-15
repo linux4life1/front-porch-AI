@@ -288,6 +288,56 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect(count).toHaveText('1/2');
   });
 
+  // The buried-host regen (drift ledger #15a): a Scene Guest chime after the
+  // host's reply moves the plain ⟳ off the host bubble; the desktop's second
+  // ⟳ "Regenerate main character (removes the NPC’s reply)" then pops the
+  // stale guest tail, regrows the host as a new swipe, and lets the chime
+  // gate re-run. The stand-in backend's junk is not a chime verdict, so the
+  // guest does not speak again — the row count returning to its pre-chime
+  // value is the removal's proof.
+  test('regenerate the main character under a guest chime drops the stale bubble', async ({ page }) => {
+    await openRoute(page, '/');
+    await page.locator('.lib-card', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await openConversations(page);
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    await sendLine(page, 'Evening, neighbor.');
+    await waitIdle(page);
+    await sendLine(page, '/join Porch Tester');
+    await waitIdle(page);
+    // Make the guest speak last on purpose: that buries the host reply and
+    // the plain ⟳ can no longer reach it.
+    await sendLine(page, '/speak Porch Tester');
+    await waitIdle(page);
+
+    // The guest enters with a line of their own AND speaks on /speak, so the
+    // host sits under two chimes — let the page point at the bubble that
+    // carries the affordance rather than assume an offset.
+    const buried = page.locator(
+      '.chat-messages .msg-row .msg-actions button[title="Regenerate main character (removes the NPC’s reply)"]',
+    );
+    await expect(buried).toBeVisible();
+    await buried.click();
+    const dialog = page.getByTestId('regen-critique-dialog');
+    await dialog.getByRole('button', { name: 'Regenerate' }).click();
+    await waitIdle(page);
+
+    // The host came back as a second take (the regen merges an alternate
+    // into the host's own bubble). The chime gate RE-RUNS after the regen
+    // and Scene Guest admission is deliberately not serialized behind it
+    // (the same race class as the ledger #16 wedge, minus the wedge), so
+    // fresh chimes may land around the host row in varying shape — pin the
+    // guaranteed outcome, not the transcript's length.
+    const secondTake = rows(page).filter({
+      has: page.locator('.swipe-count', { hasText: '2/2' }),
+    });
+    await expect(secondTake, 'the host reply regenerated as a second take').toHaveCount(1);
+    await expect(secondTake.locator('.bubble.ai')).toBeVisible();
+  });
+
   test('continue adds to the last reply', async ({ page }) => {
     await openPorchChat(page);
     const bubble = lastRow(page).locator('.bubble.ai');
