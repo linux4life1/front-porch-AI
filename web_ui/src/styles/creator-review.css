@@ -1,0 +1,204 @@
+/* Copyright (C) 2026 Front Porch AI
+   SPDX-License-Identifier: AGPL-3.0-or-later
+
+   The AI creator's Review step (PR 8d): the portrait rail and the editable
+   cards, the lorebook's keep rows and dialogs, and the tag dialog. Tokens
+   only — the selected theme drives every colour. */
+
+.cg-r-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.cg-r-rail { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.cg-r-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.cg-r-title { margin: 0; font-size: 22px; font-weight: 700; color: var(--studio-ink); }
+.cg-r-intro { margin: 0 0 6px; font-size: 13.5px; line-height: 1.5; color: var(--studio-muted); }
+.cg-r-cards { display: flex; flex-direction: column; gap: 16px; }
+
+/* ── Editable cards ─────────────────────────────────────────────── */
+.cg-r-card {
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: var(--studio-bg);
+  padding: 12px 14px;
+}
+.cg-r-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.cg-r-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--studio-ink); }
+.cg-r-sub { font-size: 12.5px; color: var(--studio-muted); }
+.cg-r-expand { flex-shrink: 0; }
+.cg-r-locked { opacity: 0.45; pointer-events: none; }
+
+/* ── Name and tags under the rail ───────────────────────────────── */
+.cg-r-name { margin: 0; text-align: center; font-size: 22px; font-weight: 700; color: var(--studio-ink); }
+.cg-r-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.cg-r-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--studio-bg);
+  border: 1px solid var(--studio-line);
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Portrait rail ──────────────────────────────────────────────── */
+.cg-r-avatar { display: flex; flex-direction: column; gap: 10px; }
+.cg-r-rail-head {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--studio-muted);
+}
+.cg-r-sources { display: flex; flex-wrap: wrap; gap: 6px; }
+.cg-r-source {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--studio-line);
+  background: var(--studio-bg);
+  color: var(--studio-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cg-r-source.active {
+  border-color: var(--studio-amber);
+  color: var(--studio-amber);
+  background: color-mix(in srgb, var(--studio-amber) 10%, transparent);
+}
+.cg-r-source:disabled { opacity: 0.45; cursor: default; }
+.cg-r-note {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--studio-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--studio-amber) 8%, transparent);
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.cg-r-uploads { display: grid; grid-template-columns: 84px 84px; gap: 8px; }
+.cg-r-well {
+  width: 84px;
+  height: 104px;
+  border-radius: 10px;
+  border: 1px dashed var(--studio-line);
+  background: var(--studio-bg);
+  color: var(--studio-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+}
+.cg-r-well img { width: 100%; height: 100%; object-fit: cover; }
+.cg-r-well-icon { font-size: 22px; }
+.cg-r-well-add { font-size: 24px; }
+.cg-r-caption { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--studio-faint); grid-column: 1 / -1; }
+.cg-r-generate { display: flex; flex-direction: column; gap: 8px; }
+.cg-r-engine { font-size: 12px; color: var(--studio-muted); }
+.cg-r-generate-btn { align-self: stretch; }
+.cg-r-preview img { width: 100%; border-radius: 10px; display: block; }
+.cg-r-preview-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* ── Expressions ────────────────────────────────────────────────── */
+.cg-r-expr {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--studio-line);
+  border-radius: 12px;
+  background: var(--studio-bg);
+}
+.cg-r-expr h4 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--studio-muted);
+}
+.cg-r-switch { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--studio-ink); }
+.cg-r-pack { display: flex; flex-direction: column; gap: 8px; }
+.cg-r-pack-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cg-r-progress { width: 100%; height: 8px; accent-color: var(--studio-amber); }
+.cg-r-import { align-self: flex-start; }
+.cg-r-note-line { margin: 0; font-size: 12px; color: var(--studio-muted); }
+
+/* ── Lorebook rows ──────────────────────────────────────────────── */
+.cg-lore-keep { flex-shrink: 0; accent-color: var(--studio-amber); }
+.cg-lore-open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.cg-lore-open:disabled { cursor: default; }
+.cg-lore-rows.writing { opacity: 0.45; }
+
+/* ── Lorebook entry dialog ──────────────────────────────────────── */
+.cg-r-lore-modal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.cg-r-lore-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--studio-line);
+}
+.cg-r-lore-head h3 { margin: 0; font-size: 16px; color: var(--studio-ink); }
+.cg-r-tabs { display: flex; gap: 6px; margin-left: auto; }
+.cg-r-tabs button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--studio-line);
+  background: transparent;
+  color: var(--studio-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cg-r-tabs button.active { border-color: var(--studio-amber); color: var(--studio-amber); }
+.cg-r-lore-body { padding: 14px 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.cg-r-lore-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--studio-line);
+}
+
+/* ── Tag dialog ─────────────────────────────────────────────────── */
+.cg-r-tag-modal { width: min(440px, calc(100vw - 32px)); padding: 0; }
+.cg-r-tag-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.cg-r-tag-choice { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--studio-ink); }
+.cg-r-tag-choice small { display: block; margin-top: 2px; color: var(--studio-muted); font-size: 12px; }
+
+/* ── Phone ──────────────────────────────────────────────────────── */
+[data-layout="phone"] .cg-r-layout { grid-template-columns: 1fr; gap: 18px; }
+[data-layout="phone"] .cg-r-uploads { grid-template-columns: 84px 84px; }
+[data-layout="phone"] .cg-r-name { text-align: left; }
+[data-layout="phone"] .cg-r-tags { justify-content: flex-start; }
+[data-layout="phone"] .cg-r-lore-modal,
+[data-layout="phone"] .cg-r-tag-modal {
+  width: 100%;
+  max-height: 100%;
+  border-radius: 0;
+}

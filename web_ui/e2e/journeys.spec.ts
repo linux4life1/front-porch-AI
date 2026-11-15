@@ -596,11 +596,13 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
       .poll(async () => (await detail()).alternateGreetings)
       .toEqual(['A calm morning on the jetty.', REPLY]);
 
-    // Greetings is no longer the last step (PR 8c): Realism follows, and
-    // its nav keeps Open in editor.
+    // Greetings is no longer the last step: Realism, then Review (PR 8d),
+    // whose Save & Finish closes the creator at Home.
     await page.getByRole('button', { name: /Next: Realism/ }).click();
-    await page.getByRole('button', { name: 'Open in editor' }).click();
-    await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await page.getByRole('button', { name: /Save & Finish/ }).click();
+    await expect(page).toHaveURL(/\/$/);
   } finally {
     const gone = await page.request.post(`/api/characters/${id}/delete`);
     expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
@@ -614,7 +616,10 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
 // reload finds the pause again; Next writes the rest and lands on the
 // Greetings step with no "profile changed" hint and the two review cards.
 // The character is deleted whatever happens.
-test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page }) => {
+test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page, allowHttp }) => {
+  // The sandbox has no image engine; the Review rail's readiness probe may
+  // answer 500 there (the Realism journey notes the same class).
+  allowHttp((url, status) => status === 500 && /\/api\/image\/studio\/ready/.test(url));
   const name = `Profile Journey ${test.info().project.name}`;
   let id = '';
   try {
@@ -661,6 +666,10 @@ test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then
     id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
     expect(id, 'the saved character is in the URL').not.toBe('');
     await expect(page.getByTestId('creator-hint')).toHaveCount(0);
+    // The review cards live in the Review step now (PR 8d).
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByTestId('review-example-dialogue')).toContainText('Mind the third step');
     await expect(page.getByTestId('review-lorebook')).toContainText('2 entries');
     const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
@@ -785,7 +794,11 @@ test('the creator\'s Interview card: edit, remove, add and drag a question, then
 // deleted whatever happens.
 test('the creator\'s Interview card switches off: no interview, and the stamp remembers', async ({
   page,
+  allowHttp,
 }) => {
+  // The sandbox has no image engine; the Review rail's readiness probe may
+  // answer 500 there (the Realism journey notes the same class).
+  allowHttp((url, status) => status === 500 && /\/api\/image\/studio\/ready/.test(url));
   const name = `Interview Skip Journey ${test.info().project.name}`;
   let id = '';
   try {
@@ -817,7 +830,11 @@ test('the creator\'s Interview card switches off: no interview, and the stamp re
     expect(id, 'the saved character is in the URL').not.toBe('');
 
     // The stamp says no unconditional question was asked, so the review
-    // card's subtitle stops crediting an interview that never ran.
+    // card's subtitle stops crediting an interview that never ran. The cards
+    // live in the Review step now (PR 8d).
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByTestId('review-example-dialogue')).toContainText('straight from your settings');
   } finally {
     if (id) {
@@ -3008,8 +3025,10 @@ test("the creator's Realism step saves Porch Life onto the saved character", asy
     await expect(page.getByTestId('work-occupation')).toHaveValue('ferry pilot');
     await expect(page.getByRole('checkbox', { name: /^Enable Realism Engine/ })).not.toBeChecked();
 
-    await page.getByRole('button', { name: 'Open in editor' }).click();
-    await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await page.getByRole('button', { name: /Save & Finish/ }).click();
+    await expect(page).toHaveURL(/\/$/);
   } finally {
     const gone = await page.request.post(`/api/characters/${id}/delete`);
     expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
