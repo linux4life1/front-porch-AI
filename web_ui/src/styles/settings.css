@@ -248,7 +248,10 @@
 .persona-list .persona-av { overflow: hidden; }
 .persona-list .persona-av img { width: 100%; height: 100%; object-fit: cover; }
 .persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
-.persona-grid .card-kebab { opacity: 1; margin-left: auto; }
+/* The shared .card-kebab is an absolute cover overlay (library-cards.css);
+   on a persona card it must sit IN the header row, or it paints over the
+   name and the sweep's overlap guard fails the page. */
+.persona-grid .card-kebab { position: static; opacity: 1; margin-left: auto; flex-shrink: 0; }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .persona-main .psub {
