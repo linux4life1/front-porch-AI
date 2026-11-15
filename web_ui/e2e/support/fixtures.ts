@@ -37,6 +37,11 @@ const KNOWN: { method: string; status: number; path: RegExp; why: string }[] = [
   // TTS is off in the sandbox; "Read aloud" is answered 503 by contract and
   // the reader shows the reason.
   { method: 'POST', status: 503, path: /^\/api\/stories\/[^/]+\/narrate$/, why: 'TTS is off in the test sandbox' },
+  // A send that arrives while a reply is being written is refused with the
+  // reason and asked to resend — the product's own protocol (send_gates.dart;
+  // sendLine in support/composer.ts resends exactly as told). A 409 here is
+  // the host being correct, not a page problem.
+  { method: 'POST', status: 409, path: /^\/api\/chat\/send$/, why: 'busy-refusal is a send answer by contract' },
 ];
 
 type Hooks = { fn: AllowFn; acceptConfirms: boolean };
