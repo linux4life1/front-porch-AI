@@ -6,7 +6,10 @@ are **desktop-only** (§5). **7a merged** (#729, Rawhide `94ab08b97`).
 **7b re-scoped and ruled 2026-11-13 against `94ab08b97`** (§2-7b): slim
 gallery previews, bundled Inter/Atkinson, corners token-only, auto-check
 keys in, chat font + chat colors folded in, #716–#719 ignored. **7b built**
-on `feat/settings-rebuild-7b` (items 1–10, each reviewer-passed). This is the
+on `feat/settings-rebuild-7b` (items 1–10, each reviewer-passed) and
+**merged** (#730, Rawhide `ec33b3b18`). **7c built** and in review (#731;
+Voice & Media, with the shared switch and heading restyle in its own
+commit). **7d in flight** (2026-11-14). This is the
 work file for **PR 7 of [one-chat-ux.md](one-chat-ux.md)** (bumped from
 PR 8; closes `dev-notes/drift-ledger-726.md` ledger #5, #13, #14, #4, #15).
 Every file:line here was read this sitting — do not re-sweep, and do not

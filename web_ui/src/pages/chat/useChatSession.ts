@@ -21,7 +21,17 @@ import { LiveTokenGate } from './liveTokenGate';
 import { announceSettingsChanged } from '../../components/genPresets/genPresets';
 /** The Chance Time modal's state: the parked event, whether Spin was
  * pressed, and the event's kind for the wheel's reveal. */
-type ChanceState = { event: string; revealed: boolean; kind?: string; label?: string; emoji?: string };
+/** Socket events that refetch the chat state. `library_changed` is a card
+ *  saved elsewhere — its own chat colours, set in the desktop's UI Settings,
+ *  repaint this chat's bubbles (PR 8b `look`). */
+export const CHAT_REFRESH_EVENTS: ReadonlySet<string> = new Set([
+  'chat_updated',
+  'generating',
+  'settings_changed',
+  'library_changed',
+]);
+
+type ChanceState ={ event: string; revealed: boolean; kind?: string; label?: string; emoji?: string };
 type VoiceSnapshot = { ttsEnabled: boolean; sttAvailable: boolean; autoSendTranscription?: boolean };
 
 function chanceKind(from: { kind?: string; label?: string; emoji?: string }) {
@@ -283,13 +293,11 @@ export function useChatSession() {
               })
             : null,
         );
-      } else if (
-        e.event === 'chat_updated' ||
-        e.event === 'generating' ||
-        e.event === 'settings_changed'
-      ) {
+      } else if (CHAT_REFRESH_EVENTS.has(e.event)) {
         // settings_changed: the tools payload carries the clock switch and
         // the refractory words, both of which follow a setting.
+        // library_changed: a card saved elsewhere (its own chat colours, set
+        // in the desktop's UI Settings) repaints this chat's bubbles.
         scheduleRefresh();
         // A model switch made anywhere: the chat's preset toast reads it.
         if (e.event === 'settings_changed') {

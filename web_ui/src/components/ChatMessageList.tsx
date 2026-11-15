@@ -6,7 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
@@ -23,6 +23,7 @@ import { ChipsRow } from './ChipsRow';
 import { MessageActions, BubbleActions, ReplyActions } from './MessageActions';
 import { type CastMember } from './CastBar';
 import { type Message } from './chatTypes';
+import { cardLookStyle, loadCardFonts } from './cardLook';
 import { canonicalizeReasoning } from '../utils/reasoningMarkers';
 import { DIRECTOR_CHARACTER_ID } from './DirectorStrip';
 import { IconTrash } from './chatLineIcons';
@@ -226,6 +227,16 @@ const TranscriptRows = memo(function TranscriptRows({
       style: { '--mood-hue': moodPaints.tones[mood.tone], '--mood-a': mood.strength.toFixed(3) } as CSSProperties,
     };
   };
+  // The speaker card's own font and colours (PR 8b), over the mood's.
+  const bubbleStyle = (m: Message, isDirectorNote: boolean): CSSProperties | undefined => {
+    const mood = moodOf(m).style;
+    const look = cardLookStyle(m.look, isDirectorNote ? 'director' : m.isUser ? 'user' : 'ai');
+    return mood || look ? { ...mood, ...look } : undefined;
+  };
+  const cardFonts = messages.flatMap((m) => (m.look?.font ? [m.look.font] : [])).join('\n');
+  useEffect(() => {
+    if (cardFonts) loadCardFonts(cardFonts.split('\n'));
+  }, [cardFonts]);
   const userHasReplied = messages.some((m) => m.isUser);
   const find = useFindSurface();
   // The engine's sender hits index m.sender; only a header showing exactly
@@ -275,7 +286,8 @@ const TranscriptRows = memo(function TranscriptRows({
               <div className="msg-main">
                 <div
                   className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
-                  style={moodOf(m).style}
+                  style={bubbleStyle(m, isDirectorNote)}
+                  data-card-look={m.look && !isDirectorNote ? '' : undefined}
                 >
                   <div className={`msg-actions bubble-actions${m.isUser ? ' user' : ''}`}>
                     <span className="msg-speaker">{markSpeaker(m, speakerName)}</span>
@@ -375,7 +387,8 @@ const TranscriptRows = memo(function TranscriptRows({
             )}
             <div
               className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
-              style={moodOf(m).style}
+              style={bubbleStyle(m, isDirectorNote)}
+              data-card-look={m.look && !isDirectorNote ? '' : undefined}
             >
               {isDirectorNote && (
                 <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>

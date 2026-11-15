@@ -251,3 +251,13 @@
    reading cap above is wide-only, so a tablet keeps its 820 px column. */
 .chat-messages > div { display: flex; flex-direction: column; gap: 14px; }
 .chat-messages > div:first-child { margin-top: auto; }
+
+/* A bubble wearing its character card's own colours (PR 8b, cardLook.ts):
+   the name reads in the bubble's dialogue tint, as the desktop draws it
+   (message_bubble.header.dart), and the tools in the bubble's own ink, so
+   neither vanishes on a card's dark or bright bubble. Other bubbles keep
+   their paint. */
+.bubble.ai[data-card-look] .bubble-actions .msg-speaker { color: var(--dialogue); }
+.bubble.user[data-card-look] .bubble-actions .msg-speaker { color: var(--chat-user-dialogue, var(--dialogue)); }
+.bubble.ai[data-card-look] .icon-btn { color: color-mix(in srgb, var(--chat-ai-text) 70%, transparent); }
+.bubble.user[data-card-look] .icon-btn { color: color-mix(in srgb, var(--chat-user-text) 70%, transparent); }
