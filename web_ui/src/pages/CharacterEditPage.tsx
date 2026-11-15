@@ -98,7 +98,7 @@ const FIELDS: { key: keyof CharDetail; label: string; rows: number }[] = [
 ];
 
 export function CharacterEditPage() {
-  const { adult: adultThemes, afterglow } = useAdultFlags();
+  const { adult: adultThemes, afterglow, planner } = useAdultFlags();
   const clockOn = usePassageOfTime();
   const params = useParams<{ id: string; groupId: string; memberId: string }>();
   const member = params.groupId !== undefined && params.memberId !== undefined;
@@ -426,7 +426,7 @@ export function CharacterEditPage() {
 
           {/* Ambitions … Intimate preferences, then the Realism Engine block, as
               the desktop editor lays them out. */}
-          <IdentitySections v={rv} set={patch} showIntimate={adultThemes} />
+          <IdentitySections v={rv} set={patch} showIntimate={adultThemes} planner={planner} />
           <RealismFormSection
             v={rv}
             set={patch}

@@ -9,28 +9,12 @@
 // (NeedsFormSection) rendered alongside this one.
 
 import { Slider, ToggleRow, SelectRow } from './controls';
-import { ChipList } from './ChipList';
 import { RecoveryBlock } from './RecoveryBlock';
 import { GreyedOut } from '../GreyedOut';
 import { RelationshipFields } from './RelationshipFields';
-import {
-  type RealismValues,
-  chipsToInventory,
-  inventoryToChips,
-  TIME_OPTIONS,
-  titleCase,
-} from './realismTypes';
-import {
-  DEFAULT_END_MIN,
-  DEFAULT_START_MIN,
-  DEFAULT_WORK_DAYS,
-  WORK_DAY_LETTERS,
-  formatWorkHoursRange,
-  hhmmToMinutes,
-  minutesToHHMM,
-  parseWorkHoursRange,
-  resolveWorkDays,
-} from './workHours';
+import { IdentitySections } from './IdentitySections';
+import { RlCard, RlIcon, SectionHead, StoryStartChips } from './realismChrome';
+import { type RealismValues, TIME_OPTIONS, titleCase } from './realismTypes';
 
 type Patch = (patch: Partial<RealismValues>) => void;
 
@@ -49,6 +33,7 @@ export function RealismFormSection({
   needs,
   showIdentity = true,
   wardrobeNotice,
+  planner = false,
 }: {
   v: RealismValues;
   set: Patch;
@@ -85,6 +70,8 @@ export function RealismFormSection({
   /** Drawn right above Pockets & Wardrobe (the AI creator's outfit hint,
    *  desktop `wardrobeNotice`). */
   wardrobeNotice?: React.ReactNode;
+  /** Porch Life's day planner (useAdultFlags().planner): Plan lines. */
+  planner?: boolean;
 }) {
   const engineOn = hiddenNote ? false : v.realismEnabled;
   const lock = (tip: string | undefined, node: React.ReactNode) =>
@@ -103,6 +90,8 @@ export function RealismFormSection({
       )}
       {!hiddenNote && (
         <ToggleRow
+          variant="master"
+          icon={<RlIcon.brain />}
           label="Enable Realism Engine"
           hint={
             v.realismEnabled
@@ -119,7 +108,8 @@ export function RealismFormSection({
       {lock(
         lockTimeDay,
         <>
-          <h4 className="realism-head">Time &amp; Day</h4>
+          <SectionHead icon={<RlIcon.clock />} title="Time & Day" />
+          <RlCard>
           <div className="realism-grid-2">
             <SelectRow
               label="Time of Day"
@@ -137,32 +127,13 @@ export function RealismFormSection({
               />
             </label>
           </div>
-          <div className="realism-grid-2" data-testid="story-begins-row">
-            <label className="realism-field">
-              <span>
-                {(scene?.storyStartDate ?? v.storyStartDate)
-                  ? `Story begins ${scene?.storyStartDate ?? v.storyStartDate}`
-                  : 'Story begins: the day the chat starts'}
-              </span>
-              <input
-                type="date"
-                value={scene?.storyStartDate ?? v.storyStartDate ?? ''}
-                onChange={(e) => set({ storyStartDate: e.target.value || null })}
-              />
-            </label>
-            <label className="realism-field">
-              <span>
-                {(scene?.storyStartTime ?? v.storyStartTime)
-                  ? `Opens at ${scene?.storyStartTime ?? v.storyStartTime}`
-                  : 'Opens at: time-of-day default'}
-              </span>
-              <input
-                type="time"
-                value={scene?.storyStartTime ?? v.storyStartTime ?? ''}
-                onChange={(e) => set({ storyStartTime: e.target.value || null })}
-              />
-            </label>
-          </div>
+          </RlCard>
+          <StoryStartChips
+            date={scene?.storyStartDate ?? v.storyStartDate}
+            time={scene?.storyStartTime ?? v.storyStartTime}
+            onDate={(d) => set({ storyStartDate: d })}
+            onTime={(t) => set({ storyStartTime: t })}
+          />
         </>,
       )}
 
@@ -175,11 +146,12 @@ export function RealismFormSection({
 
       {/* ── Optional Features: with the engine on, Afterglow (and its Recovery),
           Chaos and Verification; off, Chaos alone ── */}
-      <h4 className="realism-head">Optional Features</h4>
-      <div className="card realism-card">
+      <SectionHead icon={<RlIcon.tune />} title="Optional Features" />
+      <div className="rl-card rl-rows">
         {engineOn && showIntimate && afterglowOn && (
           <>
             <ToggleRow
+              icon={<RlIcon.flame />}
               label="Afterglow"
               hint="Lust and recovery in new chats with this character. Chats you already have keep their own switch."
               value={v.afterglowEnabled !== false}
@@ -200,6 +172,7 @@ export function RealismFormSection({
         {lock(
           lockChaos,
           <ToggleRow
+            icon={<RlIcon.dice />}
             label="Chaos Mode (Chance Time)"
             hint="Random narrative events during roleplay"
             value={v.chaosModeEnabled}
@@ -211,6 +184,7 @@ export function RealismFormSection({
             lockVerification,
             <>
               <ToggleRow
+                icon={<RlIcon.shield />}
                 label="Realism Verification (Director/Verifier)"
                 hint="Optional director thread validates realism deltas + needs JSON; supplies corrections + reason or re-feeds for reprocessing (extra eval cost; strong models recommended)"
                 value={v.realismVerificationEnabled}
@@ -232,6 +206,7 @@ export function RealismFormSection({
               />
               {v.realismVerificationEnabled && (
                 <ToggleRow
+                  icon={<RlIcon.shield />}
                   label="Director authority (needs)"
                   hint="The director's corrections to Needs scores are the ones used."
                   value={v.realismNeedsDirectorAuthority}
@@ -242,266 +217,17 @@ export function RealismFormSection({
           )}
       </div>
       {showIdentity && (
-        <IdentitySections v={v} set={set} showIntimate={showIntimate} wardrobeNotice={wardrobeNotice} />
+        <IdentitySections
+          v={v}
+          set={set}
+          showIntimate={showIntimate}
+          planner={planner}
+          wardrobeNotice={wardrobeNotice}
+        />
       )}
     </div>
   );
 }
 
-/** Ambitions, Work, Birthday, Likes & Dislikes, Pockets & Wardrobe and (18+)
- *  Intimate preferences: the desktop IdentityChipLists, in its order. The
- *  character editor shows them before the Realism Engine block. */
-export function IdentitySections({
-  v,
-  set,
-  showIntimate = false,
-  wardrobeNotice,
-}: {
-  v: RealismValues;
-  set: Patch;
-  showIntimate?: boolean;
-  wardrobeNotice?: React.ReactNode;
-}) {
-  return (
-    <>
-      {/* ── Ambitions (approved sketch §4) ──
-              "Ambitions — long-term goals, one per chip (replaces 'Current
-              Task / Quest' in this editor)". Mirrors the desktop editor. */}
-          <h4 className="realism-head">Ambitions</h4>
-          <ChipList
-            label="Long-term goals"
-            accent
-            values={v.ambitions}
-            onChange={(a) => set({ ambitions: a })}
-            placeholder="e.g. open a bakery"
-            helper="What this character is working toward across the whole story. They colour how the character steers a scene, and they inch forward when objectives complete. Not a to-do list — quests live in the chat sidebar."
-          />
 
-          {/* ── Work ── mirrors work_row.dart + identity_chip_lists.dart.
-              Same identity chrome as Ambitions / Likes (header + helper),
-              not a thinner PWA stub. Occupation is the title; What the job
-              is binds occupationBrief; hours is two native time pickers;
-              days are seven letter chips (missing = Mon–Fri). */}
-          <ChipList
-            label="Plan lines"
-            values={v.planLines}
-            onChange={(a) => set({ planLines: a })}
-            placeholder="e.g. finish the log before the tide"
-            helper="They write the day from who they are. You only add or delete the line. Not a to-do."
-            maxItems={4}
-          />
-
-          <WorkFields v={v} set={set} />
-
-          <BirthdayFields v={v} set={set} />
-
-          {/* ── Likes & Dislikes ── mirrors identity_chip_lists.dart. Two
-              plain (non-accent) chip lists, exactly as the sketch draws them. */}
-          <h4 className="realism-head">Likes &amp; Dislikes</h4>
-          <ChipList
-            label="Drawn to"
-            values={v.likes}
-            onChange={(a) => set({ likes: a })}
-            placeholder="e.g. thunderstorms"
-            helper="Small, specific things this character warms to. They colour how they react — and, with the Realism Engine on, which way a moment moves them. A chase or struggle they are drawn to can raise bond and desire instead of reading as rejection."
-          />
-          <ChipList
-            label="Put off by"
-            values={v.dislikes}
-            onChange={(a) => set({ dislikes: a })}
-            placeholder="e.g. being interrupted"
-            helper="What makes this character bristle. Phrases, not paragraphs — one thing per chip reads best in a scene."
-          />
-
-          {/* ── Pockets & Wardrobe ── per-character switch lives ON the
-              starting-kit card (desktop IdentityChipLists / WardrobeChipSection).
-              Global Porch Life remains the master kill. */}
-          {wardrobeNotice}
-          <h4 className="realism-head">Pockets &amp; Wardrobe</h4>
-          <div className="card realism-card" data-testid="character-pockets-panel">
-            <ToggleRow
-              label="Pockets & Wardrobe"
-              hint="The starting choice for new chats with this character, unless Porch Life has Pockets off. Each chat can then change its own switch, and the choice stays in that chat. Old cards stay on."
-              value={v.pocketsEnabled}
-              onChange={(b) => set({ pocketsEnabled: b })}
-            />
-            {v.pocketsEnabled ? (
-              <>
-                <p className="muted small">
-                  What this character already has when a chat opens. Add a condition
-                  in brackets — &quot;sundress (rain-soaked)&quot; — and it is kept
-                  and updated as the story uses the item.
-                </p>
-                <ChipList
-                  label="Wearing"
-                  values={inventoryToChips(v.inventory).worn}
-                  onChange={(a) =>
-                    set({ inventory: chipsToInventory(a, inventoryToChips(v.inventory).carrying) })
-                  }
-                  placeholder="e.g. flour-dusted apron"
-                />
-                <ChipList
-                  label="Carrying"
-                  values={inventoryToChips(v.inventory).carrying}
-                  onChange={(a) =>
-                    set({ inventory: chipsToInventory(inventoryToChips(v.inventory).worn, a) })
-                  }
-                  placeholder="e.g. car keys"
-                  helper="Tracked when this character's Pockets switch is on and Porch Life has Pockets on. Up to 8 of each; the oldest drops off if a character picks up more."
-                />
-              </>
-            ) : (
-              <p className="muted small">
-                Wearing and carrying stay on the card. Turn this on to edit the
-                starting kit.
-              </p>
-            )}
-          </div>
-
-          {/* The 18+ pair, only for an install that asked for it. */}
-          {showIntimate && (
-            <>
-              <h4 className="realism-head">Intimate preferences</h4>
-              <p className="muted small">
-                Suggestive tastes for 18+ scenes. Hidden unless 18+ is on. With the engine on these own the sign: pinning, struggle, or being fled from that they warm to raises desire (and can raise bond), not humiliation.
-              </p>
-              <ChipList
-                label="Warms to"
-                values={v.intimateInto}
-                onChange={(a) => set({ intimateInto: a })}
-                placeholder="e.g. slow mornings"
-              />
-              <ChipList
-                label="Not interested in"
-                values={v.intimateNotInto}
-                onChange={(a) => set({ intimateNotInto: a })}
-                placeholder="e.g. an audience"
-              />
-            </>
-          )}
-
-    </>
-  );
-}
-
-function WorkFields({ v, set }: { v: RealismValues; set: Patch }) {
-  const parsed = parseWorkHoursRange(v.hours);
-  const start = parsed ? minutesToHHMM(parsed[0]) : '';
-  const end = parsed ? minutesToHHMM(parsed[1]) : '';
-  const selected = new Set(resolveWorkDays(v.workDays));
-
-  const write = (nextStart: string, nextEnd: string) => {
-    const s = hhmmToMinutes(nextStart) ?? DEFAULT_START_MIN;
-    const e = hhmmToMinutes(nextEnd) ?? DEFAULT_END_MIN;
-    const patch: Partial<RealismValues> = { hours: formatWorkHoursRange(s, e) };
-    if (v.workDays == null) patch.workDays = [...DEFAULT_WORK_DAYS];
-    set(patch);
-  };
-
-  const toggleDay = (day: number) => {
-    const current = resolveWorkDays(v.workDays);
-    const next = current.includes(day)
-      ? current.filter((d) => d !== day)
-      : [...current, day].sort((a, b) => a - b);
-    set({ workDays: next });
-  };
-
-  return (
-    <div className="realism-field work-identity">
-      <span className="realism-head" style={{ margin: 0 }}>Work</span>
-      <p className="muted small" style={{ margin: '4px 0 8px' }}>
-        What they do, and when. Weekdays unless you tap others.
-      </p>
-      <label className="realism-field">
-        <span>Occupation</span>
-        <input
-          data-testid="work-occupation"
-          value={v.occupation}
-          placeholder="e.g. librarian"
-          onChange={(e) => set({ occupation: e.target.value })}
-        />
-      </label>
-      <label className="realism-field">
-        <span>What the job is</span>
-        <textarea
-          data-testid="work-brief"
-          className="work-brief"
-          rows={3}
-          value={v.occupationBrief}
-          placeholder="e.g. shelves returns, then reads until close"
-          onChange={(e) => set({ occupationBrief: e.target.value })}
-        />
-        <small className="muted">
-          Short. Grounds at-work scenes. Leave blank and today stays today.
-        </small>
-      </label>
-      <div className="work-hours">
-        <label className="realism-field">
-          <span>Start</span>
-          <input
-            data-testid="work-start"
-            type="time"
-            value={start}
-            onChange={(e) => write(e.target.value, end)}
-          />
-        </label>
-        <label className="realism-field">
-          <span>End</span>
-          <input
-            data-testid="work-end"
-            type="time"
-            value={end}
-            onChange={(e) => write(start, e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="work-days" role="group" aria-label="Work days">
-        {WORK_DAY_LETTERS.map((letter, i) => {
-          const day = i + 1;
-          const on = selected.has(day);
-          return (
-            <button
-              key={day}
-              type="button"
-              data-testid={`work-day-${day}`}
-              className={on ? 'work-day on' : 'work-day'}
-              aria-pressed={on}
-              onClick={() => toggleDay(day)}
-            >
-              {letter}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function BirthdayFields({ v, set }: { v: RealismValues; set: Patch }) {
-  return (
-    <div className="realism-field work-identity">
-      <span className="realism-head" style={{ margin: 0 }}>Birthday</span>
-      <p className="muted small" style={{ margin: '4px 0 8px' }}>
-        Year, month, and day on the story calendar. February 29 is not allowed.
-      </p>
-      <label className="realism-field">
-        <span>Date</span>
-        <input
-          data-testid="birthday-date"
-          type="date"
-          value={v.birthday || ''}
-          onChange={(e) => {
-            const raw = e.target.value;
-            if (/^\d{4}-02-29$/.test(raw)) return;
-            set({ birthday: raw });
-          }}
-        />
-      </label>
-      {v.birthday && (
-        <button className="link-btn" type="button" onClick={() => set({ birthday: '' })}>
-          Clear
-        </button>
-      )}
-    </div>
-  );
-}
+export { IdentitySections } from './IdentitySections';

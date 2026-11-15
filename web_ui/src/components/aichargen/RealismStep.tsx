@@ -49,7 +49,7 @@ export const RealismStep = forwardRef<
   const [saveError, setSaveError] = useState('');
   const [saving, setSaving] = useState(false);
   const [outfit, setOutfit] = useState<OutfitStatus | null>(null);
-  const { adult, afterglow } = useAdultFlags();
+  const { adult, afterglow, planner } = useAdultFlags();
   const clockOn = usePassageOfTime();
 
   const vRef = useRef<RealismValues | null>(null);
@@ -203,6 +203,7 @@ export const RealismStep = forwardRef<
         showIntimate={adult}
         afterglowOn={afterglow}
         showChargenSuggestion
+        planner={planner}
         needs={<NeedsFormSection v={v} set={set} clockOn={clockOn} />}
         wardrobeNotice={
           outfit?.changed ? (
