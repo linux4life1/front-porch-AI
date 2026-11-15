@@ -193,10 +193,12 @@ export function RealismFormSection({
           </>
         )}
         {/* This group member Starts Away: lands held in every chat the group
-            CREATES (docs/design/group-initial-presence.md). Member-only — a
+            CREATES (docs/design/group-initial-presence.md). Member-only - a
             1:1 card has no hold to author. Not an 18+ feature: it shows even
-            when Porch Life keeps Afterglow hidden. */}
-        {engineOn && startsAway && (
+            when Porch Life keeps Afterglow hidden, and with the Realism
+            Engine off too (R6 - a door fact, not an engine feature; the
+            desktop row shows standalone). */}
+        {startsAway && (
           <ToggleRow
             label="Starts away"
             hint={`Every chat you make with this group starts ${startsAway.name} Away, before any turn runs. Only Back at the door brings them in — a chat you reopen keeps its own.`}

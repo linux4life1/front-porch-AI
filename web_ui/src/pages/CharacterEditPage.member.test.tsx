@@ -167,6 +167,25 @@ describe('the group member editor', () => {
     expect(url).toBe('/api/groups/g1/members/mem-mara');
     expect(body.startsAway).toBe(true);
   });
+
+  // R6: Starts Away is a door fact, not an engine feature - the row shows
+  // with the Realism Engine off too, matching the desktop member row
+  // (lib/ui/widgets/realism_form_section/member_starts_away_row.dart).
+  it('shows and saves Starts away with the Realism Engine off', async () => {
+    character = { ...MEMBER, realism: { realismEnabled: false, afterglowEnabled: false } };
+    await mountAt('/groups/g1/members/mem-mara/edit');
+    const row = [...container.querySelectorAll('label.realism-toggle')].find(
+      (l) => l.querySelector('.realism-toggle-text > span')?.textContent === 'Starts away',
+    );
+    if (!row) throw new Error('no toggle "Starts away"');
+    await act(async () => (row.querySelector('input') as HTMLInputElement).click());
+    const save = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save')!;
+    await act(async () => save.click());
+    expect(post).toHaveBeenCalledTimes(1);
+    const [url, body] = post.mock.calls[0];
+    expect(url).toBe('/api/groups/g1/members/mem-mara');
+    expect(body.startsAway).toBe(true);
+  });
 });
 
 describe('the 1:1 editor', () => {
