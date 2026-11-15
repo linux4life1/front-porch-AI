@@ -9,5 +9,6 @@ export 'chargen_greetings.dart';
 export 'chargen_jobs.dart';
 export 'chargen_outfit.dart';
 export 'chargen_pending.dart';
+export 'chargen_portrait_seed.dart';
 export 'chargen_profile.dart';
 export 'chargen_rewrites.dart';
