@@ -160,7 +160,11 @@ class ChatPersonas {
   /// "Import failed — unrecognized format"; the route turns that into 400.
   Future<String?> importJson(String text) async {
     final svc = _personas;
-    if (svc == null) return null;
+    if (svc == null) {
+      // A wiring failure, not the document's fault — the route says so
+      // instead of blaming the file.
+      throw StateError('Personas are not available on this host.');
+    }
     final file = File(
       '${Directory.systemTemp.path}/fpai_personas_import_${DateTime.now().microsecondsSinceEpoch}.json',
     );
@@ -191,14 +195,17 @@ class ChatPersonas {
     if (persona == null) return null;
     final outPath =
         '${Directory.systemTemp.path}/fpai_personas_export_${DateTime.now().microsecondsSinceEpoch}.json';
-    await svc.exportPersonasToSTFormat([id], outPath);
-    final bytes = await File(outPath).readAsBytes();
     try {
-      File(outPath).deleteSync();
-    } catch (_) {}
-    // Same name the desktop's export dialog builds (user_persona_page.dart).
-    final filename =
-        '${persona.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json';
-    return (filename: filename, bytes: bytes);
+      await svc.exportPersonasToSTFormat([id], outPath);
+      final bytes = await File(outPath).readAsBytes();
+      // Same name the desktop's export dialog builds (user_persona_page.dart).
+      final filename =
+          '${persona.name.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}_FPAIpersona.json';
+      return (filename: filename, bytes: bytes);
+    } finally {
+      // A throw mid-export must not litter the temp dir — the import path
+      // above set the pattern.
+      if (File(outPath).existsSync()) File(outPath).deleteSync();
+    }
   }
 }

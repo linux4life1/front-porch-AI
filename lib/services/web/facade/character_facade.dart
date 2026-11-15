@@ -287,9 +287,10 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The folder tree (id, name, parentId, the recursive character and group
-  /// counts Delete Folder shows, and up to 4 member previews for the web's
-  /// portrait tile — drift ledger #4). Membership is `list(folder: id)`.
+  /// The folder tree (id, name, parentId, the recursive counts Delete
+  /// Folder shows plus the tile's direct-member counts, and up to 4 member
+  /// previews for the web's portrait tile — drift ledger #4). Membership
+  /// is `list(folder: id)`.
   Future<List<Map<String, dynamic>>> folders() async {
     final svc = _folders;
     if (svc == null) return const [];

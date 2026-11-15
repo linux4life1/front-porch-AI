@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chat_persona_routes.dart';
+import 'package:front_porch_ai/services/web/util/request_body.dart';
 
 import '../../golden/support/fakes.dart';
 
@@ -131,6 +132,17 @@ void main() {
     expect(res.statusCode, 400);
     final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
     expect(payload['error'], 'Please select a file first');
+  });
+
+  test('a document past the shared upload cap answers 413, not a silent read',
+      () async {
+    // RequestBody.readString's default cap — the size a persona document
+    // may never reach in practice, but the phone must be told, not hung.
+    final huge = 'x' * (RequestBody.defaultMaxBytes + 1);
+    final res = await post('/api/personas/import', huge);
+    expect(res.statusCode, 413);
+    final payload = jsonDecode(await res.readAsString()) as Map<String, dynamic>;
+    expect(payload['error'], contains('too large'));
   });
 
   test('a character card (name + description) imports like the desktop\'s',

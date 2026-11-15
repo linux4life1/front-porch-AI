@@ -47,8 +47,15 @@ List<Map<String, dynamic>> folderListPayload(
           'id': f.id,
           'name': f.name,
           if (f.parentId != null) 'parentId': f.parentId,
+          // Two counts, because the desktop shows two: the tile writes the
+          // folder's DIRECT members (folder_grid_card.dart:91-92 reads
+          // characterPaths/groupIds, which _load buckets by folderId only),
+          // while the Delete Folder dialog counts everything the delete
+          // would sweep, subfolders included (home_folder_dialogs.dart:121).
           'characterCount': svc.getCharactersInFolderRecursive(f.id).length,
           'groupCount': svc.groupIdsInFolderRecursive(f.id).length,
+          'directCharacterCount': f.characterPaths.length,
+          'directGroupCount': f.groupIds.length,
           'preview': folderPreviewMembers(
             f,
             characters,

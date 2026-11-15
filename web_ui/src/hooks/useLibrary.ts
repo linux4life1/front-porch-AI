@@ -42,6 +42,11 @@ export interface LibFolder {
   /** Characters and groups inside, subfolders included (absent on older apps). */
   characterCount?: number;
   groupCount?: number;
+  /** The folder's DIRECT members — what its tile's line shows, matching
+   *  the desktop tile. `characterCount`/`groupCount` stay recursive for
+   *  the Delete Folder dialog, which counts what the delete sweeps. */
+  directCharacterCount?: number;
+  directGroupCount?: number;
   /** Up to 4 member portraits for the tile's montage — the desktop
    *  folder_grid_card's 2×2 preview (drift ledger #4). Absent on older apps. */
   preview?: LibGroupMember[];

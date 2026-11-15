@@ -119,4 +119,20 @@ void main() {
       isEmpty,
     );
   });
+
+  test('the tile counts direct members; the recursive counts stay the '
+      'delete dialog\'s', () async {
+    // folder_grid_card.dart:91-92 reads the folder's own lists (direct
+    // membership; FolderService._load buckets by folderId only), while
+    // home_folder_dialogs.dart:121 counts recursively. A nested library
+    // must show both numbers distinctly or the tile drifts again.
+    final porch = await folders.createFolder('Porch');
+    final attic = await folders.createFolder('Attic', parentId: porch.id);
+    await library.bulkMove([ids[0]], porch.id);
+    await library.bulkMove([ids[1], ids[2]], attic.id);
+
+    final row = await rowOf(porch.id);
+    expect(row['directCharacterCount'], 1); // tile line: Ann only
+    expect(row['characterCount'], 3); // delete dialog: sweeps subfolders
+  });
 }

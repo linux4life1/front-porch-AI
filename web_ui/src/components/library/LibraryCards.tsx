@@ -110,8 +110,11 @@ export function FolderCard({
   // portraits over the card and writes "N characters · M groups"; empty
   // folders fall back to the folder glyph. Same walk, same cap (ledger #4).
   const previews = (folder.preview ?? []).slice(0, 4);
-  const chars = folder.characterCount ?? 0;
-  const groups = folder.groupCount ?? 0;
+  // The tile's line is the DIRECT members, like the desktop tile
+  // (folder_grid_card.dart:91-92); recursive counts are the delete
+  // dialog's, not this one's. Fallback keeps an older host's row alive.
+  const chars = folder.directCharacterCount ?? folder.characterCount ?? 0;
+  const groups = folder.directGroupCount ?? folder.groupCount ?? 0;
   return (
     <div
       className={`lib-card folder-card${over ? ' drop-over' : ''}`}

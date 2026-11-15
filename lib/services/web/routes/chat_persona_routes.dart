@@ -146,6 +146,8 @@ Future<shelf.Response> _importPersonas(
       'imported': imported,
       'personas': facade.personas(),
     });
+  } on StateError catch (e) {
+    return JsonResponse.error(503, e.message);
   } catch (_) {
     return JsonResponse.error(400, 'Import failed — unrecognized format');
   }
@@ -158,7 +160,12 @@ Future<shelf.Response> _exportPersona(
   shelf.Request request,
   String id,
 ) async {
-  final out = await facade.personaOps.exportJson(id);
+  final ({String filename, List<int> bytes})? out;
+  try {
+    out = await facade.personaOps.exportJson(id);
+  } catch (_) {
+    return JsonResponse.error(500, 'Export failed');
+  }
   if (out == null) return JsonResponse.error(404, 'Persona not found');
   return shelf.Response.ok(
     out.bytes,

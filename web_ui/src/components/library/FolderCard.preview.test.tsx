@@ -95,6 +95,22 @@ it('draws the initial for a flat placeholder portrait and the glyph when empty',
   expect(container.querySelector('.lib-art-fallback')?.textContent).toBe('📁');
 });
 
+it('the tile line is the DIRECT count — the recursive one is the delete '
+  + 'dialog\'s, not this card\'s', () => {
+  render({
+    id: 'f1',
+    name: 'Porch',
+    characterCount: 3, // recursive: subfolders swept by a delete
+    groupCount: 1,
+    directCharacterCount: 1,
+    directGroupCount: 0,
+    preview: [member('c1', 'Ann')],
+  });
+  // folder_grid_card.dart:91-92 reads the folder's own lists; a nested
+  // library would drift the moment the tile showed the swept count.
+  expect(container.querySelector('.lib-sub')?.textContent).toBe('1 character');
+});
+
 it('an older host with no preview field still renders the glyph tile', () => {
   render({ id: 'f1', name: 'Porch', characterCount: 3, groupCount: 2 });
   expect(container.querySelector('.lib-art-fallback')?.textContent).toBe('📁');
