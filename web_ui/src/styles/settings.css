@@ -234,6 +234,8 @@
   background: var(--pc, var(--surface));
 }
 .persona-grid .persona-av img, .persona-hero .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+.persona-list .persona-av { overflow: hidden; }
+.persona-list .persona-av img { width: 100%; height: 100%; object-fit: cover; }
 .persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
 .persona-grid .card-kebab { opacity: 1; margin-left: auto; }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }

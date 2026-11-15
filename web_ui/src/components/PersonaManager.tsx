@@ -345,8 +345,8 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
                     setMenuId(null);
                   }}
                 />
-                <div className="card-menu persona-card-menu" role="menu">
-                  <button className="card-menu-item" role="menuitem" onClick={() => void beginEdit(p.id)}>
+                <div className="card-menu persona-card-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                  <button className="card-menu-item" role="menuitem" aria-label={`Edit ${p.label}`} onClick={() => void beginEdit(p.id)}>
                     <span className="cmi-icon" aria-hidden>✎</span> Edit
                   </button>
                   <button

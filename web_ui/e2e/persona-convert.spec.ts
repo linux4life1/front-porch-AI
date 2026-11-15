@@ -85,7 +85,9 @@ test('a character becomes a persona, and the persona starts a character both way
 
     // ── Persona → character, AI Assist (pre-fill only; nothing generates) ──
     // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    // "Make a Character" is in the card's kebab, which opens fresh closed.
     await openRoute(page, '/persona');
+    await page.getByRole('button', { name: `More actions for ${charName}` }).click();
     await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
     await page.getByRole('dialog', { name: 'Make a character' }).getByRole('button', { name: 'AI Assist' }).click();
     await expect(page).toHaveURL(/\/create-ai\?fromPersona=/);

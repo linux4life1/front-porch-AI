@@ -149,4 +149,31 @@ describe('PersonaManager card grid (desktop parity)', () => {
     expect(host.querySelector('[aria-label="Export Ada as JSON"]')).toBeTruthy();
     expect(host.querySelector('[aria-label="Make a character from Ada"]')).toBeTruthy();
   });
+
+  it('a menu item on a non-default card does not ride the card tap into set-default', async () => {
+    // The desktop's PopupMenuButton claims its taps; a menu click here must
+    // not fire select() on the way out of the card (it silently moved the
+    // default, and raced Delete against a select of a doomed id).
+    post.mockResolvedValue({ personas });
+    get.mockImplementation(async (path: string) =>
+      path === '/api/personas/p2/detail'
+        ? { id: 'p2', title: '', name: 'Kit', persona: 'text', birthday: '' }
+        : { personas });
+    await render();
+    await act(async () => {
+      card('Kit')
+        .querySelector<HTMLButtonElement>('button[aria-label="More actions for Kit"]')!
+        .click();
+    });
+    await act(async () => {
+      host
+        .querySelector<HTMLButtonElement>('button[aria-label="Edit Kit"]')!
+        .click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(post.mock.calls.some((c) => c[0] === '/api/personas/select')).toBe(false);
+    // And the edit actually opened.
+    expect(host.querySelector('.persona-edit')).toBeTruthy();
+  });
 });
