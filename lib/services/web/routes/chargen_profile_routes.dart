@@ -30,6 +30,10 @@ class WebChargenProfileRoutes {
     _post(router, '/api/chargen/rewrite/dialogue', _dialogue);
     _post(router, '/api/chargen/rewrite/lorebook', _lorebook);
     _post(router, '/api/chargen/rewrite/stop', _rewriteStop);
+    // The Realism step's outfit hint (#370), additive.
+    router.get('/api/chargen/outfit', _outfit);
+    _post(router, '/api/chargen/outfit/reread', _outfitReread);
+    _post(router, '/api/chargen/outfit/keep', _outfitKeep);
   }
 
   final ChargenFacade _facade;
@@ -139,6 +143,28 @@ class WebChargenProfileRoutes {
   /// Body: `{characterId}`.
   shelf.Response _rewriteStop(Map<String, dynamic> body) =>
       JsonResponse.ok({'stopped': _facade.stopRewrite(_id(body))});
+
+  /// `?characterId=`: `{changed, reading, error}` — whether the first
+  /// message changed since the outfit was read, and the re-read's state.
+  shelf.Response _outfit(shelf.Request r) {
+    final id = _queryId(r);
+    if (id.isEmpty) return JsonResponse.badRequest('characterId is required');
+    final status = _facade.outfitStatus(id);
+    return status == null
+        ? JsonResponse.error(404, 'character not found')
+        : JsonResponse.ok(status);
+  }
+
+  /// Body: `{characterId}`. The end arrives as `chargen_outfit_done` or
+  /// `chargen_outfit_error`.
+  shelf.Response _outfitReread(Map<String, dynamic> body) =>
+      _answer(_facade.startOutfitReread(body), _started);
+
+  /// Body: `{characterId}`. Returns the status, the hint now gone.
+  Future<shelf.Response> _outfitKeep(Map<String, dynamic> body) async {
+    final result = await _facade.keepOutfit(body);
+    return _answer(result, () => {...result}..remove('ok'));
+  }
 
   Map<String, dynamic> _started() => {'status': 'started'};
 }

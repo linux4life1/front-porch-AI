@@ -89,7 +89,8 @@ it('a saved character opens on its greetings, never on "Generate a character fir
   const flashed = added.some((n) => (n.textContent ?? '').includes('Generate a character first'));
   expect(flashed, 'no render showed the step without its character').toBe(false);
   expect(container.querySelector('[data-testid="greetings-step"]')).not.toBeNull();
-  expect(container.textContent).toContain('Open in editor');
+  // Greetings is no longer the last step: Porch Life (Realism) follows.
+  expect(container.textContent).toContain('Next: Realism');
 });
 
 it('a paused create opens on its profile; Next writes the rest, then the greetings', async () => {
@@ -135,4 +136,30 @@ it('a paused create opens on its profile; Next writes the rest, then the greetin
   watch.disconnect();
   expect(said('Generate a character first'), 'no render showed a step without its character').toBe(false);
   expect(container.querySelector('[data-testid="greetings-step"]')).not.toBeNull();
+});
+
+it("Greetings leads on to the Realism step, the creator's last, as on the desktop", async () => {
+  await act(async () => {
+    for (const l of listeners) l({ event: 'chargen_done', id: 7, name: 'Aria Vale' });
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  const dots = container.textContent ?? '';
+  expect(dots).toContain('Realism');
+  const next = Array.from(container.querySelectorAll('button')).find((b) =>
+    (b.textContent ?? '').includes('Next: Realism'),
+  )!;
+  await act(async () => {
+    next.click();
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  expect(container.querySelector('[data-testid="realism-step"]')).not.toBeNull();
+  expect(container.querySelector('[data-testid="greetings-step"]')).toBeNull();
+  // The last step ends where the web creator always has: the editor.
+  const last = Array.from(container.querySelectorAll('nav button')).map((b) => b.textContent ?? '');
+  expect(last.some((t) => t.includes('Open in editor'))).toBe(true);
+  expect(last.some((t) => t.includes('Back'))).toBe(true);
 });

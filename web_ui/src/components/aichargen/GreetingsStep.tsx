@@ -9,9 +9,9 @@
 // saved by the relay only when it is done, so Stop leaves the card as it was.
 // When the profile changed after these greetings were written (the relay
 // compares fingerprints) a hint offers to write them all again from it or
-// keep them. The example dialogue and lorebook rewrites sit at the foot, as
-// this is the phone's last step. The outfit hint is desktop-only: the web
-// creator has no Realism step.
+// keep them. The example dialogue and lorebook rewrites sit at the foot (the
+// desktop's Review content; the web has no Review step). The Realism step
+// follows; a first message changed here raises its outfit hint (#370).
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
