@@ -130,7 +130,12 @@ dependencies" never ran a test.
   hits, real host reply; Chromium intercepts either way) — that spec
   runs `serviceWorkers: 'block'` for exactly this reason. Any future
   webkit route-interception probe must do the same or it will mock
-  nothing while appearing to watch everything.
+  nothing while appearing to watch everything. The page-problems
+  watcher carries the matching carve-out (`POST 409 /api/chat/send`
+  in `KNOWN`, `web_ui/e2e/support/fixtures.ts`): once the harness
+  resends as prescribed, the refusal itself is the endpoint's normal
+  answer and must not count as page damage — a send refused on every
+  attempt still fails loudly from `sendLine` with the host's reason.
 - **`web_ui/e2e/journeys.spec.ts` Director Mode journey: the whisper won't
   clear.** Phone WebKit only: after "Clear the whisper to Porch Tester"
   the whisper note stays (expected 0, got 1), and the trace has no `POST
