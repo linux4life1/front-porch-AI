@@ -306,19 +306,22 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
 
     await sendLine(page, 'Evening, neighbor.');
     await waitIdle(page);
+    // Transcript as it stands before the guest arrives; the regen must undo
+    // every chime of theirs, back to exactly this length.
+    const beforeGuest = await rows(page).count();
     await sendLine(page, '/join Porch Tester');
     await waitIdle(page);
     // Make the guest speak last on purpose: that buries the host reply and
     // the plain ⟳ can no longer reach it.
     await sendLine(page, '/speak Porch Tester');
     await waitIdle(page);
-    const hostRows = await rows(page).count();
-    // user line + host reply + guest chime at minimum, so nth(-2) is the host.
-    expect(hostRows).toBeGreaterThanOrEqual(3);
-    const hostRow = rows(page).nth(hostRows - 2);
-    await expect(hostRow.locator('.bubble.ai')).toBeVisible();
 
-    const buried = action(hostRow, 'Regenerate main character (removes the NPC’s reply)');
+    // The guest enters with a line of their own AND speaks on /speak, so the
+    // host sits under two chimes — let the page point at the bubble that
+    // carries the affordance rather than assume an offset.
+    const buried = page.locator(
+      '.chat-messages .msg-row .msg-actions button[title="Regenerate main character (removes the NPC’s reply)"]',
+    );
     await expect(buried).toBeVisible();
     await buried.click();
     const dialog = page.getByTestId('regen-critique-dialog');
@@ -326,10 +329,10 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await waitIdle(page);
 
     // The host came back as a second take…
-    await expect(hostRow.locator('.swipe-count')).toHaveText('2/2', { timeout: 60_000 });
-    // …and the stale chime it was answering is gone: the transcript is back
-    // to its length before the guest spoke.
-    await expect(page.locator('.msg-row')).toHaveCount(hostRows - 1);
+    await expect(lastRow(page).locator('.swipe-count')).toHaveText('2/2', { timeout: 60_000 });
+    // …and every stale chime it was answering is gone: the transcript is
+    // back to what it was before the guest arrived.
+    await expect(page.locator('.msg-row')).toHaveCount(beforeGuest);
   });
 
   test('continue adds to the last reply', async ({ page }) => {
