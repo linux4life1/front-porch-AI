@@ -110,15 +110,15 @@ void main() {
           'for everyone',
     );
 
-    // "works alone" is the ruling: objectives depend on nothing but their own
-    // eval cost — not the engine, not the Journal.
+    // Objectives lives as an independent top-level node without redundant badges,
+    // while admitting its recurring eval cost in body copy.
     expect(
       find.descendant(
         of: rowFor('Objectives'),
         matching: find.text('works alone'),
       ),
-      findsOneWidget,
-      reason: 'Objectives depends on nothing else, and the chip must say so',
+      findsNothing,
+      reason: 'non-dependency badges were removed in favor of subgroup layout',
     );
 
     // The copy has to admit the recurring cost — that is the reason to have
@@ -156,18 +156,15 @@ void main() {
     final amb = find.text('Ambitions');
     await tester.scrollUntilVisible(amb, 300, scrollable: scrollable);
 
-    // The chip states the real dependency. It said "works alone" before, which
-    // was wrong in one direction (progress needs quests) while the sidebar hid
-    // the feature behind the engine, which was wrong in the other.
+    // Ambitions hangs inside Objectives' tree branch rather than carrying a
+    // redundant same-subgroup badge; its body copy explains the link.
     expect(
       find.descendant(
         of: rowFor('Ambitions'),
         matching: find.text('needs Objectives'),
       ),
-      findsOneWidget,
-      reason:
-          'finishing a quest is the ONLY thing that moves ambition '
-          'progress, so Objectives is the honest dependency',
+      findsNothing,
+      reason: 'same-subgroup dependency is shown by tree indentation',
     );
 
     // Satisfied while Objectives is on: the switch is live.

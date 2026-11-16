@@ -3,7 +3,7 @@
 //
 // Porch Life switch for Planner. Default off. Not Plans / Wings it.
 // Hard deps Joe named: Passage of Time, Objectives, the Journal.
-// This row reports them. It does not invent the wiring.
+// This row reports the cross-subgroup ones (Passage of Time and the Journal).
 
 import 'package:flutter/material.dart';
 
@@ -16,6 +16,9 @@ class PlannerFeatureRow extends StatelessWidget {
   final bool timeOn;
   final bool objectivesOn;
   final bool journalOn;
+  final VoidCallback? onDependencyTap;
+  final ExpandSignal? expandDetailsSignal;
+  final bool highlighted;
 
   const PlannerFeatureRow({
     super.key,
@@ -24,6 +27,9 @@ class PlannerFeatureRow extends StatelessWidget {
     this.timeOn = false,
     this.objectivesOn = false,
     this.journalOn = false,
+    this.onDependencyTap,
+    this.expandDetailsSignal,
+    this.highlighted = false,
   });
 
   @override
@@ -31,15 +37,21 @@ class PlannerFeatureRow extends StatelessWidget {
     return FeatureRow(
       icon: Icons.event_note_outlined,
       label: 'Planner',
+      subtitle:
+          'Characters plan ahead from personality and recall what got done.',
       need: FeatureNeed.needs,
-      dependsOn: 'Passage of Time, Objectives, and the Journal',
+      dependsOn: 'Passage of Time and the Journal',
       satisfied: timeOn && objectivesOn && journalOn,
+      showDependencyBadge: true,
       blurb:
           'They plan from personality; you only add or delete the line. '
           'The character will later remember if it got done (needs time, '
           'objectives, journal).',
       value: value,
       onChanged: onChanged,
+      onDependencyTap: onDependencyTap,
+      expandDetailsSignal: expandDetailsSignal,
+      highlighted: highlighted,
     );
   }
 }

@@ -22,8 +22,72 @@ import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-// Sub-controls that ride inside a FeatureRow's `child` slot on the Porch
-// Life tab. Public because a file can only hold private classes for itself.
+// Sub-controls that ride inside a FeatureRow's `child` or `trailing` slot on
+// the Porch Life tab.
+
+/// Two-segment control for sidebar weather units (°C default / °F).
+class TemperatureUnitControl extends StatelessWidget {
+  const TemperatureUnitControl({
+    super.key,
+    required this.fahrenheit,
+    required this.onChanged,
+  });
+
+  final bool fahrenheit;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = AppColors.porchAmberOf(context);
+    final surface = AppColors.surfaceContainerOf(context);
+    final border = AppColors.borderOf(context);
+
+    Widget segment(String label, bool targetValue) {
+      final selected = fahrenheit == targetValue;
+      return Semantics(
+        button: true,
+        enabled: onChanged != null,
+        selected: selected,
+        label: targetValue ? 'Fahrenheit' : 'Celsius',
+        child: InkWell(
+          onTap: onChanged == null ? null : () => onChanged!(targetValue),
+          borderRadius: BorderRadius.circular(7),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? accent : surface.withValues(alpha: 0),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: selected
+                    ? AppColors.onAccentOf(context)
+                    : AppColors.textSecondary(context),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border.all(color: border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [segment('°C', false), segment('°F', true)],
+      ),
+    );
+  }
+}
 
 /// The "How often" dropdown under Chaos Mode. Shown even with the global
 /// switch off, because a single chat can still turn Chaos on in its sidebar.
@@ -40,24 +104,31 @@ class ChaosFrequencyPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            'How often',
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12,
-            ),
+        Text(
+          'How often',
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
         DropdownButton<ChaosFrequency>(
+          isExpanded: true,
           value: storage.realismSettings.chaosFrequency,
           dropdownColor: AppColors.cardOf(context),
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: AppColors.textPrimary(context),
+            fontSize: 12,
+          ),
           items: [
             for (final f in ChaosFrequency.values)
-              DropdownMenuItem(value: f, child: Text(_describe(f))),
+              DropdownMenuItem(
+                value: f,
+                child: Text(_describe(f), overflow: TextOverflow.ellipsis),
+              ),
           ],
           onChanged: (v) {
             if (v != null) {

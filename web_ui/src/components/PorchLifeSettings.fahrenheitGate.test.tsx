@@ -52,12 +52,28 @@ const input = (label: string) => {
   return el;
 };
 
-describe('Porch Life °F row', () => {
-  it('greys out with the clock off, and comes back when the clock goes on', () => {
+const unitBtn = (label: 'Celsius' | 'Fahrenheit') => {
+  const el = container.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
+  if (!el) throw new Error(`no unit button labelled ${label}`);
+  return el;
+};
+
+describe('Porch Life Temperature Units row', () => {
+  it('greys out with the clock off, defaults to °C, and comes back when clock goes on', () => {
     expect(input('Story Weather').disabled).toBe(true);
-    expect(input('Temperatures in °F').disabled).toBe(true);
+    expect(unitBtn('Celsius').disabled).toBe(true);
+    expect(unitBtn('Fahrenheit').disabled).toBe(true);
+    expect(unitBtn('Celsius').getAttribute('aria-checked')).toBe('true');
 
     act(() => input('Passage of Time').click());
-    expect(input('Temperatures in °F').disabled).toBe(false);
+    expect(unitBtn('Celsius').disabled).toBe(false);
+    expect(unitBtn('Fahrenheit').disabled).toBe(false);
+
+    act(() => unitBtn('Fahrenheit').click());
+    expect(post).toHaveBeenCalledWith('/api/settings', {
+      realism: { weatherFahrenheit: true },
+    });
   });
 });

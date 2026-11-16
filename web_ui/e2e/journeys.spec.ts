@@ -2663,7 +2663,7 @@ test('Porch Life Realism off greys the chat\'s Realism switch; on again asks abo
     await openRoute(page, '/settings');
     await openSettingsTab(page, 'porch-life');
     const card = page.getByTestId('porch-life-card');
-    const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
+    const engine = card.getByRole('switch', { name: 'Realism Engine', exact: true });
     await expect(engine).not.toBeChecked();
     await engine.check();
     const dialog = page.getByRole('dialog', { name: 'Realism is on' });

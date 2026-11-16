@@ -16,446 +16,247 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/settings/existing_chats_offer_dialog.dart';
 
 import 'porch_life_defaults_note.dart';
 import 'porch_life_engine_card.dart';
+import 'porch_life_groups.dart';
 import 'porch_life_mcp_web_card.dart';
+import 'porch_life_memory_group.dart';
 
 /// **Porch Life** — every "what makes characters feel alive" switch in one
-/// place, grouped by what it is, each saying plainly what it needs.
+/// place, grouped by what it is, nested by subgroup dependencies.
 ///
-/// Why this tab exists (docs/design/feature-independence.md, maintainer
-/// 2026-08-07): these toggles used to live nested inside General's "Realism
-/// Mode" card, which meant switching the Realism Engine OFF also HID the
-/// switches for features that work fine without it — the welcome-back recap
-/// and Story Weather among them. A three-agent code audit established which
-/// features genuinely depend on the engine and which were merely filed under
-/// it; the chips on each row report that finding rather than a guess.
-///
-/// Scope note: this tab holds global Porch Life settings. The closing card
-/// names the defaults a single chat can overrule — except Passage of Time,
-/// which is the live clock switch. Web Search is intentionally global-only
-/// and has no sidebar override.
-///
-/// Chaos Mode joined the tab on 2026-08-08 (maintainer: "Chaos mode should have
-/// a global toggle in Porch life with no hard dep"). It was the last feature the
-/// closing card had to apologise for — a paragraph explaining that one switch
-/// lived somewhere else. `chaosModeDefault` OR-overrides the per-chat/per-group
-/// seed at all three seed sites, the same shape Afterglow already used, so
-/// leaving it off changes nothing for anyone.
-///
-/// Needs got its global switch here (`needsSimDefault`, 2026-08-07): it had
-/// none at all, so the tab had nothing to show for the app's most visible
-/// simulation. It decides for a card that says nothing about Needs and
-/// AND-gates a card that does (an explicit false on the card still wins).
-/// Default true.
-///
-/// Dependency truths per the maintainer: Needs and Afterglow genuinely REQUIRE
-/// the engine.
-///
-/// Passage of Time no longer does (2026-08-06). What the clock needs is a
-/// model call sizing each exchange, not bond and trust. This row is the
-/// live clock switch for every chat. Weather and Dreams follow the CLOCK
-/// rather than the engine.
-class PorchLifeTab extends StatelessWidget {
+/// Groups and detailed row descriptions start expanded and can be collapsed
+/// individually (group header / row title or subtitle) or via the top-bar
+/// Collapse/Expand all details button. On wide windows (`>= 960px`), cards
+/// arrange into two balanced columns to keep reading widths comfortable.
+class PorchLifeTab extends StatefulWidget {
   const PorchLifeTab({super.key});
+
+  @override
+  State<PorchLifeTab> createState() => _PorchLifeTabState();
+}
+
+class _PorchLifeTabState extends State<PorchLifeTab> {
+  int _detailsVersion = 0;
+  bool _detailsAllExpanded = true;
+
+  final Map<String, GlobalKey> _rowKeys = {};
+  final Map<String, int> _forceExpandVersions = {};
+  String? _highlightedId;
+  Timer? _highlightTimer;
+
+  GlobalKey _rowKeyFor(String id) =>
+      _rowKeys.putIfAbsent(id, () => GlobalKey());
+
+  static const _targetGroup = {
+    'realism': 'engine',
+    'needs': 'engine',
+    'passage_of_time': 'time',
+    'story_weather': 'time',
+    'journal': 'memory',
+    'pockets': 'memory',
+    'objectives': 'memory',
+  };
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    super.dispose();
+  }
+
+  void _toggleAllDetails() {
+    setState(() {
+      _detailsAllExpanded = !_detailsAllExpanded;
+      _detailsVersion++;
+    });
+  }
+
+  void _jumpTo(String targetId) {
+    final group = _targetGroup[targetId];
+    setState(() {
+      if (group != null) {
+        _forceExpandVersions[group] = (_forceExpandVersions[group] ?? 0) + 1;
+      }
+      _highlightedId = targetId;
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _highlightedId = null);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _rowKeys[targetId]?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: 0.2,
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
-    final realism = storage.realismSettings;
-
-    // The engine gates everything in "needs Realism" rows; passage of time
-    // additionally gates weather and dreams, and weather gates the °F display.
-    // Porch Life Passage of Time is the only live clock gate. The engine row
-    // is the permission, not the "start new chats with it" default.
     final engineOn = storage.realismSettings.realismAllowed;
-    final timeOn = storage.realismSettings.passageOfTimeDefault;
-    final weatherOn = storage.realismSettings.weatherEnabled;
-    final journalOn = storage.memorySettings.journalEnabled;
-    // Objectives depend on nothing but their own eval cost (maintainer,
-    // 2026-08-07), and Ambitions hang off them: finishing a quest is the only
-    // thing that moves ambition progress.
-    final objectivesOn = storage.realismSettings.objectivesEnabled;
     final adultOn = storage.realismSettings.adultThemesEnabled;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          'Everything that makes a character feel like they live somewhere. '
-          'Each switch says plainly what it needs — many need nothing at all.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-        const SizedBox(height: 16),
+    final detailsSignal = (
+      version: _detailsVersion,
+      expanded: _detailsAllExpanded,
+    );
 
-        PorchLifeEngineCard(engineOn: engineOn, storage: storage),
+    final engineCard = PorchLifeEngineCard(
+      engineOn: engineOn,
+      storage: storage,
+      expandDetailsSignal: detailsSignal,
+      forceExpandVersion: _forceExpandVersions['engine'] ?? 0,
+      realismKey: _rowKeyFor('realism'),
+      needsKey: _rowKeyFor('needs'),
+      highlightedId: _highlightedId,
+      onJumpTo: _jumpTo,
+    );
 
-        FeatureGroupCard(
-          title: 'Time & World',
-          subtitle: "the story's clock and sky",
-          rows: [
-            FeatureRow(
-              icon: Icons.schedule,
-              label: 'Passage of Time',
-              need: FeatureNeed.alone,
-              blurb:
-                  'The story keeps its own clock — dawn to morning to evening '
-                  'to night, day after day. This switch is what runs the clock '
-                  'in every open chat. Off pauses them immediately; on starts '
-                  'them again. The AI judges how long each exchange actually '
-                  'took, so a shared meal moves the clock further than a '
-                  'passing hello. A normal send always moves at least a '
-                  'minute or two.',
-              value: timeOn,
-              onChanged: storage.realismSettings.setPassageOfTimeDefault,
-            ),
-            FeatureRow(
-              icon: Icons.fast_forward_outlined,
-              label: 'Time-skip bridge',
-              need: FeatureNeed.needs,
-              dependsOn: 'Passage of Time',
-              satisfied: timeOn,
-              blurb:
-                  'When a message skips a day or more ("two weeks '
-                  'later"), a short narrator card fills in how those days '
-                  'went before the character replies. One short AI call, '
-                  'only on a turn that skips that far. Off, the skip still '
-                  'happens, just without the card.',
-              value: realism.timeSkipBridgeEnabled,
-              onChanged: realism.setTimeSkipBridgeEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.explore_outlined,
-              label: 'Scene suggestions',
-              need: FeatureNeed.needs,
-              dependsOn: 'Passage of Time',
-              satisfied: timeOn,
-              blurb:
-                  'When the clock is running, the same turn read that moves '
-                  'time also watches the story\'s PLACE. If a reply clearly '
-                  'arrives somewhere in your world — up the stairs into the '
-                  'Tea Rooms, out through the gate — the app offers to move '
-                  'the scene there. You confirm or stay; it never moves the '
-                  'scene by itself, and a plan or a passing mention is never '
-                  'a move. Later updates add one more offer under this same '
-                  'switch: saving a newly-named place the story walks into. '
-                  'Off by default — offers in the middle of a scene are '
-                  'welcome to some authors and noise to others.',
-              value: realism.sceneSuggestionsEnabled,
-              onChanged: realism.setSceneSuggestionsEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.cloud_outlined,
-              label: 'Story Weather',
-              need: FeatureNeed.needs,
-              dependsOn: 'Passage of Time',
-              satisfied: timeOn,
-              blurb:
-                  'Weather rolls through the story\'s days and is felt in mood '
-                  'and comfort. Characters can see fronts coming ("looks like '
-                  'rain tomorrow"). It costs no extra AI call — the sky is '
-                  'worked out from the date — but it needs days to pass.',
-              value: weatherOn,
-              onChanged: storage.realismSettings.setWeatherEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.thermostat,
-              label: 'Temperatures in °F',
-              need: FeatureNeed.needs,
-              dependsOn: 'Story Weather',
-              satisfied: timeOn && weatherOn,
-              blurb:
-                  'Display only — characters always experience weather in '
-                  'words ("coat-and-gloves cold"), never numbers.',
-              value: storage.realismSettings.weatherFahrenheit,
-              onChanged: storage.realismSettings.setWeatherFahrenheit,
-            ),
-          ],
-        ),
+    final timeCard = PorchLifeTimeGroup(
+      storage: storage,
+      expandDetailsSignal: detailsSignal,
+      forceExpandVersion: _forceExpandVersions['time'] ?? 0,
+      highlightedId: _highlightedId,
+      rowKeyFor: _rowKeyFor,
+      onJumpTo: _jumpTo,
+    );
 
-        FeatureGroupCard(
-          title: 'Memory & Heart',
-          subtitle: 'what they keep and carry',
-          rows: [
-            FeatureRow(
-              icon: Icons.menu_book_outlined,
-              label: 'The Journal',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Memory cards and the "where we are" recap, kept per chat and '
-                  'never shared between chats. With the Realism Engine on, '
-                  'cards also carry the feeling of the moment; without it they '
-                  'are simply remembered.',
-              value: journalOn,
-              onChanged: storage.memorySettings.setJournalEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.nightlight_outlined,
-              label: 'Dreams',
-              need: FeatureNeed.needs,
-              dependsOn: 'the Journal and Passage of Time',
-              satisfied: journalOn && timeOn,
-              blurb:
-                  'When a story night passes, the character dreams — a short, '
-                  'hazy scene woven from their memories, mood and the weather.',
-              value: storage.realismSettings.dreamsEnabled,
-              onChanged: storage.realismSettings.setDreamsEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.handshake_outlined,
-              label: 'Promises',
-              need: FeatureNeed.needs,
-              dependsOn: 'the Journal',
-              satisfied: journalOn,
-              blurb:
-                  'Commitments either of you make are remembered, and kept or '
-                  'broken ones come back later. Uses one extra AI request per '
-                  'reply to spot them, so it is slower and costs more on a paid '
-                  'API. You can settle one yourself in the Journal\'s Promises '
-                  'tab.',
-              value: realism.promiseLedgerEnabled,
-              onChanged: realism.setPromiseLedgerEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.checkroom_outlined,
-              label: 'Pockets & Wardrobe',
-              need: FeatureNeed.alone,
-              blurb:
-                  'What they are wearing and carrying is remembered instead of '
-                  'scrolling out of the conversation — so the keys they picked '
-                  'up an hour ago are still in their pocket, and the coat they '
-                  'took off is still off. Items can change: a candy bar becomes '
-                  'a wrapper, a sword gets notched. Uses one extra AI request '
-                  'per reply to notice what changed, so it is slower and costs '
-                  'more on a paid API. Kept per chat and cleared with it.',
-              value: realism.pocketsEnabled,
-              onChanged: realism.setPocketsEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.swap_horiz,
-              label: 'Hand things between characters',
-              need: FeatureNeed.needs,
-              dependsOn: 'Pockets & Wardrobe',
-              satisfied: realism.pocketsEnabled,
-              blurb:
-                  'In a group chat, when one character hands something to '
-                  'another it actually moves — out of their pocket and into '
-                  'the other\'s, keeping whatever condition it was in. Without '
-                  'this, a handed-over item simply leaves the giver and reaches '
-                  'no one. Costs nothing extra; it rides the check Pockets is '
-                  'already doing. Best with a frontier model (Claude, GPT, '
-                  'Gemini): it has to name WHO received the thing, which is '
-                  'harder than noticing what changed, and smaller local models '
-                  'often get the name wrong. When the name does not match '
-                  'somebody in the chat, the app declines to guess — the item '
-                  'leaves the giver and goes nowhere, exactly as before.',
-              value: realism.pocketTransfersEnabled,
-              onChanged: realism.setPocketTransfersEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.cloud_queue,
-              label: 'Standing Mood',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Lets them arrive already in a mood you had nothing to do '
-                  'with — tired, hungry, worn down by a week of rain, or '
-                  'cheerful after a good night. Everything else in the app '
-                  'reacts to YOU, which slowly makes you the centre of their '
-                  'world; this is the part that is just their day. It is never '
-                  'invented: it comes from what the app already tracks, and '
-                  'hovering the mood chip tells you exactly what they walked '
-                  'in carrying, so you can always tell their day from your '
-                  'doing. Costs nothing — no extra AI request.',
-              value: realism.standingMoodEnabled,
-              onChanged: realism.setStandingMoodEnabled,
-            ),
-          ],
-        ),
+    final memoryCard = PorchLifeMemoryGroup(
+      storage: storage,
+      expandDetailsSignal: detailsSignal,
+      forceExpandVersion: _forceExpandVersions['memory'] ?? 0,
+      highlightedId: _highlightedId,
+      rowKeyFor: _rowKeyFor,
+      onJumpTo: _jumpTo,
+    );
 
-        FeatureGroupCard(
-          title: 'Presence',
-          subtitle: 'noticing you, nothing more',
-          rows: [
-            FeatureRow(
-              icon: Icons.spa_outlined,
-              label: 'Growth Rings',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Slow character evolution — rings, not rewrites. What they '
-                  'live through is added as a new layer instead of overwriting '
-                  'who they were.',
-              value: storage.memorySettings.characterEvolutionEnabled,
-              onChanged: storage.memorySettings.setCharacterEvolutionEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.track_changes,
-              label: 'Objectives',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Short-lived quests a character works toward — set your own, '
-                  'or let them decide what they want. Needs nothing else to '
-                  'run, but it does check in with the AI every few messages '
-                  '(and after a time skip) to see where each goal stands. '
-                  'Switching this off is the way to stop that cost — your '
-                  'quests are kept either way.',
-              value: objectivesOn,
-              onChanged: storage.realismSettings.setObjectivesEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.flag_outlined,
-              label: 'Ambitions',
-              need: FeatureNeed.needs,
-              dependsOn: 'Objectives',
-              satisfied: objectivesOn,
-              blurb:
-                  'Long-term goals written on the character\'s card colour how '
-                  'they steer a scene, and finishing an objective moves them a '
-                  'little closer. Costs nothing extra — the goals are already '
-                  'on the card — but finishing a quest is the only thing that '
-                  'moves them, so they need Objectives running.',
-              value: realism.ambitionsEnabled,
-              onChanged: realism.setAmbitionsEnabled,
-            ),
-            PlannerFeatureRow(
-              value: realism.plannerEnabled,
-              timeOn: timeOn,
-              objectivesOn: objectivesOn,
-              journalOn: journalOn,
-              onChanged: realism.setPlannerEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.person_search_outlined,
-              label: 'Notice new characters',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Every few messages the app reads what was just narrated and, '
-                  'if a new named character has turned up in the story, offers '
-                  'to bring them in so they can speak for themselves. Switch '
-                  'this off and it stops asking — you can still invite someone '
-                  'in yourself at any time with the /scan command or the guest '
-                  'button. On by default; turn it off if the offers interrupt '
-                  'more than they help.',
-              value: realism.sceneGuestDetectionEnabled,
-              onChanged: realism.setSceneGuestDetectionEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.casino_outlined,
-              label: 'Chaos Mode',
-              need: FeatureNeed.alone,
-              blurb:
-                  'Pressure builds quietly as a scene goes on, and every so '
-                  'often something happens that neither of you planned — a '
-                  'knock at the door, a spilled drink, weather turning. It '
-                  'works with or without the Realism Engine. Switching it on '
-                  'here turns it on for new chats and groups; each chat can '
-                  'still overrule it in the sidebar.',
-              value: realism.chaosModeDefault,
-              onChanged: realism.setChaosModeDefault,
-              showChildWhenOff: true,
-              child: ChaosFrequencyPicker(storage: storage),
-            ),
-            FeatureRow(
-              icon: Icons.history,
-              label: 'Welcome-back recap',
-              need: FeatureNeed.alone,
-              blurb:
-                  'After you have been away a while, opening a chat shows a '
-                  'small "where we left off" banner. Uses the time of your last '
-                  'message, already saved with your chat. Nothing new is '
-                  'collected and nothing leaves your device.',
-              value: storage.realismSettings.absenceBannerEnabled,
-              onChanged: storage.realismSettings.setAbsenceBannerEnabled,
-            ),
-            FeatureRow(
-              icon: Icons.waving_hand_outlined,
-              label: 'Character notices your absence',
-              need: FeatureNeed.alone,
-              blurb:
-                  'The character briefly acknowledges a long gap ("it\'s been a '
-                  'few days") — once, in coarse words, never guessing what you '
-                  'were doing. Same local-only timestamp as the recap banner.',
-              value: storage.realismSettings.absenceAckEnabled,
-              onChanged: storage.realismSettings.setAbsenceAckEnabled,
-              child: AwayThreshold(storage: storage),
-            ),
-          ],
-        ),
+    final presenceCard = PorchLifePresenceGroup(
+      storage: storage,
+      expandDetailsSignal: detailsSignal,
+    );
 
-        const PorchLifeMcpWebCard(),
+    final toolsCard = PorchLifeMcpWebCard(expandDetailsSignal: detailsSignal);
 
-        // ── After Dark ──────────────────────────────────────────────────
-        // The approved sketch gives the 18+ feature its own group, "shown only
-        // when 18+ themes are enabled" — deliberately absent, not greyed out,
-        // for anyone who has not asked for adult content. The master switch is
-        // in Settings → General so it stays reachable while this is hidden.
-        if (adultOn)
-          FeatureGroupCard(
-            title: 'After Dark',
-            subtitle: 'shown only when 18+ themes are on',
-            rows: [
-              FeatureRow(
-                icon: Icons.local_fire_department,
-                label: 'Afterglow',
-                need: FeatureNeed.needs,
-                dependsOn: "Realism's arousal",
-                satisfied: engineOn,
-                blurb:
-                    'Desire builds through a scene and settles afterwards '
-                    'instead of resetting — so intimacy keeps a believable '
-                    'rhythm and a character is not instantly ready to go '
-                    'again. The engine is what scores desire, so this cannot '
-                    'run without it. Uses one short extra AI request per reply '
-                    'to notice a climax, so it costs a little more on a paid '
-                    'API. Multiorgasmic characters feel a tenderness window '
-                    'instead of a lock. Off: no chat tracks Lust, and the '
-                    'Afterglow switches on characters and chats are hidden. '
-                    'Each chat keeps its own choice for when you turn this '
-                    'back on.',
-                value: storage.realismSettings.nsfwCooldownDefault,
-                onChanged: (v) async {
-                  final was = storage.realismSettings.afterglowEnabled;
-                  await storage.realismSettings.setNsfwCooldownDefault(v);
-                  if (!context.mounted) return;
-                  await offerAfterglowInExistingChats(context, wasAllowed: was);
-                },
-              ),
-              FeatureRow(
-                icon: Icons.favorite,
-                label: 'Acts on desires',
-                need: FeatureNeed.needs,
-                dependsOn: 'the Realism Engine',
-                satisfied: engineOn,
-                blurb:
-                    'A character with intimate preferences on their card acts '
-                    'on them instead of only reacting: they ask for what they '
-                    'want, in their own voice — a dominant character presses '
-                    'where a soft-spoken one hints — and turns down what they '
-                    'are not interested in rather than going along with it. '
-                    'Being refused something they wanted shows in their mood '
-                    'afterwards, sharper or quieter as fits who they are. Needs '
-                    'the engine because that is what scores the answer they '
-                    'get; without it they would ask and nothing would ever '
-                    'come of it. Costs nothing extra — no AI request, just '
-                    'two more lines in the prompt.',
-                value: realism.intimateAgencyEnabled,
-                onChanged: realism.setIntimateAgencyEnabled,
-              ),
+    final afterDarkCard = adultOn
+        ? PorchLifeAfterDarkGroup(
+            storage: storage,
+            engineOn: engineOn,
+            expandDetailsSignal: detailsSignal,
+            onJumpTo: _jumpTo,
+          )
+        : null;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 960;
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _PorchLifeHeaderBar(
+              detailsExpanded: _detailsAllExpanded,
+              onToggleDetails: _toggleAllDetails,
+            ),
+            const SizedBox(height: 16),
+            if (twoColumns)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [engineCard, timeCard, toolsCard],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [memoryCard, presenceCard, ?afterDarkCard],
+                    ),
+                  ),
+                ],
+              )
+            else ...[
+              engineCard,
+              timeCard,
+              memoryCard,
+              presenceCard,
+              toolsCard,
+              ?afterDarkCard,
             ],
-          ),
+            const PorchLifeDefaultsNote(),
+          ],
+        );
+      },
+    );
+  }
+}
 
-        const PorchLifeDefaultsNote(),
+class _PorchLifeHeaderBar extends StatelessWidget {
+  const _PorchLifeHeaderBar({
+    required this.detailsExpanded,
+    required this.onToggleDetails,
+  });
+
+  final bool detailsExpanded;
+  final VoidCallback onToggleDetails;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12,
+      runSpacing: 10,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Text(
+            'Everything that makes a character feel like they live somewhere. '
+            'Click any group to collapse it, or click an item title to toggle '
+            'its explanation.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: onToggleDetails,
+          icon: Icon(
+            detailsExpanded ? Icons.notes_outlined : Icons.subject_outlined,
+            size: 16,
+          ),
+          label: Text(
+            detailsExpanded ? 'Collapse all details' : 'Expand all details',
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.textPrimary(context),
+            side: BorderSide(color: AppColors.borderOf(context)),
+            backgroundColor: AppColors.cardOf(context),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            textStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }

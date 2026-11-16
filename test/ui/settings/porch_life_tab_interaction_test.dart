@@ -153,7 +153,7 @@ void main() {
         'Needs',
         'Passage of Time',
         'Story Weather',
-        'Temperatures in °F',
+        'Temperature Units',
         'The Journal',
         'Dreams',
         'Promises',
