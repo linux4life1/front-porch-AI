@@ -32,8 +32,8 @@ export interface GenSettings {
   minLength: number;
   dynamicTempEnabled: boolean;
   dynamicTempRange?: number;
-  dynamicResponses: boolean;
-  dynamicResponseInterval: number;
+  dynamicResponses?: boolean;
+  dynamicResponseInterval?: number;
   dynamicResponsePacePeriods?: number;
   outputSanitizerEnabled?: boolean;
   sanitiseExistingHistory?: boolean;
@@ -138,9 +138,7 @@ export function GenerationSettingsFields({
   };
 
   return (
-    <section className="card" data-testid="generation-fields">
-      <h3>Generation</h3>
-
+    <div className="gen-sections" data-testid="generation-fields">
       <ThinkingSettingsControl
         model={model}
         reasoningEnabled={reasoningEnabled}
@@ -158,8 +156,8 @@ export function GenerationSettingsFields({
         patchGen={patchGen}
       />
 
-      <div className="gen-subcard">
-        <h4 className="gen-subcard-title">Output Limits &amp; Context Budgets</h4>
+      <section className="card gen-section-card">
+        <h3 className="gen-section-title">Output Limits &amp; Context Budgets</h3>
         <SliderField
           card
           label="Max output tokens"
@@ -176,10 +174,12 @@ export function GenerationSettingsFields({
         <SliderField
           card
           label="Context size"
+          info="Total working memory buffer for character, chat history, and system instructions."
           value={contextSize}
           min={512}
-          max={500000}
+          max={isLocal ? 131072 : 500000}
           step={512}
+          defaultVal={16384}
           disabled={contextLocked}
           onChange={(v) => patch({ contextSize: Math.round(v) })}
         />
@@ -190,48 +190,10 @@ export function GenerationSettingsFields({
         {replyFills && (
           <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
         )}
-      </div>
+      </section>
 
-      <div className="gen-subcard">
-        <h4 className="gen-subcard-title">Output Pipeline &amp; Rules</h4>
-        {/* Spell check language moved to General with the desktop's layout
-            (one-chat-ux PR 7a): see SpellCheckSettings.tsx. */}
-
-        <div style={{ marginTop: 16 }}>
-          <label className="row-label">
-            <span>Provide periodic responses when user is AFK?</span>
-            <input
-              type="checkbox"
-              checked={g.dynamicResponses}
-              onChange={(e) => patchGen({ dynamicResponses: e.target.checked })}
-            />
-          </label>
-          {g.dynamicResponses && (
-            <>
-              <SliderField
-                label="Idle timeout (s)"
-                value={g.dynamicResponseInterval}
-                min={30}
-                max={300}
-                step={10}
-                onChange={(v) => patchGen({ dynamicResponseInterval: Math.round(v) })}
-              />
-              <label className="field">
-                <span>Story time per away scene</span>
-                <select
-                  value={g.dynamicResponsePacePeriods ?? 1}
-                  onChange={(e) =>
-                    patchGen({ dynamicResponsePacePeriods: Number(e.target.value) })
-                  }
-                >
-                  <option value={1}>a few hours</option>
-                  <option value={3}>half the day</option>
-                  <option value={6}>a full day</option>
-                </select>
-              </label>
-            </>
-          )}
-        </div>
+      <section className="card gen-section-card">
+        <h3 className="gen-section-title">Output Pipeline &amp; Rules</h3>
 
         {g.stopSequences && (
           <StringListEditor
@@ -245,8 +207,9 @@ export function GenerationSettingsFields({
 
         {shown('bannedPhrases') && bannedPhrases !== undefined && (
           <div style={{ marginTop: 16 }}>
+            <h4 className="gen-subsection-heading">Banned phrases</h4>
             <label>
-              Banned phrases
+              <span className="muted small">One phrase per line</span>
               <textarea
                 rows={4}
                 value={bannedPhrases.join('\n')}
@@ -264,7 +227,9 @@ export function GenerationSettingsFields({
 
         {g.outputSanitizerEnabled !== undefined && (
           <>
-            <h4 style={{ marginTop: 20, marginBottom: 4 }}>Output Sanitizer</h4>
+            <h4 className="gen-subsection-heading" style={{ marginTop: 20, marginBottom: 4 }}>
+              Output Sanitizer
+            </h4>
             <p className="muted small">
               Replace specific character sequences in model output before saving
               to chat history (e.g. em dash → &quot; - &quot;).
@@ -273,6 +238,7 @@ export function GenerationSettingsFields({
               <span>Enable Output Sanitizer</span>
               <input
                 type="checkbox"
+                className="switch"
                 checked={!!g.outputSanitizerEnabled}
                 onChange={(e) =>
                   patchGen({
@@ -290,6 +256,7 @@ export function GenerationSettingsFields({
                   <span>Sanitise existing history</span>
                   <input
                     type="checkbox"
+                    className="switch"
                     checked={!!g.sanitiseExistingHistory}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -314,7 +281,7 @@ export function GenerationSettingsFields({
             )}
           </>
         )}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }

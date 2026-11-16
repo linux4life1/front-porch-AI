@@ -168,8 +168,8 @@ export function GenerationParametersCard({
     });
 
   return (
-    <div className="gen-subcard">
-      <h4 className="gen-subcard-title">Generation Parameters</h4>
+    <section className="card gen-section-card">
+      <h3 className="gen-section-title">Generation Parameters</h3>
       <div className="studio-sampler-grid">
         <div className="studio-col">
           <div className="studio-column-heading">Creativity &amp; Probability</div>
@@ -180,6 +180,7 @@ export function GenerationParametersCard({
                 <span>Dynamic temperature</span>
                 <input
                   type="checkbox"
+                  className="switch"
                   checked={g.dynamicTempEnabled}
                   onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
                 />
@@ -209,6 +210,6 @@ export function GenerationParametersCard({
           {renderSpecs(FLOW_SAMPLERS)}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

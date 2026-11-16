@@ -54,7 +54,7 @@ class GenerationSectionCard extends StatelessWidget {
           Row(
             children: [
               Expanded(child: SectionHeader(title)),
-              if (trailing != null) trailing!,
+              ?trailing,
             ],
           ),
           Divider(height: 20, color: AppColors.hairlineOf(context, 0.12)),

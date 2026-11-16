@@ -734,20 +734,56 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
 .prompt-slot-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .prompt-slot-actions label { flex: 1 1 200px; }
 
-/* ── Generation settings: one card per concern (mockup structure) ── */
-.gen-subcard {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-top: 16px;
+/* ── Generation settings: top-level section cards matching Desktop ── */
+.gen-sections {
+  display: flex;
+  flex-direction: column;
 }
-.gen-subcard-title {
+.gen-section-card {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.gen-section-title {
   margin: 0 0 12px;
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--porch-amber);
+}
+.gen-subsection-heading {
+  margin: 0 0 6px;
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--porch-amber);
+}
+.gen-engine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 639px) {
+  .gen-engine-grid { grid-template-columns: 1fr; }
+}
+.gen-engine-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.gen-engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.gen-engine-row-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
   color: var(--text);
 }
 .slider-label { display: inline-flex; align-items: center; gap: 4px; }

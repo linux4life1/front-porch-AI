@@ -89,20 +89,33 @@ class SliderSetting extends StatelessWidget {
         defaultVal != null ||
         dangerMin != null ||
         dangerMax != null) {
-      return StudioSliderCard(
+      return SliderWithInput(
         label: label,
         value: value,
         min: min,
         max: max,
-        defaultVal: defaultVal,
-        dangerMin: dangerMin,
-        dangerMax: dangerMax,
-        onChanged: (v) => onChanged(v),
+        onChanged: onChanged,
+        context: context,
         divisions: divisions,
+        tooltip: tooltip,
         isInteger: isInteger,
         decimalPlaces: decimalPlaces,
-        reset: reset,
-        tooltip: tooltip,
+        trailing: _resetButton(),
+        child: StudioSliderCard(
+          label: label,
+          value: value,
+          min: min,
+          max: max,
+          defaultVal: defaultVal,
+          dangerMin: dangerMin,
+          dangerMax: dangerMax,
+          onChanged: (v) => onChanged(v),
+          divisions: divisions,
+          isInteger: isInteger,
+          decimalPlaces: decimalPlaces,
+          reset: reset,
+          tooltip: tooltip,
+        ),
       );
     }
     final resetButton = _resetButton();

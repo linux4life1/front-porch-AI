@@ -3,7 +3,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/ui/settings/widgets/slider_setting.dart';
 import 'package:front_porch_ai/ui/settings/widgets/studio_slider_card.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart' show SliderWithInput;
 
 void main() {
   testWidgets(
@@ -144,6 +146,40 @@ void main() {
 
       expect(committed, closeTo(0.18, 1e-5));
       expect(find.text('0.18'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'SliderSetting studioStyle preserves SliderWithInput finder for Context Size',
+    (tester) async {
+      double? committed;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SliderSetting(
+              label: 'Context Size',
+              value: 16384,
+              min: 512,
+              max: 131072,
+              defaultVal: 16384,
+              isInteger: true,
+              studioStyle: true,
+              onChanged: (val) => committed = val,
+            ),
+          ),
+        ),
+      );
+
+      final contextField = find.descendant(
+        of: find.widgetWithText(SliderWithInput, 'Context Size'),
+        matching: find.byType(TextField),
+      );
+      expect(contextField, findsOneWidget);
+      await tester.enterText(contextField, '32768');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(committed, 32768.0);
     },
   );
 }

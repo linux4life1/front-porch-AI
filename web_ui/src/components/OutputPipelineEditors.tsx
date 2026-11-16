@@ -79,8 +79,8 @@ export function StringListEditor({
   };
 
   return (
-    <div className="stop-sequence-editor" style={{ marginTop: 16 }}>
-      <h4 style={{ margin: '0 0 4px' }}>{title}</h4>
+    <div className="stop-sequence-editor">
+      <h4 className="gen-subsection-heading" style={{ margin: '0 0 4px' }}>{title}</h4>
       <p className="muted small" style={{ marginBottom: 8 }}>{hint}</p>
 
       <div className="stop-sequence-box">

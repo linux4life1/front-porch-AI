@@ -37,8 +37,8 @@ export function ThinkingSettingsControl({
       : reasoningEffortChipsFor(model);
 
   return (
-    <div className="gen-subcard">
-      <h4 className="gen-subcard-title">Thinking</h4>
+    <section className="card gen-section-card">
+      <h3 className="gen-section-title">Thinking</h3>
       {/* Off and the strength levels are one control */}
       <div className="thinking-strength">
         <div className="thinking-strength-chips" role="group" aria-label="Thinking">
@@ -110,6 +110,6 @@ export function ThinkingSettingsControl({
           This model thinks on or off only — it has no strength levels to pick.
         </p>
       )}
-    </div>
+    </section>
   );
 }
