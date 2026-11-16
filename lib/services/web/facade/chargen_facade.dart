@@ -248,6 +248,7 @@ class ChargenFacade {
       'writing': _rewrites.writing(characterId),
       'sex': readNarrativeVoice(card).sex,
       'hadInterview': stampHadInterview(card),
+      'portraitPromptSeed': buildPortraitPromptSeed(card),
     };
   }
 

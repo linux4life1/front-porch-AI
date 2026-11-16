@@ -1,8 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:convert';
 import 'dart:io';
 
+import 'package:archive/archive.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,11 +19,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_docs_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_docs_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -33,6 +35,7 @@ void main() {
     late StorageService storage;
     late CharacterFacade chars;
     late CharacterAuthoringFacade auth;
+    late CharacterRepository repo;
     late String id;
 
     setUp(() async {
@@ -43,7 +46,7 @@ void main() {
       await storage.setRootPath(
         Directory.systemTemp.createTempSync('fpai_root_').path,
       );
-      final repo = CharacterRepository(db, storage);
+      repo = CharacterRepository(db, storage);
       chars = CharacterFacade(db, storage, null, null, repo);
       auth = CharacterAuthoringFacade(repo, storage);
       final created = await chars.create({'name': 'Edith'});
@@ -82,6 +85,106 @@ void main() {
       expect(await auth.delete(id), isTrue);
       final listed = await chars.list();
       expect(listed.any((m) => m['id'] == id), isFalse);
+    });
+
+    test(
+      'attachPortrait writes a new portrait and re-embeds the card',
+      () async {
+        final png = base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8'
+          'z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+        );
+        expect(await auth.attachPortrait(id, png), isTrue);
+        final card = await repo.getCharacterCardById(id);
+        expect(card?.imagePath, isNotNull);
+        expect(File(card!.imagePath!).existsSync(), isTrue);
+        // The card still round-trips through its PNG after the re-embed.
+        expect((await repo.getCharacterCardById(id))?.name, 'Edith');
+      },
+    );
+
+    test('attachPortrait on an unknown character is false', () async {
+      expect(await auth.attachPortrait('nope', [1]), isFalse);
+    });
+
+    test(
+      'setAvatarLabel re-tags an expression, refuses a look and junk',
+      () async {
+        final png = base64Decode(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8'
+          'z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+        );
+        await auth.attachPortrait(id, png);
+        await auth.addAvatar(id, [1, 2, 3, 4], 'joy');
+        await auth.addLook(id, png);
+        final list = await auth.avatars(id);
+        final expression = list.firstWhere((a) => a['isLook'] == false);
+        final look = list.firstWhere((a) => a['isLook'] == true);
+        expect(
+          await auth.setAvatarLabel(id, expression['id'] as String, 'anger'),
+          isTrue,
+        );
+        expect(
+          (await auth.avatars(
+            id,
+          )).firstWhere((a) => a['id'] == expression['id'])['label'],
+          'anger',
+        );
+        expect(
+          await auth.setAvatarLabel(
+            id,
+            expression['id'] as String,
+            'not-a-label',
+          ),
+          isFalse,
+        );
+        expect(
+          await auth.setAvatarLabel(id, look['id'] as String, 'joy'),
+          isFalse,
+        );
+        expect(await auth.setAvatarLabel(id, 'nope', 'joy'), isFalse);
+      },
+    );
+
+    test(
+      'importExpressionZip adds tagged images, counts the rest, flips the engine',
+      () async {
+        expect(storage.expressionSettings.expressionEnabled, isFalse);
+        final archive = Archive()
+          ..addFile(ArchiveFile('joy.png', 4, [1, 2, 3, 4]))
+          ..addFile(ArchiveFile('sadness-1.png', 4, [5, 6, 7, 8]))
+          ..addFile(ArchiveFile('sunset.png', 4, [9, 9, 9, 9]))
+          ..addFile(ArchiveFile.string('readme.txt', 'not an image'));
+        final zip = ZipEncoder().encode(archive);
+        final result = (await auth.importExpressionZip(id, zip))!;
+        expect(result.tooLarge, isFalse);
+        expect(result.added, 2);
+        expect(result.unrecognized, 1);
+        final list = await auth.avatars(id);
+        expect(
+          list.map((a) => a['label']),
+          containsAll(<String>['joy', 'sadness']),
+        );
+        expect(storage.expressionSettings.expressionEnabled, isTrue);
+      },
+    );
+
+    test('importExpressionZip on an unknown character is null', () async {
+      final zip = ZipEncoder().encode(
+        Archive()..addFile(ArchiveFile('joy.png', 4, [1, 2, 3, 4])),
+      );
+      expect(await auth.importExpressionZip('nope', zip), isNull);
+    });
+
+    test('importExpressionZip refuses an unpacked pack past the cap', () async {
+      // The header declares 65 MiB; nothing is decompressed before the cap.
+      final zip = ZipEncoder().encode(
+        Archive()..addFile(ArchiveFile('joy.png', 65 * 1024 * 1024, [1, 2, 3])),
+      );
+      final result = (await auth.importExpressionZip(id, zip))!;
+      expect(result.tooLarge, isTrue);
+      expect(result.added, 0);
+      expect(await auth.avatars(id), isEmpty);
     });
 
     test('avatar ops on an unknown character return false', () async {

@@ -4,12 +4,9 @@
 // The Greetings step after the Profile step. When the relay says the
 // profile changed since the greetings were written, the hint offers to
 // write them all again (each card is written in turn, the step waits, the
-// hint goes when the relay says they were rewritten) or to keep them. At the
-// foot, the example dialogue and the lorebook can be steered and rewritten;
-// the lorebook card lists its first entries, marks the hand-edited ones and
-// counts the rest. (Its own file: the Greetings test's relay stand-in has
-// no profile or review answers.) The relay itself is covered by its routes
-// test and the browser journey.
+// hint goes when the relay says they were rewritten) or to keep them.
+// The example dialogue and lorebook rewrites now live in the Review step
+// (ReviewStep.test.tsx); this file is the Greetings step alone.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -32,13 +29,6 @@ type Call = { path: string; body: Record<string, unknown> };
 const posts: Call[] = [];
 let profileChanged = true;
 let statusFails = false;
-let reviewFails = false;
-const LORE = [
-  { name: 'The Rock', content: 'A wet rock two miles out.', handEdited: false },
-  { name: 'My Pub', content: 'The pub I wrote myself.', handEdited: true },
-  { name: 'The Harbor', content: 'Gulls and tar.', handEdited: false },
-  { name: 'The Bell', content: 'It rings at dusk.', handEdited: false },
-];
 vi.mock('../../api/client', () => ({
   api: {
     get: async (path: string) => {
@@ -46,10 +36,6 @@ vi.mock('../../api/client', () => ({
       if (path.includes('/greeting/status')) {
         if (statusFails) throw new Error('offline');
         return { writing: null, profileChanged };
-      }
-      if (path.includes('/chargen/review')) {
-        if (reviewFails) throw new Error('offline');
-        return { mesExample: '{{user}}: Hi\n{{char}}: Mind the steps.', lorebook: LORE, writing: null, sex: 'Female' };
       }
       return {};
     },
@@ -103,7 +89,6 @@ beforeEach(async () => {
   busy.length = 0;
   profileChanged = true;
   statusFails = false;
-  reviewFails = false;
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -149,56 +134,6 @@ describe('GreetingsStep after the Profile step', () => {
     expect(hint()).toBeNull();
   });
 
-  it('steers the example dialogue and the lorebook; hand edits are marked', async () => {
-    const dialogue = $('[data-testid="review-example-dialogue"]');
-    const lore = $('[data-testid="review-lorebook"]');
-    expect(dialogue.textContent).toContain('How she answers, learned from the interview');
-    expect(lore.textContent).toContain('4 entries');
-    expect(lore.querySelectorAll('.cg-lore-row')).toHaveLength(3);
-    expect(lore.textContent).toContain('and 1 more');
-    expect(lore.querySelector('.cg-lore-pill')?.textContent).toBe('Edited by hand');
-
-    const steer = dialogue.querySelector('input.cg-g-steer') as HTMLInputElement;
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(steer, 'shorter lines');
-    act(() => {
-      steer.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await click(button(dialogue, /Regenerate/));
-    expect(posts.at(-1)).toEqual({
-      path: '/api/chargen/rewrite/dialogue',
-      body: { characterId: '7', direction: 'shorter lines' },
-    });
-    act(() =>
-      emit({ event: 'chargen_rewrite_progress', characterId: '7', field: 'mesExample', text: '{{char}}: Mind' }),
-    );
-    expect(dialogue.textContent).toContain('Writing…');
-    expect(busy.at(-1)).toBe(true);
-    expect(button(lore, /Rewrite the lorebook/).disabled).toBe(true);
-    expect(button(card(0), /Regenerate/).disabled).toBe(true);
-    act(() =>
-      emit({ event: 'chargen_rewrite_done', characterId: '7', field: 'mesExample', text: '{{char}}: Mind it.' }),
-    );
-    expect(busy.at(-1)).toBe(false);
-    expect((dialogue.querySelector('textarea') as HTMLTextAreaElement).value).toBe('{{char}}: Mind it.');
-
-    await click(button(lore, /Rewrite the lorebook/));
-    expect(posts.at(-1)?.path).toBe('/api/chargen/rewrite/lorebook');
-    act(() =>
-      emit({
-        event: 'chargen_rewrite_done',
-        characterId: '7',
-        field: 'lorebook',
-        lorebook: [
-          { name: 'New Rock', content: 'Rewritten.', handEdited: false },
-          { name: 'My Pub', content: 'The pub I wrote myself.', handEdited: true },
-        ],
-      }),
-    );
-    expect(lore.textContent).toContain('2 entries');
-    expect(lore.textContent).toContain('New Rock');
-    expect(lore.querySelector('.cg-lore-pill')?.textContent).toBe('Edited by hand');
-  });
-
   it('shows no hint when the profile is unchanged', async () => {
     act(() => root.unmount());
     profileChanged = false;
@@ -218,31 +153,6 @@ describe('GreetingsStep after the Profile step', () => {
     expect(busy.at(-1)).toBe(false);
     expect(card(1).textContent).not.toContain('Writing…');
     expect(button(card(0), /Regenerate/).disabled).toBe(false);
-  });
-
-  it('a late event for the other review card does not end the one being written', async () => {
-    const dialogue = $('[data-testid="review-example-dialogue"]');
-    const lore = $('[data-testid="review-lorebook"]');
-    await click(button(lore, /Rewrite the lorebook/));
-    act(() => emit({ event: 'chargen_rewrite_done', characterId: '7', field: 'mesExample', text: 'stale' }));
-    expect(lore.textContent).toContain('Writing…');
-    expect(busy.at(-1)).toBe(true);
-    expect((dialogue.querySelector('textarea') as HTMLTextAreaElement).value).not.toBe('stale');
-  });
-
-  it('says when the review cards could not load, and loads them again', async () => {
-    act(() => root.unmount());
-    reviewFails = true;
-    root = createRoot(container);
-    act(() => {
-      root.render(createElement(GreetingsStep, { characterId: '7' }));
-    });
-    await settle();
-    expect($('[data-testid="review-load-error"]').textContent).toContain('could not be loaded');
-    reviewFails = false;
-    act(() => emit({ event: 'connected' }));
-    await settle();
-    expect(container.querySelector('[data-testid="review-cards"]')).not.toBeNull();
   });
 
   it('asks again whether the profile changed after a failed ask', async () => {
