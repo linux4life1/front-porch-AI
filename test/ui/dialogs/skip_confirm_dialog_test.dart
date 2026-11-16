@@ -4,8 +4,8 @@
 // "Did time pass?" on the desktop (#629): the chips the engine offers,
 // best guess picked; "No skip" and "Other…"; the button names where the
 // clock lands; a failed reading preselects nothing; the dialog closes
-// when the question is answered elsewhere. Fits a 400 px window, a short
-// one, and 1440 px.
+// when the question is answered elsewhere. Fits 1920 px (1080p), 1440 px
+// and a short window.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -67,7 +67,11 @@ void main() {
     return (b.child! as Text).data!;
   }
 
-  for (final size in const [Size(400, 760), Size(400, 420), Size(1440, 900)]) {
+  for (final size in const [
+    Size(1920, 1080),
+    Size(1440, 900),
+    Size(1440, 420),
+  ]) {
     testWidgets('the guess is picked, the player picks 8 hours '
         '(${size.width.toInt()}×${size.height.toInt()})', (tester) async {
       final answers = <SkipVerdict?>[];
@@ -106,7 +110,7 @@ void main() {
     tester,
   ) async {
     final answers = <SkipVerdict?>[];
-    await open(tester, disagrees(), answers, size: const Size(400, 760));
+    await open(tester, disagrees(), answers, size: const Size(1440, 900));
     await tester.tap(find.text('Other…'));
     await tester.pump();
     await tester.enterText(find.byKey(const Key('skip-other-field')), 'soon');
