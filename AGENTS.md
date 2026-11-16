@@ -9,7 +9,8 @@ The parts of CLAUDE.md that bite most often:
 - **One UI (non-negotiable)** — desktop, web wide, web phone, 1:1 and
   group are one screen: same controls, same places, same order, same
   behaviour; only the layout adapts. Every UI change ships desktop and
-  `web_ui/` together, and drift fails CI (`one_ui_parity_test`, the
+  `web_ui/` together, and you render both and compare them side by side
+  (and against any approved mockup) before the PR exists. Drift fails CI (`one_ui_parity_test`, the
   `group_sidebar_parity` goldens, `settings_parity_manifest_test`).
 - **Screenshots are required** — every UI or UX PR carries screenshots of
   each changed screen, desktop and web, in the PR description's
@@ -19,8 +20,11 @@ The parts of CLAUDE.md that bite most often:
   exempt.
 - **What CI enforces** — the ratchets (500-line files, no new `part`
   files, raw colours, raw dialogs, sync I/O in UI), the `## Hand-check`
-  rule on UI PRs, and the `approved-test-change` label for any edit to an
-  existing test, golden, baseline or workflow.
+  rule on UI PRs, the `## Web parity` line (`none: <why>` or `deferred:
+  <what>`) on a PR that changes only desktop or only web UI, and the
+  `approved-test-change` label for any edit to an existing test, golden,
+  baseline or workflow. `pr-labels.yml` tags PRs with `area:` and `check:`
+  labels from their paths; do not set those by hand.
 - **Style** — every UI element, desktop and web, follows the user-selected
   theme in light and dark; no colour that only fits Porch.
 - **Chat contracts** — Continue is not regen, Pockets hide and never

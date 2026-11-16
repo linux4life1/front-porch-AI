@@ -55,7 +55,8 @@ but not both. Write one line, then delete this comment:
 none: <why the other side has nothing to change>
 deferred: <what the maintainer deferred, and where it is tracked>
 If both sides changed in this PR, delete this section. The PR rules check
-fails a one-sided UI PR without this line. -->
+fails a one-sided UI PR without this line. The screenshots below must be
+the same screen on desktop and web, compared by you before opening the PR. -->
 
 ## Parity
 

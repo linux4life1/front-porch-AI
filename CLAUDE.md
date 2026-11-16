@@ -42,6 +42,15 @@ product law, not a preference, and it outranks speed of delivery.
   checked under a non-Porch theme, light and dark, at phone and wide.
   An item may wait only when the maintainer defers it in the current
   conversation, and the PR says so.
+- Prove it before the PR exists. Render the changed screen on desktop and
+  on web (wide and phone), put the shots side by side, and fix every
+  difference in controls, order, wording or styling that is not a layout
+  adaptation. The PR screenshots are that comparison, not a substitute for
+  making it. When the maintainer approved a mockup, it is the binding
+  design for desktop and web: transcribe its palette, fonts, layout and
+  components literally and compare the render against it. A redesign
+  covers the whole flow, not one screen. CI checks that screenshots exist,
+  not that they match; that check is yours.
 - Drift fails CI: `one_ui_parity_test` (section and leaf order, desktop vs
   web, group vs 1:1), `settings_parity_manifest_test`, and the
   `group_sidebar_parity` pixel goldens. A new shared surface gets a
@@ -120,7 +129,7 @@ name through that door's `*_api.dart` bridge the shell exports.
 | `generated_dart_size_test` | `*.g.dart` over its recorded ceiling; Drift managers on | none; `build.yaml` keeps `generate_manager: false` |
 | `raw_colors_ratchet_test`, `raw_dialogs_ratchet_test` | a file gains a raw colour or a dialog opened outside `showWarmDialog`; a new file must have none | none |
 | `needs_gate_ratchet_test`, `clock_*_ratchet_test`, `picker_calls_guarded_test`, `settings_parity_manifest_test` | the gates in **Chat contracts** are bypassed; a setting lacks its web twin | none |
-| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; a UI PR has no `## Screenshots` section with at least one image; images added outside goldens, `assets/`, `docs/screenshots/` | none for screenshots; `approved-images` for a stray image |
+| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; a UI PR has no `## Screenshots` section with at least one image; a PR changes `lib/ui/` or `web_ui/src/` but not both and has no `## Web parity` line (`none: <why>` or `deferred: <what>`); images added outside goldens, `assets/`, `docs/screenshots/` | none for screenshots or parity; `approved-images` for a stray image |
 | Test integrity | an existing test, golden, baseline, dependency floor, `.github/`, `scripts/ci-local.sh` or `analysis_options.yaml` is modified or deleted | maintainer applies `approved-test-change` |
 
 Adding a new test file, or appending whole `test(` / `group(` calls and
@@ -132,6 +141,15 @@ Draft PRs run only the cheap jobs. Open PRs as drafts; the merge queue
 takes them out. `full-lint` is informational. Direct PRs to `main` are
 not accepted; work lands on `Rawhide`. `schedule:` workflows run from the
 default branch, and `test-integrity.yml` runs the base branch's copy.
+
+PR labels: `pr-labels.yml` tags every PR from its changed paths (`area: *`
+for what it touches, `check: *` for what the maintainer should look at:
+`no web twin`, `migration`, `path-complete`, `screenshots`). Do not apply or
+remove those by hand; the next push rewrites them. A `check:` label is a
+prompt to cover that case in the PR description, not an error. Labels you
+or the maintainer set (`approved-test-change`, `approved-images`,
+`update-goldens`) are never touched by it. A new area is one row in the
+table at the top of that workflow.
 
 ## Size law
 
