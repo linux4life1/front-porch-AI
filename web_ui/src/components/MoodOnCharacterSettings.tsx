@@ -10,7 +10,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
-import { SettingRow } from './SettingRow';
 
 type MoodLevel = 'off' | 'portrait' | 'all';
 const MOOD: { value: MoodLevel; label: string }[] = [
@@ -110,18 +109,10 @@ export function MoodOnCharacterSettings() {
         <span className="atmosphere-eyebrow">REALISM MOOD</span>
         <span className="atmosphere-badge atmosphere-badge-ok">Realism Active</span>
       </div>
-      <SettingRow
-        title="Mood on the character"
-        blurb={
-          <>
-            Each character&apos;s mood on their portrait and needs bars, in their
-            own Realism colours. Needs Realism on for the chat. The desktop&apos;s
-            settings; changing them here changes them there too.
-          </>
-        }
-      >
+      <div className="atmosphere-control-block">
+        <span className="atmosphere-sub-eyebrow">Mood on the character</span>
         <select
-          className="setting-row-select"
+          className="sr-only-select"
           value={mood ?? 'off'}
           disabled={mood === null}
           onChange={(e) => setMoodLevel(e.target.value as MoodLevel)}
@@ -131,10 +122,29 @@ export function MoodOnCharacterSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </SettingRow>
-      <SettingRow title="Drama" blurb="How far the moods swing, from the calm end to the theatrical one.">
+        <div className="mode-seg atmosphere-seg" role="radiogroup" aria-label="Mood on the character choices">
+          {MOOD.map((c) => {
+            const active = (mood ?? 'off') === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={mood === null}
+                className={`mode-seg-btn${active ? ' selected' : ''}`}
+                onClick={() => setMoodLevel(c.value)}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="atmosphere-control-block">
+        <span className="atmosphere-sub-eyebrow">Drama</span>
         <input
-          className="setting-row-slider"
+          className="setting-row-slider atmosphere-drama-slider"
           type="range"
           min={40}
           max={160}
@@ -144,7 +154,11 @@ export function MoodOnCharacterSettings() {
           onChange={(e) => changeDrama(Number(e.target.value) / 100)}
           aria-label="Drama"
         />
-      </SettingRow>
+      </div>
+      <p className="muted small atmosphere-caption" style={{ marginTop: 8, marginBottom: 0 }}>
+        Each character&apos;s mood on their portrait and needs bars, in their own
+        Realism colours. Needs Realism on for the chat.
+      </p>
       {error && <p className="error">{error}</p>}
     </section>
   );

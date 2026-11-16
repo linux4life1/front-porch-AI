@@ -207,6 +207,45 @@
 .atmosphere-badge-accent { color: var(--accent); }
 .atmosphere-badge-ok { color: var(--ok); }
 .atmosphere-caption { margin: 0 0 8px; line-height: 1.45; }
+.sr-only-select { display: none; }
+.atmosphere-control-block { margin-top: 10px; }
+.atmosphere-sub-eyebrow {
+  display: block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 6px;
+}
+.atmosphere-seg { width: 100%; }
+.atmosphere-seg .mode-seg-btn { flex: 1; text-align: center; }
+.atmosphere-footer-row {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; margin-top: 12px;
+}
+.atmosphere-toggle-col { display: flex; flex-direction: column; align-items: flex-start; }
+.atmosphere-sound-col { flex: 1; min-width: 180px; }
+.atmosphere-sound-inline { display: flex; align-items: center; gap: 10px; }
+.atmosphere-inline-slider { flex: 1; min-width: 80px; }
+.atmosphere-drama-slider { width: 140px; }
+
+/* Desktop pill-capsule segmented bar for Appearance controls */
+.settings-section .mode-seg {
+  display: inline-flex; align-items: stretch; gap: 0;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg); overflow: hidden; max-width: 100%;
+}
+.settings-section .mode-seg-btn {
+  font-size: 0.78rem; font-weight: 500; padding: 6px 12px;
+  border: none; border-right: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--muted); line-height: 1.25;
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .settings-section .mode-seg { flex-wrap: wrap; border-radius: 14px; }
+  .settings-section .mode-seg-btn { border-right: none; padding: 6px 10px; }
+}
+.settings-section .mode-seg-btn:last-child { border-right: none; }
+.settings-section .mode-seg-btn.selected {
+  background: color-mix(in srgb, var(--porch-amber) 18%, transparent);
+  color: var(--text); font-weight: 600; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--porch-amber) 55%, transparent);
+}
 
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
@@ -529,6 +568,7 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
   input.switch { border-width: 6px; margin: -6px; border-radius: 22px; }
 }
 .settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.settings-save button.primary { border-radius: 999px; padding: 10px 22px; }
 .settings-save .step-up { flex: 1 1 320px; }
 .settings-save .primary:hover:not(:disabled) {
   box-shadow: 0 4px 18px color-mix(in srgb, var(--porch-amber) 35%, transparent);

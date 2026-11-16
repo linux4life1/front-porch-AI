@@ -37,6 +37,8 @@ class ChatAppearanceSection extends StatelessWidget {
     final ui = storageService.uiSettings;
     final scale = ui.textScale;
     final percent = (scale * 100).round();
+    final opacity = ui.bubbleOpacity.clamp(0.1, 1.0);
+    final opacityPercent = (opacity * 100).round();
     final corners = AppCorners.of(context);
 
     return Column(
@@ -52,10 +54,7 @@ class ChatAppearanceSection extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.cardOf(context),
             borderRadius: corners.circular(12),
-            border: Border.all(
-              color: AppColors.borderOf(context),
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.borderOf(context), width: 1),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,15 +146,19 @@ class ChatAppearanceSection extends StatelessWidget {
                       constraints: const BoxConstraints(maxWidth: 220),
                       child: DropdownButton<String>(
                         key: const ValueKey('appearance-chat-font'),
-                        value: kChatFontChoices.any(
-                          (f) => f.$2 == ui.globalChatFontFamily,
-                        )
+                        value:
+                            kChatFontChoices.any(
+                              (f) => f.$2 == ui.globalChatFontFamily,
+                            )
                             ? ui.globalChatFontFamily
                             : '',
                         isExpanded: true,
                         focusColor: Colors.transparent,
                         dropdownColor: AppColors.cardOf(context),
                         style: TextStyle(
+                          fontFamily: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.fontFamily,
                           color: AppColors.textPrimary(context),
                           fontSize: 13,
                         ),
@@ -167,7 +170,11 @@ class ChatAppearanceSection extends StatelessWidget {
                               font.$1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontFamily: font.$2.isEmpty ? null : font.$2,
+                                fontFamily: font.$2.isEmpty
+                                    ? Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.fontFamily
+                                    : font.$2,
                                 color: AppColors.textPrimary(context),
                                 fontSize: 13,
                               ),
@@ -180,6 +187,73 @@ class ChatAppearanceSection extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+              Divider(
+                height: 1,
+                color: AppColors.borderOf(context).withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bubble Opacity',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'How solid the chat bubbles are; the text stays crisp.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainerOf(context),
+                      borderRadius: corners.circular(6),
+                      border: Border.all(
+                        color: AppColors.borderOf(context),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      '$opacityPercent%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.formAccentOf(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Slider(
+                key: const ValueKey('appearance-bubble-opacity'),
+                value: opacity,
+                min: 0.1,
+                max: 1.0,
+                divisions: 18,
+                label: '$opacityPercent%',
+                onChanged: (val) => ui.setBubbleOpacity(val),
               ),
             ],
           ),
