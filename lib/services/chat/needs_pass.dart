@@ -68,7 +68,10 @@ class NeedsPass {
   GroupMemberRealism _memberForWrite(String id) =>
       _scope.groups.memberForWrite(id);
   void _loadGroupRealismIntoScalars(String id) => loadIntoScalars(id);
-  late final NeedsBeatWear _wear = NeedsBeatWear(_scope);
+  late final NeedsBeatWear _wear = NeedsBeatWear(
+    _scope,
+    activeFor: (id) => activeFor(id),
+  );
 
   /// After the clock commits: wear every present body for the beat's
   /// minutes at that character's pace, with the skip floors off-screen and
@@ -84,10 +87,36 @@ class NeedsPass {
   /// moved was the needs judge, behind the engine; the clock's wear must
   /// not get past that gate, or a reply with the engine off shows
   /// "Bladder −1" (a user's report on v1.5.0).
+  ///
+  /// In a group the chat's switches are the SPEAKING member's own (Realism
+  /// and Needs both), so a member with either off is not simulated while the
+  /// others are ([activeFor] answers for one member whoever speaks).
   bool get _needsActive =>
       _realismEnabled &&
-      _needsSimEnabled &&
+      (_activeGroup == null && _needsSimEnabled ||
+          _activeGroup != null &&
+              _scope.groups.needsOnFor(_scope.groups.currentSpeakerId())) &&
       _scope.realismSettings().needsSimDefault;
+
+  /// [active] for group member [id], whoever speaks: the cast's wear and a
+  /// rewind of that member's reply answer for each body. A 1:1 chat has one
+  /// body and the one gate.
+  bool activeFor(String? id) {
+    if (_activeGroup == null) return _needsActive;
+    final realism = _scope.realismEnabledFor?.call(id) ?? _realismEnabled;
+    return realism &&
+        _scope.groups.needsOnFor(id) &&
+        _scope.realismSettings().needsSimDefault;
+  }
+
+  /// Needs are moving for at least one body: a 1:1 chat's gate, or any full
+  /// member of the group. The clock's wear is the cast's, so it runs while
+  /// anyone's Needs run, and charges only the members whose gate is open.
+  bool get _anyBodyActive => _activeGroup == null
+      ? _needsActive
+      : _groupCharacters.any(
+          (c) => !c.isLite && activeFor(_getCharacterIdFromCard(c)),
+        );
 
   /// The chat's own Needs switch at the start of a 1:1 chat, from the card's
   /// choice ([FrontPorchExtensions.needsSimChoice]). A card that says nothing
@@ -137,7 +166,7 @@ class NeedsPass {
   }
 
   void wearBodiesAfterClock(GenerationMode mode, ChatMessage target) {
-    if (!_needsActive) return;
+    if (!_anyBodyActive) return;
     if (mode == GenerationMode.continue_) return;
     _pendingRealismMetadata ??= {};
     _pendingRealismMetadata!['needs_time_wear'] = const <String, int>{};
@@ -153,7 +182,7 @@ class NeedsPass {
   /// ride the turn's pending map onto the reply, where regen, swipe and
   /// delete read them.
   void landLivedBeatBeforeReply() {
-    if (!_needsActive || !_clockRunning) return;
+    if (!_anyBodyActive || !_clockRunning) return;
     if (!_timeService.bodyBeatLivedOwed) return;
     final minutes = _timeService.takeBodyWearMinutes();
     final beat = _activeGroup == null
@@ -176,7 +205,7 @@ class NeedsPass {
   /// beat: the speaker ticks [needsTickPerReply], through the same stamps,
   /// so regen, swipe and delete rewind it the same way.
   void wearBeatOn(ChatMessage target) {
-    if (!_needsActive) return;
+    if (!_anyBodyActive) return;
     final BeatWear beat;
     if (_clockRunning) {
       final minutes = _timeService.takeBodyWearMinutes();

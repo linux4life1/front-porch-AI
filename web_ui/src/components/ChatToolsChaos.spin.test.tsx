@@ -94,7 +94,7 @@ describe('ChatToolsChaos SPIN NOW', () => {
     const button = spinButton();
     expect(button?.textContent).toBe('SPIN NOW');
     act(() => button!.click());
-    expect(post).toHaveBeenCalledWith('/api/chat/chance-time/spin');
+    expect(post).toHaveBeenCalledWith('/api/chat/chance-time/spin', {});
   });
 
   it('holds while an event is pending', () => {

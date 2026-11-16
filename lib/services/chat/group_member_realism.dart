@@ -118,6 +118,33 @@ abstract final class GroupRealismKeys {
   /// Like [pockets], deliberately absent from [runtime] — only the typed
   /// accessor may touch it.
   static const pocketsSwitch = 'pockets_switch';
+
+  /// This member's own Realism, Needs, Afterglow and Objectives switches in
+  /// THIS chat (docs/design/one-chat-ux.md PR 3), the Pockets shape: absent
+  /// means never set, and the reader falls back to the chat's older switch
+  /// (Afterglow: the group's switch AND the member copy's flag), so a chat
+  /// saved before them behaves exactly as it did. Outside [runtime] for the
+  /// same reason as [pocketsSwitch]: only the typed accessors touch them.
+  static const realismSwitch = 'realism_switch';
+  static const needsSwitch = 'needs_switch';
+  static const afterglowSwitch = 'afterglow_switch';
+  static const objectivesSwitch = 'objectives_switch';
+
+  /// This member's own Chaos Mode in THIS chat (docs/design/
+  /// chaos-per-character.md, PR 5b). Same shape as [realismSwitch]: absent
+  /// means never seeded, and the entry seed writes it once from the card
+  /// OR the group's old switch, so an existing group enters with every
+  /// member as the group switch had them. The pressure, cooldown, pending
+  /// event and delivered flag ride here too — the bag is the member's
+  /// whole chaos state, persisted with the chat by the paths that already
+  /// save this blob. Deliberately outside [runtime]: only the typed
+  /// accessors below touch them.
+  static const chaosSwitch = 'chaos_switch';
+  static const chaosNsfwSwitch = 'chaos_nsfw';
+  static const chaosPressure = 'chaos_pressure';
+  static const chaosCooldown = 'chaos_cooldown';
+  static const chaosPendingEvent = 'chaos_pending_event';
+  static const chaosEventDelivered = 'chaos_delivered';
   static const relationships = 'relationships';
 
   /// Everything the generic bridges ([GroupMemberRealism.valueFor] /
@@ -334,6 +361,73 @@ class GroupMemberRealism {
       _data.remove(GroupRealismKeys.pocketsSwitch);
     } else {
       _data[GroupRealismKeys.pocketsSwitch] = v;
+    }
+  }
+
+  /// The per-chat switches of PR 3. Null = never set (see the keys). Written
+  /// false keeps every value the member holds: off hides and holds, never
+  /// erases.
+  bool? get realismSwitch => _bool(GroupRealismKeys.realismSwitch);
+  set realismSwitch(bool? v) => _putBool(GroupRealismKeys.realismSwitch, v);
+  bool? get needsSwitch => _bool(GroupRealismKeys.needsSwitch);
+  set needsSwitch(bool? v) => _putBool(GroupRealismKeys.needsSwitch, v);
+  bool? get afterglowSwitch => _bool(GroupRealismKeys.afterglowSwitch);
+  set afterglowSwitch(bool? v) => _putBool(GroupRealismKeys.afterglowSwitch, v);
+  bool? get objectivesSwitch => _bool(GroupRealismKeys.objectivesSwitch);
+  set objectivesSwitch(bool? v) =>
+      _putBool(GroupRealismKeys.objectivesSwitch, v);
+
+  // ── Chaos Mode per member (PR 5b, docs/design/chaos-per-character.md) ─
+  // Absent means never seeded: the entry seed writes the switch once, and
+  // readers keep their own defaults for the rest (pressure 0, cooldown 0,
+  // no pending event). Off hides and holds, never erases — a member's
+  // pressure and parked event survive the switch going off, and coming
+  // back finds them, like the Needs bars do.
+  bool? get chaosSwitch => _bool(GroupRealismKeys.chaosSwitch);
+  set chaosSwitch(bool? v) => _putBool(GroupRealismKeys.chaosSwitch, v);
+  bool? get chaosNsfw => _bool(GroupRealismKeys.chaosNsfwSwitch);
+  set chaosNsfw(bool? v) => _putBool(GroupRealismKeys.chaosNsfwSwitch, v);
+  int get chaosPressure => _int(GroupRealismKeys.chaosPressure) ?? 0;
+  set chaosPressure(int? v) => _putNum(GroupRealismKeys.chaosPressure, v);
+  int get chaosCooldown => _int(GroupRealismKeys.chaosCooldown) ?? 0;
+  set chaosCooldown(int? v) => _putNum(GroupRealismKeys.chaosCooldown, v);
+
+  /// The member's pending Chance Time event, placeholders already resolved
+  /// (the same shape the 1:1 scalar holds). It injects only on THIS
+  /// member's turn — that scoping is what the key existing at all is for.
+  String? get chaosPendingEvent => _string(GroupRealismKeys.chaosPendingEvent);
+  set chaosPendingEvent(String? v) =>
+      _putString(GroupRealismKeys.chaosPendingEvent, v);
+
+  /// True once the parked event has been delivered in a generation, so the
+  /// "EVENT PENDING" state clears when the member has received it while
+  /// regens/swipes of their reply keep re-injecting it.
+  bool get chaosEventDelivered =>
+      _bool(GroupRealismKeys.chaosEventDelivered) ?? false;
+  set chaosEventDelivered(bool? v) =>
+      _putBool(GroupRealismKeys.chaosEventDelivered, v);
+
+  void _putNum(String key, int? v) {
+    if (v == null) {
+      _data.remove(key);
+    } else {
+      _data[key] = v;
+    }
+  }
+
+  void _putString(String key, String? v) {
+    if (v == null) {
+      _data.remove(key);
+    } else {
+      _data[key] = v;
+    }
+  }
+
+  void _putBool(String key, bool? v) {
+    if (v == null) {
+      _data.remove(key);
+    } else {
+      _data[key] = v;
     }
   }
 

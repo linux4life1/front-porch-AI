@@ -13,7 +13,6 @@ import {
   reasoningEffortMappingCaption,
   reasoningEffortTitle,
 } from '../utils/reasoningEffort';
-import { spellCheckLabel, sortedByLabel } from '../spellCheckLabels';
 import { resetFor, type Recommended, type SamplerKey } from './genPresets/genPresets';
 
 export interface SanitizerRule {
@@ -160,8 +159,6 @@ export function GenerationSettingsFields({
   contextFloor = CONTEXT_FLOOR,
   generation,
   bannedPhrases,
-  spellCheckLanguage,
-  spellCheckLanguages,
   reasoningEnabled,
   reasoningEffort,
   reasoningMandatory,
@@ -182,8 +179,6 @@ export function GenerationSettingsFields({
   contextFloor?: number;
   generation: GenSettings;
   bannedPhrases?: string[];
-  spellCheckLanguage?: string;
-  spellCheckLanguages?: string[];
   reasoningEnabled: boolean;
   reasoningEffort: string;
   reasoningMandatory?: boolean;
@@ -279,28 +274,8 @@ export function GenerationSettingsFields({
           reset={rs('dynamicTempRange')}
           onChange={(v) => patchGen({ dynamicTempRange: v })} />
       )}
-      {spellCheckLanguage !== undefined && (
-        <label>
-          Spell check language
-          <select
-            value={spellCheckLanguage}
-            onChange={(e) => patch({ spellCheckLanguage: e.target.value })}
-          >
-            <option value="off">Off</option>
-            {sortedByLabel([
-              ...(spellCheckLanguages ?? []),
-              ...(spellCheckLanguage !== 'off' ? [spellCheckLanguage] : []),
-            ]).map((tag) => (
-              <option key={tag} value={tag}>{spellCheckLabel(tag)}</option>
-            ))}
-          </select>
-          <p className="muted small">
-            The language you write in — not your device&apos;s language. If your phone or
-            computer is set to one language but you chat with characters in another,
-            set this to the one you chat in.
-          </p>
-        </label>
-      )}
+      {/* Spell check language moved to General with the desktop's layout
+          (one-chat-ux PR 7a): see SpellCheckSettings.tsx. */}
       <label className="row-label">
         <span>Request thinking</span>
         <input

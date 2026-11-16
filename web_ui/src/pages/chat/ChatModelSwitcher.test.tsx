@@ -227,11 +227,12 @@ describe('ChatModelSwitcher', () => {
     );
     await renderSwitcher();
     await openSheet();
-    const select = container.querySelector('.model-switch-provider select') as HTMLSelectElement;
-    expect(select.value).toBe('openrouter');
+    const openChip = container.querySelector(
+      '[data-testid="provider-chip-openrouter"]',
+    ) as HTMLButtonElement;
+    expect(openChip.getAttribute('aria-pressed')).toBe('true');
     await act(async () => {
-      select.value = 'nanogpt';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+      (container.querySelector('[data-testid="provider-chip-nanogpt"]') as HTMLButtonElement).click();
     });
     const pw = container.querySelector('input[type="password"]') as HTMLInputElement;
     expect(pw).toBeTruthy();
@@ -266,10 +267,11 @@ describe('ChatModelSwitcher', () => {
   it('switches to KoboldCpp without a password', async () => {
     await renderSwitcher();
     await openSheet();
-    const select = container.querySelector('.model-switch-provider select') as HTMLSelectElement;
+    const koboldChip = container.querySelector(
+      '[data-testid="provider-chip-kobold"]',
+    ) as HTMLButtonElement;
     await act(async () => {
-      select.value = 'kobold';
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+      koboldChip.click();
     });
     expect(container.querySelector('input[type="password"]')).toBeNull();
     const btn = [...container.querySelectorAll('button')].find((b) =>

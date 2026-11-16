@@ -141,8 +141,8 @@ void main() {
     expect(g.temperature, 0.5, reason: 'not the chat model, nothing loads');
   });
 
-  testWidgets('the bar fits a 400 px window', (tester) async {
-    const long = 'A rather long preset name for a narrow window';
+  testWidgets('the bar fits a 1440 px window', (tester) async {
+    const long = 'A rather long preset name for the preset bar';
     final storage = await GenPresetStorage.create(
       rec: (_) => const RecommendedSamplers(
         SamplerValues(temperature: 0.6),
@@ -153,9 +153,7 @@ void main() {
     await storage.genPresets.savePreset(long, GenPresetActions(storage).live);
     await storage.genPresets.setSlot(long);
     await storage.generationSettings.setTemperature(1.1);
-    await tester.pumpWidget(
-      _host(storage, const GenerationPresetBar(), width: 400),
-    );
+    await tester.pumpWidget(_host(storage, const GenerationPresetBar()));
     await tester.pump();
     expect(find.text('Use recommended'), findsOneWidget);
     expect(tester.takeException(), isNull);

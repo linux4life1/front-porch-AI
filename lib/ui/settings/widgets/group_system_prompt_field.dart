@@ -21,7 +21,7 @@ class GroupSystemPromptField extends StatelessWidget {
     fieldLabel: 'Group system prompt',
     helper:
         'Used in every group chat, unless that group has its own prompt '
-        'in Group Settings. Front Porch adds its own turn rules, and '
+        'in Edit group. Front Porch adds its own turn rules, and '
         "Director Mode's, on top either way.",
   );
 }

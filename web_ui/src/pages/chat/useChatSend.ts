@@ -72,6 +72,7 @@ export function useChatSend(refresh: () => Promise<void>) {
   const regenerate = useCallback(async (
     critique?: string,
     lookup?: { source: 'web' | 'wiki'; query: string },
+    target?: 'mainCharacter',
   ) => {
     const trimmed = (critique ?? '').trim();
     const query = lookup?.query.trim() ?? '';
@@ -79,6 +80,9 @@ export function useChatSend(refresh: () => Promise<void>) {
     if (trimmed) body.critique = trimmed;
     if (query && lookup?.source === 'web') body.webQuery = query;
     if (query && lookup?.source === 'wiki') body.wikiQuery = query;
+    // Only ever set for the buried-host regen; the plain regen body stays
+    // byte-for-byte what older hosts expect.
+    if (target === 'mainCharacter') body.target = target;
     try {
       await api.post(
         '/api/chat/regenerate',

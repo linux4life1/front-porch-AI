@@ -21,8 +21,10 @@ import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/voice/voice_media_wire.dart';
 
 /// Audio bytes plus the MIME type to serve them with.
 typedef AudioPayload = ({Uint8List bytes, String contentType});
@@ -32,13 +34,28 @@ typedef AudioPayload = ({Uint8List bytes, String contentType});
 /// speech-to-text over an uploaded mic recording. Thin over [TtsService] and
 /// [SttService]; all engine selection / model handling stays in those services.
 class VoiceFacade {
-  VoiceFacade(this._tts, this._stt, this._storage, {ChatService? chat})
-    : _chat = chat;
+  VoiceFacade(
+    this._tts,
+    this._stt,
+    this._storage, {
+    ChatService? chat,
+    ExpressionClassifierService? expressions,
+    LocalCaptionService? caption,
+  }) : _chat = chat,
+       media = VoiceMediaWire(
+         _storage,
+         expressions: expressions,
+         caption: caption,
+       );
 
   final TtsService _tts;
   final SttService _stt;
   final StorageService _storage;
   final ChatService? _chat;
+
+  /// The rest of Settings → Voice & Media (expressions, image generation,
+  /// auto-send, the ONNX model and the photo helper).
+  final VoiceMediaWire media;
 
   /// Capability snapshot for the web client to decide which controls to show.
   Map<String, dynamic> status() => {
@@ -61,15 +78,19 @@ class VoiceFacade {
           },
         )
         .toList(),
+    // Additive (settings rebuild 7c): the rest of the Voice & Media tab.
+    ...media.read(),
   };
 
-  /// Persist the Voice & Media enable flags from the web Settings page so a
-  /// remote/phone user can turn TTS/STT on without opening the desktop tab.
+  /// Persist the Voice & Media settings from the web Settings page so a
+  /// remote/phone user can change them without opening the desktop tab.
+  /// Unknown keys and bad values are ignored.
   Future<Map<String, dynamic>> apply(Map<String, dynamic> body) async {
     final tts = body['ttsEnabled'];
     if (tts is bool) await _storage.ttsSettings.setTtsEnabled(tts);
     final stt = body['sttEnabled'];
     if (stt is bool) await _storage.sttSettings.setSttEnabled(stt);
+    await media.write(body);
     return status();
   }
 

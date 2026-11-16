@@ -265,6 +265,15 @@ extension RealismInjectionWiring on RealismGraph {
       chaosModeService: chaos,
       // The member pinned for the turn in a group, the host in 1:1.
       getActiveCharacter: () => groups.workSpeakerCard(),
+      // PR 5b: the pinned speaker's bag, so a group's Chance Time event
+      // injects only when the member it was rolled FOR generates — and
+      // never rides another member's turn (Error Book: the group tick
+      // that hit everyone). Null in 1:1: the scalar path stays law.
+      getSpeakerBag: () {
+        if (session.activeGroup == null) return null;
+        final id = groups.currentSpeakerId();
+        return id.isEmpty ? null : groups.members[id];
+      },
     );
   }
 

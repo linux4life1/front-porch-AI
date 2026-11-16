@@ -287,21 +287,21 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The character folder tree (id, name, parentId) so the web library can show
-  /// folder navigation. Character membership is queried separately via
-  /// `list(folder: id)`, which already routes through FolderService.
-  List<Map<String, dynamic>> folders() {
+  /// The folder tree (id, name, parentId, the recursive counts Delete
+  /// Folder shows plus the tile's direct-member counts, and up to 4 member
+  /// previews for the web's portrait tile — drift ledger #4). Membership
+  /// is `list(folder: id)`.
+  Future<List<Map<String, dynamic>>> folders() async {
     final svc = _folders;
     if (svc == null) return const [];
-    return svc.folders
-        .map(
-          (f) => {
-            'id': f.id,
-            'name': f.name,
-            if (f.parentId != null) 'parentId': f.parentId,
-          },
-        )
-        .toList();
+    final characters = await _db.getAllCharacters();
+    return folderListPayload(
+      svc,
+      characters,
+      cards,
+      _placeholderPortraitIds,
+      _avatarVersion,
+    );
   }
 
   /// Edit an existing character's fields through the desktop save path (the
@@ -447,8 +447,7 @@ class CharacterFacade {
     }
   }
 
-  /// Full character card detail, matching the legacy `/detail` payload
-  /// (including session-scoped evolution state when a chat is active).
+  /// Full character card detail (the legacy `/detail` payload).
   Future<Map<String, dynamic>?> detail(String id) async {
     try {
       final c = await _db.getCharacterById(id);
@@ -485,9 +484,8 @@ class CharacterFacade {
         'narrativePerspective': voice.perspective,
         'narrativeTense': voice.tense,
         'sex': voice.sex,
-        // (The old evolved*/evolutionCount fields are gone — growth is served
-        // per-participant by /api/chat/tools/growth; the bundled web UI ships
-        // in lockstep with this facade.)
+        'inGroups': await groupNamesOfCharacter(_db, inMemory),
+        // (Growth is served per-participant by /api/chat/tools/growth.)
       };
     } catch (_) {
       return null;

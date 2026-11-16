@@ -104,8 +104,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     // ── Details tab (details part): edit the name ─────────────────────────
-    expect(find.text('Porch Regulars'), findsWidgets,
-        reason: 'Details tab must show the seeded group name');
+    expect(
+      find.text('Porch Regulars'),
+      findsWidgets,
+      reason: 'Details tab must show the seeded group name',
+    );
     // The name field is the Details tab's first text input.
     await tester.enterText(
       find.byType(EditableText).first,
@@ -117,38 +120,46 @@ void main() {
     await tester.tap(find.text('Dialogue'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.textContaining('First Message'), findsWidgets,
-        reason: 'Dialogue tab landmark did not render');
+    expect(
+      find.textContaining('First Message'),
+      findsWidgets,
+      reason: 'Dialogue tab landmark did not render',
+    );
 
     // ── Lore & Worlds tab (lore_worlds part): add an entry + flip inherit ─
-    await tester.tap(find.text('Lore & Worlds'));
+    await tester.tap(find.text('Lorebook'));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.ensureVisible(find.text('Add Entry'));
-    expect(find.text('Add Entry'), findsWidgets,
-        reason: 'Lore & Worlds landmark (its future part) did not render');
+    expect(
+      find.text('Add Entry'),
+      findsWidgets,
+      reason: 'Lorebook landmark did not render',
+    );
 
-    final inherit = find.byType(SwitchListTile).first;
+    final inherit = find.byKey(const Key('group-inherit-lore'));
     await tester.ensureVisible(inherit);
     await tester.tap(inherit);
     await tester.pump(const Duration(milliseconds: 200));
-
-    // ── Realism tab (stays in shell) ──────────────────────────────────────
-    await tester.tap(find.text('Realism & Dynamics'));
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(milliseconds: 300));
 
     // ── Save: the repo must receive the edited group, stableId intact ─────
     await tester.tap(find.text('Save'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(groups.saved, isNotNull, reason: 'Save must reach the repository');
     expect(groups.saved!.name, 'Porch Regulars (Renamed)');
-    expect(groups.saved!.stableId, 'Porch_Regulars_123',
-        reason: 'the portable stable id must survive an edit round-trip');
-    expect(groups.saved!.inheritCharacterLorebooks, isFalse,
-        reason: 'the inherit toggle flip (lore part) must round-trip '
-            'through Save — proves a cross-part edit reaches the model');
+    expect(
+      groups.saved!.stableId,
+      'Porch_Regulars_123',
+      reason: 'the portable stable id must survive an edit round-trip',
+    );
+    expect(
+      groups.saved!.inheritCharacterLorebooks,
+      isFalse,
+      reason:
+          'the inherit toggle flip (lore part) must round-trip '
+          'through Save — proves a cross-part edit reaches the model',
+    );
   });
 
   // A group made from a 1:1 before forks saved honest settings: the group

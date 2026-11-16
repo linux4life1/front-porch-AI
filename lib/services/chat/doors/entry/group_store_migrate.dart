@@ -217,6 +217,7 @@ class GroupStoreMigrate {
     }
 
     changed |= migrateGroupStoreKeys(group.characterSystemPrompts, members);
+    changed |= migrateGroupStoreKeys(group.characterAuthorNotes, members);
     return changed;
   }
 }

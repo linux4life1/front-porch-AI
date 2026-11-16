@@ -25,6 +25,7 @@
 // `_advanceStoryClockAfterReply` lets a Continue apply the skip.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
     show kTimeSkipBridgeMeta;
@@ -262,7 +263,14 @@ void main() {
       for (final c in cast) {
         expect(h.chat.getEmotionForGroupCharacter(c), isNot('furious'));
         final bars = h.chat.getNeedsForGroupCharacter(c);
-        expect(bars['hunger'], 80, reason: '${c.name} ate in those days');
+        // Everyday hunger is the member copy's own baseline (PR 5).
+        expect(
+          bars['hunger'],
+          NeedsSimulation.baselinesFromExtensions(
+            c.frontPorchExtensions,
+          )['hunger'],
+          reason: '${c.name} ate in those days',
+        );
         expect(bars['energy'], 80, reason: '${c.name} slept in those days');
       }
     });

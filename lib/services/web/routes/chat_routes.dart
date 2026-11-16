@@ -19,8 +19,10 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat/chat_command_handler/slash_command_catalog.dart';
 import 'package:front_porch_ai/services/services.dart' show FeelingsRescore;
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'chat_place_move_route.dart';
 import 'chat_host_turn_route.dart';
@@ -35,6 +37,7 @@ class WebChatRoutes {
     router.post('/api/chat/context-budget/refresh', _refreshContextBudget);
     router.get('/api/chat/participant/<id>/realism', _participantRealism);
     router.get('/api/chat/sessions', _sessions);
+    router.get('/api/chat/slash-commands', _slashCommands);
     registerPersonaRoutes(router, _facade);
     router.post('/api/chat/select', _select);
     router.post('/api/chat/select-group', _selectGroup);
@@ -137,6 +140,19 @@ class WebChatRoutes {
         ),
       });
 
+  /// The "type /" cheat-sheet catalog, served so the web sheet renders the
+  /// desktop helper's own list ([kSlashCommands], the single source of truth)
+  /// instead of a hand-copy that drifts from it (drift ledger #14). Aliases
+  /// stay omitted here for the same reason as on desktop: scannability.
+  shelf.Response _slashCommands(shelf.Request request) => JsonResponse.ok([
+    for (final c in kSlashCommands)
+      {
+        'command': c.command,
+        'example': c.example,
+        'description': c.description,
+      },
+  ]);
+
   Future<shelf.Response> _select(shelf.Request request) async {
     final body = await _json(request);
     final id = body['characterId']?.toString();
@@ -221,8 +237,15 @@ class WebChatRoutes {
     return JsonResponse.ok({'status': 'ok'});
   }
 
-  shelf.Response _spinChanceTime(shelf.Request request) {
-    if (!_facade.requestChanceTimeSpin()) {
+  Future<shelf.Response> _spinChanceTime(shelf.Request request) async {
+    // PR 5b: in a group the body names the cast member whose card spun
+    // (`memberId`); 1:1 stays bodyless like it always was.
+    final body = await _json(request);
+    final memberId = body['memberId']?.toString();
+    if (!requestManualSpin(
+      chat: _facade.chat,
+      memberId: memberId == null || memberId.isEmpty ? null : memberId,
+    )) {
       return JsonResponse.badRequest(
         'Chaos is off or an event is already pending',
       );
@@ -237,10 +260,19 @@ class WebChatRoutes {
 
   Future<shelf.Response> _regenerate(shelf.Request request) async {
     final body = await _json(request);
+    // Absent is the normal last-reply regen. `mainCharacter` is the desktop's
+    // second ⟳ for a host reply buried under Scene Guest chimes. Anything
+    // else is a 400 rather than a silent fallback: guessing would run the
+    // other action, and these two are not interchangeable.
+    final target = body['target'];
+    if (target != null && target != 'mainCharacter') {
+      return JsonResponse.badRequest('unknown regenerate target');
+    }
     _facade.regenerate(
       critique: body['critique']?.toString(),
       webQuery: body['webQuery']?.toString(),
       wikiQuery: body['wikiQuery']?.toString(),
+      mainCharacter: target == 'mainCharacter',
     );
     return JsonResponse.ok({'status': 'ok'});
   }

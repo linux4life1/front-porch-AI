@@ -41,6 +41,59 @@
 }
 .theme-actions { display: flex; gap: 8px; margin-top: 12px; }
 
+/* ── Appearance: theme gallery (the desktop's ThemeCardGrid) ───────────── */
+.theme-gallery-wrap { margin: 10px 0 14px; }
+.theme-gallery {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
+}
+.theme-gallery-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 0 0 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; text-align: left;
+  overflow: hidden; color: var(--text);
+}
+.theme-gallery-card:hover { border-color: var(--accent); }
+.theme-gallery-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.theme-gallery-preview {
+  display: flex; height: 64px; border-bottom: 1px solid;
+}
+.theme-gallery-rail { width: 14px; border-right: 1px solid; }
+.theme-gallery-chat {
+  flex: 1; display: flex; flex-direction: column; justify-content: space-evenly;
+  padding: 8px;
+}
+.theme-gallery-bar { height: 9px; border-radius: 5px; }
+.theme-gallery-bar.left { width: 62%; }
+.theme-gallery-bar.right { width: 45%; align-self: flex-end; }
+.theme-gallery-bar.accent { width: 30%; }
+.theme-gallery-name { padding: 0 10px; font-size: 0.82rem; font-weight: 600; }
+.theme-gallery-tag { padding: 0 10px; font-size: 0.68rem; }
+@media (max-width: 480px) {
+  .theme-gallery { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+}
+
+/* ── Appearance: accent swatches ───────────────────────────────────────── */
+.accent-control { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.accent-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.accent-swatch {
+  width: 28px; height: 28px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.accent-swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+.accent-swatch.theme { position: relative; }
+.accent-swatch.custom {
+  display: grid; place-items: center; overflow: hidden;
+  background: conic-gradient(var(--accent), var(--porch-honey), var(--porch-terracotta), var(--accent));
+}
+.accent-swatch.custom input[type='color'] {
+  width: 34px; height: 34px; padding: 0; border: 0; background: none;
+  cursor: pointer; opacity: 0;
+}
+.accent-card-note { margin: 6px 0 0; }
+.appearance-reset { margin: 6px 0 12px; }
+
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
 @media (max-width: 768px) { .img-row2 { grid-template-columns: 1fr; } }
@@ -100,7 +153,9 @@
 .icon-btn.mic.recording { color: var(--danger); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ── Persona manager (card grid, not a flat list) ─────────────── */
+/* ── Persona manager (hero card + card grid, the desktop's page twin) ── */
+/* The chat's persona switcher stays a flat list (the desktop's in-chat
+   switcher is one too): the shared bits live here, manager-only styles below. */
 .persona-list {
   list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -111,16 +166,118 @@
   background: var(--surface-2);
 }
 .persona-list li.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .persona-av {
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; background: var(--surface-2);
   color: var(--accent); font-weight: 700;
 }
-.persona-list li.active .persona-av { background: var(--accent); color: var(--on-accent); }
+/* --pc is the persona's palette color, set per card in PersonaManager.tsx
+   (the desktop paints the same tints from PersonaColors). */
+.persona-hero {
+  display: flex; align-items: flex-start; gap: 16px; margin-top: 12px; padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 35%, var(--border));
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--pc, var(--accent)) 10%, var(--surface)),
+    var(--surface) 60%);
+}
+/* The desktop's hero edit button is tinted with the persona colour. */
+.persona-hero > .icon-btn { color: color-mix(in srgb, var(--pc, var(--accent)) 70%, transparent); }
+/* Phone: the title takes the first line and the three buttons share the
+   next, none of them mid-word. */
+@media (max-width: 640px) {
+  [data-testid="persona-manager"] .card-head { flex-wrap: wrap; }
+  [data-testid="persona-manager"] .card-head h3 { flex-basis: 100%; }
+  [data-testid="persona-manager"] .card-head button {
+    flex: 1 1 auto; white-space: nowrap; padding: 8px 10px;
+  }
+}
+.persona-hero-main { flex: 1; min-width: 0; }
+.persona-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.persona-hero-name strong {
+  font-size: 1.15rem; letter-spacing: -0.01em; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-hero-sub { margin-top: 2px; font-size: 0.85rem; font-weight: 500; color: color-mix(in srgb, var(--pc) 80%, transparent); }
+.persona-hero-desc {
+  margin: 6px 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-badge {
+  flex-shrink: 0; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  color: var(--pc, var(--accent)); background: color-mix(in srgb, var(--pc, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+}
+.persona-chip {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+  padding: 4px 10px; border-radius: 8px; font-size: 0.68rem; color: var(--muted);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid var(--border);
+}
+.persona-chip svg { opacity: 0.7; }
+.persona-section {
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--muted);
+}
+.persona-tick { width: 3px; height: 16px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+.persona-grid {
+  list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.persona-grid li {
+  position: relative; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); cursor: pointer;
+}
+.persona-grid li.default {
+  border-color: color-mix(in srgb, var(--pc, var(--accent)) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--accent)) 40%, transparent);
+}
+.persona-card-top { display: flex; align-items: center; gap: 10px; }
+.persona-grid .persona-av, .persona-hero .persona-av {
+  overflow: hidden;
+  color: #fff; /* theme-keep: palette glyph ink, the desktop's white-on-color avatar */
+  background: var(--pc, var(--surface));
+}
+.persona-grid .persona-av img, .persona-hero .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+.persona-list .persona-av { overflow: hidden; }
+.persona-list .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+.persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
+/* The shared .card-kebab is an absolute cover overlay (library-cards.css);
+   on a persona card it must sit IN the header row, or it paints over the
+   name and the sweep's overlap guard fails the page. */
+.persona-grid .card-kebab { position: static; opacity: 1; margin-left: auto; flex-shrink: 0; }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
-.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
+.persona-main .psub {
+  font-size: 0.72rem; color: color-mix(in srgb, var(--pc) 75%, transparent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-desc {
+  margin: 0; font-size: 0.76rem; line-height: 1.5; color: var(--muted); min-height: 2.3em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-desc.empty { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.persona-card-foot { display: flex; justify-content: flex-end; align-items: center; }
+.persona-make {
+  font-size: 0.66rem; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  color: var(--pc, var(--accent)); border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+  background: color-mix(in srgb, var(--pc, var(--accent)) 12%, transparent);
+}
+.persona-card-menu { position: absolute; top: 38px; right: 10px; z-index: 61; width: 190px; }
+.persona-empty { text-align: center; padding: 34px 12px; }
+.persona-empty-av {
+  width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.persona-empty-title { font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 0 0 4px; }
 .persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 
 /* ── Account ──────────────────────────────────────────────────── */
@@ -165,14 +322,128 @@
 .sg-signed-in { margin: 0; font-weight: 600; color: var(--ok); }
 .sg-fine { margin: 0; font-size: 0.75rem; color: var(--porch-amber); }
 
-/* ── Settings sections (desktop-tab parity: General → Advanced) ─────────── */
-.settings-section { margin-bottom: 28px; }
-.settings-section-heading {
-  margin: 0 0 12px; font-size: 1.15rem; color: var(--text);
-  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+/* ── Settings tabs + rows (one-chat-ux PR 7a: the desktop's look) ─────────
+   A tab strip under the title with the accent underline on the active tab,
+   and flat setting rows — title + muted explanation left, control right,
+   hairline divider below. No card outlines where the desktop shows rows.
+   The porch at dusk, not a spreadsheet: the warm accent family glows
+   through the strip, the switches and the group headings. */
+.settings-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  margin: -4px 0 8px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--porch-amber) 7%, transparent),
+    transparent
+  );
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.settings-group { margin-bottom: 16px; }
-.settings-group-heading { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 10px 14px; font: inherit; color: var(--muted); cursor: pointer;
+  white-space: nowrap; transition: color 0.15s, background 0.15s;
+}
+.settings-tab:hover {
+  color: var(--porch-honey);
+  background: color-mix(in srgb, var(--porch-amber) 8%, transparent);
+  border-radius: 8px 8px 0 0;
+}
+.settings-tab[aria-selected="true"] {
+  color: var(--text); font-weight: 600;
+  border-image: linear-gradient(90deg, var(--porch-terracotta), var(--porch-amber), var(--porch-honey)) 1;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--porch-amber) 45%, transparent);
+}
+/* The desktop's window is wide; the 720px `.page` default clipped the tab
+   rail ("your tab rail is getting cut off because its not full screen
+   width", maintainer 2026-11-13). Settings spans the content column on
+   desktop and tablet, like the library page already does. */
+[data-layout="desktop"] .page.settings-page,
+[data-layout="tablet"] .page.settings-page { max-width: none; padding: 20px 32px; }
+.settings-section { max-width: 1100px; }
+.setting-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; padding: 14px 10px; margin: 0 -10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px; transition: background 0.15s;
+}
+.setting-row:hover { background: color-mix(in srgb, var(--porch-amber) 5%, transparent); }
+.setting-row-title { font-weight: 600; }
+.setting-row-blurb {
+  margin: 6px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5;
+  max-width: 60ch;
+}
+.setting-row-control {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-top: 2px;
+}
+.setting-row-control input[type='range'] { width: 180px; accent-color: var(--accent); }
+.setting-row-select {
+  padding: 6px 10px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 0.85rem; min-width: 190px;
+}
+.setting-row-select:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 1px; }
+.setting-row-slider { accent-color: var(--accent); }
+/* The desktop's Material 3 switch, on a plain checkbox: a 52x32 pill. Off is
+   the raised ground with a grey outline and a small grey knob at the left;
+   on is the accent with a larger knob at the right in the accent's own ink
+   (dark in a dark theme, white in a light one — the desktop's onPrimary).
+   `input.switch` so it outranks base.css's `input[type='checkbox']` (which
+   set width: auto) and the generic input padding. The outline is an inset
+   shadow, not a border, so the touch rule below can widen the hit area with
+   a transparent border without moving what is drawn. */
+input.switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0;
+  box-sizing: content-box; width: 52px; height: 32px; padding: 0; margin: 0;
+  border: 0 solid transparent; border-radius: 16px; cursor: pointer;
+  background-color: var(--surface-2); background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px var(--faint);
+  transition: background-color 0.15s, box-shadow 0.15s;
+}
+input.switch::after {
+  content: ''; position: absolute; top: 50%; left: 8px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--faint); transform: translateY(-50%);
+  transition: left 0.15s, width 0.15s, height 0.15s, background 0.15s;
+}
+input.switch:checked { background-color: var(--porch-amber); box-shadow: none; }
+input.switch:checked::after { left: 24px; width: 24px; height: 24px; background: var(--on-accent); }
+input.switch:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 2px; }
+input.switch:disabled { opacity: 0.5; cursor: default; }
+/* Touch: a 44px-tall tap area (touch.css's rule) from a transparent border,
+   pulled back by an equal negative margin so the row's layout and the drawn
+   pill stay exactly as with a mouse. */
+@media (pointer: coarse) {
+  input.switch { border-width: 6px; margin: -6px; border-radius: 22px; }
+}
+.settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.settings-save .step-up { flex: 1 1 320px; }
+.settings-save .primary:hover:not(:disabled) {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--porch-amber) 35%, transparent);
+  transform: translateY(-1px);
+}
+@media (max-width: 768px) {
+  .setting-row { flex-direction: column; gap: 10px; }
+  .setting-row-control { width: 100%; }
+  .setting-row-control input[type='range'] { flex: 1; width: auto; }
+  .setting-row-select { flex: 1; }
+}
+.settings-group { margin: 20px 0; }
+/* Accent group headings, as the desktop's SectionHeader paints them: bold
+   accent text and nothing else (no trailing rule, no glow). */
+.settings-group-heading {
+  margin: 0 0 4px; font-size: 0.95rem; font-weight: 700;
+  color: var(--porch-amber);
+}
+/* Settings → General: the Porch Life pointer row (desktop twin is an
+   amber cottage icon beside one muted line, no card outline). */
+.porch-life-pointer {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 10px; margin: 0 -10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px; transition: background 0.15s;
+}
+.porch-life-pointer:hover { background: color-mix(in srgb, var(--porch-amber) 5%, transparent); }
+.porch-life-pointer-icon { font-size: 1rem; line-height: 1.4; }
+.porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); }
 
 /* Settings prompt slots (PromptSlot.tsx). */
 .prompt-slot { display: flex; flex-direction: column; gap: 8px; }

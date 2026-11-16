@@ -25,12 +25,12 @@ recomputed in the web layer).
 | Feature | Status | Notes |
 |--------|:--:|------|
 | Send / stream replies (WebSocket) | ✅ | Tokens stream over the single multiplexed `/api/ws`. |
-| Stop / regenerate / continue | ✅ | |
+| Stop / regenerate / continue | ✅ | Buried-host regen included: when a Scene Guest chimes after the host's reply, the host bubble offers the desktop's "Regenerate main character (removes the NPC’s reply)" (`regenerableHostBelowGuests` in chat state, `target=mainCharacter` on `/api/chat/regenerate`). |
 | Swipes (alt generations) | ✅ | |
 | Edit / delete message | ✅ | |
 | Thinking (`<think>`) blocks | ✅ | Collapsible per message. |
 | Author's note | ✅ | |
-| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included. |
+| Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`, `/afk`, `/image`, …) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included, and its rows are served from the host (`GET /api/chat/slash-commands` renders `kSlashCommands`) so the sheet cannot drift from the desktop helper (ledger #14). |
 | Inline images in messages (`![](url)`) | ✅ | `MessageContent` renders them (parity with desktop `ExternalImageWidget`). |
 | Insert a generated image into chat | ✅ | "Insert into chat" in the image panel → appends to the latest message. |
 | Sessions / conversations drawer | ✅ | List, resume, new. |
@@ -55,18 +55,20 @@ recomputed in the web layer).
 
 | Feature | Status | Notes |
 |--------|:--:|------|
-| Library grid (search / sort / folders) | ✅ | |
+| Library grid (search / sort / folders) | ✅ | Folder tiles are portrait tiles with a 2×2 member-portrait montage (up to 4) + "N characters · M groups", the desktop's `folder_grid_card.dart` (ledger #4): `GET /api/folders` carries `preview` rows (id + avatar version) and `FolderCard` reuses the `.group-art` montage CSS. |
 | Open / start chat | ✅ | |
 | Manual creation wizard | ✅ | Step-indicator wizard mirroring `create_character_page`. |
 | **AI character creator** | ✅ | `/create-ai`: describe → generate (live steps over WS) → editor. Thin driver over the existing headless `CharacterGenService`. |
+| AI creator **Realism step** | ✅ | PR 8c: a Realism step follows Greetings (Mode → Details → Output → Generate → Profile → Greetings → Realism) with the desktop's "Porch Life" title and paragraph and the shared Realism form, Needs inside, intimate rows only with 18+ on. It works on the already-saved character and saves as you go (the Realism values alone). The creator saves a new card with Realism where Porch Life has the engine (`realismDefault`). The outfit hint (#370) sits above Pockets & Wardrobe when the first message changed since the outfit was read, with Re-read and Keep (the record rides on the card, so it survives a reload). Its last button is the web creator's Open in editor (the desktop's is Save & Finish on Review). |
+| AI creator **Review step**: portrait source (Upload / Generate / None), gallery + expression tagging, expression pack generate / ZIP import, tags, Save & Finish | ⏳ | Desktop-only today: the web saves the character at the Profile step and has no portrait choice; the web Greetings step's foot carries only the Review rewrites (example dialogue, lorebook). Own slice. |
 | Edit character (all fields) | ✅ | |
 | Per-character lorebook editor | ✅ | |
 | Multi-avatar management + set prime | ✅ | Upload / remove / set prime. |
 | Expression portrait (mood-driven) | ✅ | Swaps on `chat_updated`. |
 | Import character card (PNG / .byaf) | ✅ | Upload → desktop import path. |
 | Delete character | ✅ | |
-| Avatar **crop** UI | ◑ | Upload replaces the avatar; in-browser cropping is not yet a dedicated tool. |
-| Export character card | ⏳ | Not yet surfaced on the web. |
+| Avatar **crop** UI | ◑ | Audited PR 8b. Where both surfaces upload, they match: Looks upload as-is on both; the Stoop profile photo is square-cropped automatically on both (no crop UI). The web also face-crops Expression uploads (`AvatarManager.tsx` → `ImageCropModal`), which the desktop gallery does not. Open gaps are missing upload controls, not missing crops: the desktop crops a picked portrait in the create-character Portrait step, the AI Character Creator's review step, the Avatar Gallery's Set/Replace portrait and Image Studio's accept-as-avatar; the web has no portrait upload in any of those (portrait changes only by Swap portrait from a look). Persona avatars are not cropped on the desktop and have no upload on the web. |
+| Export character card | ✅ | Library actions download the PNG card and the JSON (`useLibrary.actions.ts`: `/api/characters/<id>/export.png`, `export.json`); groups export as PNG too. |
 
 ## Groups / Cast (unified model)
 
@@ -85,7 +87,9 @@ recomputed in the web layer).
 | Worlds list / detail / save (rename) / delete | ✅ | |
 | Shared lorebook entry CRUD | ✅ | |
 | Persona switch | ✅ | |
-| Persona create / edit / delete | ✅ | |
+| Persona create / edit / delete | ✅ | Redesigned to the desktop page: hero card for the default persona, "All Personas (N)" grid with description previews, name subtitle when a title exists, tap-a-card-to-set-default + "Make default", kebab (Edit / Export JSON / Make a Character / Delete, Delete only while >1), and the `PersonaColors` palette circles. |
+| Persona avatars | ✅ | Imported avatars paint from `GET /api/personas/<id>/avatar`; no avatar falls back to the palette circle + person glyph, like the desktop. |
+| Persona JSON import / export | ✅ | Import JSON button feeds the desktop's `importFromJsonFile` (FPAI bundle, SillyTavern V2/V1, V2 card, generic name+description) over `POST /api/personas/import` (raw body); each card exports one persona as the ST file the desktop writes (`<name>_FPAIpersona.json`) over `GET /api/personas/<id>/export.json`, and the header Export All downloads every persona as `FPAI_personas.json` over `GET /api/personas/export-all.json` — the desktop's multi-persona name. Failure copy matches the desktop (ledger #15b). |
 
 ## Image generation
 
@@ -102,7 +106,17 @@ recomputed in the web layer).
 |--------|:--:|------|
 | TTS playback (🔊 per reply) | ✅ | Synthesized on host, played on the **client** device. |
 | STT dictation (🎤) | ✅ | Recorded on-device, uploaded; **gated on a secure context** (Tailscale/ngrok/localhost) — browsers block the mic over plain-LAN http. |
-| TTS/STT **engine + voice setup** | ⚙️ | Voice uses whatever engine you configured on desktop; choosing engines / downloading voices stays in the desktop settings. |
+| Voice calls (1:1) | ❌ | Desktop-only forever: the browser round trip is too slow for conversation (maintainer ruling, 2026-11-13). |
+| Voice-call settings (call model, voice buffer, call system prompt) | ❌ | Go with voice calls: desktop-only (ruling, 2026-11-13). Settings → Voice & Media on the web leaves them out. |
+| Mic device list, Whisper model + download | ⚙️ | Host-side capture and first-time engine setup stay on desktop; a browser only sees its own devices (maintainer ruling, 2026-11-13). The web's STT card says where they live. |
+| TTS/STT **engine + voice setup** (desktop "Configure") | ⚙️ | Voice uses whatever engine you configured on desktop; choosing engines / downloading voices stays in the desktop settings. The web's Text-to-Speech card shows the engine and voice, and keeps its on/off switch where the desktop has Configure. |
+| Settings → Text-to-Speech / Voice Input (STT) switches | ✅ | Host settings (PR 7c layout: the desktop's header + card per group). |
+| Settings → Auto-send transcription | ✅ | Host setting, shown under Enable Voice Input while it is on (PR 7c). The web's own dictation honours it: into an empty box the transcript is sent; otherwise it joins the draft, as on the desktop. |
+| Settings → Expression Images (enable, Classification, Display, Re-roll, Emoji Burst + size, Fallback) | ✅ | Host settings, same words and order, sub-controls only while enabled (PR 7c). |
+| Settings → Expression ONNX model (ready check / download) | ✅ | Same button: green check when on disk, spinner while it downloads (polled), download otherwise; a failed download says so (PR 7c). |
+| Settings → Photo Understanding (offline vision helper) | ✅ | Self-hiding like the desktop card: shows only while installed (Remove) or downloading (progress + Cancel) (PR 7c). |
+| Settings → Image Generation switch | ✅ | Host setting (PR 7c). It shows or hides the desktop chat's Image Studio button; the web composer has no Image Studio button (the web reaches Image Studio from the nav). |
+| Audio-missing notice under Text-to-Speech | ❌ | Not ported: it reports the desktop machine's sound libraries, and web replies play on the browser's own device. |
 
 ## Models / Backends
 
@@ -110,6 +124,9 @@ recomputed in the web layer).
 |--------|:--:|------|
 | LLM Local ↔ API choose + edit + flip | ✅ | |
 | Switch local model (restart Kobold) | ✅ | Confirm dialog (interrupts generation). |
+| Installed-models filter | ✅ | The desktop's "Filter models…" field (case-insensitive name substring, `model_manager_page.dart:364`); local to the list, no round trip. |
+| Models-folder ops (Change folder / Reset / Open in File Manager) | ⚙️ | Host-only (ledger #15c): a remote client must not point an internet-exposable server at an arbitrary host directory, and a browser cannot open the *host's* file manager. The path shows read-only (`GET /api/backend/models-folder`, `backend_facade.dart:196-202`); the ops stay in the desktop app. |
+| Import model from computer (.gguf / .kcpps upload) | ⏳ | By design for now — one-chat-ux.md:284: the GGUF control on the web stays the served dropdown + HF downloader; a multi-GB upload over the PWA needs its own chunked story. |
 | HuggingFace browser + downloader (progress) | ✅ | Polled progress. |
 | Backend start / stop / restart + status | ✅ | |
 
@@ -120,9 +137,22 @@ recomputed in the web layer).
 | Backend / model selection, samplers, generation params | ✅ | |
 | Account: username + Argon2id password + TOTP 2FA | ✅ | First-run setup, recovery codes. |
 | Sessions: per-device, "log out everywhere" | ✅ | |
-| Remote access: Tailscale / ngrok guided setup | ✅ | |
+| Remote access: Tailscale / ngrok guided setup | ❌ | Desktop-only (maintainer ruling, 2026-11-13, PR 7a): a browser session exists only because a tunnel is already up, so managing tunnels in it is circular. The web's Advanced settings tab and `/remote` route are gone; setup lives in the desktop's Advanced tab. |
 | PWA install (Add to Home Screen) | ✅ | `InstallHint`: `beforeinstallprompt` button + iOS manual steps; auto-hides once installed. |
-| Theme, hardware/GPU flags, KCPPS presets, cloud sync, backups, data-dir | ❌ | No-go (see below). |
+| Theme — dark mode, per-device follow | ✅ | Dark mode is the host's: changing it in the browser changes the desktop and every open session follows (host-wide ruling, 2026-11-13). |
+| Theme gallery, accent, UI font, corners | ✅ | Host-wide like dark mode (PR 7b): the gallery previews all eight themes from host-resolved palettes, the accent picker writes the desktop's accent (the host fits it for readability and says so), and the UI font and corners paint from the host. |
+| Corners on every surface | ◑ | The corner scale drives the three radius tokens (`--radius`, `--radius-card`, `--radius-badge`); ~380 literal radii in `web_ui/src/styles` still ignore it. Migration follow-up, pinned by ruling 2026-11-13. |
+| Chat colors | ✅ | Host settings since PR 7b: the six roles read and write the desktop's own colours (per brightness), with "Use the theme's chat colors". |
+| Chat Font | ✅ | The desktop's 18-face catalog is served by the host so the two pickers cannot drift; the chosen face loads from Google Fonts at runtime like the desktop, with the system stack offline. |
+| Per-character chat font and colours | ◑ | Painting ✅ (PR 8b): a card's own chat font and six chat colours paint its bubbles on the web as on the desktop (chat theme → card → global; in a group the speaking member's card on a reply, none on the user's lines), and a card saved elsewhere repaints an open chat. Editing: the font has no editor on either surface (it arrives with an imported card); the six colours are edited on the desktop in the chat's UI Settings dialog (no chat theme on), which the web's Chat theme panel does not offer. A reply still streaming wears the global look until it lands. |
+| Hardware/GPU flags, KCPPS presets, cloud sync, backups, data-dir | ❌ | No-go (see below). |
+
+## The Stoop
+
+| Feature | Status | Notes |
+|--------|:--:|------|
+| Browse, card detail, comments, creator pages | ✅ | Through the `/api/stoop` relay; the PWA never talks to the backend directly. |
+| Share a card (4-step upload wizard: Pick / Details / Content / Review) | ⏳ | The web Share tab is a "Sharing — coming soon" placeholder (`StoopSection.tsx`); the desktop wizard is `stoop_upload_page.dart` + `stoop_upload/` (~1,400 lines). Not built; next SOW candidate (drift ledger #11). |
 
 ## Accessibility / PWA (code-level — done here)
 
@@ -162,7 +192,7 @@ desktop-only by design.
 | Beat-by-beat prose writer | ✅ | Per-beat (re)generate; auto-write scene; per-beat 🔊. |
 | Reader | ✅ | Assembled prose in reading order, per-scene read-aloud (reuses voice). |
 | Export (.txt / .md) | ✅ | |
-| Export (.epub / audiobook) | ⏳ | Desktop has dedicated generators; not yet exposed as web download routes. |
+| Export (.epub / audiobook) | ✅ | The Studio header's exports (`useStoryExports.ts`): the eBook downloads at once; the audiobook compiles on the host with live status over WS, then downloads. Routes: `/api/stories/<id>/ebook`, `/audiobook`, `/audiobook/status`. |
 
 The whole pipeline is driven by the headless `StoryPipelineService` over the web
 facade — no desktop code changed.

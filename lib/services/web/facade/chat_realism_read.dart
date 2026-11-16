@@ -43,15 +43,17 @@ class ChatRealismRead {
       if (p.id != participantId) continue;
       if (!p.realismEnabled) return {'realismEnabled': false};
       if (p.isHost) return {'realismEnabled': true, ...snapshot()};
-      // A member's stats show while the group chat's Realism runs, as on the
-      // desktop's member card; Porch Life is named when it is what stops it.
-      if (!_chat.realismEnabled) {
+      // A member's stats show while THEIR Realism runs in this chat, as on
+      // the desktop's Character State; Porch Life is named when it is what
+      // stops it. Their switch itself is in the tools feed (`realismSwitch`).
+      final card = p.card;
+      final memberId = _chat.characterIdFor(card);
+      if (!_chat.realismEnabledFor(memberId)) {
         return {
           'realismEnabled': false,
           'realismAllowed': _chat.realismAllowed,
         };
       }
-      final card = p.card;
       final rel = _chat.relationshipService;
       final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
       final intensity = _chat.getEmotionIntensityForGroupCharacter(card) ?? '';
@@ -120,8 +122,9 @@ class ChatRealismRead {
         // getNeedsForGroupCharacter always returns a full vector while group
         // realism is active, so without this a member would still show needs
         // bars after Needs is toggled off — 1:1↔group display parity.
-        'needsEnabled': _chat.needsActive,
-        'needs': _chat.needsActive
+        // The member's own Needs and Realism switches (and Porch Life's).
+        'needsEnabled': _chat.needsActiveFor(memberId),
+        'needs': _chat.needsActiveFor(memberId)
             ? visibleNeedsFor(_chat.getNeedsForGroupCharacter(card), card)
             : const <String, int>{},
         // The bands the bars colour by, from the engine, so the phone and

@@ -1,0 +1,218 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// Settings → Appearance → Background weather: the desktop's ambient scene,
+// effects pause, scene sound and volume. Shown only while the Realism
+// Engine and Story Weather are on, as on the desktop. Split out of
+// AppearanceSettings when the web Settings matched the desktop's seven
+// tabs (one-chat-ux PR 7a).
+
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api/client';
+import { ChatSocket } from '../api/ws';
+import { SettingRow } from './SettingRow';
+
+type AmbientScene = 'off' | 'tint' | 'effects';
+const AMBIENT: { value: AmbientScene; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'tint', label: 'Tint only' },
+  { value: 'effects', label: 'Tint and effects' },
+];
+const asScene = (v: unknown): AmbientScene => (v === 'tint' || v === 'effects' ? v : 'off');
+/** Writes the scene sound volume; on unmount nobody is left to show a failure, so it is logged. */
+const postVolume = (value: number) =>
+  api.post('/api/settings', { sceneSoundVolume: value }).catch((e: unknown) => {
+    console.warn('Could not change the scene sound volume', e);
+    throw e;
+  });
+const asVolume = (v: unknown): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5;
+
+export function BackgroundWeatherSettings() {
+  const [error, setError] = useState('');
+  // Appearance → Ambient scene, the desktop's own setting (null until read).
+  const [ambient, setAmbient] = useState<AmbientScene | null>(null);
+  // Appearance → Pause effects while generating (null until read).
+  const [pauseGen, setPauseGen] = useState<boolean | null>(null);
+  // Appearance → Scene sound and its volume, 0 to 1 (null until read).
+  const [sound, setSound] = useState<boolean | null>(null);
+  const [volume, setVolume] = useState<number | null>(null);
+  // Porch Life's Story Weather: with it off this section is not shown
+  // here, as on the desktop (missing reads as on).
+  const [weatherOn, setWeatherOn] = useState(true);
+  // A drag of the volume posts once it settles, not on every step; a
+  // value still waiting when the card closes is posted then.
+  const volumePost = useRef<{ timer: ReturnType<typeof setTimeout>; value: number } | null>(null);
+
+  // Live: the server broadcasts `settings_changed` whenever a setting is
+  // written (on the desktop or another browser), so the control re-reads on
+  // it and on a reconnect instead of keeping its first read.
+  useEffect(() => {
+    let alive = true;
+    const read = () => {
+      api
+        .get<{
+          ambientScene?: unknown; pauseEffectsWhileGenerating?: unknown; sceneSound?: unknown; sceneSoundVolume?: unknown;
+          realism?: { weatherEnabled?: unknown };
+        }>('/api/settings')
+        .then((s) => {
+          if (!alive) return;
+          setAmbient(asScene(s.ambientScene));
+          setPauseGen(s.pauseEffectsWhileGenerating !== false);
+          setSound(s.sceneSound === true);
+          setVolume(asVolume(s.sceneSoundVolume));
+          setWeatherOn(s.realism?.weatherEnabled !== false);
+        })
+        .catch((e: unknown) => console.warn('Could not read the ambient scene setting', e));
+    };
+    read();
+    const socket = new ChatSocket((e) => {
+      if (e.event === 'settings_changed' || e.event === 'connected') read();
+    });
+    socket.connect();
+    return () => {
+      alive = false;
+      socket.close();
+      const pending = volumePost.current;
+      if (pending) {
+        clearTimeout(pending.timer);
+        volumePost.current = null;
+        // Already logged by postVolume; nobody is left to show it.
+        postVolume(pending.value).catch(() => undefined);
+      }
+    };
+  }, []);
+
+  const setScene = (next: AmbientScene) => {
+    const before = ambient;
+    setAmbient(next);
+    setError('');
+    api.post('/api/settings', { ambientScene: next }).catch((e: unknown) => {
+      setAmbient(before);
+      setError(`Could not change the ambient scene: ${String(e)}`);
+    });
+  };
+
+  const setPause = (next: boolean) => {
+    const before = pauseGen;
+    setPauseGen(next);
+    setError('');
+    api.post('/api/settings', { pauseEffectsWhileGenerating: next }).catch((e: unknown) => {
+      setPauseGen(before);
+      setError(`Could not change the effects pause: ${String(e)}`);
+    });
+  };
+
+  const setSoundOn = (next: boolean) => {
+    const before = sound;
+    setSound(next);
+    setError('');
+    api.post('/api/settings', { sceneSound: next }).catch((e: unknown) => {
+      setSound(before);
+      setError(`Could not change the scene sound: ${String(e)}`);
+    });
+  };
+
+  const changeVolume = (next: number) => {
+    setVolume(next);
+    setError('');
+    if (volumePost.current) clearTimeout(volumePost.current.timer);
+    volumePost.current = {
+      value: next,
+      timer: setTimeout(() => {
+        volumePost.current = null;
+        postVolume(next).catch((e: unknown) => {
+          setError(`Could not change the scene sound volume: ${String(e)}`);
+        });
+      }, 250),
+    };
+  };
+
+  if (!weatherOn) return null;
+
+  return (
+    <section className="settings-group" data-testid="background-weather">
+      <h4 className="settings-group-heading">
+        Background weather
+        <span
+          className="info-tip"
+          tabIndex={0}
+          title="The story's weather and sky behind the chat. It shows only in chats whose character or group has a world with climate turned on and the story clock running; other chats keep their plain background."
+          aria-label="About background weather"
+        >ⓘ</span>
+      </h4>
+      <SettingRow
+        title="Ambient scene"
+        blurb={
+          <>
+            The story&apos;s weather as a wash over the chat background, in a world
+            with climate on; Tint and effects adds rain, snow, clouds, fog and
+            lightning, held still while a reply is written if you like, so a local
+            model keeps the graphics card. The High Contrast theme stays at the
+            wash. The desktop&apos;s settings; changing them here changes them
+            there too. Only in chats with a world that has climate on — other
+            chats keep their plain background.
+          </>
+        }
+      >
+        <select
+          className="setting-row-select"
+          value={ambient ?? 'off'}
+          disabled={ambient === null}
+          onChange={(e) => setScene(e.target.value as AmbientScene)}
+          aria-label="Ambient scene"
+        >
+          {AMBIENT.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </SettingRow>
+      <SettingRow
+        title="Pause effects while generating"
+        blurb="Hold the scene still while a reply is writing, so a local model keeps the graphics card."
+      >
+        <input
+          className="switch"
+          type="checkbox"
+          checked={pauseGen ?? true}
+          disabled={pauseGen === null}
+          onChange={(e) => setPause(e.target.checked)}
+          aria-label="Pause effects while generating"
+        />
+      </SettingRow>
+      <SettingRow
+        title="Scene sound"
+        blurb={
+          <>
+            Rain, wind, birds or crickets with the scene and thunder after a
+            storm&apos;s flash, quieter while a voice speaks. Browsers start sound
+            only once you have touched the page, so a tap in the chat may be needed.
+          </>
+        }
+      >
+        <input
+          className="switch"
+          type="checkbox"
+          checked={sound ?? false}
+          disabled={sound === null}
+          onChange={(e) => setSoundOn(e.target.checked)}
+          aria-label="Scene sound"
+        />
+      </SettingRow>
+      <SettingRow title="Scene sound volume">
+        <input
+          className="setting-row-slider"
+          type="range"
+          min={0}
+          max={100}
+          step={5}
+          value={Math.round((volume ?? 0.5) * 100)}
+          disabled={!sound || volume === null}
+          onChange={(e) => changeVolume(Number(e.target.value) / 100)}
+          aria-label="Scene sound volume"
+        />
+      </SettingRow>
+      {error && <p className="error">{error}</p>}
+    </section>
+  );
+}

@@ -158,7 +158,7 @@ class Reprocessor {
     final preObjectives = objectives.activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
-    _d.engine().progress.isPostGenerating = true;
+    _d.engine().progress.holdPostGenerating();
     _s.graph().evalStatus.evaluating = true;
     _d.engine().stops.clearPostGenAbortFlags();
     notifyListeners();
@@ -186,7 +186,7 @@ class Reprocessor {
       objectives.activeObjectives = preObjectives;
       _s.graph().evalStatus.stopChunkTimer();
       _s.graph().evalStatus.evaluating = false;
-      _d.engine().progress.isPostGenerating = false;
+      _d.engine().progress.releasePostGenerating();
       _d.engine().stops.clearPostGenAbortFlags();
     }
     await _d.saveChat();

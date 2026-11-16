@@ -32,11 +32,15 @@ class CharacterStatsSection extends StatefulWidget {
   final Widget Function(Widget content) wrap;
   final Future<CharacterStats> Function(String characterId)? load;
 
+  /// The footnote under the tiles. A group says its own.
+  final String footnote;
+
   const CharacterStatsSection({
     super.key,
     required this.characterId,
     required this.wrap,
     this.load,
+    this.footnote = 'From your 1:1 chats. Group chats are not counted.',
   });
 
   @override
@@ -76,7 +80,7 @@ class _CharacterStatsSectionState extends State<CharacterStatsSection> {
       builder: (context, snap) {
         final stats = snap.data;
         if (stats == null || stats.isEmpty) return const SizedBox.shrink();
-        return widget.wrap(_StatsGrid(stats: stats));
+        return widget.wrap(_StatsGrid(stats: stats, footnote: widget.footnote));
       },
     );
   }
@@ -85,7 +89,9 @@ class _CharacterStatsSectionState extends State<CharacterStatsSection> {
 class _StatsGrid extends StatelessWidget {
   final CharacterStats stats;
 
-  const _StatsGrid({required this.stats});
+  const _StatsGrid({required this.stats, required this.footnote});
+
+  final String footnote;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +120,7 @@ class _StatsGrid extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'From your 1:1 chats. Group chats are not counted.',
+          footnote,
           style: TextStyle(
             color: AppColors.textTertiary(context),
             fontSize: 11,

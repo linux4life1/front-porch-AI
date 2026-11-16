@@ -1,0 +1,145 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The shared Realism form (RealismFormSection, NeedsFormSection,
+   IdentitySections, RelationshipFields, controls.tsx) painted like the
+   desktop's (lib/ui/widgets/realism_form_section.dart and its parts): accent
+   section headings with an icon, each section in a rounded bordered card,
+   pill switches on icon rows, the master switch as its own card with an icon
+   tile, Needs rows with the value and switch at the right and the slider
+   under them, bond and trust in the relationship blue, and the story-start
+   chips. Theme tokens only. Inside the AI creator the studio palette
+   (--studio-*) carries them, as the desktop's creatorPalette does.
+*/
+.realism-section, .rl-card, .rl-head, .rl-subhead {
+  --rl-card: var(--card);
+  --rl-line: var(--border);
+  --rl-accent: var(--porch-amber);
+  --rl-ink: var(--text);
+  --rl-muted: var(--muted);
+  --rl-field: var(--surface-2);
+}
+.realism-section { gap: 12px; }
+.cg-scope :is(.realism-section, .rl-card, .rl-head, .rl-subhead) {
+  --rl-card: var(--studio-card);
+  --rl-line: var(--studio-line);
+  --rl-accent: var(--studio-amber);
+  --rl-ink: var(--studio-ink);
+  --rl-muted: var(--studio-muted);
+  --rl-field: var(--studio-raise);
+}
+
+/* ── Headings and cards ── */
+.realism-head.rl-head {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0 0; font-size: 1.05rem; font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--rl-accent);
+}
+.realism-head.rl-head.intimate { color: var(--bond-up); }
+.rl-head-icon { display: inline-flex; }
+.rl-subhead { margin: 12px 0 0; font-size: 1rem; font-weight: 600; color: var(--rl-ink); }
+.rl-card {
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--rl-card); border: 1px solid var(--rl-line);
+  border-radius: calc(14px * var(--radius-scale)); padding: 18px 20px;
+}
+.rl-divider { border: none; border-top: 1px solid var(--rl-line); margin: 2px 0; width: 100%; }
+.rl-card .realism-field > span,
+.realism-section .rl-card .realism-grid-2 .realism-field > span {
+  font-size: 0.85rem; font-weight: 600; color: var(--rl-ink); letter-spacing: 0.3px;
+}
+.rl-label { font-size: 0.85rem; color: var(--rl-muted); margin-top: 6px; }
+.rl-helper { font-size: 0.78rem; color: var(--rl-muted); line-height: 1.4; }
+
+/* ── Toggle rows: icon, title + subtitle, pill switch ── */
+:is(.realism-section, .rl-card) .realism-toggle {
+  gap: 14px; padding: 4px 0; background: none; border: none; border-radius: 0;
+  align-items: center;
+}
+:is(.realism-section, .rl-card) .realism-toggle-text { flex: 1; min-width: 0; }
+:is(.realism-section, .rl-card) .realism-toggle-text > span { font-size: 1rem; font-weight: 500; color: var(--rl-ink); }
+:is(.realism-section, .rl-card) .realism-toggle-text > small { font-size: 0.8rem; color: var(--rl-muted); line-height: 1.4; }
+/* forms.css sizes the old checkbox (`.realism-toggle input { width: auto }`),
+   which would squash the pill to nothing. */
+.realism-toggle input.switch { width: 52px; flex-shrink: 0; }
+.realism-toggle-icon { display: inline-flex; flex-shrink: 0; color: var(--rl-muted); }
+.realism-toggle:has(input:checked) .realism-toggle-icon { color: var(--rl-accent); }
+/* The Enable Realism Engine card: an icon tile, the subtitle in the accent. */
+.realism-section .realism-toggle.master {
+  background: var(--rl-card); padding: 18px 20px;
+  border: 1px solid color-mix(in srgb, var(--rl-accent) 45%, transparent);
+  border-radius: calc(14px * var(--radius-scale));
+}
+.realism-toggle.master .realism-toggle-icon {
+  width: 46px; height: 46px; justify-content: center; align-items: center;
+  border-radius: calc(10px * var(--radius-scale));
+  background: color-mix(in srgb, var(--rl-accent) 16%, transparent);
+  color: var(--rl-accent);
+}
+.realism-section .realism-toggle.master .realism-toggle-text > span { font-size: 1.1rem; font-weight: 600; }
+.realism-section .realism-toggle.master .realism-toggle-text > small { color: var(--rl-accent); font-size: 0.85rem; }
+/* Optional Features: a hairline between rows. */
+.rl-rows .realism-toggle { border-top: 1px solid var(--rl-line); padding-top: 14px; }
+.rl-rows > .realism-toggle:first-child { border-top: none; padding-top: 4px; }
+
+/* ── Sliders ── */
+:is(.realism-section, .rl-card) .realism-slider-head > span:first-child { font-size: 0.9rem; font-weight: 600; color: var(--rl-ink); }
+:is(.realism-section, .rl-card) .realism-slider input[type='range'] { width: 100%; accent-color: var(--rl-accent); }
+.realism-slider.tone-bond input[type='range'] { accent-color: var(--bond-mid); }
+.realism-slider.tone-bond .realism-badge {
+  color: var(--bond-mid); background: color-mix(in srgb, var(--bond-mid) 14%, transparent);
+}
+
+/* ── Needs rows: name left, value and switch right, slider under ── */
+.rl-needs .needs-row {
+  position: relative; display: block; padding: 6px 0 2px; border: none;
+}
+.rl-needs .needs-row.off .realism-slider { opacity: 0.55; }
+.rl-need .realism-slider-head { padding-right: 66px; min-height: 32px; }
+.rl-need-value { font-size: 0.9rem; color: var(--rl-ink); }
+input.switch.rl-need-switch { position: absolute; top: 6px; right: 0; }
+.rl-needs .needs-pace > span { font-size: 0.9rem; color: var(--rl-ink); }
+.rl-needs .needs-pace .pace.on { background: color-mix(in srgb, var(--rl-accent) 22%, transparent); }
+
+/* ── Story-start chips under Time & Day ── */
+.rl-chips { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rl-chip {
+  position: relative; display: flex; align-items: center; gap: 4px;
+  background: var(--rl-field); border: 1px solid var(--rl-line);
+  border-radius: calc(10px * var(--radius-scale)); min-height: 44px;
+}
+.rl-chip.set { border-color: color-mix(in srgb, var(--rl-accent) 60%, transparent); }
+.rl-chip-main {
+  flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: none; border: none; color: var(--rl-muted); font: inherit; font-size: 0.85rem;
+  text-align: left; cursor: pointer; min-width: 0;
+}
+.rl-chip.set .rl-chip-main { color: var(--rl-ink); }
+.rl-chip-icon { display: inline-flex; color: var(--rl-accent); }
+.rl-chip-clear {
+  background: none; border: none; color: var(--rl-muted); font-size: 1.1rem;
+  padding: 6px 14px; cursor: pointer;
+}
+.rl-hidden-picker {
+  position: absolute; left: 0; bottom: 0; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none; border: none; padding: 0;
+}
+
+/* ── Work and Birthday ── */
+.rl-card .work-identity { gap: 8px; }
+.rl-card .work-day { padding: 10px 0; border-radius: calc(8px * var(--radius-scale)); }
+.rl-card .work-day.on { background: var(--rl-accent); border-color: var(--rl-accent); color: var(--on-accent); }
+.rl-birthday { display: flex; flex-direction: column; gap: 10px; }
+.rl-birthday-row { position: relative; display: flex; align-items: center; gap: 8px; }
+.rl-birthday-date { flex: 1; font-size: 0.95rem; color: var(--rl-ink); }
+.rl-birthday-date.unset { color: var(--rl-muted); }
+.rl-text-btn {
+  background: none; border: none; padding: 6px 10px; font: inherit; font-weight: 600;
+  color: var(--rl-muted); cursor: pointer;
+}
+.rl-text-btn.accent { color: var(--rl-accent); }
+
+@media (max-width: 600px) {
+  .rl-chips { grid-template-columns: 1fr; }
+  .rl-card { padding: 14px; }
+  .realism-section .realism-toggle.master { padding: 14px; }
+}

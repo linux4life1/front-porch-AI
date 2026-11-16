@@ -262,13 +262,24 @@ class RealismGraph {
   /// fresh-group new-chat path both call it before [seedPocketsFromCards],
   /// which answers the gate this seeds. A member whose bag already carries
   /// the switch is left alone: mid-chat flips survive reopen.
+  ///
+  /// The same entry seeds each member's Realism, Needs, Afterglow and
+  /// Objectives switches in this chat (PR 3), from what the chat held before
+  /// they were per member. A member who joins or is promoted later is seeded
+  /// by [seedGroupMemberSwitches].
   void seedGroupPocketsSwitches() {
     final group = session.activeGroup;
     if (group == null) return;
     pocketsLedger.seedMemberSwitchDefaults(
       groupDefault: groupPocketsIn(group.defaultMemberRealismState),
     );
+    seedGroupMemberSwitches();
   }
+
+  /// Give every full member a switch of their own for each of Realism,
+  /// Needs, Afterglow and Objectives in this chat that they lack, so no
+  /// default edited later and no chat-wide card can reach into it.
+  void seedGroupMemberSwitches() => controls.memberSwitches.seedMissing();
 
   /// Group members in a group, else the 1:1 character when one is set.
   Iterable<CharacterCard> clockCast() => session.activeGroup != null

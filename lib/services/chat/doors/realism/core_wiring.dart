@@ -175,6 +175,10 @@ extension RealismCoreWiring on RealismGraph {
     isGenerating: () => _doors.turn().progress.isGenerating,
     nextCharacter: () => _doors.entry().director.nextCharacter,
     workFieldsFor: workFieldsFor,
+    // What a member with no switch of their own in this chat reads.
+    chatRealism: () => controls.chatRealism,
+    chatNeeds: () => controls.needsSimEnabled,
+    chatObjectives: () => controls.objectivesEnabled,
   );
 
   /// A member's occupation and hours, read from their library card.
@@ -188,6 +192,7 @@ extension RealismCoreWiring on RealismGraph {
     session: session,
     observerMode: () => _doors.entry().director.observerMode,
     realismEnabled: () => controls.realismEnabled,
+    realismEnabledFor: (id) => controls.realismEnabledFor(id),
     needsSimEnabled: () => controls.needsSimEnabled,
     realismSettings: () => _storageService.realismSettings,
     clockRunning: () => controls.clockRunning,

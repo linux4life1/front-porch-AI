@@ -5,6 +5,8 @@
 // the chat presentation components (message list, chips, insight panel) can share
 // one source of truth without ChatPage growing past the file-size cap.
 
+import type { CardLook } from './cardLook';
+
 export interface Chips {
   bondDelta?: number;
   trustDelta?: number;
@@ -82,6 +84,9 @@ export interface Message {
   image?: string;
   /** The prompt that produced the image (tooltip / alt text). */
   imagePrompt?: string;
+  /** The speaker card's own chat font and colours (additive, PR 8b); the
+   *  host leaves it out while a chat theme is on (cardLook.ts). */
+  look?: CardLook;
 }
 
 export interface Realism {

@@ -27,7 +27,18 @@ class GroupRealismStore {
     required this.isGenerating,
     required this.nextCharacter,
     required this.workFieldsFor,
+    this.chatRealism,
+    this.chatNeeds,
+    this.chatObjectives,
   });
+
+  /// The chat's own Realism, Needs and Objectives switches: what a member
+  /// with no switch of their own in this chat falls back to (a chat saved
+  /// before the per-member switches, or a member who joined since). Unwired,
+  /// they read on.
+  final bool Function()? chatRealism;
+  final bool Function()? chatNeeds;
+  final bool Function()? chatObjectives;
 
   /// A group chat is open (any member, observer or not).
   final bool Function() isGroup;
@@ -49,17 +60,23 @@ class GroupRealismStore {
   /// see group_member_realism.dart for why it is a wrapper and not fields.
   Map<String, GroupMemberRealism> members = {};
 
-  /// This group chat's own Afterglow switch ([kGroupAfterglowKey]). It
-  /// counts only while Porch Life (with 18+) allows Afterglow.
+  /// The group's older chat-wide Afterglow switch ([kGroupAfterglowKey]).
+  /// Nothing shows it any more: each member has their own in this chat
+  /// ([afterglowOnFor]). It stays on the wire so a chat saved before the
+  /// split seeds every member's switch from it, and an older build opening
+  /// a newer chat still finds it.
   bool afterglowOn = true;
 
   /// The member-extension write in flight, so a member's avatar and row are
   /// written one save at a time.
   Future<void> memberExtWrites = Future<void>.value();
 
-  /// The group chat's switch AND member [id]'s own: the Afterglow switch on
-  /// their card in this group, read live, unset reading on.
+  /// Whether Afterglow is on for member [id] in this chat: their own switch
+  /// in this chat, or, for a chat saved before it, the group's old switch AND
+  /// the flag on their card in this group, read live, unset reading on.
   bool afterglowOnFor(String? id) {
+    final own = id == null ? null : members[id]?.afterglowSwitch;
+    if (own != null) return own;
     if (!afterglowOn) return false;
     for (final c in groupCharacters()) {
       if (characterIdFor(c) == id) {
@@ -67,6 +84,48 @@ class GroupRealismStore {
       }
     }
     return true;
+  }
+
+  /// Member [id]'s own Realism, Needs and Objectives switches in this chat,
+  /// else the chat's. A null or unknown [id] (a lite guest, nobody picked)
+  /// reads the chat's, as every gate did before the switches were per member.
+  bool realismOnFor(String? id) =>
+      (id == null ? null : members[id]?.realismSwitch) ??
+      chatRealism?.call() ??
+      true;
+  bool needsOnFor(String? id) =>
+      (id == null ? null : members[id]?.needsSwitch) ??
+      chatNeeds?.call() ??
+      true;
+  bool objectivesOnFor(String? id) =>
+      (id == null ? null : members[id]?.objectivesSwitch) ??
+      chatObjectives?.call() ??
+      true;
+
+  /// [asSpeaker] for work that awaits.
+  Future<T> asSpeakerAsync<T>(String id, Future<T> Function() body) async {
+    if (id.isEmpty || !isGroup()) return body();
+    final before = turnSpeakerId;
+    turnSpeakerId = id;
+    try {
+      return await body();
+    } finally {
+      turnSpeakerId = before;
+    }
+  }
+
+  /// Run [body] as member [id] speaking: every gate it reads is theirs. A
+  /// rewind of a message (regen, swipe, delete) names the message's speaker
+  /// this way, never whoever is up next. The previous pin comes back after.
+  T asSpeaker<T>(String id, T Function() body) {
+    if (id.isEmpty || !isGroup()) return body();
+    final before = turnSpeakerId;
+    turnSpeakerId = id;
+    try {
+      return body();
+    } finally {
+      turnSpeakerId = before;
+    }
   }
 
   /// The group member id whose realism state is being processed for the

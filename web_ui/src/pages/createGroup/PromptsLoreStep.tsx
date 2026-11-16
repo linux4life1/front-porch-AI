@@ -27,7 +27,7 @@ export function PromptsLoreStep({
       <h4 className="section-label">Group System Prompt</h4>
       <p className="muted small">
         Every group uses the Group system prompt in Settings → General. To give this group its own, open
-        Group Settings after it is created.
+        Edit group after it is created.
       </p>
       <h4 className="section-label">Per-member prompt overrides</h4>
       {members.map((m) => (

@@ -12,6 +12,7 @@ library;
 import 'dart:convert';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/group_memory.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// On-disk / package format id.
@@ -229,12 +230,17 @@ Map<String, dynamic> messagesExtraEntry(int i, ChatMessage m) {
     'swipe_durations': List<int>.from(m.swipeDurations),
   };
   if (m.characterId != null) map['character_id'] = m.characterId;
+  // Who was in the scene is keyed by THIS library's character ids; it means
+  // nothing to another install, and a stale stamp there would read as nobody
+  // being present. An imported chat files as if everyone was.
+  Map<String, dynamic> portable(Map<String, dynamic> meta) =>
+      Map<String, dynamic>.from(meta)..remove(kMemoryPresentMeta);
   if (m.metadata != null) {
-    map['metadata'] = Map<String, dynamic>.from(m.metadata!);
+    map['metadata'] = portable(m.metadata!);
   }
   if (m.swipeMetadata.any((e) => e != null)) {
     map['swipe_metadata'] = m.swipeMetadata
-        .map((e) => e != null ? Map<String, dynamic>.from(e) : null)
+        .map((e) => e != null ? portable(e) : null)
         .toList();
   }
   return map;

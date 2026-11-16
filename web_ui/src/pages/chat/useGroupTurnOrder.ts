@@ -1,12 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The group's turn order for the desktop header's second line
+// The group's turn order for the header's second line
 // (`N characters • Round Robin`). The chat state snapshot does not carry
-// it; the tools snapshot does. The sidebar is on screen whenever this
-// fetches (desktop group chat), so this GET is not the "hidden panel"
-// fetch the mount audit fought — it just moves the same read the sidebar
-// makes up to the page so the header can print it.
+// it; the tools snapshot does. One extra GET per group chat, the same read
+// the sidebar makes, so the header can print it at every width (PR 1b).
 
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
