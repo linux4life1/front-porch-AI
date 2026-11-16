@@ -333,10 +333,11 @@ void main() {
     await pump(true);
     expect(find.text('Generate with Dynamics'), findsOneWidget);
   });
-  // A phone-width window: every step, Back/Next and the title fit, with
-  // Realism on and its per-member header showing.
-  testWidgets('every step fits a 400 px window', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(400, 800));
+  // A desktop window: every step, Back/Next and the title fit, with
+  // Realism on and its per-member header showing. Phone width is the web
+  // wizard's (web_ui), not the desktop app's.
+  testWidgets('every step fits a 1440 px window', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpWizard(tester);
 
@@ -351,7 +352,7 @@ void main() {
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
       if (find.text('Group Name').evaluate().isNotEmpty) {
-        await tester.enterText(find.byType(TextField).first, 'Narrow');
+        await tester.enterText(find.byType(TextField).first, 'Wide');
         await tester.pumpAndSettle();
       }
       sawRealismHeader |= find

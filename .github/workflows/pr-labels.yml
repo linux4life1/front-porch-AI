@@ -1,0 +1,74 @@
+name: PR labels
+
+# Tags every PR with what it touches, so the PR list shows at a glance what
+# to look for. One table below is the whole system: add a row to add an area.
+#
+# Only the labels named in AREAS and SIGNALS are ever added or removed here;
+# labels a person applies by hand (approved-test-change, update-goldens, ...)
+# are never touched.
+#
+# pull_request_target, like pr-rules.yml: the base branch's copy runs, and
+# this job never checks out or runs PR code. It only reads the changed paths.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            // Area label -> a changed path matches if any regex hits.
+            const AREAS = {
+              'area: ui':        [/^lib\/ui\//, /^lib\/app\//, /^lib\/main/],
+              'area: web-ui':    [/^web_ui\//, /^assets\/web_app\//],
+              'area: chat':      [/^lib\/services\/(chat|story|story_pipeline|memory|embedding|persona|porch)\//, /^lib\/services\/chat_service\.dart$/],
+              'area: backends':  [/^lib\/services\/(backend|kobold|llm_provider|open_router|xai|grpc|hardware)\//],
+              'area: database':  [/^lib\/database\//],
+              'area: stoop':     [/^lib\/services\/backporch\//, /^web_ui\/src\/stoop\//],
+              'area: web-server':[/^lib\/services\/web\//],
+              'area: media':     [/^lib\/services\/(tts|stt|tts_playback|image|image_gen|image_prompt|expression|comfy_ui|caption)\//],
+              'area: characters':[/^lib\/services\/(character_gen|character_store|chargen|world_store|world_from_wiki)\//],
+              'area: ci':        [/^\.github\//, /^scripts\//, /^tools\//, /^analysis_options\.yaml$/, /^pubspec\.(yaml|lock)$/],
+              'area: docs':      [/^docs\//, /\.md$/],
+            };
+            const TESTS = [/^test\//, /^integration_test\//, /^web_ui\/e2e\//, /\.(test|spec)\.tsx?$/];
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo, pull_number: context.payload.pull_request.number, per_page: 100,
+            });
+            const paths = files.map(f => f.filename);
+            const hit = res => paths.some(p => res.some(r => r.test(p)));
+
+            const want = new Set();
+            for (const [label, res] of Object.entries(AREAS)) if (hit(res)) want.add(label);
+            if (hit(TESTS)) want.add('area: tests');
+
+            // Signals: the "look closer" labels.
+            const touchesDesktopUi = paths.some(p => /^lib\/ui\//.test(p));
+            const touchesWebUi = paths.some(p => /^web_ui\/src\//.test(p) && !TESTS.some(r => r.test(p)));
+            if (touchesDesktopUi && !touchesWebUi) want.add('check: no web twin');
+            if (paths.some(p => /^lib\/database\//.test(p))) want.add('check: migration');
+            if (paths.some(p => /^lib\/services\/(chat|story|memory)\//.test(p))) want.add('check: path-complete');
+            if (touchesDesktopUi || touchesWebUi) want.add('check: screenshots');
+
+            const managed = new Set([...Object.keys(AREAS), 'area: tests',
+              'check: no web twin', 'check: migration', 'check: path-complete', 'check: screenshots']);
+            const have = new Set(context.payload.pull_request.labels.map(l => l.name));
+            const add = [...want].filter(l => !have.has(l));
+            const remove = [...have].filter(l => managed.has(l) && !want.has(l));
+
+            const issue_number = context.payload.pull_request.number;
+            if (add.length) await github.rest.issues.addLabels({ ...context.repo, issue_number, labels: add });
+            for (const name of remove) {
+              await github.rest.issues.removeLabel({ ...context.repo, issue_number, name });
+            }
+            core.info(`added: ${add.join(', ') || '-'}; removed: ${remove.join(', ') || '-'}`);

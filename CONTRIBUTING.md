@@ -98,6 +98,13 @@ dart run build_runner build   # regenerates lib/database/database.g.dart
    that section while editing the description. Use made-up characters,
    never a real chat. The PR rules check fails a UI PR without real
    screenshots there; no label skips it, and it applies to every author.
+   Compare them yourself first: render desktop and web side by side and fix
+   any difference that is not a layout adaptation before you open the PR.
+   If your PR changes only the desktop UI or only the web UI, add a
+   `## Web parity` section with one line, `none: <why the other side has
+   nothing to change>`, so reviewers see it was a decision, not an omission.
+   PRs get `area:` and `check:` labels automatically from the files they
+   change; you do not need to add them.
 
 Draft PRs are welcome when you want direction on an approach.
 
