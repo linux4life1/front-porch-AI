@@ -74,6 +74,11 @@ export function SliderField({
   const dMinPct = dangerMin !== undefined ? clampPct(dangerMin, min, max) : undefined;
   const defaultPct = defaultVal !== undefined ? clampPct(defaultVal, min, max) : undefined;
   const trackGradient = buildTrackGradient(valPct, dMinPct, dMaxPct);
+  const inDanger =
+    (dangerMax !== undefined && value > dangerMax) ||
+    (dangerMin !== undefined && value < dangerMin) ||
+    value > max ||
+    value < min;
 
   const field = (
     <div className="slider-field">
@@ -122,6 +127,7 @@ export function SliderField({
       <div className="slider-track-wrap">
         <input
           type="range"
+          className={inDanger ? 'in-danger' : undefined}
           value={Math.max(min, Math.min(max, value))}
           step={step}
           min={min}

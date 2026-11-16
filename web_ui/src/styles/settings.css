@@ -115,8 +115,14 @@
 }
 .slider-label { display: inline-flex; align-items: center; gap: 4px; }
 .slider-val {
-  width: 80px; text-align: right; padding: 4px 8px; font-size: 0.85rem;
-  font-variant-numeric: tabular-nums; font-family: inherit; font-weight: 600;
+  width: 72px; text-align: right; padding: 4px 6px; font-size: 0.82rem;
+  font-variant-numeric: tabular-nums; font-family: inherit; font-weight: 700;
+  border-radius: 6px;
+  appearance: textfield; -moz-appearance: textfield;
+}
+.slider-val::-webkit-outer-spin-button,
+.slider-val::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
 }
 .slider-track-wrap {
   position: relative;
@@ -125,8 +131,24 @@
   align-items: center;
 }
 .slider-field input[type='range'] {
-  width: 100%; height: 6px; accent-color: var(--accent); cursor: pointer; padding: 0;
-  border-radius: 3px; background: var(--border); border: none;
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; cursor: pointer; padding: 0;
+  border-radius: 2px; background: var(--border); border: none;
+}
+.slider-field input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-field input[type='range'].in-danger::-webkit-slider-thumb {
+  background: var(--danger);
+}
+.slider-field input[type='range']::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-field input[type='range'].in-danger::-moz-range-thumb {
+  background: var(--danger);
 }
 .slider-field input:disabled { opacity: 0.45; cursor: not-allowed; }
 .slider-default-pip {
@@ -692,6 +714,21 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
   input.switch { border-width: 6px; margin: -6px; border-radius: 22px; }
 }
 .settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.settings-save button.primary {
+  border-radius: 999px; padding: 10px 22px;
+}
+.gp-buttons button:not(.primary):not(.ghost) {
+  border-radius: 999px; background: transparent;
+  border: 1px solid var(--border); color: var(--porch-amber);
+  font-weight: 600; padding: 8px 18px;
+}
+.gp-buttons button.ghost {
+  border-radius: 999px; border-color: transparent;
+  color: var(--porch-amber); font-weight: 600; padding: 8px 14px;
+}
+.gp-buttons button.primary {
+  border-radius: 999px; padding: 8px 18px;
+}
 .settings-save .step-up { flex: 1 1 320px; }
 .settings-save .primary:hover:not(:disabled) {
   box-shadow: 0 4px 18px color-mix(in srgb, var(--porch-amber) 35%, transparent);

@@ -56,11 +56,10 @@ class ThinkingStrengthControl extends StatelessWidget {
     final chips = reasoningEffortChipsFor(modelId);
     final withOff = onTurnOff != null;
     final off = withOff && thinkingOn == false;
-    final selected =
-        off ? '' : reasoningEffortDisplayedSelection(modelId, value);
-    final caption = off
+    final selected = off
         ? ''
-        : reasoningEffortMappingCaption(modelId, selected);
+        : reasoningEffortDisplayedSelection(modelId, value);
+    final caption = off ? '' : reasoningEffortMappingCaption(modelId, selected);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,43 +80,59 @@ class ThinkingStrengthControl extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 360;
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (withOff)
-                  _StrengthChip(
-                    id: 'off',
-                    title: 'Off',
-                    blurb: 'No thinking',
-                    selected: off,
-                    accent: accent,
-                    wide: wide && chips.length <= 4,
-                    onTap: offDisabled ? null : onTurnOff,
-                  ),
-                for (final id in chips)
-                  _StrengthChip(
-                    id: id,
-                    selected: selected == id,
-                    accent: accent,
-                    wide: wide && chips.length <= 4,
-                    onTap: () {
-                      if (withOff && off) onTurnOn?.call();
-                      onChanged(id);
-                    },
-                  ),
-                if (withOff && chips.isEmpty)
-                  _StrengthChip(
-                    id: 'on',
-                    title: 'On',
-                    blurb: 'Think before replying',
-                    selected: !off,
-                    accent: accent,
-                    wide: wide,
-                    onTap: off ? onTurnOn : null,
-                  ),
-              ],
-            );
+            final chipList = <Widget>[
+              if (withOff)
+                _StrengthChip(
+                  id: 'off',
+                  title: 'Off',
+                  blurb: 'No thinking',
+                  selected: off,
+                  accent: accent,
+                  wide: wide && chips.length <= 4,
+                  onTap: offDisabled ? null : onTurnOff,
+                ),
+              for (final id in chips)
+                _StrengthChip(
+                  id: id,
+                  selected: selected == id,
+                  accent: accent,
+                  wide: wide && chips.length <= 4,
+                  onTap: () {
+                    if (withOff && off) onTurnOn?.call();
+                    onChanged(id);
+                  },
+                ),
+              if (withOff && chips.isEmpty)
+                _StrengthChip(
+                  id: 'on',
+                  title: 'On',
+                  blurb: 'Think before replying',
+                  selected: !off,
+                  accent: accent,
+                  wide: wide,
+                  onTap: off ? onTurnOn : null,
+                ),
+            ];
+            final fitsRow =
+                wide &&
+                chipList.length <= 5 &&
+                constraints.maxWidth >=
+                    chipList.length * 112 + (chipList.length - 1) * 8;
+            if (fitsRow) {
+              return IntrinsicHeight(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < chipList.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      chipList[i],
+                    ],
+                  ],
+                ),
+              );
+            }
+            return Wrap(spacing: 8, runSpacing: 8, children: chipList);
           },
         ),
         SizedBox(height: compact ? 8 : 10),
@@ -169,7 +184,7 @@ class _StrengthChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: wide ? 112 : null,
-          constraints: const BoxConstraints(minWidth: 88),
+          constraints: const BoxConstraints(minWidth: 88, minHeight: 68),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
