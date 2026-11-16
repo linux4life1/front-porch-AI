@@ -107,7 +107,7 @@
 /* ── Appearance: theme gallery (the desktop's ThemeCardGrid) ───────────── */
 .theme-gallery-wrap { margin: 10px 0 14px; }
 .theme-gallery {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 .theme-gallery-card {
@@ -132,9 +132,11 @@
 .theme-gallery-bar.accent { width: 30%; }
 .theme-gallery-name { padding: 0 10px; font-size: 0.82rem; font-weight: 600; }
 .theme-gallery-tag { padding: 0 10px; font-size: 0.68rem; }
-@media (max-width: 480px) {
-  .theme-gallery { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+@media (max-width: 760px) {
+  .theme-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 }
+
+.chat-type-card .reading-size-row > span:first-child { display: none; }
 
 /* ── Appearance: shell controls card, accent bar, atmosphere grid ──────── */
 .appearance-shell-card {
