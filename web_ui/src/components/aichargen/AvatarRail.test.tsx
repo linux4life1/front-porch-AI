@@ -155,7 +155,7 @@ describe('AvatarRail', () => {
 
   it('starts the expression pack with the chosen set', async () => {
     await act(async () => {
-      (container.querySelector('.cg-r-switch input') as HTMLInputElement).click();
+      (container.querySelector('.cg-r-expr input.switch') as HTMLInputElement).click();
     });
     await settle();
     const select = container.querySelector('.cg-r-pack select') as HTMLSelectElement;

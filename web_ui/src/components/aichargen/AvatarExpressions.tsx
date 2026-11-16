@@ -7,6 +7,8 @@
 // is deliberately absent (maintainer ruling, 2026-11-15).
 
 import type { PackView } from '../models/studio/packApi';
+import { ToggleRow } from '../realism/controls';
+import { ZipIcon } from './creatorIcons';
 
 export function AvatarExpressions({
   packOn,
@@ -48,10 +50,7 @@ export function AvatarExpressions({
   return (
     <section className="cg-r-expr" aria-label="Expressions">
       <h4>EXPRESSIONS — INDEPENDENT OF THE PORTRAIT SOURCE</h4>
-      <label className="cg-r-switch">
-        <input type="checkbox" checked={packOn} onChange={(e) => onPackOnChange(e.target.checked)} />
-        <span>Generate pack</span>
-      </label>
+      <ToggleRow label="Generate pack" value={packOn} onChange={onPackOnChange} />
       {!packOn ? (
         <>
           <p className="cg-r-caption">
@@ -59,7 +58,7 @@ export function AvatarExpressions({
             emotion-named ZIP sprite pack.
           </p>
           <button type="button" className="ghost cg-r-import" disabled={busy} onClick={onPickZip}>
-            📦 Import ZIP
+            <ZipIcon /> Import ZIP
           </button>
         </>
       ) : (

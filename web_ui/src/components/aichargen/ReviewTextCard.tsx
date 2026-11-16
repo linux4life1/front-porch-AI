@@ -8,6 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { MacroField } from '../MacroField';
+import { ExpandIcon } from './creatorIcons';
 
 export function ReviewTextCard({
   title,
@@ -47,7 +48,7 @@ export function ReviewTextCard({
           disabled={locked}
           onClick={() => setFull(true)}
         >
-          ⤢
+          <ExpandIcon />
         </button>
       </div>
       <div className={locked ? 'cg-r-locked' : undefined}>

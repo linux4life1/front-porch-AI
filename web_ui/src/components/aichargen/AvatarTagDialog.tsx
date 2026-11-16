@@ -2,86 +2,76 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The Review rail's tag dialog (desktop upload_tag_dialog.dart): a second
-// upload is either a gallery look or an expression image, and an expression
-// must name one of the EmotionLabels values.
+// upload is either a gallery look or an expression image. The desktop asks
+// with the picture itself, a "Gallery look" chip, and every emotion as a
+// chip — tapping one answers the question, Cancel walks away.
 
-import { useState } from 'react';
-import { EMOTION_LABELS } from './avatarRailApi';
+import { useEffect, useState } from 'react';
+import { HangerIcon } from './creatorIcons';
+import { EMOTION_EMOJI, EMOTION_LABELS } from './avatarRailApi';
 
 export function AvatarTagDialog({
+  file,
   onConfirm,
   onClose,
   busy,
 }: {
+  /** The picture being tagged, shown at the dialog's head. */
+  file: File;
   onConfirm: (label: string | null) => void;
   onClose: () => void;
   busy?: boolean;
 }) {
-  const [kind, setKind] = useState<'look' | 'expression'>('expression');
-  const [label, setLabel] = useState<string>(EMOTION_LABELS[0]);
+  const [thumb, setThumb] = useState<string>();
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setThumb(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const pick = (label: string | null) => {
+    if (!busy) onConfirm(label);
+  };
+
   return (
     <div className="drawer-backdrop center" onClick={onClose}>
       <div
         className="modal cg-r-tag-modal"
         role="dialog"
-        aria-label="Tag this image"
+        aria-label="What is this image?"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="cg-r-lore-head">
-          <h3>Tag this image</h3>
-          <button type="button" className="ghost" aria-label="Close" onClick={onClose}>
-            ✕
-          </button>
-        </header>
         <div className="cg-r-tag-body">
-          <label className="cg-r-tag-choice">
-            <input
-              type="radio"
-              name="avatar-tag-kind"
-              checked={kind === 'look'}
-              onChange={() => setKind('look')}
-            />
-            <span>
-              <strong>Gallery look</strong>
-              <small>An outfit, scene or seasonal picture — shown in the gallery, never the expression engine.</small>
-            </span>
-          </label>
-          <label className="cg-r-tag-choice">
-            <input
-              type="radio"
-              name="avatar-tag-kind"
-              checked={kind === 'expression'}
-              onChange={() => setKind('expression')}
-            />
-            <span>
-              <strong>Expression image</strong>
-              <small>Used by the expression engine when the character feels this.</small>
-            </span>
-          </label>
-          {kind === 'expression' && (
-            <label className="cg-field">
-              <span className="cg-field-label">Emotion</span>
-              <select value={label} onChange={(e) => setLabel(e.target.value)}>
-                {EMOTION_LABELS.map((e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-        <footer className="cg-r-lore-foot">
-          <button type="button" className="ghost" onClick={onClose}>
-            Cancel
-          </button>
+          <header className="cg-tag-head">
+            {thumb && <img src={thumb} alt="" className="cg-tag-thumb" />}
+            <h3>What is this image?</h3>
+          </header>
           <button
             type="button"
-            className="primary"
+            className="cg-tag-look"
             disabled={busy}
-            onClick={() => onConfirm(kind === 'look' ? null : label)}
+            onClick={() => pick(null)}
           >
-            Add image
+            <HangerIcon /> Gallery look (outfit / scene — no emotion)
+          </button>
+          <p className="cg-tag-or">Or tag it as an expression image:</p>
+          <div className="cg-tag-chips">
+            {EMOTION_LABELS.map((emotion) => (
+              <button
+                key={emotion}
+                type="button"
+                className="cg-tag-chip"
+                disabled={busy}
+                onClick={() => pick(emotion)}
+              >
+                {EMOTION_EMOJI[emotion]} {emotion}
+              </button>
+            ))}
+          </div>
+        </div>
+        <footer className="cg-r-lore-foot cg-tag-foot">
+          <button type="button" className="ghost" onClick={onClose}>
+            Cancel
           </button>
         </footer>
       </div>

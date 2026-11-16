@@ -54,6 +54,40 @@ export const EMOTION_LABELS = [
   'neutral',
 ] as const;
 
+/** The desktop's EmotionLabels.emoji, for the tag dialog's chips. */
+export const EMOTION_EMOJI: Record<string, string> = {
+  admiration: '🤩',
+  affection: '💕',
+  amusement: '😄',
+  anger: '😠',
+  annoyance: '😤',
+  anticipation: '👀',
+  approval: '👍',
+  caring: '🤗',
+  confusion: '😕',
+  curiosity: '🧐',
+  desire: '🥵',
+  disappointment: '😞',
+  disapproval: '👎',
+  disgust: '🤢',
+  embarrassment: '😳',
+  excitement: '🤩',
+  fear: '😨',
+  gratitude: '🙏',
+  grief: '😭',
+  joy: '😁',
+  love: '😍',
+  nervousness: '😰',
+  optimism: '😊',
+  pride: '😎',
+  realization: '💡',
+  relief: '😌',
+  remorse: '😔',
+  sadness: '😢',
+  surprise: '😲',
+  neutral: '😐',
+};
+
 export const listAvatars = (id: string) =>
   api.get<{ avatars: AvatarItem[] }>(`/api/characters/${enc(id)}/avatars`);
 

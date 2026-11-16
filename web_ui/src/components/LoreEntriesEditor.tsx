@@ -123,6 +123,7 @@ export function LoreEntryFields({
                 <small className="muted">This entry can be injected when its keys match</small>
               <input
                 type="checkbox"
+                className="switch"
                 checked={entry.enabled}
                 onChange={(e) => update({ enabled: e.target.checked })}
               />
@@ -132,6 +133,7 @@ export function LoreEntryFields({
                 <small className="muted">Always considered active (ignores trigger keys)</small>
               <input
                 type="checkbox"
+                className="switch"
                 checked={entry.constant}
                 onChange={(e) => update({ constant: e.target.checked })}
               />

@@ -47,12 +47,6 @@ export const PenIcon = () => (
   </svg>
 );
 
-export const ExpandIcon = () => (
-  <svg {...stroke} width={18} height={18}>
-    <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
-  </svg>
-);
-
 export const RewriteIcon = ({ size = 18 }: { size?: number }) => (
   <svg {...stroke} width={size} height={size} strokeWidth={2.2}>
     <path d="M21 12a9 9 0 1 1-2.6-6.4" />
@@ -126,5 +120,35 @@ export const BubblesIcon = () => (
     <circle cx="7" cy="8" r="3" />
     <circle cx="17" cy="7" r="2.5" />
     <circle cx="12" cy="16" r="3.5" />
+  </svg>
+);
+
+/** The desktop's `Icons.open_in_full`: two diagonal arrows to the corners. */
+export const ExpandIcon = ({ size = 18 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" aria-hidden>
+    <path d="M21 11V3h-8l3.29 3.29-10 10L3 13v8h8l-3.29-3.29 10-10z" />
+  </svg>
+);
+
+/** A package, for Import ZIP (the desktop's folder-zip glyph). */
+export const ZipIcon = ({ size = 16 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <path d="M12 7v2M12 11v2M12 15v2" />
+  </svg>
+);
+
+/** The desktop's Save & Finish tick. */
+export const CheckIcon = ({ size = 18 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size} strokeWidth={2.4}>
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
+/** The desktop's `Icons.checkroom` on the gallery-look chip. */
+export const HangerIcon = ({ size = 15 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size}>
+    <path d="M12 7a2 2 0 1 1 2-2" />
+    <path d="M14 7l7 5v2H3v-2l7-5" />
   </svg>
 );

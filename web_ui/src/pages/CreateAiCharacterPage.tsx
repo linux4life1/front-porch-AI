@@ -35,7 +35,7 @@ import {
   viewOf,
   type ProfileView,
 } from '../components/aichargen/profileApi';
-import { ArrowLeft, ArrowRight, Sparkle } from '../components/aichargen/creatorIcons';
+import { ArrowLeft, ArrowRight, CheckIcon, Sparkle } from '../components/aichargen/creatorIcons';
 import { TemplatePicker } from '../components/aichargen/TemplatePicker';
 import { TemplateSaveBar } from '../components/aichargen/TemplateSaveBar';
 import { templateToForm } from '../components/aichargen/templateForm';
@@ -300,7 +300,11 @@ export function CreateAiCharacterPage() {
       </div>
 
       <div className="cg-content">
-        <div className={`cg-column${step === 0 ? ' cg-column-mode' : ''}`}>
+        <div
+          className={`cg-column${step === 0 ? ' cg-column-mode' : ''}${
+            step === REVIEW ? ' cg-column-review' : ''
+          }`}
+        >
           {personaSeed && <PersonaSeedNote seed={personaSeed} />}
           {seedError && <p className="error">{seedError}</p>}
 
@@ -465,11 +469,11 @@ export function CreateAiCharacterPage() {
         {step === REVIEW ? (
           <button
             type="button"
-            className="cg-next"
+            className="cg-next cg-save-check"
             disabled={writing || !createdId}
             onClick={() => void saveAndFinish()}
           >
-            Save &amp; Finish ✓
+            <CheckIcon /> Save &amp; Finish
           </button>
         ) : (
           <button

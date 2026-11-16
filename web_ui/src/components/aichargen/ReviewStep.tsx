@@ -37,12 +37,21 @@ type TextKey = 'description' | 'personality' | 'scenario' | 'firstMessage' | 'sy
 
 const SAVE_PAUSE_MS = 700;
 
-const TEXT_CARDS: { key: TextKey; title: string; subtitle?: string; rows: number }[] = [
-  { key: 'description', title: 'Description', subtitle: 'Who they are, as the card will carry it', rows: 6 },
-  { key: 'personality', title: 'Personality', subtitle: 'How they act and speak', rows: 4 },
-  { key: 'scenario', title: 'Scenario', subtitle: 'Where the first chat starts', rows: 3 },
-  { key: 'firstMessage', title: 'First Message', subtitle: 'Opens every new chat', rows: 6 },
+const TEXT_CARDS: { key: TextKey; title: string; subtitle?: string; min: number; max: number }[] = [
+  { key: 'description', title: 'Description', subtitle: 'Who they are, as the card will carry it', min: 3, max: 6 },
+  { key: 'personality', title: 'Personality', subtitle: 'How they act and speak', min: 3, max: 4 },
+  { key: 'scenario', title: 'Scenario', subtitle: 'Where the first chat starts', min: 3, max: 8 },
+  { key: 'firstMessage', title: 'First Message', subtitle: 'Opens every new chat', min: 3, max: 6 },
 ];
+
+/** The desktop's CreatorTextCard grows from its minLines toward maxLines; the
+ *  web's textarea takes rows, so estimate wrapped lines at the Review width. */
+const rowsForWidth = (text: string, min: number, max: number) => {
+  const lines = text
+    .split('\n')
+    .reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 80)), 0);
+  return Math.min(max, Math.max(min, lines));
+};
 
 const messageOf = (err: unknown, fallback: string) =>
   err instanceof ApiError && err.message ? err.message : fallback;
@@ -362,7 +371,7 @@ export const ReviewStep = forwardRef<
               title={card.title}
               subtitle={card.subtitle}
               value={detail[card.key]}
-              rows={card.rows}
+              rows={rowsForWidth(detail[card.key], card.min, card.max)}
               onChange={(v) => editText(card.key, v)}
             />
           ))}
@@ -371,7 +380,7 @@ export const ReviewStep = forwardRef<
               key={`alt-${i}`}
               title={`Alternate greeting ${i + 1}`}
               value={greeting}
-              rows={4}
+              rows={rowsForWidth(greeting, 3, 4)}
               onChange={(v) => editAlt(i, v)}
               below={
                 <GreetingSeedForm
@@ -391,6 +400,7 @@ export const ReviewStep = forwardRef<
             writing={writing?.field === 'mesExample'}
             locked={busy}
             error={errors.mesExample}
+            rows={rowsForWidth(review.mesExample, 3, 6)}
             onEdit={editDialogue}
             onRewrite={(direction) => void start('mesExample', direction)}
             onStop={() => void stop()}
@@ -398,7 +408,7 @@ export const ReviewStep = forwardRef<
           <ReviewTextCard
             title="System Prompt"
             value={detail.systemPrompt}
-            rows={4}
+            rows={rowsForWidth(detail.systemPrompt, 3, 4)}
             onChange={(v) => editText('systemPrompt', v)}
           />
           <ReviewLorebookCard

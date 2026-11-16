@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { MacroField } from '../MacroField';
 import { MacroText } from './macroText';
+import { ExpandIcon } from './creatorIcons';
 import { ReviewRewriteCard } from './ReviewRewriteCard';
 
 export function ReviewDialogueCard({
@@ -17,6 +18,7 @@ export function ReviewDialogueCard({
   writing,
   locked,
   error,
+  rows,
   onEdit,
   onRewrite,
   onStop,
@@ -28,6 +30,7 @@ export function ReviewDialogueCard({
   writing: boolean;
   locked: boolean;
   error?: string;
+  rows: number;
   onEdit: (next: string) => void;
   onRewrite: (direction: string) => void;
   onStop: () => void;
@@ -46,7 +49,7 @@ export function ReviewDialogueCard({
           disabled={writing || locked}
           onClick={() => setFull(true)}
         >
-          ⤢
+          <ExpandIcon />
         </button>
       }
       placeholder="Steer it (optional), e.g. shorter lines, more bite"
@@ -67,7 +70,7 @@ export function ReviewDialogueCard({
           label="Example dialogue"
           value={value}
           onChange={onEdit}
-          rows={5}
+          rows={rows}
           ariaLabel="Example dialogue text"
           showHead={false}
           full={full}

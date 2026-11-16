@@ -460,6 +460,7 @@ export function AvatarRail({
       )}
       {pendingExtra && (
         <AvatarTagDialog
+          file={pendingExtra}
           busy={busy}
           onClose={() => setPendingExtra(null)}
           onConfirm={(label) => void addExtra(label)}

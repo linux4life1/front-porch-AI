@@ -274,3 +274,35 @@ Everything else reuses shipped routes (§2 cites each).
   `wc -l` everything grown.
 - Edited existing tests/goldens carry `approved-test-change`.
 - `## Screenshots` and `## Hand-check` in the PR body.
+
+## 8. Visual parity pass — 2026-11-16
+
+Validated the shipped page against the desktop capture
+(`docs/screenshots/pr8d-creator-review/desktop-review-light-wide.png`,
+2×) with `web_ui/scripts/capture-pr8d.mjs` (fresh page per theme, the
+no-engine answer pinned) and matched these, reading the desktop source
+rather than eyeballing:
+
+- **Grid**: 360px rail + 32 gap (`review_step.dart:94-150`), Review
+  title 24/700, intro 14, cards 16 apart.
+- **Cards**: radius 16, padding 20, 12 gap, 32px header
+  (`creator_text_card.dart` `CreatorCardShell`); the macro box 15/1.55,
+  12×14 padding, radius 12, min-height 96; rows grown from the text
+  like the desktop's `minLines`/`maxLines` (6/4/8/6, alt greetings 4,
+  dialogue 6, system prompt 4).
+- **Rail**: 64×80 wells radius 8, the caption on its own full-width
+  line, expressions card padding 14 / radius 11, name 22, tags 11.
+- **Nav**: the tick after "Save & Finish" at every width
+  (`IconAlignment.end`, `creator_nav_bar.dart:104-124`).
+- **Entry dialog** (`lorebook_entry_dialog.dart`): the two switches as
+  icon-less cards with pill switches, each slider a full-width block
+  with its value chip, Placement a label row with the dropdown on the
+  right; the whole Simple tab fits without scrolling at 1180.
+- **Tag dialog** (`upload_tag_dialog.dart`): the picture at the head,
+  "What is this image?", the gallery-look chip, then every emotion as a
+  chip; a tap answers, Cancel leaves.
+
+Accepted, unchanged: the web sidebar (maintainer ruling), the wizard's
+own step labels (Mode/Details/Output vs Setup/Mode/Configure, set by
+8b/8c), and the pinned wizard foot (every web creator step).
+
