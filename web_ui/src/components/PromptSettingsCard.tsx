@@ -160,7 +160,12 @@ export function PromptSettingsCard({
 
   return (
     <div className="settings-group prompt-settings-group" data-testid="prompt-settings-card">
-      <h4 className="settings-group-heading">Default prompts &amp; instructions</h4>
+      <h4 className="settings-group-heading">Default Prompts &amp; Instructions</h4>
+      <p className="muted small settings-group-sub">
+        Base instructions for chats without their own prompt. Both fields support{' '}
+        <code className="inline-macro">{'{{char}}'}</code> and{' '}
+        <code className="inline-macro">{'{{user}}'}</code> macros.
+      </p>
       <PromptSlot
         testId="fallback-system-prompt"
         title="Fallback system prompt"

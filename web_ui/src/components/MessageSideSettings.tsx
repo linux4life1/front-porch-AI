@@ -44,8 +44,9 @@ export function MessageSideSettings() {
         <div className="setting-toggle-info">
           <h3>My messages on the right</h3>
           <p className="reading-blurb">
-            Off, your messages sit on the left, like the character&apos;s. On, they
-            move to the right, the way chat looked before.
+            Off, your messages sit on the left with your picture, like the
+            character&apos;s. On, they move to the right with your picture on
+            the right, the way chat looked before.
           </p>
         </div>
         <label className="toggle-switch">

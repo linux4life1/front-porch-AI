@@ -462,19 +462,26 @@ export function SettingsPage() {
       {tab === 'general' && (
       <div className="settings-section" data-section="general">
 
-        <MessageSideSettings />
-        <FollowStreamingSettings />
-        <AutoCheckSettings />
-        <SpellCheckSettings
-          spellCheckLanguage={s.spellCheckLanguage}
-          spellCheckLanguages={s.spellCheckLanguages}
-          onChange={(tag) => patch({ spellCheckLanguage: tag })}
-        />
-
         <div className="settings-group" data-testid="porch-life-group">
-          <h4 className="settings-group-heading">Porch Life</h4>
-          <AdultThemesCard />
+          <h4 className="settings-group-heading">Application &amp; System</h4>
+          <div className="settings-group-card">
+            <AutoCheckSettings />
+            <SpellCheckSettings
+              spellCheckLanguage={s.spellCheckLanguage}
+              spellCheckLanguages={s.spellCheckLanguages}
+              onChange={(tag) => patch({ spellCheckLanguage: tag })}
+            />
+            <AdultThemesCard />
+          </div>
           <PorchLifePointerCard />
+        </div>
+
+        <div className="settings-group" data-testid="chat-behavior-group">
+          <h4 className="settings-group-heading">Chat Behavior &amp; Display</h4>
+          <div className="settings-group-card">
+            <MessageSideSettings />
+            <FollowStreamingSettings />
+          </div>
         </div>
 
         <PromptSettingsCard
@@ -490,35 +497,38 @@ export function SettingsPage() {
           patch={(p) => patch(p as Partial<Settings>)}
         />
 
-        <section className="card" data-testid="about-license-card">
-          <h2>About &amp; License</h2>
-          <p className="muted small" style={{ lineHeight: 1.5 }}>
-            Front Porch AI is free, open-source software © 2026 Front Porch AI,
-            licensed under the GNU Affero General Public License v3.0. You are
-            free to use, study, modify, and redistribute it under the AGPL. The
-            complete source code is available below; if you received this app
-            without that source, or as part of a closed-source product, that is a
-            license violation.
-          </p>
-          <div className="about-links">
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Source code
-            </a>
-            <a
-              className="btn-link"
-              href="https://github.com/linux4life1/front-porch-ai/issues"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Report a license violation
-            </a>
-          </div>
-        </section>
+        <div className="settings-group" data-testid="about-license-group">
+          <h4 className="settings-group-heading">About &amp; License</h4>
+          <section className="card" data-testid="about-license-card">
+            <h3 style={{ margin: '0 0 6px', fontSize: '0.95rem' }}>Front Porch AI</h3>
+            <p className="muted small" style={{ lineHeight: 1.5, margin: '0 0 12px' }}>
+              Free, open-source software © 2026 Front Porch AI, licensed under
+              the GNU Affero General Public License v3.0. You are free to use,
+              study, modify, and redistribute it under the AGPL. The complete
+              source code is available below; if you received this app without
+              that source, or as part of a closed-source product, that is a
+              license violation.
+            </p>
+            <div className="about-links">
+              <a
+                className="btn-link"
+                href="https://github.com/linux4life1/front-porch-ai"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Source code
+              </a>
+              <a
+                className="btn-link"
+                href="https://github.com/linux4life1/front-porch-ai/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Report a license violation
+              </a>
+            </div>
+          </section>
+        </div>
       </div>
       )}
 
