@@ -237,7 +237,11 @@ class RealismSnapshot {
     final meta = msg.activeMetadata;
     final rs = meta?['realism_state'];
     if (rs is! Map) return;
-    if (_needsSimEnabled &&
+    // The speaker's stored switch: their own in a group, the chat's in a 1:1.
+    final inGroup = _scope.session.activeGroup != null;
+    final speakerOn =
+        inGroup && _scope.groups.needsOnFor(_scope.groups.currentSpeakerId());
+    if ((speakerOn || !inGroup && _needsSimEnabled) &&
         _needsSimulation.vector.isNotEmpty &&
         rs['needs'] is Map) {
       final needs = rs['needs'] as Map;

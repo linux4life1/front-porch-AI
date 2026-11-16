@@ -188,7 +188,10 @@ class WebServerHost extends ChangeNotifier {
   void setKoboldService(KoboldService service) => _services.kobold = service;
   void setTtsService(TtsService service) => _services.tts = service;
   void setSttService(SttService service) => _services.stt = service;
+  void setExpressionClassifierService(ExpressionClassifierService service) =>
+      _services.expressions = service;
   void setStoryRepository(StoryRepository repo) => _services.stories = repo;
+  void setUpdateService(UpdateService service) => _services.update = service;
 
   /// The app makes a new pipeline when the chat backend switches and disposes
   /// the old one, so a running server's story routes move to the new one.

@@ -21,76 +21,56 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/pages/edit_character_page.dart'
-    show leaveCharacterEditor;
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart'
-    show memberGroupViewOfTemplate;
-import 'package:front_porch_ai/ui/pages/edit_group/edit_group_details_tab.dart';
+    show GroupMemberMode;
+import 'package:front_porch_ai/ui/widgets/porch_snack_bar.dart';
 
-/// Edit group's tabs, in order; the member editor's links go back to
-/// [kEditGroupRealismTab].
-const kEditGroupTabs = [
-  Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
-  Tab(icon: Icon(Icons.chat_bubble_outline, size: 18), text: 'Dialogue'),
-  Tab(icon: Icon(Icons.auto_stories_outlined, size: 18), text: 'Lore & Worlds'),
-  Tab(icon: Icon(Icons.favorite_outline, size: 18), text: 'Realism & Dynamics'),
-];
-const kEditGroupRealismTab = 3;
-
-/// Opens [member]'s editor from Edit group, on [group]'s settings for new
-/// chats as the page holds them now ([defaultMemberJson], [baselineJson],
-/// where it meets: [settingId], and [inheritCharacterLorebooks]). A start
-/// the editor saves reaches the group's row and comes back through
-/// [onStartSaved]. Returns true when the editor's "Realism & Dynamics" link
-/// closed it, so the page shows that tab; a link the user backed out of
-/// ("Keep editing") does not count, whatever closes the editor later.
-Future<bool> editGroupMemberFromEditGroup(
-  BuildContext context, {
-  required GroupChat group,
-  required CharacterCard member,
-  required String memberId,
-  required String defaultMemberJson,
-  required String baselineJson,
-  required String? settingId,
-  required bool inheritCharacterLorebooks,
-  required void Function(String defaultMemberJson, String baselineJson)
-  onStartSaved,
+/// Edit one member's card in the character editor, in its member mode.
+/// Saves to the group's member row only (never the source library
+/// character): every column the editor shows, voice, greeting seeds and the
+/// member's own Realism and Needs settings included. When the group is open
+/// in the chat, its copy of the member is replaced too, so a later save from
+/// the chat cannot put the old values back. [mode] says what it shows of the
+/// group and where the group's values for the member are stored. Returns
+/// the edited card, or null when the editor was backed out of.
+Future<CharacterCard?> editGroupMemberCard(
+  BuildContext context,
+  CharacterCard member,
+  String memberId, {
+  required GroupMemberMode mode,
 }) async {
-  var toRealism = false;
-  // A group made before the id-keying fix filed seeds under the member's
-  // origin; the editor reads and moves those.
-  final legacy = await groupMemberLegacyKeys(
-    liveDatabase(context),
-    group.id,
-    memberId,
-  );
-  if (!context.mounted) return false;
-  String? settingName;
-  try {
-    final worlds = Provider.of<WorldRepository>(context, listen: false);
-    settingName = settingId == null ? null : worlds.worldById(settingId)?.name;
-  } on ProviderNotFoundException {
-    settingName = null;
-  }
-  await editGroupMemberCard(
-    context,
-    member,
-    memberId,
-    groupName: group.name,
-    memberGroup: memberGroupViewOfTemplate(
-      context,
-      group: group,
-      memberId: memberId,
-      memberExtensions: member.frontPorchExtensions,
-      defaultMemberJson: defaultMemberJson,
-      baselineJson: baselineJson,
-      settingName: settingName,
-      readsMemberLorebooks: inheritCharacterLorebooks,
-      onStartSaved: onStartSaved,
-      legacyIds: legacy,
-      onOpenRealism: (editor) =>
-          leaveCharacterEditor(editor, onLeave: () => toRealism = true),
+  // The live database, not the startup snapshot `Provider<AppDatabase>`
+  // holds: a backup restore closes that one.
+  final database = liveDatabase(context);
+  final chat = Provider.of<ChatService>(context, listen: false);
+  final afterglowBefore = member.frontPorchExtensions?.afterglowEnabled ?? true;
+  final edited = await Navigator.of(context).push<CharacterCard>(
+    MaterialPageRoute(
+      builder: (_) => EditCharacterPage(
+        character: member,
+        member: mode,
+        allowAvatarChange: false,
+        popWithCardOnSave: true,
+        onSaveOverride: (card) async {
+          final before = liveMemberAfterglow(
+            chat,
+            card..dbId = memberId,
+            afterglowBefore,
+          );
+          await saveGroupMemberCard(database, card);
+          if (isOpenGroupMember(chat, card)) {
+            chat.refreshActiveCharacterCard(card);
+            await settleMemberAfterglow(chat, card, before);
+          }
+        },
+      ),
     ),
   );
-  return toRealism;
+  if (edited != null && context.mounted) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      porchSnackBar(context, '“${edited.name}” updated in this group.'),
+    );
+  }
+  return edited;
 }

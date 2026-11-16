@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
@@ -82,6 +83,11 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   characterFacade.personaPortrait = personaConversionFacade?.portraitPathFor;
   characterFacade.worlds = worlds;
   characterFacade.importPersonas = personas;
+  // Web persona JSON import unpacks avatars to the desktop's directory,
+  // the same path user_persona_page.dart passes to the same import.
+  chatFacade?.personaOps.avatarSaveDir = storage.rootPath == null
+      ? null
+      : '${storage.rootPath}/persona_avatars';
 
   final characterAuthoringFacade = characters != null
       ? CharacterAuthoringFacade(characters, storage)
@@ -109,6 +115,8 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
           streamHub,
           storyRepo: stories,
           personas: personas,
+          db: db,
+          library: characters,
         )
       : null;
 
@@ -122,10 +130,18 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   if (llm != null) {
     groupFacade?.opening = GroupDraftOpening(llm, characters, worlds);
   }
-  groupFacade?.memberEdit = GroupMemberEdit(db, storage, chatService, worlds);
+  groupFacade?.memberEdit = GroupMemberEdit(
+    db,
+    storage,
+    chatService,
+    worlds,
+    groupFacade.groups,
+  );
+
+  groupFacade?.editor.chat = chatService;
 
   final settingsFacade = llm != null
-      ? SettingsFacade(storage, llm, chat: chatService)
+      ? SettingsFacade(storage, llm, chat: chatService, update: services.update)
       : null;
 
   // The Stoop relay. The web client keeps its own Stoop session (tokens in
@@ -158,8 +174,16 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       ? BackendFacade(llm, storage, models, services.hardware)
       : null;
 
+  // The photo helper is the same singleton the desktop's card configures.
   final voiceFacade = (tts != null && stt != null)
-      ? VoiceFacade(tts, stt, storage, chat: chatService)
+      ? VoiceFacade(
+          tts,
+          stt,
+          storage,
+          chat: chatService,
+          expressions: services.expressions,
+          caption: LocalCaptionService.instance..configure(storage.rootPath),
+        )
       : null;
 
   // Snapshots are rebuilt server-side from authoritative card text + roles, so

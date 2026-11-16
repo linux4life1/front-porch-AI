@@ -57,6 +57,10 @@ export interface ChatState {
   summary?: string;
   cast?: CastMember[];
   guestActivity?: { status: string | null; isError: boolean; busy: boolean };
+  /** Index of the host reply buried under trailing Scene Guest chimes — the
+   *  bubble that gets the desktop's "Regenerate main character" (the host
+   *  index, never 0-as-truthy). Absent/null when it does not apply. */
+  regenerableHostBelowGuests?: number | null;
   // Director Mode and the open /exit UNDO (additive; absent on older apps).
   director?: DirectorState;
   exitUndo?: ExitUndo | null;

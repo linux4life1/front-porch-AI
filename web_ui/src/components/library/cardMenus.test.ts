@@ -32,6 +32,7 @@ const charActions = {
   onHistory: noop,
   onEdit: noop,
   onEnhance: noop,
+  onAvatarGallery: noop,
   onDuplicate: noop,
   onExportPng: noop,
   onExportJson: noop,
@@ -43,7 +44,7 @@ const charActions = {
 describe('library card menus', () => {
   it('puts Manage Chats after Start new chat on a character', () => {
     const labels = characterCardMenu(char, charActions).map((i) => i.label);
-    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start new chat') + 1);
+    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start New Chat') + 1);
   });
 
   it('puts Manage Chats after Start new chat on a group', () => {
@@ -51,12 +52,14 @@ describe('library card menus', () => {
       inFolder: false,
       onNewChat: noop,
       onHistory: noop,
+      onEdit: noop,
+      onDuplicate: noop,
       onExportPng: noop,
       onExtract: noop,
       onMove: noop,
       onRemoveFolder: noop,
       onDelete: noop,
     }).map((i) => i.label);
-    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start new chat') + 1);
+    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start New Chat') + 1);
   });
 });

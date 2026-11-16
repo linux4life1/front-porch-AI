@@ -18,19 +18,57 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
+
+/// The editor's four tabs, in order and with their icons. The group editor
+/// (Edit group) shows the same four.
+const kEditCharacterTabs = [
+  Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
+  Tab(icon: Icon(Icons.chat_bubble_outline, size: 18), text: 'Dialogue'),
+  Tab(icon: Icon(Icons.menu_book_outlined, size: 18), text: 'Lorebook'),
+  Tab(icon: Icon(Icons.public, size: 18), text: 'Worlds'),
+];
+
+/// A [Tab] greyed out with a tooltip. It reports the tab's own height, so
+/// the bar is as tall as the 1:1 editor's.
+class _GreyedTab extends StatelessWidget implements PreferredSizeWidget {
+  const _GreyedTab(this.tooltip, this.tab);
+
+  final String tooltip;
+  final Tab tab;
+
+  @override
+  Size get preferredSize => tab.preferredSize;
+
+  @override
+  Widget build(BuildContext context) => GreyedOut(tooltip: tooltip, child: tab);
+}
+
+/// The Worlds tab's index in [kEditCharacterTabs].
+const kEditCharacterWorldsTab = 3;
 
 /// The character editor's chrome: AppBar with the save action, the four-tab
 /// TabBar, the tab bodies and the floating token badge.
 class EditCharacterScaffold extends StatelessWidget {
+  /// Names the page: "Edit" and a name (a character, or the group).
   final String characterName;
   final String saveLabel;
   final bool popWithCardOnSave;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
   final TabController tabController;
-  final ValueNotifier<int> tokenNotifier;
+
+  /// A strip above the tab bodies (the group editor's fork notice).
+  final Widget? banner;
+
+  /// The floating token badge; the group editor has none.
+  final ValueNotifier<int>? tokenNotifier;
 
   /// Details, Dialogue, Lorebook, Worlds — in TabBar order.
   final List<Widget> tabs;
+
+  /// A group member's editor greys the Worlds tab out with this tooltip: it
+  /// stays in the bar but cannot be selected.
+  final String? worldsLockedTooltip;
 
   const EditCharacterScaffold({
     super.key,
@@ -39,8 +77,10 @@ class EditCharacterScaffold extends StatelessWidget {
     required this.popWithCardOnSave,
     required this.onSave,
     required this.tabController,
-    required this.tokenNotifier,
+    this.tokenNotifier,
+    this.banner,
     required this.tabs,
+    this.worldsLockedTooltip,
   });
 
   @override
@@ -80,8 +120,10 @@ class EditCharacterScaffold extends StatelessWidget {
             padding: const EdgeInsets.only(right: 12),
             child: ElevatedButton.icon(
               onPressed: onSave,
+              // The arrow is the update flow's "Next"; a member editor that
+              // only hands the card back is still a plain Save.
               icon: Icon(
-                popWithCardOnSave
+                popWithCardOnSave && saveLabel != 'Save'
                     ? Icons.arrow_forward_rounded
                     : Icons.save_outlined,
                 size: 18,
@@ -107,33 +149,54 @@ class EditCharacterScaffold extends StatelessWidget {
           unselectedLabelColor: AppColors.textTertiary(context),
           indicatorColor: AppColors.formAccentOf(context),
           indicatorWeight: 3,
-          tabs: const [
-            Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
-            Tab(
-              icon: Icon(Icons.chat_bubble_outline, size: 18),
-              text: 'Dialogue',
-            ),
-            Tab(
-              icon: Icon(Icons.menu_book_outlined, size: 18),
-              text: 'Lorebook',
-            ),
-            Tab(icon: Icon(Icons.public, size: 18), text: 'Worlds'),
+          // A greyed-out tab takes no selection: the bar's own tap handler
+          // sits outside the tab, so the tab alone cannot absorb it.
+          onTap: worldsLockedTooltip == null
+              ? null
+              : (i) {
+                  if (i == kEditCharacterWorldsTab) {
+                    tabController.index = tabController.previousIndex;
+                  }
+                },
+          tabs: [
+            for (var i = 0; i < kEditCharacterTabs.length; i++)
+              if (i == kEditCharacterWorldsTab && worldsLockedTooltip != null)
+                _GreyedTab(worldsLockedTooltip!, kEditCharacterTabs[i])
+              else
+                kEditCharacterTabs[i],
           ],
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          TabBarView(controller: tabController, children: tabs),
+          ?banner,
+          Expanded(child: _body()),
+        ],
+      ),
+    );
+  }
+
+  Widget _body() {
+    return Stack(
+      children: [
+        TabBarView(
+          controller: tabController,
+          // A greyed-out tab cannot be swiped to either.
+          physics: worldsLockedTooltip == null
+              ? null
+              : const NeverScrollableScrollPhysics(),
+          children: tabs,
+        ),
+        if (tokenNotifier != null)
           Positioned(
             right: 24,
             bottom: 24,
             child: ValueListenableBuilder<int>(
-              valueListenable: tokenNotifier,
+              valueListenable: tokenNotifier!,
               builder: (context, tokens, child) => _tokenBadge(context, tokens),
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 

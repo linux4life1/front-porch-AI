@@ -25,6 +25,44 @@ Worlds (places with lore and climate). AGPL-3.0-or-later.
 - Nightly / Rawhide builds isolate data in `FrontPorchAI-Beta/` with
   `beta_` preference keys. Never point them at a stable library.
 
+## One UI (non-negotiable)
+
+There is one user interface. Desktop, web wide, web phone, 1:1 and group are
+the same screen with the same controls in the same places and the same
+order, doing the same thing. Only the layout may adapt (the phone sidebar
+opens full screen; a slide-over on a tablet). No surface gets a control,
+section, wording or order the others lack, and none drops one. This is a
+product law, not a preference, and it outranks speed of delivery.
+
+- The desktop 1:1 chat is the baseline. A group shows every 1:1 control
+  in the same spot, scoped to the tapped member
+  (`docs/design/one-chat-ux.md` rulings). Group-only pieces are exactly
+  the ones the rulings list.
+- Every UI change ships desktop and `web_ui/` together, in the same PR,
+  checked under a non-Porch theme, light and dark, at phone and wide.
+  An item may wait only when the maintainer defers it in the current
+  conversation, and the PR says so.
+- Prove it before the PR exists. Render the changed screen on desktop and
+  on web (wide and phone), put the shots side by side, and fix every
+  difference in controls, order, wording or styling that is not a layout
+  adaptation. The PR screenshots are that comparison, not a substitute for
+  making it. When the maintainer approved a mockup, it is the binding
+  design for desktop and web: transcribe its palette, fonts, layout and
+  components literally and compare the render against it. A redesign
+  covers the whole flow, not one screen. CI checks that screenshots exist,
+  not that they match; that check is yours.
+- Drift fails CI: `one_ui_parity_test` (section and leaf order, desktop vs
+  web, group vs 1:1), `settings_parity_manifest_test`, and the
+  `group_sidebar_parity` pixel goldens. A new shared surface gets a
+  golden and a parity entry in the PR that adds it.
+- Every UI or UX change carries screenshots in the PR description itself
+  (the body's `## Screenshots` section, never a comment or a linked
+  page): each changed screen, desktop and web, before and after where
+  something existed. Every image must be real: a GitHub upload or a file
+  under `docs/screenshots/` on the PR's head. The PR rules check fails a UI
+  PR without them. No label skips it and no author is exempt, maintainer
+  included; outside contributors are held to it first.
+
 ## Commands
 
 ```bash
@@ -91,7 +129,7 @@ name through that door's `*_api.dart` bridge the shell exports.
 | `generated_dart_size_test` | `*.g.dart` over its recorded ceiling; Drift managers on | none; `build.yaml` keeps `generate_manager: false` |
 | `raw_colors_ratchet_test`, `raw_dialogs_ratchet_test` | a file gains a raw colour or a dialog opened outside `showWarmDialog`; a new file must have none | none |
 | `needs_gate_ratchet_test`, `clock_*_ratchet_test`, `picker_calls_guarded_test`, `settings_parity_manifest_test` | the gates in **Chat contracts** are bypassed; a setting lacks its web twin | none |
-| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; images added outside goldens, `assets/`, `docs/screenshots/` | `approved-images` label |
+| PR rules | a UI PR's `## Hand-check` lines do not each name a test or start `eye-only:`; a UI PR has no `## Screenshots` section with at least one image; a PR changes `lib/ui/` or `web_ui/src/` but not both and has no `## Web parity` line (`none: <why>` or `deferred: <what>`); images added outside goldens, `assets/`, `docs/screenshots/` | none for screenshots or parity; `approved-images` for a stray image |
 | Test integrity | an existing test, golden, baseline, dependency floor, `.github/`, `scripts/ci-local.sh` or `analysis_options.yaml` is modified or deleted | maintainer applies `approved-test-change` |
 
 Adding a new test file, or appending whole `test(` / `group(` calls and
@@ -103,6 +141,15 @@ Draft PRs run only the cheap jobs. Open PRs as drafts; the merge queue
 takes them out. `full-lint` is informational. Direct PRs to `main` are
 not accepted; work lands on `Rawhide`. `schedule:` workflows run from the
 default branch, and `test-integrity.yml` runs the base branch's copy.
+
+PR labels: `pr-labels.yml` tags every PR from its changed paths (`area: *`
+for what it touches, `check: *` for what the maintainer should look at:
+`no web twin`, `migration`, `path-complete`, `screenshots`). Do not apply or
+remove those by hand; the next push rewrites them. A `check:` label is a
+prompt to cover that case in the PR description, not an error. Labels you
+or the maintainer set (`approved-test-change`, `approved-images`,
+`update-goldens`) are never touched by it. A new area is one row in the
+table at the top of that workflow.
 
 ## Size law
 
@@ -135,9 +182,10 @@ parts; every other part file is legacy and the count only goes down.
   `_currentStep`, bottom nav.
 - `GlobalKey`s are owner-scoped. Never `GlobalObjectKey(model)`.
 - Rendered text never shows `{{char}}`, `{{user}}` or a raw enum name.
-- New screens, panels and sidebars work at 400 px and 1440 px wide and in a
-  short window. Top-level pages get a stop in
-  `integration_test/layout_sweep_test.dart`.
+- New screens, panels and sidebars work in a short window. Desktop is
+  checked at 1440 px and 1920 px (1080p) wide; `web_ui/` at 400 px (a
+  phone) and 1440 px. No one runs the desktop app at phone width.
+  Top-level pages get a stop in `integration_test/layout_sweep_test.dart`.
 - Comments explain a non-obvious contract, not the next line.
 
 ## Chat contracts
@@ -149,8 +197,8 @@ Live product behaviour, each pinned by a test. Do not collapse the cases.
 | Mouth speech | Closed think-only body lifts and is spoken; an unclosed cut-off stays tagged, display empty | `lib/utils/think_tags.dart` `resolveMouthSpeech` |
 | Continue | Not regen. Does not tick the clock, scores only `newPart`, keeps the turn's `pockets_before`, does not consume one-shots, finalizes pre-continue + new body | `doors/turn/turn_stops.dart`, `doors/turn/post_gen.dart` |
 | Pockets | Hide, never erase: `pocketsFor` is null when off; stored records and the save wire are untouched | `pockets_rewind_test` |
-| Objectives | `objectivesActive` is a live AND of the per-chat switch and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
-| Needs | One gate, `NeedsPass.active` = engine AND chat switch AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
+| Objectives | `objectivesActive` is a live AND of the per-chat switch (in a group, the speaking member's own switch) and `realismSettings.objectivesEnabled`, read every turn | `doors/controls/controls_door.dart` |
+| Needs | One gate, `NeedsPass.active` = engine AND chat switch (in a group, the speaking member's own Realism and Needs switches; a rewind reads the reply speaker's) AND global default, read live by every pass; the stored flag only seeds and rewinds | `needs_gate_ratchet_test` |
 | Clock | Passage of time needs a model call. `_clockRunning` is Porch Life `passageOfTimeDefault` live. Regen rewinds from `story_clock_before`. One-shot must not apply minutes twice | `clock_*_ratchet_test`, `scene_time_evaluator.dart` |
 | Evals | Score the user's message before generation, never the reply. Regen with the same inputs reproduces the same deltas; non-scalar inputs join `captureCadenceAndFeelings` / `restoreFromMessageState` | `regen_feelings_cadence_test` |
 | Eval transport | Native tool call first, then the regex/JSON text floor. No GBNF on the floor. The prefix-sharing judges send the same `kJudgeEvalTools` list | `docs/design/tools-transport.md` |
@@ -173,6 +221,8 @@ without group speaker restore, desktop without web.
 
 ## Parity
 
+- **One UI** (see the section above) is the rule; this list is how it
+  applies per pairing.
 - **Desktop ↔ web.** Anything the user can see, tap or configure on
   desktop ships in `web_ui/` in the same change. Phone vs wide adaptation is
   fine; omission is not, unless the maintainer deferred that item in the
@@ -249,8 +299,11 @@ No personal names in anything that ships to users. What's New: nightly in
 each under a single `## Unreleased` heading; the nightly's `rotate-notes`
 job clears what it shipped (`tools/rotate-rawhide-notes.sh`) and
 `rawhide_notes_test` fails on a second heading, a duplicate, or a stall.
-`.claude/changelog.md` is a pointer, not a diary. Never commit screenshots
-of real chats or user data; evidence goes in the PR thread.
+`.claude/changelog.md` is a pointer, not a diary. Screenshots show seeded
+or synthetic data only, never a real chat, library or user data. PR
+screenshots are either GitHub uploads dragged into the description or files
+under `docs/screenshots/<pr-or-topic>/` embedded in it; either way they sit
+in the PR body's `## Screenshots` section.
 
 ## Files that need a reason
 

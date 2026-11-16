@@ -20,13 +20,16 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// One face in the desktop cast strip. Soft guests carry the amber GUEST
 /// mark and the **only** Promote control (member card / Lite NPC banner
-/// stay status-only). Matches the web CastBar.
+/// stay status-only). A group member also carries the Away / Back control
+/// ([presence] + [onSetAway]), the only place the user sets it by hand.
+/// Matches the web CastBar.
 class CastRosterChip extends StatelessWidget {
   final String name;
   final Color color;
@@ -36,6 +39,25 @@ class CastRosterChip extends StatelessWidget {
   final bool promoteEnabled;
   final VoidCallback onFocus;
   final VoidCallback? onPromote;
+
+  /// Group members only: where the member is now. Away / Back shows for
+  /// With you and Away (never At work, which the clock derives) and when
+  /// [onSetAway] is given; null hides it, as on the web.
+  final PresenceWhere? presence;
+
+  /// Taps the control with the away value to set (true from With you).
+  /// Null while a turn is busy: the service refuses until post-gen settles.
+  final ValueChanged<bool>? onSetAway;
+
+  /// PR 5b: this member's Chaos Mode is on — a dice rides the face so the
+  /// cast bar shows which members Chance Time rolls for without selecting
+  /// each one. Web mirrors this on its cast chips.
+  final bool chaosOn;
+
+  /// Whether this chip draws the Away / Back control at all.
+  bool get hasAwayControl =>
+      !isLite &&
+      (presence == PresenceWhere.withYou || presence == PresenceWhere.away);
 
   const CastRosterChip({
     super.key,
@@ -47,12 +69,43 @@ class CastRosterChip extends StatelessWidget {
     this.promoteEnabled = true,
     required this.onFocus,
     this.onPromote,
+    this.presence,
+    this.onSetAway,
+    this.chaosOn = false,
   });
 
   Widget _initial() => Text(
     name.isNotEmpty ? name[0] : '?',
     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
   );
+
+  Widget _awayButton(BuildContext context) {
+    final onScene = presence == PresenceWhere.withYou;
+    final callback = onSetAway;
+    final color = AppColors.formAccentOf(context);
+    return Tooltip(
+      message: onScene ? 'Mark as away' : 'Bring back',
+      child: SizedBox(
+        height: 20,
+        child: TextButton(
+          key: const ValueKey('cast-chip-away'),
+          onPressed: callback == null ? null : () => callback(onScene),
+          style: TextButton.styleFrom(
+            foregroundColor: color,
+            disabledForegroundColor: AppColors.textTertiary(context),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            minimumSize: const Size(0, 18),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          child: Text(
+            onScene ? 'Away' : 'Back',
+            style: const TextStyle(fontSize: 9),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,25 +124,53 @@ class CastRosterChip extends StatelessWidget {
                   width: 2,
                 ),
               ),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: color,
-                // No portrait, or only the flat placeholder a character
-                // made without one carries: the initial.
-                child: RealPortrait(
-                  file: imageFile,
-                  portrait: (_, file) => ClipOval(
-                    child: Image.file(
-                      file,
-                      width: 32,
-                      height: 32,
-                      cacheWidth: kPortraitAvatarDecodeWidth,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _initial(),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: color,
+                    // No portrait, or only the flat placeholder a character
+                    // made without one carries: the initial.
+                    child: RealPortrait(
+                      file: imageFile,
+                      portrait: (_, file) => ClipOval(
+                        child: Image.file(
+                          file,
+                          width: 32,
+                          height: 32,
+                          cacheWidth: kPortraitAvatarDecodeWidth,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _initial(),
+                        ),
+                      ),
+                      noPortrait: (_) => _initial(),
                     ),
                   ),
-                  noPortrait: (_) => _initial(),
-                ),
+                  if (chaosOn)
+                    Positioned(
+                      right: -2,
+                      bottom: -2,
+                      child: Tooltip(
+                        message: '$name rolls with Chaos Mode',
+                        child: Container(
+                          padding: const EdgeInsets.all(1.5),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.chaosAccentOf(
+                              context,
+                            ).withValues(alpha: 0.9),
+                          ),
+                          child: const Icon(
+                            Icons.casino,
+                            size: 9,
+                            // theme-keep: ink on the chaos gold badge.
+                            color: AppColors.onChaosAccent,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 2),
@@ -105,6 +186,7 @@ class CastRosterChip extends StatelessWidget {
                     : AppColors.textTertiary(context),
               ),
             ),
+            if (hasAwayControl) _awayButton(context),
             if (isLite) ...[
               Text(
                 'GUEST',

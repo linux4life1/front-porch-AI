@@ -88,9 +88,10 @@ extension ChatServiceTurnFlow on ChatService {
   /// accepted (the web reveal modal's durable signal).
   bool get isAwaitingChanceTime => sendSpine.chanceReveal.isAwaitingChanceTime;
 
-  /// Manual SPIN NOW. Parks a pre-picked event until accept.
-  bool requestManualChanceTime() =>
-      sendSpine.chanceReveal.requestManualChanceTime();
+  /// Manual SPIN NOW. Parks a pre-picked event until accept. PR 5b: in a
+  /// group [memberId] names the cast member whose card was spun.
+  bool requestManualChanceTime({String? memberId}) =>
+      sendSpine.chanceReveal.requestManualChanceTime(memberId: memberId);
 
   /// The speaker a Chance Time event is attributed to, shared by the desktop
   /// wheel overlay and the web accept path.

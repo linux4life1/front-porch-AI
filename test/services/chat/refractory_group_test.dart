@@ -39,6 +39,12 @@ void _setupPathProviderMock() {
 
 const _realismOn = '{"realism_engine":{"realism_enabled":true}}';
 
+/// This chat's own Afterglow switch for [card]: the live per-chat switch.
+/// (`setMemberAfterglowEnabled` is the member copy's new-chat default and
+/// never changes a chat that is open.)
+Future<void> _liveAfterglow(ChatService chat, CharacterCard card, bool on) =>
+    chat.setMemberAfterglowSwitch(chat.characterIdFor(card), on);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -240,7 +246,7 @@ void main() {
       'cast', () async {
     await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
     expect(refractoryOf('Ada').minutes, 75);
-    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+    await _liveAfterglow(chat, member('Bea'), false);
 
     await speak('Bea', minutes: 30);
     expect(
@@ -261,7 +267,7 @@ void main() {
       chat.characterIdFor(member('Bea')),
       reason: "baseline: the live scalars are Bea's after her turn",
     );
-    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+    await _liveAfterglow(chat, member('Bea'), false);
 
     await chat.deleteMessage(chat.messages.length - 1);
     await settle();
@@ -278,9 +284,9 @@ void main() {
     );
     chat.nsfwService.setArousalLevel(60);
 
-    await chat.setMemberAfterglowEnabled(member('Ada'), false);
+    await _liveAfterglow(chat, member('Ada'), false);
     expect(chat.nsfwService.arousalLevel, 60, reason: 'off hides, keeps');
-    await chat.setMemberAfterglowEnabled(member('Ada'), true);
+    await _liveAfterglow(chat, member('Ada'), true);
     expect(
       chat.nsfwService.arousalLevel,
       60,
@@ -296,7 +302,7 @@ void main() {
     expect(refractoryOf('Ada').minutes, 40);
     expect(refractoryOf('Bea').minutes, 30);
 
-    await chat.setMemberAfterglowEnabled(member('Bea'), false);
+    await _liveAfterglow(chat, member('Bea'), false);
     expect(refractoryOf('Bea').minutes, 30, reason: 'off keeps her recovery');
     // A tail delete puts every body back where the reply's beat found it.
     await chat.deleteMessage(chat.messages.length - 1);

@@ -214,13 +214,31 @@ Future<void> _editGroup(BuildContext context, GroupChat group) async {
   // so the home grid rebuilds automatically after edit.
 }
 
-void _duplicateGroup(BuildContext context, GroupChat group) {
-  // Placeholder — real implementation will copy the GroupChat definition (new id, "Copy of" name, same seeds/ lore / worlds / prompts).
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Duplicate Group not yet implemented: ${group.name}'),
-      ),
+/// Groups being copied right now: a second tap while one copy is in
+/// flight must not make a second copy.
+final Set<String> _duplicatingGroups = {};
+
+Future<void> _duplicateGroup(BuildContext context, GroupChat group) async {
+  if (!_duplicatingGroups.add(group.id)) return;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    final groups = Provider.of<GroupChatRepository>(context, listen: false);
+    final folders = Provider.of<FolderService>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final copy = await GroupDuplicator(
+      db: liveDatabase(context),
+      groupsDir: storage.groupsDir,
+    ).duplicate(group.id);
+    if (copy == null) throw StateError('This group is gone.');
+    await groups.reload();
+    // The copy sits in the original's folder (the folder lives on the row).
+    await folders.reload();
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Group duplicated successfully.')),
     );
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('Failed to duplicate: $e')));
+  } finally {
+    _duplicatingGroups.remove(group.id);
   }
 }

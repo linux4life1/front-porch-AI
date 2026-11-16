@@ -73,13 +73,15 @@ export async function waitSendable(page: Page, timeout = 60_000) {
  * Types [text] into the composer and sends it with Enter, then proves the
  * page took it: `send()` empties the box only when it hands the line on.
  *
- * Two ways a line was lost on CI, both silent until a later assertion
+ * Three ways a line was lost on CI, all silent until a later assertion
  * timed out: Enter while the page still thought a reply was streaming (the
- * line stays in the box), and a `fill()` that never reached the box on
- * phone WebKit (the box was empty at Enter, nothing was posted). Each
- * attempt waits until the chat is sendable, checks the box holds the line,
- * and only retries while the box still holds it, which means nothing was
- * sent, so a retry can never send the line twice.
+ * line stays in the box), a `fill()` that never reached the box on phone
+ * WebKit (the box was empty at Enter, nothing was posted), and a 409 from
+ * the host opening a background turn in the gap after the idle check (the
+ * box clears, the line is refused). Each attempt waits until the chat is
+ * sendable, checks the box holds the line, reads the POST's status, and
+ * retries while nothing was accepted, so a retry can never send the line
+ * twice.
  */
 export async function sendLine(page: Page, text: string) {
   const box = composer(page);
@@ -101,7 +103,25 @@ export async function sendLine(page: Page, text: string) {
       );
       continue;
     }
+    // Watch the POST this Enter makes. A 409 means the host opened a
+    // background turn between the idle check and this send ("A reply is
+    // still being written. Send it again once it finishes.") — the page
+    // clears the box optimistically, so a refused line is gone by the time
+    // the box check below runs, and the old "retry only while the box still
+    // holds it" rule cannot see it. Production users are asked to resend;
+    // this resends the same way.
+    const posted = page.waitForResponse(
+      (r) => new URL(r.url()).pathname === "/api/chat/send",
+      { timeout: 5_000 },
+    );
     await box.press("Enter");
+    const res = await posted.catch(() => null);
+    if (res?.status() === 409) {
+      const why = await res.text();
+      if (last) throw new Error(`the host kept refusing "${text}": ${why}`);
+      retried(text, attempt, `the host refused the send: ${why}`, "");
+      continue;
+    }
     try {
       await expect(box, `the composer to take “${text}”`).toHaveValue("", {
         timeout: last ? 5_000 : 2_000,

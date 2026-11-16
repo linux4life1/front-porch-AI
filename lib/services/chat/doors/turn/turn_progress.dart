@@ -66,7 +66,26 @@ class TurnProgress {
   /// growth, promise-debt, embed, periodic evals). Those are unawaited by
   /// design and can run indefinitely; blocking input until they finish
   /// would trade a race for a wedged UI, which is the worse bug.
-  bool isPostGenerating = false;
+  ///
+  /// A LEASE COUNT, not a boolean: every holder (a generation's finalize, a
+  /// regen's swipe-merge, a feelings rescore) takes its own lease and
+  /// releases it in its own finally. A boolean capture/restore let a
+  /// generation that started mid-settle restore `true` after its owning
+  /// hold had already been dropped — a latch with no owner, and the web
+  /// composer starves (send_spine's capture/restore note names the same
+  /// class). The count makes an unowned latch impossible: the flag clears
+  /// with the LAST holder out.
+  int _postGeneratingHolds = 0;
+
+  bool get isPostGenerating => _postGeneratingHolds > 0;
+
+  /// Take a settling lease. Pair with [releasePostGenerating] in a finally.
+  void holdPostGenerating() => _postGeneratingHolds++;
+
+  void releasePostGenerating() {
+    assert(_postGeneratingHolds > 0, 'release without a matching hold');
+    if (_postGeneratingHolds > 0) _postGeneratingHolds--;
+  }
 
   /// True while Try again (regenerate on a trailing user line) runs. That
   /// regen holds [isPostGenerating], but no reply exists to keep.

@@ -66,6 +66,7 @@ export function MessageActions({
   onDelete,
   onVariantPicked,
   onActionFailed,
+  regenerableHostBelowGuests = null,
 }: {
   m: Message;
   isLast: boolean;
@@ -78,6 +79,7 @@ export function MessageActions({
   onRegenerate: (
     critique?: string,
     lookup?: { source: 'web' | 'wiki'; query: string },
+    target?: 'mainCharacter',
   ) => void;
   /** Porch Life web search is on. Hidden entirely when false. */
   lookupWeb?: boolean;
@@ -89,6 +91,9 @@ export function MessageActions({
   onDelete: () => void;
   onVariantPicked?: () => void;
   onActionFailed?: (what: string, e: unknown) => void;
+  /** The host reply buried under Scene Guest chimes (chat state, desktop
+   *  `regenerableHostBelowGuestsIndex`). Its bubble gets the second ⟳. */
+  regenerableHostBelowGuests?: number | null;
 }) {
   const count = m.swipeCount ?? 1;
   const idx = (m.swipeIndex ?? 0) + 1;
@@ -96,6 +101,10 @@ export function MessageActions({
   const [inspecting, setInspecting] = useState(false);
   const [otherWords, setOtherWords] = useState(false);
   const [critiqueOpen, setCritiqueOpen] = useState(false);
+  // Which ⟳ opened the dialog: the note and lookup ride either path, so the
+  // submit must remember. Always set on open — a stale main-character target
+  // must not ride a later plain regen.
+  const [regenMain, setRegenMain] = useState(false);
   const [draft, setDraft] = useState('');
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupIsWiki, setLookupIsWiki] = useState(false);
@@ -124,7 +133,8 @@ export function MessageActions({
       .then(() => onVariantPicked?.())
       .catch((e) => onActionFailed?.('switch greetings', e));
   };
-  const openCritique = () => {
+  const openCritique = (main = false) => {
+    setRegenMain(main);
     setDraft('');
     setLookupQuery('');
     setLookupIsWiki(!lookupWeb && lookupWiki);
@@ -134,16 +144,25 @@ export function MessageActions({
   const confirmCritique = (e?: FormEvent) => {
     e?.preventDefault();
     const query = lookupQuery.trim();
+    const target = regenMain ? ('mainCharacter' as const) : undefined;
     setCritiqueOpen(false);
+    // The plain path keeps its exact call shape — the buried-host target is
+    // only ever added as the third argument, never as an explicit undefined
+    // that would change what every existing caller observes.
     if (query && lookupIsWiki && lookupWiki) {
-      onRegenerate(draft, { source: 'wiki', query });
+      const lookup = { source: 'wiki' as const, query };
+      if (target) onRegenerate(draft, lookup, target);
+      else onRegenerate(draft, lookup);
       return;
     }
     if (query && !lookupIsWiki && lookupWeb) {
-      onRegenerate(draft, { source: 'web', query });
+      const lookup = { source: 'web' as const, query };
+      if (target) onRegenerate(draft, lookup, target);
+      else onRegenerate(draft, lookup);
       return;
     }
-    onRegenerate(draft);
+    if (target) onRegenerate(draft, undefined, target);
+    else onRegenerate(draft);
   };
   // Plain Enter stays a new line in the note; Ctrl/⌘+Enter regenerates
   // (desktop dialog parity). Numpad Enter also reports key 'Enter'.
@@ -156,6 +175,10 @@ export function MessageActions({
   return (
     <>
       <div className={`msg-actions${m.isUser ? ' user' : ''}`}>
+      {/* Buried-host regen, first in the row as on desktop (legacy path). */}
+      {!m.isUser && !isImage && regenerableHostBelowGuests === m.index && (
+        <button className="icon-btn" title="Regenerate main character (removes the NPC’s reply)" disabled={busy} onClick={() => openCritique(true)}>⟳</button>
+      )}
       {canSwipe && (
         <span className="swipe">
           <button className="icon-btn" title="Previous" disabled={busy}
@@ -179,7 +202,7 @@ export function MessageActions({
       )}
       {!m.isUser && !isImage && isLast && m.index !== 0 && (
         <>
-          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={openCritique}>⟳</button>
+          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={() => openCritique()}>⟳</button>
           <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}>⏩</button>
         </>
       )}
@@ -364,6 +387,7 @@ export function ReplyActions({
   onContinue,
   onVariantPicked,
   onActionFailed,
+  regenerableHostBelowGuests = null,
 }: {
   m: Message;
   isLast: boolean;
@@ -375,12 +399,16 @@ export function ReplyActions({
   onRegenerate: (
     critique?: string,
     lookup?: { source: 'web' | 'wiki'; query: string },
+    target?: 'mainCharacter',
   ) => void;
   lookupWeb?: boolean;
   lookupWiki?: boolean;
   onContinue: () => void;
   onVariantPicked?: () => void;
   onActionFailed?: (what: string, e: unknown) => void;
+  /** The host reply buried under Scene Guest chimes (chat state, desktop
+   *  `regenerableHostBelowGuestsIndex`). Its bubble gets the second ⟳. */
+  regenerableHostBelowGuests?: number | null;
 }) {
   const { count, isImage, hasSwipeVariants, isGreet, canSwipe } = swipeFacts(
     m,
@@ -391,6 +419,9 @@ export function ReplyActions({
   const idx = (m.swipeIndex ?? 0) + 1;
   const [picker, setPicker] = useState(false);
   const [critiqueOpen, setCritiqueOpen] = useState(false);
+  // Which ⟳ opened the dialog — always set on open, so a stale
+  // main-character target never rides a later plain regen.
+  const [regenMain, setRegenMain] = useState(false);
   const [draft, setDraft] = useState('');
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupIsWiki, setLookupIsWiki] = useState(false);
@@ -403,7 +434,8 @@ export function ReplyActions({
       .then(() => onVariantPicked?.())
       .catch((e) => onActionFailed?.('switch greetings', e));
   };
-  const openCritique = () => {
+  const openCritique = (main = false) => {
+    setRegenMain(main);
     setDraft('');
     setLookupQuery('');
     setLookupIsWiki(!lookupWeb && lookupWiki);
@@ -413,16 +445,25 @@ export function ReplyActions({
   const confirmCritique = (e?: FormEvent) => {
     e?.preventDefault();
     const query = lookupQuery.trim();
+    const target = regenMain ? ('mainCharacter' as const) : undefined;
     setCritiqueOpen(false);
+    // The plain path keeps its exact call shape — the buried-host target is
+    // only ever added as the third argument, never as an explicit undefined
+    // that would change what every existing caller observes.
     if (query && lookupIsWiki && lookupWiki) {
-      onRegenerate(draft, { source: 'wiki', query });
+      const lookup = { source: 'wiki' as const, query };
+      if (target) onRegenerate(draft, lookup, target);
+      else onRegenerate(draft, lookup);
       return;
     }
     if (query && !lookupIsWiki && lookupWeb) {
-      onRegenerate(draft, { source: 'web', query });
+      const lookup = { source: 'web' as const, query };
+      if (target) onRegenerate(draft, lookup, target);
+      else onRegenerate(draft, lookup);
       return;
     }
-    onRegenerate(draft);
+    if (target) onRegenerate(draft, undefined, target);
+    else onRegenerate(draft);
   };
   const critiqueKey = (e: KeyboardEvent<HTMLFormElement>) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -432,11 +473,24 @@ export function ReplyActions({
   };
   return (
     <>
+      {/* A host reply buried under Scene Guest chimes gets the desktop's
+          first ⟳: regen the host, drop the now-stale guest tail, let the
+          chime gate re-run. Never the last bubble by construction. */}
+      {!m.isUser && !isImage && regenerableHostBelowGuests === m.index && (
+        <button
+          className="icon-btn"
+          title="Regenerate main character (removes the NPC’s reply)"
+          disabled={busy}
+          onClick={() => openCritique(true)}
+        >
+          <IconRegenerate />
+        </button>
+      )}
       {/* The window's order inside the bubble's bottom-right: regenerate,
           continue, then the swipe pair, then the version picker. */}
       {!m.isUser && !isImage && isLast && m.index !== 0 && (
         <>
-          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={openCritique}><IconRegenerate /></button>
+          <button className="icon-btn" title="Regenerate" disabled={busy} onClick={() => openCritique()}><IconRegenerate /></button>
           <button className="icon-btn" title="Continue" disabled={busy} onClick={onContinue}><IconContinue /></button>
         </>
       )}

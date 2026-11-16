@@ -10,6 +10,7 @@ import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/facade/chargen/chargen_jobs.dart';
+import 'package:front_porch_ai/services/web/facade/chargen/chargen_outfit.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 /// The phone wizard's create fields as the generator's inputs. Quick,
@@ -131,6 +132,10 @@ class ChargenCreate {
   /// before `chargen_done` goes out.
   void Function(String id, GreetingRecipe? recipe)? onSaved;
 
+  /// Porch Life's `realismDefault`, read at each save; null leaves the
+  /// card's Realism switch as the generator wrote it.
+  bool Function()? realismStartsOn;
+
   /// The one-shot create: both phases, then the save. Answers at once.
   void startOneShot(String name, Map<String, dynamic> fields, LLMService svc) =>
       unawaited(_run(name, fields, svc));
@@ -217,6 +222,19 @@ class ChargenCreate {
       return null;
     }
     stampCreatorInputs(card, inputs, mode);
+    // The outfit was read from this first message; the Realism step's hint
+    // asks once it changes (#370).
+    stampOutfitSource(card);
+    // The desktop creator's Realism switch starts where Porch Life has the
+    // engine (`realismDefault`, ruling 2026-10-14), and the card is saved
+    // with it; the web's Realism step then shows the card's own value.
+    final realismOn = realismStartsOn?.call();
+    if (realismOn != null) {
+      card.frontPorchExtensions =
+          (card.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+            realismEnabled: realismOn,
+          );
+    }
     // A persona's birthday rides along, as the desktop's realismBirthday.
     final birthday = extras['birthday']?.toString().trim() ?? '';
     if (birthday.isNotEmpty) {

@@ -131,6 +131,31 @@ void main() {
       expect(b.remoteApiKey, 'xai-real-key');
       expect(typedRemoteApiKey(b), 'xai-real-key');
     });
+
+    test('a signed-in xAI host counts in the web key placeholder list', () async {
+      // The PWA hides the helper key field off this list; a SuperGrok
+      // sign-in on the desktop must carry over, not force a second login.
+      final b = await _backend();
+      await b.setRemoteApiKeyFor(kOpenRouterApiV1, 'or-key');
+
+      b.bearerOverlay = (url) =>
+          remoteApiUrlIsXai(url) ? 'session-access' : null;
+      expect(b.remoteApiUrlsWithKeys, contains(normalizeRemoteApiUrl(kXaiApiV1)));
+      expect(
+        b.remoteApiUrlsWithKeys,
+        contains(normalizeRemoteApiUrl(kOpenRouterApiV1)),
+      );
+
+      b.bearerOverlay = null;
+      expect(
+        b.remoteApiUrlsWithKeys,
+        isNot(contains(normalizeRemoteApiUrl(kXaiApiV1))),
+      );
+      expect(
+        b.remoteApiUrlsWithKeys,
+        contains(normalizeRemoteApiUrl(kOpenRouterApiV1)),
+      );
+    });
   });
 
   test('api.x.ai is the xAI host pill and needs a key', () {

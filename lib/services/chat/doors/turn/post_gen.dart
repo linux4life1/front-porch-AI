@@ -100,8 +100,9 @@ class PostGen {
     // Settling starts the instant the last token lands — the finalization
     // below (sanitizer, lorebook, _saveChat, post-gen checks, chip attach)
     // is still the turn; the old late raise let a new turn interleave
-    // (message_actions Windows CI). Restored in the outer finally.
-    _p.isPostGenerating = true;
+    // (message_actions Windows CI). The lease is taken by the ENGINE at
+    // the finalize call site and released in its finally; this method
+    // must not assign the flag directly.
     _p.cancelRequested = false;
     _p.generationProgress = 0.0;
     _p.generationPhase = GenerationPhase.idle;

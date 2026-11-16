@@ -35,12 +35,19 @@ import 'package:front_porch_ai/services/web/facade/character/character.dart';
 /// for new chats), and the member's start (`groupStart`) saves to the
 /// group's seed for them.
 class GroupMemberEdit {
-  GroupMemberEdit(this._db, this._storage, this._chat, this._worlds);
+  GroupMemberEdit(
+    this._db,
+    this._storage,
+    this._chat,
+    this._worlds, [
+    this._groups,
+  ]);
 
   final AppDatabase _db;
   final StorageService _storage;
   final ChatService? _chat;
   final WorldRepository? _worlds;
+  final GroupChatRepository? _groups;
 
   /// The open chat's copy of the member when [groupId] is the group open in
   /// the chat; otherwise one loaded from the member's row.
@@ -65,89 +72,11 @@ class GroupMemberEdit {
     return chat != null && chat.isGroupMode && chat.activeGroup?.id == groupId;
   }
 
-  /// The group's definition: the open chat's copy (it holds edits Group
-  /// Settings has not saved yet) or one read from its row.
-  GroupChat? _definition(String groupId, Group? row) {
+  /// The group as stored (the open chat's copy while it is open, which
+  /// Edit group's Save keeps current), or null when there is none.
+  GroupChat? _definition(String groupId) {
     if (_open(groupId)) return _chat!.activeGroup;
-    if (row == null) return null;
-    List<String> ids(String? json) {
-      try {
-        final v = json == null ? null : jsonDecode(json);
-        return v is List ? [for (final e in v) '$e'] : const [];
-      } catch (_) {
-        return const [];
-      }
-    }
-
-    return GroupChat(
-      id: row.id,
-      name: row.name,
-      worldIds: ids(row.worldIds),
-      loreWorldIds: row.loreWorldIds == null ? null : ids(row.loreWorldIds),
-      inheritCharacterLorebooks: row.inheritCharacterLorebooks,
-      chaosModeEnabled: row.chaosModeEnabled,
-      defaultMemberRealismState: row.defaultMemberRealismState,
-      baselineRealismState: row.baselineRealismState,
-    );
-  }
-
-  /// The group's own switches as a member's editor shows them: the open
-  /// chat's own (`open: true`, worded "in this chat"), or the group's for
-  /// new chats. The start is separate, always from the group's row.
-  GroupWideValues? _values(String groupId, GroupChat? g) {
-    if (g == null) return null;
-    if (_open(groupId)) {
-      return groupWideValuesOfChat(
-        _chat!,
-        worlds: _worlds,
-        needsSimDefault: _storage.realismSettings.needsSimDefault,
-      );
-    }
-    return groupWideValuesOfTemplate(
-      defaultMemberJson: g.defaultMemberRealismState,
-      baselineJson: g.baselineRealismState,
-      chaos: g.chaosModeEnabled,
-      chaosModeDefault: _storage.realismSettings.chaosModeDefault,
-      needsSimDefault: _storage.realismSettings.needsSimDefault,
-      settingName: groupSettingNameIn(g, _worlds),
-      readsMemberLorebooks: g.inheritCharacterLorebooks,
-    );
-  }
-
-  /// One line per member for the phone's Group Settings: where each starts
-  /// in new chats of the group and their own Afterglow (null while Porch Life
-  /// or the group keeps Afterglow off). Null when there is no such group.
-  Future<List<Map<String, dynamic>>?> summaries(String groupId) async {
-    final row = await _db.getGroupById(groupId);
-    final g = _definition(groupId, row);
-    if (g == null) return null;
-    final values = _values(groupId, g);
-    final afterglowShown =
-        _storage.realismSettings.afterglowEnabled &&
-        (values?.afterglow ?? false);
-    return [
-      for (final m in await _db.getGroupMembers(groupId))
-        () {
-          final c = GroupMember.fromRow(
-            m,
-          ).toCharacterCard(resolvedImagePath: '');
-          final ext = c.frontPorchExtensions;
-          return {
-            'id': m.id,
-            'name': c.name,
-            // From the row, never an open chat's copy (which can hold
-            // Group Settings edits not saved yet).
-            'start': groupMemberStartIn(
-              row?.defaultMemberRealismState ?? '{}',
-              m.id,
-              card: ext,
-              legacyIds: [?GroupMember.fromRow(m).originStableId],
-            )?.toJson(),
-            'afterglow': afterglowShown ? ext?.afterglowEnabled ?? true : null,
-            'lite': c.isLite,
-          };
-        }(),
-    ];
+    return _groups?.getById(groupId);
   }
 
   /// The member's card in the library editor's `/detail` shape, plus
@@ -159,7 +88,7 @@ class GroupMemberEdit {
     final c = await _card(groupId, memberId);
     if (c == null) return null;
     final group = await _db.getGroupById(groupId);
-    final definition = _definition(groupId, group);
+    final definition = _definition(groupId);
     final ext = c.frontPorchExtensions;
     final voice = readNarrativeVoice(c);
     return {
@@ -191,15 +120,30 @@ class GroupMemberEdit {
       'narrativePerspective': voice.perspective,
       'narrativeTense': voice.tense,
       'sex': voice.sex,
-      'group': _values(groupId, definition)?.toJson(),
-      'start': group == null
-          ? null
-          : groupMemberStartIn(
-              group.defaultMemberRealismState,
-              memberId,
-              card: ext,
-              legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
-            )?.toJson(),
+      // What the editor adds in member mode: the group's shared scene
+      // (greyed Time & Day), the other members, and the group's values for
+      // this member (the same store Edit group shows).
+      if (definition != null) ...{
+        'scene': {
+          'timeOfDay': groupSceneOf(definition).timeOfDay,
+          'dayCount': groupSceneOf(definition).dayCount,
+          'storyStartDate': groupSceneOf(definition).storyStartDate,
+          'storyStartTime': groupSceneOf(definition).storyStartTime,
+        },
+        'others': [
+          for (final m in await _db.getGroupMembers(groupId))
+            if (m.id != memberId) {'id': m.id, 'name': m.name},
+        ],
+        'groupValues': () {
+          final v = groupMemberValuesOf(definition, memberId);
+          return {
+            'systemPrompt': v.systemPrompt,
+            'note': v.note,
+            'strength': v.strength,
+            'feelings': v.feelings,
+          };
+        }(),
+      },
       'lite': c.isLite,
       // Porch Life's Realism permission: false hides the member's Realism,
       // Needs and Afterglow behind a note, keeping their settings.
@@ -231,40 +175,39 @@ class GroupMemberEdit {
       chat.refreshActiveCharacterCard(c);
       await settleMemberAfterglow(chat, c, afterglowBefore);
     }
-    await _saveStart(groupId, memberId, c, fields['groupStart']);
+    await _saveGroupValues(groupId, memberId, fields['groupValues']);
     return true;
   }
 
-  /// A `groupStart` the page sent goes to the group's seed for the member
-  /// (never their card), over the start stored now: a field it leaves out
-  /// keeps its value. An older page sends none.
-  Future<void> _saveStart(
+  /// The values the page's "In the group" section posted go to the group
+  /// (never the card): its system prompt, Author's Note and feelings.
+  Future<void> _saveGroupValues(
     String groupId,
     String memberId,
-    CharacterCard c,
     Object? json,
   ) async {
-    if (json is! Map) return;
-    final row = await _db.getGroupById(groupId);
-    final ext = c.frontPorchExtensions;
-    final now = row == null
-        ? null
-        : groupMemberStartIn(
-            row.defaultMemberRealismState,
-            memberId,
-            card: ext,
-            legacyIds: await groupMemberLegacyKeys(_db, groupId, memberId),
-          );
-    if (now == null) return;
-    final next = GroupMemberStart.fromJson(json, now);
-    if (next == now) return;
-    await saveGroupMemberStart(
-      _db,
-      groupId: groupId,
-      mid: memberId,
-      start: next,
-      card: ext,
-      chat: _chat,
+    final groups = _groups;
+    final g = _definition(groupId);
+    if (json is! Map || groups == null || g == null) return;
+    final now = groupMemberValuesOf(g, memberId);
+    final feelings = <String, int>{...now.feelings};
+    if (json['feelings'] is Map) {
+      for (final e in (json['feelings'] as Map).entries) {
+        if (e.value is num) feelings['${e.key}'] = (e.value as num).toInt();
+      }
+    }
+    final next = GroupMemberValues(
+      systemPrompt: json['systemPrompt'] is String
+          ? json['systemPrompt'] as String
+          : now.systemPrompt,
+      note: json['note'] is String ? json['note'] as String : now.note,
+      strength: json['strength'] is num
+          ? (json['strength'] as num).toInt().clamp(1, 10)
+          : now.strength,
+      feelings: feelings,
     );
+    if (next == now) return;
+    applyGroupMemberValues(g, memberId, next);
+    await groups.save(g);
   }
 }

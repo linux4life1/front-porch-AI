@@ -6,8 +6,19 @@
 // do not circular-import ChatTools.tsx.
 
 import { useEffect, useState } from 'react';
-import { type GroupBlock } from './GroupSettings';
 import { type ObjectiveView } from './ObjectivesPanel';
+
+export interface GroupBlock {
+  name: string;
+  turnOrder: string;
+  directorMode: boolean;
+  systemPrompt: string;
+  scenario: string;
+  firstMessage: string;
+  alternateGreetings?: string[];
+  greetingSeeds?: unknown[];
+  members: { id: string; name: string; prompt: string; dbId?: string }[];
+}
 
 export interface ToolsState {
   wikiBaseUrl?: string;
@@ -19,6 +30,10 @@ export interface ToolsState {
   /** This chat's own Realism switch, kept while Porch Life blocks it
    *  (additive: an older desktop sends only realismEnabled). */
   realismSwitch?: boolean;
+  /** Set only in a group, for a full member: the Realism, Needs and
+   *  Afterglow switches then route at memberRealism / memberNeeds /
+   *  memberAfterglow with this id (additive: absent = 1:1 or a guest). */
+  memberId?: string | null;
   needsEnabled: boolean;
   /** Porch Life allows Needs (additive: absent on an older desktop). */
   needsAllowed?: boolean;
@@ -28,6 +43,12 @@ export interface ToolsState {
   realismOneShotMode?: 'auto' | 'on' | 'off';
   memory: {
     ragEnabled: boolean;
+    /** 'group' when the switch and the count are the group's own (additive:
+     *  absent on an older desktop, where they were global). */
+    ragScope?: 'group' | 'global';
+    /** The global Memory setting (additive). In a group the switch only takes
+     *  effect while this is on, so it is greyed while this is false. */
+    ragGlobalEnabled?: boolean;
     ragRetrievalCount: number;
     ragWindowSize: number;
     journalEnabled: boolean;
@@ -82,6 +103,12 @@ export interface ToolsState {
     base?: number;
     growth?: number;
     cooldownTurns?: number;
+    /** PR 5b: set in a group — this block speaks for that member, and
+     *  the chaos toggles route at memberChaos / memberChaosNsfw with the
+     *  id, and the spin carries it (additive: absent = 1:1 or a guest). */
+    memberId?: string | null;
+    /** Every full cast member's on/off, for the dice on the cast chips. */
+    cast?: { memberId: string; name: string; enabled: boolean }[];
   };
   // refractoryLabel is the desktop chip's own text ("Refractory: about 45 min",
   // or "Refractory: 3 replies" with Passage of Time off), ready-made so the
@@ -176,6 +203,15 @@ export interface ToolsState {
   };
   focusedId?: string | null;
   group?: GroupBlock | null;
+  /** Group Dynamics (read-only): the focused member's feelings toward each
+   *  other member. Null/absent outside a group, with Realism off, or for a
+   *  scene guest (additive: absent on an older desktop). */
+  groupDynamics?: {
+    member: string;
+    /** False when the group is outside 2 to 4 full members. */
+    tracked: boolean;
+    feelings: Array<{ id: string; name: string; score: number; tier: string; percent: number }>;
+  } | null;
 }
 
 export type ToolsApply = (p: Promise<unknown>) => void;
@@ -183,11 +219,21 @@ export type ToolsSettings = (fields: Record<string, unknown>) => void;
 export type ToolsToggle = (name: string, value: boolean, extra?: Record<string, unknown>) => void;
 
 /** Small labelled on/off switch. */
-export function Toggle({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className="tool-toggle">
+    <label className={`tool-toggle${disabled ? ' is-locked' : ''}`}>
       <span>{label}</span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" checked={value} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

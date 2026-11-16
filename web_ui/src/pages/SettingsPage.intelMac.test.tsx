@@ -74,6 +74,13 @@ async function open() {
   await act(async () => {
     root.render(createElement(SettingsPage));
   });
+  // The page shows one tab at a time (PR 7a, the desktop's layout); chat
+  // speech and the local-model lifecycle rows live under Backend.
+  await act(async () => {
+    container
+      .querySelector<HTMLButtonElement>('button[role="tab"][data-tab="backend"]')!
+      .click();
+  });
 }
 
 /** The chat speech card's Backend picker, its first select. */

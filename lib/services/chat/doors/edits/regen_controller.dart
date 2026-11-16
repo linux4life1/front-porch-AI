@@ -173,12 +173,13 @@ class RegenController {
     // outside the generation, and used to run with every guard open: a
     // send/delete/chat-switch landing there operated on a timeline with the
     // last message popped or the merge half-done (the same interleave class
-    // the in-generate settling fix closed). The generation restores the
-    // caller's hold on exit instead of hard-clearing, so this survives the
-    // nested call; the finally makes a wedged flag impossible. The body is
-    // extracted (not inlined in the try) purely so its early returns and
-    // this hold compose without re-indenting the whole flow.
-    _d.engine().progress.isPostGenerating = true;
+    // the in-generate settling fix closed). This takes its OWN lease; the
+    // nested generation leases separately and releases only its own, so it
+    // cannot restore-over this hold when it exits — and the finally makes a
+    // wedged flag impossible. The body is extracted (not inlined in the try)
+    // purely so its early returns and this hold compose without re-indenting
+    // the whole flow.
+    _d.engine().progress.holdPostGenerating();
     try {
       await _regenerateLastMessageHeld(
         critique: critique,
@@ -190,7 +191,7 @@ class RegenController {
       rethrow;
     } finally {
       _session.groupManager?.endRegeneration();
-      _d.engine().progress.isPostGenerating = false;
+      _d.engine().progress.releasePostGenerating();
       _d.engine().stops.clearPostGenAbortFlags();
       _s.graph().clockReader.applyTipClock();
       // Listeners (web isSettlingTurn → chat_updated) only see the clear

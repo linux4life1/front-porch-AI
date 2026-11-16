@@ -252,9 +252,8 @@ void main() {
     );
     expect(find.textContaining('gstreamer1.0-plugins-base'), findsOneWidget);
 
-    // The note alone at phone width. (The whole tab already overflows at
-    // 400px in the expression-fallback dropdown, which is not this note.)
-    await tester.binding.setSurfaceSize(const Size(400, 900));
+    // The note alone in a desktop window.
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -270,7 +269,7 @@ void main() {
     expect(
       tester.takeException(),
       isNull,
-      reason: 'the note overflows at 400px',
+      reason: 'the note overflows at 1440px',
     );
 
     await pumpTab(1440, canPlay: true);

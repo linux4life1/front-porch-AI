@@ -23,6 +23,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/reply_receipts.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
@@ -165,33 +166,19 @@ class TurnStream {
       t.replyLanded = true;
       _pendingRealismMetadata = null;
     }
-    // RAG receipt (rag_injection.dart): stamped here — the same single
-    // funnel Standing Mood uses above — so continue/regen/group/guest turns
-    // all carry what retrieval did for THIS text. Persisted by the postgen
-    // _saveChat with everything else.
-    if (t.ragReceipt != null) {
-      t.streamTarget.activeMetadata ??= {};
-      t.streamTarget.activeMetadata!['rag_receipt'] = t.ragReceipt;
-    }
-    if (t.searchReceipt != null) {
-      t.streamTarget.activeMetadata ??= {};
-      t.streamTarget.activeMetadata!['search_receipt'] = t.searchReceipt;
-      if (t.searchReceipt!['source'] == 'wiki') {
-        t.streamTarget.activeMetadata!['wiki_receipt'] = t.searchReceipt;
-      }
-    }
-    if (t.wikiReceipt != null) {
-      t.streamTarget.activeMetadata ??= {};
-      t.streamTarget.activeMetadata!['wiki_receipt'] = t.wikiReceipt;
-    }
-    if (t.toolReceipt != null) {
-      t.streamTarget.activeMetadata ??= {};
-      t.streamTarget.activeMetadata!['tool_receipt'] = t.toolReceipt;
-    }
+    stampTurnReceipts(t);
     _stampReplyContext(
       t.streamTarget,
       continuing: t.mode == GenerationMode.continue_,
     );
+    // Who is in the scene for this line, for per-member memory. Continue
+    // extends a reply that already carries its stamp.
+    if (t.mode != GenerationMode.continue_) {
+      _d.doors.cast().memory.stamp(
+        t.streamTarget,
+        speaker: t.mode == GenerationMode.normal ? t.speakingCharacter : null,
+      );
+    }
     final streamTarget = t.streamTarget;
 
     // Helper to update the visible message from buffer. Incremental: only

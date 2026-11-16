@@ -22,6 +22,7 @@ import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
+import { RealismStep, type RealismStepHandle } from '../components/aichargen/RealismStep';
 import { GeneratingPanel } from '../components/aichargen/GeneratingPanel';
 import { ModeCards } from '../components/aichargen/ModeCards';
 import { ProfileStep, type ProfileStepHandle } from '../components/aichargen/ProfileStep';
@@ -44,10 +45,11 @@ import '../styles/creator.css';
 import '../styles/creator-templates.css';
 import '../styles/profile.css';
 
-const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings'];
+const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings', 'Realism'];
 const GENERATE = STEPS.indexOf('Generate');
 const PROFILE = STEPS.indexOf('Profile');
 const GREETINGS = STEPS.indexOf('Greetings');
+const REALISM = STEPS.indexOf('Realism');
 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
@@ -83,6 +85,7 @@ export function CreateAiCharacterPage() {
   const [step, setStep] = useState(() => (createdId ? GREETINGS : restoring ? PROFILE : 0));
   const [writing, setWriting] = useState(false);
   const greetings = useRef<GreetingsStepHandle>(null);
+  const realism = useRef<RealismStepHandle>(null);
   const profile = useRef<ProfileStepHandle>(null);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
@@ -221,7 +224,8 @@ export function CreateAiCharacterPage() {
   const canAdvance =
     (step !== 0 || form.name.trim().length > 0) &&
     (step !== GENERATE || !!createdId || !!pending) &&
-    (step !== PROFILE || !!createdId || !!pending);
+    (step !== PROFILE || !!createdId || !!pending) &&
+    (step !== GREETINGS || !!createdId);
 
   // Next on Profile: a pending run writes the rest (the Generate screen
   // again, then chargen_done lands on Greetings); a saved character saves
@@ -255,8 +259,17 @@ export function CreateAiCharacterPage() {
   const openEditor = async () => {
     // Edits typed in the last moment go first, so the editor opens on them.
     await greetings.current?.flush();
+    await realism.current?.flush();
     navigate(`/edit/${createdId}`);
   };
+  // Greetings → Realism: what was typed is saved before the step changes.
+  const toRealism = async () => {
+    await greetings.current?.flush();
+    setStep(REALISM);
+  };
+  // The saved character's steps wait for a save or a write; the others for
+  // the create.
+  const savedStep = step === GREETINGS || step === REALISM;
 
   return (
     <div className="page wizard studio-scope cg-scope">
@@ -406,6 +419,13 @@ export function CreateAiCharacterPage() {
             {step === GREETINGS && !createdId && (
               <p className="muted">Generate a character first; its greetings open here.</p>
             )}
+
+            {step === REALISM && createdId && (
+              <RealismStep ref={realism} characterId={createdId} onWritingChange={setWriting} />
+            )}
+            {step === REALISM && !createdId && (
+              <p className="muted">Generate a character first; its Porch Life opens here.</p>
+            )}
           </div>
         </div>
       </div>
@@ -415,14 +435,14 @@ export function CreateAiCharacterPage() {
           <button
             type="button"
             className="cg-back"
-            disabled={step === GREETINGS ? writing : held}
+            disabled={savedStep ? writing : held}
             onClick={() => setStep(step - 1)}
           >
             <ArrowLeft />
             Back
           </button>
         )}
-        {step === GREETINGS ? (
+        {step === REALISM ? (
           <button type="button" className="cg-next" disabled={writing || !createdId} onClick={() => void openEditor()}>
             Open in editor
             <ArrowRight />
@@ -432,7 +452,13 @@ export function CreateAiCharacterPage() {
             type="button"
             className="cg-next"
             disabled={!canAdvance || held}
-            onClick={() => (step === PROFILE ? void nextFromProfile() : setStep(step + 1))}
+            onClick={() =>
+              step === PROFILE
+                ? void nextFromProfile()
+                : step === GREETINGS
+                  ? void toRealism()
+                  : setStep(step + 1)
+            }
           >
             Next: {STEPS[step + 1]}
             <ArrowRight />

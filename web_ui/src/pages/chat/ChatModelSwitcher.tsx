@@ -23,18 +23,21 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../../api/client';
 import { ModelPicker } from '../../components/ModelPicker';
+import { ProviderChipBar } from '../../components/ProviderChipBar';
 import { attachStepUp, StepUpFields } from '../../components/StepUpFields';
 import { useBackDismiss } from '../../hooks/useBackDismiss';
 import { BACKEND_OPTIONS, backendOptionId } from '../../backendOptions';
 import { rememberedRemoteModel, urlHasStoredApiKey } from '../../remoteApiKeys';
 import { LiveModelPresetSelect } from '../../components/genPresets/ModelPresetSelect';
 import { announceModelSwitch, chatModelKey } from '../../components/genPresets/genPresets';
+import { ChatWorkerLane } from './ChatWorkerLane';
+import { type WorkerBackendFields } from '../../components/WorkerBackendCard';
 
 const MARKER_KEY = 'fpModelSwitch';
 /** Hosted providers that cannot list models without a saved key. */
 const KEYED_PROVIDERS = new Set(['openrouter', 'nanogpt', 'xai']);
 
-export interface ChatModelSnapshot {
+export interface ChatModelSnapshot extends WorkerBackendFields {
   backend: string;
   remoteApiUrl: string;
   remoteModelName: string;
@@ -250,16 +253,7 @@ function ModelSwitchSheet({
           </button>
         </div>
         <div className="model-switch-body">
-          <label className="model-switch-provider">
-            Provider
-            <select value={providerId} onChange={(e) => pickProvider(e.target.value)}>
-              {providers.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ProviderChipBar selected={providerId} options={providers} onSelect={pickProvider} />
           {(canPick || hostLocal) && urlChanges && (
             <StepUpFields
               password={password}
@@ -292,6 +286,7 @@ function ModelSwitchSheet({
           {canPick ? (
             <ModelPicker
               key={providerId}
+              label="Model"
               apiUrl={urlChanges ? draftUrl : ''}
               apiKey=""
               savedApiUrl={settings.remoteApiUrl}
@@ -349,6 +344,13 @@ function ModelSwitchSheet({
                     settings.lastUsedModelPath,
                   )
             }
+          />
+          {/* Desktop Model Settings embeds the Realism evals section under
+              the chat stack (model_settings_dialog.dart); the sheet mounts
+              its twin there. */}
+          <ChatWorkerLane
+            s={settings}
+            onSaved={(next) => onSaved({ ...settings, ...next }, true)}
           />
           {saving && <p className="muted small">Saving…</p>}
           {error && (
