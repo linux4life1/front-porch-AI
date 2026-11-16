@@ -164,9 +164,11 @@ parts; every other part file is legacy and the count only goes down.
   `_currentStep`, bottom nav.
 - `GlobalKey`s are owner-scoped. Never `GlobalObjectKey(model)`.
 - Rendered text never shows `{{char}}`, `{{user}}` or a raw enum name.
-- New screens, panels and sidebars work at 400 px and 1440 px wide and in a
-  short window. Top-level pages get a stop in
-  `integration_test/layout_sweep_test.dart`.
+- New screens, panels and sidebars work in a short window and at 1440 px
+  wide, and at their narrowest real size: 400 px for `web_ui/` (a phone),
+  640 px for the desktop app (a window snapped to half a laptop screen). No
+  one runs the desktop app at phone width; a phone uses the web UI.
+  Top-level pages get a stop in `integration_test/layout_sweep_test.dart`.
 - Comments explain a non-obvious contract, not the next line.
 
 ## Chat contracts

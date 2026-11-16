@@ -142,8 +142,10 @@ means a run after the PR left draft.
 These are the bug kinds smoke kept finding by hand. A reviewer checks each
 PR against all of them:
 
-1. **Narrow and short windows.** New or changed layout at 400px and 640px
-   wide (smoke found overflow in #513, #529, #561, #564, #568).
+1. **Narrow and short windows.** New or changed layout at its narrowest
+   real width: 400px on the web UI (a phone), 640px on the desktop app (a
+   half-screen window). Desktop is not checked at phone width (smoke found
+   overflow in #513, #529, #561, #564, #568).
 2. **Double clicks and busy states.** A create or save that a fast second
    tap can repeat (#569), or a control that looks live while a reply or its
    settle is still running (#520, #566).
