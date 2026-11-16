@@ -19,6 +19,7 @@
 /// Collaborators behind the web Settings facade.
 library;
 
+export 'settings_appearance_write.dart';
 export 'settings_backend_names.dart';
 export 'settings_reasoning.dart';
 export 'settings_sidebar_order.dart';

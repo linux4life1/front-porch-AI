@@ -27,8 +27,10 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
+import 'package:front_porch_ai/services/web/facade/group_editor_relay.dart';
 import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
 import 'package:front_porch_ai/services/web/facade/group_member_edit.dart';
+import 'package:front_porch_ai/services/web/facade/group_member_library.dart';
 import 'package:front_porch_ai/services/web/facade/group_new_chats.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -56,6 +58,14 @@ class GroupFacade {
   /// The web wizard's Generate buttons; null when no model provider is wired.
   GroupDraftOpening? opening;
 
+  /// The Edit group page's read and cast changes.
+  late final GroupEditorRelay editor = GroupEditorRelay(
+    _groups,
+    _storage,
+    db,
+    repo,
+  );
+
   /// A member's own editor; null until the server assembly wires it.
   GroupMemberEdit? memberEdit;
 
@@ -68,6 +78,9 @@ class GroupFacade {
   );
 
   final GroupChatRepository _groups;
+
+  /// The group store, for the member editor's group values.
+  GroupChatRepository get groups => _groups;
   final StorageService _storage;
 
   /// Folder membership source so the library list can report each group's
@@ -322,6 +335,11 @@ class GroupFacade {
         loreWorldIds: where.loreWorldIds,
       ),
     );
+    await moveGroupSeedsOntoMembers(
+      database,
+      groupId,
+      realism?.defaultMemberJson ?? '{}',
+    );
     return {'id': groupId, 'name': name};
   }
 
@@ -391,6 +409,7 @@ class GroupFacade {
       g.worldIds = saved.worldIds;
       g.loreWorldIds = saved.loreWorldIds;
     }
+    editor.apply(g, f);
     await _groups.save(g);
     return true;
   }
@@ -452,5 +471,29 @@ class GroupFacade {
       p.join(_storage.groupsDir.path, groupId, 'avatars', filename),
     );
     return file.existsSync() ? file : null;
+  }
+
+  /// The library character behind a member (its Avatar Gallery), or null.
+  Future<Map<String, String>?> memberLibrary(String groupId, String memberId) =>
+      memberLibraryCharacter(
+        _groups,
+        repo?.characters ?? const <CharacterCard>[],
+        groupId,
+        memberId,
+      );
+
+  /// Duplicate Group: the new group's `{id, name}`, or null when there is no
+  /// such group (or no database wired).
+  Future<Map<String, String>?> duplicate(String groupId) async {
+    final d = db;
+    if (d == null) return null;
+    final id = await GroupDuplicator(
+      db: d,
+      groupsDir: _storage.groupsDir,
+    ).duplicate(groupId);
+    if (id == null) return null;
+    await _groups.reload();
+    await folders?.reload();
+    return {'id': id, 'name': _groups.getById(id)?.name ?? ''};
   }
 }

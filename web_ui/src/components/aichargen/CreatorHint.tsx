@@ -16,6 +16,8 @@ export function CreatorHint({
   dismiss,
   onDismiss,
   disabled = false,
+  error,
+  testid = 'creator-hint',
 }: {
   title: string;
   body: string;
@@ -24,9 +26,12 @@ export function CreatorHint({
   dismiss: string;
   onDismiss: () => void;
   disabled?: boolean;
+  /** Why the action came back empty, inside the box (desktop CreatorHintBox). */
+  error?: string | null;
+  testid?: string;
 }) {
   return (
-    <section className="cg-hint" role="status" aria-label={title} data-testid="creator-hint">
+    <section className="cg-hint" role="status" aria-label={title} data-testid={testid}>
       <span className="cg-hint-icon">
         <InfoIcon />
       </span>
@@ -41,6 +46,11 @@ export function CreatorHint({
             {dismiss}
           </button>
         </div>
+        {error && (
+          <p className="error cg-hint-error" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </section>
   );

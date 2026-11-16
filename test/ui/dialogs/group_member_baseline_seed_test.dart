@@ -29,7 +29,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
+import 'package:front_porch_ai/utils/member_baseline_seed.dart';
 
 void main() {
   group('applyBaselineToMemberSeed', () {

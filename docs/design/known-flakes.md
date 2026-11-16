@@ -100,6 +100,42 @@ dependencies" never ran a test.
   A `Composer line retried` warning on a passing run means it caught one;
   the warning says what the box held, which tells WebKit dropping the
   text from the app changing it.
+- **`web_ui/e2e/journeys.spec.ts` buried-host regen journey: the `/join`
+  line silently refused (409).** The guest never joins, the chime never
+  lands, and the later "Regenerate main character" assertion fails
+  (`element(s) not found`) with no earlier error. `waitSendable` polled
+  the host idle, the page showed Send, `fill` put the line in the box —
+  and the `POST /api/chat/send` still came back `409 "A reply is still
+  being written. Send it again once it finishes."`. The host was
+  generating again in that gap — by elimination the autonomous-turn path
+  (the idle-autonomy class in `lib/services/chat/`); no other caller
+  raises `isGenerating` after a turn closes. The refusal is correct product behavior — production
+  users get the toast and resend — but the page clears the composer
+  optimistically, so the old "retry only while the box still holds the
+  line" rule could not see a refused line: it was gone by the time the
+  box check ran, and the journey sailed on with a missing guest. Fixed
+  in `sendLine` (`web_ui/e2e/support/composer.ts`): it watches the
+  `POST /api/chat/send` response for the line it just pressed and, on a
+  409, resends after the next `waitSendable`, logging a `Composer line
+  retried` warning naming the refusal; a 409 that survives every retry
+  throws with the host's reason instead of losing the line. The resend
+  is the protocol the refusal text itself prescribes. Pinned by
+  `web_ui/e2e/composer409.spec.ts`: the first POST is refused 409 (both
+  mocked, the shared server untouched), the probe asserts the line is
+  posted exactly twice and the box ends empty — without the 409 branch
+  the old box-only check would accept the lost line as a success.
+  Harness caveat found while pinning it: once the PWA's service worker
+  controls a page, webkit answers the page's fetches through the worker
+  and neither `page.route` nor `context.route` intercepts them (zero
+  hits, real host reply; Chromium intercepts either way) — that spec
+  runs `serviceWorkers: 'block'` for exactly this reason. Any future
+  webkit route-interception probe must do the same or it will mock
+  nothing while appearing to watch everything. The page-problems
+  watcher carries the matching carve-out (`POST 409 /api/chat/send`
+  in `KNOWN`, `web_ui/e2e/support/fixtures.ts`): once the harness
+  resends as prescribed, the refusal itself is the endpoint's normal
+  answer and must not count as page damage — a send refused on every
+  attempt still fails loudly from `sendLine` with the host's reason.
 - **`web_ui/e2e/journeys.spec.ts` Director Mode journey: the whisper won't
   clear.** Phone WebKit only: after "Clear the whisper to Porch Tester"
   the whisper note stays (expected 0, got 1), and the trace has no `POST

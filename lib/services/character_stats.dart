@@ -127,12 +127,24 @@ String _shownSwipe(StatsMessageRow r) {
 Future<CharacterStats> loadCharacterStats(
   AppDatabase db,
   String characterId,
+) => _loadStats(db, 'character_id', characterId);
+
+/// The same counts over the chats of group [groupId]: Edit group's "Your
+/// chats together".
+Future<CharacterStats> loadGroupStats(AppDatabase db, String groupId) =>
+    _loadStats(db, 'group_id', groupId);
+
+/// [column] is one of the two session columns above, never user input.
+Future<CharacterStats> _loadStats(
+  AppDatabase db,
+  String column,
+  String characterId,
 ) async {
   final sessions = await db
       .customSelect(
         'SELECT COUNT(*) AS n, MIN(created_at) AS first_at, '
         'MAX(updated_at) AS last_at FROM sessions '
-        'WHERE character_id = ? AND deleted_at IS NULL',
+        'WHERE $column = ? AND deleted_at IS NULL',
         variables: [Variable.withString(characterId)],
       )
       .getSingle();
@@ -144,7 +156,7 @@ Future<CharacterStats> loadCharacterStats(
         'SELECT m.session_id, m.is_user, m.character_id, m.swipes, '
         'm.swipe_index FROM messages m '
         'JOIN sessions s ON s.id = m.session_id '
-        'WHERE s.character_id = ? AND s.deleted_at IS NULL '
+        'WHERE s.$column = ? AND s.deleted_at IS NULL '
         'AND m.deleted_at IS NULL',
         variables: [Variable.withString(characterId)],
       )

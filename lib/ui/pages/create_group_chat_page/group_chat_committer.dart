@@ -211,6 +211,8 @@ class GroupChatCommitter {
     );
 
     await groupRepo.save(group);
+    // The start the wizard chose is on each member's own copy.
+    await moveGroupSeedsOntoMembers(database, group.id, defaultMemberJson);
 
     return group;
   }

@@ -177,8 +177,11 @@ class TurnEngine {
     if (speakers == null) return;
     guestSpeaker = speakers.guest;
     forceSpeaker = speakers.force;
-    // regenerateLastMessage holds the settling flag; the finally restores it.
-    final callerHeldSettling = _p.isPostGenerating;
+    // Each generation takes its OWN settling lease around finalize (below);
+    // a regen's outer hold is a separate lease, so the nested generation
+    // cannot restore-over an owner that already left (the latch class the
+    // old capture/restore allowed).
+    var settlingLeased = false;
     final epoch = ++_p.generationEpoch;
     _p.isGenerating = true;
     _p.generationProgress = 0.0;
@@ -337,6 +340,11 @@ class TurnEngine {
       if (await stream.consume(t)) {
         return; // user cancel: turn halted (H2)
       }
+      // Settling starts the instant the last token lands: take the lease
+      // HERE, before the first await, so the window opens exactly where the
+      // old in-finalize raise did.
+      _p.holdPostGenerating();
+      settlingLeased = true;
       await postGen.finalize(t);
     } catch (e) {
       _clockWriter.restoreCapturedThroughReader();
@@ -410,9 +418,10 @@ class TurnEngine {
         _session.groupManager?.restoreRotation(rotation);
       }
       _awayPulse.finishTurn();
-      // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps
-      // it raised across its swipe-merge); a latched flag would wedge input.
-      _p.isPostGenerating = callerHeldSettling;
+      // Settling over, on EVERY exit — this generation releases ONLY its
+      // own lease; an outer holder (regen's swipe-merge, a rescore) keeps
+      // the flag up until its own finally. A latched flag would wedge input.
+      if (settlingLeased) _p.releasePostGenerating();
       if (!_p.isPostGenerating) {
         _p.postGenAbortRequested = false;
         _isCancellingRealismEval = false;

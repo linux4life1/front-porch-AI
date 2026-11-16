@@ -48,11 +48,20 @@ For example:
 - eye-only: the header still fits at 400px wide
 -->
 
+## Web parity
+
+<!-- Needed when the PR changes desktop UI (lib/ui/) OR web UI (web_ui/src/)
+but not both. Write one line, then delete this comment:
+none: <why the other side has nothing to change>
+deferred: <what the maintainer deferred, and where it is tracked>
+If both sides changed in this PR, delete this section. The PR rules check
+fails a one-sided UI PR without this line. The screenshots below must be
+the same screen on desktop and web, compared by you before opening the PR. -->
+
 ## Parity
 
 <!-- Only if your change is user-visible. Delete this section otherwise. -->
 
-- [ ] Web/mobile UI (`web_ui/`) updated to match — including any new setting or toggle
 - [ ] Realism/Needs behaviour is identical in 1:1 and group chats
 - [ ] Not applicable / deferral agreed with the maintainer in this PR
 
@@ -77,8 +86,15 @@ Source and license: <!-- e.g. "kokoro-multi-lang-v1_0, Apache-2.0" -->
 
 ## Screenshots
 
-<!-- Required for UI changes. Before/after if you're changing something existing.
-Include light AND dark mode if you touched colours. -->
+<!-- REQUIRED for any UI or UX change (lib/ui/, lib/main*.dart, web_ui/src/).
+The PR rules check fails without at least one image here; no label skips it.
+Show each changed screen on desktop AND web (wide, plus phone if it differs),
+before and after where something existed. Light AND dark if you touched
+colours. Seeded or made-up data only, never a real chat or library.
+Drag images into THIS section while editing the description (a comment does
+not count), or commit them under docs/screenshots/<topic>/ and embed them.
+Links to other image hosts are rejected. No author is exempt. One UI: desktop, web, 1:1 and group show
+the same controls in the same places (CLAUDE.md "One UI"). -->
 
 ## Attribution
 

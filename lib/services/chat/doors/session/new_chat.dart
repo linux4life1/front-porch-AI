@@ -25,6 +25,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 import 'session_store.dart';
 
 /// A fresh chat for the open cast: the departing chat flushed, the live
@@ -214,10 +215,7 @@ class NewChatOpener {
           _scope.groups.afterglowOn = groupAfterglowIn(
             _activeGroup!.defaultMemberRealismState,
           );
-          final timeSeed = parseGroupTimeSeed(
-            _activeGroup!.defaultMemberRealismState,
-            _activeGroup!.baselineRealismState,
-          );
+          final timeSeed = parseGroupTimeSeedOf(_activeGroup!);
           if (timeSeed != null) {
             _timeService.seedFromV2OrExt(
               dayCount: timeSeed.dayCount,
@@ -258,10 +256,15 @@ class NewChatOpener {
         // parseGroupRealismSeeds pulls just the perChar baselines.
         if (_activeGroup != null) {
           _h.resetDirectorModeToDefault();
-          _scope.groups.members = parseGroupRealismSeeds(
-            _activeGroup!.defaultMemberRealismState,
-          ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
+          _scope.groups.members = groupStartMembers(
+            _activeGroup!,
+            _groupCharacters,
+            _session.characterIdFor,
+          );
           await _h.rekeyGroupStores();
+          // Each member's system prompt and Author's Note start from the
+          // group's defaults, not the chat before this one.
+          _store.groupConfig.seedNewChatDefaults(_activeGroup!);
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (doors/entry/group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off

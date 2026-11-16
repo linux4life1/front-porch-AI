@@ -1,14 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Web-local chat color customization — the WebUI mirror of the desktop's
-// chat appearance colors (user bubble/text, AI bubble/text, dialogue, action).
-// Stored per-device in localStorage and applied as CSS custom properties on
-// :root, so they override the defaults in styles.css live (no rebuild, no server
-// round-trip). The WebUI is a client with its own display prefs; this does not
-// touch the desktop app's theme. No font picker (web uses the system stack).
-// Defaults are the dark theme's; a colour still at its default is left to the
-// theme the desktop sends, so it follows light mode.
+// Chat colour application — the WebUI twin of the desktop's Chat Appearance
+// colours (user bubble/text, AI bubble/text, dialogue, action). The desktop
+// is the source of truth: the settings snapshot's `appearance.chatColors`
+// carries the colours the chat paints and `chatColorDefaults` the theme's
+// own, and `applyChatColors` paints them as CSS custom properties on :root
+// (theme/appearance.ts calls it). A role equal to the theme default is left
+// unpinned, so it follows light/dark. No font picker here (the chat font is
+// its own setting).
 
 export interface ChatColors {
   userBubble: string;
@@ -58,12 +58,12 @@ export function saveChatColors(c: ChatColors): void {
 }
 
 /** Push the colors onto :root as CSS custom properties (overrides styles.css). */
-export function applyChatColors(c: ChatColors): void {
+export function applyChatColors(c: ChatColors, defaults: ChatColors = DEFAULT_CHAT_COLORS): void {
   const root = document.documentElement;
-  // A colour left at its default is not pinned, so the desktop's theme
+  // A colour equal to the theme's own is not pinned, so the desktop's theme
   // (appTheme.ts) supplies it and light mode gets its own bubble and inks.
   (Object.keys(VARS) as (keyof ChatColors)[]).forEach((k) => {
-    if (c[k].toLowerCase() === DEFAULT_CHAT_COLORS[k]) root.style.removeProperty(VARS[k]);
+    if (c[k].toLowerCase() === defaults[k].toLowerCase()) root.style.removeProperty(VARS[k]);
     else root.style.setProperty(VARS[k], c[k]);
   });
   root.style.setProperty(
@@ -72,7 +72,7 @@ export function applyChatColors(c: ChatColors): void {
       c.dialogue,
       c.userBubble,
       c.userText,
-      c.dialogue.toLowerCase() !== DEFAULT_CHAT_COLORS.dialogue,
+      c.dialogue.toLowerCase() !== defaults.dialogue.toLowerCase(),
     ),
   );
   // *Actions* get the same treatment: the default blue all but vanishes on
@@ -83,7 +83,7 @@ export function applyChatColors(c: ChatColors): void {
       c.action,
       c.userBubble,
       c.userText,
-      c.action.toLowerCase() !== DEFAULT_CHAT_COLORS.action,
+      c.action.toLowerCase() !== defaults.action.toLowerCase(),
     ),
   );
 }

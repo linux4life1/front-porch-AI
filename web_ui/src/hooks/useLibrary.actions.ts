@@ -87,6 +87,23 @@ export function useLibraryActions(opts: {
     },
     [reload, setError],
   );
+  // One copy per tap, however fast: a second tap while one is in flight is ignored.
+  const duplicating = useRef(new Set<string>());
+  const duplicateGroup = useCallback(
+    async (id: string) => {
+      if (duplicating.current.has(id)) return;
+      duplicating.current.add(id);
+      try {
+        await api.post(`/api/groups/${id}/duplicate`);
+        reload();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Could not duplicate');
+      } finally {
+        duplicating.current.delete(id);
+      }
+    },
+    [reload, setError],
+  );
   const deleteCharacter = useCallback(
     async (id: string) => {
       try {
@@ -364,6 +381,7 @@ export function useLibraryActions(opts: {
     deleteFolder,
     deleteFolderDeep,
     duplicateCharacter,
+    duplicateGroup,
     deleteCharacter,
     exportPng,
     exportJson,

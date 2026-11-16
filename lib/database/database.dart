@@ -29,6 +29,7 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/schema_repair_columns.dart';
+import 'package:front_porch_ai/services/group_seed_migration.dart';
 import 'package:front_porch_ai/database/session_gen_overrides_heal.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/models/chat_place_slots.dart';
@@ -282,7 +283,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 65;
+  int get schemaVersion => 67;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

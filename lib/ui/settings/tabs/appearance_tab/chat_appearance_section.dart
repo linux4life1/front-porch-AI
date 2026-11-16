@@ -25,34 +25,11 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'chat_capsule_preview.dart';
 import 'chat_color_matrix.dart';
-import 'mood_on_character_controls.dart';
 
 /// Settings → Appearance → Chat Appearance: Reading Size, Chat Font,
 /// live micro-chat preview, and paired message color controls.
 class ChatAppearanceSection extends StatelessWidget {
   const ChatAppearanceSection({super.key});
-
-  /// Curated chat-suitable Google Fonts. ('' == the UI font.)
-  static const List<(String, String)> _chatFonts = [
-    ('Same as the UI font', ''),
-    ('Roboto', 'Roboto'),
-    ('Open Sans', 'Open Sans'),
-    ('Lato', 'Lato'),
-    ('Source Sans 3', 'Source Sans 3'),
-    ('Nunito', 'Nunito'),
-    ('Poppins', 'Poppins'),
-    ('Montserrat', 'Montserrat'),
-    ('Raleway', 'Raleway'),
-    ('Work Sans', 'Work Sans'),
-    ('DM Sans', 'DM Sans'),
-    ('Quicksand', 'Quicksand'),
-    ('Rubik', 'Rubik'),
-    ('Karla', 'Karla'),
-    ('Merriweather', 'Merriweather'),
-    ('Playfair Display', 'Playfair Display'),
-    ('Roboto Mono', 'Roboto Mono'),
-    ('Fira Code', 'Fira Code'),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +147,7 @@ class ChatAppearanceSection extends StatelessWidget {
                       constraints: const BoxConstraints(maxWidth: 220),
                       child: DropdownButton<String>(
                         key: const ValueKey('appearance-chat-font'),
-                        value: _chatFonts.any(
+                        value: kChatFontChoices.any(
                           (f) => f.$2 == ui.globalChatFontFamily,
                         )
                             ? ui.globalChatFontFamily
@@ -183,7 +160,7 @@ class ChatAppearanceSection extends StatelessWidget {
                           fontSize: 13,
                         ),
                         underline: const SizedBox.shrink(),
-                        items: _chatFonts.map((font) {
+                        items: kChatFontChoices.map((font) {
                           return DropdownMenuItem<String>(
                             value: font.$2,
                             child: Text(

@@ -1,8 +1,9 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// E2E: every top-level page and the chat, at a narrow (400px), a wide
-// (1440px) and a short window. Fails when a layout overflows from a file
+// E2E: every top-level page and the chat, at the desktop widths people run
+// (1440px and 1920px / 1080p) and in a short window. Phone width is the web
+// UI's job (web_ui/e2e), not the desktop app's. Fails when a layout overflows from a file
 // that is not on the known list below, or when any visible text still shows
 // the test card's {{char}} / {{user}} unreplaced (CLAUDE.md, "Definition of done").
 //
@@ -37,25 +38,15 @@ import 'support/e2e_sandbox.dart';
 import 'support/fake_backend.dart';
 
 const _sizes = {
-  'narrow': Size(400, 800),
   'wide': Size(1440, 900),
+  '1080p': Size(1920, 1080),
   'short': Size(1200, 560),
 };
 
 const _pages = ['home', 'create', 'models', 'settings', 'persona', 'worlds'];
 
 /// `size: file` pairs that overflowed before this sweep existed.
-const _known = <String>{
-  'narrow: lib/ui/pages/chat_page.input_bar.dart',
-  'narrow: lib/ui/pages/create_character_page.dart',
-  'narrow: lib/ui/pages/create_character_page/creator_form_fields.dart',
-  'narrow: lib/ui/pages/create_character_page/creator_wizard_chrome.dart',
-  'narrow: lib/ui/pages/user_persona/persona_list_cards.dart',
-  'narrow: lib/ui/pages/user_persona/persona_main_view.dart',
-  'narrow: lib/ui/pages/user_persona_page.dart',
-  'narrow: lib/ui/pages/world_management/world_management_header.dart',
-  'narrow: lib/ui/settings/widgets/spell_check_language_row.dart',
-};
+const _known = <String>{};
 
 // Only the card's own text counts: help text that names the placeholders
 // ("Both fields support {{char}} and {{user}}") is meant to show them.
@@ -72,7 +63,7 @@ final _creator = RegExp(
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('pages and the chat fit narrow, wide and short windows, with '
+  testWidgets('pages and the chat fit desktop and short windows, with '
       'no raw placeholders — sandboxed', (tester) async {
     final sandbox = Directory.systemTemp.createTempSync('fpai_layout_');
     PathProviderPlatform.instance = SandboxPathProvider(sandbox.path);
@@ -110,11 +101,7 @@ void main() {
         final file = m == null
             ? 'unknown'
             : (m.group(1) != null ? 'lib/${m.group(1)}' : m.group(2)!);
-        // The 360px stop is for the Appearance tab; the pages kept alive
-        // behind it are swept at 400px.
-        if (!where.startsWith('tiny') || file.startsWith('lib/ui/settings/')) {
-          found.add('${where.split(' ').first}: $file');
-        }
+        found.add('${where.split(' ').first}: $file');
         debugPrint('[layout] $where overflow in $file');
         return;
       }
@@ -159,8 +146,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(find.text('Appearance'));
     await tester.pump(const Duration(milliseconds: 800));
-    // Also a 360px window, where the sidebar leaves the tab about 110px.
-    for (final size in {..._sizes, 'tiny': const Size(360, 800)}.entries) {
+    for (final size in _sizes.entries) {
       where = '${size.key} appearance';
       tester.view.physicalSize = size.value;
       await tester.pump(const Duration(milliseconds: 800));
@@ -194,9 +180,8 @@ void main() {
     );
     tester.view.physicalSize = _sizes['wide']!;
     // ignore: use_build_context_synchronously — ctx is the root MainLayout element, alive for the whole test.
-    Navigator.of(
-      ctx,
-    ).push(MaterialPageRoute(builder: (_) => const CreateGroupChatPage()));
+    Navigator.of(ctx)
+        .push(MaterialPageRoute(builder: (_) => const CreateGroupChatPage()));
     await pumpUntilFound(tester, find.text('Layout Second'));
     for (final name in ['Layout Tester', 'Layout Second']) {
       await tester.ensureVisible(find.text(name).first);

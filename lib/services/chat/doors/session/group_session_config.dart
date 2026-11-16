@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/group_chat.dart';
+
 /// A group chat's per-member settings that ride the session's
 /// `group_realism_state` blob: Author's Notes, system prompts and the RAG
 /// knobs. Keyed by stable member id. The session store loads and saves
@@ -36,4 +38,18 @@ class GroupSessionConfig {
   int retrievalCount = 4;
   double memoryBudgetPercent = 10.0;
   Map<String, double> characterRAGPriorities = {};
+
+  /// A new chat of [group] starts from the group's own defaults for each
+  /// member (Edit group): their system prompt, Author's Note and Strength.
+  /// What the chat before it held does not carry over.
+  void seedNewChatDefaults(GroupChat group) {
+    characterSystemPrompts = Map.of(group.characterSystemPrompts);
+    authorNotes = {
+      for (final e in group.characterAuthorNotes.entries) e.key: e.value.note,
+    };
+    authorNoteStrengths = {
+      for (final e in group.characterAuthorNotes.entries)
+        e.key: e.value.strength,
+    };
+  }
 }

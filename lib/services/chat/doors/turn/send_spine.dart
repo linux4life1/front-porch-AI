@@ -227,9 +227,9 @@ class SendSpine {
     // serialization point setActiveCharacter/setActiveGroup/loadSession
     // already use. The composer deliberately stays LIVE during settling
     // (greying it was rejected twice); this waits instead of refusing.
-    // Also closes the _isPostGenerating latch: a turn started mid-settle
-    // captured callerHeldSettling=true and wedged _isTurnBusy for the
-    // session.
+    // (The latch this wait once also served — a mid-settle turn restoring
+    // a captured caller hold — is gone: settling is now lease-counted, so
+    // every holder clears exactly its own.)
     try {
       if (engine.progress.isPostGenerating) {
         _sendWaitingOnSettle = true;

@@ -33,11 +33,9 @@ class ScalarCarries {
   SessionStore get _sessions => _g.deps.doors.sessions();
 
   /// The chat's own Realism switch, which a cast change carries.
-  bool get _realismChatSwitch => _g.controls.chatRealism;
   set _realismChatSwitch(bool on) => _g.controls.setChatRealism(on);
 
   /// The chat's stored Needs switch, carried with it.
-  bool get _needsSimEnabled => _g.controls.needsSimEnabled;
   set _needsSimEnabled(bool on) => _g.controls.needsSimEnabled = on;
 
   RealismDance get _realismDance => _g.dance;
@@ -66,8 +64,10 @@ class ScalarCarries {
   /// realism). The returned call writes them into the 1:1 after it opens
   /// (opening the 1:1 reset them).
   void Function() captureSurvivor(String soleId) {
-    final bool wasRealismOn = _realismChatSwitch;
-    final bool wasNeedsOn = _needsSimEnabled;
+    // The survivor's own switches in the group chat: the 1:1 chat they
+    // become keeps what the group showed for them, not the chat-wide value.
+    final bool wasRealismOn = _groupStore.realismOnFor(soleId);
+    final bool wasNeedsOn = _groupStore.needsOnFor(soleId);
     Map<String, dynamic>? snapshot;
     if (wasRealismOn) {
       _realismDance.loadIntoScalars(
@@ -178,6 +178,10 @@ class ScalarCarries {
     _groupStore.memberForWrite(hostId).nsfwCooldownEnabled = hostNsfw;
     // The group chat takes the 1:1 chat's Afterglow switch.
     _groupStore.afterglowOn = hostNsfw;
+    // Every member's own switches follow from what the chat now holds, the
+    // host's included: they were seeded at entry from the empty chat this
+    // one replaced, before the 1:1's choices landed above.
+    _g.controls.memberSwitches.reseed();
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,

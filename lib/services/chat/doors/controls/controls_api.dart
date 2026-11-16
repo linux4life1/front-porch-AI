@@ -35,6 +35,41 @@ extension ChatServiceControls on ChatService {
   Future<void> setChaosNsfwEnabled(bool enabled) =>
       controlsDoor.setChaosNsfwEnabled(enabled);
 
+  // ── Chaos per member (PR 5b, docs/design/chaos-per-character.md) ─────
+  // The sidebar's focused-member Chaos card and the web twin read and
+  // write these by member id; the turn pipeline reaches the bag directly.
+  // Bodies on [MemberChaos] behind the controls door.
+
+  bool chaosSwitchFor(String memberId) =>
+      controlsDoor.chaosMembers.switchFor(memberId);
+
+  bool chaosNsfwFor(String memberId) =>
+      controlsDoor.chaosMembers.nsfwFor(memberId);
+
+  int chaosPressureFor(String memberId) =>
+      controlsDoor.chaosMembers.pressureFor(memberId);
+
+  int chaosCooldownFor(String memberId) =>
+      controlsDoor.chaosMembers.cooldownFor(memberId);
+
+  bool chaosHasPendingFor(String memberId) =>
+      controlsDoor.chaosMembers.hasPendingFor(memberId);
+
+  String? chaosPendingFor(String memberId) =>
+      controlsDoor.chaosMembers.pendingFor(memberId);
+
+  bool chaosSpicyFor(String memberId) =>
+      controlsDoor.chaosMembers.spicyFor(memberId);
+
+  List<({String memberId, String name, bool enabled})> chaosCastDigest() =>
+      controlsDoor.chaosMembers.castDigest();
+
+  Future<void> setMemberChaosEnabled(String memberId, bool on) =>
+      controlsDoor.chaosMembers.setSwitch(memberId, on);
+
+  Future<void> setMemberChaosNsfw(String memberId, bool on) =>
+      controlsDoor.chaosMembers.setNsfw(memberId, on);
+
   /// The active character's "enjoys low hygiene", live from the card.
   bool get enjoysLowHygiene => controlsDoor.enjoysLowHygiene;
 
@@ -46,6 +81,45 @@ extension ChatServiceControls on ChatService {
   /// group-members row (all members when [memberId] is null).
   Future<void> persistGroupMemberExtensions({String? memberId}) =>
       controlsDoor.persistGroupMemberExtensions(memberId: memberId);
+
+  // ── A character's own switches (PR 3) ─────────────────────────────────
+  //
+  // Realism, Needs, Afterglow and Pockets are per character in this chat:
+  // the sidebar and the phone read and write them by member id. In a 1:1
+  // chat there is one character and [memberId] is ignored, so the same call
+  // reaches the one chat switch. The reads are the STORED switch (what the
+  // toggle shows, kept while Porch Life vetoes); the live gates are
+  // [realismEnabledFor], [needsActiveFor] and [afterglowRunsFor].
+
+  bool realismSwitchFor(String memberId) =>
+      isGroupMode ? realism.groups.realismOnFor(memberId) : realismChatSwitch;
+
+  bool needsSwitchFor(String memberId) =>
+      isGroupMode ? realism.groups.needsOnFor(memberId) : needsSimEnabled;
+
+  bool afterglowSwitchFor(String memberId) => isGroupMode
+      ? realism.groups.afterglowOnFor(memberId)
+      : afterglowChatSwitch;
+
+  Future<void> setMemberRealismEnabled(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setRealism(memberId, on)
+      : setRealismEnabled(on);
+
+  Future<void> setMemberNeedsEnabled(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setNeeds(memberId, on)
+      : setNeedsSimEnabled(on);
+
+  Future<void> setMemberAfterglowSwitch(String memberId, bool on) => isGroupMode
+      ? controlsDoor.memberSwitches.setAfterglow(memberId, on)
+      : setAfterglowEnabled(on);
+
+  /// The live Realism gate for one character, whoever speaks next.
+  bool realismEnabledFor(String memberId) =>
+      isGroupMode ? controlsDoor.realismEnabledFor(memberId) : realismEnabled;
+
+  /// The live Needs gate for one character, whoever speaks next.
+  bool needsActiveFor(String memberId) =>
+      isGroupMode ? realism.needsPass.activeFor(memberId) : needsActive;
 
   // ── The story clock's manual controls ─────────────────────────────────
 
@@ -64,7 +138,13 @@ extension ChatServiceControls on ChatService {
   // ── Chance Time ───────────────────────────────────────────────────────
 
   /// Returns 8 raw events for the wheel.
-  List<String> spinWheelEvents() => controlsDoor.chance.spinWheelEvents();
+  List<String> spinWheelEvents({String? forName}) =>
+      controlsDoor.chance.spinWheelEvents(
+        forName: forName,
+        memberBag: forName == null
+            ? null
+            : controlsDoor.chance.bagForName(forName),
+      );
 
   /// A raw event with its placeholders filled for [charName].
   String resolveChanceTimeEvent(String raw, String charName) =>

@@ -20,6 +20,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
     show Pockets, StoryClock;
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
+import 'package:front_porch_ai/services/group_seed_migration.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
@@ -118,6 +119,10 @@ void main() {
         ),
       ),
     );
+    // A group's new chats start each member from their own copy (PR 5): move
+    // the stored start onto the copies, as the v67 upgrade and every create
+    // path do.
+    await moveGroupSeedsOntoMembers(db, 'grp-fork', blobs.defaultMemberJson);
     await db.insertSession(
       SessionsCompanion.insert(
         id: 'sess-gfork',

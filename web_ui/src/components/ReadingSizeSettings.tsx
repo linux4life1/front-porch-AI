@@ -12,6 +12,7 @@ import {
   loadReadingSize,
   saveReadingSize,
 } from '../readingSize';
+import { SettingRow } from './SettingRow';
 
 export function ReadingSizeSlider() {
   const [scale, setScale] = useState(loadReadingSize);
@@ -44,13 +45,12 @@ export function ReadingSizeSlider() {
 
 export function ReadingSizeSettings() {
   return (
-    <section className="card" data-testid="reading-size-card">
-      <h3>Reading size</h3>
-      <p className="reading-blurb">
-        Chat bubbles, the composer, message edit, and sidebar help. Buttons and
-        labels stay put.
-      </p>
+    <SettingRow
+      title="Reading size"
+      blurb="Chat bubbles, the composer, message edit, and sidebar help. Buttons and labels stay put."
+      testid="reading-size-card"
+    >
       <ReadingSizeSlider />
-    </section>
+    </SettingRow>
   );
 }

@@ -49,6 +49,13 @@ class RegenBaseline {
   /// The chat's STORED Needs switch: this file rewinds state with it.
   bool get _needsSimEnabled => _g.controls.needsSimEnabled;
 
+  /// The stored switch a regen of [sid]'s reply reads: in a group that
+  /// member's own, never whoever is up next.
+  bool _storedNeedsOn(String sid) {
+    if (_activeGroup == null || sid.isEmpty) return _needsSimEnabled;
+    return _g.groups.needsOnFor(sid);
+  }
+
   /// Returns false when the greeting baseline is unreadable. The
   /// caller must put [lastMsg] back and return without generating —
   /// a void return here used to fall through and duplicate the tip.
@@ -57,7 +64,20 @@ class RegenBaseline {
     required CharacterCard? regenGuest,
     required CharacterCard? regenSpeakerCard,
     required String regenSpeakerSid,
-  }) {
+  }) => regenGuest != null
+      ? _revert(lastMsg, regenGuest, regenSpeakerCard, regenSpeakerSid)
+      // Every gate the rewind reads is the rejected reply's speaker's.
+      : _g.groups.asSpeaker(
+          regenSpeakerSid,
+          () => _revert(lastMsg, regenGuest, regenSpeakerCard, regenSpeakerSid),
+        );
+
+  bool _revert(
+    ChatMessage lastMsg,
+    CharacterCard? regenGuest,
+    CharacterCard? regenSpeakerCard,
+    String regenSpeakerSid,
+  ) {
     // Revert realism state from the rejected swipe and re-evaluate.
     // Guest messages carry no speaker Realism/Needs of their own, but a
     // lite tick still wears present bodies (the 1:1 host). Restore that
@@ -73,7 +93,7 @@ class RegenBaseline {
     // With Realism on, a group still impersonates + restores inside the
     // engine gate below; with it off that gate never runs, so the present
     // bodies rewind here (review finding, Needs v2).
-    if (_needsSimEnabled) {
+    if (_storedNeedsOn(regenSpeakerSid)) {
       if (_activeGroup == null) {
         _needsRewinds.restoreBaselineForReplay(lastMsg);
       } else if (!_realismEnabled) {
@@ -211,7 +231,7 @@ class RegenBaseline {
         // lacks a 'needs' entry (e.g. needs was enabled mid-chat).
         final preTurnNeeds =
             lastMsg.activeMetadata!['needs_pre_turn_vector'] as Map?;
-        if (preTurnNeeds != null && _needsSimEnabled) {
+        if (preTurnNeeds != null && _storedNeedsOn(regenSpeakerSid)) {
           final preTurnCarry = lastMsg.activeMetadata![kNeedsPreTurnCarry];
           _needsSimulation.restoreFromSnapshot({
             'vector': Map<String, int>.from(preTurnNeeds),
@@ -270,7 +290,7 @@ class RegenBaseline {
         if (!restoredNeedsFromPreTurn &&
             previousMessageState.containsKey('needs') &&
             previousMessageState['needs'] is Map &&
-            _needsSimEnabled) {
+            _storedNeedsOn(regenSpeakerSid)) {
           final needsData = previousMessageState['needs'] as Map;
           if (needsData['vector'] is Map) {
             final vector = Map<String, int>.from(needsData['vector'] as Map);

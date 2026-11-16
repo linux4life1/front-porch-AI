@@ -20,170 +20,98 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_lorebook_tab.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_worlds_tab.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_lorebook_actions.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/group_setting_picker/group_worlds_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Shown on the Lore & Worlds tab when the stored group lorebook can't be read.
+/// Shown on the Lorebook tab when the stored group lorebook can't be read.
 const kEditGroupUnreadableLoreNote =
     "This group's lorebook couldn't be read, so its entries aren't being "
     'used. New entries you add here can replace it; Save asks first.';
 
-/// Lore & Worlds tab of the group editor: the group lorebook (add/edit/delete
-/// entries), the "inherit character & world lorebooks" toggle, and where new
-/// chats of the group meet (the shared Setting picker). Edits go out through
-/// the callbacks; the page owns the state.
-class EditGroupLoreWorldsTab extends StatelessWidget {
-  const EditGroupLoreWorldsTab({
+/// Lorebook tab of the group editor: the 1:1 Lorebook tab over the group's
+/// lorebook, plus "Inherit character & world lorebooks".
+class EditGroupLorebookTab extends StatelessWidget {
+  const EditGroupLorebookTab({
     super.key,
-    required this.allWorlds,
-    required this.loreEntries,
+    required this.actions,
+    required this.entries,
     required this.bookUnreadable,
     required this.inheritCharacterLorebooks,
-    required this.worldChoice,
-    required this.weatherOf,
-    required this.onAddEntry,
-    required this.onReplaceEntry,
-    required this.onRemoveEntry,
     required this.onInheritChanged,
-    required this.onWorldChoiceChanged,
-    this.suggestedBy = const {},
-    this.legacyWorldCount = 0,
+    required this.onChanged,
   });
 
-  /// Every world and place (`WorldRepository.placeWorlds`).
-  final List<World> allWorlds;
-
-  final List<LorebookEntry> loreEntries;
+  final EditorLorebookActions actions;
+  final List<LorebookEntry> entries;
   final bool bookUnreadable;
   final bool inheritCharacterLorebooks;
-  final GroupWorldChoice worldChoice;
-  final String? Function(String id) weatherOf;
-  final Map<String, List<String>> suggestedBy;
-
-  /// Worlds an unsplit group links (see GroupWorldsSection).
-  final int legacyWorldCount;
-  final ValueChanged<LorebookEntry> onAddEntry;
-  final void Function(int index, LorebookEntry entry) onReplaceEntry;
-  final ValueChanged<int> onRemoveEntry;
   final ValueChanged<bool> onInheritChanged;
-  final ValueChanged<GroupWorldChoice> onWorldChoiceChanged;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Group Lorebook',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary(context),
-                  ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final added = await showLorebookEntryDialog(
-                    context: context,
-                    showEnabled: true,
-                  );
-                  if (added != null) onAddEntry(added);
-                },
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add Entry'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (bookUnreadable)
-            Padding(
+    return EditCharacterLorebookTab(
+      entries: entries,
+      onImportFile: actions.importFile,
+      onExportFile: actions.exportFile,
+      onImportFromCharacter: actions.importFromCharacter,
+      onAddEntry: actions.add,
+      onEditEntry: actions.edit,
+      onRemoveEntry: actions.remove,
+      onChanged: onChanged,
+      header: bookUnreadable
+          ? Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 kEditGroupUnreadableLoreNote,
                 style: TextStyle(color: AppColors.porchAmberOf(context)),
               ),
-            ),
-          if (loreEntries.isEmpty)
-            Text(
-              'No group lore entries yet. These take highest priority in prompts.',
-              style: TextStyle(color: AppColors.textSecondary(context)),
             )
-          else
-            ...loreEntries.asMap().entries.map((e) {
-              final i = e.key;
-              final entry = e.value;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  entry.name.isNotEmpty ? entry.name : entry.key,
-                  style: TextStyle(color: AppColors.textPrimary(context)),
-                ),
-                subtitle: Text(
-                  entry.content.length > 80
-                      ? '${entry.content.substring(0, 80)}...'
-                      : entry.content,
-                  style: TextStyle(color: AppColors.textSecondary(context)),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, size: 20),
-                      // The shared editor edits a clone, so imported
-                      // advanced fields survive and Cancel asks first.
-                      onPressed: () async {
-                        final edited = await showLorebookEntryDialog(
-                          context: context,
-                          existing: entry,
-                          showEnabled: true,
-                        );
-                        if (edited != null) onReplaceEntry(i, edited);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, size: 20),
-                      onPressed: () => onRemoveEntry(i),
-                    ),
-                  ],
-                ),
-              );
-            }),
-
-          const SizedBox(height: 16),
-          SwitchListTile(
-            title: const Text('Inherit character & world lorebooks'),
-            subtitle: const Text(
-              'When on, member cards and their attached worlds contribute lore in addition to the group lorebook above.',
-            ),
-            value: inheritCharacterLorebooks,
-            onChanged: onInheritChanged,
+          : null,
+      footer: Padding(
+        padding: const EdgeInsets.only(top: 16),
+        child: SwitchListTile(
+          key: const Key('group-inherit-lore'),
+          title: const Text('Inherit character & world lorebooks'),
+          subtitle: const Text(
+            'When on, member cards and their attached worlds contribute lore '
+            'in addition to the group lorebook above.',
           ),
-
-          const SizedBox(height: 20),
-          GroupWorldsSection(
-            value: worldChoice,
-            onChanged: onWorldChoiceChanged,
-            places: allWorlds,
-            weatherOf: weatherOf,
-            suggestedBy: suggestedBy,
-            legacyWorldCount: legacyWorldCount,
-          ),
-
-          const SizedBox(height: 24),
-          // Chaos Mode flags are intentionally not editable here.
-          // They are live runtime/session settings controlled exclusively
-          // via the in-chat Group Settings dialog ("Realism & Needs" tab).
-          // We preserve existing values on the GroupChat definition (see save logic).
-        ],
+          value: inheritCharacterLorebooks,
+          onChanged: onInheritChanged,
+        ),
       ),
+    );
+  }
+}
+
+/// Worlds tab of the group editor: the 1:1 Worlds tab for the whole cast.
+class EditGroupWorldsTab extends StatelessWidget {
+  const EditGroupWorldsTab({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.suggestedBy,
+    required this.legacyWorldCount,
+  });
+
+  final GroupWorldChoice value;
+  final ValueChanged<GroupWorldChoice> onChanged;
+  final Map<String, List<String>> suggestedBy;
+  final int legacyWorldCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return EditCharacterWorldsTab(
+      value: value,
+      onChanged: onChanged,
+      characterName: '',
+      owner: 'the group',
+      suggestedBy: suggestedBy,
+      legacyWorldCount: legacyWorldCount,
     );
   }
 }

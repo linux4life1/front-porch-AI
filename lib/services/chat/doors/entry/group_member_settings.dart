@@ -24,8 +24,9 @@ import 'entry_door.dart';
 
 /// A group member's settings in this chat: the RAG knobs, their Author's
 /// Note and system prompt (the session store's [GroupSessionConfig], saved
-/// in the session blob), their own Afterglow switch (on their member card)
-/// and the group's turn order.
+/// in the session blob), their Afterglow default for new chats (on their member
+/// card; this chat's own switch rides their bag, see MemberSwitches) and the
+/// group's turn order.
 class GroupMemberSettings {
   GroupMemberSettings(this._door, this._d);
 
@@ -49,23 +50,6 @@ class GroupMemberSettings {
   int get groupRetrievalCount => _group.retrievalCount;
 
   double get groupMemoryBudgetPercent => _group.memoryBudgetPercent;
-
-  Map<String, double> get currentGroupRAGPriorities =>
-      Map.unmodifiable(_group.characterRAGPriorities);
-
-  /// RAG retrieval priority for [c] in the active group (1.0 = neutral).
-  /// Card-keyed on purpose: storage uses the stable character id — the same
-  /// key retrieval multiplies by (memory_service characterPriorities) — and
-  /// the settings dialog only has cards. The old NAME-keyed dialog reads
-  /// always missed and every character showed 1.0.
-  double ragPriorityForGroupCharacter(CharacterCard c) =>
-      _group.characterRAGPriorities[_getCharacterIdFromCard(c)] ?? 1.0;
-
-  void setRAGPriorityForGroupCharacter(CharacterCard c, double priority) {
-    if (_activeGroup == null) return;
-    _group.characterRAGPriorities[_getCharacterIdFromCard(c)] = priority;
-    _d.notify();
-  }
 
   void setGroupRAGEnabled(bool value) {
     if (_activeGroup == null) return;
@@ -93,28 +77,30 @@ class GroupMemberSettings {
       _activeGroup?.turnOrder == TurnOrder.random;
 
   /// Whether Afterglow (arousal / the Lust bar) is on for the body the live
-  /// scalars hold: Porch Life (with 18+ on) allows it, the chat's own switch
-  /// is on and, in a group, the loaded member's own, read live. For one
+  /// scalars hold: Porch Life (with 18+ on) allows it and the chat's own
+  /// switch is on, in a group the loaded member's own, read live. For one
   /// member of the group, read [afterglowRunsFor].
   bool get isGroupNsfwEnabled => _nsfwService.nsfwCooldownEnabled;
 
   /// Whether Afterglow runs for [member] in this chat: Porch Life (with 18+)
-  /// allows it, the chat's switch is on and, in a group, the member's own.
+  /// allows it and the chat's switch is on, in a group the member's own.
   bool afterglowRunsFor(CharacterCard member) =>
       _s.storage.realismSettings.afterglowEnabled &&
       (_activeGroup == null
           ? _nsfwService.storedNsfwCooldownEnabled
           : _groupStore.afterglowOnFor(_getCharacterIdFromCard(member)));
 
-  /// A group member's own Afterglow switch, kept on their card in this group
-  /// (unset reads on). Off hides their Lust and any recovery and holds them
-  /// where they are; on shows them again, unchanged, as the chat's switch
-  /// does. Nothing of theirs, stored or live, is zeroed, and the rest of the
-  /// cast is untouched. The service keeps a one-line class forwarder of the
+  /// A group member's Afterglow DEFAULT for the group's new chats: the flag
+  /// on their member copy (unset reads on), the Pockets shape. It is not this
+  /// chat's switch (that rides their bag, [MemberSwitches.setAfterglow], and
+  /// the sidebar reads it), so editing it never changes a chat that is open:
+  /// every member's live switch is seeded first. Nothing of theirs, stored
+  /// or live, is zeroed. The service keeps a one-line class forwarder of the
   /// same name, which the golden fake overrides.
   Future<void> setMemberAfterglowEnabled(CharacterCard member, bool on) async {
     if (_activeGroup == null) return;
     if ((member.frontPorchExtensions?.afterglowEnabled ?? true) == on) return;
+    _s.graph().seedGroupMemberSwitches();
     member.frontPorchExtensions =
         (member.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
           afterglowEnabled: on,

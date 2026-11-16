@@ -155,8 +155,8 @@ class WebCharacterRoutes {
   }
 
   /// The character folder tree, so the library can render folder navigation.
-  shelf.Response _folders(shelf.Request request) =>
-      JsonResponse.ok({'folders': _facade.folders()});
+  Future<shelf.Response> _folders(shelf.Request request) async =>
+      JsonResponse.ok({'folders': await _facade.folders()});
 
   /// Create a folder (optionally nested via `parentId`). Returns the new folder.
   Future<shelf.Response> _createFolder(shelf.Request request) async {

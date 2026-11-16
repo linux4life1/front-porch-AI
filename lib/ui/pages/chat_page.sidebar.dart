@@ -32,10 +32,10 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/presence_word.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
-import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.speakers.dart';
 
@@ -124,7 +124,8 @@ class ChatTranscriptAnchors {
 }
 
 /// The chat's right sidebar for the focused cast member: portrait, Main
-/// Settings, group controls, roster, then the scrolling section body.
+/// Settings (Group Settings… lives there), roster, then the scrolling
+/// section body.
 class ChatRightSidebar extends StatelessWidget {
   const ChatRightSidebar({
     super.key,
@@ -200,35 +201,6 @@ class ChatRightSidebar extends StatelessWidget {
           //    one arrangement for every chat (maintainer, 2026-11-04). ──
           const _SidebarLayoutPills(),
 
-          // ── Group Settings (group only; sits directly under Main Settings,
-          //    above the cast roster, so the whole-group controls are found
-          //    before per-character ones) ──
-          if (isGroup)
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.35),
-                  ),
-                ),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => showGroupSettings(context, chatService),
-                  icon: const Icon(Icons.settings, size: 16),
-                  label: const Text('Group Settings'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
-                    side: BorderSide(
-                      color: AppColors.borderOf(context).withValues(alpha: 0.4),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
           // ── Participant roster (only when more than one speaker) ──
           if (cast.length > 1)
             _ParticipantRoster(
@@ -243,7 +215,13 @@ class ChatRightSidebar extends StatelessWidget {
             child: SidebarBody(
               chatService: chatService,
               focused: focused,
-              onSpinRequested: () => showChanceTimeOverlay(context),
+              // PR 5b: in a group the spin belongs to the focused member —
+              // the wheel gates on their switch and names them. 1:1 stays
+              // the chat's own spin.
+              onSpinRequested: () => showChanceTimeOverlay(
+                context,
+                memberName: chatService.isGroupMode ? focused.name : null,
+              ),
               onJumpToMessage: onJumpToMessage,
               resolveCharImage: resolveCharImage,
               draft: draft,
@@ -282,9 +260,27 @@ class _ParticipantRoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Away / Back and the turn-busy gate change without the cast changing.
+    return ListenableBuilder(
+      listenable: chatService,
+      builder: (context, _) => _roster(context),
+    );
+  }
+
+  Widget _roster(BuildContext context) {
     final hasLite = cast.any((p) => p.isLite);
+    // Group members only (the web's rule): With you / Away get Away / Back.
+    PresenceWhere? presenceOf(ChatParticipant p) =>
+        chatService.isGroupMode && !p.isLite && !p.isHost
+        ? chatService.groupMemberPresence(p.id)
+        : null;
+    final hasAway = cast.any(
+      (p) =>
+          presenceOf(p) == PresenceWhere.withYou ||
+          presenceOf(p) == PresenceWhere.away,
+    );
     return Container(
-      height: hasLite ? 96 : 66,
+      height: (hasLite ? 96 : 66) + (hasAway ? 22 : 0),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
@@ -310,6 +306,20 @@ class _ParticipantRoster extends StatelessWidget {
             isLite: p.isLite,
             imageFile: img,
             promoteEnabled: !chatService.isGenerating,
+            presence: presenceOf(p),
+            // PR 5b: the dice rides the face of every member whose own
+            // Chaos Mode is on — the cast bar answers "who rolls" at a
+            // glance; lite guests never roll.
+            chaosOn:
+                chatService.isGroupMode &&
+                !p.isLite &&
+                chatService.chaosSwitchFor(p.id),
+            // The same busy read the service refuses on.
+            onSetAway: chatService.isTurnBusy
+                ? null
+                : (away) => unawaited(
+                    chatService.setGroupMemberAway(p.id, away: away),
+                  ),
             onFocus: () => onFocus(p.id),
             onPromote: p.isLite
                 ? () {
@@ -361,8 +371,7 @@ class _SidebarLayoutPills extends StatelessWidget {
                   ? 'Allow dragging the sidebar again'
                   : 'Stop the sidebar from being dragged by accident',
               active: locked,
-              onTap: () =>
-                  unawaited(ui.setSidebarLayoutLocked(!locked)),
+              onTap: () => unawaited(ui.setSidebarLayoutLocked(!locked)),
             ),
           ],
         ),
@@ -386,7 +395,8 @@ class _SidebarLayoutPills extends StatelessWidget {
       // Pop from inside the dialog so the right route closes.
       actions: [
         Builder(
-          builder: (ctx) => warmDialogCancel(ctx, label: 'Keep mine', value: false),
+          builder: (ctx) =>
+              warmDialogCancel(ctx, label: 'Keep mine', value: false),
         ),
         Builder(
           builder: (ctx) => warmDialogConfirm(
@@ -442,10 +452,7 @@ class _LayoutPill extends StatelessWidget {
             children: [
               Icon(icon, size: 13, color: color),
               const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(fontSize: 10, color: color),
-              ),
+              Text(label, style: TextStyle(fontSize: 10, color: color)),
             ],
           ),
         ),

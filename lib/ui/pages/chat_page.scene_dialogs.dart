@@ -36,12 +36,15 @@ import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
 
 import 'chat_page_scene_location_dialogs.dart';
 
-/// The Chance Time wheel, over the chat.
-void showChanceTimeOverlay(BuildContext context) {
+/// The Chance Time wheel, over the chat. PR 5b: a manual spin from a group
+/// member's Chaos card passes [memberName] so the wheel and the event
+/// belong to them; the auto-trigger pop stays unnamed — its owner is the
+/// turn's pinned speaker the gate already resolved.
+void showChanceTimeOverlay(BuildContext context, {String? memberName}) {
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (_) => const ChanceTimeOverlay(),
+    builder: (_) => ChanceTimeOverlay(memberName: memberName),
   );
 }
 

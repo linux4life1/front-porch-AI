@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/group_member_realism.dart';
 
 /// Plain chaos / Chance Time injection builder (_getChanceTimeInjection).
 /// Thin in god per plan; full event text + mark delivered here (step 8).
@@ -25,21 +26,37 @@ class ChaosInjection {
   final ChaosModeService chaosModeService;
   final CharacterCard? Function() getActiveCharacter;
 
+  /// PR 5b: the bag of the member pinned to answer THIS generation — a
+  /// group's pending event lives on the member it was rolled for, and
+  /// injects only when they speak. Null in 1:1 and before the seed,
+  /// where the scalar path stays law.
+  final GroupMemberRealism? Function()? getSpeakerBag;
+
   ChaosInjection({
     required this.chaosModeService,
     required this.getActiveCharacter,
+    this.getSpeakerBag,
   });
 
   String buildChanceTimeInjection() {
-    // Delegation to extracted service for pending + delivered flag (builder here for step 8).
-    if (chaosModeService.pendingChaosInjection == null ||
-        chaosModeService.pendingChaosInjection!.isEmpty) {
+    // Delegation to extracted service for pending + delivered flag (builder
+    // here for step 8). Group: the speaker's own bag; a parked event that
+    // belongs to another member waits for their turn — this builder runs
+    // only for the member actually generating.
+    final bag = getSpeakerBag?.call();
+    final event = bag == null
+        ? chaosModeService.pendingChaosInjection
+        : chaosModeService.memberPending(bag);
+    if (event == null || event.isEmpty) {
       return '';
     }
     final charName = getActiveCharacter()?.name ?? 'the character';
-    final event = chaosModeService.pendingChaosInjection!;
     // Mark as delivered via service so it can be cleared on the NEXT sendMessage.
-    chaosModeService.markEventDelivered();
+    if (bag == null) {
+      chaosModeService.markEventDelivered();
+    } else {
+      chaosModeService.markEventDeliveredMember(bag);
+    }
     // Calm-but-firm house register (same as the needs-catastrophe block —
     // ALL-CAPS instruction walls read as jailbreak-fight energy and backfire
     // on local models). Placement stays post-suffix: a documented recency

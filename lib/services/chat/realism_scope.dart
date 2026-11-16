@@ -28,6 +28,7 @@ class RealismScope {
     required this.session,
     required this.observerMode,
     required this.realismEnabled,
+    this.realismEnabledFor,
     required this.needsSimEnabled,
     required this.realismSettings,
     required this.clockRunning,
@@ -58,8 +59,12 @@ class RealismScope {
   final ChatSessionState session;
   final bool Function() observerMode;
 
-  /// The chat's Realism Engine switch.
+  /// The chat's Realism Engine switch: in a group, the speaking member's.
   final bool Function() realismEnabled;
+
+  /// [realismEnabled] for one member, whoever speaks (a rewind of their
+  /// reply, a pass over the cast). Unwired, the speaker's.
+  final bool Function(String? memberId)? realismEnabledFor;
 
   /// The chat's STORED Needs switch: state, seeds and rewinds only. Needs
   /// run behind `NeedsPass.active`

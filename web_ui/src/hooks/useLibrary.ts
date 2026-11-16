@@ -39,6 +39,17 @@ export interface LibFolder {
   id: string;
   name: string;
   parentId?: string;
+  /** Characters and groups inside, subfolders included (absent on older apps). */
+  characterCount?: number;
+  groupCount?: number;
+  /** The folder's DIRECT members — what its tile's line shows, matching
+   *  the desktop tile. `characterCount`/`groupCount` stay recursive for
+   *  the Delete Folder dialog, which counts what the delete sweeps. */
+  directCharacterCount?: number;
+  directGroupCount?: number;
+  /** Up to 4 member portraits for the tile's montage — the desktop
+   *  folder_grid_card's 2×2 preview (drift ledger #4). Absent on older apps. */
+  preview?: LibGroupMember[];
 }
 export interface LibGroupMember {
   id: string;
@@ -128,14 +139,30 @@ export function useLibrary() {
       return next;
     });
   }, []);
+  // Organize into folders is the second picking mode: the same picks, dragged
+  // onto a folder as one.
+  const [organizing, setOrganizing] = useState(false);
   const startSelecting = useCallback(() => {
     setSelecting(true);
+    setOrganizing(false);
+    setSelectedIds(new Set());
+  }, []);
+  const startOrganizing = useCallback(() => {
+    setSelecting(true);
+    setOrganizing(true);
     setSelectedIds(new Set());
   }, []);
   const cancelSelecting = useCallback(() => {
     setSelecting(false);
+    setOrganizing(false);
     setSelectedIds(new Set());
   }, []);
+  /** Select all adds what the grid shows and keeps the rest; select none clears. */
+  const selectAll = useCallback((ids: string[]) => {
+    setSelecting(true);
+    setSelectedIds((prev) => new Set([...prev, ...ids]));
+  }, []);
+  const selectNone = useCallback(() => setSelectedIds(new Set()), []);
 
   const searching = search.trim().length > 0;
 
@@ -295,6 +322,7 @@ export function useLibrary() {
     deleteFolder,
     deleteFolderDeep,
     duplicateCharacter,
+    duplicateGroup,
     deleteCharacter,
     exportPng,
     exportJson,
@@ -348,7 +376,11 @@ export function useLibrary() {
     selecting,
     selectedIds,
     toggleSelect,
+    organizing,
     startSelecting,
+    startOrganizing,
+    selectAll,
+    selectNone,
     cancelSelecting,
     // actions
     openCharacter,
@@ -361,6 +393,7 @@ export function useLibrary() {
     deleteFolder,
     deleteFolderDeep,
     duplicateCharacter,
+    duplicateGroup,
     deleteCharacter,
     exportPng,
     exportJson,
