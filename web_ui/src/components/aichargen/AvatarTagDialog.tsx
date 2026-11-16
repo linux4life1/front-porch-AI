@@ -34,7 +34,7 @@ export function AvatarTagDialog({
   };
 
   return (
-    <div className="drawer-backdrop center" onClick={onClose}>
+    <div className="drawer-backdrop center" onClick={() => !busy && onClose()}>
       <div
         className="modal cg-r-tag-modal"
         role="dialog"
@@ -70,7 +70,7 @@ export function AvatarTagDialog({
           </div>
         </div>
         <footer className="cg-r-lore-foot cg-tag-foot">
-          <button type="button" className="ghost" disabled={busy} onClick={onClose}>
+          <button type="button" className="ghost" disabled={busy} onClick={() => !busy && onClose()}>
             Cancel
           </button>
         </footer>

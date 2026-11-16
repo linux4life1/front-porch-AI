@@ -19,6 +19,8 @@ vi.mock('../ImageCropModal', () => ({
 type Call = { path: string; body?: unknown };
 const posts: Call[] = [];
 const uploads: { path: string; name: string }[] = [];
+/** A test can hold an upload open to inspect the busy state. */
+let holdUpload: (() => Promise<void>) | null = null;
 let ready = { ready: true, line: 'ComfyUI · model.safetensors', primary: 'model.safetensors' };
 let packView: Record<string, unknown> = {
   running: false,
@@ -43,6 +45,7 @@ vi.mock('../../api/client', () => ({
       return {};
     },
     upload: async (path: string, file: File) => {
+      if (holdUpload) await holdUpload();
       uploads.push({ path, name: file.name });
       return { ok: true, avatars: [], added: 2, unrecognized: 1 };
     },
@@ -96,6 +99,7 @@ beforeEach(async () => {
   posts.length = 0;
   uploads.length = 0;
   busy.length = 0;
+  holdUpload = null;
   ready = { ready: true, line: 'ComfyUI · model.safetensors', primary: 'model.safetensors' };
   packView = { running: false, canImport: false, imported: null, done: 0, total: 0, slots: [] };
   vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -151,6 +155,41 @@ describe('AvatarRail', () => {
     await settle();
     expect(uploads.at(-1)?.path).toBe('/api/characters/7/expressions/import-zip');
     expect(container.textContent).toContain('Imported 2 expression images; 1 file not recognised.');
+  });
+
+  it('holds the tag dialog, its Cancel and the backdrop while the upload runs', async () => {
+    const input = container.querySelectorAll('input[accept="image/*"]')[1] as HTMLInputElement;
+    const file = new File(['png'], 'extra.png', { type: 'image/png' });
+    Object.defineProperty(input, 'files', { value: [file] });
+    await act(async () => {
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await settle();
+    const dialog = container.querySelector('[role="dialog"][aria-label="What is this image?"]');
+    expect(dialog).not.toBeNull();
+
+    // Hold the upload open: the chip answers, the dialog must not vanish.
+    let release!: () => void;
+    holdUpload = () => new Promise<void>((r) => (release = r));
+    await act(async () => {
+      button(dialog as Element, /admiration/).click();
+    });
+    expect(container.querySelector('[role="dialog"][aria-label="What is this image?"]')).not.toBeNull();
+    expect(button(dialog as Element, /Cancel/).disabled).toBe(true);
+
+    // The backdrop cannot dismiss a started upload either.
+    const backdrop = container.querySelector('.drawer-backdrop') as HTMLElement;
+    await act(async () => {
+      backdrop.click();
+    });
+    expect(container.querySelector('[role="dialog"][aria-label="What is this image?"]')).not.toBeNull();
+
+    await act(async () => {
+      release();
+    });
+    await settle();
+    expect(uploads.at(-1)?.path).toBe('/api/characters/7/avatars?label=admiration');
+    expect(container.querySelector('[role="dialog"][aria-label="What is this image?"]')).toBeNull();
   });
 
   it('starts the expression pack with the chosen set', async () => {
