@@ -168,9 +168,12 @@ jobs:
                   .filter(Boolean)
                   .map((r) => r.toLowerCase()),
               );
+              // The ref between the repo and docs/screenshots/ may itself
+              // contain slashes: this repo's branches are `feat/...`, and the
+              // body guidance asks for branch-pinned raw URLs.
               const repoPath = (u) => {
-                let m = u.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:blob|raw)\/[^/]+\/(docs\/screenshots\/[^?#]+)/i);
-                if (!m) m = u.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/[^/]+\/(docs\/screenshots\/[^?#]+)/i);
+                let m = u.match(/^https:\/\/github\.com\/([^/]+\/[^/]+)\/(?:blob|raw)\/.+?\/(docs\/screenshots\/[^?#]+)/i);
+                if (!m) m = u.match(/^https:\/\/raw\.githubusercontent\.com\/([^/]+\/[^/]+)\/.+?\/(docs\/screenshots\/[^?#]+)/i);
                 if (m) return repos.has(m[1].toLowerCase()) ? decodeURIComponent(m[2]) : null;
                 m = u.match(/^\.?\/?(docs\/screenshots\/[^?#]+)$/i);
                 return m ? decodeURIComponent(m[1]) : null;
