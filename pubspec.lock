@@ -598,10 +598,10 @@ packages:
     dependency: "direct main"
     description:
       name: googleapis
-      sha256: d38bb64016ef27eca7fde992994b9d2999bcea307685807e15d6a08bff05dc61
+      sha256: "48200d0b604fc49ed87053bd8c42711a110e958dd80d52db03cbe723f8fb44dc"
       url: "https://pub.dev"
     source: hosted
-    version: "17.0.0"
+    version: "19.0.0"
   googleapis_auth:
     dependency: "direct main"
     description:
@@ -1528,10 +1528,10 @@ packages:
     dependency: transitive
     description:
       name: test_api
-      sha256: "2a122cbe059f8b610d3a5415f42e255b6c17b1f21eee1d960f31080237fb4f11"
+      sha256: "0a10344e901e5b2e63819567951cb6a06673ed6b84f40462188ff5a0c41f371f"
       url: "https://pub.dev"
     source: hosted
-    version: "0.7.12"
+    version: "0.7.14"
   typed_data:
     dependency: transitive
     description:
