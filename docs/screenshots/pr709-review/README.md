@@ -56,15 +56,15 @@ The earlier comment that says the regenerated `member_bottom` goldens show this 
 
 The Members-step vs Details-step split isn't new. The voice pickers were already split that way and Starts away follows them on each side. You don't need to fix that here.
 
-### 4. Phone width (400 px): the desktop wizard was already broken, and the PR makes it worse
+### 4. Phone width (400 px): the new switch covers the member's avatar
 
-At 400 px the desktop wizard's roster rows already squeeze the member's name and description into a column one character wide on Rawhide. The PR's switch now also covers the member's avatar. Your 400 px test only checks that no overflow exception is thrown, and none is, but the screen can't be read. The web wizard doesn't squeeze at this width, though its floating checkboxes from #3 are still there. Both member editors hold up at 400 px.
+At 400 px the PR's new switch in the desktop wizard's member row sits on top of the member's avatar. The row also squeezes the member's name into a column one character wide at this width, but Rawhide already does that, so it's not part of this PR's fixes.
 
 | Desktop wizard, Rawhide | Desktop wizard, this PR | Web wizard, this PR | Desktop editor, this PR | Web editor, this PR |
 |---|---|---|---|---|
 | <img src="base-wizard-porch-dark-phone.png" width="160"> | <img src="pr-wizard-porch-dark-phone.png" width="160"> | <img src="pr-web-wizard-picks-porch-dark-phone.png" width="160"> | <img src="pr-editor-on-porch-dark-phone.png" width="160"> | <img src="pr-web-editor-on-porch-dark-phone.png" width="160"> |
 
-**Fix:** at narrow widths, move the switch and the voice picker below the name in the member row. Note in the PR that the squeezed name column predates it.
+**Fix:** keep the switch off the avatar at narrow widths. Leave the squeezed name column alone here.
 
 ### 5. The PR body still needs `## Screenshots`
 
@@ -72,4 +72,4 @@ CLAUDE.md's One UI section asks every UI PR to show each changed screen, desktop
 
 ---
 
-**Before merge:** #1, #2, #3 and #5. For #4, make the PR's switch stop covering the avatar; the squeezed name column can be its own follow-up.
+**Before merge:** #1 through #5. None of them asks you to fix anything Rawhide already had.
