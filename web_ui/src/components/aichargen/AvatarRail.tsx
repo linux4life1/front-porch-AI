@@ -78,6 +78,7 @@ export function AvatarRail({
   const [pack, setPack] = useState<PackView | null>(null);
   const [packError, setPackError] = useState('');
   const [importing, setImporting] = useState(false);
+  const importingRef = useRef(false);
   const portraitRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
@@ -123,20 +124,24 @@ export function AvatarRail({
   }, [pack?.running]);
 
   useEffect(() => {
-    if (!pack || pack.running || !pack.canImport || pack.imported != null || importing) return;
+    if (!pack || pack.running || !pack.canImport || pack.imported != null || importingRef.current) return;
     const keep = (pack.slots ?? [])
       .filter((s) => s.state === 'done' && s.keep)
       .map((s) => s.emotion);
     if (keep.length === 0) return;
+    importingRef.current = true;
     setImporting(true);
     importPack(keep)
       .then((view) => {
         setPack(view);
         setNote(`Imported ${keep.length} expression image${keep.length === 1 ? '' : 's'}.`);
-        return listAvatars(id).then((a) => setAvatars(a.avatars));
+        return listAvatars(id).then((a) => setAvatars(Array.isArray(a?.avatars) ? a.avatars : []));
       })
       .catch((err) => setPackError(messageOf(err, 'The pack could not be imported.')))
-      .finally(() => setImporting(false));
+      .finally(() => {
+        importingRef.current = false;
+        setImporting(false);
+      });
   }, [pack, importing, id]);
 
   const engineReady = ready?.ready === true;

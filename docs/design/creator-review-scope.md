@@ -16,6 +16,17 @@ passed), `npm run lint`, `npm run build`. The browser journeys were
 updated to the new flow but the Playwright suite needs the Flutter host
 harness and was not run locally.
 
+**Hostile review 2026-11-15 (PASS WITH FIXES, all applied):** the ZIP
+import pre-scans the central directory against a 64 MiB unpacked cap (413,
+with no entry decompressed before the check); debounced saves and Save &
+Finish share one promise chain; the keep boxes reset when a rewrite
+replaces the entries; an unknown character's ZIP import is a 404; the pack
+auto-import guard is a ref (StrictMode); `ReviewSection.tsx` is deleted.
+The hand-edited contract is proven by
+`test/services/web/lorebook_hand_edit_test.dart`: the web round-trips
+`ext` (with `fp_generated`), so a changed entry reads as hand-edited and
+survives "Rewrite the lorebook".
+
 ## 1. Reference UI (binding)
 
 Reference shots: `docs/screenshots/pr8d-creator-review/` (maintainer
@@ -107,7 +118,7 @@ Build:
    does for `mesExample`
    (`ReviewSection.tsx:143-151`) — same verb:
    `POST /api/characters/<id>` (`character_routes.dart:78` →
-   `character_card_edits.dart:29-105`).
+   `lib/services/web/facade/character/character_card_edits.dart:29-105`).
 3. **Lorebook card, full**: row list with **keep-checkboxes**, per-row
    edit dialog (the `showLorebookEntryDialog` twin), first 3 rows +
    `and {n} more` collapsed, `Edited by hand` pill via `isHandEdited`,
@@ -116,7 +127,7 @@ Build:
    137-151`). Keep semantics: Save & Finish drops unchecked entries
    (`creator_state_engine.dart:270-278`) and posts the filtered set —
    `POST /api/characters/<id>` replaces `lorebook` wholesale
-   (`character_card_edits.dart:86-88`), so filter client-side and post
+   (`lib/services/web/facade/character/character_card_edits.dart:86-88`), so filter client-side and post
    once. Rewrite keeps hand-edited entries host-side
    (`creator_state_engine.review.dart:70-105`) — no new work.
 4. **Tags**: read-only chip wrap of `card.tags` under the name
@@ -130,7 +141,7 @@ Build:
 
 Route gap for 8d: **none** for the text/lorebook/tags verbs — all ride
 `POST /api/characters/<id>` (tags accepted at
-`character_card_edits.dart:54-55`).
+`lib/services/web/facade/character/character_card_edits.dart:54-55`).
 
 ### 8d-B — portrait & expressions (the left rail)
 

@@ -25,7 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/portrait_promotion.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart'
-    show decodeSpritePack;
+    show SpritePackResult, SpritePackTooLarge, decodeSpritePack;
 import 'package:front_porch_ai/utils/emotion_labels.dart';
 import 'package:front_porch_ai/utils/portrait_image_cache.dart';
 
@@ -128,17 +128,31 @@ class CharacterAuthoringFacade {
     return true;
   }
 
+  /// Cap on the unpacked size of a ZIP sprite pack from the web. The body is
+  /// already capped at 32 MiB compressed; a zip can expand far past that, and
+  /// this route is internet-exposed (the desktop's picker is local-only).
+  static const int maxExpressionZipUnpackedBytes = 64 * 1024 * 1024;
+
   /// Import an emotion-named ZIP sprite pack: each image whose base name is an
   /// emotion label becomes an expression avatar, and a non-empty import flips
   /// the expression engine on (the desktop's `importExpressionZip`). Returns
-  /// how many landed and how many files were not recognised.
-  Future<({int added, int unrecognized})> importExpressionZip(
+  /// how many landed and how many files were not recognised, null when the
+  /// card is gone, and `tooLarge` when the unpacked pack passes the cap.
+  Future<({int added, int unrecognized, bool tooLarge})?> importExpressionZip(
     String id,
     List<int> bytes,
   ) async {
     final card = await _repo.getCharacterCardById(id);
-    if (card == null) return (added: 0, unrecognized: 0);
-    final result = decodeSpritePack(Uint8List.fromList(bytes));
+    if (card == null) return null;
+    final SpritePackResult result;
+    try {
+      result = decodeSpritePack(
+        Uint8List.fromList(bytes),
+        maxUnpackedBytes: maxExpressionZipUnpackedBytes,
+      );
+    } on SpritePackTooLarge {
+      return (added: 0, unrecognized: 0, tooLarge: true);
+    }
     var added = 0;
     for (final e in result.entries) {
       await _repo.addAvatar(id, card.name, e.bytes, e.emotion);
@@ -147,7 +161,7 @@ class CharacterAuthoringFacade {
     if (added > 0 && !_storage.expressionSettings.expressionEnabled) {
       await _storage.expressionSettings.setExpressionEnabled(true);
     }
-    return (added: added, unrecognized: result.unrecognized);
+    return (added: added, unrecognized: result.unrecognized, tooLarge: false);
   }
 
   /// Web mirror of the desktop portrait delete: promotes the ★ (else first)

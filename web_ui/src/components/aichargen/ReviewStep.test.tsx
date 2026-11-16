@@ -35,7 +35,7 @@ type Call = { path: string; body: Record<string, unknown> };
 const posts: Call[] = [];
 let reviewFails = false;
 
-const DETAIL = {
+const BASE_DETAIL = {
   name: 'Porchie',
   description: 'A vampire lecturer.',
   personality: 'Clipped and cold.',
@@ -54,6 +54,7 @@ const DETAIL = {
     ],
   },
 };
+let detail = structuredClone(BASE_DETAIL);
 const REVIEW = {
   mesExample: '{{char}}: Mind the steps.',
   lorebook: [
@@ -71,7 +72,7 @@ const REVIEW = {
 vi.mock('../../api/client', () => ({
   api: {
     get: async (path: string) => {
-      if (path.includes('/detail')) return DETAIL;
+      if (path.includes('/detail')) return detail;
       if (path.includes('/chargen/review')) {
         if (reviewFails) throw new Error('offline');
         return REVIEW;
@@ -129,6 +130,7 @@ beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   posts.length = 0;
   reviewFails = false;
+  detail = structuredClone(BASE_DETAIL);
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   container = document.createElement('div');
   document.body.appendChild(container);
@@ -178,6 +180,47 @@ describe('ReviewStep', () => {
     });
     const saved = posts.at(-1)!;
     expect(saved.path).toBe('/api/characters/7');
+    expect((saved.body.lorebook as { name: string }[]).map((e) => e.name)).toEqual([
+      'My Pub',
+      'The Harbor',
+      'The Bell',
+    ]);
+  });
+
+  it('resets the keep boxes when a rewrite replaces the lorebook', async () => {
+    const lore = $('[data-testid="review-lorebook"]');
+    await click(button(lore, /Open the lorebook editor/));
+    const keep = lore.querySelector('input[aria-label="Keep The Rock"]') as HTMLInputElement;
+    await act(async () => {
+      keep.click();
+    });
+    expect(keep.checked).toBe(false);
+    // The rewrite lands with the same count and new content.
+    detail = {
+      ...BASE_DETAIL,
+      lorebook: {
+        entries: [
+          { name: 'New Rock', key: 'rock', content: 'Rewritten.', enabled: true, constant: false, stickyDepth: 1 },
+          ...BASE_DETAIL.lorebook.entries.slice(1),
+        ],
+      },
+    };
+    act(() =>
+      emit({ event: 'chargen_rewrite_done', characterId: '7', field: 'lorebook', lorebook: [] }),
+    );
+    await settle();
+    const fresh = $('[data-testid="review-lorebook"]').querySelector(
+      'input[aria-label="Keep New Rock"]',
+    ) as HTMLInputElement;
+    // The old unchecked state was about old content; the new entry starts kept.
+    expect(fresh.checked).toBe(true);
+    await act(async () => {
+      fresh.click();
+    });
+    await act(async () => {
+      await ref.current?.flush();
+    });
+    const saved = posts.at(-1)!;
     expect((saved.body.lorebook as { name: string }[]).map((e) => e.name)).toEqual([
       'My Pub',
       'The Harbor',

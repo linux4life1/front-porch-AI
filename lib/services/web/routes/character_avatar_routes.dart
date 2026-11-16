@@ -92,6 +92,12 @@ class WebCharacterAvatarRoutes {
     }
     if (bytes.isEmpty) return JsonResponse.badRequest('Empty upload');
     final result = await _authoring.importExpressionZip(id, bytes);
+    if (result == null) {
+      return JsonResponse.error(404, 'Character not found');
+    }
+    if (result.tooLarge) {
+      return JsonResponse.error(413, 'That ZIP unpacks to too much');
+    }
     return JsonResponse.ok({
       'added': result.added,
       'unrecognized': result.unrecognized,

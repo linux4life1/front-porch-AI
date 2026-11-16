@@ -156,7 +156,8 @@ void main() {
           ..addFile(ArchiveFile('sunset.png', 4, [9, 9, 9, 9]))
           ..addFile(ArchiveFile.string('readme.txt', 'not an image'));
         final zip = ZipEncoder().encode(archive);
-        final result = await auth.importExpressionZip(id, zip);
+        final result = (await auth.importExpressionZip(id, zip))!;
+        expect(result.tooLarge, isFalse);
         expect(result.added, 2);
         expect(result.unrecognized, 1);
         final list = await auth.avatars(id);
@@ -168,13 +169,22 @@ void main() {
       },
     );
 
-    test('importExpressionZip on an unknown character adds nothing', () async {
+    test('importExpressionZip on an unknown character is null', () async {
       final zip = ZipEncoder().encode(
         Archive()..addFile(ArchiveFile('joy.png', 4, [1, 2, 3, 4])),
       );
-      final result = await auth.importExpressionZip('nope', zip);
+      expect(await auth.importExpressionZip('nope', zip), isNull);
+    });
+
+    test('importExpressionZip refuses an unpacked pack past the cap', () async {
+      // The header declares 65 MiB; nothing is decompressed before the cap.
+      final zip = ZipEncoder().encode(
+        Archive()..addFile(ArchiveFile('joy.png', 65 * 1024 * 1024, [1, 2, 3])),
+      );
+      final result = (await auth.importExpressionZip(id, zip))!;
+      expect(result.tooLarge, isTrue);
       expect(result.added, 0);
-      expect(result.unrecognized, 0);
+      expect(await auth.avatars(id), isEmpty);
     });
 
     test('avatar ops on an unknown character return false', () async {

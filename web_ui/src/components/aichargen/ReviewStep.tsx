@@ -84,14 +84,27 @@ export const ReviewStep = forwardRef<
   const pending = useRef<Record<string, unknown>>({});
   const loreDirty = useRef(false);
   const timers = useRef<Record<string, number>>({});
-  const inFlight = useRef<Promise<void> | null>(null);
+  const saveChain = useRef<Promise<void>>(Promise.resolve());
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (resetKeep = false) => {
     try {
       const [d, r] = await Promise.all([loadReviewDetail(id), loadReview(id)]);
       setDetail(d);
       setReview(r);
-      setKept((cur) => (cur.length === d.lorebook.length ? cur : Array(d.lorebook.length).fill(true)));
+      if (resetKeep) {
+        // The rewrite replaced the entries; the old checkboxes were about the
+        // old content. Every new entry starts kept, and the host already
+        // persisted the rewrite, so there is nothing to post.
+        const all = Array<boolean>(d.lorebook.length).fill(true);
+        keptRef.current = all;
+        setKept(all);
+        loreDirty.current = false;
+        setDirty(Object.keys(pending.current).length > 0);
+      } else {
+        setKept((cur) =>
+          cur.length === d.lorebook.length ? cur : Array<boolean>(d.lorebook.length).fill(true),
+        );
+      }
       setLoadError('');
       const w: Field | null = r.writing === 'mesExample' || r.writing === 'lorebook' ? r.writing : null;
       const next = (cur: { field: Field; text: string } | null) =>
@@ -144,23 +157,26 @@ export const ReviewStep = forwardRef<
     }
   }, [id]);
 
+  const enqueueSave = useCallback(() => {
+    // Every save goes through one chain: a debounced save and Save & Finish
+    // can never race, so the server keeps the last value the person saw.
+    const run = saveChain.current.then(() => saveNow());
+    saveChain.current = run.catch(() => {});
+    return run;
+  }, [saveNow]);
+
   const flush = useCallback(async () => {
     for (const t of Object.values(timers.current)) window.clearTimeout(t);
     timers.current = {};
-    if (inFlight.current) await inFlight.current;
-    const run = saveNow();
-    inFlight.current = run.finally(() => {
-      inFlight.current = null;
-    });
-    await inFlight.current;
-  }, [saveNow]);
+    await enqueueSave();
+  }, [enqueueSave]);
 
   const editField = (key: string, value: unknown) => {
     pending.current[key] = value;
     setDirty(true);
     window.clearTimeout(timers.current[key]);
     timers.current[key] = window.setTimeout(() => {
-      void saveNow().catch(() => {});
+      void enqueueSave().catch(() => {});
     }, SAVE_PAUSE_MS);
   };
 
@@ -226,7 +242,7 @@ export const ReviewStep = forwardRef<
         return;
       }
       // Nothing to stop means the end was missed: read what happened.
-      await refresh();
+      await refresh(field === 'lorebook');
       writingRef.current = null;
       setWriting(null);
     } catch (err) {
@@ -257,7 +273,7 @@ export const ReviewStep = forwardRef<
       }
       if (e.event === 'chargen_rewrite_done') {
         if (field === 'lorebook') {
-          void refresh();
+          void refresh(true);
         } else {
           setReview((r) => r && { ...r, mesExample: e.text ?? '' });
         }

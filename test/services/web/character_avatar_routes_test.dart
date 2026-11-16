@@ -6,6 +6,7 @@
 // covered in character_authoring_test.dart; this pins what a stale or
 // hostile client sees.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -22,6 +23,7 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_authoring_facade.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/routes/character_avatar_routes.dart';
+import 'package:front_porch_ai/services/web/util/request_body.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -90,6 +92,18 @@ void main() {
     expect(res.statusCode, 404);
   });
 
+  test('portrait: an oversized body is a 413', () async {
+    final res = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/characters/$id/portrait'),
+        headers: {'content-length': '${RequestBody.uploadMaxBytes + 1}'},
+        body: Stream<List<int>>.value([1]),
+      ),
+    );
+    expect(res.statusCode, 413);
+  });
+
   test('label: a known emotion re-tags, an unknown one is a 400', () async {
     await auth.addAvatar(id, [1, 2, 3, 4], 'joy');
     final avatarId = (await auth.avatars(id)).first['id'] as String;
@@ -131,5 +145,40 @@ void main() {
     expect(body['added'], 1);
     expect(body['unrecognized'], 1);
     expect((body['avatars'] as List).length, 1);
+  });
+
+  test('import-zip: an unknown character is a 404', () async {
+    final zip = ZipEncoder().encode(
+      Archive()..addFile(ArchiveFile('joy.png', 4, [1, 2, 3, 4])),
+    );
+    final res = await post(
+      '/api/characters/nope/expressions/import-zip',
+      body: zip,
+    );
+    expect(res.statusCode, 404);
+  });
+
+  test('import-zip: an oversized body is a 413', () async {
+    final res = await router.call(
+      shelf.Request(
+        'POST',
+        Uri.parse('http://localhost/api/characters/$id/expressions/import-zip'),
+        headers: {'content-length': '${RequestBody.uploadMaxBytes + 1}'},
+        body: Stream<List<int>>.value([1]),
+      ),
+    );
+    expect(res.statusCode, 413);
+  });
+
+  test('import-zip: a pack that unpacks past the cap is a 413', () async {
+    // The header declares 65 MiB; the cap refuses it before decompression.
+    final zip = ZipEncoder().encode(
+      Archive()..addFile(ArchiveFile('joy.png', 65 * 1024 * 1024, [1, 2, 3])),
+    );
+    final res = await post(
+      '/api/characters/$id/expressions/import-zip',
+      body: zip,
+    );
+    expect(res.statusCode, 413);
   });
 }
