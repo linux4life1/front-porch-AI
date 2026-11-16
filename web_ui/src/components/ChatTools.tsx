@@ -17,7 +17,6 @@ import {
   useReorderDrag,
   useSidebarOrder,
 } from './sidebarReorder';
-import { GroupSettings } from './GroupSettings';
 import { BelongingsPanel } from './BelongingsPanel';
 import { PromisesPanel } from './PromisesPanel';
 import { StoryCalendarModal } from './StoryCalendarModal';
@@ -46,7 +45,6 @@ export function ChatTools({
   reloadKey,
   focusedId,
   groupId,
-  onCommand,
   cast,
 }: {
   reloadKey: number;
@@ -430,13 +428,14 @@ export function ChatTools({
         return t.group && groupId ? (
           <>
             {grip(id)}
-            <GroupSettings
-              group={t.group}
-              groupId={groupId}
-              onCommand={onCommand}
-              onToggleDirector={(v) => toggle('director', v)}
-              clockOn={t.time.passageEnabled}
-            />
+            <details className="tool-section" open>
+              <summary>Edit group…</summary>
+              <div className="tool-body">
+                <a className="primary" href={`#/groups/${groupId}/edit`}>
+                  Edit group…
+                </a>
+              </div>
+            </details>
           </>
         ) : null;
     }

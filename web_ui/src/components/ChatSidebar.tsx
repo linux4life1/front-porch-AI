@@ -1,14 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The desktop (≥1024) chat sidebar — the window's right column (PR 1a).
-// The same controls the flat insight panel carries today, rearranged into
-// the desktop's card tree: portrait, Main Settings, the layout pills, then
-// the cast, Director, and the tool cards. Phone and tablet keep rendering
-// ChatInsight (and ChatTools inside it) untouched; this tree exists only in
-// the wide aside. The tools snapshot plumbing (focus scoping, embedding
-// poll, mutation helpers) mirrors ChatTools.tsx so both surfaces speak to
-// the same endpoints with the same payloads.
+// The chat sidebar — the desktop window's right column (PR 1a), and the same
+// card tree in the drawer below 1024 (PR 1b). Portrait, Main Settings, the
+// layout pills, then the fixed cast roster, then the Director and tool cards
+// in the reorderable body (as on the desktop, where the roster sits outside
+// the ReorderableListView). The tools
+// snapshot plumbing (focus scoping, embedding poll, mutation helpers)
+// mirrors ChatTools.tsx so both surfaces speak to the same endpoints with the
+// same payloads.
 
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
@@ -27,8 +27,6 @@ import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
-import { ChatModelSwitcher } from '../pages/chat/ChatModelSwitcher';
-import { GroupSettings } from './GroupSettings';
 import { BelongingsPanel } from './BelongingsPanel';
 import { PromisesPanel } from './PromisesPanel';
 import { StoryCalendarModal } from './StoryCalendarModal';
@@ -41,6 +39,7 @@ import { ChatToolsObjectives } from './ChatToolsObjectives';
 import { type ToolsState } from './ChatToolsShared';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
+import { AvatarGalleryModal } from './AvatarGalleryModal';
 import {
   firstNeedInTrouble, moodAtmosphereOf, moodVars, needTrouble, type MoodLook, type MoodPaints,
 } from '../theme/moodAtmosphere';
@@ -49,7 +48,7 @@ import {
  *  ChatInsight's copy). */
 const GROUP_LOREBOOK_UNREADABLE_NOTE =
   "This group's lorebook couldn't be read, so its entries aren't being used. " +
-  'Open Group Settings, Lorebook & Worlds, on the computer to bring it back.';
+  'Open Edit group, Lorebook tab, to bring it back.';
 
 /** Scene-time period dots — the same table ChatTools renders (mirror the
  *  desktop realism_section _timeDotLabel: D / M / LM / A / E / N). */
@@ -78,7 +77,6 @@ const NEED_TOKENS: Record<string, string> = {
 /** The reorderable cards' shipped default, after the static portrait +
  *  Main Settings + pills header. Matches the target's card order. */
 const WIDE_DEFAULTS = [
-  'cast',
   'director',
   'one_shot_eval',
   'tool_calling_pill',
@@ -89,6 +87,11 @@ const WIDE_DEFAULTS = [
   'objectives',
   'story_tools',
 ];
+
+/** Edit group is a page, opened by its route (the app routes by hash). */
+function openEditGroup(groupId: string | undefined) {
+  if (groupId) window.location.hash = `#/groups/${groupId}/edit`;
+}
 
 export function ChatSidebar({
   realism,
@@ -106,10 +109,10 @@ export function ChatSidebar({
   focusedIsHost,
   focusedAvatarUrl,
   focusedPlaceholderPortrait,
+  portraitMemberId,
   toolsKey,
   focusedId,
   groupId,
-  onCommand,
   loreTokens,
   loreBudget,
   loreOverflow,
@@ -121,6 +124,8 @@ export function ChatSidebar({
   director,
   onEditCharacter,
   onChatSettings,
+  onOpenOverlay,
+  onModelSettings,
 }: {
   realism: Realism;
   moodLook?: MoodLook;
@@ -137,6 +142,9 @@ export function ChatSidebar({
   focusedIsHost: boolean;
   focusedAvatarUrl?: string;
   focusedPlaceholderPortrait?: boolean;
+  /** In a group: the member whose portrait shows (the tapped one, else the
+   *  page's default member). */
+  portraitMemberId?: string | null;
   toolsKey: number;
   focusedId: string | null;
   groupId: string | null;
@@ -146,7 +154,8 @@ export function ChatSidebar({
   loreOverflow?: string[];
   draft?: string;
   toolSupport?: ToolSupport;
-  /** The CastBar element the page assembled (moved here on wide, PR 1a). */
+  /** The CastBar element the page assembled (moved here on wide, PR 1a).
+   *  Rendered fixed below the layout pills, never reorderable. */
   castBar?: ReactNode;
   /** Director as the card's subtitle prefix, as the group target shows
    *  ("Vivian · Warming · Trusting · Evening"); absent in a plain 1:1. */
@@ -160,6 +169,13 @@ export function ChatSidebar({
   onEditCharacter?: () => void;
   /** Opens today's Chat settings drawer (Prompt source + Generation + theme). */
   onChatSettings: () => void;
+  /** A Main Settings item is opening its own dialog: the phone/tablet
+   *  drawer steps aside first, so closing the dialog lands back on the chat
+   *  (PR 1b). Harmless at ≥1024, where the sidebar is a column. */
+  onOpenOverlay?: () => void;
+  /** Opens the page-level Change model sheet (it lives outside the drawer so
+   *  closing the drawer cannot hide it). */
+  onModelSettings?: () => void;
 }) {
   // ── Tools snapshot (same plumbing as ChatTools.tsx) ──────────────────
   const [t, setT] = useState<ToolsState | null>(null);
@@ -199,9 +215,19 @@ export function ChatSidebar({
   const clockRunning = t?.time.clockRunning ?? false;
   // The Pockets line's stored switch (the chat's own choice; Porch Life's
   // veto greys it without changing it) and its "name (state)" item label.
+  // In a group the Realism, Needs and Afterglow switches are the focused
+  // member's own, for this chat: they route at the member toggles with
+  // their id. A 1:1 (or a guest) has the chat's one switch.
+  const memberId = t?.memberId ?? null;
+  const switchToggle = (kind: 'Realism' | 'Needs' | 'Afterglow', fallback: string, v: boolean) =>
+    memberId ? toggle(`member${kind}`, v, { id: memberId }) : toggle(fallback, v);
   const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
+
+  // Realism off for this chat (a group member comes back with no scores at
+  // all, so nothing below may read them).
+  const realismOff = realism.realismEnabled === false;
 
   // ── Portrait mood (same computation as ChatInsight) ──────────────────
   const moodOn =
@@ -256,18 +282,17 @@ export function ChatSidebar({
   const [importMsg, setImportMsg] = useState('');
 
   // ── Main Settings menu ────────────────────────────────────────────────
+  const [gallery, setGallery] = useState<{ id: string; name: string } | null>(null);
   const [settingsMenu, setSettingsMenu] = useState<{ x: number; y: number; items: CardMenuItem[] } | null>(null);
   const settingsBtnRef = useRef<HTMLButtonElement>(null);
-  const [modelSheetSignal, setModelSheetSignal] = useState(0);
-  const [showGroupSettings, setShowGroupSettings] = useState(false);
 
-  // ── Reorder (wide owns its own card order) ────────────────────────────
+  // ── Reorder (one order for every width) ──────────────────────────────
   // The host 'insight' surface still carries the OLD flat-panel ids, and
-  // POSTing the wide order there would drag the phone drawer's order with
-  // it. So the wide column persists its arrangement locally; the pills keep
-  // the same names and Reset still clears the host surfaces it shares.
-  const ORDER_KEY = 'fpai.wi…Order';
-  const LOCK_KEY = 'fpai.wi…cked';
+  // POSTing this tree's order there would drag that legacy list with it. So
+  // the card tree persists its arrangement locally; phone and PC in one
+  // browser profile share it (PR 1b), and the pills keep the same names.
+  const ORDER_KEY = 'fpai.wideSidebarOrder';
+  const LOCK_KEY = 'fpai.wideSidebarLocked';
   const [storedWide, setStoredWide] = useState<string[]>(() => {
     try {
       const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(ORDER_KEY) : null;
@@ -309,9 +334,7 @@ export function ChatSidebar({
     }
     resetSidebarLayout();
   };
-  const visible = WIDE_DEFAULTS.filter((id) =>
-    id === 'cast' ? !!castBar : id === 'director' ? !!director : true,
-  );
+  const visible = WIDE_DEFAULTS.filter((id) => id === 'director' ? !!director : true);
   const ordered = resolveOrder(storedWide, visible, WIDE_DEFAULTS);
   const { listEl, itemEls, dragId, startDrag, dragMove, endDrag } = useReorderDrag(
     ordered,
@@ -326,10 +349,27 @@ export function ChatSidebar({
     const r = settingsBtnRef.current?.getBoundingClientRect();
     const items: import('./library/CardMenu').CardMenuItem[] = [
       ...(onEditCharacter ? [{ label: 'Edit Character', onClick: onEditCharacter }] : []),
-      { label: 'Chat Settings', onClick: onChatSettings },
-      { label: 'Model Settings', onClick: () => setModelSheetSignal((n) => n + 1) },
+      {
+        label: 'Avatar Gallery',
+        onClick: () => {
+          onOpenOverlay?.();
+          if (!(t?.group && groupId)) {
+            setGallery({ id: characterId, name: focusedName ?? '' });
+            return;
+          }
+          // A group member's gallery is its library character's, as on the desktop.
+          api
+            .get<{ id: string; name: string }>(
+              `/api/groups/${encodeURIComponent(groupId)}/members/${encodeURIComponent(focusedId ?? '')}/library`,
+            )
+            .then(setGallery)
+            .catch((e) => console.warn('[sidebar] no library character for this member', e));
+        },
+      },
+      { label: 'Chat Settings', onClick: () => { onOpenOverlay?.(); onChatSettings(); } },
+      { label: 'Model Settings', onClick: () => { onOpenOverlay?.(); onModelSettings?.(); } },
       ...(t?.group && groupId
-        ? [{ label: 'Group Settings…', onClick: () => setShowGroupSettings(true) }]
+        ? [{ label: 'Edit group…', onClick: () => openEditGroup(groupId) }]
         : []),
     ];
     setSettingsMenu({
@@ -355,15 +395,9 @@ export function ChatSidebar({
 
   const section = (id: string) => {
     switch (id) {
-      case 'cast':
-        return castBar;
       case 'director':
-        return director ? (
-          <details className="tool-section">
-            <summary><span className="card-chev" aria-hidden>❯</span>🎬 Director</summary>
-            <div className="tool-body">{director}</div>
-          </details>
-        ) : null;
+        // Always open, as the desktop's Director card is.
+        return director ? <div className="tool-section director-card">{director}</div> : null;
       case 'one_shot_eval':
         return <OneShotEvalControl reloadKey={toolsKey} />;
       case 'tool_calling_pill':
@@ -410,7 +444,10 @@ export function ChatSidebar({
           </details>
         ) : null;
       case 'character_state':
+        // Group Dynamics rides under Character State, as on the window: it
+        // moves with it, so it always sits directly below.
         return (
+          <>
           <details
             className="tool-section state-card"
             open={stateOpen}
@@ -422,16 +459,17 @@ export function ChatSidebar({
                 <span className="card-sub">
                   {[
                     focusedName,
-                    realism.bond.tier,
-                    realism.trust.tier,
+                    realismOff ? undefined : realism.bond.tier,
+                    realismOff ? undefined : realism.trust.tier,
                     t ? t.time.timeOfDay.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '',
                   ].filter(Boolean).join(' · ')}
                 </span>
               </span>
-              {/* The window keeps the Realism engine switch in the header.
+              {/* The window keeps the Realism engine switch in the header: the chat's
+                  in a 1:1, the focused member's own in a group.
                   Stopping the click/key keeps it from toggling the card. */}
-              {t && (
-                <span
+              {t && (!isGroup || memberId) && (
+                <label
                   className="card-switch"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => e.stopPropagation()}
@@ -441,9 +479,9 @@ export function ChatSidebar({
                     aria-label="Realism engine"
                     checked={t.realismSwitch ?? t.realismEnabled}
                     disabled={t.realismAllowed === false}
-                    onChange={(e) => toggle('realism', e.target.checked)}
+                    onChange={(e) => switchToggle('Realism', 'realism', e.target.checked)}
                   />
-                </span>
+                </label>
               )}
             </summary>
             <div className="tool-body state-body">
@@ -459,8 +497,23 @@ export function ChatSidebar({
                 </p>
               ) : (
                 <>
+                  {realismOff && (
+                    <p className="muted small realism-off">
+                      {realism.realismAllowed === false
+                        ? "The Realism Engine is off in Porch Life. This chat's own choice is kept."
+                        : isGroup
+                          ? `The Realism Engine is off for ${focusedName ?? 'this character'} in this chat — flip ` +
+                            'the switch to track bond, trust, mood, and scene time for them.'
+                          : realism.realismSwitch === true
+                            ? 'Realism starts again when this reply finishes.'
+                            : 'The Realism Engine is off for this chat — flip the switch to track bond, ' +
+                              'trust, mood, and scene time for this character.'}
+                    </p>
+                  )}
                   {/* The window's order: bonds, Afterglow/Lust, fixation,
                       Needs and its bars, ambitions, Pockets, time. */}
+                  {!realismOff && (
+                  <>
                   <StatBar
                     label="Short-Term Bond"
                     value={`${realism.bond.tier} · ${realism.bond.score}`}
@@ -489,7 +542,7 @@ export function ChatSidebar({
                                     aria-label="Afterglow"
                             className="state-switch"
                             checked={t.nsfw.afterglowSwitch ?? t.nsfw.cooldownEnabled}
-                            onChange={(e) => toggle('nsfwCooldown', e.target.checked)}
+                            onChange={(e) => switchToggle('Afterglow', 'nsfwCooldown', e.target.checked)}
                           />
                         </label>
                       )}
@@ -513,20 +566,27 @@ export function ChatSidebar({
                       <span className="fixation-label">Fixation</span> {realism.fixation}
                     </div>
                   )}
-                  {t?.needsEnabled && (
+                  {(isGroup || t?.needsEnabled) && (
                     <>
+                      {isGroup && !memberId ? (
+                        // A guest carries no Needs of its own: the heading alone.
+                        <div className="state-line">
+                          <span>💗 Needs</span>
+                        </div>
+                      ) : (
                       <label className="state-line">
                         <span>💗 Needs</span>
                         <input
                           type="checkbox"
                                 aria-label="Needs"
                           className="state-switch"
-                          checked={t.needsEnabled}
-                          disabled={t.needsAllowed === false}
-                          onChange={(e) => toggle('needs', e.target.checked)}
+                          checked={t!.needsEnabled}
+                          disabled={t!.needsAllowed === false}
+                          onChange={(e) => switchToggle('Needs', 'needs', e.target.checked)}
                         />
                       </label>
-                      {t.needsAllowed === false && (
+                      )}
+                      {t?.needsAllowed === false && (
                         <p className="muted small">
                           Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.
                         </p>
@@ -545,6 +605,8 @@ export function ChatSidebar({
                           />
                         ))}
                     </>
+                  )}
+                  </>
                   )}
                   {t && (t.ambitions?.length ?? 0) > 0 && (
                     <div className="state-ambitions">
@@ -673,7 +735,9 @@ export function ChatSidebar({
                       )}
                     </div>
                   )}
-                  {t && (
+                  {/* The window's rule in 1:1 and group alike: time shows while
+                      Realism runs for this character or the story clock runs. */}
+                  {t && (!realismOff || clockRunning) && (
                     <div className="state-time">
                       {t.time.presence && (
                         <div className="stat-line"><span>{t.time.presence}</span></div>
@@ -761,6 +825,36 @@ export function ChatSidebar({
               )}
             </div>
           </details>
+          {t?.groupDynamics && (
+            <details className="tool-section group-dynamics" open>
+              <summary><span className="card-chev" aria-hidden>❯</span>🫂 Group Dynamics{' '}
+                <span className="card-sub">{t.groupDynamics.member}</span>
+              </summary>
+              <div className="tool-body">
+                {t.groupDynamics.tracked ? (
+                  <>
+                    <p className="muted small">
+                      How {t.groupDynamics.member} feels about the others. Read-only.
+                    </p>
+                    {t.groupDynamics.feelings.map((f) => (
+                      <StatBar
+                        key={f.id}
+                        label={f.name}
+                        value={`${f.tier} · ${f.score}`}
+                        percent={f.percent}
+                        tone={f.score < 0 ? 'danger' : ''}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <p className="muted small">
+                    Feelings between characters are tracked in groups of two to four characters.
+                  </p>
+                )}
+              </div>
+            </details>
+          )}
+          </>
         );
       case 'journal_memory':
         return t ? (
@@ -769,7 +863,7 @@ export function ChatSidebar({
               <span className="card-sub">
                 {[
                   t.memory.journalEnabled ? 'recap' : '',
-                  t.memory.ragEnabled ? 'RAG on' : '',
+                  t.memory.ragEnabled && t.memory.ragGlobalEnabled !== false ? 'RAG on' : '',
                 ].filter(Boolean).join(' · ')}
               </span>
             </summary>
@@ -909,9 +1003,11 @@ export function ChatSidebar({
       <div className="insight-section" data-id="portrait">
         <div className={moodClass} style={moodStyle as React.CSSProperties | undefined} data-testid="mood-portrait" data-tone={atmosphere.tone ?? ''}>
           {isGroup ? (
-            focusedId ? (
+            // Before any chip is tapped the portrait is the member the page
+            // shows by default (as the desktop does), not a bare initial.
+            (portraitMemberId ?? focusedId) ? (
               <Portrait
-                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent(focusedId)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
+                primary={`/api/chat/expression-avatar?participant=${encodeURIComponent((portraitMemberId ?? focusedId)!)}&v=${encodeURIComponent(realism.expressionLabel ?? '')}`}
                 fallback={focusedPlaceholderPortrait ? undefined : focusedAvatarUrl}
                 mood={realism.mood || realism.emotion}
                 initial={focusedName ?? portraitName}
@@ -955,40 +1051,28 @@ export function ChatSidebar({
           Main Settings
         </button>
         {settingsMenu && <CardMenu menu={settingsMenu} onClose={() => setSettingsMenu(null)} />}
+        {gallery && (
+          <AvatarGalleryModal characterId={gallery.id} name={gallery.name} onClose={() => setGallery(null)} />
+        )}
       </div>
       <div className="sidebar-layout-pills">
         <SidebarResetPill onReset={wideReset} />
         <SidebarLockPill locked={locked} onToggle={() => setLocked(!locked)} />
       </div>
+      {castBar && (
+        // The cast roster is fixed above the reorderable body, as on the
+        // desktop (chat_page.sidebar.dart renders the roster outside the
+        // ReorderableListView): it never carries a drag grip and never
+        // takes part in ordering. `data-id="cast"` stays for probes.
+        <div className="insight-section sidebar-cast-fixed" data-id="cast">
+          {castBar}
+        </div>
+      )}
       {ordered.map((id) => (
         <div key={id} className={`wide-card${dragId === id ? ' dragging' : ''}`}>
           {card(id, section(id))}
         </div>
       ))}
-      {/* Model Settings opens today's Change model sheet through the same
-          component the header chip used; the chip itself is hidden on wide
-          by CSS. The host carries no aria-hidden: the sheet it opens is a
-          dialog and must stay in the accessibility tree. */}
-      <div className="model-sheet-host">
-        <ChatModelSwitcher openSignal={modelSheetSignal} />
-      </div>
-      {showGroupSettings && t?.group && groupId && (
-        <div className="drawer-backdrop" onClick={() => setShowGroupSettings(false)}>
-          <div className="settings-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="drawer-head">
-              <span>Group settings</span>
-              <button className="link-btn" onClick={() => setShowGroupSettings(false)}>Close</button>
-            </div>
-            <GroupSettings
-              group={t.group}
-              groupId={groupId}
-              onCommand={onCommand}
-              onToggleDirector={(v) => toggle('director', v)}
-              clockOn={t.time.passageEnabled}
-            />
-          </div>
-        </div>
-      )}
       {showCalendar && (
         <StoryCalendarModal
           focusedId={focusedId}

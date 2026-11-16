@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../sidebar_tokens.dart';
@@ -26,9 +27,18 @@ import '../sidebar_tokens.dart';
 /// the SPIN NOW button. Lives inside the Story Tools accordion; the body
 /// renders whenever Chaos Mode is enabled (preserving the old
 /// auto-expand-on-enable feel).
+///
+/// PR 5b: in a group the panel is the focused member's own Chaos card
+/// (docs/design/chaos-per-character.md) — their switch, gauge, spicy
+/// toggle and spin, read and written through the member-scoped ChatService
+/// surface. [member] is that cast member; null keeps the 1:1 chat-level
+/// panel, unchanged.
 class ChaosPanel extends StatelessWidget {
   final ChatService chat;
   final VoidCallback onSpinRequested;
+
+  /// The focused group member whose Chaos this panel shows; null in 1:1.
+  final CharacterCard? member;
 
   /// The reorder grip when this leaf sits in the reorderable accordion body.
   final Widget? dragHandle;
@@ -37,6 +47,7 @@ class ChaosPanel extends StatelessWidget {
     super.key,
     required this.chat,
     required this.onSpinRequested,
+    this.member,
     this.dragHandle,
   });
 
@@ -44,11 +55,30 @@ class ChaosPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final chaos = chat.chaosModeService;
     final freq = chaos.frequency;
-    final enabled = chaos.chaosModeEnabled;
+    // Whose Chaos this card is: the focused member's in a group, the
+    // chat's own in 1:1. One read of the ChatService surface, which
+    // answers from the right place either way.
+    final memberId = member == null ? null : chat.characterIdFor(member!);
+    bool enabledOf() => memberId == null
+        ? chaos.chaosModeEnabled
+        : chat.chaosSwitchFor(memberId);
+    int pressureOf() => memberId == null
+        ? chaos.chaosPressure
+        : chat.chaosPressureFor(memberId);
+    bool pendingOf() => memberId == null
+        ? chaos.hasPendingChaosEvent
+        : chat.chaosHasPendingFor(memberId);
+    int cooldownOf() => memberId == null
+        ? chaos.cooldownTurns
+        : chat.chaosCooldownFor(memberId);
+    final enabled = enabledOf();
+    final pressure = pressureOf();
+    final pending = pendingOf();
+    final cooldown = cooldownOf();
     final pressureColor = Color.lerp(
       AppColors.chaosCalmOf(context),
       AppColors.chaosHotOf(context),
-      (chat.chaosModeService.chaosPressure / 100).clamp(0.0, 1.0),
+      (pressure / 100).clamp(0.0, 1.0),
     )!;
 
     return Column(
@@ -56,7 +86,10 @@ class ChaosPanel extends StatelessWidget {
       children: [
         SidebarSubHeader(
           icon: Icons.casino,
-          label: 'Chaos Mode',
+          label: member == null
+              ? 'Chaos Mode'
+              // A group's card names its owner, like "Objectives · Sophia".
+              : 'Chaos Mode · ${member!.name}',
           accent: AppColors.chaosAccentOf(context),
           dragHandle: dragHandle,
           trailing: Switch(
@@ -66,7 +99,9 @@ class ChaosPanel extends StatelessWidget {
             // service directly left the sidebar showing a stale value until
             // something else happened to repaint. The web facade already
             // uses the wrapper.
-            onChanged: (v) => chat.setChaosModeEnabled(v),
+            onChanged: (v) => memberId == null
+                ? chat.setChaosModeEnabled(v)
+                : chat.setMemberChaosEnabled(memberId, v),
             activeThumbColor: AppColors.chaosAccentOf(context),
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -79,7 +114,7 @@ class ChaosPanel extends StatelessWidget {
               Icon(Icons.casino_rounded, size: 12, color: pressureColor),
               const SizedBox(width: 6),
               Text(
-                'Pressure: ${chat.chaosModeService.chaosPressure}%',
+                'Pressure: $pressure%',
                 style: TextStyle(
                   fontSize: 11,
                   color: pressureColor,
@@ -92,10 +127,7 @@ class ChaosPanel extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: (chat.chaosModeService.chaosPressure / 100).clamp(
-                0.0,
-                1.0,
-              ),
+              value: (pressure / 100).clamp(0.0, 1.0),
               minHeight: 5,
               backgroundColor: AppColors.borderOf(
                 context,
@@ -124,8 +156,12 @@ class ChaosPanel extends StatelessWidget {
                 SizedBox(
                   height: 24,
                   child: Switch(
-                    value: chat.chaosNsfwEnabled,
-                    onChanged: (v) => chat.setChaosNsfwEnabled(v),
+                    value: memberId == null
+                        ? chat.chaosNsfwEnabled
+                        : chat.chaosNsfwFor(memberId),
+                    onChanged: (v) => memberId == null
+                        ? chat.setChaosNsfwEnabled(v)
+                        : chat.setMemberChaosNsfw(memberId, v),
                     activeTrackColor: AppColors.porchAmberOf(context),
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -135,17 +171,15 @@ class ChaosPanel extends StatelessWidget {
             const SizedBox(height: 10),
           ],
           GestureDetector(
-            onTap: chat.chaosModeService.hasPendingChaosEvent
-                ? null
-                : onSpinRequested,
+            onTap: pending ? null : onSpinRequested,
             child: Opacity(
-              opacity: chat.chaosModeService.hasPendingChaosEvent ? 0.4 : 1.0,
+              opacity: pending ? 0.4 : 1.0,
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 9),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: chat.chaosModeService.hasPendingChaosEvent
+                    colors: pending
                         ? [
                             AppColors.surfaceContainerOf(context),
                             AppColors.cardOf(context),
@@ -156,14 +190,14 @@ class ChaosPanel extends StatelessWidget {
                           ],
                   ),
                   borderRadius: BorderRadius.circular(8),
-                  border: chat.chaosModeService.hasPendingChaosEvent
+                  border: pending
                       ? Border.all(
                           color: AppColors.borderOf(
                             context,
                           ).withValues(alpha: 0.3),
                         )
                       : null,
-                  boxShadow: chat.chaosModeService.hasPendingChaosEvent
+                  boxShadow: pending
                       ? []
                       : [
                           BoxShadow(
@@ -178,18 +212,16 @@ class ChaosPanel extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      chat.chaosModeService.hasPendingChaosEvent ? '⏳' : '🎰',
+                      pending ? '⏳' : '🎰',
                       style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      chat.chaosModeService.hasPendingChaosEvent
-                          ? 'EVENT PENDING'
-                          : 'SPIN NOW',
+                      pending ? 'EVENT PENDING' : 'SPIN NOW',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
-                        color: chat.chaosModeService.hasPendingChaosEvent
+                        color: pending
                             ? AppColors.textTertiary(context)
                             // theme-keep: ink on the chaos gold button.
                             : AppColors.onChaosAccent,
@@ -203,9 +235,9 @@ class ChaosPanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            chaos.cooldownTurns > 0
-                ? 'Settling down: no events for ${chaos.cooldownTurns} more '
-                      '${chaos.cooldownTurns == 1 ? 'message' : 'messages'}.'
+            cooldown > 0
+                ? 'Settling down: no events for $cooldown more '
+                      '${cooldown == 1 ? 'message' : 'messages'}.'
                 : 'Auto-triggers grow more likely each turn.\n'
                       'Base: ${freq.base}% · +${freq.growth}% per turn · '
                       'cap: 100%',

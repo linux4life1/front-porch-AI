@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -338,6 +339,46 @@ void main() {
 
       expect(existing.groupOverride, false); // original untouched
       expect(existing.probability, 80);
+    });
+
+    testWidgets('content expander is a real target clear of the scrollbar',
+        (tester) async {
+      // Windows pins its scrollbar thumb over the content's right edge —
+      // the field-report setup where the expander took pixel-hunt patience.
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await tester.pumpWidget(_buildApp(
+          existing: LorebookEntry(name: 'Brynna', key: 'grave'),
+          onResult: (_) {},
+        ));
+        await tester.tap(find.text('Open Lorebook Dialog'));
+        await tester.pumpAndSettle();
+
+        final expander = find.byIcon(Icons.open_in_full);
+        expect(expander, findsOneWidget);
+        final hit = find.ancestor(of: expander, matching: find.byType(InkWell));
+        final box = tester.getRect(hit);
+        expect(box.width, greaterThanOrEqualTo(32));
+        expect(box.height, greaterThanOrEqualTo(32));
+
+        // The pinned thumb (14px) hugs the scroll view's right edge; the
+        // expander's center must sit clear of it.
+        final view = tester.getRect(
+          find.ancestor(
+            of: expander,
+            matching: find.byType(SingleChildScrollView),
+          ),
+        );
+        expect(view.right - box.center.dx, greaterThanOrEqualTo(14));
+
+        // A center tap opens the full editor — no patience required. The
+        // entry's content is empty, so the editor shows its hint text.
+        await tester.tapAt(box.center);
+        await tester.pumpAndSettle();
+        expect(find.text('Enter lore content...'), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
   });
 }

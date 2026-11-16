@@ -64,16 +64,52 @@ class ChanceReveal {
 
   /// Manual SPIN NOW. Parks a pre-picked event until accept. No-op when
   /// chaos is off, an event is already queued, or a park is already live.
-  bool requestManualChanceTime() {
-    if (!_chaosModeService.chaosModeEnabled) return false;
-    if (_chaosModeService.hasPendingChaosEvent) return false;
+  ///
+  /// PR 5b: in a group the spin belongs to one member — [memberId] is the
+  /// cast member whose card carries the Spin button. Their switch gates
+  /// it, their pending blocks a second spin, their name rides the event
+  /// (the accept holds them as the next pick, as the auto-roll does), and
+  /// the parked event lands on THEIR bag. No [memberId] in a group is the
+  /// pre-PR surface: read as the upcoming speaker, chaos as the group
+  /// seeded it — which for group callers now means "no member, no spin".
+  bool requestManualChanceTime({String? memberId}) {
     if (_chance.webEvent != null) return false;
-    final wheel = _chance.spinWheelEvents();
+    final inGroup = _s.session.activeGroup != null;
+    GroupMemberRealism? bag;
+    String name;
+    if (inGroup) {
+      // No member named (an older bundle, a phone with no cast selection):
+      // attribute to the member who rises for the next turn, as the spin
+      // always did — the event still lands on THEIR bag.
+      if (memberId == null) _chance.previewUpcomingSpeaker();
+      final card = memberId == null ? nextCharacter : _groupCardFor(memberId);
+      if (card == null) return false;
+      final id = memberId ?? _s.session.characterIdFor(card);
+      bag = _s.graph.groups.members[id];
+      if (!_chaosModeService.memberEnabled(bag)) return false;
+      if (_chaosModeService.memberPending(bag) != null) return false;
+      name = card.name;
+    } else {
+      if (!_chaosModeService.chaosModeEnabled) return false;
+      if (_chaosModeService.hasPendingChaosEvent) return false;
+      name = chanceTimeSpeakerName;
+    }
+    final wheel = _chance.spinWheelEvents(
+      forName: inGroup ? name : null,
+      memberBag: bag,
+    );
     if (wheel.isEmpty) return false;
     _chance.webEvent = wheel.first;
-    _chance.webName = chanceTimeSpeakerName;
+    _chance.webName = name;
     notifyListeners();
     return true;
+  }
+
+  CharacterCard? _groupCardFor(String memberId) {
+    for (final c in _s.session.groupCharacters) {
+      if (_s.session.characterIdFor(c) == memberId) return c;
+    }
+    return null;
   }
 
   /// The speaker a Chance Time event is attributed to: the upcoming group

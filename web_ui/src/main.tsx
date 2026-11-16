@@ -7,15 +7,16 @@ import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { App } from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
-import { applyChatColors, loadChatColors } from './chatColors';
 import { applyReadingSize, loadReadingSize } from './readingSize';
 import { applyCachedTheme } from './theme/appTheme';
+import { applyCachedAppearance } from './theme/appearance';
 import './styles.css';
 
-// Apply the last theme the desktop sent and the user's saved chat colors
-// before first paint, so nothing flashes the default palette.
+// Apply the last theme and appearance the desktop sent, and the user's
+// reading size, before first paint, so nothing flashes the default palette,
+// face or corners.
 applyCachedTheme();
-applyChatColors(loadChatColors());
+applyCachedAppearance();
 applyReadingSize(loadReadingSize());
 
 // A data router (rather than <HashRouter>) so pages with unsaved edits can

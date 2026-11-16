@@ -46,8 +46,6 @@ class ReprocessTargets {
     if (meta == null || !meta.containsKey('realism_state')) return null;
     final preState = meta['realism_state'];
     if (preState is! Map || preState['needs'] == null) return null;
-    if (!_v.needsActive()) return null;
-
     final isGroupTurn = _v.activeGroup() != null;
     CharacterCard? card;
     if (isGroupTurn) {
@@ -60,6 +58,12 @@ class ReprocessTargets {
     } else {
       card = _v.activeCharacter();
     }
+    // The reply's speaker's Needs, not whoever is up next.
+    final forCard = _v.needsActiveForCard;
+    final on = isGroupTurn && forCard != null && card != null
+        ? forCard(card)
+        : _v.needsActive();
+    if (!on) return null;
     final enabled = enabledNeedKeys(card);
     if (enabled.isEmpty) return null;
     return (
@@ -77,9 +81,7 @@ class ReprocessTargets {
   String? reprocessFeelingsTargetFor(int index) {
     final messages = _v.messages();
     if (index < 0 || index != messages.length - 1) return null;
-    if (_v.isGenerating() || _v.isEvaluatingRealism() || !_v.realismEnabled()) {
-      return null;
-    }
+    if (_v.isGenerating() || _v.isEvaluatingRealism()) return null;
     final inGroup = _v.activeGroup() != null;
     if (inGroup && _v.observerMode()) return null;
     final msg = messages[index];
@@ -109,6 +111,12 @@ class ReprocessTargets {
       }
     }
     if (card == null) return null;
+    // The reply's speaker's Realism, not whoever is up next.
+    final realismFor = _v.realismEnabledForCard;
+    final realismOn = inGroup && realismFor != null
+        ? realismFor(card)
+        : _v.realismEnabled();
+    if (!realismOn) return null;
     for (var i = userAt + 1; i < index; i++) {
       final m = messages[i];
       if (m.isUser || m.sender == 'System') continue;

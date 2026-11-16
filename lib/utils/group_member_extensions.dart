@@ -35,8 +35,8 @@ FrontPorchExtensions? groupMemberExtensions(
   final fp = source.frontPorchExtensions;
   if (fp != null) {
     return fp.copyWith(
-      // A member joins with their own Afterglow switch on: the card's says
-      // how new 1:1 chats start, and in a group the group's own switch does.
+      // A member joins with their Afterglow default on: the card's says how
+      // new 1:1 chats start; this copy's flag is the group's new-chat default.
       afterglowEnabled: true,
       enjoysLowHygiene:
           (seed['enjoysLowHygiene'] as bool?) ?? fp.enjoysLowHygiene,

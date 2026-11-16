@@ -137,6 +137,9 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
+          // Gutter for the pinned desktop scrollbar: its thumb must never
+          // sit over controls at the content's right edge (expander, menus).
+          padding: const EdgeInsets.only(right: 16),
           child: IndexedStack(
             index: _tab,
             children: [
@@ -237,12 +240,12 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
                 controller: _contentCtrl,
                 hintText: 'Enter lore content...',
               ),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(8),
               child: Padding(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(8),
                 child: Icon(
                   Icons.open_in_full,
-                  size: 14,
+                  size: 16,
                   color: AppColors.iconSecondary(context),
                 ),
               ),

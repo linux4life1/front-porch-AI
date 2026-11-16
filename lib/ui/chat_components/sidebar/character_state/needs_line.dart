@@ -18,21 +18,29 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 
-/// This 1:1 chat's own Needs switch, on the line it controls (no gear). While
-/// Porch Life's Needs is off it greys out and says where to look; the chat's
-/// own choice is kept for when Porch Life turns Needs back on.
+/// This chat's own Needs switch for one character, on the line it controls
+/// (no gear): the 1:1 chat's, or the focused group member's, for this chat
+/// only. While Porch Life's Needs is off it greys out and says where to look;
+/// the chat's own choice is kept for when Porch Life turns Needs back on.
 class NeedsLine extends StatelessWidget {
-  const NeedsLine({super.key, required this.chat});
+  const NeedsLine({super.key, required this.chat, this.member});
 
   final ChatService chat;
+
+  /// The focused group member whose switch this is; null for the 1:1 host.
+  final CharacterCard? member;
 
   @override
   Widget build(BuildContext context) {
     final allowed = porchLifeAllowsNeedsOf(context);
+    final member = this.member;
+    // '' for the 1:1 host, whose switch is the chat's.
+    final memberId = member == null ? '' : chat.characterIdFor(member);
     final accent = AppColors.porchAmberOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,11 +69,11 @@ class NeedsLine extends StatelessWidget {
               height: 24,
               child: FittedBox(
                 child: Switch(
-                  value: chat.needsSimEnabled,
+                  value: chat.needsSwitchFor(memberId),
                   activeThumbColor: accent,
                   onChanged: !allowed || chat.isGenerating
                       ? null
-                      : chat.setNeedsSimEnabled,
+                      : (on) => chat.setMemberNeedsEnabled(memberId, on),
                 ),
               ),
             ),

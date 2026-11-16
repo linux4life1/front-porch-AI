@@ -34,7 +34,7 @@ import {
 /** Same words as the desktop sidebar's note. */
 const GROUP_LOREBOOK_UNREADABLE_NOTE =
   "This group's lorebook couldn't be read, so its entries aren't being used. " +
-  'Open Group Settings, Lorebook & Worlds, on the computer to bring it back.';
+  'Open Edit group, Lorebook tab, to bring it back.';
 
 export function ChatInsight({
   realism,

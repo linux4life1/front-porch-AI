@@ -89,7 +89,6 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transpar
     cursor: col-resize; z-index: 5;
   }
   .aside-resizer:hover { background: var(--accent); opacity: 0.4; }
-  .stats-btn { display: none; } /* insight is persistent; no drawer toggle needed */
 }
 
 

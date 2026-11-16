@@ -36,11 +36,16 @@ import 'package:front_porch_ai/ui/widgets/chance_time_overlay/chance_time_overla
 /// wheel's room with [ChanceTimeWheel]. Under reduce motion the wheel
 /// jumps to its stop and the card shows at once.
 class ChanceTimeOverlay extends StatefulWidget {
-  const ChanceTimeOverlay({super.key, this.host});
+  const ChanceTimeOverlay({super.key, this.host, this.memberName});
 
   /// What the overlay asks of the chat; null reads the [ChatService] in
   /// context through [ChatChanceTimeHost].
   final ChanceTimeHost? host;
+
+  /// PR 5b: in a group, the member a manual spin belongs to — the wheel
+  /// gates on their switch and the event names them. Null: the upcoming
+  /// speaker (an auto-trigger's owner, already pinned by the gate).
+  final String? memberName;
 
   @override
   State<ChanceTimeOverlay> createState() => _ChanceTimeOverlayState();
@@ -162,7 +167,11 @@ class _ChanceTimeOverlayState extends State<ChanceTimeOverlay>
   };
 
   ChanceTimeHost get _host =>
-      widget.host ?? ChatChanceTimeHost(context.read<ChatService>());
+      widget.host ??
+      ChatChanceTimeHost(
+        context.read<ChatService>(),
+        memberName: widget.memberName,
+      );
 
   String _displayEvent(String raw) =>
       _host.resolve(raw, _charName ?? 'Character');

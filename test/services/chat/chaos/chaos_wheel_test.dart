@@ -47,6 +47,12 @@ const _locked = {
       'flustered, and thinking about little else',
 };
 
+/// This chat's own Afterglow switch for [card]: the live per-chat switch.
+/// (`setMemberAfterglowEnabled` is the member copy's new-chat default and
+/// never changes a chat that is open.)
+Future<void> _liveAfterglow(ChatService chat, CharacterCard card, bool on) =>
+    chat.setMemberAfterglowSwitch(chat.characterIdFor(card), on);
+
 void main() {
   group('18+ gate', () {
     test(
@@ -596,7 +602,13 @@ void main() {
     test("random order: a turn between the phone's spin and Accept, and "
         'Accept applies what the reveal showed', () async {
       await enter(TurnOrder.random);
-      await chat.setChaosModeEnabled(true);
+      // PR 5b: chaos belongs to a member now. Turning it on for the whole
+      // cast is the same condition the old group-wide switch made, per
+      // member. A spin with no member named (an older phone surface) is
+      // still attributed to the member who rises.
+      for (final c in chat.groupCharacters) {
+        await chat.setMemberChaosEnabled(chat.characterIdFor(c), true);
+      }
       expect(chat.requestManualChanceTime(), isTrue);
       final shown = chat.webChanceTimeDisplay;
       final named = chat.nextCharacter?.name;
@@ -608,7 +620,14 @@ void main() {
       expect(chat.webChanceTimeDisplay, shown, reason: 'the reveal holds');
 
       await chat.acceptPendingChanceTime();
-      expect(chat.chaosModeService.pendingChaosInjection, shown);
+      final namedId = chat.characterIdFor(
+        chat.groupCharacters.firstWhere((c) => c.name == named),
+      );
+      expect(
+        chat.chaosPendingFor(namedId),
+        shown,
+        reason: 'the event landed on the named member\'s own state',
+      );
       expect(chat.nextCharacter?.name, named, reason: 'held as the next pick');
       await chat.sendMessage('What was that?');
       await settle();
@@ -650,7 +669,7 @@ void main() {
 
       test("the member's own switch off", () async {
         final card = await lockedSpeaker();
-        await chat.setMemberAfterglowEnabled(card, false);
+        await _liveAfterglow(chat, card, false);
         expect(seenLockedOver(300), isNotEmpty);
       });
 

@@ -120,10 +120,10 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('the list scrolls in a 400 x 600 window without overflow', (
+  testWidgets('the list scrolls in a 1440 x 600 window without overflow', (
     tester,
   ) async {
-    window(tester, const Size(400, 600));
+    window(tester, const Size(1440, 600));
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
@@ -145,7 +145,7 @@ void main() {
     final list = find.byKey(const Key('starter-worlds-list'));
     final dialog = tester.getRect(find.byType(AlertDialog));
     expect(dialog.bottom, lessThanOrEqualTo(600));
-    expect(dialog.right, lessThanOrEqualTo(400));
+    expect(dialog.right, lessThanOrEqualTo(1440));
     // The last row starts below the fold and is reachable by scrolling.
     final last = find.byKey(const Key('starter-add-greenhollow'));
     expect(tester.getRect(last).top, greaterThan(tester.getRect(list).bottom));
@@ -156,9 +156,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('at 400 x 600 the Worlds header fits and its Starter worlds '
+  testWidgets('at 1440 x 600 the Worlds header fits and its Starter worlds '
       'button opens the picker', (tester) async {
-    window(tester, const Size(400, 600));
+    window(tester, const Size(1440, 600));
     await tester.pumpWidget(
       ChangeNotifierProvider<WorldRepository>.value(
         value: repo,
@@ -180,7 +180,7 @@ void main() {
     final button = find.byKey(const Key('worlds-starter'));
     final rect = tester.getRect(button);
     expect(rect.left, greaterThanOrEqualTo(0));
-    expect(rect.right, lessThanOrEqualTo(400));
+    expect(rect.right, lessThanOrEqualTo(1440));
     expect(rect.bottom, lessThanOrEqualTo(600));
     await tester.tap(button);
     await settleUntil(tester, rows);

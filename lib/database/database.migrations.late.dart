@@ -436,6 +436,17 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 66) {
+      // v65→v66: the group editor's fields (docs/design/group-editor.md).
+      // Additive; each default is the 1:1 card's own "none".
+      for (final c in kGroupEditorColumnsV66) {
+        try {
+          await customStatement('ALTER TABLE groups ADD COLUMN $c');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

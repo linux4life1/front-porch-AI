@@ -15,6 +15,7 @@ import { useLayout } from '../hooks/useBreakpoint';
 import { useLibrary, type LibChar, type LibFolder, type LibGroup } from '../hooks/useLibrary';
 import { usePorchTransfer } from '../hooks/usePorchTransfer';
 import { useProgressiveList } from '../hooks/useProgressiveList';
+import { AvatarGalleryModal } from '../components/AvatarGalleryModal';
 import { CardMenu, type CardMenuItem, type MenuState } from '../components/library/CardMenu';
 import { CharacterCard, FolderCard, GroupCard } from '../components/library/LibraryCards';
 import { LibraryToolbar, SelectionBar } from '../components/library/LibraryToolbar';
@@ -39,10 +40,26 @@ import { UseAsPersonaDialog } from '../components/library/PersonaConvertDialogs'
 import { EnhanceReviewModal } from '../components/aichargen/EnhanceReviewModal';
 import type { EnhanceProposal, EnhanceSelection } from '../components/aichargen/enhanceForm';
 
+/** The Delete Folder text, with the counts the desktop gives. */
+export function folderDeleteMessage(f: LibFolder): string {
+  const chars = f.characterCount ?? 0;
+  const groups = f.groupCount ?? 0;
+  const inside = `the ${chars} character${chars === 1 ? '' : 's'}${
+    groups > 0 ? ` and ${groups} group${groups === 1 ? '' : 's'}` : ''
+  } inside return to the top level.`;
+  return (
+    `Delete "${f.name}"?\n\n• Delete Folder Only: ${inside}\n` +
+    `• Delete Folder + Characters: PERMANENTLY deletes the folder AND every character inside it (including subfolders)${
+      groups > 0 ? '; groups are kept and return to the top level' : ''
+    }.`
+  );
+}
+
 type Dialog =
   | { kind: 'newFolder' }
   | { kind: 'renameFolder'; folder: LibFolder }
   | { kind: 'newSubfolder'; folder: LibFolder }
+  | { kind: 'deleteFolderChoice'; folder: LibFolder }
   | { kind: 'deleteFolder'; folder: LibFolder }
   | { kind: 'deleteFolderDeep'; folder: LibFolder }
   | { kind: 'deleteChar'; char: LibChar }
@@ -55,6 +72,7 @@ type Dialog =
   // AI Enhance: pre-flight (chat pick + field checklist + progress), then the
   // old-vs-new review once the proposal arrives over the socket.
   | { kind: 'aiEnhance'; char: LibChar }
+  | { kind: 'avatarGallery'; char: LibChar }
   | { kind: 'enhanceReview'; char: LibChar; proposal: EnhanceProposal; selection: EnhanceSelection }
   | { kind: 'chatHistory'; subject: string; characterId?: string; groupId?: string }
   | { kind: 'useAsPersona'; char: LibChar }
@@ -116,6 +134,7 @@ export function CharactersPage() {
       onHistory: () => setDialog({ kind: 'chatHistory', subject: c.name, characterId: c.id }),
       onEdit: () => lib.editCharacter(c.id),
       onEnhance: () => setDialog({ kind: 'aiEnhance', char: c }),
+      onAvatarGallery: () => setDialog({ kind: 'avatarGallery', char: c }),
       onDuplicate: () => lib.duplicateCharacter(c.id),
       onUseAsPersona: () => setDialog({ kind: 'useAsPersona', char: c }),
       onExportPng: () => lib.exportPng(c.id),
@@ -129,8 +148,7 @@ export function CharactersPage() {
     folderCardMenu(f, {
       onRename: () => setDialog({ kind: 'renameFolder', folder: f }),
       onNewSubfolder: () => setDialog({ kind: 'newSubfolder', folder: f }),
-      onDeleteFolder: () => setDialog({ kind: 'deleteFolder', folder: f }),
-      onDeleteDeep: () => setDialog({ kind: 'deleteFolderDeep', folder: f }),
+      onDelete: () => setDialog({ kind: 'deleteFolderChoice', folder: f }),
     });
 
   const groupMenu = (g: LibGroup) =>
@@ -139,6 +157,8 @@ export function CharactersPage() {
       onNewChat: () =>
         setDialog({ kind: 'newChat', subject: g.name, target: { groupId: g.id } }),
       onHistory: () => setDialog({ kind: 'chatHistory', subject: g.name, groupId: g.id }),
+      onEdit: () => navigate(`/groups/${g.id}/edit`),
+      onDuplicate: () => void lib.duplicateGroup(g.id),
       onExportPng: () => lib.exportGroupPng(g),
       onExtract: () => setDialog({ kind: 'extractGroup', group: g }),
       onMove: () => setDialog({ kind: 'move', ids: [g.id] }),
@@ -156,7 +176,11 @@ export function CharactersPage() {
 
   // ── Drag-and-drop (desktop/tablet only; phone uses the menu's Move action) ─
   const dropOnFolder = (folderId: string | null) => {
-    if (draggedId) lib.moveToFolder([draggedId], folderId);
+    // A picked card carries every pick, as on the desktop.
+    if (draggedId) {
+      const carried = lib.selecting && lib.selectedIds.has(draggedId) ? Array.from(lib.selectedIds) : [draggedId];
+      lib.moveToFolder(carried, folderId);
+    }
     setDraggedId(null);
   };
 
@@ -213,12 +237,12 @@ export function CharactersPage() {
         gridMin={lib.gridMin}
         setGridMin={lib.setGridMin}
         importing={lib.importing}
+        inFolder={lib.folderId !== null}
+        onRefresh={lib.reload}
         onNewFolder={() => setDialog({ kind: 'newFolder' })}
-        onCreate={() => navigate('/create')}
-        onAiCreate={() => navigate('/create-ai')}
-        onNewGroup={() => navigate('/create-group')}
         onImportMenu={(e) => openMenu(e, importMenu())}
-        onStartSelect={lib.startSelecting}
+        onStartSelect={lib.selecting && !lib.organizing ? lib.cancelSelecting : lib.startSelecting}
+        onStartOrganize={lib.organizing ? lib.cancelSelecting : lib.startOrganizing}
       />
       {/* Hidden import inputs (cards + whole folder). */}
       <input
@@ -268,6 +292,9 @@ export function CharactersPage() {
       {lib.selecting && (
         <SelectionBar
           count={lib.selectedIds.size}
+          organizing={lib.organizing}
+          onSelectAll={() => lib.selectAll([...visibleGroups.map((g) => g.id), ...lib.chars.map((c) => c.id)])}
+          onSelectNone={lib.selectNone}
           onMove={() => setDialog({ kind: 'move', ids: Array.from(lib.selectedIds) })}
           onExport={() => void porch.exportPorch(Array.from(lib.selectedIds))}
           exporting={porch.busy}
@@ -386,6 +413,14 @@ export function CharactersPage() {
 
       {menu && <CardMenu menu={menu} onClose={() => setMenu(null)} />}
 
+      {dialog?.kind === 'avatarGallery' && (
+        <AvatarGalleryModal
+          characterId={dialog.char.id}
+          name={dialog.char.name}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
       {dialog?.kind === 'aiEnhance' && (
         <EnhanceDialog
           characterId={dialog.char.id}
@@ -435,6 +470,40 @@ export function CharactersPage() {
           onConfirm={(name) => lib.renameFolder(dialog.folder.id, name)}
           onClose={() => setDialog(null)}
         />
+      )}
+      {dialog?.kind === 'deleteFolderChoice' && (
+        <div className="drawer-backdrop center" onClick={() => setDialog(null)}>
+          <div className="modal" role="dialog" aria-label="Delete Folder" onClick={(e) => e.stopPropagation()}>
+            <div className="drawer-head">
+              <span>Delete Folder</span>
+            </div>
+            <p className="muted dialog-msg" style={{ whiteSpace: 'pre-line' }}>
+              {folderDeleteMessage(dialog.folder)}
+            </p>
+            <div className="modal-actions">
+              <button className="ghost" onClick={() => setDialog(null)}>
+                Cancel
+              </button>
+              <button
+                className="danger-btn"
+                onClick={() => {
+                  lib.deleteFolder(dialog.folder.id);
+                  setDialog(null);
+                }}
+              >
+                Delete Folder Only
+              </button>
+              {(dialog.folder.characterCount ?? 1) > 0 && (
+                <button
+                  className="danger-btn"
+                  onClick={() => setDialog({ kind: 'deleteFolderDeep', folder: dialog.folder })}
+                >
+                  Delete Folder + Characters…
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       {dialog?.kind === 'deleteFolder' && (
         <ConfirmDialog

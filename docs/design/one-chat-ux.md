@@ -1,6 +1,7 @@
 # One chat UX: group chats work and look like 1:1, web looks like desktop
 
-Status: rulings final (2026-11-07), build not started. The maintainer holds
+Status: rulings final (2026-11-07). PRs 1–6 and PR 7 chunks 7a–7c are built
+and merged or in review; 7d is in flight (2026-11-14). The maintainer holds
 the approved sketch (desktop 1:1 and group windows, both sidebars scrolled
 out, wide web and phone boards, and a "where every control goes" table).
 CLAUDE.md "Parity" carries the short form of rules 1 to 3.
@@ -183,30 +184,113 @@ Desktop and web together. Path-complete matrix required.
   drop the sliders.
 - Open: 1:1's memory switch is global (all 1:1 chats); decide whether the
   group's stays per group or becomes per member.
+- Built (decisions, change in one place each): a message is stamped with who
+  was in the scene (`memory_present`, memory keys; not Away, not At work, the
+  speaker always); the one writer (`WindowFiler`) files each member's copy of
+  the lines they were there for under their key and this chat. Old
+  `group_<id>` windows are a read-only fallback for every member
+  (`legacyGroupMemoryBuckets`), never re-filed. The group's memory switch
+  stays per group, and a group's memory runs only while the global Memory
+  setting AND the group's switch are on (the embed, retrieval and
+  `isOperational` read both; the group's switch greys out while the global one
+  is off); the 1:1 one stays global. Importance sliders are translated to
+  memory keys at retrieval. A memory source that is another member of the
+  group keeps its other-chat windows; their windows in THIS chat are never
+  read by someone else. The PWA's Memory section has the Sources picker and
+  Data Bank for the focused member (`/api/chat/tools/memory/sources`,
+  `/databank`).
 - Tests: a window from a member's Away stretch is not retrieved for that
   member but is for one who was present; the web switch in a group flips
   the group gate.
 
 ### PR 5 — Group Settings window becomes the group editor page
 
-Desktop and web together.
+Locked design: [group-editor.md](group-editor.md). It supersedes the earlier
+sketch that stood here. Desktop and web together.
 
-- Fold the dialog into the group editor page (`EditGroupPage`; confirm at
-  build): name, scenario, first message, alternate greetings, turn order,
-  auto-advance, start in Director, group and per-character prompts,
-  per-character author's notes, lorebook import and entries, worlds picker,
-  member recovery, add / remove members, and per-member defaults for new
-  chats (Realism, Needs and its sliders, Afterglow, Pockets). No Reset ALL.
-- Delete `GroupSettingsDialog` and its tab files once nothing opens them;
-  retarget deep links (`edit_character_page/member_group_views.dart`).
-- Web `GroupSettings.tsx` becomes the same page with the same sections.
-- Dialog goldens and tests go → `approved-test-change` with the reason.
+### PR 5b — Chaos Mode per character
+
+Each member gets the 1:1 Chaos controls: the editor toggle is that member's
+new-chat default, the chat sidebar has that member's live switch, 18+ events
+toggle, pressure gauge and Spin, and a Chance Time event only reaches that
+member. Existing groups seed every member from the group's switch. Sketch
+the sidebar before building.
+
+### PR 6 — Helper model reaches the web model sheet
+
+The desktop Model Settings dialog embeds the whole Realism-evals
+(`WorkerBackendSection`) group in-chat; the web chat sheet
+(`ChatModelSwitcher`) offers provider + chat model only. Mount the existing
+`WorkerBackendCard` inside the sheet (the `/api` worker facade already reads
+and saves it); the GGUF control stays the served `localModels` dropdown —
+no file browser on web. Ledger #1.
+
+### PR 7 — Settings page rebuild + drift closure (priority 1: the settings page)
+
+Bumped from PR 8 on 2026-11-13. The earlier PR 7 (gather the group-only
+Realism settings) was done by PR 5, the Edit group page
+([group-editor.md](group-editor.md)), and was retired with nothing left.
+
+The web Settings is folded into six flat sections and never got the
+desktop's Appearance tab: no theme gallery, accent, UI font or corners.
+Rebuild Settings so every desktop tab maps to a web section one-for-one,
+then close the rest of the drift ledger in its ranked order
+(`dev-notes/drift-ledger-726.md`, tabled 2026-11-12 — full inventories of
+both UIs are already in that audit; do not sweep again).
+
+Priority order inside the PR, maintainer-ruled 2026-11-12:
+
+1. Settings structure + Appearance controls (ledger #5) — this PR's namesake.
+2. Voice & Media controls the web never got (ledger #13).
+3. Small fills: slash catalog `/afk` `/image` (ledger #14), folder-tile
+   avatars and shape (ledger #4).
+4. Verify-and-close the suspects (ledger #15).
+
+Four chunks, one draft PR each (the PR 1a/1b precedent). Verified
+inventories with file:line evidence, the prep checklist and the open
+rulings live in [settings-rebuild-scope.md](settings-rebuild-scope.md):
+
+- **7a — structure.** Web Settings becomes seven sections in desktop tab
+  order; Appearance folds out of general (the chat-appearance group
+  moves with it). Layout only, no new controls. The parity manifest's
+  section list is rebuilt in the same PR. Prep lands first: the four
+  open settings-redesign PRs (#716–#719) get disposed of, and
+  `dev-notes/web-parity.md`'s "Theme … No-go" row is reversed by
+  maintainer ruling (scope doc §3–§4).
+- **7b — host theme controls.** Theme gallery (the eight `AppThemeId`
+  themes), accent picker, UI font, corners, and "Reset accent, font and
+  corners". Host work: `themeId`/`accent`/`uiFont`/`corners` through the
+  settings snapshot, writer and the `settings_changed` relay — none of
+  those keys are in the web API today. The web paints the host-resolved
+  token maps, never its own theme math. Changes are host-wide: a browser
+  tab changes the desktop (that is the poke script).
+- **7c — Voice & Media.** Expression controls (classification, display
+  mode, re-roll, emoji burst + size, fallback, ONNX download), Whisper
+  model choice + download with progress, auto-send transcription, the
+  photo-understanding card, the image-gen toggle. The voice facade
+  writes only `ttsEnabled`/`sttEnabled` today; new keys and download
+  progress are the cost. Mic device list is `⚙️` desktop-only unless the
+  maintainer rules otherwise (scope doc §5). Voice-call settings stay
+  desktop (ruling 9).
+- **7d — small fills + suspects.** `/afk` and `/image` into the web
+  slash sheet — preferred: serve the catalog from `/api` so it cannot
+  drift again. Home folder tiles become portrait tiles with the 2×2
+  member montage (`/api/folders` must gain preview members; it ships
+  counts only). Then verify-and-close ledger #15: each suspect lands as
+  a fix or a pinned ◑/❌ row in `dev-notes/web-parity.md`.
+
+Not this PR: Waifu Coder (ruled desktop-only, permanent), per-character
+Chaos (PR 5b), helper model (PR 6), the web voice call and Stoop upload
+wizard (ledger #10, #11 — next SOW's candidates), the creator Realism
+step (ledger #12, shipped later in PR 8c), local `.gguf`/`.kcpps` pickers (⏳ by
+design).
 
 ### Later, not yet sketched for approval
 
 - A small desktop window (under ~700 px): the sidebar as a slide-over like
   the phone drawer. CLAUDE.md asks for 400 px and 1440 px on new screens;
   sketch it before building.
+- Dead-code sweep (queued at PR 5 handoff).
 
 ## Poke scripts (maintainer)
 
@@ -221,3 +305,14 @@ Desktop and web together.
   them about what happened while they were gone; they should not know.
 - PR 5: Main Settings → Group Settings…; every old tab's item is there, and
   changing a default does not change the chat you are in.
+- PR 7: open Settings in the browser and the app side by side; every app
+  tab is a web section with the same controls, and changing theme, accent,
+  UI font, corners, the chat font or a chat colour on the web changes the
+  desktop too (and every other open session follows within a second). The
+  Auto-check for Updates switch is the same host setting on both.
+- PR 7 (Voice chunk): set the expression classification mode and burst
+  size in the browser; the app's Voice & Media tab shows the same
+  values.
+- PR 7 (fills chunk): type `/` in the web composer and compare with the
+  app's list — same commands, `/afk` and `/image` included; and a home
+  folder tile shows member faces like the app's montage tile.

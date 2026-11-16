@@ -6,7 +6,6 @@
 // lives in PromptSettingsCard under General (prompt-picker SOW Phase 2).
 // Desktop Generation parity (audit P2.12).
 
-import { spellCheckLabel, sortedByLabel } from '../spellCheckLabels';
 import { resetFor, type Recommended, type SamplerKey } from './genPresets/genPresets';
 import { GenerationParametersCard } from './GenerationParametersCard';
 import {
@@ -97,8 +96,6 @@ export function GenerationSettingsFields({
   contextFloor = CONTEXT_FLOOR,
   generation,
   bannedPhrases,
-  spellCheckLanguage,
-  spellCheckLanguages,
   reasoningEnabled,
   reasoningEffort,
   reasoningMandatory,
@@ -119,8 +116,6 @@ export function GenerationSettingsFields({
   contextFloor?: number;
   generation: GenSettings;
   bannedPhrases?: string[];
-  spellCheckLanguage?: string;
-  spellCheckLanguages?: string[];
   reasoningEnabled: boolean;
   reasoningEffort: string;
   reasoningMandatory?: boolean;
@@ -199,30 +194,8 @@ export function GenerationSettingsFields({
 
       <div className="gen-subcard">
         <h4 className="gen-subcard-title">Output Pipeline &amp; Rules</h4>
-        {spellCheckLanguage !== undefined && (
-          <div style={{ marginTop: 16 }}>
-            <label>
-              Spell check language
-              <select
-                value={spellCheckLanguage}
-                onChange={(e) => patch({ spellCheckLanguage: e.target.value })}
-              >
-                <option value="off">Off</option>
-                {sortedByLabel([
-                  ...(spellCheckLanguages ?? []),
-                  ...(spellCheckLanguage !== 'off' ? [spellCheckLanguage] : []),
-                ]).map((tag) => (
-                  <option key={tag} value={tag}>{spellCheckLabel(tag)}</option>
-                ))}
-              </select>
-              <p className="muted small">
-                The language you write in — not your device&apos;s language. If your phone or
-                computer is set to one language but you chat with characters in another,
-                set this to the one you chat in.
-              </p>
-            </label>
-          </div>
-        )}
+        {/* Spell check language moved to General with the desktop's layout
+            (one-chat-ux PR 7a): see SpellCheckSettings.tsx. */}
 
         <div style={{ marginTop: 16 }}>
           <label className="row-label">

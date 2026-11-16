@@ -9,6 +9,7 @@
 
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
+import { api } from '../api/client';
 import {
   IconFolder, IconImage, IconMic, IconNextTurn, IconSend, IconSparkle, IconUser,
 } from './chatLineIcons';
@@ -20,27 +21,12 @@ import {
   persistComposerDraft,
 } from '../composerDraft';
 
-// Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
-// — the single source of truth for the desktop "type /" helper. Keep in sync if
-// commands change. Display-only cheat sheet (clicking inserts the command); no
-// autocomplete/filtering. All are dispatched server-side in ChatService.
-const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
-  { cmd: '/create', args: '<name>: <concept>', desc: 'Create a new guest NPC and bring them into the scene' },
-  { cmd: '/join', args: '[--full|--lite] [name]', desc: 'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member' },
-  { cmd: '/promote', args: '[name]', desc: 'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them' },
-  { cmd: '/speak', args: '[name]', desc: 'Anyone on the porch (host, guest, or group member) takes a turn now' },
-  { cmd: '/exit', args: '[name]', desc: 'A guest leaves (narrated); in a group, removes that full member by name' },
-  { cmd: '/director', args: '[off]', desc: 'Step out of a group scene to direct it; /director off steps you back in' },
-  { cmd: '/whisper', args: '<name> <direction> | /whisper <name> off', desc: 'While directing: a private direction only that character sees, until you clear it' },
-  { cmd: '/goal', args: '<where the scene should go> | /goal off', desc: 'While directing: pin a scene goal the cast steers toward every turn' },
-  { cmd: '/narrate', args: '[what happens]', desc: 'While directing: a narrator describes the scene, then the cast reacts' },
-  { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },
-  { cmd: '/scan', args: '', desc: 'Scan the scene for a new recurring character to add' },
-  { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
-  { cmd: '/search', args: '-- <what to look up>', desc: 'Look up these exact words on the web before she answers. Put your line first, then the command' },
-  { cmd: '/wiki', args: '-- <what to look up>', desc: "Look up these exact words in this chat's wiki. Put your line first, then the command" },
-  { cmd: '/skip', args: '<8h | 2d | morning | 07:30>', desc: 'Skip story time by exactly this much. Put your line first, then the command; alone, it only moves the clock' },
-];
+// The sheet's rows come from the host (`GET /api/chat/slash-commands`), which
+// serves kSlashCommands — the same list the desktop "type /" helper renders —
+// so this copy can never drift from it (drift ledger #14). Display-only cheat
+// sheet (clicking inserts the command); no autocomplete/filtering. All are
+// dispatched server-side in ChatService.
+type SlashCommand = { command: string; example: string; description: string };
 
 /** The in-progress "@" token ending at `caret`, or null. Mirrors the engine's
  *  boundary rule: the @ must not follow a word char/dot/hyphen/plus, so typing
@@ -74,6 +60,7 @@ export function ChatComposer({
   isSettlingTurn = false,
   isSendWaitingOnSettle = false,
   canMic,
+  autoSendMic = false,
   onDraftChange,
   cast,
   impersonateFill,
@@ -94,6 +81,9 @@ export function ChatComposer({
   isSettlingTurn?: boolean;
   isSendWaitingOnSettle?: boolean;
   canMic: boolean;
+  /** Settings → Voice & Media → Auto-send transcription (the host's switch):
+   *  dictation into an empty box sends at once, as on the desktop. */
+  autoSendMic?: boolean;
   /** Live draft mirror for the lorebook "would trigger next" preview. */
   onDraftChange?: (text: string) => void;
   /** Present cast for the "@" autocomplete (host + guests, or group members).
@@ -115,8 +105,9 @@ export function ChatComposer({
    *  those drafts ride the owner mailbox so the next new chat picks
    *  them up, as on the desktop. Null with no chat: nothing persists. */
   draftBox?: { sessionKey: string; ownerKey: string; fresh: boolean } | null;
-  /** The ≥1024 layout: the tools move from the input line to an icon row
-   *  under the box, as the desktop composer draws it (PR 1a). */
+  /** The window's composer: the tools move from the input line to an icon
+   *  row under the box. Every width renders it (PR 1a wide, PR 1b phone
+   *  and tablet); the legacy one-line layout stays for its unit tests. */
   isDesktop?: boolean;
   /** Round persona button at the row's left end (desktop; opens the same
    *  `Speak as…` modal the header button did). */
@@ -208,6 +199,23 @@ export function ChatComposer({
   );
 
   const [slashDismissed, setSlashDismissed] = useState(false);
+  // The cheat-sheet rows are the host's catalog (drift ledger #14): a small
+  // static JSON fetched once per mount, the same list the desktop "type /"
+  // helper paints. While the host has not answered (or is offline) the sheet
+  // stays hidden rather than showing a stale hand-copy.
+  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
+  useEffect(() => {
+    let live = true;
+    api
+      .get<SlashCommand[]>('/api/chat/slash-commands')
+      .then((cmds) => {
+        if (live) setSlashCommands(cmds);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
   // Desktop composer folder menu (Chat Management).
   const [folderMenu, setFolderMenu] = useState<MenuState | null>(null);
   const folderRef = useRef<HTMLButtonElement>(null);
@@ -228,7 +236,10 @@ export function ChatComposer({
     : [];
   const showMention = !mentionDismissed && mentionMatches.length > 0;
   const showSlash =
-    draft.trimStart().startsWith('/') && !slashDismissed && !showMention;
+    draft.trimStart().startsWith('/') &&
+    !slashDismissed &&
+    !showMention &&
+    slashCommands.length > 0;
 
   const insertMention = (name: string) => {
     if (!mentionQuery) return;
@@ -342,6 +353,21 @@ export function ChatComposer({
       .finally(() => setPhotoBusy(false));
   };
 
+  // What the mic heard. The desktop (chat_page.input_actions.dart) sends it
+  // straight away when Auto-send is on and the box is empty; otherwise it
+  // joins whatever is typed. A pending photo also keeps it in the box, so the
+  // picture is never sent apart from the words meant for it.
+  const onMicText = (t: string) => {
+    if (autoSendMic && !draft.trim() && !photo && !isGenerating) {
+      setSlashDismissed(false);
+      setMentionDismissed(false);
+      if (isSettlingTurn) setHeldLocal(true);
+      onSend(t);
+      return;
+    }
+    setDraft((d) => (d ? `${d} ${t}` : t));
+  };
+
   return (
     <div className="chat-composer-wrap">
     {held && (
@@ -393,19 +419,24 @@ export function ChatComposer({
             <span>Chat commands</span>
             <button className="link-btn" onClick={() => setSlashDismissed(true)}>Close</button>
           </div>
-          {SLASH_COMMANDS.map((c) => (
+          {slashCommands.map((c) => (
             <button
-              key={c.cmd}
+              key={c.command}
               className="cheatsheet-row"
               onClick={() => {
-                setDraft(c.args ? `${c.cmd} ` : c.cmd);
+                // Same insert as the desktop helper: the full example
+                // skeleton, so the argument shape arrives with the command.
+                setDraft(c.example);
                 setSlashDismissed(true);
               }}
             >
               <span className="cheatsheet-cmd">
-                {c.cmd}{c.args && <span className="muted"> {c.args}</span>}
+                /{c.command}
+                {c.example.startsWith(`/${c.command} `) && (
+                  <span className="muted"> {c.example.slice(c.command.length + 2)}</span>
+                )}
               </span>
-              <span className="cheatsheet-desc">{c.desc}</span>
+              <span className="cheatsheet-desc">{c.description}</span>
             </button>
           ))}
         </div>
@@ -565,7 +596,7 @@ export function ChatComposer({
               <MicButton
                 disabled={isGenerating}
                 icon={<IconMic />}
-                onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+                onText={onMicText}
               />
             )}
             {onNextTurn && (
@@ -621,7 +652,7 @@ export function ChatComposer({
           {canMic && (
             <MicButton
               disabled={isGenerating}
-              onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
+              onText={onMicText}
             />
           )}
           {isGenerating ? (

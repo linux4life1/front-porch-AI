@@ -70,6 +70,6 @@ describe('importCardMenu', () => {
       onImportByaf: () => {},
       onImportPorch: () => {},
     }).map((i) => i.label);
-    expect(labels).toContain('Import .porch / .porchpack…');
+    expect(labels).toContain('Import .porch / .porchpack');
   });
 });

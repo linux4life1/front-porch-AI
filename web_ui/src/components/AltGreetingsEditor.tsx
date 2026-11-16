@@ -16,6 +16,7 @@ export function AltGreetingsEditor({
   onSeedsChange,
   showNeeds = true,
   clockOn,
+  editorCopy = false,
 }: {
   greetings: string[];
   onChange: (next: string[]) => void;
@@ -24,13 +25,15 @@ export function AltGreetingsEditor({
   showNeeds?: boolean;
   /** Porch Life's Passage of Time, for the Needs block's clock-off line. */
   clockOn: boolean;
+  /** The character editor's wording, which is the desktop editor's. */
+  editorCopy?: boolean;
 }) {
   const aligned = align(seeds, greetings.length);
   const setSeeds = (next: (GreetingSeed | null)[]) => onSeedsChange?.(align(next, greetings.length));
   return (
     <>
       <div className="row-label">
-        <span>Alternate greetings</span>
+        <span>{editorCopy ? 'Alternate Greetings' : 'Alternate greetings'}</span>
         <button
           className="ghost"
           onClick={() => {
@@ -38,10 +41,11 @@ export function AltGreetingsEditor({
             setSeeds([...aligned, null]);
           }}
         >
-          + Add
+          {editorCopy ? 'Add' : '+ Add'}
         </button>
       </div>
-      {greetings.length === 0 && (
+      {greetings.length === 0 && editorCopy && <p className="muted small">No alternate greetings yet</p>}
+      {greetings.length === 0 && !editorCopy && (
         <p className="muted small">
           None. Add openings the reader can cycle through on the first message.
           Each one can carry its own mood, bond, clock and needs.
@@ -49,6 +53,7 @@ export function AltGreetingsEditor({
       )}
       {greetings.map((g, i) => (
         <div className="tool-col" key={i}>
+          {editorCopy && <span className="muted small">Greeting {i + 2}</span>}
           <div className="tool-row">
             <textarea
               rows={3}
@@ -61,7 +66,7 @@ export function AltGreetingsEditor({
             />
             <button
               className="icon-btn"
-              title="Remove"
+              title={editorCopy ? 'Remove greeting' : 'Remove'}
               onClick={() => {
                 onChange(greetings.filter((_, j) => j !== i));
                 setSeeds(aligned.filter((_, j) => j !== i));

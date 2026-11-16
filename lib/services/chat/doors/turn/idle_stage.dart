@@ -86,17 +86,22 @@ class IdleStage {
     }
 
     // Capture pre-AFK needs vector so the needs delta chip has a baseline.
-    // Soft group speakers skip Needs — do not park a leftover vector.
-    if (_needsPass.active &&
-        _needsSimulation.vector.isNotEmpty &&
-        (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = Map<String, int>.from(
-        _needsSimulation.vector,
-      );
-    }
-
-    return (speaker: afkSpeaker, cue: _buildAutonomousCue(afkSpeaker));
+    // Soft group speakers skip Needs — do not park a leftover vector. The
+    // picked member is the speaker for every gate here: their own Needs
+    // switch decides, not whoever is up next on the turn order.
+    final afkSid = afkSpeaker == null
+        ? ''
+        : _getCharacterIdFromCard(afkSpeaker);
+    return _s.graph.groups.asSpeaker(afkSid, () {
+      if (_needsPass.active &&
+          _needsSimulation.vector.isNotEmpty &&
+          (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
+        _pendingRealismMetadata ??= {};
+        _pendingRealismMetadata!['needs_pre_turn_vector'] =
+            Map<String, int>.from(_needsSimulation.vector);
+      }
+      return (speaker: afkSpeaker, cue: _buildAutonomousCue(afkSpeaker));
+    });
   }
 
   String _buildAutonomousCue(CharacterCard? speaker) {

@@ -47,8 +47,8 @@ async function open(status: Record<string, unknown>) {
 
 const kobold = () =>
   container.querySelector(
-    '[data-testid="side-jobs-host"] option[value="kobold"]',
-  ) as HTMLOptionElement | null;
+    '[data-testid="side-jobs-host"] [data-testid="provider-chip-kobold"]',
+  ) as HTMLButtonElement | null;
 const sentence = () =>
   container.querySelector('[data-testid="side-jobs-local-unsupported"]');
 

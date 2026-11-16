@@ -106,6 +106,23 @@ function pointer(el: Element, type: string, clientY: number) {
   });
 }
 
+/** A touch pointer: no preventDefault on the way down, so an early move is a
+ *  scroll; the hold timer is what starts a drag. */
+function touch(el: Element, type: string, clientY: number) {
+  const ev = new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientY,
+    clientX: 10,
+    button: 0,
+  });
+  Object.defineProperty(ev, 'pointerType', { value: 'touch' });
+  Object.defineProperty(ev, 'pointerId', { value: 7 });
+  act(() => {
+    el.dispatchEvent(ev);
+  });
+}
+
 const grip = (id: string) =>
   container.querySelector<HTMLElement>(`.insight-section[data-id="${id}"] .sidebar-grip`)!;
 
@@ -186,5 +203,47 @@ describe('ChatInsight reorder', () => {
       pill.click();
     });
     expect(post).toHaveBeenCalledWith('/api/settings', { resetSidebarLayout: true });
+  });
+
+  it('a touch drag waits for a still hold; an early move is a scroll', async () => {
+    // Same midpoint table as the mouse test above.
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const i = Array.from(this.parentElement?.children ?? []).indexOf(this);
+      return {
+        top: i * 60, height: 50, bottom: i * 60 + 50,
+        left: 0, right: 0, width: 0, x: 0, y: i * 60, toJSON() {},
+      };
+    });
+    // Render before faking timers: the mount's own tick is real.
+    await renderInsight();
+    vi.useFakeTimers();
+    try {
+      const list = container.querySelector('.realism-panel')!;
+
+      // A finger that moves before the hold never becomes a drag.
+      touch(grip('lorebook'), 'pointerdown', 445);
+      touch(list, 'pointermove', 20);
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      expect(sections()[0]).toBe('one_shot_eval');
+      expect(container.querySelector('.insight-section.dragging')).toBeNull();
+
+      // A finger held still for the hold starts the drag, and then trades.
+      touch(grip('lorebook'), 'pointerdown', 445);
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+      expect(
+        container.querySelector('.insight-section.dragging')?.getAttribute('data-id'),
+      ).toBe('lorebook');
+      touch(list, 'pointermove', 20);
+      expect(sections()[0]).toBe('lorebook');
+      touch(list, 'pointerup', 20);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

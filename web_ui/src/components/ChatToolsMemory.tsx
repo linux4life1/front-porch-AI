@@ -9,6 +9,7 @@ import { api } from '../api/client';
 import { ExpandableText } from './ExpandableText';
 import { GrowthPanel } from './GrowthPanel';
 import { JournalPanel } from './JournalPanel';
+import { MemoryLinks } from './ChatToolsMemoryBank';
 import { SummaryRecapField } from './SummaryRecapField';
 import {
   NumField,
@@ -18,6 +19,10 @@ import {
   type ToolsState,
   type ToolsToggle,
 } from './ChatToolsShared';
+
+/** Under a group's greyed Memory switch (desktop: MemoryOffEverywhereNote). */
+export const MEMORY_OFF_EVERYWHERE =
+  "Memory is off for every chat. Turn it on in a one-on-one chat's sidebar. This group's choice is kept.";
 
 function wikiHostLabel(url: string): string {
   try {
@@ -190,28 +195,45 @@ export function ChatToolsMemory({
   reloadKey: number;
   settings: ToolsSettings;
 }) {
+  // A group's switch only takes effect with the global Memory setting on; the
+  // same wording as the desktop leaf (MemoryOffEverywhereNote).
+  const memoryLocked = t.memory.ragScope === 'group' && t.memory.ragGlobalEnabled === false;
+  const memoryRuns = t.memory.ragEnabled && !memoryLocked;
   return (
     <>
       <details className="tool-section">
         <summary>Memory</summary>
         <div className="tool-body">
-          <Toggle label="Use memory (RAG)" value={t.memory.ragEnabled} onChange={(v) => settings({ ragEnabled: v })} />
-          {t.memory.ragEnabled && (
+          <Toggle
+            label="Use memory (RAG)"
+            value={t.memory.ragEnabled}
+            disabled={memoryLocked}
+            onChange={(v) => settings({ ragEnabled: v })}
+          />
+          {memoryLocked && <p className="muted small">{MEMORY_OFF_EVERYWHERE}</p>}
+          {memoryRuns && (
             <>
               <EmbeddingStatus t={t} />
-              <NumField
-                label="Past moments per reply"
-                value={t.memory.ragRetrievalCount}
-                onCommit={(v) => settings({ ragRetrievalCount: v })}
-              />
-              <p className="muted small">How many old moments to weave into each reply (0 = all strong matches).</p>
-              <NumField
-                label="Messages per moment"
-                value={t.memory.ragWindowSize}
-                onCommit={(v) => settings({ ragWindowSize: v })}
-              />
-              <p className="muted small">How much of each past scene to keep (3–10 messages).</p>
               <LastRagReceipt t={t} />
+              <MemoryLinks
+                focusedId={focusedId}
+                settings={
+                  <>
+                    <NumField
+                      label="Past moments per reply"
+                      value={t.memory.ragRetrievalCount}
+                      onCommit={(v) => settings({ ragRetrievalCount: v })}
+                    />
+                    <p className="muted small">How many old moments to weave into each reply (0 = all strong matches).</p>
+                    <NumField
+                      label="Messages per moment"
+                      value={t.memory.ragWindowSize}
+                      onCommit={(v) => settings({ ragWindowSize: v })}
+                    />
+                    <p className="muted small">How much of each past scene to keep (3–10 messages).</p>
+                  </>
+                }
+              />
             </>
           )}
           <Toggle label="Journal (memories + recap)" value={t.memory.journalEnabled} onChange={(v) => settings({ journalEnabled: v })} />
