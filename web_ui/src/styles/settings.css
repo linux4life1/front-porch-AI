@@ -546,3 +546,12 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
 .prompt-field-group { margin-top: 14px; }
 .prompt-field-group label { margin-bottom: 4px; font-weight: 500; }
 .prompt-field-group textarea { margin-top: 2px; }
+
+/* Match Desktop rounded pill Save / Reset buttons */
+.settings-save button.primary { border-radius: 999px; padding: 10px 22px; }
+.prompt-slot button:not(.primary):not(.icon-btn) {
+  border-radius: 999px; background: transparent;
+  border: 1px solid var(--border); color: var(--porch-amber);
+  font-weight: 600; padding: 8px 18px;
+}
+.prompt-slot button.primary { border-radius: 999px; padding: 8px 18px; }
