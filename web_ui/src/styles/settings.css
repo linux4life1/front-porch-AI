@@ -4,15 +4,66 @@
    and persona pickers, persona manager, account.
 */
 
-/* ── Chat colors settings ──────────────────────────────────────────────── */
-.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
-.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
-.color-row input[type='color'] {
-  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
-  border-radius: 6px; background: none; cursor: pointer;
+/* ── Chat appearance (desktop chat_appearance_section.dart) ──────────────
+   Reading Size and Chat Font share one card; then the live preview and the
+   paired colour matrix (User Message | Character Message). */
+.chat-type-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 4px 14px; margin: 8px 0 16px;
 }
-.color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
-@media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
+.chat-type-card .setting-row { margin: 0; padding: 12px 0; }
+.chat-type-card .setting-row:last-child { border-bottom: 0; }
+.chat-type-card .setting-row:hover { background: none; }
+.color-preview {
+  display: flex; flex-direction: column; padding: 12px 14px; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.preview-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.preview-label {
+  font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.preview-font { font-size: 0.65rem; color: var(--faint); font-family: var(--chat-font, inherit); }
+.color-preview .preview-bubble {
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  font-family: var(--chat-font, inherit); text-align: left; cursor: pointer; max-width: min(380px, 85%);
+  margin: 0; align-self: flex-start;
+}
+.color-preview .preview-bubble.user { max-width: min(320px, 85%); align-self: flex-end; }
+.color-preview .preview-bubble:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 2px; }
+.color-groups-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 8px; }
+.color-group-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px;
+}
+.color-group-title {
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--muted); margin-bottom: 10px;
+}
+.color-chips-row { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.color-chip-item {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px;
+  min-height: 32px; box-sizing: border-box;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.8rem; color: var(--text); cursor: pointer; margin: 0;
+}
+.color-chip-item:focus-within { outline: 2px solid var(--porch-amber); outline-offset: 1px; }
+.color-chip-swatch {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border);
+  font-size: 0.7rem; font-weight: 700;
+}
+.color-chip-swatch.ink { width: 22px; }
+.color-chip-sample { font-size: 0.7rem; font-weight: 600; }
+/* The native wheel stays in the DOM (a preview-bubble tap opens it) but the
+   chip paints the swatch. */
+.color-chip-input {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
+  padding: 0; border: 0; cursor: pointer;
+}
+@media (max-width: 600px) {
+  .color-groups-grid { grid-template-columns: 1fr; }
+}
 
 /* ── Chat theme settings (per-chat theme presets + customization) ────────── */
 .theme-settings { margin-bottom: 16px; }
@@ -38,6 +89,15 @@
   width: 100%; padding: 8px 10px; margin: 4px 0 12px;
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius); color: var(--text); font-size: 0.85rem;
+}
+.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
+.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
+.color-row input[type='color'] {
+  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+}
+@media (max-width: 768px) {
+  .color-rows { grid-template-columns: 1fr; }
 }
 .theme-actions { display: flex; gap: 8px; margin-top: 12px; }
 
@@ -91,7 +151,7 @@
   width: 34px; height: 34px; padding: 0; border: 0; background: none;
   cursor: pointer; opacity: 0;
 }
-.accent-card-note { margin: 6px 0 0; }
+.accent-inline-note { font-weight: 400; margin-left: 4px; }
 .appearance-reset { margin: 6px 0 12px; }
 
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */

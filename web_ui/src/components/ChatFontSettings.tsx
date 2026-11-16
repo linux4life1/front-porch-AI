@@ -40,7 +40,6 @@ export function ChatFontSettings() {
   return (
     <SettingRow
       title="Chat Font"
-      blurb="The face the chat's bubbles are written in. Each chat's own theme can still override it."
       testid="chat-font-card"
     >
       <select

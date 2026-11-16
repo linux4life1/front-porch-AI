@@ -526,8 +526,8 @@ export function SettingsPage() {
       <div className="settings-section" data-section="appearance">
 
         {/* Desktop order (appearance_tab.dart): the theme gallery, mode,
-            accent, UI font, corners, the reset — then the weather's own
-            section, then chat appearance. */}
+            accent, UI font, corners, the reset — then chat appearance, then
+            the weather's own section. */}
         <div className="settings-group" data-testid="theme-group">
           <h4 className="settings-group-heading">Theme</h4>
           <ThemeGallerySettings />
@@ -538,17 +538,22 @@ export function SettingsPage() {
           <ThemeResetSettings />
         </div>
 
-        <BackgroundWeatherSettings />
-
+        {/* chat_appearance_section.dart: Reading Size and Chat Font in one
+            card, the live preview and paired colour matrix, the theme-colour
+            reset, then mood on the character. */}
         <div className="settings-group" data-testid="chat-appearance-group">
           <h4 className="settings-group-heading">Chat appearance</h4>
-          <ReadingSizeSettings />
-          <MoodOnCharacterSettings />
-          <BubbleOpacitySettings />
+          <div className="chat-type-card">
+            <ReadingSizeSettings />
+            <ChatFontSettings />
+          </div>
           <ChatColorsSettings />
-          <ChatFontSettings />
+          <BubbleOpacitySettings />
           <ChatColorsResetSettings />
+          <MoodOnCharacterSettings />
         </div>
+
+        <BackgroundWeatherSettings />
       </div>
       )}
 

@@ -38,7 +38,7 @@ export function ReadingSizeSlider() {
         aria-valuenow={scale}
         aria-label="Reading size"
       />
-      <span className="reading-size-value">{scale.toFixed(1)}×</span>
+      <span className="reading-size-value">{Math.round(scale * 100)}%</span>
     </label>
   );
 }
@@ -47,7 +47,7 @@ export function ReadingSizeSettings() {
   return (
     <SettingRow
       title="Reading size"
-      blurb="Chat bubbles, the composer, message edit, and sidebar help. Buttons and labels stay put."
+      blurb="Scales chat bubbles and transcript text"
       testid="reading-size-card"
     >
       <ReadingSizeSlider />

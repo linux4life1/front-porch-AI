@@ -15,7 +15,7 @@ export function SettingRow({
   children,
   testid,
 }: {
-  title: string;
+  title: ReactNode;
   /** The muted line under the title; the desktop shows one for most rows. */
   blurb?: ReactNode;
   /** The control (switch, select, slider…) painted at the row's right end. */

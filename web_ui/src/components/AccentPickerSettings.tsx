@@ -82,7 +82,11 @@ export function AccentPickerSettings() {
 
   return (
     <SettingRow
-      title="Accent"
+      title={
+        <>
+          Accent <span className="muted small accent-inline-note">• {note}</span>
+        </>
+      }
       blurb="The colour buttons, links and highlights use. A custom colour is nudged toward readability on this theme."
       testid="accent-card"
     >
@@ -129,7 +133,6 @@ export function AccentPickerSettings() {
           />
         </label>
         </div>
-        <p className="muted small accent-card-note">{note}</p>
       </div>
       {error && <p className="error">{error}</p>}
     </SettingRow>
