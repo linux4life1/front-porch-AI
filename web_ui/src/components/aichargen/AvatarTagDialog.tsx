@@ -70,7 +70,7 @@ export function AvatarTagDialog({
           </div>
         </div>
         <footer className="cg-r-lore-foot cg-tag-foot">
-          <button type="button" className="ghost" onClick={onClose}>
+          <button type="button" className="ghost" disabled={busy} onClick={onClose}>
             Cancel
           </button>
         </footer>
