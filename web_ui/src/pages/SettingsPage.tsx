@@ -525,29 +525,39 @@ export function SettingsPage() {
       {tab === 'appearance' && (
       <div className="settings-section" data-section="appearance">
 
-        {/* Desktop order (appearance_tab.dart): the theme gallery, mode,
-            accent, UI font, corners, the reset — then the weather's own
-            section, then chat appearance. */}
+        {/* Desktop order (appearance_tab.dart): Theme & Chrome (gallery,
+            shell controls card, accent bar, reset), Chat Appearance (type/scale
+            card, live capsule preview + paired matrix, chat color reset),
+            and Atmosphere & Immersion (weather + mood cards side-by-side). */}
         <div className="settings-group" data-testid="theme-group">
-          <h4 className="settings-group-heading">Theme</h4>
+          <h4 className="settings-group-heading">Theme &amp; Chrome</h4>
           <ThemeGallerySettings />
-          <ThemeModeSettings />
+          <div className="appearance-shell-card">
+            <ThemeModeSettings />
+            <UiFontSettings />
+            <CornersSettings />
+          </div>
           <AccentPickerSettings />
-          <UiFontSettings />
-          <CornersSettings />
           <ThemeResetSettings />
         </div>
 
-        <BackgroundWeatherSettings />
-
         <div className="settings-group" data-testid="chat-appearance-group">
-          <h4 className="settings-group-heading">Chat appearance</h4>
-          <ReadingSizeSettings />
-          <MoodOnCharacterSettings />
-          <BubbleOpacitySettings />
+          <h4 className="settings-group-heading">Chat Appearance</h4>
+          <div className="chat-type-card">
+            <ReadingSizeSettings />
+            <ChatFontSettings />
+            <BubbleOpacitySettings />
+          </div>
           <ChatColorsSettings />
-          <ChatFontSettings />
           <ChatColorsResetSettings />
+
+          <h4 className="settings-group-heading" style={{ marginTop: 28 }}>
+            Atmosphere &amp; Immersion
+          </h4>
+          <div className="atmosphere-grid">
+            <BackgroundWeatherSettings />
+            <MoodOnCharacterSettings />
+          </div>
         </div>
       </div>
       )}

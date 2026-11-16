@@ -105,7 +105,11 @@ export function MoodOnCharacterSettings() {
   if (!realismAllowed) return null;
 
   return (
-    <section data-testid="mood-on-character">
+    <section className="card atmosphere-card" data-testid="mood-on-character">
+      <div className="atmosphere-card-head">
+        <span className="atmosphere-eyebrow">REALISM MOOD</span>
+        <span className="atmosphere-badge atmosphere-badge-ok">Realism Active</span>
+      </div>
       <SettingRow
         title="Mood on the character"
         blurb={

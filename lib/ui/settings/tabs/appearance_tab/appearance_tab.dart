@@ -71,7 +71,7 @@ class AppearanceTab extends StatelessWidget {
                   children: [
                     AppearanceChoice<AppThemeMode>(
                       key: const ValueKey('appearance-mode'),
-                      label: 'Brightness Mode',
+                      label: 'Mode',
                       values: AppThemeMode.values,
                       selected: appearance.mode,
                       labelOf: (m) => m.label,
@@ -79,7 +79,7 @@ class AppearanceTab extends StatelessWidget {
                     ),
                     AppearanceChoice<UiFont>(
                       key: const ValueKey('appearance-font'),
-                      label: 'UI Typeface',
+                      label: 'UI font',
                       values: UiFont.values,
                       selected: appearance.font,
                       labelOf: (f) => f.label,
@@ -87,7 +87,7 @@ class AppearanceTab extends StatelessWidget {
                     ),
                     AppearanceChoice<UiCorners>(
                       key: const ValueKey('appearance-corners'),
-                      label: 'Corner Roundness',
+                      label: 'Corners',
                       values: UiCorners.values,
                       selected: appearance.corners,
                       labelOf: (c) => c.label,
@@ -130,13 +130,13 @@ class AppearanceTab extends StatelessWidget {
               if (isNarrow) ...[
                 const BackgroundWeatherSection(),
                 const SizedBox(height: 12),
-                MoodOnCharacterControls(),
+                const MoodOnCharacterControls(),
               ] else
-                Row(
+                const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: const BackgroundWeatherSection()),
-                    const SizedBox(width: 14),
+                    Expanded(child: BackgroundWeatherSection()),
+                    SizedBox(width: 14),
                     Expanded(child: MoodOnCharacterControls()),
                   ],
                 ),

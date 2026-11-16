@@ -22,7 +22,6 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
-import 'appearance_choice.dart';
 
 /// The accent choice: the theme's own accent, twelve quick picks, or any
 /// color from the wheel. A pick too faint for the theme is fitted, and the
@@ -45,7 +44,6 @@ class AccentPickerRow extends StatelessWidget {
         : 'Custom accent';
 
     final corners = AppCorners.of(context);
-    final themeName = appearance.theme.label;
 
     return Container(
       width: double.infinity,
@@ -53,10 +51,7 @@ class AccentPickerRow extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.cardOf(context),
         borderRadius: corners.circular(12),
-        border: Border.all(
-          color: AppColors.borderOf(context),
-          width: 1,
-        ),
+        border: Border.all(color: AppColors.borderOf(context), width: 1),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -84,7 +79,10 @@ class AccentPickerRow extends StatelessWidget {
                 onTap: () => appearance.setAccentOverride(null),
                 borderRadius: corners.circular(16),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: picked == null
                         ? themeAccent.withValues(alpha: 0.15)
@@ -109,7 +107,7 @@ class AccentPickerRow extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        '$themeName Amber',
+                        'Theme accent',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -138,7 +136,9 @@ class AccentPickerRow extends StatelessWidget {
                     ),
                   _Swatch(
                     key: const ValueKey('accent-any'),
-                    color: custom ? picked : AppColors.surfaceContainerOf(context),
+                    color: custom
+                        ? picked
+                        : AppColors.surfaceContainerOf(context),
                     label: 'Any color',
                     selected: custom,
                     icon: Icons.colorize,

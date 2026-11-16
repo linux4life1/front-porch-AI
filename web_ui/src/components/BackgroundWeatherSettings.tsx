@@ -131,16 +131,22 @@ export function BackgroundWeatherSettings() {
   if (!weatherOn) return null;
 
   return (
-    <section className="settings-group" data-testid="background-weather">
-      <h4 className="settings-group-heading">
-        Background weather
-        <span
-          className="info-tip"
-          tabIndex={0}
-          title="The story's weather and sky behind the chat. It shows only in chats whose character or group has a world with climate turned on and the story clock running; other chats keep their plain background."
-          aria-label="About background weather"
-        >ⓘ</span>
-      </h4>
+    <section className="card atmosphere-card" data-testid="background-weather">
+      <div className="atmosphere-card-head">
+        <h4 className="settings-group-heading">
+          Background weather{' '}
+          <span
+            className="info-tip"
+            tabIndex={0}
+            title="The story's weather and sky behind the chat. It shows only in chats whose character or group has a world with climate turned on and the story clock running; other chats keep their plain background."
+            aria-label="About background weather"
+          >ⓘ</span>
+        </h4>
+        <span className="atmosphere-badge atmosphere-badge-accent">Climate Active</span>
+      </div>
+      <p className="muted small atmosphere-caption">
+        Only in chats with a world that has climate on. Other chats keep their plain background.
+      </p>
       <SettingRow
         title="Ambient scene"
         blurb={
