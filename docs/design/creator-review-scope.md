@@ -114,9 +114,9 @@ Build:
    dialogue card with steer/Regenerate/Stop (`:261-294`), System Prompt
    (4). Each card carries a fullscreen/expand icon button top-right
    (`creator_text_card.dart:107, 179` — `showExpandedEditorDialog`);
-   the web needs a twin of that expanded editor dialog. Auto-save per keystroke-debounce as the web already
-   does for `mesExample`
-   (`ReviewSection.tsx:143-151`) — same verb:
+   the web needs a twin of that expanded editor dialog. Auto-save per
+   keystroke-debounce through the Review step's `editField` (`ReviewStep.tsx`)
+   — same verb:
    `POST /api/characters/<id>` (`character_routes.dart:78` →
    `lib/services/web/facade/character/character_card_edits.dart:29-105`).
 3. **Lorebook card, full**: row list with **keep-checkboxes**, per-row
@@ -219,9 +219,9 @@ The desktop gates the Vision QC switch on capability and runs
 the QC switch and without hold-back: packs run straight to import. Pin a
 ⚙️ desktop-only row in `dev-notes/web-parity.md`; no vision-probe route
 is added. Everything else in §2 is parity, not optional — including the
-in-page lorebook row editing (the `Open in editor` delegation that
-`ReviewSection.tsx:194-223` uses today is superseded on wide; phone
-keeps today's shape per §1).
+in-page lorebook row editing (the `Open in editor` delegation the old
+`ReviewSection` used is superseded on wide; phone keeps the step's shape
+per §1).
 
 ## 4. Route summary (all additive)
 
