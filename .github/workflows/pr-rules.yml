@@ -20,6 +20,10 @@ name: PR rules
 #    docs/screenshots/ present on the PR's head. CLAUDE.md "One UI": every
 #    UI or UX change is shown, desktop and web. No label skips it and no
 #    author is exempt, maintainer included.
+# 5. Web parity. A PR that changes desktop UI (lib/ui/) or web UI
+#    (web_ui/src/) but not both needs a `## Web parity` section saying why:
+#    a line starting `none:` or `deferred:` with a reason. CLAUDE.md "One UI":
+#    the surfaces ship together unless the maintainer deferred it.
 # 3. Smoke tier. The job summary prints the tier the changed files call for
 #    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
 #
@@ -208,6 +212,39 @@ jobs:
                     'editing the description, or commit them under ' +
                     '`docs/screenshots/<topic>/` and embed them. Seeded or made-up ' +
                     'data only. No label or author is exempt.',
+                );
+              }
+            }
+
+            // --- Web parity (One UI) -----------------------------------------
+            // Desktop UI and web UI ship together. When a PR changes only one
+            // side, the description says why in a `## Web parity` section: a
+            // line starting `none:` (the other side has nothing to change) or
+            // `deferred:` (the maintainer deferred it in conversation), then
+            // the reason. When both sides changed there is nothing to ask.
+            const desktopUi = paths.filter(
+              (p) => p.startsWith('lib/ui/') && p.endsWith('.dart') && !isTest(p),
+            );
+            const webUi = paths.filter(
+              (p) => p.startsWith('web_ui/src/') && !isTest(p),
+            );
+            if ((desktopUi.length > 0) !== (webUi.length > 0)) {
+              const side = desktopUi.length ? 'desktop (lib/ui/)' : 'web (web_ui/src/)';
+              const other = desktopUi.length ? 'web (web_ui/src/)' : 'desktop (lib/ui/)';
+              const par = body.match(/^##\s+Web parity\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/im);
+              const ruling = par
+                ? par[1]
+                    .split('\n')
+                    .map((l) => l.trim().replace(/^([-*+]\s+)?(\[[ xX]\]\s+)?/, ''))
+                    .find((l) => /^(none|deferred):\s*.{12,}/i.test(l))
+                : undefined;
+              if (!ruling) {
+                errors.push(
+                  `Changes ${side} UI but nothing under ${other}. One UI: both ship ` +
+                    'together. Either change the other side in this PR, or add a ' +
+                    '`## Web parity` section to the description with one line: ' +
+                    '`none: <why the other side has nothing to change>` or ' +
+                    '`deferred: <what the maintainer deferred, and where it is tracked>`.',
                 );
               }
             }
