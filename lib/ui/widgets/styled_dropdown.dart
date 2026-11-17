@@ -40,6 +40,7 @@ class StyledDropdown<T> extends StatelessWidget {
                 context.creatorPalette?.raise ??
                 AppColors.surfaceContainerOf(context),
             style: TextStyle(
+              fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
               color:
                   context.creatorPalette?.ink ?? AppColors.textPrimary(context),
               fontSize: 13,
