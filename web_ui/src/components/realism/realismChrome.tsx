@@ -50,6 +50,8 @@ export const RlIcon = {
   drop: () => (<Line><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z" /></Line>),
   /** Icons.local_fire_department */
   flame: () => (<Line><path d="M12 21a6 6 0 0 0 6-6c0-4-3-6-4-10-2 2-3 4-3 6-1-1-2-2-2-4-2 2-3 5-3 8a6 6 0 0 0 6 6Z" /></Line>),
+  /** Icons.pause_circle_outline */
+  pauseOutline: () => (<Line><circle cx="12" cy="12" r="9" /><path d="M10 9v6M14 9v6" /></Line>),
   /** Icons.casino */
   dice: () => (<Line><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9h.01M15 9h.01M12 12h.01M9 15h.01M15 15h.01" /></Line>),
   /** Icons.verified_user */
