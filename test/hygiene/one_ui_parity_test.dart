@@ -245,6 +245,16 @@ String _desktopDetails() {
     'RealismOptionalFeaturesCard(',
     _d('widgets/realism_form_section/realism_optional_features_card.dart'),
   );
+  form = _splice(
+    form,
+    'RecoveryBlock(',
+    _d('widgets/realism_form_section/recovery_block.dart'),
+  );
+  form = _splice(
+    form,
+    'memberStartsAwayRow(',
+    _d('widgets/realism_form_section/member_starts_away_row.dart'),
+  );
   return tab +
       _d('widgets/realism_form_section/realism_master_toggle.dart') +
       form +
@@ -281,6 +291,11 @@ String _webDetails() {
     form,
     '<RelationshipFields',
     _w('components/realism/RelationshipFields.tsx'),
+  );
+  form = _wSplice(
+    form,
+    '<RecoveryBlock',
+    _w('components/realism/RecoveryBlock.tsx'),
   );
   // The "Story begins" and "Opens at" chips are one shared component (the
   // desktop draws them as two chips), so their words live in realismChrome.
@@ -356,6 +371,8 @@ const _detailsLeaves = [
   'Starting Emotion',
   'Optional Features',
   'Afterglow',
+  'Recovery after intimacy',
+  'Starts away',
   'Chaos Mode (Chance Time)',
   'Realism Verification (Director/Verifier)',
   'Max reprocess passes',
