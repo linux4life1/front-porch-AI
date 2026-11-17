@@ -153,6 +153,13 @@ tool that wrote `display: none` on a labelled control, not at the person who
 reviewed the screenshots and saw nothing wrong with them. No contributor
 handle in the joke. Keep it dry and one line, not a bit.
 
+Approved register, from the maintainer, is the dry technical jab that names the
+bad idea rather than the person who trusted it — e.g. "`aria-label` went on the
+input; the input got `width: 0`. That is the model rediscovering the
+invisible-button-with-a-visible-span, a trick we already ship correctly three
+files over as `input.switch`", and "the goldens were regenerated on Windows and
+then asked to pass on Linux, which is a bold theory of pixel rendering."
+
 ## Not a defect
 
 - 716's only Playwright failure (`journeys.spec.ts:552`, HTTP 500 on
