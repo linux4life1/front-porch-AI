@@ -160,7 +160,7 @@ export function GenerationSettingsFields({
         <h3 className="gen-section-title">Output Limits &amp; Context Budgets</h3>
         <SliderField
           card
-          label="Max output tokens"
+          label="Max Output Tokens"
           info="Maximum tokens generated in a single reply. 2,048 is standard; higher values allow deep reasoning chains."
           value={g.maxLength}
           min={64}
@@ -173,7 +173,7 @@ export function GenerationSettingsFields({
         />
         <SliderField
           card
-          label="Context size"
+          label="Context Size"
           info="Total working memory buffer for character, chat history, and system instructions."
           value={contextSize}
           min={512}
@@ -197,7 +197,7 @@ export function GenerationSettingsFields({
 
         {g.stopSequences && (
           <StringListEditor
-            title="Stop sequences"
+            title="Stop Sequences"
             hint="The model stops if it writes one of these strings."
             values={g.stopSequences}
             onChange={(stopSequences) => patchGen({ stopSequences })}
@@ -207,7 +207,7 @@ export function GenerationSettingsFields({
 
         {shown('bannedPhrases') && bannedPhrases !== undefined && (
           <div style={{ marginTop: 16 }}>
-            <h4 className="gen-subsection-heading">Banned phrases</h4>
+            <h4 className="gen-subsection-heading">Banned Phrases</h4>
             <label>
               <span className="muted small">One phrase per line</span>
               <textarea

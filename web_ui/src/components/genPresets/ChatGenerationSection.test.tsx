@@ -89,10 +89,10 @@ describe('Generation for this chat', () => {
     const select = container.querySelector<HTMLSelectElement>('select[aria-label="Preset for this chat"]')!;
     expect(select.options[0].textContent).toBe('Follow the model: “Precise”');
     expect(labels()).toEqual([
-      'Temperature', 'Min-P', 'Top-P', 'Top-K', 'Repeat penalty', 'Max output tokens',
+      'Temperature', 'Min-P', 'Top-P', 'Top-K', 'Repeat Penalty', 'Max Output Tokens',
       'Stop sequences (one per line)',
     ]);
-    expect(container.textContent).not.toContain('Dynamic temperature');
+    expect(container.textContent).not.toContain('Dynamic Temperature');
     expect(resetOf('Temperature'), 'nothing of its own to hand back').toBeNull();
   });
 
@@ -157,7 +157,7 @@ describe('Generation for this chat', () => {
 
   it('serves a group chat the same way, and hides with no chat open', async () => {
     await open(chatOf({ isGroup: true, values: { maxLength: 300 }, overrides: 1 }));
-    expect(resetOf('Max output tokens')).not.toBeNull();
+    expect(resetOf('Max Output Tokens')).not.toBeNull();
     act(() => root.unmount());
     root = createRoot(container);
     await open({ open: false });

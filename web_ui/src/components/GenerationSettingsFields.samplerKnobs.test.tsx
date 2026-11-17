@@ -35,14 +35,14 @@ const GENERATION: GenSettings = {
 const LABELS = [
   'Min-P',
   'Top-K',
-  'Repeat penalty',
-  'Rep pen tokens',
-  'XTC threshold',
-  'XTC probability',
-  'DRY strength',
-  'Dynamic temperature',
-  'Dynatemp range',
-  'Banned phrases',
+  'Repeat Penalty',
+  'Rep Pen Tokens',
+  'XTC Threshold',
+  'XTC Probability',
+  'DRY Strength',
+  'Dynamic Temperature',
+  'Dynatemp Range',
+  'Banned Phrases',
 ] as const;
 
 let container: HTMLDivElement;
@@ -97,15 +97,15 @@ describe('Generation card follows the host\'s sampler list', () => {
   it('oMLX: the repetition settings and XTC, no dynamic temperature or banned phrases', async () => {
     await show('omlx', ['minP', 'topK', 'repeatPenalty', 'repeatPenaltyTokens', 'xtc', 'dry']);
     expect(shown()).toEqual([
-      'Min-P', 'Top-K', 'Repeat penalty', 'Rep pen tokens',
-      'XTC threshold', 'XTC probability', 'DRY strength',
+      'Min-P', 'Top-K', 'Repeat Penalty', 'Rep Pen Tokens',
+      'XTC Threshold', 'XTC Probability', 'DRY Strength',
     ]);
   });
 
   it('xAI: none of them, and the basics stay', async () => {
     await show('openRouter', []);
     expect(shown()).toEqual([]);
-    for (const basic of ['Temperature', 'Top-P', 'Max output tokens', 'Context size']) {
+    for (const basic of ['Temperature', 'Top-P', 'Max Output Tokens', 'Context Size']) {
       expect(container.textContent).toContain(basic);
     }
   });
@@ -113,8 +113,8 @@ describe('Generation card follows the host\'s sampler list', () => {
   it('an older host with no list keeps the old rule', async () => {
     await show('openRouter');
     expect(shown()).toEqual([
-      'Min-P', 'Top-K', 'Repeat penalty', 'Rep pen tokens',
-      'Dynamic temperature', 'Dynatemp range',
+      'Min-P', 'Top-K', 'Repeat Penalty', 'Rep Pen Tokens',
+      'Dynamic Temperature', 'Dynatemp Range',
     ]);
   });
 });
