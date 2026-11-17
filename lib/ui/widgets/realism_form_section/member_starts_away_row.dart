@@ -22,8 +22,8 @@ Widget memberStartsAwayRow(
   label: 'Starts away',
   subtitle:
       'Every chat you make with this group starts '
-      "${memberName ?? 'them'} Away, before any turn runs. Only Back at "
-      'the door brings them in - a chat you reopen keeps its own.',
+      "${memberName ?? 'them'} Away, before any turn runs. "
+      'Only Back at the door brings them in.',
   value: value,
   onChanged: onChanged,
   context: context,
