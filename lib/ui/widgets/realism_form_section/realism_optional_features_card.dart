@@ -23,6 +23,7 @@ import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 
+import 'member_starts_away_row.dart';
 import 'realism_form_controls.dart';
 import 'recovery_block.dart';
 
@@ -146,7 +147,11 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
             // hidden.
             if (onStartsAwayChanged != null) ...[
               const SizedBox(height: 12),
-              startsAwayRow(context),
+              memberStartsAwayRow(
+                context,
+                startsAwayEnabled,
+                onStartsAwayChanged!,
+              ),
             ],
             if (showRecovery) const SizedBox(height: 12),
             if (!showRecovery && (showChaosToggle || showVerificationToggle))
@@ -158,7 +163,12 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                 height: 24,
               ),
           ],
-          if (!allowed && onStartsAwayChanged != null) startsAwayRow(context),
+          if (!allowed && onStartsAwayChanged != null)
+            memberStartsAwayRow(
+              context,
+              startsAwayEnabled,
+              onStartsAwayChanged!,
+            ),
           if (showRecovery) ...[
             RecoveryBlock(
               recovery: recovery!,
@@ -216,20 +226,6 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
     );
   }
-
-  /// The row the member editor sets Starts Away with — both placements
-  /// (beside Afterglow, and alone when Porch Life hides that row) share it.
-  Widget startsAwayRow(BuildContext context) => buildRealismToggleRow(
-    icon: Icons.pause_circle_outline,
-    label: 'Starts away',
-    subtitle:
-        'Every chat you make with this group starts them Away, before any '
-        'turn runs. Only Back at the door brings them in — a chat you '
-        'reopen keeps its own.',
-    value: startsAwayEnabled,
-    onChanged: onStartsAwayChanged!,
-    context: context,
-  );
 }
 
 /// The Chaos Mode switch row; greyed out with [lockedTooltip] when it is
