@@ -144,6 +144,15 @@ both sides gate on the same rule:
   `genPresetsOf(storage)` returns null; the web does not show it for that
   backend either.
 
+## Notes for the follow-up PR body
+
+The author drove a model that is not strong at code. Blame the model, never
+the author: they shipped desktop and web twins, tests, and screenshots on all
+four PRs, which is more than most change requests carry. The snark aims at the
+tool that wrote `display: none` on a labelled control, not at the person who
+reviewed the screenshots and saw nothing wrong with them. No contributor
+handle in the joke. Keep it dry and one line, not a bit.
+
 ## Not a defect
 
 - 716's only Playwright failure (`journeys.spec.ts:552`, HTTP 500 on
