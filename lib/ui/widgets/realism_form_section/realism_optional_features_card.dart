@@ -52,6 +52,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.onAfterglowChanged,
     this.startsAwayEnabled = false,
     this.onStartsAwayChanged,
+    this.startsAwayMemberName,
     this.chaosLockedTooltip,
     this.verificationLockedTooltip,
     this.needsDirectorAuthority = false,
@@ -110,6 +111,9 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final bool startsAwayEnabled;
   final ValueChanged<bool>? onStartsAwayChanged;
 
+  /// The member's name as the editor has it now, for the row's hint.
+  final String? startsAwayMemberName;
+
   @override
   Widget build(BuildContext context) {
     final allowed = afterglowEnabledOf(context);
@@ -130,7 +134,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          if (showSwitch) ...[
+          if (showSwitch)
             buildRealismToggleRow(
               icon: Icons.local_fire_department,
               label: 'Afterglow',
@@ -141,35 +145,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               onChanged: onAfterglowChanged!,
               context: context,
             ),
-            // Starts away (docs/design/group-initial-presence.md) rides just
-            // below the member's own Afterglow: a door fact, not an 18+
-            // feature, so it shows even when Porch Life keeps the row above
-            // hidden.
-            if (onStartsAwayChanged != null) ...[
-              const SizedBox(height: 12),
-              memberStartsAwayRow(
-                context,
-                startsAwayEnabled,
-                onStartsAwayChanged!,
-              ),
-            ],
-            if (showRecovery) const SizedBox(height: 12),
-            if (!showRecovery && (showChaosToggle || showVerificationToggle))
-              Divider(
-                color:
-                    (context.creatorPalette?.line ??
-                            AppColors.borderOf(context))
-                        .withValues(alpha: 0.4),
-                height: 24,
-              ),
-          ],
-          if (!allowed && onStartsAwayChanged != null)
-            memberStartsAwayRow(
-              context,
-              startsAwayEnabled,
-              onStartsAwayChanged!,
-            ),
           if (showRecovery) ...[
+            const SizedBox(height: 12),
             RecoveryBlock(
               recovery: recovery!,
               sex: sex,
@@ -178,8 +155,24 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               onChanged: onRecoveryChanged!,
               showChargenSuggestion: showChargenSuggestion,
             ),
-            const SizedBox(height: 4),
-            if (showChaosToggle)
+            if (onStartsAwayChanged == null) const SizedBox(height: 4),
+          ],
+          // Starts away (docs/design/group-initial-presence.md) rides after
+          // the complete Afterglow unit - the switch and its Recovery block
+          // - above Chaos: a door fact, not a feature inside that unit, and
+          // not an 18+ one, so it shows even when Porch Life keeps the rows
+          // above hidden.
+          if (onStartsAwayChanged != null) ...[
+            if (showSwitch || showRecovery) const SizedBox(height: 12),
+            memberStartsAwayRow(
+              context,
+              startsAwayEnabled,
+              onStartsAwayChanged!,
+              memberName: startsAwayMemberName,
+            ),
+          ],
+          if (showChaosToggle) ...[
+            if (showSwitch || showRecovery)
               Divider(
                 color:
                     (context.creatorPalette?.line ??
@@ -187,8 +180,6 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         .withValues(alpha: 0.4),
                 height: 24,
               ),
-          ],
-          if (showChaosToggle) ...[
             realismChaosRow(
               context,
               value: chaosModeEnabled,
@@ -199,7 +190,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
 
           // Realism Verification toggle (last optional; independent of needs).
           if (showVerificationToggle) ...[
-            if (showChaosToggle || showRecovery)
+            if (showChaosToggle || showRecovery || showSwitch)
               Divider(
                 color:
                     (context.creatorPalette?.line ??

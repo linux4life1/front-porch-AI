@@ -143,6 +143,7 @@ class EditCharacterRealismSection extends StatelessWidget {
           onStartsAwayChanged: member == null
               ? null
               : (v) => _edit(() => d.realismStartsAway = v),
+          startsAwayMemberName: memberName,
           realismVerificationEnabled: d.realismVerificationEnabled,
           onRealismVerificationChanged: (v) =>
               _edit(() => d.realismVerificationEnabled = v),

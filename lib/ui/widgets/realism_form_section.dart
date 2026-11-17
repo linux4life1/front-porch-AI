@@ -166,6 +166,9 @@ class RealismFormSection extends StatelessWidget {
   final bool startsAwayEnabled;
   final ValueChanged<bool>? onStartsAwayChanged;
 
+  /// The member's name as the editor has it now, for the row's hint.
+  final String? startsAwayMemberName;
+
   /// A group member's editor: Time & Day (and the story-start row under it)
   /// is the group's, so it shows the group's values greyed out with this
   /// tooltip. Chaos Mode likewise, with [chaosLockedTooltip].
@@ -230,6 +233,7 @@ class RealismFormSection extends StatelessWidget {
     this.onAfterglowChanged,
     this.startsAwayEnabled = false,
     this.onStartsAwayChanged,
+    this.startsAwayMemberName,
     this.worn,
     this.onWornChanged,
     this.carrying,
@@ -342,12 +346,6 @@ class RealismFormSection extends StatelessWidget {
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
         if (showTimeAndDay) ...[_timeAndDay(context, labelStyle)],
-        // A group member's Starts Away pick: a door fact, not a Realism
-        // Engine feature (R6) — it shows alone with the engine off too.
-        if (!enabled && onStartsAwayChanged != null) ...[
-          const SizedBox(height: 20),
-          memberStartsAwayRow(context, startsAwayEnabled, onStartsAwayChanged!),
-        ],
         if (enabled) ...[
           // Needs Simulation (rendered separately when provided by caller).
           // ignore: use_null_aware_elements — '?' doesn't work in children lists
@@ -425,11 +423,12 @@ class RealismFormSection extends StatelessWidget {
             verificationLockedTooltip: verificationLockedTooltip,
             startsAwayEnabled: startsAwayEnabled,
             onStartsAwayChanged: onStartsAwayChanged,
+            startsAwayMemberName: startsAwayMemberName,
             needsDirectorAuthority: needsDirectorAuthority,
             onNeedsDirectorAuthorityChanged: onNeedsDirectorAuthorityChanged,
           ),
         ],
-        if (showChaosToggle && !enabled) ...[
+        if (!enabled && (showChaosToggle || onStartsAwayChanged != null)) ...[
           const SizedBox(height: 20),
           RealismSectionHeader(
             Icons.tune,
@@ -438,22 +437,17 @@ class RealismFormSection extends StatelessWidget {
                 AppColors.optionalAccentOf(context),
           ),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: context.creatorPalette?.card ?? AppColors.cardOf(context),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color:
-                    context.creatorPalette?.line ?? AppColors.borderOf(context),
-              ),
-            ),
-            child: realismChaosRow(
-              context,
-              value: chaosModeEnabled,
-              onChanged: onChaosModeChanged,
-              lockedTooltip: chaosLockedTooltip,
-            ),
+          // Starts away rides in this card above Chaos on both engines: a
+          // door fact, not an engine feature (R6) — the engine's own rows
+          // are the ones that hide with it off.
+          RealismEngineOffFeaturesCard(
+            chaosModeEnabled: chaosModeEnabled,
+            onChaosModeChanged: onChaosModeChanged,
+            showChaosToggle: showChaosToggle,
+            chaosLockedTooltip: chaosLockedTooltip,
+            startsAwayEnabled: startsAwayEnabled,
+            onStartsAwayChanged: onStartsAwayChanged,
+            startsAwayMemberName: startsAwayMemberName,
           ),
         ],
 
