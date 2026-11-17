@@ -20,7 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:front_porch_ai/app_version.dart';
-import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/app_corners.dart';
 
 /// Settings → General "About & License" card: version, AGPL notice, and the
 /// source-code / license-violation links.
@@ -35,7 +36,7 @@ class AboutLicenseCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: AppCorners.of(context).circular(12),
         border: Border.all(color: AppColors.borderOf(context)),
       ),
       child: Column(
@@ -44,6 +45,7 @@ class AboutLicenseCard extends StatelessWidget {
           Text(
             'Front Porch AI v$appVersion',
             style: TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary(context),
             ),
@@ -59,7 +61,7 @@ class AboutLicenseCard extends StatelessWidget {
             style: TextStyle(
               color: AppColors.textSecondary(context),
               fontSize: 12,
-              height: 1.4,
+              height: 1.45,
             ),
           ),
           const SizedBox(height: 12),

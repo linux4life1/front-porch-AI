@@ -11,7 +11,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { THEME_EVENT, currentThemeMode, type ThemeMode } from '../theme/appTheme';
-import { SettingRow } from './SettingRow';
 import { useAppearanceWire } from './useAppearanceWire';
 
 /** undefined: follow the host; null: the theme accent; a string: a pick. */
@@ -81,57 +80,62 @@ export function AccentPickerSettings() {
       : 'Theme accent';
 
   return (
-    <SettingRow
-      title="Accent"
-      blurb="The colour buttons, links and highlights use. A custom colour is nudged toward readability on this theme."
-      testid="accent-card"
-    >
-      <div className="accent-control">
+    <section className="card accent-bar-card" data-testid="accent-card">
+      <div className="accent-bar-main">
+        <span className="accent-bar-eyebrow">ACCENT</span>
         <div className="accent-swatches" role="radiogroup" aria-label="Accent colour">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={shown === null}
-          aria-label="Theme accent"
-          title="Theme accent"
-          className={`accent-swatch theme${shown === null ? ' selected' : ''}`}
-          style={{ background: themeAccent }}
-          onClick={() => commit('')}
-        />
-        {wire.accentSwatches.map((hex) => {
-          const selected = shown !== null && shown.toUpperCase() === hex.toUpperCase();
-          return (
-            <button
-              key={hex}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={`Accent ${hex}`}
-              title={hex}
-              className={`accent-swatch${selected ? ' selected' : ''}`}
-              style={{ background: hex }}
-              onClick={() => commit(hex)}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={shown === null}
+            aria-label="Theme accent"
+            title="Theme accent"
+            className={`accent-swatch accent-theme-pill${shown === null ? ' selected' : ''}`}
+            onClick={() => commit('')}
+          >
+            <span
+              className="accent-pill-star"
+              style={{ color: shown === null ? themeAccent : undefined }}
+              aria-hidden="true"
+            >
+              ✦
+            </span>
+            <span>Theme accent</span>
+          </button>
+          {wire.accentSwatches.map((hex) => {
+            const selected = shown !== null && shown.toUpperCase() === hex.toUpperCase();
+            return (
+              <button
+                key={hex}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`Accent ${hex}`}
+                title={hex}
+                className={`accent-swatch${selected ? ' selected' : ''}`}
+                style={{ background: hex }}
+                onClick={() => commit(hex)}
+              />
+            );
+          })}
+          <label
+            role="radio"
+            aria-checked={customSelected}
+            aria-label="Any colour"
+            title="Any colour"
+            className={`accent-swatch custom${customSelected ? ' selected' : ''}`}
+          >
+            <input
+              type="color"
+              value={custom}
+              aria-label="Custom accent colour"
+              onChange={(e) => wheel(e.target.value)}
             />
-          );
-        })}
-        <label
-          role="radio"
-          aria-checked={customSelected}
-          aria-label="Any colour"
-          title="Any colour"
-          className={`accent-swatch custom${customSelected ? ' selected' : ''}`}
-        >
-          <input
-            type="color"
-            value={custom}
-            aria-label="Custom accent colour"
-            onChange={(e) => wheel(e.target.value)}
-          />
-        </label>
+          </label>
         </div>
-        <p className="muted small accent-card-note">{note}</p>
       </div>
+      <span className="muted small accent-bar-note">{note}</span>
       {error && <p className="error">{error}</p>}
-    </SettingRow>
+    </section>
   );
 }

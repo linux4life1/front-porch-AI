@@ -93,7 +93,7 @@ export function PromptSlot({
   };
 
   return (
-    <div className="prompt-additions prompt-slot" data-testid={testId}>
+    <section className="card prompt-additions prompt-slot prompt-slot-card" data-testid={testId}>
       <div className="prompt-slot-head">
         <h4>{title}</h4>
         <span className={`prompt-slot-badge${status.kind === 'saved' ? ' strong' : ''}`}
@@ -111,8 +111,11 @@ export function PromptSlot({
         </select>
       </label>
       <label>{label}
-        <textarea rows={6} value={shown}
-          onChange={(e) => { setUndo(null); onChange(store(e.target.value), name ?? null); }} />
+        <textarea
+          rows={6}
+          value={shown}
+          onChange={(e) => { setUndo(null); onChange(store(e.target.value), name ?? null); }}
+        />
       </label>
       <div className="prompt-slot-actions">
         {status.kind === 'saved' && status.edited && (
@@ -170,6 +173,6 @@ export function PromptSlot({
         </p>
       )}
       {error && <p className="error small" role="alert">{error}</p>}
-    </div>
+    </section>
   );
 }

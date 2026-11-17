@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { applyUserMessageSide } from '../userMessageSide';
-import { SettingRow } from './SettingRow';
 
 export function MessageSideSettings() {
   const [on, setOn] = useState(false);
@@ -40,21 +39,27 @@ export function MessageSideSettings() {
   };
 
   return (
-    <>
-      <SettingRow
-        title="My messages on the right"
-        blurb="Off, your messages sit on the left, like the character's. On, they move to the right, the way chat looked before."
-        testid="message-side-card"
-      >
-        <input
-          className="switch"
-          type="checkbox"
-          checked={on}
-          onChange={(e) => commit(e.target.checked)}
-          aria-label="My messages on the right"
-        />
-      </SettingRow>
+    <section className="card setting-toggle-card" data-testid="message-side-card">
+      <div className="setting-toggle-header">
+        <div className="setting-toggle-info">
+          <h3>My messages on the right</h3>
+          <p className="reading-blurb">
+            Off, your messages sit on the left with your picture, like the
+            character&apos;s. On, they move to the right with your picture on
+            the right, the way chat looked before.
+          </p>
+        </div>
+        <label className="toggle-switch">
+          <input
+            type="checkbox"
+            checked={on}
+            onChange={(e) => commit(e.target.checked)}
+            aria-label="My messages on the right"
+          />
+          <span className="toggle-slider" />
+        </label>
+      </div>
       {problem && <p className="error" role="alert">{problem}</p>}
-    </>
+    </section>
   );
 }

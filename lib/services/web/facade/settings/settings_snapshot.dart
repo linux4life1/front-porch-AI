@@ -217,6 +217,10 @@ class SettingsSnapshot {
       // older PWA ignores the key.
       'evaluationMinimized': _storage.uiSettings.evaluationMinimized,
       'followStreamingReplies': _storage.uiSettings.followStreamingReplies,
+      // Generation → Display Output (Smooth Output Buffer & pacing).
+      'displayBufferEnabled': _storage.uiSettings.displayBufferEnabled,
+      'targetDisplayTps': _storage.uiSettings.targetDisplayTps,
+      'bufferDurationSeconds': _storage.uiSettings.bufferDurationSeconds,
       // The resolved app theme (mode + both token maps). The web never
       // computes a palette; it paints these. Additive.
       'theme': webThemeWire(_storage.appearance),
