@@ -193,6 +193,19 @@ it("posts each member's Starts Away pick from Members, the card's own included",
       'Juniper stays present',
     ).toBe(false);
 
+    // Each pick row is the tool-toggle idiom (the checkbox rides beside the
+    // member's name, the way Auto-Advance and Director Mode do above it),
+    // and the state text says where the value came from.
+    const rowFor = (id: string) =>
+      container.querySelector(`[data-testid="starts-away-row-${id}"]`)!;
+    const valueOf = (id: string) =>
+      container.querySelector(`[data-testid="starts-away-value-${id}"]`)!.textContent;
+    expect(
+      rowFor('m').classList.contains('tool-toggle'),
+      "Marlow's pick row keeps the checkbox on the name's row",
+    ).toBe(true);
+    expect(valueOf('m'), 'an untouched pick reads the card').toBe("their card's own");
+
     // Separate steps: each click hands the next one the fresh picks, the
     // way clicking them in turn does.
     await act(async () => {
@@ -201,6 +214,8 @@ it("posts each member's Starts Away pick from Members, the card's own included",
     await act(async () => {
       container.querySelector<HTMLInputElement>('[data-testid="starts-away-check-m"]')!.click();
     });
+    expect(valueOf('j'), 'picked on: away in every chat here').toBe('away in every chat here');
+    expect(valueOf('m'), 'picked off: present in every chat here').toBe('present in every chat here');
 
     while (!text().includes('Create & open')) click('Next');
     await act(async () => {

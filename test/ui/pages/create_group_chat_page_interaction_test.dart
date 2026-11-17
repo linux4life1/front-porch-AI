@@ -391,6 +391,36 @@ void main() {
     expect(sawRealismHeader, isTrue);
   });
 
+  // The Members row's Starts away pick is labelled and says where the value
+  // came from: a bare switch whose only label was a 400 ms tooltip showed
+  // nothing on touch, and nothing said whether the value came from the
+  // member's card or from the user (docs/design/group-initial-presence.md).
+  testWidgets('the member row labels its Starts away switch with the pick', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpWizard(tester);
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(Switch), findsOneWidget);
+
+    // The label is visible, not a hover-only tooltip.
+    expect(find.text('Starts away'), findsOneWidget);
+    expect(find.byTooltip('Starts away'), findsNothing);
+    // Untouched: the pick is the card's own, and the state says so.
+    expect(find.text("their card's own"), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('away in every chat here'), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('present in every chat here'), findsOneWidget);
+  });
+
   // The wizard's member card saved Long-Term Bond into the seed's trust, so a
   // new group's members started with a ±300 number in their ±100 trust.
   testWidgets('the member card saves Long-Term Bond to its own key', (
