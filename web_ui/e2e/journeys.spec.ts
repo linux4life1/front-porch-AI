@@ -2558,6 +2558,13 @@ test("a member's card switches Realism and Needs for the group's new chats", { t
   const save = async () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    // Save's leave() history-backs to the group editor, and that popstate is
+    // async: a goto issued before it lands pushes the member-edit entry and
+    // the late back() pops it right off (desktop-Chromium timing; trace of
+    // this test's failure: no members/<id>/detail fetch after the third
+    // goto, group editor's /detail+/stats instead). Wait for the router to
+    // arrive before reopening the card.
+    await expect(page).toHaveURL(/#\/groups\/[^/]+\/edit$/);
   };
   try {
     await edit();

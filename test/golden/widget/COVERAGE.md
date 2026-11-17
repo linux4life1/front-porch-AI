@@ -235,5 +235,9 @@ doubles before they can be pumped. Leaf widgets with heavy service deps
 - ⬜ main surfaces + generation options tab (extend existing `test/ui/image_studio/`)
 
 ## Settings + layout
-- ⬜ `lib/ui/settings/*` panels
+- ✅ `lib/ui/settings/tabs/{general_tab,appearance_tab,generation_tab}` — `widget/settings_tabs_golden_test.dart`
+  (wide 1440 + phone 400 surfaces × light + dark; `_SettingsStorage` = the house
+  `FakeStorageService` plus the three members only these tabs read: `appearance`,
+  `genPresets`, `spellCheckLanguage`)
+- ⬜ the remaining `lib/ui/settings/*` tabs (voice-media, backend)
 - ⬜ `lib/ui/layout/main_layout.dart` (shell: sidebar + content)
