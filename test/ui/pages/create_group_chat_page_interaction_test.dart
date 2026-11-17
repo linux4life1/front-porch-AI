@@ -366,8 +366,14 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpWizard(tester);
 
+    // The labelled Starts away pick makes each member row taller than the
+    // tooltip it replaced, so on a 400 px window the second card sits below
+    // the fold: scroll it into view before tapping, the way the walk below
+    // does for Next.
+    await tester.ensureVisible(find.text('Aerin').first);
     await tester.tap(find.text('Aerin').first);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Bo').first);
     await tester.tap(find.text('Bo').first);
     await tester.pumpAndSettle();
     var steps = 1;
