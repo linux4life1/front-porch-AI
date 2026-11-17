@@ -113,9 +113,9 @@ export function StringListEditor({
               <div key={i} className="stop-sequence-item">
                 <input
                   className="stop-sequence-inline-input"
-                  value={s}
+                  value={s.replace(/\n/g, '\\n')}
                   placeholder={placeholder}
-                  onChange={(e) => handleItemChange(i, e.target.value)}
+                  onChange={(e) => handleItemChange(i, e.target.value.replace(/\\n/g, '\n'))}
                 />
                 <button
                   type="button"

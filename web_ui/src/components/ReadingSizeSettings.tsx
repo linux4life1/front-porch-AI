@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Reading size slider — web mirror of desktop General Settings / in-chat UI
+// Reading Size slider — web mirror of desktop General Settings / in-chat UI
 // sheet. Same name, same range, same job: bubbles, composer, edit, sidebar help.
 
 import { useState } from 'react';
@@ -25,7 +25,7 @@ export function ReadingSizeSlider() {
 
   return (
     <label className="reading-size-row">
-      <span>Reading size</span>
+      <span>Reading Size</span>
       <input
         type="range"
         min={READING_SIZE_MIN}
@@ -36,7 +36,7 @@ export function ReadingSizeSlider() {
         aria-valuemin={READING_SIZE_MIN}
         aria-valuemax={READING_SIZE_MAX}
         aria-valuenow={scale}
-        aria-label="Reading size"
+        aria-label="Reading Size"
       />
       <span className="reading-size-value reading-size-badge">{Math.round(scale * 100)}%</span>
     </label>
@@ -46,7 +46,7 @@ export function ReadingSizeSlider() {
 export function ReadingSizeSettings() {
   return (
     <SettingRow
-      title="Reading size"
+      title="Reading Size"
       blurb="Scales chat bubbles and transcript text"
       testid="reading-size-card"
     >

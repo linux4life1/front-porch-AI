@@ -1827,7 +1827,7 @@ test('the theme gallery, accent, corners and font set on the web are the desktop
   }
 });
 
-// Bubble opacity is the desktop's own setting: the phone's slider writes it,
+// Bubble Opacity is the desktop's own setting: the phone's slider writes it,
 // this page's bubbles fade at once, and a reload reads the stored value back.
 test('bubble opacity set on the phone is the desktop setting and survives a reload', { tag: SERIAL }, async ({ page }) => {
   const read = async () =>
@@ -1838,7 +1838,7 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
   const target = Math.abs(was - 0.45) < 0.01 ? 0.55 : 0.45;
   await openRoute(page, '/settings');
   await openSettingsTab(page, 'appearance');
-  const slider = page.getByLabel('Bubble opacity', { exact: true });
+  const slider = page.getByLabel('Bubble Opacity', { exact: true });
   await expect(slider).toBeEnabled();
   try {
     await slider.fill(String(target));
@@ -1848,12 +1848,12 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
     // Reload reopens Settings on General (the desktop's first tab); the
     // slider lives under Appearance.
     await openSettingsTab(page, 'appearance');
-    await expect(page.getByLabel('Bubble opacity', { exact: true })).toBeEnabled();
-    expect(Number(await page.getByLabel('Bubble opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
+    await expect(page.getByLabel('Bubble Opacity', { exact: true })).toBeEnabled();
+    expect(Number(await page.getByLabel('Bubble Opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
     await expect.poll(alpha).toBe(String(target));
   } finally {
     const back = await page.request.post('/api/settings', { data: { bubbleOpacity: was } });
-    expect(back.ok(), `restoring Bubble opacity: ${back.status()}`).toBe(true);
+    expect(back.ok(), `restoring Bubble Opacity: ${back.status()}`).toBe(true);
   }
 });
 
@@ -2558,6 +2558,13 @@ test("a member's card switches Realism and Needs for the group's new chats", { t
   const save = async () => {
     await page.getByRole('button', { name: 'Save', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    // Save's leave() history-backs to the group editor, and that popstate is
+    // async: a goto issued before it lands pushes the member-edit entry and
+    // the late back() pops it right off (desktop-Chromium timing; trace of
+    // this test's failure: no members/<id>/detail fetch after the third
+    // goto, group editor's /detail+/stats instead). Wait for the router to
+    // arrive before reopening the card.
+    await expect(page).toHaveURL(/#\/groups\/[^/]+\/edit$/);
   };
   try {
     await edit();

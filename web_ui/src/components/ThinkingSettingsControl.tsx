@@ -85,7 +85,7 @@ export function ThinkingSettingsControl({
             </button>
           )}
         </div>
-        {thinkingOn && levelIds.length > 0 && (
+        {thinkingOn && levelIds.length > 0 ? (
           <p className="muted small thinking-strength-caption">
             {reasoningEffortMappingCaption(
               model,
@@ -93,6 +93,13 @@ export function ThinkingSettingsControl({
               reasoningEfforts,
               reasoningMandatory,
             )}
+          </p>
+        ) : (
+          // Desktop fallback, thinking_strength_control.dart:141 — the caption
+          // slot always carries a line; the web silently dropped the default.
+          <p className="muted small thinking-strength-caption">
+            How hard the model thinks before replying. The chips match the
+            levels this model actually accepts.
           </p>
         )}
       </div>

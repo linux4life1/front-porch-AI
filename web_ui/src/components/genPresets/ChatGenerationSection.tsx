@@ -28,12 +28,12 @@ const SLIDERS: Slider[] = [
   ['minP', 'Min-P', 0, 1, 0.01, 'minP'],
   ['topP', 'Top-P', 0.1, 1, 0.01, null],
   ['topK', 'Top-K', 0, 200, 1, 'topK', true],
-  ['repeatPenalty', 'Repeat penalty', 1, 3, 0.01, 'repeatPenalty'],
-  ['repeatPenaltyTokens', 'Rep pen tokens', 0, 2048, 8, 'repeatPenaltyTokens', true],
-  ['xtcThreshold', 'XTC threshold', 0, 0.5, 0.01, 'xtc'],
-  ['xtcProbability', 'XTC probability', 0, 1, 0.05, 'xtc'],
-  ['dryMultiplier', 'DRY strength', 0, 3, 0.05, 'dry'],
-  ['maxLength', 'Max output tokens', 16, 16384, 16, null, true],
+  ['repeatPenalty', 'Repeat Penalty', 1, 3, 0.01, 'repeatPenalty'],
+  ['repeatPenaltyTokens', 'Rep Pen Tokens', 0, 2048, 8, 'repeatPenaltyTokens', true],
+  ['xtcThreshold', 'XTC Threshold', 0, 0.5, 0.01, 'xtc'],
+  ['xtcProbability', 'XTC Probability', 0, 1, 0.05, 'xtc'],
+  ['dryMultiplier', 'DRY Strength', 0, 3, 0.05, 'dry'],
+  ['maxLength', 'Max Output Tokens', 16, 16384, 16, null, true],
 ];
 
 const message = (e: unknown) =>

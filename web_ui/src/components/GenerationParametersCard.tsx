@@ -74,7 +74,7 @@ const CREATIVITY_SAMPLERS: SamplerSpec[] = [
 const FLOW_SAMPLERS: SamplerSpec[] = [
   {
     key: 'dryMultiplier',
-    label: 'DRY strength',
+    label: 'DRY Strength',
     info: "Don't Repeat Yourself: catches repeated n-gram phrases. 0.80 is recommended when active; >1.20 over-penalizes.",
     min: 0,
     max: 1.6,
@@ -86,7 +86,7 @@ const FLOW_SAMPLERS: SamplerSpec[] = [
   },
   {
     key: 'repeatPenalty',
-    label: 'Repeat penalty',
+    label: 'Repeat Penalty',
     info: 'Token-level penalty. 1.10 is gentle; values above 1.20 cause severe syntax breakdown and synonym hunting.',
     min: 1.0,
     max: 1.35,
@@ -97,7 +97,7 @@ const FLOW_SAMPLERS: SamplerSpec[] = [
   },
   {
     key: 'repeatPenaltyTokens',
-    label: 'Rep pen tokens',
+    label: 'Repeat Penalty Tokens',
     info: 'How many tokens back the repetition penalty checks. 1024 is community standard.',
     min: 0,
     max: 2048,
@@ -109,7 +109,7 @@ const FLOW_SAMPLERS: SamplerSpec[] = [
   },
   {
     key: 'xtcThreshold',
-    label: 'XTC threshold',
+    label: 'XTC Threshold',
     info: 'Exclude Top Choices threshold. Removes obvious clichés if top token probability exceeds this.',
     min: 0,
     max: 1.00,
@@ -120,7 +120,7 @@ const FLOW_SAMPLERS: SamplerSpec[] = [
   },
   {
     key: 'xtcProbability',
-    label: 'XTC probability',
+    label: 'XTC Probability',
     info: 'How frequently XTC activates. 0 = off, 0.30–0.50 is balanced.',
     min: 0,
     max: 1.0,
@@ -177,7 +177,7 @@ export function GenerationParametersCard({
           {shown('dynamicTemp') && (
             <div className="studio-slider-card">
               <label className="row-label" style={{ margin: 0 }}>
-                <span>Dynamic temperature</span>
+                <span>Dynamic Temperature</span>
                 <input
                   type="checkbox"
                   className="switch"
@@ -188,7 +188,7 @@ export function GenerationParametersCard({
               {g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
                 <div style={{ marginTop: 8 }}>
                   <SliderField
-                    label="Dynatemp range"
+                    label="Dynatemp Range"
                     info="Variance range around base temperature based on entropy."
                     value={g.dynamicTempRange}
                     min={0}

@@ -37,7 +37,7 @@ vi.mock('../components/FollowStreamingSettings', async () => {
 });
 vi.mock('../components/ReadingSizeSettings', async () => {
   const { createElement: h } = await import('react');
-  return { ReadingSizeSettings: () => h('div', { 'data-testid': 'reading-size-card' }, 'Reading size') };
+  return { ReadingSizeSettings: () => h('div', { 'data-testid': 'reading-size-card' }, 'Reading Size') };
 });
 vi.mock('../components/ChatColorsSettings', async () => {
   const { createElement: h } = await import('react');
@@ -304,7 +304,7 @@ describe('Settings sections mirror the desktop tabs', () => {
     const group = groups.get('general/porch-life-group');
     expect(group).toBeDefined();
     expect(group).toContain('18+ themes');
-    expect(group).toContain('live in the Porch Life section now');
+    expect(group).toContain('live in the Porch Life tab now');
   });
 
   it('moves the prompt family out of Generation into General, flat', async () => {

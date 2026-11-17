@@ -49,15 +49,13 @@ export function MessageSideSettings() {
             the right, the way chat looked before.
           </p>
         </div>
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={on}
-            onChange={(e) => commit(e.target.checked)}
-            aria-label="My messages on the right"
-          />
-          <span className="toggle-slider" />
-        </label>
+        <input
+          className="switch"
+          type="checkbox"
+          checked={on}
+          onChange={(e) => commit(e.target.checked)}
+          aria-label="My messages on the right"
+        />
       </div>
       {problem && <p className="error" role="alert">{problem}</p>}
     </section>

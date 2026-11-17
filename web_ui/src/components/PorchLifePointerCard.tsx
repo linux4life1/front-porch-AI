@@ -14,7 +14,7 @@ export function PorchLifePointerCard() {
       <p>
         The Realism Engine, passage of time, weather, the Journal, dreams,
         promises, ambitions and the welcome-back recap all live in the Porch
-        Life section now — each one saying plainly what it needs.
+        Life tab now — each one saying plainly what it needs.
       </p>
     </div>
   );
