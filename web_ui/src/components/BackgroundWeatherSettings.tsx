@@ -10,7 +10,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
-import { SettingRow } from './SettingRow';
 
 type AmbientScene = 'off' | 'tint' | 'effects';
 const AMBIENT: { value: AmbientScene; label: string }[] = [
@@ -131,32 +130,26 @@ export function BackgroundWeatherSettings() {
   if (!weatherOn) return null;
 
   return (
-    <section className="settings-group" data-testid="background-weather">
-      <h4 className="settings-group-heading">
-        Background weather
-        <span
-          className="info-tip"
-          tabIndex={0}
-          title="The story's weather and sky behind the chat. It shows only in chats whose character or group has a world with climate turned on and the story clock running; other chats keep their plain background."
-          aria-label="About background weather"
-        >ⓘ</span>
-      </h4>
-      <SettingRow
-        title="Ambient scene"
-        blurb={
-          <>
-            The story&apos;s weather as a wash over the chat background, in a world
-            with climate on; Tint and effects adds rain, snow, clouds, fog and
-            lightning, held still while a reply is written if you like, so a local
-            model keeps the graphics card. The High Contrast theme stays at the
-            wash. The desktop&apos;s settings; changing them here changes them
-            there too. Only in chats with a world that has climate on — other
-            chats keep their plain background.
-          </>
-        }
-      >
+    <section className="card atmosphere-card" data-testid="background-weather">
+      <div className="atmosphere-card-head">
+        <h4 className="settings-group-heading">
+          Background weather{' '}
+          <span
+            className="info-tip"
+            tabIndex={0}
+            title="The story's weather and sky behind the chat. It shows only in chats whose character or group has a world with climate turned on and the story clock running; other chats keep their plain background."
+            aria-label="About background weather"
+          >ⓘ</span>
+        </h4>
+        <span className="atmosphere-badge atmosphere-badge-accent">Climate Active</span>
+      </div>
+      <p className="muted small atmosphere-caption">
+        Only in chats with a world that has climate on. Other chats keep their plain background.
+      </p>
+      <div className="atmosphere-control-block">
+        <span className="atmosphere-sub-eyebrow">Ambient scene</span>
         <select
-          className="setting-row-select"
+          className="sr-only-select"
           value={ambient ?? 'off'}
           disabled={ambient === null}
           onChange={(e) => setScene(e.target.value as AmbientScene)}
@@ -166,52 +159,67 @@ export function BackgroundWeatherSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
-      </SettingRow>
-      <SettingRow
-        title="Pause effects while generating"
-        blurb="Hold the scene still while a reply is writing, so a local model keeps the graphics card."
-      >
-        <input
-          className="switch"
-          type="checkbox"
-          checked={pauseGen ?? true}
-          disabled={pauseGen === null}
-          onChange={(e) => setPause(e.target.checked)}
-          aria-label="Pause effects while generating"
-        />
-      </SettingRow>
-      <SettingRow
-        title="Scene sound"
-        blurb={
-          <>
-            Rain, wind, birds or crickets with the scene and thunder after a
-            storm&apos;s flash, quieter while a voice speaks. Browsers start sound
-            only once you have touched the page, so a tap in the chat may be needed.
-          </>
-        }
-      >
-        <input
-          className="switch"
-          type="checkbox"
-          checked={sound ?? false}
-          disabled={sound === null}
-          onChange={(e) => setSoundOn(e.target.checked)}
-          aria-label="Scene sound"
-        />
-      </SettingRow>
-      <SettingRow title="Scene sound volume">
-        <input
-          className="setting-row-slider"
-          type="range"
-          min={0}
-          max={100}
-          step={5}
-          value={Math.round((volume ?? 0.5) * 100)}
-          disabled={!sound || volume === null}
-          onChange={(e) => changeVolume(Number(e.target.value) / 100)}
-          aria-label="Scene sound volume"
-        />
-      </SettingRow>
+        <div className="mode-seg atmosphere-seg" role="radiogroup" aria-label="Ambient scene choices">
+          {AMBIENT.map((c) => {
+            const active = (ambient ?? 'off') === c.value;
+            return (
+              <button
+                key={c.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                disabled={ambient === null}
+                className={`mode-seg-btn${active ? ' selected' : ''}`}
+                onClick={() => setScene(c.value)}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="atmosphere-footer-row">
+        <div className="atmosphere-toggle-col">
+          <span className="atmosphere-sub-eyebrow">Pause effects while generating</span>
+          <input
+            className="switch"
+            type="checkbox"
+            checked={pauseGen ?? true}
+            disabled={pauseGen === null}
+            onChange={(e) => setPause(e.target.checked)}
+            aria-label="Pause effects while generating"
+          />
+        </div>
+        <div className="atmosphere-sound-col">
+          <span className="atmosphere-sub-eyebrow">Scene sound</span>
+          <div className="atmosphere-sound-inline">
+            <input
+              className="switch"
+              type="checkbox"
+              checked={sound ?? false}
+              disabled={sound === null}
+              onChange={(e) => setSoundOn(e.target.checked)}
+              aria-label="Scene sound"
+            />
+            <span className="sr-only-select">Scene sound volume</span>
+            <input
+              className="setting-row-slider atmosphere-inline-slider"
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={Math.round((volume ?? 0.5) * 100)}
+              disabled={!sound || volume === null}
+              onChange={(e) => changeVolume(Number(e.target.value) / 100)}
+              aria-label="Scene sound volume"
+            />
+          </div>
+          <p className="muted small atmosphere-sound-hint">
+            Browsers start sound only once you have touched the page, so a tap in the chat may be needed.
+          </p>
+        </div>
+      </div>
       {error && <p className="error">{error}</p>}
     </section>
   );

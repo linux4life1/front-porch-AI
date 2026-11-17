@@ -42,56 +42,95 @@ class MoodOnCharacterControls extends StatelessWidget {
     if (!storage.realismSettings.realismAllowed) {
       return const SizedBox.shrink(key: ValueKey('mood-on-character-off'));
     }
+    final corners = AppCorners.of(context);
     final appearance = storage.appearance;
     final on = appearance.moodOnCharacter.portraitOn;
-    return Column(
+    return Container(
       key: const ValueKey('mood-on-character'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 28,
-          runSpacing: 16,
-          children: [
-            AppearanceChoice<MoodOnCharacter>(
-              key: const ValueKey('appearance-mood-on-character'),
-              label: 'Mood on the character',
-              values: MoodOnCharacter.values,
-              selected: appearance.moodOnCharacter,
-              labelOf: (s) => s.label,
-              onChanged: appearance.setMoodOnCharacter,
-            ),
-            MergeSemantics(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const AppearanceCaption('Drama'),
-                  SizedBox(
-                    width: 180,
-                    child: Slider(
-                      key: const ValueKey('appearance-mood-drama'),
-                      value: appearance.moodDrama,
-                      min: kMoodDramaMin,
-                      max: kMoodDramaMax,
-                      divisions: 12,
-                      label: appearance.moodDrama.toStringAsFixed(1),
-                      onChanged: on ? appearance.setMoodDrama : null,
-                    ),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: corners.circular(12),
+        border: Border.all(color: AppColors.borderOf(context), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Text(
+                  'REALISM MOOD',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: AppColors.textSecondary(context),
                   ),
-                ],
-              ),
+                ),
+                Text(
+                  'Realism Active',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.verifiedAccentOf(context),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          caption,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary(context),
           ),
-        ),
-      ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 28,
+            runSpacing: 16,
+            children: [
+              AppearanceChoice<MoodOnCharacter>(
+                key: const ValueKey('appearance-mood-on-character'),
+                label: 'Mood on the character',
+                values: MoodOnCharacter.values,
+                selected: appearance.moodOnCharacter,
+                labelOf: (s) => s.label,
+                onChanged: appearance.setMoodOnCharacter,
+              ),
+              MergeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const AppearanceCaption('Drama'),
+                    SizedBox(
+                      width: 180,
+                      child: Slider(
+                        key: const ValueKey('appearance-mood-drama'),
+                        value: appearance.moodDrama,
+                        min: kMoodDramaMin,
+                        max: kMoodDramaMax,
+                        divisions: 12,
+                        label: appearance.moodDrama.toStringAsFixed(1),
+                        onChanged: on ? appearance.setMoodDrama : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            caption,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

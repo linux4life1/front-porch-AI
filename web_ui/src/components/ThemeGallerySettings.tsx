@@ -73,9 +73,6 @@ export function ThemeGallerySettings() {
               <span className="theme-gallery-name" style={{ color: tokens.text }}>
                 {card.label}
               </span>
-              <span className="theme-gallery-tag" style={{ color: tokens.muted }}>
-                {selected ? 'Selected' : card.tag}
-              </span>
             </button>
           );
         })}
