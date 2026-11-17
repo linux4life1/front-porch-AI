@@ -598,6 +598,10 @@ void _leafTests() {
     // Passage of Time stays a Porch Life setting on both.
     expect(
       _d('settings/tabs/porch_life_tab.dart'),
+      contains('PorchLifeTimeGroup('),
+    );
+    expect(
+      _d('settings/tabs/porch_life_groups.dart'),
       contains("'Passage of Time'"),
     );
     expect(
