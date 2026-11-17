@@ -42,15 +42,13 @@ export function FollowStreamingSettings() {
             long as you are at the bottom. Scroll up to stop.
           </p>
         </div>
-        <label className="toggle-switch">
-          <input
-            type="checkbox"
-            checked={on}
-            onChange={(e) => commit(e.target.checked)}
-            aria-label="Follow streaming replies"
-          />
-          <span className="toggle-slider" />
-        </label>
+        <input
+          className="switch"
+          type="checkbox"
+          checked={on}
+          onChange={(e) => commit(e.target.checked)}
+          aria-label="Follow streaming replies"
+        />
       </div>
     </section>
   );

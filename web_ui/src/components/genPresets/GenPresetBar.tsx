@@ -89,7 +89,7 @@ export function GenPresetBar({
           }}
         >
           <option value="" disabled={!!slot}>
-            {presets.length ? 'Choose a preset…' : 'No presets saved yet'}
+            {presets.length ? 'Load a preset...' : 'No saved presets yet'}
           </option>
           {presets.map((p) => (
             <option key={p.name} value={p.name}>{p.name}</option>

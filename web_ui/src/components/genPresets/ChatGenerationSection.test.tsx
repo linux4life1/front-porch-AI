@@ -99,7 +99,9 @@ describe('Generation for this chat', () => {
   it('a value of its own has ↺, which hands it back to the global one', async () => {
     await open(chatOf({ values: { temperature: 1.3 }, overrides: 1 }));
     const value = container.querySelector<HTMLInputElement>('.slider-val')!;
-    expect(value.value).toBe('1.3');
+    // Two decimals, the way the desktop's drawer slider formats it
+    // (chat_settings_generation_section.dart:61,66 — decimalPlaces: 2).
+    expect(value.value).toBe('1.30');
     const reset = resetOf('Temperature')!;
     expect(reset.title).toBe('Use the global value (0.7)');
     put.mockResolvedValue(chatOf());

@@ -33,7 +33,7 @@ vi.mock('../api/ws', () => ({
 let host: HTMLDivElement;
 let root: Root;
 const alpha = () => document.documentElement.style.getPropertyValue('--chat-bubble-alpha');
-const slider = () => host.querySelector<HTMLInputElement>('input[aria-label="Bubble opacity"]')!;
+const slider = () => host.querySelector<HTMLInputElement>('input[aria-label="Bubble Opacity"]')!;
 
 /** Moves the range input the way a drag does (React listens for `input`). */
 function drag(value: string) {
