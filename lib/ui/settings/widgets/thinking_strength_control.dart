@@ -18,7 +18,23 @@ class ThinkingStrengthControl extends StatelessWidget {
     required this.onChanged,
     this.modelId = '',
     this.compact = false,
+    this.showHeading = true,
+    this.thinkingOn,
+    this.onTurnOff,
+    this.onTurnOn,
+    this.offDisabled = false,
   });
+
+  /// When [onTurnOff] is given, an Off chip leads the row so on/off and
+  /// strength are one control. [thinkingOn] says whether thinking is on;
+  /// picking a level while off calls [onTurnOn] first. A model with no
+  /// levels of its own gets a plain On chip after Off.
+  final bool? thinkingOn;
+  final VoidCallback? onTurnOff;
+  final VoidCallback? onTurnOn;
+
+  /// Off is not pickable (a model that always thinks, or can never think).
+  final bool offDisabled;
 
   /// Current pick (any ladder id: low, max, xhigh, …).
   final String value;
@@ -31,42 +47,92 @@ class ThinkingStrengthControl extends StatelessWidget {
   /// Tighter padding for dialogs.
   final bool compact;
 
+  /// False when an outer card/section already renders the "Thinking" title.
+  final bool showHeading;
+
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.porchAmberOf(context);
     final chips = reasoningEffortChipsFor(modelId);
-    final selected = reasoningEffortDisplayedSelection(modelId, value);
-    final caption = reasoningEffortMappingCaption(modelId, selected);
+    final withOff = onTurnOff != null;
+    final off = withOff && thinkingOn == false;
+    final selected = off
+        ? ''
+        : reasoningEffortDisplayedSelection(modelId, value);
+    final caption = off ? '' : reasoningEffortMappingCaption(modelId, selected);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Thinking strength',
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontWeight: FontWeight.w600,
-            fontSize: compact ? 13 : 14,
+        if (showHeading) ...[
+          Text(
+            thinkingOn == null && onTurnOff == null
+                ? 'Thinking strength'
+                : 'Thinking',
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.w600,
+              fontSize: compact ? 13 : 14,
+            ),
           ),
-        ),
-        SizedBox(height: compact ? 6 : 8),
+          SizedBox(height: compact ? 6 : 8),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 360;
-            return Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final id in chips)
-                  _StrengthChip(
-                    id: id,
-                    selected: selected == id,
-                    accent: accent,
-                    wide: wide && chips.length <= 4,
-                    onTap: () => onChanged(id),
-                  ),
-              ],
-            );
+            final chipList = <Widget>[
+              if (withOff)
+                _StrengthChip(
+                  id: 'off',
+                  title: 'Off',
+                  blurb: 'No thinking',
+                  selected: off,
+                  accent: accent,
+                  wide: wide && chips.length <= 4,
+                  onTap: offDisabled ? null : onTurnOff,
+                ),
+              for (final id in chips)
+                _StrengthChip(
+                  id: id,
+                  selected: selected == id,
+                  accent: accent,
+                  wide: wide && chips.length <= 4,
+                  onTap: () {
+                    if (withOff && off) onTurnOn?.call();
+                    onChanged(id);
+                  },
+                ),
+              if (withOff && chips.isEmpty)
+                _StrengthChip(
+                  id: 'on',
+                  title: 'On',
+                  blurb: 'Think before replying',
+                  selected: !off,
+                  accent: accent,
+                  wide: wide,
+                  onTap: off ? onTurnOn : null,
+                ),
+            ];
+            final fitsRow =
+                wide &&
+                chipList.length <= 5 &&
+                constraints.maxWidth >=
+                    chipList.length * 112 + (chipList.length - 1) * 8;
+            if (fitsRow) {
+              return IntrinsicHeight(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < chipList.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      chipList[i],
+                    ],
+                  ],
+                ),
+              );
+            }
+            return Wrap(spacing: 8, runSpacing: 8, children: chipList);
           },
         ),
         SizedBox(height: compact ? 8 : 10),
@@ -93,18 +159,22 @@ class _StrengthChip extends StatelessWidget {
     required this.accent,
     required this.wide,
     required this.onTap,
+    this.title,
+    this.blurb,
   });
 
+  final String? title;
+  final String? blurb;
   final String id;
   final bool selected;
   final Color accent;
   final bool wide;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final title = reasoningEffortTitle(id);
-    final blurb = reasoningEffortBlurb(id);
+    final title = this.title ?? reasoningEffortTitle(id);
+    final blurb = this.blurb ?? reasoningEffortBlurb(id);
 
     return Material(
       color: selected ? accent : AppColors.surfaceContainerOf(context),
@@ -114,7 +184,7 @@ class _StrengthChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         child: Container(
           width: wide ? 112 : null,
-          constraints: const BoxConstraints(minWidth: 88),
+          constraints: const BoxConstraints(minWidth: 88, minHeight: 68),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),

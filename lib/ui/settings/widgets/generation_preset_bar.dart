@@ -110,8 +110,14 @@ class _GenerationPresetBarState extends State<GenerationPresetBar> {
     final slot = presets.slot;
     final state = actions.state;
     final linked = model.isEmpty ? null : presets.linkedPreset(model.key);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.hairlineOf(context, 0.12)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

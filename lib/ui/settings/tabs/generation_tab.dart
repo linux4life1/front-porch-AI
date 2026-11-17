@@ -25,8 +25,12 @@ import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/gen_presets/gen_presets.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Settings → Generation: reasoning, sampling, output limits, stop
-/// sequences, and (local backends only) banned phrases.
+/// Settings → Generation: organized into 4 distinct functional categories:
+/// 1. Preset & Reasoning (model intelligence, presets, and thinking effort)
+/// 2. Generation Parameters (dual-column studio rack with danger zones)
+/// 3. Output Limits (context window size & max output token reserve)
+/// 4. Output Pipeline & Diagnostics (stops, banned phrases, sanitizer,
+///    and advanced Model transport & display buffer options).
 class GenerationTab extends StatefulWidget {
   const GenerationTab({super.key, required this.bannedPhrasesController});
 
@@ -54,279 +58,226 @@ class _GenerationTabState extends State<GenerationTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Category 1: Preset & Reasoning ─────────────────────────────
           const GenerationPresetBar(),
-          // ── Reasoning (thinking models — local KoboldCpp & remote) ─────
-          const SectionHeader('Thinking'),
-          const SizedBox(height: 8),
-          ThinkingSettingsBlock(
-            enabled: storage.backendSettings.reasoningEnabled,
-            onEnabledChanged: storage.backendSettings.setReasoningEnabled,
-            effort: storage.backendSettings.reasoningEffort,
-            onEffortChanged: storage.backendSettings.setReasoningEffort,
-            modelId: storage.backendSettings.remoteModelName,
-          ),
-          const SizedBox(height: 24),
-
-          // ── Generation Parameters ──────────────────────────────────────
-          const SectionHeader('Generation Parameters'),
-          const SizedBox(height: 8),
-          GenerationSamplerSliders(
-            storage: storage,
-            knobs: knobs,
-            accent: accent,
-          ),
-          const SizedBox(height: 24),
-
-          // ── Output Limits ──────────────────────────────────────────────
-          const SectionHeader('Output Limits'),
-          const SizedBox(height: 8),
-          RecommendedSamplersBuilder(
-            storage: storage,
-            builder: (context, rec) => SliderSetting(
-              label: 'Max Output Tokens',
-              value: storage.generationSettings.maxLength.toDouble(),
-              min: 16,
-              max: 16384,
-              onChanged: (val) =>
-                  storage.generationSettings.setMaxLength(val.toInt()),
-              showInput: true,
-              isInteger: true,
-              reset: resetTargetFor(rec, (v) => v.maxLength),
-            ),
-          ),
-          // Context size — wider range for remote backends.
-          PresetContextLock(
-            locked: storage.backendSettings.presetOwnsContext,
-            child: SliderSetting(
-              label: 'Context Size',
-              value: storage.backendSettings.contextSize.toDouble().clamp(
-                512,
-                isRemote ? 500000.0 : 131072.0,
-              ),
-              min: 512,
-              max: isRemote ? 500000.0 : 131072.0,
-              onChanged: (val) =>
-                  storage.backendSettings.setContextSize(val.toInt()),
-              divisions: isRemote ? null : ((131072 - 512) ~/ 512),
-              showInput: true,
-              isInteger: true,
-            ),
-          ),
-          ContextSizeWarnings(
-            contextSize: storage.backendSettings.contextSize,
-            maxOutput: storage.generationSettings.maxLength,
-          ),
-          const SizedBox(height: 24),
-
-          // ── Model transport ────────────────────────────────────────────
-          const SectionHeader('Model transport'),
-          const SizedBox(height: 8),
-          Text(
-            'How the engine evaluations (Realism, Journal, Growth Rings) '
-            'talk to the model.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
+          const SizedBox(height: 16),
+          GenerationSectionCard(
+            title: 'Thinking',
             children: [
-              Text(
-                'Native tool calling',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: !storage.realismSettings.preferTextEvals,
-                onChanged: (val) =>
-                    storage.realismSettings.setPreferTextEvals(!val),
-                activeTrackColor: accent,
+              ThinkingSettingsBlock(
+                showHeading: false,
+                enabled: storage.backendSettings.reasoningEnabled,
+                onEnabledChanged: storage.backendSettings.setReasoningEnabled,
+                effort: storage.backendSettings.reasoningEffort,
+                onEffortChanged: storage.backendSettings.setReasoningEffort,
+                modelId: storage.backendSettings.remoteModelName,
               ),
             ],
           ),
-          Text(
-            'When on, Realism, Journal and Growth use native tool calls if '
-            'this model supports them — cleaner structured results, and on '
-            'the common local templates no slower than the JSON floor. When '
-            'off, every eval uses the JSON/XML floor even if the model can '
-            'speak tools. The sidebar pill still shows whether the model '
-            'can. Default on.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // ── Display Output ─────────────────────────────────────────────
-          const SectionHeader('Display Output'),
-          const SizedBox(height: 8),
-          Row(
+          // ── Category 2: Generation Parameters (Studio Console) ─────────
+          GenerationSectionCard(
+            title: 'Generation Parameters',
             children: [
-              Text(
-                'Smooth Output Buffer',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: storage.uiSettings.displayBufferEnabled,
-                onChanged: (val) =>
-                    storage.uiSettings.setDisplayBufferEnabled(val),
-                activeTrackColor: accent,
+              GenerationSamplerSliders(
+                storage: storage,
+                knobs: knobs,
+                accent: accent,
               ),
             ],
           ),
-          if (storage.uiSettings.displayBufferEnabled) ...[
-            SliderSetting(
-              label: 'Target Display Speed (t/s)',
-              value: storage.uiSettings.targetDisplayTps,
-              min: 5.0,
-              max: 60.0,
-              onChanged: (val) => storage.uiSettings.setTargetDisplayTps(val),
-              divisions: 55,
-            ),
-            SliderSetting(
-              label: 'Buffer Duration (seconds)',
-              value: storage.uiSettings.bufferDurationSeconds,
-              min: 1.0,
-              max: 10.0,
-              onChanged: (val) =>
-                  storage.uiSettings.setBufferDurationSeconds(val),
-              divisions: 9,
-            ),
-          ],
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
-          // ── Stop Sequences ─────────────────────────────────────────────
-          const SectionHeader('Stop Sequences'),
-          const SizedBox(height: 8),
-          StopSequenceList(
-            sequences: storage.generationSettings.stopSequences,
-            onSequencesChanged: (newList) =>
-                storage.generationSettings.setStopSequences(newList),
-          ),
-          const SizedBox(height: 24),
-
-          // ── Banned Phrases (KoboldCpp only) ────────────────────────────
-          if (knobs.contains(SamplerKnob.bannedPhrases)) ...[
-            const SectionHeader('Banned Phrases'),
-            BannedPhrasesEditor(
-              controller: widget.bannedPhrasesController,
-              onChanged: (phrases) =>
-                  storage.realismSettings.setBannedPhrases(phrases),
-              phraseCount: storage.realismSettings.bannedPhrases.length,
-            ),
-          ],
-
-          const SizedBox(height: 24),
-
-          // ── Output Sanitizer ───────────────────────────────────────────
-          const SectionHeader('Output Sanitizer'),
-          const SizedBox(height: 4),
-          Text(
-            'Replace specific character sequences in model output before '
-            'saving to chat history.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
+          // ── Category 3: Output Limits & Context Budgets ────────────────
+          GenerationSectionCard(
+            title: 'Output Limits & Context Budgets',
             children: [
-              Text(
-                'Enable Output Sanitizer',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: storage.generationSettings.outputSanitizerEnabled,
-                onChanged: (val) =>
-                    storage.generationSettings.setOutputSanitizerEnabled(val),
-                activeTrackColor: accent,
-              ),
-            ],
-          ),
-          if (storage.generationSettings.outputSanitizerEnabled) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sanitise Existing History',
-                        style: TextStyle(color: AppColors.textPrimary(context)),
-                      ),
-                      Text(
-                        'When enabled, opening a chat will permanently '
-                        'apply the rules below to the AI messages already '
-                        'saved in that chat\'s history — your own messages '
-                        'are never touched. This cannot be undone.',
-                        style: TextStyle(
-                          color: AppColors.textTertiary(context),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
+              RecommendedSamplersBuilder(
+                storage: storage,
+                builder: (context, rec) => SliderSetting(
+                  label: 'Max Output Tokens',
+                  value: storage.generationSettings.maxLength.toDouble(),
+                  min: 64,
+                  max: 65536,
+                  defaultVal: 2048,
+                  dangerMin: 128,
+                  divisions: (65536 - 64) ~/ 64,
+                  isInteger: true,
+                  studioStyle: true,
+                  reset: resetTargetFor(rec, (v) => v.maxLength),
+                  onChanged: (val) =>
+                      storage.generationSettings.setMaxLength(val.toInt()),
+                  tooltip:
+                      'Maximum tokens generated in a single reply. 2,048 is standard; higher values allow deep reasoning chains.',
                 ),
-                Switch(
-                  value: storage.generationSettings.sanitiseExistingHistory,
-                  onChanged: (val) async {
-                    // Enabling is a destructive, global commitment (every
-                    // chat opened while ON gets its saved AI messages
-                    // rewritten on its next save) — confirm before arming.
-                    if (val) {
-                      final confirmed = await showWarmDialog<bool>(
-                        context,
-                        title: 'Rewrite saved chat history?',
-                        icon: Icons.warning_amber_rounded,
-                        destructive: true,
-                        content: const WarmDialogText(
-                          'Every chat you open while this is on will have '
-                          'the rules applied to its saved AI messages — '
-                          'permanently, on that chat\'s next save. Your own '
-                          'messages are never touched. This cannot be '
-                          'undone (automatic local backups are your safety '
-                          'net — Settings → General).',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
+              ),
+              const SizedBox(height: 10),
+              // Context size — wider range for remote backends.
+              PresetContextLock(
+                locked: storage.backendSettings.presetOwnsContext,
+                child: SliderSetting(
+                  label: 'Context Size',
+                  value: storage.backendSettings.contextSize.toDouble(),
+                  min: 512,
+                  max: isRemote ? 500000.0 : 131072.0,
+                  defaultVal: 16384,
+                  divisions: isRemote ? null : ((131072 - 512) ~/ 512),
+                  isInteger: true,
+                  studioStyle: true,
+                  onChanged: (val) =>
+                      storage.backendSettings.setContextSize(val.toInt()),
+                  tooltip:
+                      'Total working memory buffer for character, chat history, and system instructions.',
+                ),
+              ),
+              ContextSizeWarnings(
+                contextSize: storage.backendSettings.contextSize,
+                maxOutput: storage.generationSettings.maxLength,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Category 4: Output Pipeline & Diagnostics ──────────────────
+          GenerationSectionCard(
+            title: 'Output Pipeline & Rules',
+            children: [
+              const SectionHeader('Stop Sequences'),
+              const SizedBox(height: 8),
+              StopSequenceList(
+                sequences: storage.generationSettings.stopSequences,
+                onSequencesChanged: (newList) =>
+                    storage.generationSettings.setStopSequences(newList),
+              ),
+              const SizedBox(height: 20),
+
+              // Banned Phrases (KoboldCpp only)
+              if (knobs.contains(SamplerKnob.bannedPhrases)) ...[
+                const SectionHeader('Banned Phrases'),
+                const SizedBox(height: 8),
+                BannedPhrasesEditor(
+                  controller: widget.bannedPhrasesController,
+                  onChanged: (phrases) =>
+                      storage.realismSettings.setBannedPhrases(phrases),
+                  phraseCount: storage.realismSettings.bannedPhrases.length,
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Output Sanitizer
+              const SectionHeader('Output Sanitizer'),
+              const SizedBox(height: 4),
+              Text(
+                'Replace specific character sequences in model output before '
+                'saving to chat history.',
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    'Enable Output Sanitizer',
+                    style: TextStyle(color: AppColors.textPrimary(context)),
+                  ),
+                  const Spacer(),
+                  Switch(
+                    value: storage.generationSettings.outputSanitizerEnabled,
+                    onChanged: (val) =>
+                        storage.generationSettings.setOutputSanitizerEnabled(val),
+                    activeTrackColor: accent,
+                  ),
+                ],
+              ),
+              if (storage.generationSettings.outputSanitizerEnabled) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Sanitise Existing History',
+                            style: TextStyle(color: AppColors.textPrimary(context)),
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Rewrite on open'),
+                          Text(
+                            'When enabled, opening a chat will permanently '
+                            'apply the rules below to the AI messages already '
+                            'saved in that chat\'s history — your own messages '
+                            'are never touched. This cannot be undone.',
+                            style: TextStyle(
+                              color: AppColors.textTertiary(context),
+                              fontSize: 11,
+                            ),
                           ),
                         ],
-                      );
-                      if (confirmed != true) return;
-                    }
-                    storage.generationSettings.setSanitiseExistingHistory(val);
-                    if (val && mounted) {
-                      final chatService = Provider.of<ChatService>(
-                        context,
-                        listen: false,
-                      );
-                      await chatService.reloadCurrentSession();
-                    }
-                  },
-                  activeTrackColor: accent,
+                      ),
+                    ),
+                    Switch(
+                      value: storage.generationSettings.sanitiseExistingHistory,
+                      onChanged: (val) async {
+                        if (val) {
+                          final confirmed = await showWarmDialog<bool>(
+                            context,
+                            title: 'Rewrite saved chat history?',
+                            icon: Icons.warning_amber_rounded,
+                            destructive: true,
+                            content: const WarmDialogText(
+                              'Every chat you open while this is on will have '
+                              'the rules applied to its saved AI messages — '
+                              'permanently, on that chat\'s next save. Your own '
+                              'messages are never touched. This cannot be '
+                              'undone (automatic local backups are your safety '
+                              'net — Settings → General).',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Rewrite on open'),
+                              ),
+                            ],
+                          );
+                          if (confirmed != true) return;
+                        }
+                        storage.generationSettings.setSanitiseExistingHistory(val);
+                        if (val && mounted) {
+                          final chatService = Provider.of<ChatService>(
+                            context,
+                            listen: false,
+                          );
+                          await chatService.reloadCurrentSession();
+                        }
+                      },
+                      activeTrackColor: accent,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                OutputSanitizerRuleEditor(
+                  rules: storage.generationSettings.outputSanitizerRules,
+                  onRulesChanged: (newRules) =>
+                      storage.generationSettings.setOutputSanitizerRules(newRules),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            OutputSanitizerRuleEditor(
-              rules: storage.generationSettings.outputSanitizerRules,
-              onRulesChanged: (newRules) =>
-                  storage.generationSettings.setOutputSanitizerRules(newRules),
-            ),
-          ],
-
+              const SizedBox(height: 20),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // ── Model transport & Display Output (Advanced Engine Options) ─
+          GenerationSectionCard(
+            title: 'Engine & Display Options',
+            children: [
+              GenerationAdvancedSection(storage: storage, accent: accent),
+            ],
+          ),
           const SizedBox(height: 32),
         ],
       ),

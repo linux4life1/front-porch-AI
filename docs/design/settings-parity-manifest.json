@@ -219,7 +219,7 @@
     },
     "modelTransport": {
       "section": "generation",
-      "dart": "lib/ui/settings/tabs/generation_tab.dart",
+      "dart": "lib/ui/settings/widgets/generation_advanced_section.dart",
       "dartMarker": "Model transport",
       "webMarker": "Model transport"
     },

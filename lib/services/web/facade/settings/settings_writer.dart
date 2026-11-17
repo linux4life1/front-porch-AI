@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/web/facade/settings/settings_appearance_
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_sidebar_order.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_ui_write.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 
@@ -148,6 +149,7 @@ class SettingsWriter {
     if (follow is bool) {
       await _storage.uiSettings.setFollowStreamingReplies(follow);
     }
+    await applyDisplayOutputWrite(_storage, body);
 
     // The chat sidebar's remembered order, per surface (split out of this
     // near-cap file: settings_sidebar_order.dart).
