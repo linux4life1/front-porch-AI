@@ -430,25 +430,51 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
 /* Accent group headings, as the desktop's SectionHeader paints them: bold
    accent text and nothing else (no trailing rule, no glow). */
 .settings-group-heading {
-  margin: 0 0 4px; font-size: 0.95rem; font-weight: 700;
+  margin: 0 0 10px; font-size: 0.95rem; font-weight: 700;
   color: var(--porch-amber);
 }
-/* Settings → General: the Porch Life pointer row (desktop twin is an
-   amber cottage icon beside one muted line, no card outline). */
+.settings-group-sub {
+  margin: -4px 0 12px; line-height: 1.45;
+}
+.inline-macro {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem; font-weight: 600; color: var(--porch-amber);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 6px;
+}
+/* Unified SettingsGroupCard container matching desktop SettingsGroupCard. */
+.settings-group-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 4px 16px;
+}
+.settings-group-card .setting-row {
+  margin: 0; padding: 14px 0; border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.settings-group-card .setting-row:hover { background: none; }
+.settings-group-card > .setting-row:last-child,
+.settings-group-card > :last-child .setting-row { border-bottom: 0; }
+.settings-group-card .setting-toggle-card {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  padding: 14px 0; margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.settings-group-card .setting-toggle-card:last-child { border-bottom: 0; }
+/* Settings → General: the Porch Life pointer card (desktop twin has an
+   amber cottage icon beside one muted line inside a rounded card). */
 .porch-life-pointer {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 14px 10px; margin: 0 -10px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 10px; transition: background 0.15s;
+  padding: 14px 16px; margin-top: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
-.porch-life-pointer:hover { background: color-mix(in srgb, var(--porch-amber) 5%, transparent); }
 .porch-life-pointer-icon { font-size: 1rem; line-height: 1.4; }
-.porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
 
 /* Settings prompt slots (PromptSlot.tsx). */
 .prompt-slot { display: flex; flex-direction: column; gap: 8px; }
 .prompt-slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.prompt-slot-head h4 { margin: 0; }
+.prompt-slot-head h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .prompt-slot-badge {
   font-size: 12px; padding: 2px 10px; border-radius: 999px;
   border: 1px solid var(--border); overflow-wrap: anywhere;
@@ -456,3 +482,76 @@ input.switch:disabled { opacity: 0.5; cursor: default; }
 .prompt-slot-badge.strong { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .prompt-slot-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .prompt-slot-actions label { flex: 1 1 200px; }
+
+/* ── Setting toggle card (switch on right) ─────────────────────────────── */
+.setting-toggle-card { padding: 14px 18px; margin-bottom: 12px; }
+.setting-toggle-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.setting-toggle-info { flex: 1; min-width: 0; }
+.setting-toggle-info h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
+.setting-toggle-info .reading-blurb { margin: 6px 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--muted); max-width: 60ch; }
+
+/* Toggle switch control (min 48×48px touch target matching input.switch 52×32 pill) */
+.toggle-switch {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 52px; min-height: 48px;
+  flex-shrink: 0; margin: 0; cursor: pointer; touch-action: manipulation;
+}
+.toggle-switch input {
+  opacity: 0; width: 0; height: 0; position: absolute; outline: none;
+}
+.toggle-switch input:focus-visible { outline: none; }
+.toggle-slider {
+  position: relative; cursor: pointer; width: 52px; height: 32px;
+  background-color: var(--surface-2); box-shadow: inset 0 0 0 2px var(--faint);
+  transition: background-color 0.15s, box-shadow 0.15s; border-radius: 16px; flex-shrink: 0;
+}
+.toggle-slider::before {
+  position: absolute; content: ""; height: 16px; width: 16px;
+  left: 8px; top: 50%; transform: translateY(-50%); background-color: var(--faint);
+  transition: left 0.15s, width 0.15s, height 0.15s, background 0.15s; border-radius: 50%;
+}
+.toggle-switch input:checked + .toggle-slider {
+  background-color: var(--porch-amber); box-shadow: none;
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  left: 24px; width: 24px; height: 24px; background-color: var(--on-accent);
+}
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--porch-amber); outline-offset: 2px;
+}
+
+/* ── Macro badges row ──────────────────────────────────────────────────── */
+.macro-badges-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px;
+}
+.macro-label { font-size: 0.75rem; color: var(--muted); margin-right: 2px; }
+.macro-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px;
+  border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font-size: 0.75rem; cursor: pointer; transition: all 0.15s ease;
+}
+.macro-chip:hover {
+  border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+}
+.macro-chip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600; color: var(--accent);
+}
+.macro-desc { font-size: 0.68rem; color: var(--muted); }
+
+/* ── Refined prompt card spacing ───────────────────────────────────────── */
+.prompt-slot-card, .prompt-additions-card { margin-bottom: 14px; }
+.prompt-field-group { margin-top: 14px; }
+.prompt-field-group label { margin-bottom: 4px; font-weight: 500; }
+.prompt-field-group textarea { margin-top: 2px; }
+
+/* Match Desktop rounded pill Save / Reset buttons */
+.settings-save button.primary { border-radius: 999px; padding: 10px 22px; }
+.prompt-slot button:not(.primary):not(.icon-btn) {
+  border-radius: 999px; background: transparent;
+  border: 1px solid var(--border); color: var(--porch-amber);
+  font-weight: 600; padding: 8px 18px;
+}
+.prompt-slot button.primary { border-radius: 999px; padding: 8px 18px; }
