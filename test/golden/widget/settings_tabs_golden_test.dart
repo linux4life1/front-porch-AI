@@ -37,12 +37,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/ui/settings/tabs/tabs.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../support/fakes.dart';
 import '../support/fakes_storage.dart';
 import '../support/golden_app.dart';
 
 const _group = 'settings_tabs';
+
+/// The house helper pumps its own MaterialApp brightness and knows nothing
+/// about AppearanceSettings, whose mode defaults to dark. [ThemeCardGrid]
+/// faithfully follows the model, so without this the light goldens painted
+/// every theme card — including the selected one — in its dark palette:
+/// a cream page advertising a dark gallery. The production app can never
+/// diverge (its root derives the MaterialApp theme from this same model);
+/// the test tree must not fake a state the app cannot hold.
+class _SyncBrightnessToModel extends StatefulWidget {
+  const _SyncBrightnessToModel({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_SyncBrightnessToModel> createState() => _SyncBrightnessToModelState();
+}
+
+class _SyncBrightnessToModelState extends State<_SyncBrightnessToModel> {
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final appearance = context.read<StorageService>().appearance;
+    final wanted = dark ? AppThemeMode.dark : AppThemeMode.light;
+    if (appearance.mode != wanted) {
+      appearance.setMode(wanted);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 /// The dialog-audited house fake plus the members only the Settings tabs
 /// read (the appearance model, the generation-preset store, and the static
@@ -97,7 +130,7 @@ void main() {
                 create: (_) => FakeChatService(),
               ),
             ],
-            child: tab.value(),
+            child: _SyncBrightnessToModel(child: tab.value()),
           ),
           group: _group,
           name: '${tab.key}_${surface.key}',
