@@ -111,7 +111,7 @@ describe('Porch Life hierarchy, collapsibility, and desktop parity', () => {
     expect(container.querySelector('.pl-row-highlight')).not.toBeNull();
   });
 
-  it('moves 18+ themes out of PorchLifeSettings into AdultThemesCard (General parity)', () => {
+  it('moves 18+ themes out of PorchLifeSettings into AdultThemesCard (General parity)', async () => {
     expect(
       container.querySelector('input[aria-label="18+ themes"]'),
     ).toBeNull();
@@ -119,12 +119,14 @@ describe('Porch Life hierarchy, collapsibility, and desktop parity', () => {
     const adultRootEl = document.createElement('div');
     document.body.appendChild(adultRootEl);
     const adultRoot = createRoot(adultRootEl);
-    act(() => {
+    await act(async () => {
       adultRoot.render(createElement(AdultThemesCard));
+      await Promise.resolve();
     });
     expect(
-      adultRootEl.querySelector('input[aria-label="18+ themes"]'),
+      adultRootEl.querySelector('input[type="checkbox"].switch'),
     ).not.toBeNull();
+    expect(adultRootEl.textContent).toContain('18+ themes');
     act(() => adultRoot.unmount());
     adultRootEl.remove();
   });
