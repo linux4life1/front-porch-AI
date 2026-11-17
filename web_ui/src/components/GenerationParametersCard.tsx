@@ -97,7 +97,7 @@ const FLOW_SAMPLERS: SamplerSpec[] = [
   },
   {
     key: 'repeatPenaltyTokens',
-    label: 'Rep Pen Tokens',
+    label: 'Repeat Penalty Tokens',
     info: 'How many tokens back the repetition penalty checks. 1024 is community standard.',
     min: 0,
     max: 2048,

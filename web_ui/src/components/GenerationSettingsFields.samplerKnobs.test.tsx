@@ -36,7 +36,7 @@ const LABELS = [
   'Min-P',
   'Top-K',
   'Repeat Penalty',
-  'Rep Pen Tokens',
+  'Repeat Penalty Tokens',
   'XTC Threshold',
   'XTC Probability',
   'DRY Strength',
@@ -97,7 +97,7 @@ describe('Generation card follows the host\'s sampler list', () => {
   it('oMLX: the repetition settings and XTC, no dynamic temperature or banned phrases', async () => {
     await show('omlx', ['minP', 'topK', 'repeatPenalty', 'repeatPenaltyTokens', 'xtc', 'dry']);
     expect(shown()).toEqual([
-      'Min-P', 'Top-K', 'Repeat Penalty', 'Rep Pen Tokens',
+      'Min-P', 'Top-K', 'Repeat Penalty', 'Repeat Penalty Tokens',
       'XTC Threshold', 'XTC Probability', 'DRY Strength',
     ]);
   });
@@ -113,7 +113,7 @@ describe('Generation card follows the host\'s sampler list', () => {
   it('an older host with no list keeps the old rule', async () => {
     await show('openRouter');
     expect(shown()).toEqual([
-      'Min-P', 'Top-K', 'Repeat Penalty', 'Rep Pen Tokens',
+      'Min-P', 'Top-K', 'Repeat Penalty', 'Repeat Penalty Tokens',
       'Dynamic Temperature', 'Dynatemp Range',
     ]);
   });
