@@ -16,10 +16,25 @@ const _stampConceptChars = 4000;
 
 /// Write [inputs] and [mode] onto [card] (see [kCreatorInputsExtensionKey]).
 /// The questions are written only when the run had its own list.
-void stampCreatorInputs(CharacterCard card, GenRunInputs inputs, String mode) {
+///
+/// The optional portrait keys are what the Review step needs to seed the
+/// portrait prompt after a reload: the desktop keeps the LLM image prompt and
+/// the art style in memory only, and the web wizard is reloaded between steps,
+/// so the web's create stamps them. A card without them falls back to the
+/// card's own words (see `chargen_portrait_seed.dart`).
+void stampCreatorInputs(
+  CharacterCard card,
+  GenRunInputs inputs,
+  String mode, {
+  String? imagePrompt,
+  String? artStyle,
+  String? age,
+  String? sex,
+}) {
   final raw = Map<String, dynamic>.from(card.rawExtensions ?? {});
   final concept = inputs.concept;
   final questions = inputs.interviewQuestions;
+  String trimmed(String? v) => v?.trim() ?? '';
   raw[kCreatorInputsExtensionKey] = {
     'concept': concept.length > _stampConceptChars
         ? concept.substring(0, _stampConceptChars)
@@ -29,6 +44,10 @@ void stampCreatorInputs(CharacterCard card, GenRunInputs inputs, String mode) {
     if (mode.isNotEmpty) 'mode': mode,
     if (questions != null)
       'interviewQuestions': InterviewQuestion.listToJson(questions),
+    if (trimmed(imagePrompt).isNotEmpty) 'imagePrompt': trimmed(imagePrompt),
+    if (trimmed(artStyle).isNotEmpty) 'artStyle': trimmed(artStyle),
+    if (trimmed(age).isNotEmpty) 'age': trimmed(age),
+    if (trimmed(sex).isNotEmpty) 'sex': trimmed(sex),
   };
   card.rawExtensions = raw;
 }
@@ -60,6 +79,24 @@ readCreatorInputs(CharacterCard? card) {
     interviewQuestions: InterviewQuestion.listFromJson(
       raw['interviewQuestions'],
     ),
+  );
+}
+
+/// What a saved card's portrait prompt needs beyond the card itself, read from
+/// the same stamp; empty strings when the card predates the keys (or has no
+/// stamp at all). See [stampCreatorInputs] for why the web writes them.
+({String imagePrompt, String artStyle, String age, String sex})
+readCreatorPortraitInputs(CharacterCard? card) {
+  final raw = card?.rawExtensions?[kCreatorInputsExtensionKey];
+  if (raw is! Map) {
+    return (imagePrompt: '', artStyle: '', age: '', sex: '');
+  }
+  String text(String k) => raw[k] is String ? (raw[k] as String).trim() : '';
+  return (
+    imagePrompt: text('imagePrompt'),
+    artStyle: text('artStyle'),
+    age: text('age'),
+    sex: text('sex'),
   );
 }
 

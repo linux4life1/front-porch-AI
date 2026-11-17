@@ -74,7 +74,7 @@ export function ThemeModeSettings() {
       {error && <p className="error">{error}</p>}
       <SettingRow title="On this device">
         <select
-          className="setting-row-select"
+          className="sr-only-select"
           value={choice}
           onChange={(e) => pick(e.target.value as ThemeChoice)}
           aria-label="Theme on this device"
@@ -83,6 +83,20 @@ export function ThemeModeSettings() {
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
+        <span className="mode-seg" role="radiogroup" aria-label="Theme mode choices">
+          {CHOICES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              role="radio"
+              aria-checked={choice === c.value}
+              className={`mode-seg-btn${choice === c.value ? ' selected' : ''}`}
+              onClick={() => pick(c.value)}
+            >
+              {c.label}
+            </button>
+          ))}
+        </span>
       </SettingRow>
     </section>
   );

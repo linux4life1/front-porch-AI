@@ -221,7 +221,15 @@ class ChargenCreate {
       );
       return null;
     }
-    stampCreatorInputs(card, inputs, mode);
+    stampCreatorInputs(
+      card,
+      inputs,
+      mode,
+      imagePrompt: gen.generatedImagePrompt,
+      artStyle: inputs.artStyle,
+      age: inputs.age,
+      sex: inputs.sex,
+    );
     // The outfit was read from this first message; the Realism step's hint
     // asks once it changes (#370).
     stampOutfitSource(card);

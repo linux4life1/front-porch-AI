@@ -237,6 +237,8 @@ export type Review = {
   sex: string;
   /** False only when the card's stamp pinned an empty question list. */
   hadInterview: boolean;
+  /** The portrait prompt the Review rail's Generate source opens on. */
+  portraitPromptSeed: string;
 };
 
 export function loreRowsOf(raw: unknown): LoreRow[] {
@@ -254,6 +256,7 @@ export async function loadReview(characterId: string): Promise<Review> {
     writing: typeof r.writing === 'string' ? r.writing : null,
     sex: str(r.sex),
     hadInterview: r.hadInterview !== false,
+    portraitPromptSeed: str(r.portraitPromptSeed),
   };
 }
 

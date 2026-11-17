@@ -138,7 +138,7 @@ it('a paused create opens on its profile; Next writes the rest, then the greetin
   expect(container.querySelector('[data-testid="greetings-step"]')).not.toBeNull();
 });
 
-it("Greetings leads on to the Realism step, the creator's last, as on the desktop", async () => {
+it('Greetings leads on to Realism, and Realism to Review, as on the desktop', async () => {
   await act(async () => {
     for (const l of listeners) l({ event: 'chargen_done', id: 7, name: 'Aria Vale' });
   });
@@ -158,8 +158,20 @@ it("Greetings leads on to the Realism step, the creator's last, as on the deskto
   });
   expect(container.querySelector('[data-testid="realism-step"]')).not.toBeNull();
   expect(container.querySelector('[data-testid="greetings-step"]')).toBeNull();
-  // The last step ends where the web creator always has: the editor.
-  const last = Array.from(container.querySelectorAll('nav button')).map((b) => b.textContent ?? '');
-  expect(last.some((t) => t.includes('Open in editor'))).toBe(true);
-  expect(last.some((t) => t.includes('Back'))).toBe(true);
+  // Realism is no longer the last step: it leads on to Review.
+  const realismNav = Array.from(container.querySelectorAll('nav button')).map((b) => b.textContent ?? '');
+  expect(realismNav.some((t) => t.includes('Next: Review'))).toBe(true);
+  const toReview = Array.from(container.querySelectorAll('button')).find((b) =>
+    (b.textContent ?? '').includes('Next: Review'),
+  )!;
+  await act(async () => {
+    toReview.click();
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  // Review is the last step: Save & Finish (and Back), no editor button.
+  const reviewNav = Array.from(container.querySelectorAll('nav button')).map((b) => b.textContent ?? '');
+  expect(reviewNav.some((t) => t.includes('Save & Finish'))).toBe(true);
+  expect(reviewNav.some((t) => t.includes('Back'))).toBe(true);
 });
