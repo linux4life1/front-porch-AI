@@ -202,7 +202,7 @@ export function RealismFormSection({
           <ToggleRow
             icon={<RlIcon.pauseOutline />}
             label="Starts away"
-            hint={`Every chat you make with this group starts ${startsAway.name} Away, before any turn runs. Only Back at the door brings them in — a chat you reopen keeps its own.`}
+            hint={`Every chat you make with this group starts ${startsAway.name} Away, before any turn runs. Only Back at the door brings them in.`}
             value={startsAway.value}
             onChange={(b) => startsAway.onChange(b)}
           />
