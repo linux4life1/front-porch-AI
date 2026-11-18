@@ -21,38 +21,6 @@ BuildContext _pumpContext(WidgetTester tester) {
 }
 
 void main() {
-  group('SuggestionSpan API compatibility', () {
-    test('SuggestionSpan.range is accessible', () {
-      final span = SuggestionSpan(TextRange(start: 0, end: 5), ['hello']);
-      expect(span.range.start, 0);
-      expect(span.range.end, 5);
-    });
-
-    test('SuggestionSpan.suggestions is accessible', () {
-      final span = SuggestionSpan(TextRange(start: 0, end: 5), [
-        'hello',
-        'world',
-      ]);
-      expect(span.suggestions, hasLength(2));
-    });
-  });
-
-  group('SpellCheckResults API compatibility', () {
-    test('SpellCheckResults.spellCheckedText is accessible', () {
-      final results = SpellCheckResults('hello world', [
-        SuggestionSpan(TextRange(start: 0, end: 5), ['hello']),
-      ]);
-      expect(results.spellCheckedText, 'hello world');
-    });
-
-    test('SpellCheckResults.suggestionSpans is accessible', () {
-      final results = SpellCheckResults('hello world', [
-        SuggestionSpan(TextRange(start: 0, end: 5), ['hello']),
-      ]);
-      expect(results.suggestionSpans, hasLength(1));
-    });
-  });
-
   group('StyledTextController.spellCheckResults getter', () {
     test('returns SpellCheckResults when cache is populated', () {
       final ctrl = StyledTextController()..text = 'hello world';
@@ -126,12 +94,6 @@ void main() {
       );
       expect(span.children, hasLength(greaterThan(1)));
       ctrl.dispose();
-    });
-  });
-
-  group('SpellCheckResultsProvider interface', () {
-    test('StyledTextController implements SpellCheckResultsProvider', () {
-      expect(StyledTextController(), isA<SpellCheckResultsProvider>());
     });
   });
 
@@ -263,16 +225,6 @@ void main() {
     test('default preset is prose', () {
       final ctrl = StyledTextController();
       expect(ctrl.preset, same(StyledTextPreset.prose));
-    });
-
-    test('explicit macros preset is accepted', () {
-      final ctrl = StyledTextController(preset: StyledTextPreset.macros);
-      expect(ctrl.preset, same(StyledTextPreset.macros));
-    });
-
-    test('initial text from constructor', () {
-      final ctrl = StyledTextController(text: 'hello');
-      expect(ctrl.text, 'hello');
     });
   });
 

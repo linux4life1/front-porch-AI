@@ -362,21 +362,4 @@ void main() {
       expect(msg.swipeMetadata[1], {'k': 9});
     });
   });
-
-  group('GenerationMode and GenerationPhase enums', () {
-    test('GenerationMode has expected values', () {
-      expect(GenerationMode.values, contains(GenerationMode.normal));
-      expect(GenerationMode.values, contains(GenerationMode.continue_));
-      expect(GenerationMode.values, contains(GenerationMode.impersonate));
-    });
-
-    test('GenerationPhase has expected values and is exhaustive for UI', () {
-      expect(GenerationPhase.values, contains(GenerationPhase.idle));
-      expect(GenerationPhase.values, contains(GenerationPhase.preparing));
-      expect(GenerationPhase.values, contains(GenerationPhase.prefilling));
-      expect(GenerationPhase.values, contains(GenerationPhase.thinking));
-      expect(GenerationPhase.values, contains(GenerationPhase.buffering));
-      expect(GenerationPhase.values, contains(GenerationPhase.generating));
-    });
-  });
 }

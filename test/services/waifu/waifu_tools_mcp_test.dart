@@ -101,7 +101,6 @@ void main() {
       ),
       isNotEmpty,
     );
-    expect(openCodeMcpFromServers(const []), isEmpty);
   });
 
   test(

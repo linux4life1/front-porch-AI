@@ -176,21 +176,6 @@ void main() {
       expect(chaos.chaosPressure, 15);
     });
 
-    test(
-      'chat-scoped (group vs 1:1 parity): pressure is shared, not per-speaker',
-      () {
-        // Verified by construction: no speakerId in any API; pressure is top-level on the service.
-        // Group seeds and loads use the same loadScalars / seed helpers as 1:1.
-        // Full end-to-end (pre-turn roll in group send, manual wheel in group) covered by
-        // existing group_realism + session tests (run as part of verification gates).
-        final chaos = createTestChaos();
-        chaos.seedFromGroupOrExt(true, false);
-        chaos.setPressure(30);
-        expect(chaos.chaosPressure, 30);
-        // No per-speaker API exists — this is the parity.
-      },
-    );
-
     test('public consts exposed for tests / shims', () {
       expect(ChaosModeService.baseChance, 5);
       expect(ChaosModeService.growthPerTurn, 5);

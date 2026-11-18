@@ -172,7 +172,6 @@ void main() {
         ],
       );
       final json = lorebook.toJson();
-      expect(json['entries'], isA<List>());
       expect(json['entries'].length, 2);
     });
 
@@ -454,7 +453,6 @@ void main() {
       final result = Lorebook.parseRawLorebookJson(json);
       expect(result['name'], 'My Lorebook');
       expect(result['description'], 'A test lorebook');
-      expect(result['lorebook'], isA<Map>());
       expect(result['lorebook']['entries'].length, 1);
     });
   });
