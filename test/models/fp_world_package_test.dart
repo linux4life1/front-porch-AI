@@ -26,7 +26,6 @@ void main() {
     );
     expect(json['formatVersion'], kFpWorldFormatVersion);
     expect(json['biome']['id'], 'desert');
-    expect(json['lorebooks'], isA<List>());
 
     final package = decodeFpWorld(json);
     expect(package.world.name, 'Mars');

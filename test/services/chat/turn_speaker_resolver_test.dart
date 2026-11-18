@@ -14,9 +14,9 @@
 // moment they are picked in _generateResponse and clears it when the turn ends,
 // and the resolver prefers that pin.
 //
-// Pattern matches the rest of the suite: drive the REAL GroupTurnManager and a
-// faithful replica of the resolver's group branch (the real method is private),
-// using the card name as the id proxy.
+// These drive the REAL GroupTurnManager, whose nextSpeaker is the trap the bug
+// turned on. The resolver it feeds is now the public
+// GroupRealismStore.currentSpeakerId (covered by member_switches_gates_test).
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
@@ -27,16 +27,6 @@ CharacterCard _card(String name) => CharacterCard(name: name);
 
 GroupChat _group({TurnOrder order = TurnOrder.roundRobin}) =>
     GroupChat(id: 'g1', name: 'Test Group', turnOrder: order);
-
-/// Faithful replica of ChatService._getCurrentSpeakerIdForRealism's group branch
-/// (keyed on name here instead of stableGroupId). Prefer the per-turn pin; fall
-/// back to the upcoming speaker (round-robin), then the first member.
-String resolve(GroupTurnManager mgr, List<CharacterCard> members, String? pin) {
-  if (pin != null && members.any((c) => c.name == pin)) return pin;
-  final next = mgr.nextSpeaker;
-  if (next != null) return next.name;
-  return members.first.name;
-}
 
 void main() {
   group('per-turn realism speaker resolution', () {
@@ -57,39 +47,6 @@ void main() {
       final mgr = GroupTurnManager()
         ..enterGroup(_group(order: TurnOrder.random), members);
       expect(mgr.nextSpeaker, isNull);
-      // Unpinned random resolves to the first member — the bug the user saw
-      // (only the primary character's needs/affection ever moved).
-      expect(resolve(mgr, members, null), 'Alice');
-    });
-
-    test('FIX: a pinned speaker is used regardless of turn order — round-robin '
-        '(nextSpeaker points elsewhere)', () {
-      final mgr = GroupTurnManager()..enterGroup(_group(), members);
-      final speaking = mgr.pickNextSpeaker(); // Alice; pointer now at Bob
-      expect(resolve(mgr, members, speaking.name), 'Alice',
-          reason: 'the pin wins over nextSpeaker (which is Bob)');
-    });
-
-    test('FIX: a pinned speaker is used for random turn order too '
-        '(nextSpeaker is null)', () {
-      final mgr = GroupTurnManager()
-        ..enterGroup(_group(order: TurnOrder.random), members);
-      expect(resolve(mgr, members, 'Cara'), 'Cara',
-          reason: 'the pin wins even though nextSpeaker is null — no more '
-              'falling back to the primary');
-    });
-
-    test('unpinned (outside a turn) preserves prior behaviour: round-robin uses '
-        'the upcoming speaker', () {
-      final mgr = GroupTurnManager()..enterGroup(_group(), members);
-      mgr.pickNextSpeaker(); // Alice; pointer at Bob
-      expect(resolve(mgr, members, null), 'Bob');
-    });
-
-    test('a stale pin not in the roster is ignored (falls back)', () {
-      final mgr = GroupTurnManager()..enterGroup(_group(), members);
-      expect(resolve(mgr, members, 'Ghost'), 'Alice',
-          reason: 'a pin for a departed member must not be returned');
     });
   });
 

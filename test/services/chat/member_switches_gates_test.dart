@@ -280,6 +280,28 @@ void main() {
       chat.debugPinTurnSpeakerForRealism(null);
     });
 
+    test(
+        'a stale speaker pin outside a turn falls back, never returns the pin',
+        () {
+      // The real currentSpeakerId(), not a hand-written replica: the guard
+      // only honours a pin that is in the cast, so a pin for a departed
+      // member must fall back (random order, no next -> first member).
+      chat.activeGroup!.turnOrder = TurnOrder.random;
+      chat.debugPinTurnSpeakerForRealism('departed-guest');
+      final resolved = chat.realism.groups.currentSpeakerId();
+      chat.debugPinTurnSpeakerForRealism(null);
+      expect(
+        resolved,
+        isNot('departed-guest'),
+        reason: 'realism must not key off a departed member\'s stale pin',
+      );
+      expect(
+        resolved,
+        idOf('Ada'),
+        reason: 'falls back to the first member, like an unpinned turn',
+      );
+    });
+
     test('Afterglow: a member\'s switch is theirs for this chat', () async {
       await storage.realismSettings.setAdultThemesEnabled(true);
       await storage.realismSettings.setNsfwCooldownDefault(true);

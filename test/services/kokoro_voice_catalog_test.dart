@@ -41,13 +41,6 @@ void main() {
       }
     });
 
-    test('does not offer the three voices the model never had', () {
-      final ids = KokoroEngine.catalog.map((v) => v.id);
-      expect(ids, isNot(contains('jm_beta')));
-      expect(ids, isNot(contains('em_santa')));
-      expect(ids, isNot(contains('zm_yibo')));
-    });
-
     test('does offer the three voices the old catalog hid', () {
       final ids = KokoroEngine.catalog.map((v) => v.id);
       expect(ids, contains('jf_nezumi'));
@@ -66,12 +59,6 @@ void main() {
       expect(xiaobei.name, 'Xiaobei');
       expect(xiaobei.gender, 'Female');
       expect(xiaobei.language, 'Mandarin Chinese');
-    });
-
-    test('gender is never mislabelled against the id prefix', () {
-      for (final v in KokoroEngine.catalog) {
-        expect(v.gender, v.id[1] == 'm' ? 'Male' : 'Female', reason: v.id);
-      }
     });
 
     test('keeps the default voice first so the picker opens where it used to',

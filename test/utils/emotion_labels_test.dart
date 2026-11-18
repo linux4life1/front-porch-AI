@@ -5,103 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/utils/emotion_labels.dart';
 
 void main() {
-  group('EmotionLabels', () {
-    test('all labels count is 30', () {
-      expect(EmotionLabels.all.length, equals(30));
-    });
-
-    test('all labels have emoji mappings', () {
-      for (final label in EmotionLabels.all) {
-        expect(
-          EmotionLabels.emoji.containsKey(label),
-          isTrue,
-          reason: 'Label "$label" should have an emoji mapping',
-        );
-      }
-    });
-
-    test('emoji map contains all labels', () {
-      expect(EmotionLabels.emoji.length, greaterThanOrEqualTo(28));
-    });
-  });
-
+  // The full label set, its emoji/ring-color detail and the nuanced->standard
+  // map are frozen by test/golden/emotion/emotion_labels_golden_test.dart, so
+  // the per-entry "maps X to Y" checks and the set/emoji/count checks are not
+  // repeated here. Only the invariants that golden cannot assert live below.
   group('EmotionLabels.nuancedToStandard', () {
-    test('maps elated to joy', () {
-      expect(EmotionLabels.nuancedToStandard['elated'], equals('joy'));
-    });
-
-    test('maps starstruck to love', () {
-      expect(EmotionLabels.nuancedToStandard['starstruck'], equals('love'));
-    });
-
-    test('maps wistful to sadness', () {
-      expect(EmotionLabels.nuancedToStandard['wistful'], equals('sadness'));
-    });
-
-    test('maps flustered to embarrassment', () {
-      expect(
-        EmotionLabels.nuancedToStandard['flustered'],
-        equals('embarrassment'),
-      );
-    });
-
-    test('maps prickly to anger', () {
-      expect(EmotionLabels.nuancedToStandard['prickly'], equals('anger'));
-    });
-
-    test('maps guarded to neutral', () {
-      expect(EmotionLabels.nuancedToStandard['guarded'], equals('neutral'));
-    });
-
-    test('maps smitten to love', () {
-      expect(EmotionLabels.nuancedToStandard['smitten'], equals('love'));
-    });
-
-    test('maps ecstatic to joy', () {
-      expect(EmotionLabels.nuancedToStandard['ecstatic'], equals('joy'));
-    });
-
-    test('maps heartbroken to grief', () {
-      expect(EmotionLabels.nuancedToStandard['heartbroken'], equals('grief'));
-    });
-
-    test('maps suspicious to confusion', () {
-      expect(
-        EmotionLabels.nuancedToStandard['suspicious'],
-        equals('confusion'),
-      );
-    });
-
-    test('maps determined to optimism', () {
-      expect(EmotionLabels.nuancedToStandard['determined'], equals('optimism'));
-    });
-
-    test('maps vulnerable to fear', () {
-      expect(EmotionLabels.nuancedToStandard['vulnerable'], equals('fear'));
-    });
-
-    test('maps flirtatious to desire', () {
-      expect(EmotionLabels.nuancedToStandard['flirtatious'], equals('desire'));
-    });
-
-    test('maps protective to caring', () {
-      expect(EmotionLabels.nuancedToStandard['protective'], equals('caring'));
-    });
-
-    test('maps bittersweet to sadness', () {
-      expect(EmotionLabels.nuancedToStandard['bittersweet'], equals('sadness'));
-    });
-
-    test('mapping has no duplicate keys', () {
-      final keys = EmotionLabels.nuancedToStandard.keys.toList();
-      final uniqueKeys = keys.toSet();
-      expect(
-        uniqueKeys.length,
-        equals(keys.length),
-        reason: 'Mapping should not have duplicate keys',
-      );
-    });
-
     test('all mapped values are valid standard labels', () {
       for (final value in EmotionLabels.nuancedToStandard.values) {
         expect(
