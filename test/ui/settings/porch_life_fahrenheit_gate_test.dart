@@ -86,25 +86,44 @@ void main() {
           .first,
     );
 
+    bool unitEnabled(String unit) {
+      final ink = tester.widget<InkWell>(
+        find
+            .ancestor(of: find.text(unit), matching: find.byType(InkWell))
+            .first,
+      );
+      return ink.onTap != null;
+    }
+
     expect(
       switchOf('Story Weather').onChanged,
       isNull,
       reason: 'Story Weather is gated on the clock',
     );
     expect(
-      switchOf('Temperatures in °F').onChanged,
-      isNull,
+      unitEnabled('°C'),
+      isFalse,
       reason:
-          'with Passage of Time off, Story Weather is greyed out, so °F '
+          'with Passage of Time off, Story Weather is greyed out, so °C/°F '
           'must not stay clickable',
     );
+    expect(unitEnabled('°F'), isFalse);
 
     await storage.realismSettings.setPassageOfTimeDefault(true);
     await tester.pump(const Duration(milliseconds: 300));
     expect(
-      switchOf('Temperatures in °F').onChanged,
-      isNotNull,
-      reason: 'clock and weather both on: °F is live again',
+      unitEnabled('°C'),
+      isTrue,
+      reason: 'clock and weather both on: temperature unit picker is live',
     );
+    expect(unitEnabled('°F'), isTrue);
+
+    expect(storage.realismSettings.weatherFahrenheit, isFalse);
+    await tester.tap(find.text('°F'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(storage.realismSettings.weatherFahrenheit, isTrue);
+    await tester.tap(find.text('°C'));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(storage.realismSettings.weatherFahrenheit, isFalse);
   });
 }

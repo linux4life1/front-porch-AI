@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/settings/widgets/feature_tree.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -28,7 +29,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// Dummy-proof note plus a JSON-only file picker that copies recipe cards
 /// into the library `tools/` folder.
 class ToolsFolderNote extends StatefulWidget {
-  const ToolsFolderNote({super.key});
+  const ToolsFolderNote({super.key, this.expandDetailsSignal});
+
+  final ExpandSignal? expandDetailsSignal;
 
   @override
   State<ToolsFolderNote> createState() => _ToolsFolderNoteState();
@@ -36,6 +39,25 @@ class ToolsFolderNote extends StatefulWidget {
 
 class _ToolsFolderNoteState extends State<ToolsFolderNote> {
   bool _busy = false;
+  bool _detailsExpanded = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.expandDetailsSignal != null) {
+      _detailsExpanded = widget.expandDetailsSignal!.expanded;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ToolsFolderNote oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final nextSignal = widget.expandDetailsSignal;
+    final prevSignal = oldWidget.expandDetailsSignal;
+    if (nextSignal != null && nextSignal.version != prevSignal?.version) {
+      _detailsExpanded = nextSignal.expanded;
+    }
+  }
 
   Future<void> _chooseFiles() async {
     if (_busy) return;
@@ -73,55 +95,84 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final storage = context.watch<StorageService>();
     final toolsPath = storage.rootPath == null
         ? 'tools'
         : storage.toolsDir.path;
     return Padding(
       key: const Key('user-tools-folder-note'),
-      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      padding: const EdgeInsets.only(top: 10, bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(
-                  Icons.folder_outlined,
-                  size: 18,
-                  color: AppColors.iconSecondary(context),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Extra tools are JSON recipe cards you drop in the tools '
-                  'folder next to chats and worlds — the same drawer character '
-                  'chat and Waifu Coder share. Not programs, and not a Docker '
-                  'server. Each card is a name, a short description, and an '
-                  'HTTP address. Disabled or broken cards are skipped. '
-                  'That folder is:\n$toolsPath',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    color: AppColors.textSecondary(context),
+          InkWell(
+            onTap: () => setState(() => _detailsExpanded = !_detailsExpanded),
+            borderRadius: BorderRadius.circular(6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.folder_outlined,
+                    size: 18,
+                    color: AppColors.iconSecondary(context),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Extra Tools',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'JSON HTTP recipe cards shared by character chat and '
+                        'Waifu Coder.',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textPrimary(
+                            context,
+                          ).withValues(alpha: 0.86),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FeatureDetailsSection(
+            expanded: _detailsExpanded,
+            body:
+                'Extra tools are JSON recipe cards you drop in the tools '
+                'folder next to chats and worlds — the same drawer '
+                'character chat and Waifu Coder share. Not programs, and '
+                'not a Docker server. Each card is a name, a short '
+                'description, and an HTTP address. Disabled or broken '
+                'cards are skipped. That folder is:\n$toolsPath',
           ),
           const SizedBox(height: 8),
-          FilledButton.icon(
-            key: const Key('tools-choose-json'),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.porchAmberOf(context),
-              foregroundColor: AppColors.onAccentOf(context),
+          Padding(
+            padding: const EdgeInsets.only(left: 28),
+            child: FilledButton.icon(
+              key: const Key('tools-choose-json'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.porchAmberOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
+              ),
+              onPressed: _busy ? null : _chooseFiles,
+              icon: const Icon(Icons.file_open, size: 16),
+              label: Text(_busy ? 'Copying…' : 'Choose files'),
             ),
-            onPressed: _busy ? null : _chooseFiles,
-            icon: const Icon(Icons.file_open, size: 16),
-            label: Text(_busy ? 'Copying…' : 'Choose files'),
           ),
         ],
       ),

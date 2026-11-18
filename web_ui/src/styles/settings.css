@@ -781,6 +781,11 @@
 .sg-signed-in { margin: 0; font-weight: 600; color: var(--ok); }
 .sg-fine { margin: 0; font-size: 0.75rem; color: var(--porch-amber); }
 
+.page.settings-page { max-width: 1120px; }
+.settings-page > .settings-section:not([data-section="porch-life"]) {
+  max-width: 720px; margin-left: auto; margin-right: auto;
+}
+
 /* ── Settings tabs + rows (one-chat-ux PR 7a: the desktop's look) ─────────
    A tab strip under the title with the accent underline on the active tab,
    and flat setting rows — title + muted explanation left, control right,

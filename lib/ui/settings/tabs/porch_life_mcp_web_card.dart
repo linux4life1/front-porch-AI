@@ -21,21 +21,30 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Web Search plus a dummy-proof note about the library `tools/` folder.
+/// Web Search plus custom wikis and notes about the library `tools/` &
+/// `skills/` folders.
 class PorchLifeMcpWebCard extends StatelessWidget {
-  const PorchLifeMcpWebCard({super.key});
+  const PorchLifeMcpWebCard({super.key, this.expandDetailsSignal});
+
+  final ExpandSignal? expandDetailsSignal;
 
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
+    final webOn = storage.webSearchSettings.webSearchDefault;
+
     return FeatureGroupCard(
       title: 'Web Search and extra tools',
       subtitle: 'looking things up, and recipe cards from your library',
+      accentTint: AppColors.bondMidOf(context),
       rows: [
         FeatureRow(
           icon: Icons.travel_explore,
           label: 'Web Search',
+          subtitle:
+              'Lets characters look up unfamiliar words via Wikipedia or Tavily.',
           need: FeatureNeed.alone,
           blurb:
               'When they hit a word or event they don\'t know, they can '
@@ -49,14 +58,15 @@ class PorchLifeMcpWebCard extends StatelessWidget {
               '(encyclopedia lookups). Add a Tavily API key below '
               'for full web coverage. Off by default. Turning this on '
               'or off applies to every chat, including ones already open.',
-          value: storage.webSearchSettings.webSearchDefault,
+          value: webOn,
           onChanged: storage.webSearchSettings.setWebSearchDefault,
           showChildWhenOff: true,
+          expandDetailsSignal: expandDetailsSignal,
           child: WebSearchKeyField(storage: storage),
         ),
         const WikiUrlList(),
-        const ToolsFolderNote(),
-        const SkillsFolderNote(),
+        ToolsFolderNote(expandDetailsSignal: expandDetailsSignal),
+        SkillsFolderNote(expandDetailsSignal: expandDetailsSignal),
       ],
     );
   }

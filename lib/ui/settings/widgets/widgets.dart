@@ -12,6 +12,7 @@ export 'worker_kobold_model_picker.dart';
 export 'worker_kobold_kcpps_picker.dart';
 export 'color_row.dart';
 export 'feature_row.dart';
+export 'feature_tree.dart';
 export 'image_gen_enable_section.dart';
 export 'kobold_idle_unload_row.dart';
 export 'kobold_keep_recent_row.dart';

@@ -83,7 +83,7 @@ void main() {
     final label = find.text('Planner');
     await tester.scrollUntilVisible(label, 300, scrollable: scrollable);
     expect(
-      find.textContaining('needs Passage of Time, Objectives, and the Journal'),
+      find.textContaining('needs Passage of Time and the Journal'),
       findsWidgets,
     );
     final gated = tester.widget<Switch>(
