@@ -19,6 +19,7 @@ PresenceWhere d({
   int weekday = DateTime.tuesday,
   List<int>? workDays,
   bool isGroup = false,
+  bool heldAway = false,
   bool inScene = true,
 }) => derivePresence(
   occupation: occupation,
@@ -26,6 +27,7 @@ PresenceWhere d({
   clockMinutes: clockMinutes,
   weekday: weekday,
   workDays: workDays,
+  heldAway: heldAway,
   inScene: inScene,
 );
 
@@ -81,6 +83,27 @@ void main() {
   test('1:1 on shift is At work', () {
     expect(
       d(hours: '9-5', clockMinutes: _afternoon, isGroup: false, inScene: true),
+      PresenceWhere.atWork,
+    );
+  });
+
+  test('a held member is Away even mid-shift (hold outranks the shift)', () {
+    expect(
+      d(hours: '9-5', clockMinutes: _afternoon, heldAway: true),
+      PresenceWhere.away,
+    );
+  });
+
+  test('the hold sits above inScene too: held reads Away, not With you', () {
+    expect(
+      d(hours: '9-5', clockMinutes: _evening, inScene: true, heldAway: true),
+      PresenceWhere.away,
+    );
+  });
+
+  test('no hold changes nothing: mid-shift still At work', () {
+    expect(
+      d(hours: '9-5', clockMinutes: _afternoon, heldAway: false),
       PresenceWhere.atWork,
     );
   });

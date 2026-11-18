@@ -79,6 +79,13 @@ class FrontPorchExtensions {
   /// keeps its own switch. Missing JSON reads **on**; Porch Life Afterglow
   /// and 18+ themes still decide whether any of it runs.
   bool afterglowEnabled;
+
+  /// How this member starts in every group chat made with them: Away at the
+  /// door, before any turn runs (docs/design/group-initial-presence.md).
+  /// Authored on the card (and picked per member in the new-group wizard);
+  /// the creation seeder reads it once. Missing JSON reads **false** — a
+  /// card that says nothing starts present.
+  bool startsAway;
   bool
   enjoysLowHygiene; // when true, low hygiene is desirable (inverted behavior for filthy/musky characters)
 
@@ -243,6 +250,7 @@ class FrontPorchExtensions {
     bool? needsSimEnabled,
     this.pocketsEnabled = true,
     this.afterglowEnabled = true,
+    this.startsAway = false,
     this.enjoysLowHygiene = false,
     // Never mutated in place — always replaced wholesale (copyWith/editor),
     // so the const default is safe.
@@ -330,6 +338,7 @@ class FrontPorchExtensions {
     bool? needsSimEnabled,
     bool? pocketsEnabled,
     bool? afterglowEnabled,
+    bool? startsAway,
     bool? enjoysLowHygiene,
     List<String>? ambitions,
     List<String>? planLines,
@@ -394,6 +403,7 @@ class FrontPorchExtensions {
       needsSimEnabled: needsSimEnabled ?? needsSimChoice,
       pocketsEnabled: pocketsEnabled ?? this.pocketsEnabled,
       afterglowEnabled: afterglowEnabled ?? this.afterglowEnabled,
+      startsAway: startsAway ?? this.startsAway,
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
       planLines: planLines ?? this.planLines,

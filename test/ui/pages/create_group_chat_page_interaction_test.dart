@@ -310,6 +310,32 @@ void main() {
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
 
+  // The Members step's Starts Away switch is wizard content: it shows in the
+  // fingerprint (so a live pick survives a rebuild), rides the commit pick
+  // through groupMemberExtensions, and a removed member leaves none behind.
+  test('the Starts Away pick is draft content and dies with its member', () {
+    final draft = GroupWizardDraft();
+    addTearDown(draft.dispose);
+    final a = CharacterCard(name: 'Aerin');
+    final b = CharacterCard(name: 'Bo');
+    draft.members.addAll([a, b]);
+    final aId = draft.stableId(a);
+
+    final blank = draft.fingerprint();
+    draft.setStartsAway(aId, true);
+    expect(draft.fingerprint(), isNot(blank), reason: 'a live pick is content');
+    expect(draft.characterStartsAway[aId], isTrue);
+
+    draft.setStartsAway(aId, false);
+    expect(draft.characterStartsAway[aId], isFalse);
+
+    final bId = draft.stableId(b);
+    draft.setStartsAway(bId, true);
+    draft.removeMember(bId);
+    expect(draft.characterStartsAway, isNot(contains(bId)));
+    expect(draft.characterStartsAway[aId], isFalse, reason: 'Aerin keeps hers');
+  });
+
   // The button reads "Generate with Dynamics" exactly when its flag is set.
   testWidgets('the Generate label follows its withDynamics flag', (
     tester,
@@ -341,8 +367,14 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await _pumpWizard(tester);
 
+    // The labelled Starts away pick makes each member row taller than the
+    // tooltip it replaced, so on a 400 px window the second card sits below
+    // the fold: scroll it into view before tapping, the way the walk below
+    // does for Next.
+    await tester.ensureVisible(find.text('Aerin').first);
     await tester.tap(find.text('Aerin').first);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Bo').first);
     await tester.tap(find.text('Bo').first);
     await tester.pumpAndSettle();
     var steps = 1;
@@ -364,6 +396,36 @@ void main() {
     }
     expect(steps, GroupWizardSteps.labels.length);
     expect(sawRealismHeader, isTrue);
+  });
+
+  // The Members row's Starts away pick is labelled and says where the value
+  // came from: a bare switch whose only label was a 400 ms tooltip showed
+  // nothing on touch, and nothing said whether the value came from the
+  // member's card or from the user (docs/design/group-initial-presence.md).
+  testWidgets('the member row labels its Starts away switch with the pick', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpWizard(tester);
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(Switch), findsOneWidget);
+
+    // The label is visible, not a hover-only tooltip.
+    expect(find.text('Starts away'), findsOneWidget);
+    expect(find.byTooltip('Starts away'), findsNothing);
+    // Untouched: the pick is the card's own, and the state says so.
+    expect(find.text("their card's own"), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('away in every chat here'), findsOneWidget);
+
+    await tester.tap(find.byType(Switch).first);
+    await tester.pumpAndSettle();
+    expect(find.text('present in every chat here'), findsOneWidget);
   });
 
   // The wizard's member card saved Long-Term Bond into the seed's trust, so a

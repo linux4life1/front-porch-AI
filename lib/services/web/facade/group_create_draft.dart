@@ -24,9 +24,9 @@ import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// What the web's new-group wizard posts beyond name, members, turn order
-/// and worlds: the Identity switches with each member's Voice, the Opening,
-/// Realism (with Group Dynamics) and Prompts & Lore, as the desktop wizard
-/// collects them.
+/// and worlds: the Identity switches with each member's Voice and Starts
+/// Away pick, the Opening, Realism (with Group Dynamics) and Prompts &
+/// Lore, as the desktop wizard collects them.
 ///
 /// Every field is optional and read defensively, since phones and desktops
 /// run mixed versions: a body with none of them gets Realism and Needs on,
@@ -47,6 +47,7 @@ class GroupCreateDraft {
         for (final e in _stringMap(body['memberVoices']).entries)
           e.key: e.value.trim(),
       },
+      memberStartsAway = _boolMap(body['memberStartsAway']),
       groupLore = _lore(body['groupLore']),
       greetings = compactGreetingPairs(
         greetingSlotsFromRaw(body['alternateGreetings']),
@@ -74,6 +75,12 @@ class GroupCreateDraft {
   /// the global voice. A member with no entry keeps the card's own voice
   /// (see memberVoiceFromPick).
   final Map<String, String> memberVoices;
+
+  /// Library id → that member's Starts Away pick (the Members step,
+  /// docs/design/group-initial-presence.md). A member with no entry keeps
+  /// their card's own switch; a picked value rides into the member row
+  /// through groupMemberExtensions, where the chat-creation seeder reads it.
+  final Map<String, bool> memberStartsAway;
   final List<LorebookEntry> groupLore;
 
   /// Alternate openings and their realism seeds, paired as the editor does.
@@ -116,6 +123,7 @@ class GroupCreateDraft {
       source,
       memberSeedOverrides(_realism['members'], source.dbId),
       realismEnabled: realismEnabled,
+      startsAway: memberStartsAway[source.dbId],
     );
     return fp == null ? null : jsonEncode(fp.toJson());
   }
@@ -179,6 +187,13 @@ class GroupCreateDraft {
       ? {
           for (final e in v.entries)
             if (e.value is String) e.key.toString(): e.value as String,
+        }
+      : const {};
+
+  static Map<String, bool> _boolMap(Object? v) => v is Map
+      ? {
+          for (final e in v.entries)
+            if (e.value is bool) e.key.toString(): e.value as bool,
         }
       : const {};
 

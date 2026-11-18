@@ -6,7 +6,8 @@
 // as the seed the Realism step shows. The step lets a member be edited only
 // once their card has loaded, and a card that failed to load can be asked
 // for again. The relay starts a member the wizard left alone from the same
-// card.
+// card. `startsAway` is the card's own Starts Away switch, the default the
+// Members step's picks show over (never the seed: the hold is a door fact).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
@@ -16,6 +17,8 @@ import { memberRealismFromCard, type MemberRealism } from './groupDraft';
 export interface MemberCardSeeds {
   /** Library id → that member's card seed, once it has loaded. */
   seeds: Record<string, MemberRealism>;
+  /** Library id → the card's own Starts Away switch (false unless it asks). */
+  startsAway: Record<string, boolean>;
   /** Library ids whose card could not be read. */
   failed: string[];
   /** Ask for [id]'s card again. */
@@ -24,6 +27,7 @@ export interface MemberCardSeeds {
 
 export function useMemberCardSeeds(ids: string[]): MemberCardSeeds {
   const [seeds, setSeeds] = useState<Record<string, MemberRealism>>({});
+  const [startsAway, setStartsAway] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<string[]>([]);
   const asked = useRef(new Set<string>());
 
@@ -32,7 +36,10 @@ export function useMemberCardSeeds(ids: string[]): MemberCardSeeds {
     setFailed((f) => f.filter((x) => x !== id));
     api
       .get<{ realism?: Partial<RealismValues> | null }>(`/api/characters/${encodeURIComponent(id)}/detail`)
-      .then((d) => setSeeds((s) => ({ ...s, [id]: memberRealismFromCard(d?.realism) })))
+      .then((d) => {
+        setSeeds((s) => ({ ...s, [id]: memberRealismFromCard(d?.realism) }));
+        setStartsAway((s) => ({ ...s, [id]: d?.realism?.startsAway === true }));
+      })
       .catch((e) => {
         console.warn('[create-group] card seed unavailable', id, e);
         setFailed((f) => (f.includes(id) ? f : [...f, id]));
@@ -43,5 +50,5 @@ export function useMemberCardSeeds(ids: string[]): MemberCardSeeds {
     for (const id of ids) if (!asked.current.has(id)) load(id);
   }, [ids, load]);
 
-  return { seeds, failed, retry: load };
+  return { seeds, startsAway, failed, retry: load };
 }

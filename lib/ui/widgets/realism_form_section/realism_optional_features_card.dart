@@ -23,6 +23,7 @@ import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/greyed_out.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 
+import 'member_starts_away_row.dart';
 import 'realism_form_controls.dart';
 import 'recovery_block.dart';
 
@@ -49,6 +50,9 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     this.showChargenSuggestion = false,
     this.afterglowEnabled = true,
     this.onAfterglowChanged,
+    this.startsAwayEnabled = false,
+    this.onStartsAwayChanged,
+    this.startsAwayMemberName,
     this.chaosLockedTooltip,
     this.verificationLockedTooltip,
     this.needsDirectorAuthority = false,
@@ -98,6 +102,18 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   final bool afterglowEnabled;
   final ValueChanged<bool>? onAfterglowChanged;
 
+  /// How this group member starts in every chat the group CREATES: Away at
+  /// the door, before any turn runs (docs/design/group-initial-presence.md).
+  /// Only the member editor passes a setter — the hold is a group fact, so
+  /// the row is absent for a 1:1 card (the wizard's Members step picks it
+  /// there too). Only the member's Back at the door lifts it, and a chat
+  /// you reopen keeps its own.
+  final bool startsAwayEnabled;
+  final ValueChanged<bool>? onStartsAwayChanged;
+
+  /// The member's name as the editor has it now, for the row's hint.
+  final String? startsAwayMemberName;
+
   @override
   Widget build(BuildContext context) {
     final allowed = afterglowEnabledOf(context);
@@ -118,7 +134,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          if (showSwitch) ...[
+          if (showSwitch)
             buildRealismToggleRow(
               icon: Icons.local_fire_department,
               label: 'Afterglow',
@@ -129,17 +145,8 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               onChanged: onAfterglowChanged!,
               context: context,
             ),
-            if (showRecovery) const SizedBox(height: 12),
-            if (!showRecovery && (showChaosToggle || showVerificationToggle))
-              Divider(
-                color:
-                    (context.creatorPalette?.line ??
-                            AppColors.borderOf(context))
-                        .withValues(alpha: 0.4),
-                height: 24,
-              ),
-          ],
           if (showRecovery) ...[
+            const SizedBox(height: 12),
             RecoveryBlock(
               recovery: recovery!,
               sex: sex,
@@ -148,8 +155,24 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               onChanged: onRecoveryChanged!,
               showChargenSuggestion: showChargenSuggestion,
             ),
-            const SizedBox(height: 4),
-            if (showChaosToggle)
+            if (onStartsAwayChanged == null) const SizedBox(height: 4),
+          ],
+          // Starts away (docs/design/group-initial-presence.md) rides after
+          // the complete Afterglow unit - the switch and its Recovery block
+          // - above Chaos: a door fact, not a feature inside that unit, and
+          // not an 18+ one, so it shows even when Porch Life keeps the rows
+          // above hidden.
+          if (onStartsAwayChanged != null) ...[
+            if (showSwitch || showRecovery) const SizedBox(height: 12),
+            memberStartsAwayRow(
+              context,
+              startsAwayEnabled,
+              onStartsAwayChanged!,
+              memberName: startsAwayMemberName,
+            ),
+          ],
+          if (showChaosToggle) ...[
+            if (showSwitch || showRecovery)
               Divider(
                 color:
                     (context.creatorPalette?.line ??
@@ -157,8 +180,6 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
                         .withValues(alpha: 0.4),
                 height: 24,
               ),
-          ],
-          if (showChaosToggle) ...[
             realismChaosRow(
               context,
               value: chaosModeEnabled,
@@ -169,7 +190,7 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
 
           // Realism Verification toggle (last optional; independent of needs).
           if (showVerificationToggle) ...[
-            if (showChaosToggle || showRecovery)
+            if (showChaosToggle || showRecovery || showSwitch)
               Divider(
                 color:
                     (context.creatorPalette?.line ??

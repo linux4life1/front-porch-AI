@@ -89,7 +89,12 @@ void main() {
       matching: find.byType(ListTile),
     );
     expect(rosterRow, findsOneWidget, reason: 'Aerin must be in the roster');
-    final preview = tester.widget<ListTile>(rosterRow).subtitle! as Text;
+    // The labelled Starts away pick made the roster row's subtitle a Column:
+    // the resolved description is its first child, before the pick's label.
+    final subtitle = tester.widget<ListTile>(rosterRow).subtitle!;
+    final preview = subtitle is Text
+        ? subtitle
+        : (subtitle as Column).children.first as Text;
 
     expect(preview.data, 'Aerin stands taller than You....');
     expect(preview.data, isNot(contains('{{')));

@@ -50,6 +50,7 @@ export function RealismFormSection({
   disclaimer,
   needs,
   showIdentity = true,
+  startsAway,
   wardrobeNotice,
   planner = false,
 }: {
@@ -85,6 +86,10 @@ export function RealismFormSection({
   /** Ambitions … Intimate preferences follow the engine (create wizards); the
    *  character editor shows them first and passes false. */
   showIdentity?: boolean;
+  /** A group member's own Starts Away pick: how every chat the group CREATES
+   *  starts them (docs/design/group-initial-presence.md). Member-only — a
+   *  1:1 card has no hold to author, so it stays undefined there. */
+  startsAway?: { name: string; value: boolean; onChange: (b: boolean) => void };
   /** Drawn right above Pockets & Wardrobe (the AI creator's outfit hint,
    *  desktop `wardrobeNotice`). */
   wardrobeNotice?: React.ReactNode;
@@ -186,6 +191,21 @@ export function RealismFormSection({
               />
             )}
           </>
+        )}
+        {/* This group member Starts Away: lands held in every chat the group
+            CREATES (docs/design/group-initial-presence.md). Member-only - a
+            1:1 card has no hold to author. Not an 18+ feature: it shows even
+            when Porch Life keeps Afterglow hidden, and with the Realism
+            Engine off too (R6 - a door fact, not an engine feature; on the
+            desktop it rides in this card above Chaos on both engines). */}
+        {startsAway && (
+          <ToggleRow
+            icon={<RlIcon.pauseOutline />}
+            label="Starts away"
+            hint={`Every chat you make with this group starts ${startsAway.name} Away, before any turn runs. Only Back at the door brings them in.`}
+            value={startsAway.value}
+            onChange={(b) => startsAway.onChange(b)}
+          />
         )}
         {lock(
           lockChaos,

@@ -156,7 +156,6 @@ class ChatService extends ChangeNotifier {
   /// prompt injections, the Journal, Growth Rings, lore and places. The
   /// getters below forward into it; fakes override them.
   RealismGraph get realism => _wiring.realism;
-
   Biome get activeChatBiome => realism.weather.activeChatBiome;
 
   /// Today's story weather, or null when off (body in [ChatWeather]).
@@ -354,6 +353,8 @@ class ChatService extends ChangeNotifier {
       entryDoor.reads.spatialStanceForGroupCharacter(c);
   bool? withUserForGroupCharacter(CharacterCard c) =>
       entryDoor.reads.withUserForGroupCharacter(c);
+  bool awayHeldForGroupCharacter(CharacterCard c) =>
+      entryDoor.reads.awayHeldForGroupCharacter(c);
   bool get objectivesActive => controlsDoor.objectivesActive;
   bool get afterglowChatSwitch => controlsDoor.afterglowChatSwitch;
   Future<void> setAfterglowEnabled(bool on) =>
@@ -423,7 +424,6 @@ class ChatService extends ChangeNotifier {
       editsDoor.regen.hostBelowGuestsIndex;
   void editMessage(int index, String newText) =>
       editsDoor.editor.edit(index, newText);
-
   // Growth Rings flag (zeroed on all reset/entry sites). Class-pinned for fakes.
   bool get isGrowthPassRunning => realism.growthPassRunning;
 
