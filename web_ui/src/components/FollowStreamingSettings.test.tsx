@@ -42,24 +42,26 @@ afterEach(() => {
 });
 
 describe('FollowStreamingSettings', () => {
-  it('renders switch with min 48px hit area and toggles state on click', async () => {
+  it('renders the painted input itself as the control and toggles on click', async () => {
     savedStreaming = true;
     await mount(createElement(FollowStreamingSettings));
 
     const card = container.querySelector('[data-testid="follow-streaming-card"]');
     expect(card).not.toBeNull();
 
-    const switchLabel = container.querySelector<HTMLLabelElement>('label.toggle-switch');
-    expect(switchLabel).not.toBeNull();
-
-    const box = container.querySelector<HTMLInputElement>('input[aria-label="Follow streaming replies"]')!;
-    expect(box.checked).toBe(true);
+    // The clickable control must be the painted pill (input.switch), not a
+    // 0×0 input hidden behind a painted span — that variant deleted the
+    // labelled control from the accessibility tree and from Playwright.
+    const box = container.querySelector<HTMLInputElement>('input.switch[aria-label="Follow streaming replies"]');
+    expect(box).not.toBeNull();
+    expect(container.querySelector('.toggle-slider')).toBeNull();
+    expect(box!.checked).toBe(true);
 
     await act(async () => {
-      box.click();
+      box!.click();
     });
 
-    expect(box.checked).toBe(false);
+    expect(box!.checked).toBe(false);
     expect(post).toHaveBeenCalledWith('/api/settings', { followStreamingReplies: false });
   });
 });

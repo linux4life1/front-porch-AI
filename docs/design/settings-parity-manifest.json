@@ -97,14 +97,14 @@
       "group": "chat-appearance",
       "dart": "lib/ui/settings/tabs/appearance_tab/chat_appearance_section.dart",
       "dartMarker": "Reading Size",
-      "webMarker": "Reading size"
+      "webMarker": "Reading Size"
     },
     "bubbleOpacity": {
       "section": "appearance",
       "group": "chat-appearance",
       "dart": "lib/ui/dialogs/ui_settings_dialog.dart",
       "dartMarker": "Bubble Opacity",
-      "webMarker": "Bubble opacity"
+      "webMarker": "Bubble Opacity"
     },
     "ambientScene": {
       "section": "appearance",

@@ -10,6 +10,11 @@ import { useState } from 'react';
 const formatEnd = (v: number, step: number): string =>
   step >= 1 ? v.toLocaleString('en-US') : v.toFixed(2);
 
+// The numeric box shows what the desktop's input shows: integers plain,
+// fractional values at fixed two decimals (0.70, not 0.7).
+const formatValue = (v: number, step: number): string =>
+  step >= 1 ? String(Math.round(v)) : v.toFixed(2);
+
 const clampPct = (v: number, min: number, max: number): number =>
   max <= min ? 0 : Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
 
@@ -113,7 +118,7 @@ export function SliderField({
           <input
             type="number"
             className="slider-val"
-            value={value}
+            value={formatValue(value, step)}
             step={step}
             min={0}
             disabled={disabled}

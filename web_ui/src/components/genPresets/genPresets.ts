@@ -177,7 +177,7 @@ export function recommendedLine(data: GenPresets): string {
 const SHORT: Partial<Record<SamplerKey, string>> = {
   temperature: 'temp', minP: 'min-P', topP: 'top-P', topK: 'top-K',
   repeatPenalty: 'rep pen', repeatPenaltyTokens: 'rep pen tokens',
-  xtcThreshold: 'XTC threshold', xtcProbability: 'XTC probability',
+  xtcThreshold: 'XTC Threshold', xtcProbability: 'XTC Probability',
   dryMultiplier: 'DRY', dynamicTempRange: 'dynatemp range', maxLength: 'max output',
 };
 

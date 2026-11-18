@@ -51,7 +51,7 @@ async function show(contextLocked: boolean) {
 
 const contextInputs = () => {
   const field = Array.from(container.querySelectorAll('.slider-field')).find((f) =>
-    f.textContent?.includes('Context size'),
+    f.textContent?.includes('Context Size'),
   )!;
   return Array.from(field.querySelectorAll('input'));
 };

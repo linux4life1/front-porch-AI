@@ -97,7 +97,7 @@ export function BubbleOpacitySlider() {
   return (
     <>
       <label className="reading-size-row">
-        <span>Bubble opacity</span>
+        <span>Bubble Opacity</span>
         <input
           type="range"
           min={BUBBLE_OPACITY_MIN}
@@ -109,7 +109,7 @@ export function BubbleOpacitySlider() {
           aria-valuemin={BUBBLE_OPACITY_MIN}
           aria-valuemax={BUBBLE_OPACITY_MAX}
           aria-valuenow={shown}
-          aria-label="Bubble opacity"
+          aria-label="Bubble Opacity"
         />
         <span className="reading-size-value">{Math.round(shown * 100)}%</span>
       </label>
@@ -121,7 +121,7 @@ export function BubbleOpacitySlider() {
 export function BubbleOpacitySettings() {
   return (
     <SettingRow
-      title="Bubble opacity"
+      title="Bubble Opacity"
       blurb={
         <>
           How solid the chat bubbles are; the text stays crisp. With the Ambient
