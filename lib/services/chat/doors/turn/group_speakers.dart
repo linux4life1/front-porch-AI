@@ -65,6 +65,38 @@ class GroupSpeakers {
     }
   }
 
+  /// The cast chip and Director cue "Next": hold [character] — full member
+  /// or lite guest, both are rotation rows — to answer the next turn:
+  /// a Director's Note, a quick beat, auto-advance, or the Next button.
+  /// The hold is keyed by row id and lives in GroupTurnManager's queue
+  /// slot: a turn stopped or refused before its bubble gives it back; a
+  /// failed stream goes down the standard failure path. A hand pick
+  /// replaces it. Held-Away members are released back on scene
+  /// (they're about to speak); At work speaks anyway, as under a forced @.
+  void queueSpeaker(CharacterCard character) {
+    _s.cast.away.releaseHeldAway(character);
+    _session.groupManager?.queueSpeaker(character);
+    notifyListeners();
+  }
+
+  /// The held member — the chip queue first, then any hand pick (@name,
+  /// bubble tap, /speak): all reads of "who is next" see one answer.
+  /// Null when nothing is held.
+  CharacterCard? get queuedSpeaker {
+    final manager = _session.groupManager;
+    if (manager == null) return null;
+    if (!manager.hasQueuedSpeaker && !manager.hasForcedSpeaker) return null;
+    return manager.nextSpeaker;
+  }
+
+  /// Cancel a queued speaker — the second tap on a filled NEXT pill.
+  /// Clears a hand pick too: both answer the same question.
+  void clearQueuedSpeaker() {
+    _session.groupManager?.clearQueuedSpeaker();
+    _session.groupManager?.clearForcedSpeaker();
+    notifyListeners();
+  }
+
   /// Pick which character speaks next based on turn order.
   /// A _forcedNextSpeakerId (set by manual user choice) is consumed first
   /// and works for both TurnOrder.random and roundRobin. After consumption
@@ -98,9 +130,13 @@ class GroupSpeakers {
   /// turn order must not re-roll the same At-work member and miss the
   /// only free one — walk the roster once.
   CharacterCard pickPresentGroupSpeaker() {
-    // Forced / @ of a present member wins over a quiet Away return.
-    // Serving pendingReturnSpeakId first stole @Bea when Ana flipped.
-    final forced = _session.groupManager?.hasForcedSpeaker ?? false;
+    // Forced / @ of a present member wins over a quiet Away return — and
+    // so does a chip queue: the user named them, At work speaks anyway
+    // (same rule as a forced @). Serving pendingReturnSpeakId first stole
+    // @Bea when Ana flipped.
+    final forced =
+        (_session.groupManager?.hasForcedSpeaker ?? false) ||
+        (_session.groupManager?.hasQueuedSpeaker ?? false);
     if (forced) {
       return _pickNextGroupCharacter();
     }

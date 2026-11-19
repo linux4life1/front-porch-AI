@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
@@ -39,6 +40,7 @@ class WebChatOverlayRoutes {
     router.post('/api/chat/director/goal', _goal);
     router.post('/api/chat/director/whisper', _whisper);
     router.post('/api/chat/cast/away', _memberAway);
+    router.post('/api/chat/cast/queue', _memberQueue);
   }
 
   final ChatFacade _facade;
@@ -118,6 +120,30 @@ class WebChatOverlayRoutes {
     final changed = await _facade.setMemberAway(id, away: away);
     if (!changed) {
       return JsonResponse.error(409, 'That member cannot change right now');
+    }
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// Cast chip "Next": hold a cast member (full or lite guest) to answer
+  /// the next turn; `queue: false` cancels. Desktop's chip pill, same slot
+  /// (`ChatService.queueSpeaker`). Via `facade.chat` so the 499-line facade
+  /// does not cross the ratchet for four lines of glue.
+  Future<shelf.Response> _memberQueue(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final id = body['id'];
+    final queue = body['queue'];
+    if (id is! String || id.isEmpty || queue is! bool) {
+      return JsonResponse.badRequest('id and queue are required');
+    }
+    final chat = _facade.chat;
+    if (queue) {
+      final member = chat.cast.where((e) => e.id == id).firstOrNull;
+      if (member == null) {
+        return JsonResponse.error(409, 'That member is not in the cast');
+      }
+      chat.queueSpeaker(member.card);
+    } else {
+      chat.clearQueuedSpeaker();
     }
     return JsonResponse.ok({'status': 'ok'});
   }

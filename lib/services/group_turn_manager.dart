@@ -9,7 +9,12 @@ import 'package:front_porch_ai/models/models.dart';
 /// Where the turn order stands: the round-robin index, a forced speaker and
 /// a random pick made ahead. Saved before a pick and put back when that
 /// turn wrote no reply.
-typedef TurnRotation = ({int index, String? forcedId, String? previewId});
+typedef TurnRotation = ({
+  int index,
+  String? forcedId,
+  String? previewId,
+  String? queuedId,
+});
 
 /// Manages turn order, forced speaker selection, Director Mode state,
 /// and related group chat orchestration.
@@ -24,11 +29,23 @@ class GroupTurnManager extends ChangeNotifier {
   int _turnIndex = 0;
   String? _forcedNextSpeakerId;
 
+  /// A cast member the user queued from the chip's Next pill (or the
+  /// Director cue) to answer the next turn — keyed by row id, full member
+  /// or lite guest alike (both are rotation rows). Unlike [_forcedNextSpeakerId]
+  /// (a command's immediate pick, cleared by the slash handler only on
+  /// success) this hold is consumed at the pick: a turn stopped or refused
+  /// before its bubble opened gets the hold back through the rotation
+  /// snapshot; a failed stream goes down the same failure path every
+  /// failed pick does. A hand pick ([setNextSpeaker])
+  /// replaces it, and so does queueing someone else — one chat, one next
+  /// speaker.
+  String? _queuedSpeakerId;
+
   /// Random turn order's next pick, made ahead: a Chance Time spin names who
   /// reacts before the turn picks. Not a forced speaker, so an Away member
   /// coming back still answers; the next random pick takes it.
   String? _previewId;
-  ({int index, String? forcedId, String regenId})? _regenHold;
+  ({int index, String? forcedId, String regenId, String? queuedId})? _regenHold;
   bool _observerMode = false;
   bool _autoPlayActive = false;
 
@@ -51,9 +68,19 @@ class GroupTurnManager extends ChangeNotifier {
   /// True while a user-named speaker is waiting to be consumed.
   bool get hasForcedSpeaker => _forcedNextSpeakerId != null;
 
+  /// A member sits in the chip-queue slot (survives failed turns).
+  bool get hasQueuedSpeaker => _queuedSpeakerId != null;
+
   /// The character that will speak on the next generation (respects forced override).
   CharacterCard? get nextSpeaker {
     if (!isActive || _characters.isEmpty) return null;
+
+    // The chip queue shows first: it is the newest user intent (queueing
+    // clears a hand pick, and vice versa), and the pill reads this getter.
+    if (_queuedSpeakerId != null) {
+      final q = _characters.where((c) => _getId(c) == _queuedSpeakerId).firstOrNull;
+      if (q != null) return q;
+    }
 
     if (_forcedNextSpeakerId != null) {
       return _characters.firstWhere(
@@ -94,6 +121,26 @@ class GroupTurnManager extends ChangeNotifier {
       throw StateError('No active group');
     }
 
+    // The chip queue goes first and is one-shot here: a hand pick (@,
+    // /speak, bubble tap) has already cleared it, so at most one of the
+    // two holds exists. The rotation carries on after the queued member,
+    // as after any hand-picked turn. If the id is gone (member removed
+    // mid-hold), the pick falls through to the normal order.
+    if (_queuedSpeakerId != null) {
+      final qIdx = _characters.indexWhere(
+        (c) => _getId(c) == _queuedSpeakerId,
+      );
+      _queuedSpeakerId = null;
+      if (qIdx >= 0) {
+        if (_group!.turnOrder == TurnOrder.roundRobin) {
+          _turnIndex = (qIdx + 1) % _characters.length;
+        }
+        notifyListeners();
+        return _characters[qIdx];
+      }
+      notifyListeners();
+    }
+
     // Forced override wins and is one-shot. A hand-picked turn is still a
     // turn: round robin carries on with whoever follows the speaker.
     if (_forcedNextSpeakerId != null) {
@@ -130,6 +177,31 @@ class GroupTurnManager extends ChangeNotifier {
     if (idx >= 0) {
       _turnIndex = idx;
       _forcedNextSpeakerId = _getId(character);
+      // The newest pick wins the single "who's next" seat.
+      _queuedSpeakerId = null;
+      notifyListeners();
+    }
+  }
+
+  /// The chip's Next pill / Director cue: hold a member (full or lite —
+  /// both are rotation rows) for the next turn. Keyed by row id, matched
+  /// by id (a hand pick matches by name and drops lite guests whose row
+  /// id differs; never both holds at once). The pointer stays put until
+  /// the hold is consumed or cancelled — cancelling speaks the rotation
+  /// as if nothing was queued.
+  void queueSpeaker(CharacterCard character) {
+    if (!isActive) return;
+    final id = _getId(character);
+    if (!_characters.any((c) => _getId(c) == id)) return;
+    _queuedSpeakerId = id;
+    _forcedNextSpeakerId = null;
+    notifyListeners();
+  }
+
+  /// Cancel the chip queue (second tap on the filled NEXT pill).
+  void clearQueuedSpeaker() {
+    if (_queuedSpeakerId != null) {
+      _queuedSpeakerId = null;
       notifyListeners();
     }
   }
@@ -161,7 +233,11 @@ class GroupTurnManager extends ChangeNotifier {
   /// turn, it does not take one.
   void beginRegeneration(CharacterCard character) {
     if (!isActive) return;
-    final before = (index: _turnIndex, forcedId: _forcedNextSpeakerId);
+    final before = (
+      index: _turnIndex,
+      forcedId: _forcedNextSpeakerId,
+      queuedId: _queuedSpeakerId,
+    );
     setNextSpeaker(character);
     final regenId = _forcedNextSpeakerId;
     if (regenId == null) return;
@@ -169,6 +245,7 @@ class GroupTurnManager extends ChangeNotifier {
       index: before.index,
       forcedId: before.forcedId,
       regenId: regenId,
+      queuedId: before.queuedId,
     );
   }
 
@@ -182,6 +259,7 @@ class GroupTurnManager extends ChangeNotifier {
       index: hold.index,
       forcedId: hold.forcedId,
       previewId: _previewId,
+      queuedId: hold.queuedId,
     ));
   }
 
@@ -190,6 +268,7 @@ class GroupTurnManager extends ChangeNotifier {
     index: _turnIndex,
     forcedId: _forcedNextSpeakerId,
     previewId: _previewId,
+    queuedId: _queuedSpeakerId,
   );
 
   /// Put back a [rotation] taken before a pick whose turn wrote no reply
@@ -200,6 +279,9 @@ class GroupTurnManager extends ChangeNotifier {
         ? r.forcedId
         : null;
     _previewId = r.previewId;
+    _queuedSpeakerId = _characters.any((c) => _getId(c) == r.queuedId)
+        ? r.queuedId
+        : null;
     notifyListeners();
   }
 
@@ -208,6 +290,7 @@ class GroupTurnManager extends ChangeNotifier {
   void resetTurnState() {
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _queuedSpeakerId = null;
     _previewId = null;
     _regenHold = null;
     notifyListeners();
@@ -225,6 +308,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = List.of(resolvedCharacters);
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _queuedSpeakerId = null;
     _previewId = null;
     _regenHold = null;
     _observerMode = startInDirectorMode;
@@ -238,6 +322,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = [];
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _queuedSpeakerId = null;
     _previewId = null;
     _regenHold = null;
     _observerMode = false;
@@ -277,6 +362,10 @@ class GroupTurnManager extends ChangeNotifier {
     if (_forcedNextSpeakerId != null &&
         !_characters.any((c) => _getId(c) == _forcedNextSpeakerId)) {
       _forcedNextSpeakerId = null;
+    }
+    if (_queuedSpeakerId != null &&
+        !_characters.any((c) => _getId(c) == _queuedSpeakerId)) {
+      _queuedSpeakerId = null;
     }
 
     notifyListeners();

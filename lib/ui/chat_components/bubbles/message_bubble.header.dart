@@ -150,10 +150,18 @@ class MessageBubbleHeader extends StatelessWidget {
                       message,
                     );
                     if (ch != null) {
-                      chatService.setNextCharacter(ch);
+                      // The chip pill's slot, not the bare hand pick: a
+                      // lite guest holds cleanly there, the pill lights
+                      // where the promise lives, and a held-Away member
+                      // comes back on scene to take the turn.
+                      chatService.queueSpeaker(ch);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('${message.sender} will respond next'),
+                          content: Text(
+                            chatService.queuedSpeaker?.name == ch.name
+                                ? '${message.sender} will respond next'
+                                : '${message.sender} left the cast mid-turn',
+                          ),
                           duration: const Duration(seconds: 1),
                           backgroundColor:
                               senderColor ?? AppColors.porchAmberOf(context),

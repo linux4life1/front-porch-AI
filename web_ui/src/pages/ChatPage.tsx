@@ -336,6 +336,12 @@ export function ChatPage() {
           .then(() => refresh())
           .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
       }}
+      onQueue={(id, queue) => {
+        api
+          .post('/api/chat/cast/queue', { id, queue })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
+      }}
       canRemoveMember={state.director?.canRemoveMember ?? true}
     />
   );
@@ -345,6 +351,15 @@ export function ChatPage() {
       busy={state.isGenerating}
       onCommand={sendMessage}
       memberNames={cast.map((c) => c.name)}
+      queuedName={cast.find((c) => c.queued)?.name ?? null}
+      onCueQueue={(name, queue) => {
+        const member = cast.find((c) => c.name === name);
+        if (!member) return;
+        api
+          .post('/api/chat/cast/queue', { id: member.id, queue })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
+      }}
       onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
       onPauseAutoPlay={() =>
         postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')

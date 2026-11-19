@@ -282,12 +282,26 @@ class _SidebarBodyState extends State<SidebarBody> {
               dragHandle: grip,
               tools: DirectorTools(
                 memberNames: [for (final c in chat.groupCharacters) c.name],
+                queuedName: chat.queuedSpeaker?.name,
                 goal: chat.directorGoal,
                 whispers: chat.directorWhisperRows,
                 turnBudget: storage.ttsSettings.directorTurnBudget,
                 turnsLeft: chat.autoChatTurnsLeft,
                 busy: chat.isGenerating || chat.isNarrating,
-                onCue: (name) => unawaited(chat.sendMessage('/speak $name')),
+                // Cue = hold for the next turn (the cast chip's Next pill,
+                // same slot) — /speak fired them immediately and burned the
+                // note's beat on the wrong reaction. Re-tap cancels.
+                onCue: (name) {
+                  final held = chat.queuedSpeaker?.name == name;
+                  if (held) {
+                    chat.clearQueuedSpeaker();
+                    return;
+                  }
+                  final card = chat.groupCharacters
+                      .where((c) => c.name == name)
+                      .firstOrNull;
+                  if (card != null) chat.queueSpeaker(card);
+                },
                 onBeat: (note) => unawaited(chat.sendMessage(note)),
                 onGoal: (text) => unawaited(chat.setDirectorGoal(text)),
                 onClearWhisper: (id) =>

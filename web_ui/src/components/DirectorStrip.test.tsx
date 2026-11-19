@@ -19,6 +19,14 @@ let root: Root;
 const render = (el: ReturnType<typeof createElement>) => act(() => root.render(el));
 const button = (label: string) =>
   [...container.querySelectorAll('button')].find((b) => b.textContent?.includes(label));
+const chipEl = (name: string) =>
+  [...container.querySelectorAll<HTMLElement>('.cast-chip')].find((c) => c.textContent?.includes(name))!;
+const openMenu = (name: string) =>
+  act(() =>
+    chipEl(name).dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    ),
+  );
 
 const member = (name: string, isLite = false): CastMember => ({
   id: name,
@@ -162,9 +170,10 @@ describe('Director Mode on the web', () => {
     expect(onDelay).toHaveBeenCalledWith(4.5);
   });
 
-  // The strip is the desktop's (cast_roster_chip.dart): faces, names, Away /
-  // Back and Promote only. Removing a member is Edit group's Cast; the old
-  // web-only ✕ (and its "at least two characters" refusal) left the strip.
+  // The strip is the desktop's (cast_roster_chip.dart): faces, names, honest
+  // status words, the Next pill and Promote. The GUEST label is gone — the
+  // wider chip with a Promote button is the guest's own sign. Removing a
+  // member is Edit group's Cast; the old web-only ✕ left with it.
   it('draws the desktop faces: no remove, speak or add control on the strip', () => {
     render(
       createElement(CastBar, {
@@ -177,6 +186,7 @@ describe('Director Mode on the web', () => {
         onFocus: () => {},
         onAdd: () => {},
         onCommand: () => {},
+        onQueue: () => {},
         canRemoveMember: false,
       }),
     );
@@ -186,11 +196,12 @@ describe('Director Mode on the web', () => {
     expect(labels).not.toContain('＋');
     expect(labels).not.toContain('Scan scene');
     expect(container.querySelectorAll('.cast-face').length).toBe(3);
-    expect(container.textContent).toContain('GUEST');
+    expect(container.textContent).not.toContain('GUEST');
+    expect(labels.filter((l) => l?.includes('⏭ Next'))).toHaveLength(3);
     expect(labels).toContain('Promote');
   });
 
-  it('marks a member away and brings one back; at work has no switch', () => {
+  it('wears honest status words; the menu sends away and brings back; at work offers neither', () => {
     const onSetAway = vi.fn();
     render(
       createElement(CastBar, {
@@ -210,17 +221,28 @@ describe('Director Mode on the web', () => {
         onSetAway,
       }),
     );
-    act(() => button('Away')!.click());
+    // The word row describes; it no longer acts.
+    const words = [...container.querySelectorAll('.cast-word')].map((w) => w.textContent);
+    expect(words).toEqual(['With you', 'Away', 'At work']);
+
+    openMenu('Ayla');
+    act(() => button('Send away')!.click());
     expect(onSetAway).toHaveBeenLastCalledWith('Ayla', true);
-    act(() => button('Back')!.click());
+    openMenu('Bram');
+    act(() => button('Bring back')!.click());
     expect(onSetAway).toHaveBeenLastCalledWith('Bram', false);
     expect(onSetAway).toHaveBeenCalledTimes(2);
+
+    // At work belongs to the clock's shift: no toggle in the menu.
+    openMenu('Cleo');
+    expect(button('Send away')).toBeUndefined();
+    expect(button('Bring back')).toBeUndefined();
+
     const chips = [...container.querySelectorAll('.cast-chip')];
     expect(chips.map((c) => c.classList.contains('away'))).toEqual([false, true, true]);
-    expect(chips[2].textContent).not.toMatch(/Away|Back/);
   });
 
-  it('holds Away / Back while the turn settles (the server refuses it)', () => {
+  it('keeps the Next pill live while the turn settles (a hold fires nothing) but disables the menu away row', () => {
     render(
       createElement(CastBar, {
         cast: [{ ...member('Ayla'), presence: 'withYou' }],
@@ -234,17 +256,59 @@ describe('Director Mode on the web', () => {
         onAdd: () => {},
         onCommand: () => {},
         onSetAway: () => {},
+        onQueue: () => {},
       }),
     );
-    expect(button('Away')!.disabled).toBe(true);
+    expect(button('⏭ Next')!.disabled).toBe(false);
+    openMenu('Ayla');
+    expect(button('Send away')!.disabled).toBe(true);
+  });
+
+  it('queues from the pill and cancels a hold from the filled NEXT', () => {
+    const onQueue = vi.fn();
+    render(
+      createElement(CastBar, {
+        cast: [member('Ayla')],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus: () => {},
+        onAdd: () => {},
+        onCommand: () => {},
+        onQueue,
+      }),
+    );
+    act(() => button('⏭ Next')!.click());
+    expect(onQueue).toHaveBeenLastCalledWith('Ayla', true);
+
+    render(
+      createElement(CastBar, {
+        cast: [{ ...member('Ayla'), queued: true }],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus: () => {},
+        onAdd: () => {},
+        onCommand: () => {},
+        onQueue,
+      }),
+    );
+    expect(chipEl('Ayla').classList.contains('queued')).toBe(true);
+    act(() => button('✓ NEXT')!.click());
+    expect(onQueue).toHaveBeenLastCalledWith('Ayla', false);
   });
 
   it('cues a speaker, sends a beat, pins a goal, clears a whisper and sets the run', () => {
     const onCommand = vi.fn();
+    const onCueQueue = vi.fn();
     const onGoal = vi.fn();
     const onClearWhisper = vi.fn();
     const onTurnBudget = vi.fn();
-    const strip = (goal: string) =>
+    const strip = (goal: string, cue: boolean = true) =>
       createElement(DirectorStrip, {
         director: {
           directing: true,
@@ -260,6 +324,8 @@ describe('Director Mode on the web', () => {
         onAutoPlay: () => {},
         onDelay: () => {},
         memberNames: ['Ayla', 'Bram'],
+        queuedName: null,
+        onCueQueue: cue ? onCueQueue : undefined,
         onGoal,
         onClearWhisper,
         onTurnBudget,
@@ -267,9 +333,15 @@ describe('Director Mode on the web', () => {
 
     render(strip(''));
     act(() => button('Bram')!.click());
-    expect(onCommand).toHaveBeenLastCalledWith('/speak Bram');
+    expect(onCueQueue).toHaveBeenLastCalledWith('Bram', true);
+    expect(onCommand).not.toHaveBeenCalled();
     act(() => button('Time skip')!.click());
     expect(onCommand).toHaveBeenLastCalledWith('Time skip: jump ahead.');
+
+    // No queue wiring (older server): the old command text still fires.
+    render(strip('', false));
+    act(() => button('Bram')!.click());
+    expect(onCommand).toHaveBeenLastCalledWith('/speak Bram');
 
     const input = container.querySelector<HTMLInputElement>('input[aria-label="Scene goal"]')!;
     const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
