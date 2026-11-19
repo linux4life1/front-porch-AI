@@ -170,6 +170,10 @@ export function CastBar({
               }}
               onPointerDown={(e) => {
                 if (e.pointerType !== 'touch') return;
+                // A long-press whose release produced no click (iOS
+                // callout eats it) must not leave the suppression flag
+                // armed for the NEXT chip the user taps.
+                holdFired.current = false;
                 const { clientX: x, clientY: y } = e;
                 clearHold();
                 holdStart.current = { x, y };

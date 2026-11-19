@@ -299,6 +299,63 @@ describe('Director Mode on the web', () => {
     expect(onFocus).not.toHaveBeenCalled();
   });
 
+  it('a hold with a clickless release does not dead-tap the next chip', () => {
+    // iOS long-press on the avatar eats the release click; the next real
+    // touch (another chip) must arrive live, not get swallowed by a
+    // stale suppression flag.
+    const onFocus = vi.fn();
+    render(
+      createElement(CastBar, {
+        cast: [member('Ayla'), member('Bram')],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus,
+        onAdd: () => {},
+        onCommand: () => {},
+        onQueue: () => {},
+      }),
+    );
+    const touchDown = (el: Element) => {
+      const down = new MouseEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 40,
+        clientY: 40,
+      });
+      Object.defineProperty(down, 'pointerType', { value: 'touch' });
+      act(() => el.dispatchEvent(down));
+    };
+    touchDown(chipEl('Ayla'));
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(container.querySelector('.cast-menu')).not.toBeNull();
+
+    touchDown(chipEl('Bram')); // the next touch resets the flag
+    act(() => button('Bram')!.click());
+    expect(onFocus).toHaveBeenLastCalledWith('Bram');
+  });
+
+  it('draws no Next pill when the app passes no queue wiring (1:1)', () => {
+    render(
+      createElement(CastBar, {
+        cast: [member('Ayla')],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus: () => {},
+        onAdd: () => {},
+        onCommand: () => {},
+      }),
+    );
+    expect(container.querySelector('.cast-next')).toBeNull();
+  });
+
   it('queues from the pill and cancels a hold from the filled NEXT', () => {
     const onQueue = vi.fn();
     render(
