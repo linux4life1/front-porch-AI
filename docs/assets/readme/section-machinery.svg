@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 150" role="img" aria-label="The machinery is handled: KoboldCpp, your GPU and local voices, set up for you">
+  <title>The machinery is handled</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2c1b0a"/>
+      <stop offset="1" stop-color="#140c04"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="0.55" stop-color="#f4a259"/>
+      <stop offset="1" stop-color="#e8733a"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffc44d" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#e8833a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#ffc44d" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f5a623" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#e8733a" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#e8733a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff3d6" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#fff3d6" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#fff3d6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="clip"><rect width="1200" height="150" rx="20"/></clipPath>
+  </defs>
+  <style>
+    .glow { animation: pulse 4.5s ease-in-out infinite; transform-origin: 96px 75px; }
+    .sheen { animation: sweep 7s ease-in-out infinite; }
+    .e { fill: #ffc44d; opacity: 0; animation-name: rise; animation-timing-function: linear; animation-iteration-count: infinite; }
+    @keyframes pulse { 0%,100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
+    @keyframes sweep { 0% { transform: translateX(-700px); } 60%,100% { transform: translateX(1300px); } }
+    @keyframes rise { 0% { opacity: 0; transform: translate(0,0); } 15% { opacity: .85; } 100% { opacity: 0; transform: translate(var(--dx), -130px); } }
+    @media (prefers-reduced-motion: reduce) { .glow, .sheen, .e { animation: none; } .e { opacity: .35; } }
+  </style>
+  <g clip-path="url(#clip)">
+    <rect width="1200" height="150" fill="url(#bg)"/>
+    <circle class="glow" cx="96" cy="75" r="120" fill="url(#glow)"/>
+    <rect class="sheen" x="0" y="0" width="420" height="150" fill="url(#sheen)"/>
+    <circle class="e" cx="1097" cy="124" r="1.8" style="--dx:-2px;animation-duration:9.0s;animation-delay:-8.6s"/>
+    <circle class="e" cx="478" cy="127" r="1.4" style="--dx:-3px;animation-duration:7.8s;animation-delay:-8.0s"/>
+    <circle class="e" cx="1083" cy="128" r="2.2" style="--dx:-6px;animation-duration:6.7s;animation-delay:-6.3s"/>
+    <circle class="e" cx="292" cy="146" r="1.8" style="--dx:17px;animation-duration:6.0s;animation-delay:-8.5s"/>
+    <circle class="e" cx="1086" cy="125" r="1.8" style="--dx:16px;animation-duration:8.7s;animation-delay:-2.9s"/>
+    <circle class="e" cx="962" cy="133" r="1.4" style="--dx:17px;animation-duration:7.2s;animation-delay:-4.5s"/>
+    <circle class="e" cx="376" cy="142" r="1.4" style="--dx:0px;animation-duration:5.7s;animation-delay:-4.8s"/>
+    <circle class="e" cx="1055" cy="149" r="2.8" style="--dx:-16px;animation-duration:8.7s;animation-delay:-1.0s"/>
+    <circle class="e" cx="470" cy="131" r="2.2" style="--dx:-23px;animation-duration:5.6s;animation-delay:-9.0s"/>
+    <circle class="e" cx="968" cy="140" r="1.4" style="--dx:-24px;animation-duration:7.5s;animation-delay:-8.9s"/>
+    <circle class="e" cx="745" cy="141" r="2.8" style="--dx:-5px;animation-duration:5.9s;animation-delay:-0.2s"/>
+    <circle class="e" cx="987" cy="139" r="2.2" style="--dx:-17px;animation-duration:8.9s;animation-delay:-7.2s"/>
+    <circle class="e" cx="1135" cy="122" r="2.2" style="--dx:-15px;animation-duration:8.1s;animation-delay:-0.2s"/>
+    <circle class="e" cx="328" cy="146" r="1.4" style="--dx:9px;animation-duration:8.1s;animation-delay:-6.1s"/>
+    <circle class="e" cx="667" cy="125" r="2.8" style="--dx:-8px;animation-duration:7.7s;animation-delay:-6.9s"/>
+    <circle class="e" cx="951" cy="150" r="1.8" style="--dx:17px;animation-duration:5.7s;animation-delay:-3.3s"/>
+  </g>
+  <rect x="1" y="1" width="1198" height="148" rx="19" fill="none" stroke="url(#edge)" stroke-width="2"/>
+  <rect x="50" y="29" width="92" height="92" rx="22" fill="#1b1006" stroke="url(#gold)" stroke-width="2"/>
+  <g transform="translate(66 45) scale(0.94)" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="32" cy="32" r="9"/><path d="M32 4 L36 12 L45 9 L46 19 L55 22 L51 31 L58 38 L49 42 L48 52 L39 50 L32 58 L25 50 L16 52 L15 42 L6 38 L13 31 L9 22 L18 19 L19 9 L28 12 Z"/>
+  </g>
+  <text x="176" y="72" font-family="Georgia, 'Palatino Linotype', 'Book Antiqua', serif" font-size="44" font-weight="700" fill="url(#gold)">The machinery is handled</text>
+  <text x="178" y="108" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" fill="#f3ecdd" fill-opacity="0.8">KoboldCpp, your GPU and local voices, set up for you</text>
+</svg>
