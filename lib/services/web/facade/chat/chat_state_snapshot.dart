@@ -397,6 +397,11 @@ class ChatStateSnapshot {
                   ? _chat.getEmotionForGroupCharacter(card)
                   : _chat.characterEmotion),
         'isNext': card.dbId != null && card.dbId == nextDbId,
+        // Held for the next turn by the user (chip Next pill / Director
+        // cue) — not the rotation preview. Name-matched, as the hold slot
+        // itself is (ChatService.queueSpeaker). In 1:1 the slot is the
+        // Scene Guest door's hold. Additive.
+        'queued': _chat.queuedSpeaker?.name == p.name,
         // Group members only: withYou / away / atWork (additive).
         'presence': isGroup ? _chat.groupMemberPresence(p.id)?.name : null,
         // PR 5b: whose face carries the dice — the member's own Chaos Mode

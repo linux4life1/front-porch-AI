@@ -3,9 +3,11 @@
 //
 // The director's tools on the web — the desktop Director panel's
 // DirectorTools twin: cue who speaks next, quick beats, the pinned scene
-// goal, the private whispers, and how long an auto-chat run goes. Cues and
-// beats send the same text the desktop sends (`/speak <name>`, the beat's
-// note); the beats list itself comes from the app, so the two never drift.
+// goal, the private whispers, and how long an auto-chat run goes. Cueing
+// holds the member for the next turn (the cast chip's Next pill, same
+// slot) — it fires nothing; only if the app has no queue wiring does the
+// button fall back to the old `/speak <name>`. Beats send the note text
+// the app provides, so the two lists never drift.
 
 import { useState } from 'react';
 
@@ -31,7 +33,9 @@ export function DirectorTools({
   turnBudget,
   turnsLeft,
   busy,
+  queuedName = null,
   onCommand,
+  onCueQueue,
   onGoal,
   onClearWhisper,
   onTurnBudget,
@@ -43,7 +47,13 @@ export function DirectorTools({
   turnBudget: number;
   turnsLeft: number | null;
   busy: boolean;
+  /** The member held for the next turn — their cue chip wears the filled
+   *  state, and clicking it cancels. Null when nobody is held. */
+  queuedName?: string | null;
   onCommand: (text: string) => void;
+  /** Hold (or release) a member for the next turn — the desktop's cue and
+   *  the cast chip's Next pill, same slot. Absent = old `/speak` fallback. */
+  onCueQueue?: (name: string, queue: boolean) => void;
   onGoal: (text: string) => void;
   onClearWhisper: (id: string) => void;
   onTurnBudget: (turns: number) => void;
@@ -57,13 +67,27 @@ export function DirectorTools({
   };
   return (
     <div className="director-tools">
-      <div className="director-row" aria-label="Cue who speaks next">
+      <div
+        className="director-row"
+        aria-label={queuedName ? `Cue who speaks next — ${queuedName} is held` : 'Cue who speaks next'}
+      >
         <span className="director-label">Cue</span>
-        {memberNames.map((name) => (
-          <button key={name} className="chip" disabled={busy} onClick={() => onCommand(`/speak ${name}`)}>
-            {name}
-          </button>
-        ))}
+        {memberNames.map((name) => {
+          const held = queuedName === name;
+          return (
+            <button
+              key={name}
+              className={`chip${held ? ' on' : ''}`}
+              disabled={busy}
+              title={held ? `Queued to speak next — click to cancel` : `Hold ${name} for the next turn`}
+              onClick={() =>
+                onCueQueue ? onCueQueue(name, !held) : onCommand(`/speak ${name}`)
+              }
+            >
+              {held ? `✓ ${name}` : name}
+            </button>
+          );
+        })}
       </div>
       <div className="director-row" aria-label="Quick beats">
         <span className="director-label">Beats</span>

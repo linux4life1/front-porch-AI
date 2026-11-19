@@ -54,6 +54,41 @@ class SceneGuestState {
   /// `/exit`, cleared after a single injection.
   String? pendingDeparture;
 
+  // ── Cast-chip queue hold (1:1) ─────────────────────────────────────────
+  // The Scene Guest the cast chip's Next pill holds to answer the NEXT
+  // user message — the promise an `@name` makes, made by a tap instead.
+  // Keyed by guest dbId; a guest who leaves takes their promise with
+  // them (resolution drops an id no longer in the scene). Null = the
+  // host answers, which is the default. Group chats queue in
+  // GroupTurnManager, not here.
+
+  void queueHold(CharacterCard card, {String? hostDbId}) {
+    nextQueuedSpeakerId = card.dbId != null &&
+            card.dbId != hostDbId &&
+            cards.any((c) => c.dbId == card.dbId)
+        ? card.dbId
+        : null;
+  }
+
+  /// The held guest, or null (host answers). Resolving drops a stale id.
+  CharacterCard? resolveHold() {
+    final id = nextQueuedSpeakerId;
+    if (id == null) return null;
+    final guest = cards.where((c) => c.dbId == id).firstOrNull;
+    if (guest == null) nextQueuedSpeakerId = null;
+    return guest;
+  }
+
+  /// Consume the hold: the next send honors it, however that turn routes.
+  /// The spent promise does not survive to a third line.
+  CharacterCard? takeHold() {
+    final guest = resolveHold();
+    nextQueuedSpeakerId = null;
+    return guest;
+  }
+
+  String? nextQueuedSpeakerId;
+
   /// A pending request to open the Scene Guest picker (the `/join` flow).
   /// Holds the initial search filter ('' = show everyone); null = no picker
   /// pending. Surfaced to the chat UI exactly like [pendingDetection] — set +

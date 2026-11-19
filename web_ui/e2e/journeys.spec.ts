@@ -1448,11 +1448,17 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect.poll(async () => (await directorState())?.turnBudget).toBe(6);
     await page.request.post('/api/chat/director/budget', { data: { turns: Number(savedRun) } });
 
-    // A cue has that member take their turn now.
-    let before = await rows(page).count();
+    // A cue no longer fires the member: it holds them for the next send,
+    // the same slot the cast chip's Next pill uses. The chip fills, the
+    // row says who is held, and the held member answers the next line.
     await strip.getByLabel('Cue who speaks next').getByRole('button', { name: 'Porch Tester' }).click();
+    await expect(strip.getByRole('button', { name: '✓ Porch Tester' })).toBeVisible();
+    await expect(strip.getByLabel(/Cue who speaks next — Porch Tester is held/)).toBeVisible();
+    let before = await rows(page).count();
+    await sendLine(page, 'What do we do now?');
     await waitIdle(page);
-    await expect(rows(page)).toHaveCount(before + 1);
+    await expect(rows(page)).toHaveCount(before + 2);
+    await expect(lastRow(page).locator('.msg-speaker')).toContainText('Porch Tester');
     await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 
     // A quick beat is a director's note the cast answers.

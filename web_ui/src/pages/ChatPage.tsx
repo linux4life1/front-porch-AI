@@ -336,6 +336,14 @@ export function ChatPage() {
           .then(() => refresh())
           .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
       }}
+      // 1:1 holds a Scene Guest like an `@name` would; the host answers by
+      // default, so their pill releases the hold (the service's rule).
+      onQueue={(id, queue) => {
+        api
+          .post('/api/chat/cast/queue', { id, queue })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
+      }}
       canRemoveMember={state.director?.canRemoveMember ?? true}
     />
   );
@@ -344,7 +352,18 @@ export function ChatPage() {
       director={state.director}
       busy={state.isGenerating}
       onCommand={sendMessage}
-      memberNames={cast.map((c) => c.name)}
+      // The desktop's cue list is groupCharacters: the host (you) never
+      // queues, so neither does the web's.
+      memberNames={cast.filter((c) => !c.isHost).map((c) => c.name)}
+      queuedName={cast.find((c) => c.queued)?.name ?? null}
+      onCueQueue={(name, queue) => {
+        const member = cast.find((c) => c.name === name);
+        if (!member) return;
+        api
+          .post('/api/chat/cast/queue', { id: member.id, queue })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
+      }}
       onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
       onPauseAutoPlay={() =>
         postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')

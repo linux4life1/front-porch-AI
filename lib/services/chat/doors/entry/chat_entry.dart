@@ -136,6 +136,7 @@ class ChatEntry {
       _sceneGuest.ids.clear();
       _sceneGuest.cards.clear();
       _sceneGuest.pendingDeparture = null;
+      _sceneGuest.nextQueuedSpeakerId = null;
       _sceneGuest.pendingPickerFilter = null;
       _cast.guests.resetActivityState();
       // Phase 2 cast detection: reset the scan cadence + pending/debounce state
