@@ -5,7 +5,9 @@ A member whose Away is **held** — the user's hand-set Away, or a card seeded
 everywhere presence is read. Today three surfaces derive that member's
 presence without ever passing `heldAway`, so a held member mid-shift shows
 "Away" on their cast chip, "At work" in the sidebar Time leaf, and gets an
-at-work line in the prompt. This document plans closing that. Anchors are
+at-work line in the prompt. This document planned closing that; the
+follow-up PR implements it (the surface table and the rulings below record
+the landed shape). Anchors are
 from the Rawhide tree at `15ca4571` (2026-11-14). The ratchets and tests,
 not this file, are the law.
 
@@ -29,9 +31,9 @@ group-initial-presence.md). The gap is the callers that never tell it.
 | Cast chip (Away/Back control) | `lib/ui/widgets/group_member_card.dart:233` | yes |
 | Speaker skip (turn order) | `lib/services/chat/doors/turn/group_speakers.dart:91,166` | yes |
 | Away pulse | `lib/services/chat/doors/cast/away_pulse_runner.dart:86,168` | yes |
-| Sidebar Time leaf, member word | `lib/ui/chat_components/sidebar/character_state/character_state_leaves.dart:220` (`_memberWord`) | **no** |
-| Position injection (prompt) | `lib/services/chat/prompt_injection/behavioral_injection.dart:90` (`buildPositionInjection`) | **no** |
-| Plan injection's at-work gate | `lib/services/chat/prompt_injection/plan_injection.dart:47` | **no** |
+| Sidebar Time leaf, member word | `lib/ui/chat_components/sidebar/character_state/character_state_leaves.dart` (`_memberWord`) | yes — via the shared read |
+| Position injection (prompt) | `lib/services/chat/prompt_injection/behavioral_injection.dart` (`buildPositionInjection`) | yes — `getHeldAway` |
+| Plan injection's at-work gate | `lib/services/chat/prompt_injection/plan_injection.dart` | yes — `getHeldAway` |
 
 The 1:1 sidebar leaf (`character_state_leaves.dart:194`) has no hold to
 read — holds are group-member state — and its "Away / Back lives on the
@@ -57,7 +59,7 @@ members).
   concern, not the readers'. A seeded hold with no turn run yet derives
   like any other hold.
 
-## Proposed shape
+## The shape that landed
 
 One shared read, so no future call site can forget the hold:
 
@@ -68,39 +70,35 @@ One shared read, so no future call site can forget the hold:
   arguments the three readers already assemble.
 - Convert the three surfaces to it. `_memberWord` keeps its
   read-only-word rendering; `buildPositionInjection` then takes the
-  1:1's away branch for a held member ("Away from {{user}}$stance. Write
+  1:1's away branch for a held member ("Away from {{user}}$here. Write
   from there.", `behavioral_injection.dart:104-107`) instead of the
   at-work line; the plan gate's `atWork` check stops suppressing the
   plan line of a member the chat is holding away (moot for speakers —
   held members are skipped — but the read stops lying).
 
-## Open questions
+## Rulings on the open questions
 
-1. Prompt wording for a **seeded** hold with no turn run: the 1:1 away
-   line says "Away from {{user}}$here. Write from there." — for a member
-   the chat *starts* away, is that the right line, or should the
-   position injection for a seeded hold say nothing until the first
-   turn runs (the greeting already establishes who is present)?
-2. Sidebar word: does a held member's Time leaf read "Away" outright
-   (H2), or "Away" with the at-work word greyed beside it so the shift
-   is still visible? Cheap either way; pick one for both desktop and
-   any future web twin.
-3. `plan_injection`'s gate: with held members skipped as speakers, is
-   the honest read all this surface needs, or should its at-work gate
-   stay shift-only and ignore the hold deliberately? (H1 says pass it;
-   flagged so the choice is written down.)
+1. Prompt line for a **seeded** hold with no turn run: the same 1:1
+   away line, "Away from {{user}}$here. Write from there." (H2 — a hold
+   is a hold; which kind it is stays the chip's and the pulse's
+   concern). Decided 2026-11-18, implemented.
+2. Sidebar word: "Away" outright, no greyed at-work word beside it (H2
+   — one bit, reads identical). Decided 2026-11-18, implemented.
+3. Plan gate: the honest read is all this surface needs — the hold
+   rides with the derive (H1), so a held member's plan line is not
+   suppressed mid-shift. Decided 2026-11-18, implemented.
 
-## Test plan
+## Test plan (landed)
 
 - **Sidebar leaf**: a member held (hand-set and seeded variants, H2)
-  with an occupation window open reads "Away" in the Time leaf
-  (`character_state_leaves` widget test — the file renders the word, so
-  pump and read `PresenceWord`).
+  with an occupation window open reads "Away" in the Time leaf —
+  `test/ui/chat_components/group_away_on_cast_chip_test.dart`.
 - **Position injection**: held + mid-shift member → the away line, not
-  `atWorkPromptLine` (extend the behavioral injection test with a held
-  member case).
+  `atWorkPromptLine` — `test/services/chat/group_work_prompt_injection_
+  test.dart`, through the wired injection.
 - **Plan injection**: held + mid-shift member → plan line present (the
-  gate no longer suppresses it).
+  gate no longer suppresses it) — `test/services/chat/plan_injection_
+  test.dart`.
 - **Parity**: `one_ui_parity_test` continues to pin that web reads the
   same cast presence — no new web surface, so no new web test beyond
   the existing cast coverage.
