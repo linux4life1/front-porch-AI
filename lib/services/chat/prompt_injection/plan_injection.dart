@@ -14,6 +14,7 @@ class PlanInjection with SpeakerCardResolver {
   final bool Function() getPlannerEnabled;
   final int Function()? getClockMinutes;
   final int Function()? getWeekday;
+  final bool Function()? getHeldAway;
   @override
   final CharacterCard? Function() getActiveCharacter;
   @override
@@ -35,6 +36,7 @@ class PlanInjection with SpeakerCardResolver {
     required this.getCurrentSpeakerIdForRealism,
     required this.getGroupCharacters,
     required this.getCharacterIdFromCard,
+    this.getHeldAway,
   });
 
   String buildPlanInjection() {
@@ -43,6 +45,8 @@ class PlanInjection with SpeakerCardResolver {
     if (card == null) return '';
     if (getClockMinutes != null) {
       final ext = card.frontPorchExtensions;
+      // The hold rides with the read (H1): a held member is not at work
+      // for this gate even mid-shift, so their plan line still shows.
       final atWork =
           derivePresence(
             occupation: ext?.occupation ?? '',
@@ -50,6 +54,7 @@ class PlanInjection with SpeakerCardResolver {
             clockMinutes: getClockMinutes!(),
             weekday: getWeekday?.call() ?? DateTime.tuesday,
             workDays: ext?.workDays,
+            heldAway: getHeldAway?.call() ?? false,
             inScene: true,
           ) ==
           PresenceWhere.atWork;

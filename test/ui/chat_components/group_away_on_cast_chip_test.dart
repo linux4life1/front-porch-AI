@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_member_starts_away.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_leaves.dart';
@@ -182,7 +183,9 @@ void main() {
     'back',
     (tester) async {
       await tester.runAsync(() => boot(clockRunning: false));
-      addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
       await pumpSidebar(tester);
 
       expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
@@ -213,7 +216,9 @@ void main() {
     'Next still queues (it fires nothing)',
     (tester) async {
       await tester.runAsync(() => boot(clockRunning: false));
-      addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
       chat.busy = true;
       await pumpSidebar(tester);
 
@@ -266,12 +271,16 @@ void main() {
     addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
     await pumpSidebar(tester);
 
-    await tester.tap(find.descendant(of: chip('Ana'), matching: find.text('Next')));
+    await tester.tap(
+      find.descendant(of: chip('Ana'), matching: find.text('Next')),
+    );
     await settle(tester);
     expect(chat.queuedSpeaker?.name, 'Ana');
 
     // The pill flipped to the NEXT read; tapping it cancels the hold.
-    await tester.tap(find.descendant(of: chip('Ana'), matching: find.text('NEXT')));
+    await tester.tap(
+      find.descendant(of: chip('Ana'), matching: find.text('NEXT')),
+    );
     await settle(tester);
     expect(chat.queuedSpeaker, isNull);
   });
@@ -286,54 +295,132 @@ void main() {
     expect(find.byKey(const ValueKey('presence-toggle')), findsNothing);
   });
 
+  // H1/H2 (docs/design/held-away-presence-reads.md): the time leaf's
+  // member word reads the hold, so a held member mid-shift says "Away"
+  // like the cast chip and the prompt do — never "At work". Ana's
+  // always-on shift is open at 14:30 on a Thursday.
+  testWidgets('a hand-set hold mid-shift reads Away in the time leaf', (
+    tester,
+  ) async {
+    await tester.runAsync(() => boot(clockRunning: true));
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    ana.frontPorchExtensions = FrontPorchExtensions(
+      occupation: 'clerk',
+      hours: '12am–11:59pm',
+    );
+    await tester.runAsync(
+      () => chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30)),
+    );
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsOneWidget,
+      reason:
+          'the shift is open, so the unfixed read is At work — '
+          'this is the state the guard exists for',
+    );
+
+    await tester.runAsync(() => chat.setGroupMemberAway('mem-ana', away: true));
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(of: find.byType(TimeLeaf), matching: find.text('Away')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a seeded starts-away hold reads the same in the time leaf', (
+    tester,
+  ) async {
+    await tester.runAsync(() => boot(clockRunning: true));
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    ana.frontPorchExtensions = FrontPorchExtensions(
+      occupation: 'clerk',
+      hours: '12am–11:59pm',
+      startsAway: true,
+    );
+    // The chat-creation seeder, called the way new_chat.dart calls it.
+    await tester.runAsync(() async {
+      seedMemberStartsAway(
+        chat.groupCharacters,
+        chat.realism.groups,
+        idOf: chat.characterIdFor,
+      );
+    });
+    await tester.runAsync(
+      () => chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30)),
+    );
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(of: find.byType(TimeLeaf), matching: find.text('Away')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('chip words: every presence reads, At work never offers a '
-      'toggle, lite and host show no word',
-    (tester) async {
-      var menuAwayCalls = 0;
-      await tester.pumpWidget(
-        _chip(
-          presence: PresenceWhere.withYou,
-          onSetAway: (_) => menuAwayCalls++,
-          onQueue: () {},
-        ),
-      );
-      expect(find.text('With you'), findsOneWidget);
-      expect(find.text('Next'), findsOneWidget);
+      'toggle, lite and host show no word', (tester) async {
+    var menuAwayCalls = 0;
+    await tester.pumpWidget(
+      _chip(
+        presence: PresenceWhere.withYou,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    expect(find.text('With you'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
 
-      await tester.pumpWidget(
-        _chip(
-          presence: PresenceWhere.away,
-          onSetAway: (_) => menuAwayCalls++,
-          onQueue: () {},
-        ),
-      );
-      expect(find.text('Away'), findsOneWidget);
+    await tester.pumpWidget(
+      _chip(
+        presence: PresenceWhere.away,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    expect(find.text('Away'), findsOneWidget);
 
-      // At work: the word shows (truth) but the menu offers no toggle —
-      // the clock owns that state.
-      await tester.pumpWidget(
-        _chip(
-          presence: PresenceWhere.atWork,
-          onSetAway: (_) => menuAwayCalls++,
-          onQueue: () {},
-        ),
-      );
-      await openMenu(tester, 'Ana');
-      expect(find.text('Send away'), findsNothing);
-      expect(find.text('Bring back'), findsNothing);
+    // At work: the word shows (truth) but the menu offers no toggle —
+    // the clock owns that state.
+    await tester.pumpWidget(
+      _chip(
+        presence: PresenceWhere.atWork,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    await openMenu(tester, 'Ana');
+    expect(find.text('Send away'), findsNothing);
+    expect(find.text('Bring back'), findsNothing);
 
-      // Lite guests and host-side chips (no presence) carry no word.
-      for (final hidden in [
-        _chip(
-          presence: PresenceWhere.withYou,
-          onSetAway: (_) => menuAwayCalls++,
-          isLite: true,
-        ),
-        _chip(presence: null, onSetAway: (_) => menuAwayCalls++),
-      ]) {
-        await tester.pumpWidget(hidden);
-        expect(find.text('With you'), findsNothing);
-      }
-    },
-  );
+    // Lite guests and host-side chips (no presence) carry no word.
+    for (final hidden in [
+      _chip(
+        presence: PresenceWhere.withYou,
+        onSetAway: (_) => menuAwayCalls++,
+        isLite: true,
+      ),
+      _chip(presence: null, onSetAway: (_) => menuAwayCalls++),
+    ]) {
+      await tester.pumpWidget(hidden);
+      expect(find.text('With you'), findsNothing);
+    }
+  });
 }

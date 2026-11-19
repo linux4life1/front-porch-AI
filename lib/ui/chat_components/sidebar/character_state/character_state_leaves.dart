@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
@@ -210,24 +209,9 @@ class TimeLeaf extends StatelessWidget {
   }
 
   Widget _memberWord(BuildContext context, CharacterCard member) {
-    CharacterRepository? repo;
-    try {
-      repo = Provider.of<CharacterRepository>(context, listen: false);
-    } on ProviderNotFoundException {
-      repo = null;
-    }
-    final work = workFieldsForMember(member, repo?.characters ?? const []);
-    final where = derivePresence(
-      occupation: work.occupation,
-      hours: work.hours,
-      clockMinutes: chat.timeService.clockMinutes,
-      weekday: chat.timeService.clock.weekday,
-      workDays: work.workDays,
-      inScene: inSceneForPresence(
-        stance: chat.spatialStanceForGroupCharacter(member),
-        withUser: chat.withUserForGroupCharacter(member),
-      ),
-    );
+    // The shared read feeds the hold to derivePresence itself: a held
+    // member mid-shift says "Away" here like everywhere else (H1).
+    final where = chat.realism.presenceWhereForMember(member);
     // Read-only, as in 1:1; Away / Back lives on the cast chip.
     return PresenceWord(where: where);
   }

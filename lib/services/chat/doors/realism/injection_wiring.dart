@@ -98,6 +98,8 @@ extension RealismInjectionWiring on RealismGraph {
       getClockMinutes: () => time.clockMinutes,
       getWeekday: () => time.clock.weekday,
       getIsGroup: () => session.activeGroup != null,
+      getHeldAway: () =>
+          groups.members[groups.currentSpeakerId()]?.awayHeld ?? false,
     );
   }
 
@@ -124,6 +126,8 @@ extension RealismInjectionWiring on RealismGraph {
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
       getCharacterIdFromCard: session.characterIdFor,
+      getHeldAway: () =>
+          groups.members[groups.currentSpeakerId()]?.awayHeld ?? false,
     );
   }
 
