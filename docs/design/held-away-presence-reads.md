@@ -121,7 +121,12 @@ callers and their tests unchanged, the wiring carries the truth:
   behavioral injection's are — one resolution, no new fallback to
   forget. Guard: `test/services/chat/plan_injection_resolved_fields_
   test.dart` (mid-shift blank copy → suppressed; held → still shows;
-  no store → the card read, as before).
+  no store → the card read, as before). This moves 1:1 too, and
+  deliberately: `workFieldsForCurrentSpeaker` resolves a 1:1 active
+  character through the same library fallback the behavioral injection
+  has used all along, so a 1:1 copy with blank job fields and a job on
+  its library origin now suppresses its plan line mid-shift like every
+  other read — the gate was the last surface that could disagree.
 - **Clock-out crumb.** When committed time crossed a member's
   clock-out, the minter wrote a "shift just ended" journal card without
   consulting the hold — the one place a held member's own journal
@@ -131,3 +136,8 @@ callers and their tests unchanged, the wiring carries the truth:
   false and no 1:1 behaviour moves. Guard:
   `test/services/chat/episode_crumb_held_away_test.dart` (held → no
   crumb; unheld twin → crumb, the hold speaks only when it holds).
+  Timing is point-of-commit, like every other hold read: the skip is
+  decided by whether the hold is on when the commit crosses the
+  clock-out, and bringing a member back does not retroactively mint
+  the missed shift — the journal records shifts the chat was actually
+  at work for, not shifts that might have happened.
