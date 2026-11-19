@@ -59,7 +59,8 @@ class CastRosterChip extends StatelessWidget {
   final bool chaosOn;
 
   /// Queues this member for the next turn (or cancels when [queued]).
-  /// Null in 1:1 and while a turn is busy: the pill never scripts a turn.
+  /// In 1:1 the hold rides the Scene Guest door (queueing the host
+  /// releases it); null while a turn is busy: the pill never scripts one.
   final VoidCallback? onQueue;
 
   /// True while this member is the queued speaker. The pill fills, the
