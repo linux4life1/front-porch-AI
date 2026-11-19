@@ -21,10 +21,12 @@ The parts of CLAUDE.md that bite most often:
 - **What CI enforces** — the ratchets (500-line files, no new `part`
   files, raw colours, raw dialogs, sync I/O in UI), the `## Hand-check`
   rule on UI PRs, the `## Web parity` line (`none: <why>` or `deferred:
-  <what>`) on a PR that changes only desktop or only web UI, and the
-  `approved-test-change` label for any edit to an existing test, golden,
-  baseline or workflow. `pr-labels.yml` tags PRs with `area:` and `check:`
-  labels from their paths; do not set those by hand.
+  <what>`) on a PR that changes only desktop or only web UI, the
+  attribution footer (`Generated with <harness> (<model ID>)` as the
+  last body line, CLAUDE.md "Git"), and the `approved-test-change` label
+  for any edit to an existing test, golden, baseline or workflow.
+  `pr-labels.yml` tags PRs with `area:` and `check:` labels from their
+  paths; do not set those by hand.
 - **Style** — every UI element, desktop and web, follows the user-selected
   theme in light and dark; no colour that only fits Porch.
 - **Chat contracts** — Continue is not regen, Pockets hide and never
