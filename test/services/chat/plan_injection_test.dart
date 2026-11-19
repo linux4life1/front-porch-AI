@@ -11,7 +11,6 @@ PlanInjection make(
   CharacterCard? card, {
   String? held,
   bool plannerOn = false,
-  bool heldAway = false,
 }) => PlanInjection(
   getTodayLine: () => held,
   getPlannerEnabled: () => plannerOn,
@@ -20,7 +19,6 @@ PlanInjection make(
   getCurrentSpeakerIdForRealism: () => '',
   getGroupCharacters: () => const [],
   getCharacterIdFromCard: (c) => c.name,
-  getHeldAway: () => heldAway,
 );
 
 CharacterCard who(String name) => CharacterCard(
@@ -82,28 +80,5 @@ void main() {
       getCharacterIdFromCard: (c) => c.name,
     ).buildPlanInjection();
     expect(text, isEmpty);
-  });
-
-  test('a held member mid-shift keeps the plan line (the hold outranks the '
-      'shift)', () {
-    final clerk = CharacterCard(
-      name: 'Ada',
-      frontPorchExtensions: FrontPorchExtensions(
-        occupation: 'clerk',
-        hours: '9am–5pm',
-      ),
-    );
-    final text = PlanInjection(
-      getTodayLine: () => 'Finish the log.',
-      getPlannerEnabled: () => true,
-      getClockMinutes: () => 14 * 60 + 30,
-      getActiveCharacter: () => clerk,
-      getIsGroupNonObserverMode: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getGroupCharacters: () => const [],
-      getCharacterIdFromCard: (c) => c.name,
-      getHeldAway: () => true,
-    ).buildPlanInjection();
-    expect(text, contains('Finish the log.'));
   });
 }
