@@ -164,7 +164,11 @@ class GroupSpeakers {
     final manager = _session.groupManager;
     if (manager == null || !manager.isActive) return null;
     final head = manager.nextSpeaker;
-    if (manager.hasForcedSpeaker) return head;
+    // A forced @ and a chip queue both name the speaker exactly: the
+    // present-walk must not skip an At-work member who was explicitly
+    // queued (the pick speaks them anyway — same rule, or the tooltip
+    // and the turn disagree).
+    if (manager.hasForcedSpeaker || manager.hasQueuedSpeaker) return head;
     final returnId = _awayPulse.pendingReturnSpeakId;
     if (returnId != null) {
       for (final card in _groupCharacters) {

@@ -55,6 +55,13 @@ void main() {
     expect(find.text('Next'), findsOneWidget);
     expect(find.text('Mara'), findsOneWidget);
 
+    // The Next pill is the bottom row on every chip: a guest's Promote
+    // rides above it, so the hold never moves between faces.
+    expect(
+      t.getTopLeft(find.text('Next')).dy,
+      greaterThan(t.getTopLeft(find.text('Promote')).dy),
+    );
+
     await t.tap(find.text('Promote'));
     expect(promoted, isTrue);
   });

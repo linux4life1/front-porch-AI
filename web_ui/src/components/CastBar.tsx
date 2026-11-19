@@ -8,7 +8,7 @@
 // in-chat slash commands (which route through ChatService), so behavior matches
 // the desktop exactly.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface CastMember {
   id: string;
@@ -129,11 +129,27 @@ export function CastBar({
   // The desktop cast strip (cast_roster_chip.dart), face for face: a round
   // avatar (the picture, else the initial) ringed when focused and ringed
   // amber when queued, the name, the honest presence word (status only —
-  // the toggle moved to the menu), the Next pill, and Promote for a guest.
-  // The GUEST label is gone: the wider chip with a Promote button is the
-  // guest's own sign.
+  // the toggle moved to the menu), then Promote for a guest and the Next
+  // pill last: the hold sits at one height for every face. The GUEST
+  // label is gone: the wider chip with a Promote button is the guest's
+  // own sign.
   const focused = focusedId ?? cast[0]?.id ?? null;
   const [menu, setMenu] = useState<{ member: CastMember; x: number; y: number } | null>(null);
+  // Phone twin of desktop's onLongPress: iOS Safari fires contextmenu
+  // late or not at all, so hold a finger on the face to open the menu.
+  // A drag (cast-row scroll) cancels; a fired hold swallows the click
+  // that release would otherwise deliver, so focus does not ride along.
+  const HOLD_MS = 500;
+  const HOLD_MOVE_PX = 10;
+  const holdTimer = useRef<number | null>(null);
+  const holdFired = useRef(false);
+  const holdStart = useRef<{ x: number; y: number } | null>(null);
+  const clearHold = () => {
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    holdStart.current = null;
+  };
+  useEffect(() => clearHold, []);
   return (
     <div className="cast-bar">
       <div className="cast-row">
@@ -151,6 +167,36 @@ export function CastBar({
               onContextMenu={(e) => {
                 e.preventDefault();
                 setMenu({ member: c, x: e.clientX, y: e.clientY });
+              }}
+              onPointerDown={(e) => {
+                if (e.pointerType !== 'touch') return;
+                const { clientX: x, clientY: y } = e;
+                clearHold();
+                holdStart.current = { x, y };
+                holdTimer.current = window.setTimeout(() => {
+                  holdTimer.current = null;
+                  holdStart.current = null;
+                  holdFired.current = true;
+                  setMenu({ member: c, x, y });
+                }, HOLD_MS);
+              }}
+              onPointerMove={(e) => {
+                const start = holdStart.current;
+                if (!start) return;
+                if (
+                  Math.abs(e.clientX - start.x) > HOLD_MOVE_PX ||
+                  Math.abs(e.clientY - start.y) > HOLD_MOVE_PX
+                ) {
+                  clearHold();
+                }
+              }}
+              onPointerUp={clearHold}
+              onPointerCancel={clearHold}
+              onClickCapture={(e) => {
+                if (holdFired.current) {
+                  holdFired.current = false;
+                  e.stopPropagation();
+                }
               }}
             >
               <button className="cast-chip-main" onClick={() => onFocus(c.id)} title={c.name}>
@@ -178,15 +224,6 @@ export function CastBar({
                   {c.presence === 'withYou' ? 'With you' : c.presence === 'away' ? 'Away' : 'At work'}
                 </span>
               )}
-              {canQueue && (
-                <button
-                  className={`cast-next${c.queued ? ' on' : ''}`}
-                  onClick={() => onQueue!(c.id, !c.queued)}
-                  title={c.queued ? 'Queued to speak next — tap to cancel' : `Queue ${c.name} to answer the next turn`}
-                >
-                  {c.queued ? '✓ NEXT' : '⏭ Next'}
-                </button>
-              )}
               {c.isLite && (
                 <button
                   className="cast-promote"
@@ -194,6 +231,15 @@ export function CastBar({
                   onClick={() => onCommand(`/promote ${c.name}`)}
                 >
                   Promote
+                </button>
+              )}
+              {canQueue && (
+                <button
+                  className={`cast-next${c.queued ? ' on' : ''}`}
+                  onClick={() => onQueue!(c.id, !c.queued)}
+                  title={c.queued ? 'Queued to speak next — tap to cancel' : `Queue ${c.name} to answer the next turn`}
+                >
+                  {c.queued ? '✓ NEXT' : '⏭ Next'}
                 </button>
               )}
             </div>

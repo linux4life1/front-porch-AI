@@ -31,7 +31,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// and the Character State word), then the **Next** pill: one tap queues
 /// this member — full or lite guest — to answer the next turn (Director's
 /// Note, quick beat, auto-advance). A queued face wears the filled pill,
-/// the amber ring and the NEXT mark; tapping it again cancels.
+/// the amber ring and the NEXT mark; tapping it again cancels. The pill is
+/// always the bottom row — a guest's Promote rides above it, so the hold
+/// sits at one height for every face.
 /// Matches the web CastBar.
 class CastRosterChip extends StatelessWidget {
   final String name;
@@ -320,7 +322,9 @@ class CastRosterChip extends StatelessWidget {
                 ),
               ),
               if (hasPresenceWord) _presenceWord(context),
-              if (onQueue != null || queued) _nextPill(context),
+              // The Next pill is always the bottom row — guests stack
+              // Promote above it, so "hold for the next turn" sits at one
+              // height for every face in the strip.
               if (isLite && onPromote != null)
                 SizedBox(
                   height: 20,
@@ -343,6 +347,7 @@ class CastRosterChip extends StatelessWidget {
                     child: const Text('Promote', style: TextStyle(fontSize: 9)),
                   ),
                 ),
+              if (onQueue != null || queued) _nextPill(context),
             ],
           ),
         ),

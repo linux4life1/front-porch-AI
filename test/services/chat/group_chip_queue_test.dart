@@ -162,6 +162,29 @@ void main() {
     );
   }, timeout: const Timeout(Duration(minutes: 2)));
 
+  test('an away member can be queued: preview names them, the turn is theirs',
+      () async {
+    // The chip queue means "them, at work or away" — the present-walk in
+    // the preview must not second-guess it, or the Next tooltip and the
+    // sidebar badge name someone else while the pick speaks the queue.
+    await enterGroup();
+    final beaId = chat.characterIdFor(member('Bea'));
+    expect(await chat.setGroupMemberAway(beaId, away: true), isTrue);
+
+    chat.queueSpeaker(member('Bea'));
+    expect(chat.queuedSpeaker?.name, 'Bea');
+    expect(
+      chat.nextCharacter?.name,
+      'Bea',
+      reason: 'preview == pick: the hold is not re-walked for presence',
+    );
+
+    await chat.triggerNextCharacter();
+    await _drain();
+    expect(chat.messages.last.sender, 'Bea', reason: 'Away speaks anyway');
+    expect(chat.queuedSpeaker, isNull);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   test('a lite guest can be queued: holds, speaks, and the pill clears',
       () async {
     // The regression that hid the roster proved guests could only speak

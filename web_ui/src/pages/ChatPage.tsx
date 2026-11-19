@@ -350,7 +350,9 @@ export function ChatPage() {
       director={state.director}
       busy={state.isGenerating}
       onCommand={sendMessage}
-      memberNames={cast.map((c) => c.name)}
+      // The desktop's cue list is groupCharacters: the host (you) never
+      // queues, so neither does the web's.
+      memberNames={cast.filter((c) => !c.isHost).map((c) => c.name)}
       queuedName={cast.find((c) => c.queued)?.name ?? null}
       onCueQueue={(name, queue) => {
         const member = cast.find((c) => c.name === name);

@@ -264,6 +264,41 @@ describe('Director Mode on the web', () => {
     expect(button('Send away')!.disabled).toBe(true);
   });
 
+  it('opens the chip menu on a phone long-press, without firing focus', () => {
+    const onFocus = vi.fn();
+    render(
+      createElement(CastBar, {
+        cast: [{ ...member('Ayla'), presence: 'withYou' }],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus,
+        onAdd: () => {},
+        onCommand: () => {},
+        onSetAway: () => {},
+        onQueue: () => {},
+      }),
+    );
+    const down = new MouseEvent('pointerdown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 40,
+      clientY: 40,
+    });
+    Object.defineProperty(down, 'pointerType', { value: 'touch' });
+    act(() => chipEl('Ayla').dispatchEvent(down));
+    expect(container.querySelector('.cast-menu')).toBeNull();
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(container.querySelector('.cast-menu')).not.toBeNull();
+    // The release-click after a hold must not also focus the member.
+    act(() => button('Ayla')!.click());
+    expect(onFocus).not.toHaveBeenCalled();
+  });
+
   it('queues from the pill and cancels a hold from the filled NEXT', () => {
     const onQueue = vi.fn();
     render(

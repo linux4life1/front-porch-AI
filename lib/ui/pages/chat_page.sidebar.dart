@@ -276,9 +276,9 @@ class _ParticipantRoster extends StatelessWidget {
         chatService.isGroupMode && !p.isLite && !p.isHost
         ? chatService.groupMemberPresence(p.id)
         : null;
-    // Chip column: avatar 36 + name 14 + status word 14 + Next pill 22 +
-    // gaps 8 ≈ 100; lite adds Promote (22) and drops the word row net -12
-    // → 110 for the tallest lite chip. Was 66/96 + 22 for away buttons.
+    // Chip column: avatar 36 + gap 2 + name 14 + status word 14 + Next
+    // pill 20 ≈ 86; lite drops the word row (-14) and adds Promote (+20)
+    // ≈ 92. Container padding (12) on top: 100 full, 110 lite.
     return Container(
       height: (hasLite ? 110 : 100) + 12,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
