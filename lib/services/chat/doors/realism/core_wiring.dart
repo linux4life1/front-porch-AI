@@ -150,6 +150,8 @@ extension RealismCoreWiring on RealismGraph {
     workFieldsFor: workFieldsFor,
     characterIdFor: session.characterIdFor,
     journalStore: () => journalStore,
+    heldAwayFor: (card) =>
+        groups.members[session.characterIdFor(card)]?.awayHeld ?? false,
   );
 
   BirthdaySync buildBirthdays() => BirthdaySync(

@@ -128,6 +128,9 @@ extension RealismInjectionWiring on RealismGraph {
       getCharacterIdFromCard: session.characterIdFor,
       getHeldAway: () =>
           groups.members[groups.currentSpeakerId()]?.awayHeld ?? false,
+      getOccupation: () => groups.workFieldsForCurrentSpeaker().occupation,
+      getHours: () => groups.workFieldsForCurrentSpeaker().hours,
+      getWorkDays: () => groups.workFieldsForCurrentSpeaker().workDays,
     );
   }
 
