@@ -132,8 +132,8 @@ You need the internet for: cloud AI, cloud voices, The Stoop, downloading new mo
 
 ### Stable vs Nightly?
 
-- **Stable** — the one you should install. Current is **v1.4.0, "Toolbox"**.
-- **Nightly** — new stuff, rougher. Uses a **different folder** (`FrontPorchAI-Beta`) so it cannot eat your real library. On nightlies, Backups & Restore shows a notice (auto-snapshots still run; you just can't click restore there).
+- **Stable** — the one you should install. The current version is at the top of the [Releases page](https://github.com/linux4life1/front-porch-AI/releases).
+- **Nightly** — new stuff, rougher. Uses a **different folder** (`FrontPorchAI-Beta`) so it cannot eat your real library. Its backups live in that folder too, and restore works the same as on stable.
 
 ---
 
@@ -601,9 +601,9 @@ Away from home: Tailscale (phone has a **Remote** page: HTTPS, optional ngrok, Q
 
 ### What's missing on the phone?
 
-**Desktop only:** full Image Studio (Create/Edit/packs), Voice Call, Suggest Actions, attach a photo, Stoop **upload**, Backups, Scan & Clean, Turn Into a Story.
+**Desktop only:** Voice Call, Suggest Actions, the offline photo describer (the phone can still attach a photo), the expression-pack quality check, Stoop **upload**, Scan & Clean, Turn Into a Story.
 
-Phone **can** still make a picture from **Models** or `/image`. Mic needs **HTTPS** (`http://192.168…` will refuse the microphone).
+The phone has Image Studio (Create, Edit, Expression pack, Batch) and Backups & Restore. Mic needs **HTTPS** (`http://192.168…` will refuse the microphone).
 
 [Web & Phone](web-phone.md).
 
@@ -611,9 +611,9 @@ Phone **can** still make a picture from **Models** or `/image`. Mic needs **HTTP
 
 Automatic every 30 minutes. Last 10 + one per day for 7 days. Sidebar → **Backups & Restore**. Since 1.2, restore usually doesn't need a restart.
 
-A backup is the **database** (chats, memories). It does **not** put back a deleted character PNG or your GGUF files. Copy the whole `FrontPorchAI` folder for a full spare.
+An automatic snapshot is the **database** (chats, memories). It does **not** put back a deleted character PNG or your GGUF files. For more, make a **Full Backup** from the same page: one file with your library, settings and (if you tick it) files, saved wherever you like. Models are never included.
 
-Nightlies: restore UI is hidden; auto snapshots still run.
+Nightlies back up and restore the same way, inside their own `FrontPorchAI-Beta` folder.
 
 ### Where is my data?
 

@@ -42,7 +42,7 @@ Be respectful and constructive.
 | All work (features, fixes, experiments) | `Rawhide` |
 | Tagged stable releases | `main` |
 
-Work lands on `Rawhide`. Direct PRs to `main` are almost never accepted.
+All work targets `Rawhide`.
 PRs opened against the wrong branch will be asked to move.
 
 ## Development setup

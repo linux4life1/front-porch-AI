@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 150" role="img" aria-label="The Stoop: Share characters, whole casts and worlds">
+  <title>The Stoop</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2c1b0a"/>
+      <stop offset="1" stop-color="#140c04"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="0.55" stop-color="#f4a259"/>
+      <stop offset="1" stop-color="#e8733a"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffc44d" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#e8833a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#ffc44d" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f5a623" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#e8733a" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#e8733a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff3d6" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#fff3d6" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#fff3d6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="clip"><rect width="1200" height="150" rx="20"/></clipPath>
+  </defs>
+  <style>
+    .glow { animation: pulse 4.5s ease-in-out infinite; transform-origin: 96px 75px; }
+    .sheen { animation: sweep 7s ease-in-out infinite; }
+    .e { fill: #ffc44d; opacity: 0; animation-name: rise; animation-timing-function: linear; animation-iteration-count: infinite; }
+    @keyframes pulse { 0%,100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
+    @keyframes sweep { 0% { transform: translateX(-700px); } 60%,100% { transform: translateX(1300px); } }
+    @keyframes rise { 0% { opacity: 0; transform: translate(0,0); } 15% { opacity: .85; } 100% { opacity: 0; transform: translate(var(--dx), -130px); } }
+    @media (prefers-reduced-motion: reduce) { .glow, .sheen, .e { animation: none; } .e { opacity: .35; } }
+  </style>
+  <g clip-path="url(#clip)">
+    <rect width="1200" height="150" fill="url(#bg)"/>
+    <circle class="glow" cx="96" cy="75" r="120" fill="url(#glow)"/>
+    <rect class="sheen" x="0" y="0" width="420" height="150" fill="url(#sheen)"/>
+    <circle class="e" cx="586" cy="132" r="1.8" style="--dx:2px;animation-duration:6.7s;animation-delay:-8.4s"/>
+    <circle class="e" cx="430" cy="121" r="1.4" style="--dx:-15px;animation-duration:7.2s;animation-delay:-0.7s"/>
+    <circle class="e" cx="238" cy="149" r="1.8" style="--dx:-17px;animation-duration:7.1s;animation-delay:-5.6s"/>
+    <circle class="e" cx="1148" cy="143" r="1.8" style="--dx:7px;animation-duration:6.1s;animation-delay:-0.1s"/>
+    <circle class="e" cx="711" cy="149" r="2.8" style="--dx:-20px;animation-duration:7.3s;animation-delay:-7.3s"/>
+    <circle class="e" cx="1143" cy="112" r="2.8" style="--dx:22px;animation-duration:5.7s;animation-delay:-6.1s"/>
+    <circle class="e" cx="580" cy="128" r="1.4" style="--dx:10px;animation-duration:6.1s;animation-delay:-1.9s"/>
+    <circle class="e" cx="527" cy="139" r="1.4" style="--dx:-15px;animation-duration:6.5s;animation-delay:-0.1s"/>
+    <circle class="e" cx="1080" cy="120" r="1.8" style="--dx:6px;animation-duration:6.9s;animation-delay:-3.3s"/>
+    <circle class="e" cx="1078" cy="129" r="1.8" style="--dx:-14px;animation-duration:6.9s;animation-delay:-6.9s"/>
+    <circle class="e" cx="636" cy="132" r="2.8" style="--dx:-4px;animation-duration:8.6s;animation-delay:-2.6s"/>
+    <circle class="e" cx="778" cy="150" r="2.2" style="--dx:2px;animation-duration:5.9s;animation-delay:-5.9s"/>
+    <circle class="e" cx="700" cy="150" r="1.8" style="--dx:-17px;animation-duration:6.0s;animation-delay:-6.6s"/>
+    <circle class="e" cx="323" cy="149" r="1.8" style="--dx:24px;animation-duration:7.7s;animation-delay:-8.0s"/>
+    <circle class="e" cx="615" cy="134" r="1.4" style="--dx:9px;animation-duration:7.6s;animation-delay:-5.9s"/>
+    <circle class="e" cx="399" cy="130" r="2.2" style="--dx:14px;animation-duration:9.0s;animation-delay:-0.6s"/>
+  </g>
+  <rect x="1" y="1" width="1198" height="148" rx="19" fill="none" stroke="url(#edge)" stroke-width="2"/>
+  <rect x="50" y="29" width="92" height="92" rx="22" fill="#1b1006" stroke="url(#gold)" stroke-width="2"/>
+  <g transform="translate(66 45) scale(0.94)" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 30 L32 8 L58 30"/><rect x="14" y="28" width="36" height="22"/><rect x="27" y="36" width="10" height="14"/><line x1="4" y1="54" x2="60" y2="54"/><line x1="10" y1="58" x2="54" y2="58"/>
+  </g>
+  <text x="176" y="72" font-family="Georgia, 'Palatino Linotype', 'Book Antiqua', serif" font-size="44" font-weight="700" fill="url(#gold)">The Stoop</text>
+  <text x="178" y="108" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" fill="#f3ecdd" fill-opacity="0.8">Share characters, whole casts and worlds</text>
+</svg>

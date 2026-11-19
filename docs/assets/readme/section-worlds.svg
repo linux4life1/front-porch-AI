@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 150" role="img" aria-label="Places with weather: Seasons, climate and a sky that follows the story clock">
+  <title>Places with weather</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2c1b0a"/>
+      <stop offset="1" stop-color="#140c04"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffd166"/>
+      <stop offset="0.55" stop-color="#f4a259"/>
+      <stop offset="1" stop-color="#e8733a"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffc44d" stop-opacity="0.75"/>
+      <stop offset="0.5" stop-color="#e8833a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#ffc44d" stop-opacity="0.6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#f5a623" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#e8733a" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#e8733a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff3d6" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#fff3d6" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#fff3d6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="clip"><rect width="1200" height="150" rx="20"/></clipPath>
+  </defs>
+  <style>
+    .glow { animation: pulse 4.5s ease-in-out infinite; transform-origin: 96px 75px; }
+    .sheen { animation: sweep 7s ease-in-out infinite; }
+    .e { fill: #ffc44d; opacity: 0; animation-name: rise; animation-timing-function: linear; animation-iteration-count: infinite; }
+    @keyframes pulse { 0%,100% { opacity: .75; transform: scale(1); } 50% { opacity: 1; transform: scale(1.12); } }
+    @keyframes sweep { 0% { transform: translateX(-700px); } 60%,100% { transform: translateX(1300px); } }
+    @keyframes rise { 0% { opacity: 0; transform: translate(0,0); } 15% { opacity: .85; } 100% { opacity: 0; transform: translate(var(--dx), -130px); } }
+    @media (prefers-reduced-motion: reduce) { .glow, .sheen, .e { animation: none; } .e { opacity: .35; } }
+  </style>
+  <g clip-path="url(#clip)">
+    <rect width="1200" height="150" fill="url(#bg)"/>
+    <circle class="glow" cx="96" cy="75" r="120" fill="url(#glow)"/>
+    <rect class="sheen" x="0" y="0" width="420" height="150" fill="url(#sheen)"/>
+    <circle class="e" cx="678" cy="119" r="2.8" style="--dx:17px;animation-duration:6.5s;animation-delay:-2.5s"/>
+    <circle class="e" cx="818" cy="145" r="1.8" style="--dx:-9px;animation-duration:5.7s;animation-delay:-8.6s"/>
+    <circle class="e" cx="653" cy="129" r="1.4" style="--dx:0px;animation-duration:9.2s;animation-delay:-5.3s"/>
+    <circle class="e" cx="600" cy="145" r="2.8" style="--dx:-11px;animation-duration:7.2s;animation-delay:-5.7s"/>
+    <circle class="e" cx="1011" cy="117" r="2.8" style="--dx:19px;animation-duration:6.9s;animation-delay:-7.9s"/>
+    <circle class="e" cx="908" cy="120" r="1.8" style="--dx:0px;animation-duration:8.5s;animation-delay:-1.6s"/>
+    <circle class="e" cx="1137" cy="114" r="1.4" style="--dx:20px;animation-duration:7.7s;animation-delay:-1.6s"/>
+    <circle class="e" cx="439" cy="144" r="1.4" style="--dx:-19px;animation-duration:5.9s;animation-delay:-1.4s"/>
+    <circle class="e" cx="190" cy="147" r="2.8" style="--dx:10px;animation-duration:6.4s;animation-delay:-7.3s"/>
+    <circle class="e" cx="704" cy="145" r="2.2" style="--dx:4px;animation-duration:7.3s;animation-delay:-8.9s"/>
+    <circle class="e" cx="182" cy="111" r="2.8" style="--dx:-13px;animation-duration:5.5s;animation-delay:-5.1s"/>
+    <circle class="e" cx="1055" cy="139" r="1.8" style="--dx:24px;animation-duration:9.5s;animation-delay:-7.6s"/>
+    <circle class="e" cx="464" cy="126" r="2.8" style="--dx:-10px;animation-duration:8.4s;animation-delay:-8.9s"/>
+    <circle class="e" cx="718" cy="114" r="2.8" style="--dx:6px;animation-duration:9.2s;animation-delay:-5.9s"/>
+    <circle class="e" cx="435" cy="131" r="1.8" style="--dx:-12px;animation-duration:8.6s;animation-delay:-6.5s"/>
+    <circle class="e" cx="426" cy="124" r="1.8" style="--dx:-4px;animation-duration:6.6s;animation-delay:-1.1s"/>
+  </g>
+  <rect x="1" y="1" width="1198" height="148" rx="19" fill="none" stroke="url(#edge)" stroke-width="2"/>
+  <rect x="50" y="29" width="92" height="92" rx="22" fill="#1b1006" stroke="url(#gold)" stroke-width="2"/>
+  <g transform="translate(66 45) scale(0.94)" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="22" cy="20" r="8"/><line x1="22" y1="4" x2="22" y2="8"/><line x1="6" y1="20" x2="10" y2="20"/><line x1="10.7" y1="8.7" x2="13.5" y2="11.5"/><path d="M20 46 A10 10 0 0 1 22 26 A14 14 0 0 1 48 30 A9 9 0 0 1 48 48 Z"/><line x1="24" y1="54" x2="22" y2="60"/><line x1="34" y1="54" x2="32" y2="60"/><line x1="44" y1="54" x2="42" y2="60"/>
+  </g>
+  <text x="176" y="72" font-family="Georgia, 'Palatino Linotype', 'Book Antiqua', serif" font-size="44" font-weight="700" fill="url(#gold)">Places with weather</text>
+  <text x="178" y="108" font-family="-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="22" fill="#f3ecdd" fill-opacity="0.8">Seasons, climate and a sky that follows the story clock</text>
+</svg>

@@ -82,7 +82,7 @@ yay -S front-porch-ai-bin        # stable
 
 There's also `front-porch-ai-beta-bin` on the AUR — the name is leftover; it tracks the most recent nightly. The two **conflict with each other**, so pick one; installing the nightly package replaces the stable one.
 
-**Heads up: the AUR is behind right now.** The AUR packages are pushed automatically when a release goes out, but that push runs against the AUR's own servers, and it is currently being rejected there. `front-porch-ai-bin` is still on **1.1.2** while apt and dnf serve **1.2.0**, and I can't promise a date for the fix. That gap is worth caring about: 1.1.2 can't open `.fpworld` place files at all, so shared Places won't import until the package catches up. Until it does, install the `.AppImage` or `.tar.gz` from the [Releases page](https://github.com/linux4life1/front-porch-AI/releases) — those are always current — and check the installed version rather than assuming `yay -Syu` got you there.
+The AUR packages are pushed automatically when a release or nightly goes out. If `yay -Syu` ever seems behind, the `.AppImage` and `.tar.gz` on the [Releases page](https://github.com/linux4life1/front-porch-AI/releases) are always current.
 
 ## Linux — AppImage and Manual Packages
 
@@ -109,7 +109,7 @@ Everything in the current stable release really is in stable. **Nightly** is the
 
 **Your stable install stays safe.** Nightlies keep everything — characters, chats, settings, models — in a separate `FrontPorchAI-Beta` folder (the name is leftover from when there was a beta channel) with their own settings, so they never touch your stable data. You can run stable and a nightly side by side. The first time a nightly starts it offers to copy your stable database across, so you can try new features with your existing characters; your stable copy is left untouched either way, and you can decline.
 
-**Backups & Restore is limited on nightlies.** The **Backups & Restore** page opens but its contents are replaced by a notice, so there is no way to browse or roll back a snapshot there. The automatic snapshots themselves keep running: a nightly still saves a copy of its database every half hour, into its own `FrontPorchAI-Beta` folder, on the same schedule stable uses. If you need to restore one while you're on a nightly, the files are sitting in a `backups` folder next to that build's database.
+**Backups work the same on nightlies.** A nightly saves a snapshot of its database every half hour into its own `FrontPorchAI-Beta` folder, on the same schedule stable uses, and its **Backups & Restore** page can browse and restore them. Nightly snapshots and stable snapshots never mix.
 
 A backup is a copy of the **database file** only — your chats, your characters' records, and the rest of the database rows. Settings aren't in it (they're stored separately from the database), and neither are image files, so a backup won't bring back a character card image you deleted.
 

@@ -216,7 +216,7 @@ Front Porch AI speaks the same character-card language as the rest of the commun
 
 - **PNG character cards** — the standard format used by SillyTavern, Chub.ai, and friends. The character data is embedded inside the image itself.
 - **JSON files** — the same data without the picture.
-- **Backyard AI archives (`.byaf`)** — if you're coming from Backyard AI, your characters can escape here intact.
+- **Backyard AI archives (`.byaf`)** — Backyard AI has shut down; if you saved your characters as `.byaf` archives, they move in here intact.
 - **Places (`.fpworld`)** — a whole setting in one file: lore, climate and cover art. Import these from the **Worlds** page in the left sidebar. `.fpworld` files need Front Porch AI 1.2 or newer.
 
 **How to import**
