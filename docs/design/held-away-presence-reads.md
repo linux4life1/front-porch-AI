@@ -33,7 +33,8 @@ group-initial-presence.md). The gap is the callers that never tell it.
 | Away pulse | `lib/services/chat/doors/cast/away_pulse_runner.dart:86,168` | yes |
 | Sidebar Time leaf, member word | `lib/ui/chat_components/sidebar/character_state/character_state_leaves.dart` (`_memberWord`) | yes — via the shared read |
 | Position injection (prompt) | `lib/services/chat/prompt_injection/behavioral_injection.dart` (`buildPositionInjection`) | yes — `getHeldAway` |
-| Plan injection's at-work gate | `lib/services/chat/prompt_injection/plan_injection.dart` | yes — `getHeldAway` |
+| Plan injection's at-work gate | `lib/services/chat/prompt_injection/plan_injection.dart` | yes — `getHeldAway`; work fields via `getOccupation`/`getHours`/`getWorkDays` (PR #748 declared the card-only read as its scope; closed 2026-11-19 below) |
+| Clock-out work crumb (journal) | `lib/services/chat/episode_crumb_minter.dart` (`maybeMint`) | yes — `heldAwayFor`; not a `derivePresence` call, but it derives "at work" from the shift and would lie the same way |
 
 The 1:1 sidebar leaf (`character_state_leaves.dart:194`) has no hold to
 read — holds are group-member state — and its "Away / Back lives on the
@@ -105,3 +106,28 @@ One shared read, so no future call site can forget the hold:
 - **Parity**: `one_ui_parity_test` continues to pin that web reads the
   same cast presence — no new web surface, so no new web test beyond
   the existing cast coverage.
+
+## Follow-ups landed (2026-11-19)
+
+Two adjacent surfaces H1 covers in spirit but PR #748 declared out of
+scope. Both closed as `false`-defaulting optional callbacks — existing
+callers and their tests unchanged, the wiring carries the truth:
+
+- **Plan gate work fields.** The gate read the card copy's own
+  `frontPorchExtensions`; a group copy whose job lives only on the
+  library card read as free mid-shift and injected "Today's plan" over
+  an open shift. It now takes `getOccupation`/`getHours`/`getWorkDays`,
+  wired to `groups.workFieldsForCurrentSpeaker()` exactly as the
+  behavioral injection's are — one resolution, no new fallback to
+  forget. Guard: `test/services/chat/plan_injection_resolved_fields_
+  test.dart` (mid-shift blank copy → suppressed; held → still shows;
+  no store → the card read, as before).
+- **Clock-out crumb.** When committed time crossed a member's
+  clock-out, the minter wrote a "shift just ended" journal card without
+  consulting the hold — the one place a held member's own journal
+  contradicted every read. `maybeMint` now takes `heldAwayFor`, wired
+  in `core_wiring.dart` to the member slot's `awayHeld`; a held member
+  mints no crumb. The 1:1 truth is "never held", so the default is
+  false and no 1:1 behaviour moves. Guard:
+  `test/services/chat/episode_crumb_held_away_test.dart` (held → no
+  crumb; unheld twin → crumb, the hold speaks only when it holds).
