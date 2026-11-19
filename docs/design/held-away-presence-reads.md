@@ -63,11 +63,14 @@ members).
 
 One shared read, so no future call site can forget the hold:
 
-- Add `presenceWhereForMember(ChatService, CharacterCard)` (name open —
-  a home beside `group_member_reads.dart` fits) that returns
-  `derivePresence(...)` with `heldAway:
-  chat.awayHeldForGroupCharacter(member)` plus the stance/withUser/clock
-  arguments the three readers already assemble.
+- `RealismGraph.presenceWhereForMember(CharacterCard)` in
+  `realism_api.dart` returns `derivePresence(...)` with `heldAway` from
+  the member's group slot, the work fields the group store already
+  resolves (library fallback included), and the stance/withUser/clock
+  the readers used to assemble. It hangs off `chat.realism` on purpose:
+  `ChatService`'s public surface is pinned by
+  `test/baselines/chat_service_api.json`, and a new read needs no new
+  name on the shell.
 - Convert the three surfaces to it. `_memberWord` keeps its
   read-only-word rendering; `buildPositionInjection` then takes the
   1:1's away branch for a held member ("Away from {{user}}$here. Write

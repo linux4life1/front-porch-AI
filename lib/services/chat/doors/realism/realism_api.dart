@@ -450,3 +450,29 @@ extension ChatServiceRealismReads on ChatService {
     );
   }
 }
+
+/// A group member's presence word, the one read behind every surface that
+/// shows where they are — the sidebar Time leaf today, and any future
+/// reader (docs/design/held-away-presence-reads.md). The read feeds the
+/// Away hold to [derivePresence] itself (H1: a read that can disagree with
+/// the hold is wrong), so a call site cannot forget it by assembling its
+/// own arguments. Work fields resolve through the group store, which already
+/// applies the library-card fallback.
+extension RealismPresenceReads on RealismGraph {
+  PresenceWhere presenceWhereForMember(CharacterCard member) {
+    final work = groups.workFieldsFor(member);
+    final state = groups.members[session.characterIdFor(member)];
+    return derivePresence(
+      occupation: work.occupation,
+      hours: work.hours,
+      clockMinutes: time.clockMinutes,
+      weekday: time.clock.weekday,
+      workDays: work.workDays,
+      heldAway: state?.awayHeld ?? false,
+      inScene: inSceneForPresence(
+        stance: state?.spatialStance ?? '',
+        withUser: state?.withUser,
+      ),
+    );
+  }
+}
