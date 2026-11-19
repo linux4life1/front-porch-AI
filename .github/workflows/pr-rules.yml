@@ -26,6 +26,13 @@ name: PR rules
 #    the surfaces ship together unless the maintainer deferred it.
 # 3. Smoke tier. The job summary prints the tier the changed files call for
 #    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
+# 6. Attribution. The description ends with one line — `Generated with
+#    <harness> (<model ID>)` — naming what drove the work and the exact
+#    model it reported (CLAUDE.md "Git"). Un-replaced `<placeholders>` do
+#    not count; a human may name their editor and skip the model; dependabot,
+#    which cannot edit its own body, is exempt from this check only. #748
+#    and #749 shipped without footers and this file said nothing, which is
+#    what a rule without a check buys you.
 #
 # pull_request_target, like test-integrity.yml: the base branch's copy runs,
 # so a PR cannot loosen the check that gates it, and the description edit
@@ -250,6 +257,38 @@ jobs:
                     '`deferred: <what the maintainer deferred, and where it is tracked>`.',
                 );
               }
+            }
+
+            // --- Attribution -----------------------------------------------
+            // Comments are already out of `body`, so a template left half-
+            // edited still shows its example — but that example is now a
+            // `<placeholder>`, and a body that never replaced it attributes
+            // the work to a model that never ran (Error Book, 2026-11-16:
+            // exercise the gate on what your own docs emit — including the
+            // template `gh pr create` prefills). Dependabot cannot edit its
+            // own body, and its weekly bumps end in `</details>` boilerplate;
+            // exempt the bot from this check only, not the gates around it.
+            const bodyLines = body
+              .split('\n')
+              .map((l) => l.trim())
+              .filter(Boolean);
+            const lastBodyLine = bodyLines[bodyLines.length - 1] || '';
+            const isDependabot = pr.user?.login === 'dependabot[bot]';
+            if (
+              !isDependabot &&
+              (!/^Generated with\s+\S/.test(lastBodyLine) ||
+                /<(harness|model)/i.test(lastBodyLine))
+            ) {
+              errors.push(
+                'No attribution footer. CLAUDE.md "Git": the body ends with ' +
+                  'one line in this shape:\n' +
+                  '  Generated with <harness> (<model ID>)\n' +
+                  'naming the harness that drove the work and the exact model ' +
+                  'ID it reported this session — replace the placeholders, ' +
+                  'they do not count as an answer (a human may name their ' +
+                  'editor and skip the model). An agent PR that hides its ' +
+                  'model ships the change and vanishes before the blame.',
+              );
             }
 
             // --- Smoke tier --------------------------------------------------

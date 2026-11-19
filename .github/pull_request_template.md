@@ -99,8 +99,10 @@ the same controls in the same places (CLAUDE.md "One UI"). -->
 ## Attribution
 
 <!-- Required footer, last thing in the body: the harness that drove the
-work and the exact model ID it reported this session. Replace the example
-and delete the comment. Humans may write their editor or omit the model.
-See CLAUDE.md "Git". -->
+work and the exact model ID it reported this session. Replace the
+placeholders and delete the comment — the PR rules check rejects an
+un-replaced `<placeholder>`, so shipping the template untouched attributes
+the work to a model that never ran. Humans may write their editor or omit
+the model. Dependabot PRs are exempt. See CLAUDE.md "Git". -->
 
-Generated with OpenCode (Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)
+Generated with <harness> (<model ID>)
