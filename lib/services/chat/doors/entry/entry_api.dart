@@ -114,6 +114,14 @@ extension ChatServiceGroupRead on ChatService {
   void resetRealismForGroupCharacter(CharacterCard character) =>
       entryDoor.reads.resetRealismForGroupCharacter(character);
 
+  /// The member's presence word with the hold fed in (H1) — the sidebar
+  /// Time leaf, the prompt's position line and the plan gate all read
+  /// through this one, so no read can disagree with the Away hold.
+  PresenceWhere presenceWhereForMember(
+    CharacterCard member, {
+    Iterable<CharacterCard> library = const [],
+  }) => entryDoor.reads.presenceWhereForMember(member, library: library);
+
   /// Realism is on in a group chat, Director Mode included.
   bool get isGroupRealismActive => entryDoor.reads.isGroupRealismActive;
 

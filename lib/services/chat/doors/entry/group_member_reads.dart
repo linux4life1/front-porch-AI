@@ -77,6 +77,32 @@ class GroupMemberReads {
     return _groupRealism[id]?.awayHeld ?? false;
   }
 
+  /// The member's presence word, the one read behind every surface that
+  /// shows or writes where they are — the sidebar Time leaf, the prompt's
+  /// position line, the plan gate (docs/design/held-away-presence-reads.md).
+  /// It feeds the hold to [derivePresence] itself (H1: a read that can
+  /// disagree with the hold is wrong), so a call site cannot forget it by
+  /// assembling its own arguments. [library] is the card library the work
+  /// fields fall back to, as [workFieldsForMember] takes it.
+  PresenceWhere presenceWhereForMember(
+    CharacterCard member, {
+    Iterable<CharacterCard> library = const [],
+  }) {
+    final work = workFieldsForMember(member, library);
+    return derivePresence(
+      occupation: work.occupation,
+      hours: work.hours,
+      clockMinutes: _scope.time().clockMinutes,
+      weekday: _scope.time().clock.weekday,
+      workDays: work.workDays,
+      heldAway: awayHeldForGroupCharacter(member),
+      inScene: inSceneForPresence(
+        stance: spatialStanceForGroupCharacter(member),
+        withUser: withUserForGroupCharacter(member),
+      ),
+    );
+  }
+
   /// Returns the current emotion label (e.g. "joy", "sadness", "affection") for
   /// the given character when in a realism-enabled group chat. Returns null otherwise.
   String? getEmotionForGroupCharacter(CharacterCard character) {

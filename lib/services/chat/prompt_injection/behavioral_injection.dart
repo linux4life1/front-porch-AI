@@ -48,6 +48,7 @@ class BehavioralInjection {
   final int Function()? getClockMinutes;
   final int Function()? getWeekday;
   final bool Function()? getIsGroup;
+  final bool Function()? getHeldAway;
 
   BehavioralInjection({
     required this.relationshipService,
@@ -59,6 +60,7 @@ class BehavioralInjection {
     this.getClockMinutes,
     this.getWeekday,
     this.getIsGroup,
+    this.getHeldAway,
   });
 
   /// The background thought — MENTAL state, and it says so itself: "colors
@@ -87,12 +89,14 @@ class BehavioralInjection {
     final occ = getOccupation?.call() ?? '';
     final hours = getHours?.call() ?? '';
     final brief = getOccupationBrief?.call() ?? '';
+    final held = getHeldAway?.call() ?? false;
     final where = derivePresence(
       occupation: occ,
       hours: hours,
       clockMinutes: getClockMinutes?.call() ?? 0,
       weekday: getWeekday?.call() ?? DateTime.tuesday,
       workDays: getWorkDays?.call(),
+      heldAway: held,
       inScene: inSceneForPresence(
         stance: stance,
         withUser: relationshipService.withUser,
@@ -101,7 +105,10 @@ class BehavioralInjection {
     if (where == PresenceWhere.atWork) {
       return atWorkPromptLine(occupation: occ, occupationBrief: brief);
     }
-    if (!group && where == PresenceWhere.away) {
+    // Away reads the same everywhere: in 1:1 always, and in a group only
+    // for a held member (the Away hold — hand-set or seeded — H1/H2). A
+    // group member who is merely out of scene keeps today's silence.
+    if (where == PresenceWhere.away && (!group || held)) {
       final here = stance.isEmpty ? '' : ' ($stance)';
       return 'Away from {{user}}$here. Write from there.';
     }

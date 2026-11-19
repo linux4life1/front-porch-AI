@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/doors/entry/group_member_starts_away.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_leaves.dart';
@@ -257,6 +258,86 @@ void main() {
     await pumpSidebar(tester);
     expect(find.text('With you'), findsWidgets);
     expect(find.byKey(const ValueKey('presence-toggle')), findsNothing);
+  });
+
+  // H1/H2 (docs/design/held-away-presence-reads.md): the time leaf's
+  // member word reads the hold, so a held member mid-shift says "Away"
+  // like the cast chip and the prompt do — never "At work". Ana's
+  // always-on shift is open at 14:30 on a Thursday.
+  testWidgets('a hand-set hold mid-shift reads Away in the time leaf', (
+    tester,
+  ) async {
+    await tester.runAsync(() => boot(clockRunning: true));
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    ana.frontPorchExtensions = FrontPorchExtensions(
+      occupation: 'clerk',
+      hours: '12am–11:59pm',
+    );
+    await tester.runAsync(
+      () => chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30)),
+    );
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsOneWidget,
+      reason:
+          'the shift is open, so the unfixed read is At work — '
+          'this is the state the guard exists for',
+    );
+
+    await tester.runAsync(() => chat.setGroupMemberAway('mem-ana', away: true));
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(of: find.byType(TimeLeaf), matching: find.text('Away')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('a seeded starts-away hold reads the same in the time leaf', (
+    tester,
+  ) async {
+    await tester.runAsync(() => boot(clockRunning: true));
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    ana.frontPorchExtensions = FrontPorchExtensions(
+      occupation: 'clerk',
+      hours: '12am–11:59pm',
+      startsAway: true,
+    );
+    // The chat-creation seeder, called the way new_chat.dart calls it.
+    await tester.runAsync(() async {
+      seedMemberStartsAway(
+        chat.groupCharacters,
+        chat.realism.groups,
+        idOf: chat.characterIdFor,
+      );
+    });
+    await tester.runAsync(
+      () => chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30)),
+    );
+    await pumpSidebar(tester);
+    expect(
+      find.descendant(of: find.byType(TimeLeaf), matching: find.text('Away')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(TimeLeaf),
+        matching: find.text('At work'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('chip control: Away from With you, Back from Away, none else', (
