@@ -85,6 +85,7 @@ class SessionSeed {
     guests.state.ids.clear();
     guests.state.cards.clear();
     guests.state.pendingDeparture = null;
+    guests.state.nextQueuedSpeakerId = null;
     guests.state.pendingPickerFilter = null;
     guests.resetActivityState();
     guests.state.turnsSinceCastScan = 0;

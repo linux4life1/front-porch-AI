@@ -336,18 +336,14 @@ export function ChatPage() {
           .then(() => refresh())
           .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
       }}
-      // 1:1 has no rotation: no pill (the desktop's rule). Without the
-      // gate the pill would tap straight into the route's honest 409.
-      onQueue={
-        state.isGroupMode
-          ? (id, queue) => {
-              api
-                .post('/api/chat/cast/queue', { id, queue })
-                .then(() => refresh())
-                .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
-            }
-          : undefined
-      }
+      // 1:1 holds a Scene Guest like an `@name` would; the host answers by
+      // default, so their pill releases the hold (the service's rule).
+      onQueue={(id, queue) => {
+        api
+          .post('/api/chat/cast/queue', { id, queue })
+          .then(() => refresh())
+          .catch((e) => reportActionFailure(queue ? 'queue them next' : 'cancel the queue', e));
+      }}
       canRemoveMember={state.director?.canRemoveMember ?? true}
     />
   );

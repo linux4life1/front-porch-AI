@@ -91,7 +91,7 @@ void main() {
     expect(cancelled, isTrue);
   });
 
-  testWidgets('no queue wiring draws no pill (1:1 guest)', (t) async {
+  testWidgets('no queue wiring draws no pill', (t) async {
     await t.pumpWidget(
       MaterialApp(
         home: Scaffold(

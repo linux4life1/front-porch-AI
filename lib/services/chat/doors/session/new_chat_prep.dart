@@ -175,6 +175,7 @@ class NewChatPrep {
     guests.state.ids.clear();
     guests.state.cards.clear();
     guests.state.pendingDeparture = null;
+    guests.state.nextQueuedSpeakerId = null;
     guests.state.pendingPickerFilter = null;
     guests.resetActivityState();
     // Phase 2 cast detection: reset the scan cadence + pending/debounce state

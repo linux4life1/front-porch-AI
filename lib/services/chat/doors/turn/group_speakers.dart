@@ -65,28 +65,39 @@ class GroupSpeakers {
     }
   }
 
-  /// The cast chip and Director cue "Next": hold [character] — full member
-  /// or lite guest, both are rotation rows — to answer the next turn:
-  /// a Director's Note, a quick beat, auto-advance, or the Next button.
-  /// The hold is keyed by row id and lives in GroupTurnManager's queue
-  /// slot: a turn stopped or refused before its bubble gives it back; a
-  /// failed stream goes down the standard failure path. A hand pick
-  /// replaces it. Held-Away members are released back on scene
-  /// (they're about to speak); At work speaks anyway, as under a forced @.
+  /// The cast chip and Director cue "Next": hold [character] to answer
+  /// the next turn. In a group — full member or lite guest, both are
+  /// rotation rows — the hold lives in GroupTurnManager's queue slot:
+  /// a turn stopped or refused before its bubble gives it back; a failed
+  /// stream goes down the standard failure path. A hand pick replaces it.
+  /// Held-Away members are released back on scene (they're about to
+  /// speak); At work speaks anyway, as under a forced @.
+  /// In 1:1 with Scene Guests the hold lives on the guest door and routes
+  /// the next send like an `@name` would; the host is the default, so
+  /// queueing the host releases the hold.
   void queueSpeaker(CharacterCard character) {
-    _s.cast.away.releaseHeldAway(character);
-    _session.groupManager?.queueSpeaker(character);
+    if (_activeGroup != null) {
+      _s.cast.away.releaseHeldAway(character);
+      _session.groupManager?.queueSpeaker(character);
+    } else if (character.dbId != null &&
+        character.dbId == _session.activeCharacter?.dbId) {
+      _s.cast.guests.clearNextQueuedGuest();
+    } else {
+      _s.cast.guests.queueNextGuest(character);
+    }
     notifyListeners();
   }
 
   /// The held member — the chip queue first, then any hand pick (@name,
   /// bubble tap, /speak): all reads of "who is next" see one answer.
-  /// Null when nothing is held.
+  /// In 1:1: the held Scene Guest, or null (the host answers).
   CharacterCard? get queuedSpeaker {
     final manager = _session.groupManager;
-    if (manager == null) return null;
-    if (!manager.hasQueuedSpeaker && !manager.hasForcedSpeaker) return null;
-    return manager.nextSpeaker;
+    if (_activeGroup != null && manager != null) {
+      if (!manager.hasQueuedSpeaker && !manager.hasForcedSpeaker) return null;
+      return manager.nextSpeaker;
+    }
+    return _s.cast.guests.nextQueuedGuest;
   }
 
   /// Cancel a queued speaker — the second tap on a filled NEXT pill.
@@ -94,6 +105,7 @@ class GroupSpeakers {
   void clearQueuedSpeaker() {
     _session.groupManager?.clearQueuedSpeaker();
     _session.groupManager?.clearForcedSpeaker();
+    _s.cast.guests.clearNextQueuedGuest();
     notifyListeners();
   }
 

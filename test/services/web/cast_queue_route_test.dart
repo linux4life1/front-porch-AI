@@ -20,6 +20,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
@@ -103,5 +104,55 @@ void main() {
     final router = await bootChat();
     final res = await post(router, {'id': 'mem-ada', 'queue': false});
     expect(res.statusCode, 200);
+  });
+
+  test('1:1: a Scene Guest can be held, the host pill releases', () async {
+    // The bug the maintainer caught: 1:1 was gated out of the pill, but a
+    // host plus Scene Guests has real speaker choices. The route holds the
+    // guest on the same slot as groups; holding the host means "host
+    // answers" — a legitimate release, not a 409.
+    SharedPreferences.setMockInitialValues({});
+    final db = AppDatabase.forTesting();
+    addTearDown(db.close);
+    final storage = StorageService();
+    await storage.initialized;
+    final repo = CharacterRepository(db, storage);
+    final chat = ChatService(
+      KoboldService(storage),
+      UserPersonaService(db),
+      storage,
+      WorldRepository(storage, db),
+    )
+      ..setDatabase(db)
+      ..setCharacterRepository(repo);
+    addTearDown(chat.dispose);
+    final host = CharacterCard(name: 'Flora', firstMessage: 'Evening.');
+    final guest = CharacterCard(
+      name: 'Riley',
+      firstMessage: 'Hi.',
+      frontPorchExtensions: FrontPorchExtensions(tier: 'lite'),
+    );
+    await repo.addCharacter(host);
+    await repo.addCharacter(guest);
+    await chat.setActiveCharacter(host);
+    await chat.joinSceneGuest(guest);
+    for (var i = 0; i < 20; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    final router = Router();
+    WebChatOverlayRoutes(ChatFacade(chat, repo, null, null, null), router);
+
+    final guestId = chat.cast.firstWhere((p) => p.name == 'Riley').id;
+    final res = await post(router, {'id': guestId, 'queue': true});
+    expect(res.statusCode, 200, reason: 'a 1:1 guest is holdable');
+    expect(chat.queuedSpeaker?.name, 'Riley');
+
+    final hostId = chat.cast.firstWhere((p) => p.isHost).id;
+    final rel = await post(router, {'id': hostId, 'queue': true});
+    expect(rel.statusCode, 200, reason: 'the host releases: no 409');
+    expect(chat.queuedSpeaker, isNull);
+
+    final cancel = await post(router, {'id': guestId, 'queue': false});
+    expect(cancel.statusCode, 200);
   });
 }

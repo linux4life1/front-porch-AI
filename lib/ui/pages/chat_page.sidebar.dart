@@ -300,10 +300,9 @@ class _ParticipantRoster extends StatelessWidget {
               ? resolveCharImage(path)
               : null;
           // Queued state by name: the hold slot keys on name (the manager's
-          // match rule), so the pill and the hold can never disagree.
-          final queued =
-              chatService.isGroupMode &&
-              chatService.queuedSpeaker?.name == p.name;
+          // match rule), so the pill and the hold can never disagree. In
+          // 1:1 the slot is the Scene Guest door's hold — same read.
+          final queued = chatService.queuedSpeaker?.name == p.name;
           final turnBusy = chatService.isTurnBusy;
           return CastRosterChip(
             name: p.name,
@@ -329,16 +328,16 @@ class _ParticipantRoster extends StatelessWidget {
                   ),
             // Queuing holds for the NEXT pick — it fires no turn — so a
             // running turn does not grey the pill (unlike Away, which the
-            // service refuses mid-flight). 1:1 has no rotation: no pill.
-            onQueue: !chatService.isGroupMode
-                ? null
-                : () {
-                    if (queued) {
-                      chatService.clearQueuedSpeaker();
-                    } else {
-                      chatService.queueSpeaker(p.card);
-                    }
-                  },
+            // service refuses mid-flight). In 1:1 the hold routes the next
+            // send like an `@name` would; the host answers by default, so
+            // their pill releases the hold rather than arming one.
+            onQueue: () {
+              if (queued) {
+                chatService.clearQueuedSpeaker();
+              } else {
+                chatService.queueSpeaker(p.card);
+              }
+            },
             queued: queued,
             onFocus: () => onFocus(p.id),
             onPromote: p.isLite

@@ -259,9 +259,19 @@ class SendTurn {
     // (2026-07-28). Group: "@Member" forces that member as this turn's
     // speaker (inside the call; returns null — the turn proceeds normally).
     // Decision logic lives in the scene-guest leaf.
-    final addressedGuest = _directAddressRoutedGuest(
-      AtMentionText.routingText(userMsg),
-    );
+    final routingText = AtMentionText.routingText(userMsg);
+    var addressedGuest = _directAddressRoutedGuest(routingText);
+    // The cast chip's Next pill in 1:1: the held guest answers THIS line,
+    // the same parity-safe route an `@name` takes. An explicit `@someone-
+    // else` wins and spends the hold (one next speaker — the group's
+    // hand-pick rule). An explicit host address ("@Flora, …") lets it
+    // wait unspent: host wins absolutely, and the pill promised a line
+    // nobody else was claiming.
+    if (addressedGuest != null) {
+      _s.cast.guests.clearNextQueuedGuest();
+    } else if (!_s.cast.guests.hostIsAddressed(routingText)) {
+      addressedGuest = _s.cast.guests.takeNextQueuedGuest();
+    }
 
     // ── Chaos Mode: check + pause for wheel if triggered ─────────────────
     // 1:1 rolls the chat's own gauge, exactly as always. A group turn

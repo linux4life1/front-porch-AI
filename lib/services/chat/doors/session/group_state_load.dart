@@ -48,6 +48,7 @@ class GroupStateLoad {
   void loadSceneGuests(Session? session) {
     _sceneGuest.ids.clear();
     _sceneGuest.cards.clear();
+    _sceneGuest.nextQueuedSpeakerId = null;
     final stateJson = session?.groupRealismState;
     // Timed lorebook effects ride the same blob — hydrate (resets first, so
     // a null/empty session clears any prior chat's timers).

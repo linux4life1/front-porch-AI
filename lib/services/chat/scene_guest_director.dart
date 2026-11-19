@@ -119,6 +119,21 @@ class SceneGuestDirector {
     return null;
   }
 
+  /// The null-by-design case of [directlyAddressedGuest]: the line
+  /// explicitly addresses the HOST ("@Flora …" or "Flora, - …"). The
+  /// Scene Guest a 1:1 Next pill holds waits out such a turn unspent —
+  /// host wins absolutely (the router's own rule), and the pill promised
+  /// a line nobody else claimed, not this one.
+  bool hostDirectlyAddressed(String userText) {
+    final text = userText
+        .trim()
+        .replaceAll(RegExp(r'''^["'*_~“”]+|["'*_~“”]+$'''), '')
+        .trim();
+    if (text.isEmpty) return false;
+    return _atMentionHit(_getHostName(), text) != null ||
+        isVocativeAddress(_getHostName(), text);
+  }
+
   /// Group-roster twin of [directlyAddressedGuest]: `@Name` first, then a
   /// leading / bare / trailing vocative. No host-wins rule — the caller
   /// decides whether a hit is Away, At work, or With you.

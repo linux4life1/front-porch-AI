@@ -339,7 +339,7 @@ describe('Director Mode on the web', () => {
     expect(onFocus).toHaveBeenLastCalledWith('Bram');
   });
 
-  it('draws no Next pill when the app passes no queue wiring (1:1)', () => {
+  it('draws no Next pill when the app passes no queue wiring', () => {
     render(
       createElement(CastBar, {
         cast: [member('Ayla')],

@@ -142,10 +142,13 @@ class WebChatOverlayRoutes {
         return JsonResponse.error(409, 'That member is not in the cast');
       }
       chat.queueSpeaker(member.card);
-      // Honest failure: a 1:1 guest or a host has no group rotation to
-      // hold them — the service no-ops, so the UI must hear about it
-      // instead of watching a pill that never lights.
-      if (chat.queuedSpeaker?.name != member.card.name) {
+      // Honest failure: the service holds a group row (full member or
+      // lite guest) or a 1:1 Scene Guest. The 1:1 host answers by
+      // default, so "holding" them releases the hold — no hold at the
+      // end is legitimate there. Anything else ending unheld is real,
+      // and the UI must hear it instead of watching a pill that never
+      // lights.
+      if (chat.queuedSpeaker?.name != member.card.name && !member.isHost) {
         return JsonResponse.error(409, 'That member cannot be queued right now');
       }
     } else {
