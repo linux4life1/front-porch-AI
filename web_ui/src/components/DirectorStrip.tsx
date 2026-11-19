@@ -53,6 +53,8 @@ export function DirectorStrip({
   onPauseAutoPlay,
   onDelay,
   memberNames = [],
+  queuedName = null,
+  onCueQueue,
   onGoal,
   onClearWhisper,
   onTurnBudget,
@@ -67,6 +69,11 @@ export function DirectorStrip({
   onPauseAutoPlay?: () => void;
   onDelay: (seconds: number) => void;
   memberNames?: string[];
+  /** The member held for the next turn (cast chip / cue), passed to the
+   *  tools so the cue chip shows the filled state. */
+  queuedName?: string | null;
+  /** Hold (or release) a cue for the next turn — the cast chip's slot. */
+  onCueQueue?: (name: string, queue: boolean) => void;
   onGoal?: (text: string) => void;
   onClearWhisper?: (id: string) => void;
   onTurnBudget?: (turns: number) => void;
@@ -165,7 +172,9 @@ export function DirectorStrip({
           turnBudget={director.turnBudget ?? 0}
           turnsLeft={director.turnsLeft ?? null}
           busy={turnBusy}
+          queuedName={queuedName}
           onCommand={onCommand}
+          onCueQueue={onCueQueue}
           onGoal={onGoal}
           onClearWhisper={onClearWhisper}
           onTurnBudget={onTurnBudget}

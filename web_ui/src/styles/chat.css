@@ -381,7 +381,32 @@ a.model-switch-settings {
 .cast-chip.focused .cast-name { color: var(--text); }
 /* Away / At work: dimmed like the desktop, still tappable. */
 .cast-chip.away .cast-face { opacity: 0.55; }
-.cast-away { background: none; border: none; padding: 0 4px; min-height: 18px; font-size: 0.62rem; color: var(--accent); }
+/* Status word, not an action (desktop cast_roster_chip.dart): the row under
+   the name tells the truth — With you / Away / At work. The toggle lives in
+   the chip menu and the Character State word. */
+.cast-word { font-size: 0.62rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-word.here { color: var(--porch-amber); }
+.cast-word.gone { color: var(--muted); }
+/* The Next pill: one tap holds this member for the next turn (desktop
+   chip parity). Filled + checked while held; cancels on a second tap. */
+.cast-next {
+  font-size: 0.58rem; padding: 1px 5px; min-height: 18px; border-radius: 9px;
+  max-width: 100%; white-space: nowrap; overflow: hidden;
+  background: transparent; border: 1px solid var(--porch-amber); color: var(--porch-amber);
+}
+.cast-next.on { background: var(--porch-amber); color: var(--accent-ink); font-weight: 700; letter-spacing: 0.04em; }
+.cast-next:disabled { opacity: 0.45; }
+/* Queued face: an amber ring hugging the avatar — the desktop's halo. */
+.cast-chip.queued .cast-face { border-color: var(--porch-amber); }
+/* Right-click / hold menu (desktop chip menu's twin). */
+.cast-menu {
+  position: fixed; z-index: 60; min-width: 170px; display: flex; flex-direction: column;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 4px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.cast-menu-head { font-size: 0.66rem; color: var(--muted); padding: 4px 10px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.cast-menu button { text-align: left; background: none; border: none; color: var(--text); font-size: 0.76rem; padding: 7px 10px; border-radius: 7px; min-height: 0; }
+.cast-menu button:hover { background: color-mix(in srgb, var(--porch-amber) 14%, transparent); color: var(--porch-amber); }
 .cast-guest { font-size: 0.56rem; font-weight: 700; color: var(--porch-amber); }
 .cast-promote { font-size: 0.6rem; padding: 1px 6px; min-height: 18px; border-radius: 6px; border: none; background: var(--accent); color: var(--accent-ink); }
 button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; background: transparent; border-color: var(--border); }
@@ -420,6 +445,9 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .director-tools { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; }
 .director-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .director-label { color: var(--muted); font-weight: 600; min-width: 4.5em; }
+/* Held cue (DirectorTools): amber fill while a member is queued — same
+   identity as the cast chip's NEXT pill and the desktop's cue chip. */
+.director-row .chip.on { background: var(--porch-amber); border-color: transparent; color: var(--accent-ink); font-weight: 700; }
 .director-hint { color: var(--muted); font-size: 0.72rem; }
 .director-goal-input { flex: 1; min-width: 0; }
 .director-pinned {

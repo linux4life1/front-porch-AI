@@ -239,10 +239,11 @@ class ChatRightSidebar extends StatelessWidget {
 }
 
 /// Horizontal roster of all cast participants. Tapping one focuses its
-/// per-character sidebar sections. Shown only when more than one speaker is
-/// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
-/// here — this is the only Promote chrome. Character State may still
-/// show a GUEST badge; it does not get a second button.
+/// per-character sidebar sections; the Next pill queues it for the next
+/// turn (tap again to cancel) — no hidden gestures. Shown only when more
+/// than one speaker is present (1:1 + guests, or a group). Lite guests keep
+/// Promote here — this is the only Promote chrome; the GUEST label is gone,
+/// the Promote button already says "lite".
 class _ParticipantRoster extends StatelessWidget {
   const _ParticipantRoster({
     required this.chatService,
@@ -269,18 +270,17 @@ class _ParticipantRoster extends StatelessWidget {
 
   Widget _roster(BuildContext context) {
     final hasLite = cast.any((p) => p.isLite);
-    // Group members only (the web's rule): With you / Away get Away / Back.
+    // Group members only (the web's rule): With you / Away / At work ride
+    // the chip as an honest status word; the toggle lives in the menu.
     PresenceWhere? presenceOf(ChatParticipant p) =>
         chatService.isGroupMode && !p.isLite && !p.isHost
         ? chatService.groupMemberPresence(p.id)
         : null;
-    final hasAway = cast.any(
-      (p) =>
-          presenceOf(p) == PresenceWhere.withYou ||
-          presenceOf(p) == PresenceWhere.away,
-    );
+    // Chip column: avatar 36 + gap 2 + name 14 + status word 14 + Next
+    // pill 20 ≈ 86; lite drops the word row (-14) and adds Promote (+20)
+    // ≈ 92. Container padding (12) on top: 100 full, 110 lite.
     return Container(
-      height: (hasLite ? 96 : 66) + (hasAway ? 22 : 0),
+      height: (hasLite ? 110 : 100) + 12,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         border: Border(
@@ -299,6 +299,11 @@ class _ParticipantRoster extends StatelessWidget {
           final img = (path != null && path.isNotEmpty)
               ? resolveCharImage(path)
               : null;
+          // Queued state by name: the hold slot keys on name (the manager's
+          // match rule), so the pill and the hold can never disagree. In
+          // 1:1 the slot is the Scene Guest door's hold — same read.
+          final queued = chatService.queuedSpeaker?.name == p.name;
+          final turnBusy = chatService.isTurnBusy;
           return CastRosterChip(
             name: p.name,
             color: groupCharacterColor(i),
@@ -314,12 +319,26 @@ class _ParticipantRoster extends StatelessWidget {
                 chatService.isGroupMode &&
                 !p.isLite &&
                 chatService.chaosSwitchFor(p.id),
-            // The same busy read the service refuses on.
-            onSetAway: chatService.isTurnBusy
+            // The same busy read the service refuses on — the Next pill
+            // never scripts a turn mid-flight.
+            onSetAway: turnBusy
                 ? null
                 : (away) => unawaited(
                     chatService.setGroupMemberAway(p.id, away: away),
                   ),
+            // Queuing holds for the NEXT pick — it fires no turn — so a
+            // running turn does not grey the pill (unlike Away, which the
+            // service refuses mid-flight). In 1:1 the hold routes the next
+            // send like an `@name` would; the host answers by default, so
+            // their pill releases the hold rather than arming one.
+            onQueue: () {
+              if (queued) {
+                chatService.clearQueuedSpeaker();
+              } else {
+                chatService.queueSpeaker(p.card);
+              }
+            },
+            queued: queued,
             onFocus: () => onFocus(p.id),
             onPromote: p.isLite
                 ? () {

@@ -23,11 +23,10 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 import '../../helpers/chat_db_teardown.dart';
 
 // One UI: a group's Character State shows the time leaf by the 1:1 rule
-// (member Realism on, or the clock running), and the user's Away / Back for
-// a member lives on that member's cast chip, not on the presence word.
+// (member Realism on, or the clock running). The cast chip wears an honest
+// presence word (status only); the Away / Back action lives in the chip's
+// right-click / hold menu, and the Next pill queues the speaker.
 
-/// The real chat with the turn-busy read pinned, since a real turn cannot be
-/// held open in a widget test.
 class _BusyChat extends ChatService {
   _BusyChat(super.kobold, super.persona, super.storage, super.worlds);
 
@@ -40,6 +39,7 @@ class _BusyChat extends ChatService {
 Widget _chip({
   required PresenceWhere? presence,
   ValueChanged<bool>? onSetAway,
+  VoidCallback? onQueue,
   bool isLite = false,
 }) => MaterialApp(
   home: Scaffold(
@@ -51,6 +51,7 @@ Widget _chip({
       onFocus: () {},
       presence: presence,
       onSetAway: onSetAway,
+      onQueue: onQueue,
     ),
   ),
 );
@@ -170,9 +171,64 @@ void main() {
     await settle(tester);
   }
 
-  Finder awayButton(String member) => find.descendant(
-    of: find.widgetWithText(CastRosterChip, member),
-    matching: find.byKey(const ValueKey('cast-chip-away')),
+  Finder chip(String member) => find.widgetWithText(CastRosterChip, member);
+
+  Future<void> openMenu(WidgetTester tester, String member) async {
+    await tester.longPress(chip(member));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'the chip wears the honest status word; the menu sends away and brings '
+    'back',
+    (tester) async {
+      await tester.runAsync(() => boot(clockRunning: false));
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      await pumpSidebar(tester);
+
+      expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
+      // Status word on the chip says what is true, not what the tap does.
+      expect(
+        find.descendant(of: chip('Ana'), matching: find.text('With you')),
+        findsOneWidget,
+      );
+
+      await openMenu(tester, 'Ana');
+      await tester.tap(find.text('Send away'));
+      await settle(tester);
+      expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.away);
+      expect(
+        find.descendant(of: chip('Ana'), matching: find.text('Away')),
+        findsOneWidget,
+      );
+
+      await openMenu(tester, 'Ana');
+      await tester.tap(find.text('Bring back'));
+      await settle(tester);
+      expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
+    },
+  );
+
+  testWidgets(
+    'while a turn is busy: no away row in the menu (service refuses), but '
+    'Next still queues (it fires nothing)',
+    (tester) async {
+      await tester.runAsync(() => boot(clockRunning: false));
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      chat.busy = true;
+      await pumpSidebar(tester);
+
+      await openMenu(tester, 'Ana');
+      expect(find.text('Send away'), findsNothing);
+      expect(find.text('Queue to speak next'), findsOneWidget);
+      await tester.tap(find.text('Queue to speak next'));
+      await settle(tester);
+      expect(chat.queuedSpeaker?.name, 'Ana');
+    },
   );
 
   testWidgets(
@@ -208,46 +264,25 @@ void main() {
     expect(find.byType(TimeLeaf), findsOneWidget);
   });
 
-  testWidgets('the cast chip Away / Back marks a member away and back', (
+  testWidgets('the Next pill queues from the chip and cancels on a re-tap', (
     tester,
   ) async {
     await tester.runAsync(() => boot(clockRunning: false));
     addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
     await pumpSidebar(tester);
 
-    expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
-    expect(
-      find.descendant(of: awayButton('Ana'), matching: find.text('Away')),
-      findsOneWidget,
+    await tester.tap(
+      find.descendant(of: chip('Ana'), matching: find.text('Next')),
     );
-
-    await tester.tap(awayButton('Ana'));
     await settle(tester);
-    expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.away);
-    expect(chat.groupMemberPresence('mem-bea'), PresenceWhere.withYou);
-    expect(
-      find.descendant(of: awayButton('Ana'), matching: find.text('Back')),
-      findsOneWidget,
+    expect(chat.queuedSpeaker?.name, 'Ana');
+
+    // The pill flipped to the NEXT read; tapping it cancels the hold.
+    await tester.tap(
+      find.descendant(of: chip('Ana'), matching: find.text('NEXT')),
     );
-
-    await tester.tap(awayButton('Ana'));
     await settle(tester);
-    expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
-  });
-
-  testWidgets('the cast chip Away control is off while a turn is busy', (
-    tester,
-  ) async {
-    await tester.runAsync(() => boot(clockRunning: false));
-    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
-    chat.busy = true;
-    await pumpSidebar(tester);
-
-    final button = tester.widget<TextButton>(awayButton('Ana'));
-    expect(button.onPressed, isNull);
-    await tester.tap(awayButton('Ana'), warnIfMissed: false);
-    await settle(tester);
-    expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
+    expect(chat.queuedSpeaker, isNull);
   });
 
   testWidgets('the presence word is read-only (no toggle on the time leaf)', (
@@ -340,39 +375,52 @@ void main() {
     );
   });
 
-  testWidgets('chip control: Away from With you, Back from Away, none else', (
-    tester,
-  ) async {
-    final calls = <bool>[];
+  testWidgets('chip words: every presence reads, At work never offers a '
+      'toggle, lite and host show no word', (tester) async {
+    var menuAwayCalls = 0;
     await tester.pumpWidget(
-      _chip(presence: PresenceWhere.withYou, onSetAway: calls.add),
-    );
-    await tester.tap(find.text('Away'));
-    await tester.pumpWidget(
-      _chip(presence: PresenceWhere.away, onSetAway: calls.add),
-    );
-    await tester.tap(find.text('Back'));
-    expect(calls, [true, false]);
-
-    for (final hidden in [
-      _chip(presence: PresenceWhere.atWork, onSetAway: calls.add),
-      _chip(presence: null, onSetAway: calls.add),
       _chip(
         presence: PresenceWhere.withYou,
-        onSetAway: calls.add,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    expect(find.text('With you'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _chip(
+        presence: PresenceWhere.away,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    expect(find.text('Away'), findsOneWidget);
+
+    // At work: the word shows (truth) but the menu offers no toggle —
+    // the clock owns that state.
+    await tester.pumpWidget(
+      _chip(
+        presence: PresenceWhere.atWork,
+        onSetAway: (_) => menuAwayCalls++,
+        onQueue: () {},
+      ),
+    );
+    await openMenu(tester, 'Ana');
+    expect(find.text('Send away'), findsNothing);
+    expect(find.text('Bring back'), findsNothing);
+
+    // Lite guests and host-side chips (no presence) carry no word.
+    for (final hidden in [
+      _chip(
+        presence: PresenceWhere.withYou,
+        onSetAway: (_) => menuAwayCalls++,
         isLite: true,
       ),
+      _chip(presence: null, onSetAway: (_) => menuAwayCalls++),
     ]) {
       await tester.pumpWidget(hidden);
-      expect(find.byKey(const ValueKey('cast-chip-away')), findsNothing);
+      expect(find.text('With you'), findsNothing);
     }
-
-    await tester.pumpWidget(_chip(presence: PresenceWhere.withYou));
-    expect(
-      tester
-          .widget<TextButton>(find.byKey(const ValueKey('cast-chip-away')))
-          .onPressed,
-      isNull,
-    );
   });
 }
