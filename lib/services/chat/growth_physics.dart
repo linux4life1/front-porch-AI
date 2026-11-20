@@ -19,7 +19,7 @@
 import 'package:front_porch_ai/database/database.dart';
 
 /// Growth Rings — deterministic ring physics
-/// (docs/design/growth-rings.md §4.4). Pure constants + functions, no LLM
+/// (docs/design/boons-and-bogies.md). Pure constants + functions, no LLM
 /// judgment and no I/O: strength tiers, reinforcement, per-pass fade, and
 /// cap-trim victim selection. "LLM proposes, code disposes."
 ///

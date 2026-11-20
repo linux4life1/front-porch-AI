@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Growth Rings timeline — the web mirror of the desktop GrowthPanel
-// (docs/design/growth-rings.md; replaced the evolution review modal). Rings
+// (docs/design/boons-and-bogies.md; replaced the evolution review modal). Rings
 // grouped by tier (Established / Developing / Emerging) with category chips,
 // strength bars, and receipt pills; a collapsible Past section; Check now /
 // Plant a ring / Reset actions; and the review banner (review-first mode,

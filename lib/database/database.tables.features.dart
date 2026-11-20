@@ -179,7 +179,7 @@ class JournalMemories extends Table {
 }
 
 /// Growth Rings — per-chat, per-character personality growth entries
-/// (design: docs/design/growth-rings.md). Replaces the monolithic evolved
+/// (design: docs/design/boons-and-bogies.md). Replaces the monolithic evolved
 /// personality/scenario blobs. Strictly session-scoped: rings never cross
 /// chats and die with the chat (same invariant as JournalMemories).
 @TableIndex(

@@ -46,7 +46,7 @@ class MemorySettings with SettingsBase {
   bool _importLlmertaPorchMemories = true;
   Set<String> _porchConsumedBlockKeys = {};
 
-  // Character Growth (Growth Rings — docs/design/growth-rings.md §6).
+  // Character Growth (Growth Rings — docs/design/boons-and-bogies.md).
   // The enable key is the old character_evolution_enabled pref so existing
   // users keep their on/off choice; the interval is a NEW key because rings
   // check far more often than the old whole-personality rewrites did (an

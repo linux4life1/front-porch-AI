@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Growth Rings — transport parsing (docs/design/growth-rings.md §4.3).
+/// Growth Rings — transport parsing (docs/design/boons-and-bogies.md).
 ///
 /// One applier, two front doors, both normalized here into the same
 /// [GrowthOp] list (the journal_ops.dart pattern):

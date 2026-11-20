@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Growth Rings engine tests (docs/design/growth-rings.md): deterministic
+// Growth Rings engine tests (docs/design/boons-and-bogies.md): deterministic
 // physics (tiers, reinforcement, fade, cap victim, injection prefixes),
 // both op transports (XML tags + tool calls) with forgiving parsing, the
 // store's DB half (cap trim, receipts merge, fade-to-retire, legacy-blob

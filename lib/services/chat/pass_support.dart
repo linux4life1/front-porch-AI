@@ -30,7 +30,7 @@ export 'package:front_porch_ai/services/chat/pass_support/structured_eval_fire.d
 /// Shared support for the two background maintenance passes (the Journal and
 /// Growth Rings) — extracted from JournalMaintenance so the growth pass
 /// reuses the identical owner loop and tools-probe memory instead of forking
-/// them (docs/design/growth-rings.md §4.2/§4.3 consolidation).
+/// them (docs/design/boons-and-bogies.md).
 
 /// Distinct pass owners appearing in [window]. 1:1 = the active character;
 /// group = every group member who spoke (order of first appearance), falling

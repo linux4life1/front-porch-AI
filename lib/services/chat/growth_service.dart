@@ -64,7 +64,7 @@ bool growthPassIsDue({
 int _defaultGrowthInterval() => 5;
 
 /// Growth Rings — the growth pass + effective-personality layering
-/// (docs/design/growth-rings.md). Replaces EvolutionService's monolithic
+/// (docs/design/boons-and-bogies.md). Replaces EvolutionService's monolithic
 /// personality/scenario rewrites with small receipt-backed ring operations.
 ///
 /// Plain leaf, callback-wired (JournalMaintenance's sibling). Its own small

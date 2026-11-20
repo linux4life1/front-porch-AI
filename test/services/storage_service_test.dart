@@ -817,7 +817,7 @@ void main() {
       final svc = await createStorageService();
       await svc.memorySettings.setGrowthInterval(
         1,
-      ); // should clamp to 2 (growth-rings §6)
+      ); // should clamp to 2 (boons-and-bogies)
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('growth_interval'), 2);
       await svc.memorySettings.setGrowthInterval(50); // and down to 20

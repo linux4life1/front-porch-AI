@@ -24,7 +24,7 @@ import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
 import 'growth_store/growth_ring_writer.dart';
 
-/// Growth Rings — ring persistence (docs/design/growth-rings.md §5) plus the
+/// Growth Rings — ring persistence (docs/design/boons-and-bogies.md) plus the
 /// DB half of the ring physics (§4.4): reinforcement, per-pass fade, and
 /// cap-trim.
 ///

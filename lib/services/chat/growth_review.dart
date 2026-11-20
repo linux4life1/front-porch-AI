@@ -22,8 +22,8 @@ import 'growth_ops.dart';
 import 'growth_physics.dart';
 import 'growth_store.dart';
 
-/// Growth Rings — proposals + the ONE applier (docs/design/growth-rings.md
-/// §4.3; the journal_review.dart pattern).
+/// Growth Rings — proposals + the ONE applier
+/// (docs/design/boons-and-bogies.md; the journal_review.dart pattern).
 ///
 /// The growth pass resolves every parsed [GrowthOp] into a
 /// [GrowthProposedOp] — handles become ring ids — at pass time, while the

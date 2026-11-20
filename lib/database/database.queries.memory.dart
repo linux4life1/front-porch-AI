@@ -166,7 +166,7 @@ extension AppDatabaseMemoryQueries on AppDatabase {
 
   // ── Growth Ring Queries ────────────────────────────────────────────────
   // Growth Rings: per-chat, per-character growth entries + per-session pass
-  // cursor (docs/design/growth-rings.md). No bumpSyncVersion, matching the
+  // cursor (docs/design/boons-and-bogies.md). No bumpSyncVersion, matching the
   // JournalMemories precedent (derived, session-local data).
 
   /// All rings (active AND retired) for one owner in one chat — active first

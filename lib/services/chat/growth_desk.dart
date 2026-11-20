@@ -25,7 +25,7 @@ import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage/settings/memory_settings.dart';
 
 /// Growth Rings — trigger, cache plumbing, and the UI/facade surface
-/// (docs/design/growth-rings.md). The pass itself lives in growth_service
+/// (docs/design/boons-and-bogies.md). The pass itself lives in growth_service
 /// .dart, persistence + the sync injection cache in growth_store.dart,
 /// review parking in growth_review.dart. Mutations here route through the
 /// store and then re-sync the cache + notify, so the desktop timeline, the
@@ -326,7 +326,7 @@ class GrowthDesk {
     );
   }
 
-  // Scenario evolution is retired (growth-rings design §3.2): the Journal
+  // Scenario evolution is retired (boons-and-bogies design): the Journal
   // recap owns "where we are", so every mode uses the card's own scenario.
   String effectiveScenario(CharacterCard card) => card.scenario;
 }

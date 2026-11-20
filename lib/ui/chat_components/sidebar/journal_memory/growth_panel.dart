@@ -29,7 +29,7 @@ import '../sidebar_tokens.dart';
 import 'growth_panel.actions.dart';
 import 'growth_panel.card.dart';
 
-/// Growth Rings sidebar panel (docs/design/growth-rings.md; replaced the
+/// Growth Rings sidebar panel (docs/design/boons-and-bogies.md; replaced the
 /// Character Evolution panel) — the focused character's growth timeline for
 /// this chat: rings grouped by tier (Established / Developing / Emerging),
 /// a collapsible Past growth section, receipt pills that jump to the message
