@@ -100,6 +100,8 @@ class WebThemeTokens {
       'narration-ink': pick(AppColors.action, AppColors.actionLight),
       'growth-habit': pick(const Color(0xFF9EC97F), const Color(0xFF3F6212)),
       'growth-archive': pick(const Color(0xFF7E8798), const Color(0xFF5F6675)),
+      // Boons & Bogies — the flaw accent (desktop ChatColors.bogeyOf twin).
+      'bogey': pick(const Color(0xFFB79BE0), const Color(0xFF7B4FB8)),
       'chip-well': pick(Colors.transparent, p.card),
       'growth-scar': pick(const Color(0xFFD99AA6), const Color(0xFF9D174D)),
       ..._realism(pick),

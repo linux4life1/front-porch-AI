@@ -280,6 +280,7 @@ extension AppDatabaseChatQueries on AppDatabase {
     await (delete(journalMemories)..where((j) => j.sessionId.equals(id))).go();
     await (delete(growthRings)..where((g) => g.sessionId.equals(id))).go();
     await (delete(growthState)..where((g) => g.sessionId.equals(id))).go();
+    await (delete(growthMoments)..where((g) => g.sessionId.equals(id))).go();
     await deleteEmbeddingsForSession(id);
     await deleteObjectivesForChat(id);
     await (delete(chatWorlds)..where((c) => c.chatId.equals(id))).go();

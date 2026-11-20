@@ -29,5 +29,36 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
     await _upgradeFromV40(m, from, to);
     // v66→v67: each group's stored member start moves onto the member's copy.
     if (from < 67) await migrateGroupSeedsToMemberCopies(this);
+    if (from < 68) {
+      // v67→v68: Boons & Bogies — the roll/advance columns on growth_rings
+      // and the growth_moments queue (docs/design/boons-and-bogies.md §3.3,
+      // §7). Additive; every default reads "nothing has happened yet", so an
+      // upgraded chat behaves exactly as before until the feature is turned
+      // on. The same column list feeds the always-on schema repair.
+      for (final c in kGrowthBogeyColumnsV68) {
+        try {
+          await customStatement('ALTER TABLE growth_rings ADD COLUMN $c');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+      try {
+        await customStatement(
+          'CREATE TABLE IF NOT EXISTS growth_moments ('
+          'id TEXT NOT NULL PRIMARY KEY, '
+          'session_id TEXT NOT NULL, '
+          'character_id TEXT NOT NULL, '
+          'ring_id TEXT, '
+          'kind TEXT NOT NULL, '
+          'tier TEXT, '
+          "created_at INTEGER NOT NULL DEFAULT (CAST(strftime('%s','now') AS INTEGER)), "
+          'seen INTEGER NOT NULL DEFAULT 0'
+          ')',
+        );
+        debugPrint('[DB] v68: growth_moments table ready');
+      } catch (e) {
+        debugPrint('[DB] v68: growth_moments create skipped: $e');
+      }
+    }
   }
 }

@@ -82,6 +82,12 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     "memory_type TEXT NOT NULL DEFAULT 'message'",
     'metadata TEXT',
   ],
+  'growth_rings': [
+    // v68 — Boons & Bogies (docs/design/boons-and-bogies.md). Added with the
+    // same silent-catch ALTER pattern as everything above, so the repair
+    // carries them too. Defaults match the Table class exactly.
+    ...kGrowthBogeyColumnsV68,
+  ],
   'groups': [
     // v30
     'default_member_realism_state TEXT NOT NULL DEFAULT "{}"',
@@ -247,6 +253,17 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     'created_at INTEGER NOT NULL DEFAULT 0',
   ],
 };
+
+/// v68: Boons & Bogies roll/advance columns on growth_rings — one list for
+/// the upgrade ladder and the always-on schema repair.
+const kGrowthBogeyColumnsV68 = [
+  'advance_count INTEGER NOT NULL DEFAULT 0',
+  'bogey_pressure INTEGER NOT NULL DEFAULT 0',
+  'bogey_cooldown INTEGER NOT NULL DEFAULT 0',
+  'bogey_pending TEXT',
+  'bogey_delivered INTEGER NOT NULL DEFAULT 0',
+  'master_declined INTEGER NOT NULL DEFAULT 0',
+];
 
 /// v66: the group editor's own fields, the one list the upgrade ladder and
 /// the schema repair share.

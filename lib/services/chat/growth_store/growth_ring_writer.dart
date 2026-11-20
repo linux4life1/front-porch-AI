@@ -24,31 +24,11 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 
-import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/database/database.dart';
+import '../growth_boons_bogies.dart';
 import '../growth_physics.dart';
-
-/// Decodes a session's groupEvolved* JSON column into charId → text
-/// (empty on null/garbage).
-Map<String, String> parseEvolvedJsonMap(String? json) {
-  if (json == null || json.isEmpty) return {};
-  try {
-    return (jsonDecode(json) as Map<String, dynamic>).map(
-      (k, v) => MapEntry(k, v?.toString() ?? ''),
-    );
-  } catch (_) {
-    return {};
-  }
-}
-
-/// Merged, deduplicated receipt positions for a ring + new citations.
-List<int> mergedGrowthReceipts(GrowthRingData ring, List<int> extra) {
-  final merged = <int>{
-    ...decodeReceiptIds(ring.sourceMessageIds),
-    ...extra,
-  }.toList()..sort();
-  return merged;
-}
+import 'growth_bb_writer.dart';
+import 'growth_ring_codec.dart';
 
 /// The DB half of [GrowthStore]: every ring write and the legacy-blob column
 /// edits. Holds no cache — the store does.
@@ -63,6 +43,11 @@ class GrowthRingWriter {
     required String Function(String characterId, String text) resolve,
   }) : _resolve = resolve;
 
+  late final GrowthBbWriter _bb = GrowthBbWriter(
+    getDb: getDb,
+    resolve: _resolve,
+  );
+
   /// Insert a new ring, enforcing the active-ring cap by retiring the
   /// weakest unpinned, non-established ring (GrowthPhysics.capVictim).
   Future<void> addRing({
@@ -74,6 +59,7 @@ class GrowthRingWriter {
     double strength = GrowthPhysics.kNewRingStrength,
     bool pinned = false,
     bool retired = false,
+    String? metadata,
   }) async {
     final db = getDb();
     if (db == null) return;
@@ -106,9 +92,40 @@ class GrowthRingWriter {
         createdAt: Value(now),
         lastReinforcedAt: Value(now),
         updatedAt: Value(now),
+        metadata: Value(metadata),
       ),
     );
   }
+
+  /// See [GrowthBbWriter.reinforceBoon].
+  Future<void> reinforceBoon(
+    GrowthRingData ring, {
+    required int advanceCount,
+    required String metadata,
+    List<int> sourcePositions = const [],
+  }) => _bb.reinforceBoon(
+    ring,
+    advanceCount: advanceCount,
+    metadata: metadata,
+    sourcePositions: sourcePositions,
+  );
+
+  /// See [GrowthBbWriter.reinforceBogey].
+  Future<void> reinforceBogey(
+    GrowthRingData ring, {
+    required int advanceCount,
+    required String metadata,
+    List<int> sourcePositions = const [],
+  }) => _bb.reinforceBogey(
+    ring,
+    advanceCount: advanceCount,
+    metadata: metadata,
+    sourcePositions: sourcePositions,
+  );
+
+  /// See [GrowthBbWriter.restoreUndo].
+  Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
+      _bb.restoreUndo(ring, undo);
 
   /// Strengthen a ring one step and append the new receipts.
   Future<void> reinforceRing(
@@ -135,6 +152,7 @@ class GrowthRingWriter {
     GrowthRingData ring, {
     required String content,
     String? category,
+    String? metadata,
   }) async {
     final db = getDb();
     if (db == null) return;
@@ -143,6 +161,7 @@ class GrowthRingWriter {
       GrowthRingsCompanion(
         content: Value(_resolve(ring.characterId, content)),
         category: category == null ? const Value.absent() : Value(category),
+        metadata: metadata == null ? const Value.absent() : Value(metadata),
         updatedAt: Value(DateTime.now()),
       ),
     );
@@ -226,7 +245,15 @@ class GrowthRingWriter {
   /// removal). The original card was never touched, so this fully restores
   /// the pre-growth character.
   Future<void> deleteAllFor(String sessionId, String characterId) async {
-    await getDb()?.deleteGrowthRingsForCharacter(sessionId, characterId);
+    final db = getDb();
+    if (db == null) return;
+    await db.deleteGrowthRingsForCharacter(sessionId, characterId);
+    // Boons & Bogies moments are per owner; a reset takes them too.
+    await (db.delete(db.growthMoments)..where(
+          (g) =>
+              g.sessionId.equals(sessionId) & g.characterId.equals(characterId),
+        ))
+        .go();
   }
 
   /// Fade every active ring that was NOT reinforced this pass one step
@@ -241,6 +268,13 @@ class GrowthRingWriter {
     if (db == null) return;
     for (final ring in await db.getGrowthRings(sessionId, characterId)) {
       if (ring.retired || reinforcedIds.contains(ring.id)) continue;
+      if (BoonsBogies.isBogey(ring)) {
+        // A coping pass wears the flaw down; pinned bogeys never fade (the
+        // author's core flaw cannot drift away — an accepted overcome is the
+        // one exception, on the milestone path).
+        await _bb.fadeBogey(ring);
+        continue;
+      }
       final faded = GrowthPhysics.fadedStrength(ring);
       if (faded == ring.strength) continue; // established or pinned
       if (faded <= 0.0) {
@@ -323,6 +357,13 @@ class GrowthRingWriter {
           sourceMessageIds: Value(ring.sourceMessageIds),
           createdAt: Value(ring.createdAt),
           lastReinforcedAt: Value(ring.lastReinforcedAt),
+          advanceCount: Value(ring.advanceCount),
+          bogeyPressure: Value(ring.bogeyPressure),
+          bogeyCooldown: Value(ring.bogeyCooldown),
+          bogeyPending: Value(ring.bogeyPending),
+          bogeyDelivered: Value(ring.bogeyDelivered),
+          masterDeclined: Value(ring.masterDeclined),
+          metadata: Value(ring.metadata),
         ),
       );
     }
@@ -380,6 +421,13 @@ class GrowthRingWriter {
           sourceMessageIds: Value(ring.sourceMessageIds),
           createdAt: Value(ring.createdAt),
           lastReinforcedAt: Value(ring.lastReinforcedAt),
+          advanceCount: Value(ring.advanceCount),
+          bogeyPressure: Value(ring.bogeyPressure),
+          bogeyCooldown: Value(ring.bogeyCooldown),
+          bogeyPending: Value(ring.bogeyPending),
+          bogeyDelivered: Value(ring.bogeyDelivered),
+          masterDeclined: Value(ring.masterDeclined),
+          metadata: Value(ring.metadata),
         ),
       );
     }

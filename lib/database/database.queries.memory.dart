@@ -250,6 +250,10 @@ extension AppDatabaseMemoryQueries on AppDatabase {
         ),
       );
 
+  // Boons & Bogies milestone moments: the table lands with phase 2; the
+  // read/list API lands with the Moments panel (phase 5), where it has a
+  // consumer. Cascade deletes live with the ring deletes and chat delete.
+
   // ── Data Bank Queries ────────────────────────────────────────────────────────
 
   Future<void> insertDataBankEntry(DataBankEntriesCompanion entry) async {

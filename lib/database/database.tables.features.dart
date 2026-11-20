@@ -213,6 +213,66 @@ class GrowthRings extends Table {
   TextColumn get metadata =>
       text().nullable()(); // JSON pouch (additive future)
 
+  // ── Boons & Bogies (v68, docs/design/boons-and-bogies.md §3.3) ────────
+  //
+  // Roll state lives in columns, not metadata: the roll writer and the
+  // content applier touch disjoint column sets, and the gauge survives
+  // restarts. Metadata holds only the undo snapshot and the seed/link
+  // identity (`metadata.bb`).
+
+  /// Advancement evidence. A boon counts growth passes that used it (3 →
+  /// Skilled, 8 → Master); a bogey counts the times it actually fired
+  /// (4 → Skilled, 12 → Master).
+  IntColumn get advanceCount => integer().withDefault(const Constant(0))();
+
+  /// Bogey roll gauge, 0..100. Written ONLY by the roll gauge writer —
+  /// never by the content applier.
+  IntColumn get bogeyPressure => integer().withDefault(const Constant(0))();
+
+  /// Replies left before this bogey can roll again.
+  IntColumn get bogeyCooldown => integer().withDefault(const Constant(0))();
+
+  /// The injected sentence for the reply being generated. A soft nudge, not
+  /// an event; cleared on the next user turn.
+  TextColumn get bogeyPending => text().nullable()();
+
+  /// True once [bogeyPending] reached a generation. Regen and swipe re-inject
+  /// the same bogey until the slot clears (the chaos delivered-flag pattern).
+  BoolColumn get bogeyDelivered =>
+      boolean().withDefault(const Constant(false))();
+
+  /// A Master proposal the user rejected never nags again. A boon latches
+  /// permanently; a bogey may re-raise only after its count falls below 4
+  /// and climbs back to 12.
+  BoolColumn get masterDeclined =>
+      boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Boons & Bogies — milestone moments that exceeded the one-per-8-messages
+/// popup budget (docs/design/boons-and-bogies.md §7). Written when the budget
+/// is spent; listed unread in the Growth panel's Moments list and replayable
+/// with their celebration, so nothing is lost and nothing bombards.
+@DataClassName('GrowthMomentData')
+class GrowthMoments extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get sessionId => text()();
+  TextColumn get characterId => text()();
+
+  /// The ring the moment is about; kept even if the ring is later deleted.
+  TextColumn get ringId => text().nullable()();
+
+  /// new_boon / new_bogey / master_boon / master_bogey / overcome.
+  TextColumn get kind => text()();
+
+  /// The tier reached (novice / skilled / master) when the moment is a
+  /// crossing; null for a plain add or overcome.
+  TextColumn get tier => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  BoolColumn get seen => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -825,6 +825,26 @@ void main() {
     });
   });
 
+  group('Boons & Bogies settings', () {
+    test('ships off with rolls and popups on', () async {
+      final svc = await createStorageService();
+      expect(svc.memorySettings.boonsBogiesEnabled, isFalse);
+      expect(svc.memorySettings.bogeyRollsEnabled, isTrue);
+      expect(svc.memorySettings.milestonePopupsEnabled, isTrue);
+    });
+
+    test('each switch persists to SharedPreferences', () async {
+      final svc = await createStorageService();
+      await svc.memorySettings.setBoonsBogiesEnabled(true);
+      await svc.memorySettings.setBogeyRollsEnabled(false);
+      await svc.memorySettings.setMilestonePopupsEnabled(false);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('boons_bogies_enabled'), true);
+      expect(prefs.getBool('bogey_rolls_enabled'), false);
+      expect(prefs.getBool('milestone_popups_enabled'), false);
+    });
+  });
+
   // ─── Realism Engine Settings ──────────────────────────────────────
 
   group('Realism engine settings persistence', () {

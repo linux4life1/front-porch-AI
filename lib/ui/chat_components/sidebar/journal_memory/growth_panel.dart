@@ -24,9 +24,11 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/growth_review_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 
 import '../sidebar_tokens.dart';
 import 'growth_panel.actions.dart';
+import 'growth_panel.bb.dart';
 import 'growth_panel.card.dart';
 
 /// Growth Rings sidebar panel (docs/design/boons-and-bogies.md; replaced the
@@ -63,6 +65,7 @@ class GrowthPanel extends StatelessWidget {
     'habit' => 'habit',
     'skill' => 'skill',
     'scar' => 'scar',
+    BoonsBogies.kCategoryBogey => 'bogey',
     GrowthPhysics.kArchiveCategory => 'archive',
     _ => 'trait',
   };
@@ -73,6 +76,7 @@ class GrowthPanel extends StatelessWidget {
         'habit' => AppColors.trustHighOf(context),
         'skill' => AppColors.porchAmberOf(context),
         'scar' => AppColors.fixationAccentOf(context),
+        BoonsBogies.kCategoryBogey => ChatColors.bogeyOf(context),
         GrowthPhysics.kArchiveCategory => AppColors.textTertiary(context),
         _ => AppColors.porchHoneyOf(context),
       };
@@ -91,6 +95,11 @@ class GrowthPanel extends StatelessWidget {
         final rings = chatService.growthRingsForOwner(characterId);
         final active = rings.where((r) => !r.retired).toList();
         final past = rings.where((r) => r.retired).toList();
+        final boons = active.where(BoonsBogies.isBoon).toList();
+        final bogies = active.where(BoonsBogies.isBogey).toList();
+        final ordinary = active
+            .where((r) => !BoonsBogies.isBoonOrBogey(r))
+            .toList();
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,12 +184,28 @@ class GrowthPanel extends StatelessWidget {
                     ),
                   ),
                 ),
+              BoonBogeySection(
+                title: 'Boons',
+                trailing: characterName,
+                rings: boons,
+                chatService: chatService,
+                characterId: characterId,
+                onJumpToMessage: onJumpToMessage,
+              ),
+              BoonBogeySection(
+                title: 'Bogies',
+                trailing: '${bogies.length} of ${BoonsBogies.kMaxActiveBogies}',
+                rings: bogies,
+                chatService: chatService,
+                characterId: characterId,
+                onJumpToMessage: onJumpToMessage,
+              ),
               for (final tier in const [
                 'established',
                 'developing',
                 'emerging',
               ])
-                ..._tierSection(context, tier, active),
+                ..._tierSection(context, tier, ordinary),
               if (past.isNotEmpty)
                 GrowthPastSection(
                   past: past,

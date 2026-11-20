@@ -47,6 +47,10 @@ class GrowthExchange {
   final String Function() getUserName;
   final String Function() getRecap;
 
+  /// Whether the pass may ask for bogeys and boon semantics
+  /// (docs/design/boons-and-bogies.md). Off keeps the old five categories.
+  final bool Function() getBoonsBogiesEnabled;
+
   GrowthExchange({
     required this.probe,
     required this.fireLLMEval,
@@ -57,6 +61,7 @@ class GrowthExchange {
     required this.getBackendIdentity,
     required this.getUserName,
     required this.getRecap,
+    this.getBoonsBogiesEnabled = boonsBogiesOff,
   });
 
   /// One owner's LLM exchange — tools first when the backend allows, XML
@@ -85,6 +90,7 @@ class GrowthExchange {
       windowStart: windowStart,
       legacyBlob: legacyBlob,
       toolsMode: toolsMode,
+      boonsBogies: getBoonsBogiesEnabled(),
     );
 
     final backend = getBackendIdentity();

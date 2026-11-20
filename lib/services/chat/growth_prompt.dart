@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 
+import 'growth_boons_bogies.dart';
 import 'growth_physics.dart';
 import 'journal_prompt.dart' show salienceLineOf;
 
@@ -57,6 +58,7 @@ String buildGrowthPrompt({
   required int windowStart,
   required String legacyBlob,
   required bool toolsMode,
+  bool boonsBogies = false,
 }) {
   final distill = legacyBlob.trim().isNotEmpty;
   final b = StringBuffer();
@@ -88,7 +90,7 @@ String buildGrowthPrompt({
     for (var i = 0; i < activeRings.length; i++) {
       final r = activeRings[i];
       b.writeln(
-        '[${i + 1}] (${r.category}, ${GrowthPhysics.tierOf(r)}'
+        '[${i + 1}] (${_ringTag(r)}'
         '${r.pinned ? ', pinned' : ''}) ${r.content}',
       );
     }
@@ -142,17 +144,37 @@ String buildGrowthPrompt({
   );
   b.writeln(
     '- Retire a ring these events contradicted or that '
-    '$ownerName has outgrown.',
+    '$ownerName has outgrown.${boonsBogies ? ' Never retire a bogey — that '
+              'moment belongs to the user.' : ''}',
   );
   b.writeln(
     '- Each ring is one sentence, third person, at most 30 words, using '
     '{{char}} for $ownerName and {{user}} for $userName. '
     '${toolsMode ? 'Cite the message numbers that show it in src.' : 'Cite the message numbers that show it with src="...".'}',
   );
-  b.writeln(
-    '- Categories: trait (who they are), stance (how they relate to '
-    '$userName), habit, skill, scar (lasting mark from a painful event).',
-  );
+  if (boonsBogies) {
+    b.writeln(
+      '- Categories: trait (who they are), stance (how they relate to '
+      '$userName), habit, skill (a boon — an ability the story keeps using), '
+      'scar (lasting mark from a painful event), bogey (a recurring personal '
+      'flaw).',
+    );
+    b.writeln(
+      '- A boon grows with use: reinforce a boon only when a NEW message '
+      'shows $ownerName actually using it. Noticing it is not enough.',
+    );
+    b.writeln(
+      '- A bogey is a personal flaw $ownerName keeps showing — never a '
+      'demographic, a slur or a stereotype. Add at most one, and only when '
+      'the story establishes it as durable. Never reinforce a bogey for '
+      'merely appearing; reinforce only when the story makes it worse.',
+    );
+  } else {
+    b.writeln(
+      '- Categories: trait (who they are), stance (how they relate to '
+      '$userName), habit, skill, scar (lasting mark from a painful event).',
+    );
+  }
   b.writeln(
     '- Add at most ${distill ? kDistillMaxRings : GrowthPhysics.kMaxNewRingsPerPass} '
     'new ring(s). If nothing durable changed, emit nothing at all.',
@@ -204,6 +226,19 @@ String buildGrowthInjection({
       'story. These build on the original personality above; the plainly '
       'stated ones are settled parts of who $charName is now.]\n'
       '${lines.join('\n')}';
+}
+
+/// The kind + tier shown next to a ring's handle in the pass prompt. Boons
+/// and bogies show their own tiers (Novice/Skilled/Master); ordinary rings
+/// keep the physics tiers.
+String _ringTag(GrowthRingData ring) {
+  if (BoonsBogies.isBogey(ring)) {
+    return 'bogey, ${BoonsBogies.tierOf(ring)}';
+  }
+  if (BoonsBogies.isBoon(ring)) {
+    return 'boon, ${BoonsBogies.tierOf(ring)}';
+  }
+  return '${ring.category}, ${GrowthPhysics.tierOf(ring)}';
 }
 
 String _trimTo(String text, int cap) {

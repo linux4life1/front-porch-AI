@@ -116,6 +116,8 @@
   /* Growth Rings categories without a porch twin. */
   --growth-habit: #9ec97f;
   --growth-scar: #d99aa6;
+  /* Boons & Bogies flaw accent (runtime token twin: ChatColors.bogeyOf). */
+  --bogey: #b79be0;
   /* Realism & Needs chips (desktop RealismColors): one hue per stat. */
   --need-hunger: #ffab40;
   --need-bladder: #40c4ff;

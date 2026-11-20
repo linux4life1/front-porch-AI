@@ -186,6 +186,8 @@ extension RealismMemoryWiring on RealismGraph {
       store: growthStore,
       getSessionId: () => session.currentSessionId,
       getIsGroup: () => session.activeGroup != null,
+      getBoonsBogiesEnabled: () =>
+          _storageService.memorySettings.boonsBogiesEnabled,
       onApplied: () => growthDesk.refreshCache(),
       onNotify: deps.notify,
     );
@@ -218,6 +220,8 @@ extension RealismMemoryWiring on RealismGraph {
       getGrowthEnabled: () =>
           _storageService.memorySettings.characterEvolutionEnabled,
       getReviewFirst: () => _storageService.memorySettings.growthReviewFirst,
+      getBoonsBogiesEnabled: () =>
+          _storageService.memorySettings.boonsBogiesEnabled,
       getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => growthPassRunning,
       setIsPassRunning: (v) => growthPassRunning = v,

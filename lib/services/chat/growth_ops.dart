@@ -62,12 +62,16 @@ class GrowthOp {
 }
 
 /// Model-writable categories ([GrowthPhysics.kArchiveCategory] is code-only).
+/// `bogey` is a Boons & Bogies category (docs/design/boons-and-bogies.md §3);
+/// a model that ignores it simply keeps emitting the old five, which parse
+/// exactly as before.
 const List<String> kGrowthCategories = [
   'trait',
   'stance',
   'habit',
   'skill',
   'scar',
+  'bogey',
 ];
 
 final RegExp _ringTag = RegExp(
@@ -182,6 +186,10 @@ String normalizeGrowthCategory(String? raw) {
     case 'trauma':
     case 'fear':
       return 'scar';
+    case 'flaw':
+    case 'weakness':
+    case 'bogie':
+      return 'bogey';
     default:
       return 'trait';
   }

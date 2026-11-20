@@ -52,6 +52,10 @@ class PorchLifeMemoryGroup extends StatelessWidget {
     final journalOn = memory.journalEnabled;
     final objectivesOn = realism.objectivesEnabled;
     final pocketsOn = realism.pocketsEnabled;
+    final growthOn = memory.characterEvolutionEnabled;
+    // Boons & Bogies genuinely cannot function without Growth — nothing can
+    // advance or be proposed (docs/design/boons-and-bogies.md §8).
+    final boonsBogiesOn = growthOn && memory.boonsBogiesEnabled;
 
     return FeatureGroupCard(
       title: 'Memory & Heart',
@@ -167,19 +171,96 @@ class PorchLifeMemoryGroup extends StatelessWidget {
             ),
           ],
         ),
-        FeatureRow(
-          icon: Icons.spa_outlined,
-          label: 'Growth Rings',
-          subtitle:
-              'Adds lived experience as slow layers without rewriting who they are.',
-          need: FeatureNeed.alone,
-          expandDetailsSignal: expandDetailsSignal,
-          blurb:
-              'Slow character evolution — rings, not rewrites. What they '
-              'live through is added as a new layer instead of overwriting '
-              'who they were.',
-          value: memory.characterEvolutionEnabled,
-          onChanged: memory.setCharacterEvolutionEnabled,
+        FeatureTreeNode(
+          active: growthOn,
+          parent: FeatureRow(
+            key: rowKeyFor('growth'),
+            icon: Icons.spa_outlined,
+            label: 'Growth Rings',
+            subtitle:
+                'Adds lived experience as slow layers without rewriting who they are.',
+            need: FeatureNeed.alone,
+            highlighted: highlightedId == 'growth',
+            expandDetailsSignal: expandDetailsSignal,
+            blurb:
+                'Slow character evolution — rings, not rewrites. What they '
+                'live through is added as a new layer instead of overwriting '
+                'who they were.',
+            value: growthOn,
+            onChanged: memory.setCharacterEvolutionEnabled,
+          ),
+          children: [
+            FeatureTreeNode(
+              active: boonsBogiesOn,
+              parent: FeatureRow(
+                key: rowKeyFor('boons-bogies'),
+                icon: Icons.auto_awesome,
+                label: 'Boons & Bogies',
+                subtitle:
+                    'Abilities that grow and flaws that surface. New ones always ask you first.',
+                need: FeatureNeed.needs,
+                dependsOn: 'Growth Rings',
+                satisfied: growthOn,
+                highlighted: highlightedId == 'boons-bogies',
+                onDependencyTap: () => onJumpTo('growth'),
+                expandDetailsSignal: expandDetailsSignal,
+                blurb:
+                    'A boon is an ability that gets better as the story uses '
+                    'it; a bogey is a flaw that shows up now and then on a '
+                    'roll. A growing boon can wear a bogey down until the '
+                    'character overcomes it. New boons, new bogies, a trait '
+                    'reaching Master and an overcome always ask you first. '
+                    'Off keeps every existing boon and bogey in the chat — '
+                    'nothing is deleted, and no kits are copied into new '
+                    'chats.',
+                value: memory.boonsBogiesEnabled,
+                onChanged: memory.setBoonsBogiesEnabled,
+              ),
+              children: [
+                FeatureRow(
+                  key: rowKeyFor('bogey-rolls'),
+                  icon: Icons.casino_outlined,
+                  label: 'Bogey rolls',
+                  subtitle:
+                      'Let flaws show up now and then. Off keeps progression only.',
+                  need: FeatureNeed.needs,
+                  dependsOn: 'Boons & Bogies',
+                  satisfied: boonsBogiesOn,
+                  highlighted: highlightedId == 'bogey-rolls',
+                  onDependencyTap: () => onJumpTo('boons-bogies'),
+                  expandDetailsSignal: expandDetailsSignal,
+                  blurb:
+                      'A pressure gauge decides when a flaw shows up: never '
+                      'every turn, never twice in a row, but always '
+                      'eventually. Off leaves boons growing and bogies on '
+                      'record without letting one fire in the story.',
+                  value: memory.bogeyRollsEnabled,
+                  onChanged: memory.setBogeyRollsEnabled,
+                ),
+                FeatureRow(
+                  key: rowKeyFor('milestone-popups'),
+                  icon: Icons.celebration_outlined,
+                  label: 'Milestone popups',
+                  subtitle:
+                      'Center-screen moments. Off sends proposals to the Growth panel.',
+                  need: FeatureNeed.needs,
+                  dependsOn: 'Boons & Bogies',
+                  satisfied: boonsBogiesOn,
+                  highlighted: highlightedId == 'milestone-popups',
+                  onDependencyTap: () => onJumpTo('boons-bogies'),
+                  expandDetailsSignal: expandDetailsSignal,
+                  blurb:
+                      'The center-screen moment when something is accepted: '
+                      'confetti for a boon, purple smoke for a bogey. Off '
+                      'sends every proposal to the Growth panel\'s review '
+                      'list and Moments list instead — nothing is lost, it '
+                      'just waits for you.',
+                  value: memory.milestonePopupsEnabled,
+                  onChanged: memory.setMilestonePopupsEnabled,
+                ),
+              ],
+            ),
+          ],
         ),
         FeatureTreeNode(
           active: objectivesOn,

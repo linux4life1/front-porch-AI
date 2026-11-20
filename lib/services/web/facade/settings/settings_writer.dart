@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_appearance_write.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_growth_apply.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_sidebar_order.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_ui_write.dart';
@@ -209,10 +210,7 @@ class SettingsWriter {
       if (adult is bool) {
         await _storage.realismSettings.setAdultThemesEnabled(adult);
       }
-      final growth = realism['characterEvolutionEnabled'];
-      if (growth is bool) {
-        await _storage.memorySettings.setCharacterEvolutionEnabled(growth);
-      }
+      await applyGrowthBooleans(_storage.memorySettings, realism);
       final pockets = realism['pocketsEnabled'];
       if (pockets is bool) {
         await _storage.realismSettings.setPocketsEnabled(pockets);
@@ -222,9 +220,8 @@ class SettingsWriter {
         await _storage.realismSettings.setPocketTransfersEnabled(transfers);
       }
       final mood = realism['standingMoodEnabled'];
-      if (mood is bool) {
+      if (mood is bool)
         await _storage.realismSettings.setStandingMoodEnabled(mood);
-      }
       // No live-chat push: both are read straight off StorageService at
       // the moment they matter. "Acts on desires" is resolved per turn when the
       // preferences fragment is built, and Chaos seeds when a chat is entered —

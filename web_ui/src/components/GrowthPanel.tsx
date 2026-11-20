@@ -23,6 +23,15 @@ export interface GrowthRing {
   pinned: boolean;
   retired: boolean;
   receipts: number[];
+  /** 'boon' | 'bogey' | null — Boons & Bogies kind (additive). */
+  kind?: 'boon' | 'bogey' | null;
+  /** Novice / Skilled / Master for a boon or bogey; '' for ordinary rings. */
+  bbTier?: '' | 'novice' | 'skilled' | 'master';
+  advanceCount?: number;
+  pressure?: number;
+  cooldown?: number;
+  seeded?: boolean;
+  canUndo?: boolean;
 }
 interface GrowthData {
   name: string;
@@ -38,7 +47,13 @@ const TIERS: Array<[GrowthRing['tier'], string]> = [
   ['developing', 'Developing'],
   ['emerging', 'Emerging'],
 ];
-const CATEGORIES = ['trait', 'stance', 'habit', 'skill', 'scar'];
+const CATEGORIES = ['trait', 'stance', 'habit', 'skill', 'scar', 'bogey'];
+
+const TIER_LABEL: Record<string, string> = {
+  novice: 'Novice',
+  skilled: 'Skilled',
+  master: 'Master',
+};
 
 /** Small modal for planting/editing one ring (sentence + category). */
 function RingEditor({
@@ -143,50 +158,78 @@ export function GrowthPanel({
 
   const active = d.rings.filter((r) => !r.retired);
   const past = d.rings.filter((r) => r.retired);
+  const boons = active.filter((r) => r.kind === 'boon');
+  const bogies = active.filter((r) => r.kind === 'bogey');
+  const ordinary = active.filter((r) => r.kind !== 'boon' && r.kind !== 'bogey');
 
-  const ringCard = (r: GrowthRing, isPast: boolean) => (
-    <div key={r.id} className={`growth-ring${r.tier === 'emerging' && !isPast ? ' emerging' : ''}${isPast ? ' past' : ''}`}>
-      <div className="growth-ring-top">
-        <span className={`growth-chip cat-${r.category}`}>
-          {r.category === 'archive' ? 'pre-rings archive' : r.category}
-        </span>
-        {r.pinned && <span className="growth-pin" title="Pinned — never fades">📌</span>}
-        <span className="grow" />
-        {!isPast ? (
-          <>
-            <button className="icon-btn" title={r.pinned ? 'Unpin' : 'Pin (never fades)'} onClick={() => act('pin', { ringId: r.id })}>
-              {r.pinned ? '📍' : '📌'}
+  const ringCard = (r: GrowthRing, isPast: boolean) => {
+    const isBogey = r.kind === 'bogey';
+    const isBoon = r.kind === 'boon';
+    const chipClass = isBogey ? 'cat-bogey' : isBoon ? 'cat-skill' : `cat-${r.category}`;
+    const chipText = isBogey
+      ? 'Bogey'
+      : isBoon
+        ? 'Boon'
+        : r.category === 'archive'
+          ? 'pre-rings archive'
+          : r.category;
+    const meta: string[] = [];
+    if (isBoon || isBogey) meta.push(TIER_LABEL[r.bbTier ?? ''] ?? 'Novice');
+    if (r.seeded) meta.push('kit');
+    if (isBogey && (r.cooldown ?? 0) > 0) meta.push(`cooldown ${r.cooldown}`);
+    if (isBogey && (r.cooldown ?? 0) === 0) meta.push(`${r.pressure ?? 0}%`);
+    const meter = isBogey ? Math.min(100, r.pressure ?? 0) / 100 : r.strength;
+    return (
+      <div
+        key={r.id}
+        className={`growth-ring${isBoon ? ' boon' : ''}${isBogey ? ' bogey' : ''}${r.tier === 'emerging' && !isPast ? ' emerging' : ''}${isPast ? ' past' : ''}`}
+      >
+        <div className="growth-ring-top">
+          <span className={`growth-chip ${chipClass}`}>{chipText}</span>
+          {meta.length > 0 && <span className="growth-bb-meta">{meta.join(' · ')}</span>}
+          {r.pinned && <span className="growth-pin" title="Pinned — never fades">📌</span>}
+          <span className="grow" />
+          {!isPast && r.canUndo && (
+            <button className="link-btn growth-undo" title="Undo the last change" onClick={() => act('undoBb', { ringId: r.id })}>
+              Undo
             </button>
-            <button className="icon-btn" title="Edit wording" onClick={() => setEditor({ mode: 'edit', ring: r })}>✏️</button>
-            <button className="icon-btn" title="Retire to past" onClick={() => act('retire', { ringId: r.id })}>🕰️</button>
-          </>
-        ) : (
-          <>
-            <button className="icon-btn" title="Bring back" onClick={() => act('restore', { ringId: r.id })}>↩️</button>
-            <button
-              className="icon-btn"
-              title="Delete forever"
-              onClick={() => window.confirm('Delete this ring forever?') && act('delete', { ringId: r.id })}
-            >
-              🗑️
-            </button>
-          </>
-        )}
+          )}
+          {!isPast ? (
+            <>
+              <button className="icon-btn" title={r.pinned ? 'Unpin' : 'Pin (never fades)'} onClick={() => act('pin', { ringId: r.id })}>
+                {r.pinned ? '📍' : '📌'}
+              </button>
+              <button className="icon-btn" title="Edit wording" onClick={() => setEditor({ mode: 'edit', ring: r })}>✏️</button>
+              <button className="icon-btn" title="Retire to past" onClick={() => act('retire', { ringId: r.id })}>🕰️</button>
+            </>
+          ) : (
+            <>
+              <button className="icon-btn" title="Bring back" onClick={() => act('restore', { ringId: r.id })}>↩️</button>
+              <button
+                className="icon-btn"
+                title="Delete forever"
+                onClick={() => window.confirm('Delete this ring forever?') && act('delete', { ringId: r.id })}
+              >
+                🗑️
+              </button>
+            </>
+          )}
+        </div>
+        <div className="growth-ring-text">{r.content}</div>
+        <div className="growth-ring-meta">
+          {!isPast && (
+            <div className="growth-strength">
+              <i style={{ width: `${Math.round(meter * 100)}%` }} />
+            </div>
+          )}
+          {r.receipts.slice(0, 3).map((p) => (
+            <span key={p} className="growth-receipt" title={`Earned at message #${p + 1}`}>#{p + 1}</span>
+          ))}
+          {r.receipts.length > 3 && <span className="muted small">+{r.receipts.length - 3}</span>}
+        </div>
       </div>
-      <div className="growth-ring-text">{r.content}</div>
-      <div className="growth-ring-meta">
-        {!isPast && (
-          <div className="growth-strength">
-            <i style={{ width: `${Math.round(r.strength * 100)}%` }} />
-          </div>
-        )}
-        {r.receipts.slice(0, 3).map((p) => (
-          <span key={p} className="growth-receipt" title={`Earned at message #${p + 1}`}>#{p + 1}</span>
-        ))}
-        {r.receipts.length > 3 && <span className="muted small">+{r.receipts.length - 3}</span>}
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="growth-panel">
@@ -205,8 +248,26 @@ export function GrowthPanel({
           {d.name} hasn&apos;t grown yet — rings appear as the story changes them.
         </p>
       )}
+      {boons.length > 0 && (
+        <div>
+          <div className="growth-tier-head">
+            <span className="growth-tier-dot" />
+            Boons <span className="grow" /> <span className="muted small">{d.name}</span>
+          </div>
+          {boons.map((r) => ringCard(r, false))}
+        </div>
+      )}
+      {bogies.length > 0 && (
+        <div>
+          <div className="growth-tier-head">
+            <span className="growth-tier-dot" style={{ background: 'var(--bogey)' }} />
+            Bogies <span className="grow" /> <span className="muted small">{bogies.length} of 3</span>
+          </div>
+          {bogies.map((r) => ringCard(r, false))}
+        </div>
+      )}
       {TIERS.map(([tier, label]) => {
-        const rings = active.filter((r) => r.tier === tier);
+        const rings = ordinary.filter((r) => r.tier === tier);
         if (rings.length === 0) return null;
         return (
           <div key={tier}>

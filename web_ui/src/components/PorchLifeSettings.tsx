@@ -33,6 +33,9 @@ interface PorchLifeState {
   weatherFahrenheit: boolean;
   journalEnabled: boolean;
   characterEvolutionEnabled: boolean;
+  boonsBogiesEnabled: boolean;
+  bogeyRollsEnabled: boolean;
+  milestonePopupsEnabled: boolean;
   pocketsEnabled: boolean;
   standingMoodEnabled: boolean;
   pocketTransfersEnabled: boolean;
@@ -68,6 +71,9 @@ const DEFAULTS: PorchLifeState = {
   weatherFahrenheit: false,
   journalEnabled: true,
   characterEvolutionEnabled: false,
+  boonsBogiesEnabled: false,
+  bogeyRollsEnabled: true,
+  milestonePopupsEnabled: true,
   pocketsEnabled: false,
   standingMoodEnabled: false,
   pocketTransfersEnabled: false,
@@ -98,6 +104,10 @@ type TargetId =
   | 'passage_of_time'
   | 'story_weather'
   | 'journal'
+  | 'growth'
+  | 'boons-bogies'
+  | 'bogey-rolls'
+  | 'milestone-popups'
   | 'pockets'
   | 'objectives';
 
@@ -107,6 +117,10 @@ const TARGET_GROUP: Record<TargetId, GroupId> = {
   passage_of_time: 'time',
   story_weather: 'time',
   journal: 'memory',
+  growth: 'memory',
+  'boons-bogies': 'memory',
+  'bogey-rolls': 'memory',
+  'milestone-popups': 'memory',
   pockets: 'memory',
   objectives: 'memory',
 };
@@ -230,6 +244,10 @@ export function PorchLifeSettings({
   const journalOn = st.journalEnabled;
   const objectivesOn = st.objectivesEnabled;
   const pocketsOn = st.pocketsEnabled;
+  const growthOn = st.characterEvolutionEnabled;
+  // Boons & Bogies genuinely cannot function without Growth — nothing can
+  // advance or be proposed (docs/design/boons-and-bogies.md §8).
+  const boonsBogiesOn = growthOn && st.boonsBogiesEnabled;
   const adultOn =
     adultThemesOverride !== undefined
       ? adultThemesOverride
@@ -493,14 +511,67 @@ export function PorchLifeSettings({
         }
       />
       <FeatureRow
+        rowRef={setRowRef('growth')}
         icon="🌱"
         label="Growth Rings"
         subtitle="Adds lived experience as slow layers without rewriting who they are."
         need="alone"
+        highlighted={highlightedId === 'growth'}
         expandDetailsSignal={detailsSignal}
         blurb="Slow character evolution — rings, not rewrites. What they live through is added as a new layer instead of overwriting who they were."
         value={st.characterEvolutionEnabled}
         onChange={(v) => set('characterEvolutionEnabled', v)}
+        featureChildren={
+          <FeatureRow
+            rowRef={setRowRef('boons-bogies')}
+            icon="✨"
+            label="Boons & Bogies"
+            subtitle="Abilities that grow and flaws that surface. New ones always ask you first."
+            need="needs"
+            dependsOn="Growth Rings"
+            satisfied={growthOn}
+            highlighted={highlightedId === 'boons-bogies'}
+            onDependencyTap={() => jumpTo('growth')}
+            expandDetailsSignal={detailsSignal}
+            blurb="A boon is an ability that gets better as the story uses it; a bogey is a flaw that shows up now and then on a roll. A growing boon can wear a bogey down until the character overcomes it. New boons, new bogies, a trait reaching Master and an overcome always ask you first. Off keeps every existing boon and bogey in the chat — nothing is deleted, and no kits are copied into new chats."
+            value={st.boonsBogiesEnabled}
+            onChange={(v) => set('boonsBogiesEnabled', v)}
+            featureChildren={
+              <>
+                <FeatureRow
+                  rowRef={setRowRef('bogey-rolls')}
+                  icon="🎲"
+                  label="Bogey rolls"
+                  subtitle="Let flaws show up now and then. Off keeps progression only."
+                  need="needs"
+                  dependsOn="Boons & Bogies"
+                  satisfied={boonsBogiesOn}
+                  highlighted={highlightedId === 'bogey-rolls'}
+                  onDependencyTap={() => jumpTo('boons-bogies')}
+                  expandDetailsSignal={detailsSignal}
+                  blurb="A pressure gauge decides when a flaw shows up: never every turn, never twice in a row, but always eventually. Off leaves boons growing and bogies on record without letting one fire in the story."
+                  value={st.bogeyRollsEnabled}
+                  onChange={(v) => set('bogeyRollsEnabled', v)}
+                />
+                <FeatureRow
+                  rowRef={setRowRef('milestone-popups')}
+                  icon="🎉"
+                  label="Milestone popups"
+                  subtitle="Center-screen moments. Off sends proposals to the Growth panel."
+                  need="needs"
+                  dependsOn="Boons & Bogies"
+                  satisfied={boonsBogiesOn}
+                  highlighted={highlightedId === 'milestone-popups'}
+                  onDependencyTap={() => jumpTo('boons-bogies')}
+                  expandDetailsSignal={detailsSignal}
+                  blurb="The center-screen moment when something is accepted: confetti for a boon, purple smoke for a bogey. Off sends every proposal to the Growth panel's review list and Moments list instead — nothing is lost, it just waits for you."
+                  value={st.milestonePopupsEnabled}
+                  onChange={(v) => set('milestonePopupsEnabled', v)}
+                />
+              </>
+            }
+          />
+        }
       />
       <FeatureRow
         rowRef={setRowRef('objectives')}

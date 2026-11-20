@@ -125,6 +125,10 @@ class GrowthService {
   final bool Function() getGrowthEnabled;
   final bool Function() getReviewFirst;
 
+  /// Whether the pass may propose bogeys and treat skills as boons
+  /// (docs/design/boons-and-bogies.md). Defaults off for old callers.
+  final bool Function() getBoonsBogiesEnabled;
+
   /// User messages between automatic passes. The reinforce brake allows
   /// about one strength step per ring per this many messages.
   final int Function() getGrowthInterval;
@@ -158,6 +162,7 @@ class GrowthService {
     required this.getJournalCards,
     required this.getGrowthEnabled,
     required this.getReviewFirst,
+    this.getBoonsBogiesEnabled = boonsBogiesOff,
     this.getGrowthInterval = _defaultGrowthInterval,
     required this.getIsPassRunning,
     required this.setIsPassRunning,
@@ -175,6 +180,7 @@ class GrowthService {
     getBackendIdentity: getBackendIdentity,
     getUserName: getUserName,
     getRecap: getRecap,
+    getBoonsBogiesEnabled: getBoonsBogiesEnabled,
   );
 
   /// How many trailing messages a force pass re-reads when nothing is new

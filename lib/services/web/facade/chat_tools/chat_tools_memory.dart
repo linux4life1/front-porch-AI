@@ -60,7 +60,19 @@ class ChatToolsMemory {
             'id': r.id,
             'content': r.content,
             'category': r.category,
+            // Physics tier (ordinary ring grouping) and the boon/bogey tier
+            // (Novice/Skilled/Master) travel separately so the web panel can
+            // render both kinds without re-implementing either ladder.
             'tier': GrowthPhysics.tierOf(r),
+            'kind': BoonsBogies.isBogey(r)
+                ? BoonsBogies.kKindBogey
+                : (BoonsBogies.isBoon(r) ? BoonsBogies.kKindBoon : null),
+            'bbTier': BoonsBogies.tierOf(r),
+            'advanceCount': r.advanceCount,
+            'pressure': r.bogeyPressure,
+            'cooldown': r.bogeyCooldown,
+            'seeded': BoonsBogies.bbOf(r)[BoonsBogies.kSeededKey] == true,
+            'canUndo': BoonsBogies.undoOf(r) != null,
             'strength': r.strength,
             'pinned': r.pinned,
             'retired': r.retired,
@@ -113,6 +125,11 @@ class ChatToolsMemory {
       case 'delete':
         if (ring == null) return;
         await _chat.deleteGrowthRing(ring.id);
+        break;
+      case 'undoBb':
+        final sessionId = _chat.currentSessionId;
+        if (ring == null || sessionId == null) return;
+        await _chat.growthReview.undoBoonBogey(sessionId, owner.id, ring.id);
         break;
       case 'reset':
         await _chat.resetGrowthFor(owner.id);

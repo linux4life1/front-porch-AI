@@ -122,6 +122,12 @@ class GrowthPhysics {
   static List<GrowthRingData> injectionSelection(
     List<GrowthRingData> activeRings,
   ) {
+    // A bogey reaches the reply prompt only on the turn the roll injects it
+    // (docs/design/boons-and-bogies.md §3.4). Without this filter the flaw
+    // would sit in context every reply and the roll would be theatre.
+    activeRings = activeRings
+        .where((r) => r.category != 'bogey')
+        .toList(growable: false);
     if (activeRings.length <= kInjectedRings) return activeRings;
     final reserved = activeRings
         .where((r) => !isEstablished(r))
@@ -159,7 +165,9 @@ class GrowthPhysics {
       return s;
     }
     final first = s[0];
-    if (first != first.toLowerCase() && s.length > 1 && s[1] == s[1].toLowerCase()) {
+    if (first != first.toLowerCase() &&
+        s.length > 1 &&
+        s[1] == s[1].toLowerCase()) {
       return first.toLowerCase() + s.substring(1);
     }
     return s;
