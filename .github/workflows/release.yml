@@ -775,31 +775,12 @@ jobs:
 
           SSH_OPTS="-i ~/.ssh/apt_deploy_key -o StrictHostKeyChecking=accept-new"
           REMOTE="apt-deploy@apt.frontporchai.app"
-          REPO_PATH="/var/www/apt"
 
-          # Upload the .deb
-          echo "Uploading .deb to APT server..."
-          scp $SSH_OPTS Front_Porch_AI-Linux.deb "${REMOTE}:/tmp/front-porch-ai-latest.deb"
-
-          # Remove old version and add new one via reprepro
-          echo "Publishing to APT repository..."
-          ssh $SSH_OPTS "$REMOTE" bash -s <<'REMOTE_SCRIPT'
-            set -euo pipefail
-            REPO="/var/www/apt"
-            DEB="/tmp/front-porch-ai-latest.deb"
-
-            # Remove previous version (reprepro won't overwrite)
-            reprepro -b "$REPO" remove stable front-porch-ai 2>/dev/null || true
-
-            # Add new version
-            reprepro -b "$REPO" includedeb stable "$DEB"
-
-            # Clean up
-            rm -f "$DEB"
-
-            echo "✓ Published to APT repository"
-            reprepro -b "$REPO" list stable
-          REMOTE_SCRIPT
+          # The deploy key is pinned server-side to a forced command that
+          # accepts only `publish-deb` / `publish-rpm` with the package on
+          # stdin; it has no shell, scp or forwarding.
+          echo "Publishing .deb to APT repository..."
+          ssh $SSH_OPTS "$REMOTE" publish-deb < Front_Porch_AI-Linux.deb
 
           # Clean up local SSH key
           rm -f ~/.ssh/apt_deploy_key
@@ -831,28 +812,9 @@ jobs:
           SSH_OPTS="-i ~/.ssh/apt_deploy_key -o StrictHostKeyChecking=accept-new"
           REMOTE="apt-deploy@rpm.frontporchai.app"
 
-          # Upload the .rpm
-          echo "Uploading .rpm to RPM server..."
-          scp $SSH_OPTS Front_Porch_AI-Linux.rpm "${REMOTE}:/tmp/front-porch-ai-latest.rpm"
-
-          # Replace old version and regenerate metadata
-          echo "Publishing to RPM repository..."
-          ssh $SSH_OPTS "$REMOTE" bash -s <<'REMOTE_SCRIPT'
-            set -euo pipefail
-            RPM_REPO="/var/www/rpm"
-
-            # Remove old versions
-            rm -f "$RPM_REPO/packages"/Front_Porch_AI*.rpm
-
-            # Add new version
-            mv /tmp/front-porch-ai-latest.rpm "$RPM_REPO/packages/"
-
-            # Regenerate repo metadata
-            createrepo_c --update "$RPM_REPO"
-
-            echo "✓ Published to RPM repository"
-            ls -la "$RPM_REPO/packages/"
-          REMOTE_SCRIPT
+          # Forced-command key: see the APT job above.
+          echo "Publishing .rpm to RPM repository..."
+          ssh $SSH_OPTS "$REMOTE" publish-rpm < Front_Porch_AI-Linux.rpm
 
           # Clean up local SSH key
           rm -f ~/.ssh/apt_deploy_key
