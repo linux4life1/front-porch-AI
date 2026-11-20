@@ -654,6 +654,11 @@
   [data-testid="persona-manager"] .card-head button {
     flex: 1 1 auto; white-space: nowrap; padding: 8px 10px;
   }
+  /* Editing: the back arrow and its title share one line, title at the
+     arrow's side as in the desktop's app bar. */
+  [data-testid="persona-manager"] .persona-edit-head { flex-wrap: nowrap; }
+  [data-testid="persona-manager"] .persona-edit-head h3 { flex-basis: auto; }
+  [data-testid="persona-manager"] .persona-edit-head button { flex: 0 0 auto; }
 }
 .persona-hero-main { flex: 1; min-width: 0; }
 .persona-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -704,6 +709,14 @@
   background: var(--pc, var(--surface));
 }
 .persona-grid .persona-av img, .persona-hero .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+/* The chat's "Speak as…" switcher: the head stays put and the list scrolls,
+   as the desktop dialog's ListView does — a long persona list on a phone
+   otherwise ran off both ends of the screen with nothing to scroll. */
+.modal.chat-persona-modal { max-height: 90vh; max-height: calc(100dvh - 32px); overflow: hidden; }
+.chat-persona-modal .persona-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+}
 .persona-list .persona-av { overflow: hidden; }
 .persona-list .persona-av img { width: 100%; height: 100%; object-fit: cover; }
 .persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
@@ -737,7 +750,14 @@
   border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
 }
 .persona-empty-title { font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 0 0 4px; }
-.persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.persona-edit { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.persona-edit label { display: flex; flex-direction: column; gap: 6px; }
+.persona-edit textarea { min-height: 8em; }
+.persona-edit-head { gap: 8px; }
+.persona-edit-head h3 { flex: 1; min-width: 0; margin: 0; text-align: start; }
+.persona-edit-actions { justify-content: flex-end; }
+.persona-load-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; }
+.persona-load-error .error { margin: 0; flex: 1 1 240px; }
 
 /* ── Account ──────────────────────────────────────────────────── */
 .qr { background: #fff; /* theme-keep: QR codes need a white quiet zone */ padding: 12px; border-radius: 10px; width: fit-content; margin: 10px 0; }

@@ -56,26 +56,49 @@ async function handle<T>(res: Response): Promise<T> {
 // growth pass) legitimately await minutes of local-LLM work.
 const READ_TIMEOUT_MS = 30_000;
 
-function readSignal(): AbortSignal | undefined {
+function timeoutSignal(ms: number): AbortSignal | undefined {
   return typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal
-    ? AbortSignal.timeout(READ_TIMEOUT_MS)
+    ? AbortSignal.timeout(ms)
     : undefined;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/** A write that is only ever a quick save (a persona edit, not an LLM pass)
+ *  can opt into a bound, so a stalled host reads as an error, not as a
+ *  "Saving…" that never ends. */
+export interface RequestOptions {
+  timeoutMs?: number;
+}
+
+/** The request ran out of time without an answer ([RequestOptions.timeoutMs],
+ *  or the 30s bound on reads). The host may still finish it afterwards. */
+export const isTimeout = (e: unknown): boolean => {
+  // By name, not instanceof: the DOMException a timed-out fetch throws is
+  // not always this realm's class (test runners, some embedded browsers).
+  const name = typeof e === 'object' && e !== null ? (e as { name?: unknown }).name : undefined;
+  return name === 'TimeoutError' || name === 'AbortError';
+};
+
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts?: RequestOptions,
+): Promise<T> {
+  const ms = opts?.timeoutMs ?? (method === 'GET' ? READ_TIMEOUT_MS : undefined);
   const res = await fetch(path, {
     method,
     credentials: 'include',
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal: method === 'GET' ? readSignal() : undefined,
+    signal: ms !== undefined ? timeoutSignal(ms) : undefined,
   });
   return handle<T>(res);
 }
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
+  post: <T>(path: string, body?: unknown, opts?: RequestOptions) =>
+    request<T>('POST', path, body, opts),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body),
   del: <T>(path: string) => request<T>('DELETE', path),
   /** Upload a raw binary file (character-card import). Filename rides as a query

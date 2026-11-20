@@ -58,7 +58,12 @@ export function ChatPersonaModal({
 
   return (
     <div className="drawer-backdrop center" onClick={() => !busy && onClose()}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal chat-persona-modal"
+        role="dialog"
+        aria-label="Speak as"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="drawer-head">
           <span>Speak as…</span>
           <button className="link-btn" onClick={onClose} disabled={busy}>Close</button>
