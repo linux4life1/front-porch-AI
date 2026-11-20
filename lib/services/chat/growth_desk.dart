@@ -15,6 +15,7 @@ import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
@@ -123,13 +124,20 @@ class GrowthDesk {
   }) async {
     final sessionId = _currentSessionId;
     if (sessionId == null || text.trim().isEmpty) return;
+    final normalized = normalizeGrowthCategory(category);
+    final isBogey = normalized == BoonsBogies.kCategoryBogey;
     await _growthStore.addRing(
       sessionId: sessionId,
       characterId: ownerId,
       content: text.trim(),
-      category: normalizeGrowthCategory(category),
-      strength: GrowthPhysics.kDistillSeedStrength,
+      category: normalized,
+      // A planted bogey starts at count 0, so its strength is the ladder's
+      // floor, not the plant default (docs/design/boons-and-bogies.md §3.2).
+      strength: isBogey
+          ? BoonsBogies.bogeyStrength(0)
+          : GrowthPhysics.kDistillSeedStrength,
       pinned: true,
+      metadata: isBogey ? BoonsBogies.bogeyMetadata() : null,
     );
     await refreshCache();
     notify();
