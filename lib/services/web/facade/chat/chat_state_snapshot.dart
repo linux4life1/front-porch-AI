@@ -90,6 +90,7 @@ class ChatStateSnapshot {
         'sender': m.sender,
         'text': m.displayText,
         'isUser': m.isUser,
+        if (m.isScenarioProse) 'scenarioProse': true,
         'isDream': ?isDream,
         'hasThinking': m.hasThinking,
         'thinkingContent': m.thinkingContent,

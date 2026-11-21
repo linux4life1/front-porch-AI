@@ -91,7 +91,9 @@ class PlanRegister {
       t.loreBefore,
       t.growthBlock,
       t.loreAfter,
-      ScenarioFade.wrapForChat(t.scenario, _session.messages),
+      t.facilitatesScenario && t.scenario.trim().isNotEmpty
+          ? '[Setting] ${t.scenario}\n'
+          : ScenarioFade.wrapForChat(t.scenario, _session.messages),
       t.loreExTop,
       t.loreExBottom,
     ]);
@@ -215,7 +217,11 @@ class PlanRegister {
       label: 'Regen Critique',
       text: t.regenCritique,
     );
-    plan.add(id: 'suffix', text: t.suffix);
+    plan.add(
+      id: 'suffix',
+      label: t.facilitatesScenario ? 'Scenario reply instructions' : '',
+      text: t.suffix,
+    );
     plan.add(id: 'chance_time', text: chanceTimeBlock);
     // High-recency with Chance Time so the first post-import reply
     // cannot bury the Mafia night (docs/design/llmerta-porch-memories.md §7b).

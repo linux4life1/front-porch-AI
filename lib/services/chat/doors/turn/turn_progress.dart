@@ -157,6 +157,25 @@ class TurnProgress {
   /// Accumulates tokens until a sentence boundary.
   String sentenceBuffer = '';
 
+  void publishReplyText(String text, {String? speech}) {
+    if (text.isNotEmpty) tokenBroadcast.add(text);
+    final spoken = speech ?? text;
+    if (spoken.isEmpty) return;
+    sentenceBuffer = drainCompleteSentences(
+      sentenceBuffer + spoken,
+      sentenceBroadcast.add,
+    );
+  }
+
+  void finishReplyStream() {
+    tokenBroadcast.add('__DONE__');
+    if (sentenceBuffer.trim().isNotEmpty) {
+      sentenceBroadcast.add(sentenceBuffer.trim());
+      sentenceBuffer = '';
+    }
+    sentenceBroadcast.add('__DONE__');
+  }
+
   /// Seconds elapsed since entering the prefill phase. Returns 0 if not
   /// prefilling.
   double get prefillElapsedSeconds => prefillStartTime != null

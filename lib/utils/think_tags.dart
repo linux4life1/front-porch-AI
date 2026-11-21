@@ -41,8 +41,9 @@ String closeOpenThink(String text) {
 /// * Stream still inside an open `<think>` — backend cut mid-thought.
 ///   Salvage the closer and keep the tags; do not promote. The Thought
 ///   chip stays, display stays empty, stored text ends with `</think>`.
-String resolveMouthSpeech(String raw) {
+String resolveMouthSpeech(String raw, {bool retainThoughts = false}) {
   final closed = closeOpenThink(raw);
+  if (retainThoughts) return closed;
   final source = canonicalizeReasoning(raw);
   final lower = source.toLowerCase();
   if (lower.lastIndexOf('<think>') > lower.lastIndexOf('</think>')) {

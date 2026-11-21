@@ -76,10 +76,12 @@ class Impersonator {
         speakingCharacter = _session.activeCharacter!;
       }
 
-      // Build prompt the same way _generateResponse does
-      // Path B clean hierarchy (same as the main generation path)
+      final facilitator = _p.scenarioFor(speakingCharacter);
       String systemPrompt;
-      if (_activeGroup != null) {
+      if (facilitator != null) {
+        systemPrompt =
+            'Draft only what the player might choose to say or do next.';
+      } else if (_activeGroup != null) {
         systemPrompt = _p.source.groupBasePrompt;
       } else {
         // All backends speak the OpenAI chat protocol now (KoboldCpp via its
@@ -90,12 +92,12 @@ class Impersonator {
       // A group keeps the reply path's system head (base, additions, the
       // mode's FPAI rules). The answered character's card instructions are
       // theirs, not the user's, so they stay out.
-      if (_p.source.amendmentsAllowed) {
+      if (facilitator == null && _p.source.amendmentsAllowed) {
         systemPrompt = _storage.generationSettings.withSystemPromptAddition(
           systemPrompt,
         );
       }
-      if (_activeGroup != null) {
+      if (facilitator == null && _activeGroup != null) {
         systemPrompt = withGroupSceneRules(systemPrompt, directing: _directing);
       }
       // Directing, the user's next line is a stage direction, not a line
@@ -130,14 +132,18 @@ class Impersonator {
               if (ch.isLite) ch.name,
           },
         );
+      } else if (facilitator != null) {
+        personaBlock = '';
       } else {
         personaBlock =
             "${speakingCharacter.name}'s Persona: ${_s.graph().growthDesk.resolvedCardPersonality(speakingCharacter, userName)}";
       }
-      final growthBlock = _s.graph().growthDesk.resolvedGrowthBlock(
-        speakingCharacter,
-        userName,
-      );
+      final growthBlock = facilitator == null
+          ? _s.graph().growthDesk.resolvedGrowthBlock(
+              speakingCharacter,
+              userName,
+            )
+          : '';
 
       // User persona — inject user's self-description + learned facts
       final userPersonaBlock = _directing
@@ -156,7 +162,9 @@ class Impersonator {
           speakingCharacter,
         );
       }
-      String scenario = rawScenario;
+      String scenario = _activeGroup?.scenario.isNotEmpty == true
+          ? rawScenario
+          : facilitator?.setting ?? rawScenario;
 
       String history = _p.history.buildChatHistory();
 

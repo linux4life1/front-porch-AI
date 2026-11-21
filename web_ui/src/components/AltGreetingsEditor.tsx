@@ -15,6 +15,7 @@ export function AltGreetingsEditor({
   seeds = [],
   onSeedsChange,
   showNeeds = true,
+  showOpeningState = true,
   clockOn,
   editorCopy = false,
 }: {
@@ -23,6 +24,7 @@ export function AltGreetingsEditor({
   seeds?: (GreetingSeed | null)[];
   onSeedsChange?: (next: (GreetingSeed | null)[]) => void;
   showNeeds?: boolean;
+  showOpeningState?: boolean;
   /** Porch Life's Passage of Time, for the Needs block's clock-off line. */
   clockOn: boolean;
   /** The character editor's wording, which is the desktop editor's. */
@@ -48,7 +50,7 @@ export function AltGreetingsEditor({
       {greetings.length === 0 && !editorCopy && (
         <p className="muted small">
           None. Add openings the reader can cycle through on the first message.
-          Each one can carry its own mood, bond, clock and needs.
+          {showOpeningState && ' Each one can carry its own mood, bond, clock and needs.'}
         </p>
       )}
       {greetings.map((g, i) => (
@@ -75,7 +77,7 @@ export function AltGreetingsEditor({
               🗑
             </button>
           </div>
-          {onSeedsChange && (
+          {showOpeningState && onSeedsChange && (
             <GreetingSeedForm
               seed={aligned[i] ?? null}
               showNeeds={showNeeds}

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
@@ -44,16 +45,20 @@ class CreatorDialogueStep extends StatelessWidget {
       children: [
         const CreatorStepTitle('Dialogue & Greetings'),
         const SizedBox(height: 8),
-        const CreatorStepLead(
-          'Configure the character\'s opening message and example dialogue.',
+        CreatorStepLead(
+          draft.isScenario
+              ? 'Write an opening for the scene and examples of its replies.'
+              : 'Configure the character\'s opening message and example dialogue.',
         ),
         const SizedBox(height: 32),
 
         CreatorExpandableField(
-          'First Message',
+          draft.isScenario ? 'Opening message' : 'First Message',
           draft.firstMessageController,
-          hint:
-              'The character\'s opening message when a conversation starts...',
+          hint: draft.isScenario
+              ? 'Open the scene or ask where to begin...'
+              : 'The character\'s opening message when a conversation starts...',
+          help: draft.isScenario ? scenarioOpeningHelp : null,
           maxLines: 6,
         ),
         const SizedBox(height: 24),
@@ -111,15 +116,16 @@ class CreatorDialogueStep extends StatelessWidget {
                     ),
                   ],
                 ),
-                GreetingSeedForm(
-                  seed: draft.altGreetingSeedAt(idx),
-                  showNeeds: true,
-                  showInventory: true,
-                  onChanged: (next) {
-                    draft.setAltGreetingSeed(idx, next);
-                    onChanged();
-                  },
-                ),
+                if (!draft.isScenario)
+                  GreetingSeedForm(
+                    seed: draft.altGreetingSeedAt(idx),
+                    showNeeds: true,
+                    showInventory: true,
+                    onChanged: (next) {
+                      draft.setAltGreetingSeed(idx, next);
+                      onChanged();
+                    },
+                  ),
               ],
             ),
           );
@@ -127,9 +133,11 @@ class CreatorDialogueStep extends StatelessWidget {
         const SizedBox(height: 20),
 
         CreatorExpandableField(
-          'Example Dialogue',
+          draft.isScenario ? 'Reply examples' : 'Example Dialogue',
           draft.exampleDialogueController,
-          hint: '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+          hint: draft.isScenario
+              ? 'For example, describe what the player can observe and leave a choice open.'
+              : '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
           maxLines: 6,
         ),
 

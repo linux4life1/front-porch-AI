@@ -184,14 +184,12 @@ class SendSpine {
     }
     final lookup = parseLookupForce(skipTag.body);
     if (lookup.attempted) {
-      final block =
-          lookup.error ??
-          lookupForceUnavailable(
-            webQuery: lookup.webQuery,
-            wikiQuery: lookup.wikiQuery,
-            webEnabled: storage.webSearchSettings.webSearchDefault,
-            hasWiki: mediaDoor.wikiLookupAvailable,
-          );
+      final block = mediaDoor.lookupCommandBlock(
+        skipTag.body,
+        scenario:
+            session.activeGroup == null &&
+            deps.doors.sessions().genSettings.soloScenario != null,
+      );
       if (block != null) {
         mediaDoor.announceLookupForce(block);
         return;

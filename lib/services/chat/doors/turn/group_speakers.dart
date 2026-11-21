@@ -40,6 +40,8 @@ class GroupSpeakers {
   TimeService get _timeService => _s.graph.time;
   Map<String, GroupMemberRealism> get _groupRealism => _s.graph.groups.members;
   bool get _isTurnBusy => turnEngine.isTurnBusy;
+  bool _isScenario(CharacterCard card) =>
+      _s.deps.doors.sessions().scenarioFor(card) != null;
   String _getCharacterIdFromCard(CharacterCard card) => _s.characterIdFor(card);
   void notifyListeners() => _s.notify();
 
@@ -155,7 +157,7 @@ class GroupSpeakers {
     final returnId = _awayPulse.pendingReturnSpeakId;
     if (returnId != null) {
       for (final card in _groupCharacters) {
-        if (_getCharacterIdFromCard(card) == returnId) {
+        if (!_isScenario(card) && _getCharacterIdFromCard(card) == returnId) {
           _awayPulse.consumingReturnSpeak = true;
           _session.groupManager?.advanceAfterRegeneration(card);
           return card;
@@ -163,7 +165,12 @@ class GroupSpeakers {
       }
     }
     final first = _pickNextGroupCharacter();
-    final present = _presentFrom(first);
+    var present = _presentFrom(first);
+    if (present == null && _isScenario(first)) {
+      present = _groupCharacters
+          .where((card) => !_isScenario(card))
+          .firstOrNull;
+    }
     if (present == null || identical(present, first)) return first;
     _session.groupManager?.advanceAfterRegeneration(present);
     return present;
@@ -184,11 +191,16 @@ class GroupSpeakers {
     final returnId = _awayPulse.pendingReturnSpeakId;
     if (returnId != null) {
       for (final card in _groupCharacters) {
-        if (_getCharacterIdFromCard(card) == returnId) return card;
+        if (!_isScenario(card) && _getCharacterIdFromCard(card) == returnId) {
+          return card;
+        }
       }
     }
     if (head == null) return null;
-    return _presentFrom(head) ?? head;
+    return _presentFrom(head) ??
+        (_isScenario(head)
+            ? _groupCharacters.where((card) => !_isScenario(card)).firstOrNull
+            : head);
   }
 
   /// First member With you walking the rotation from [head]: the member
@@ -198,10 +210,12 @@ class GroupSpeakers {
   CharacterCard? _presentFrom(CharacterCard head) {
     final cast = _groupCharacters;
     final start = cast.indexWhere((c) => identical(c, head));
-    if (start < 0) return groupSpeakerSkips(head) ? null : head;
+    if (start < 0) {
+      return _isScenario(head) || groupSpeakerSkips(head) ? null : head;
+    }
     for (var i = 0; i < cast.length; i++) {
       final card = cast[(start + i) % cast.length];
-      if (!groupSpeakerSkips(card)) return card;
+      if (!_isScenario(card) && !groupSpeakerSkips(card)) return card;
     }
     return null;
   }

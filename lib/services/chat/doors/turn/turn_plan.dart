@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
@@ -135,7 +136,9 @@ class TurnPlan {
       final ruleUser = safeUser.isEmpty ? 'the user' : safeUser;
       // A group names the speaker and bans the whole rest of the cast, not
       // just the user (who is not in a directed scene at all).
-      if (_activeGroup != null) {
+      if (t.facilitatesScenario) {
+        t.suffix = scenarioContinueCue(padContinuePartial(partial));
+      } else if (_activeGroup != null) {
         final speaker = t.speakingCharacter.name;
         t.suffix =
             groupContinueRule(
@@ -160,19 +163,28 @@ class TurnPlan {
     // ── Macro resolution pass ──
     // Full chat context: card fields, group roster, last messages, idle
     // clock, and the {{setvar}}/{{getvar}} stores.
-    final macroCtx = _a.blocks.macroContext(
-      t.speakingCharacter,
-      scenario: t.scenario,
-    );
-    t.systemPrompt = _macroResolver.resolve(
-      t.systemPrompt,
-      macroCtx,
-      section: 'systemPrompt',
-    );
+    final scene = t.scenarioCard;
+    final macroCtx = scene == null
+        ? _a.blocks.macroContext(t.speakingCharacter, scenario: t.scenario)
+        : null;
+    final rawSetting = t.scenario;
+    String resolve(String text, {required String section}) => scene == null
+        ? _macroResolver.resolve(text, macroCtx!, section: section)
+        : resolveScenarioText(
+            text,
+            scene,
+            cardName: t.speakingCharacter.name,
+            playerName: t.userName,
+            setting: rawSetting,
+          );
+    if (scene != null) {
+      t.personaBlock = resolve(t.personaBlock, section: 'persona');
+      t.speakerCardBlock = resolve(t.speakerCardBlock, section: 'speaker');
+    }
+    t.systemPrompt = resolve(t.systemPrompt, section: 'systemPrompt');
     // Lore buckets are macro-resolved individually (same 'lore' section
     // seeding the old single block used).
-    String loreMacro(String s) =>
-        s.isEmpty ? s : _macroResolver.resolve(s, macroCtx, section: 'lore');
+    String loreMacro(String s) => s.isEmpty ? s : resolve(s, section: 'lore');
     t.loreBefore = loreMacro(t.loreBefore);
     t.loreAfter = loreMacro(t.loreAfter);
     t.loreAnTop = loreMacro(t.loreAnTop);
@@ -189,35 +201,20 @@ class TurnPlan {
     ];
     final loreDepthJoined = t.loreDepth.map((d) => d.content).join('\n');
     // personaBlock and group-mode examples are resolved per-character above
-    t.scenario = _macroResolver.resolve(
-      t.scenario,
-      macroCtx,
-      section: 'scenario',
-    );
-    if (_activeGroup == null && t.mesExampleBlock.isNotEmpty) {
-      t.mesExampleBlock = _macroResolver.resolve(
-        t.mesExampleBlock,
-        macroCtx,
-        section: 'mesExample',
-      );
+    t.scenario = resolve(t.scenario, section: 'scenario');
+    if ((scene != null || _activeGroup == null) &&
+        t.mesExampleBlock.isNotEmpty) {
+      t.mesExampleBlock = resolve(t.mesExampleBlock, section: 'mesExample');
     }
     if (t.postHistoryBlock.isNotEmpty) {
-      t.postHistoryBlock = _macroResolver.resolve(
-        t.postHistoryBlock,
-        macroCtx,
-        section: 'postHistory',
-      );
+      t.postHistoryBlock = resolve(t.postHistoryBlock, section: 'postHistory');
     }
     // The Author's Note (and the per-character, entrance, director and
     // guest notes appended to it) was the one user-written block that
     // skipped this pass: a `{{char}}` typed into the note reached the
     // model as braces.
     if (t.authorNoteBlock.isNotEmpty) {
-      t.authorNoteBlock = _macroResolver.resolve(
-        t.authorNoteBlock,
-        macroCtx,
-        section: 'authorNote',
-      );
+      t.authorNoteBlock = resolve(t.authorNoteBlock, section: 'authorNote');
     }
 
     // Ensure the popped message is always restored, even if prompt assembly throws
@@ -263,7 +260,7 @@ class TurnPlan {
       final rawRealism = liteTurn ? '' : _a.blocks.realismStateInjection();
       final realismBlock = rawRealism.isEmpty
           ? ''
-          : _macroResolver.resolve(rawRealism, macroCtx, section: 'realism');
+          : resolve(rawRealism, section: 'realism');
 
       // Living Worlds — setting prose from the Setting's chain, leaf first
       // (locations slice 2): the place's own prose wins the 600-char budget
@@ -277,13 +274,14 @@ class TurnPlan {
       final rawWorld = buildWorldInjection(settingChain);
       final worldBlock = rawWorld.isEmpty
           ? ''
-          : _macroResolver.resolve(rawWorld, macroCtx, section: 'world');
+          : resolve(rawWorld, section: 'world');
 
       // Continue must not consume one-shots: it strips them from the wire
       // after this block, so taking them here burned Chance Time / item
       // intro / porch-night / catastrophe forever. Leave them armed for
       // the next real Send.
-      final skipOneShots = t.mode == GenerationMode.continue_;
+      final skipOneShots =
+          t.facilitatesScenario || t.mode == GenerationMode.continue_;
 
       // Chance Time injection — independent of realism mode
       final chanceTimeBlock = skipOneShots
@@ -303,7 +301,7 @@ class TurnPlan {
       // the *next* user send clears it.
       final porchDiaryId = _getCharacterIdFromCard(t.speakingCharacter);
       final porchSessionId = _session.currentSessionId;
-      if (porchSessionId != null) {
+      if (!skipOneShots && porchSessionId != null) {
         await _porchMemoryImport.ensureArmedForDiary(
           sessionId: porchSessionId,
           diaryCharacterId: porchDiaryId,
@@ -314,7 +312,7 @@ class TurnPlan {
           : _porchMemoryImport.takeInjectionForDiary(porchDiaryId);
       final porchNightBlock = porchNightRaw.isEmpty
           ? ''
-          : _macroResolver.resolve(porchNightRaw, macroCtx, section: 'realism');
+          : resolve(porchNightRaw, section: 'realism');
 
       // Objective injection — always injected regardless of realism mode
       // Must sit in a fixed prompt section so it is NEVER trimmed by the budget system.
@@ -325,9 +323,8 @@ class TurnPlan {
       // reaches the model as the user's name.
       final objectiveBlock = liteTurn
           ? ''
-          : _macroResolver.resolve(
+          : resolve(
               _authorNoteBuilder.buildObjectiveInjection(),
-              macroCtx,
               section: 'objectives',
             );
 
@@ -342,7 +339,7 @@ class TurnPlan {
           _needsSimulation.pendingCatastrophe != null) {
         // Macro-resolved (spec §5a): previously the {{user}}/{{char}}
         // placeholders in this wrapper reached the model literally.
-        needsCatastropheBlock = _macroResolver.resolve(
+        needsCatastropheBlock = resolve(
           '[SCENE EVENT — CANON, happening this turn]\n'
           '${_needsSimulation.pendingCatastrophe}\n'
           'Open the reply with this event as it happens; do not skip it, '
@@ -350,7 +347,6 @@ class TurnPlan {
           'specific event makes observable, then let the scene continue from '
           'its consequences. Do NOT decide {{user}}\'s actions, words, or '
           'feelings — write only {{char}} and the surroundings.]\n',
-          macroCtx,
           section: 'realism',
         );
         // Consume it for this generation
@@ -370,13 +366,41 @@ class TurnPlan {
       );
 
       final plan = t.plan;
-      final fixedTokens = await _transcript.countTokens(plan.fixedCountText);
+      var fixedTokens = await _transcript.countTokens(plan.fixedCountText);
       final contextBudget = _sessionGenSettings.resolveContextSize(
         _storageService,
       );
       final generationReserve =
           _sessionGenSettings.resolveMaxLength(_storageService) +
           50; // +50 safety margin
+      if (t.facilitatesScenario && _session.messages.isNotEmpty) {
+        final latest = _transcript.overflowContinuityHistory().history;
+        final latestTokens = await _transcript.countTokens(latest);
+        final fixedLimit = contextBudget - generationReserve - latestTokens;
+        if (fixedTokens > fixedLimit) {
+          // Drop optional additions before removing any of the current beat,
+          // the facilitator role, or the authored Setting.
+          for (final id in [
+            'examples',
+            'summary',
+            'journal',
+            'lore.ex_top',
+            'lore.ex_bottom',
+            'lore.before',
+            'lore.after',
+            'lore.an_top',
+            'lore.an_bottom',
+            'lore.depth',
+          ]) {
+            final section = plan.section(id);
+            if (section.text.isEmpty) continue;
+            section.text = '';
+            if (id == 'lore.depth') t.loreDepth = const [];
+            fixedTokens = await _transcript.countTokens(plan.fixedCountText);
+            if (fixedTokens <= fixedLimit) break;
+          }
+        }
+      }
       t.historyBudget = contextBudget - fixedTokens - generationReserve;
 
       if (t.historyBudget > 0) {

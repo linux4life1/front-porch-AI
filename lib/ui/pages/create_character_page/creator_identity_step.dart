@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'create_character_draft.dart';
@@ -66,6 +67,15 @@ class CreatorIdentityStep extends StatelessWidget {
           decoration: creatorInputDecoration(context, 'Enter character name'),
         ),
         const SizedBox(height: 24),
+
+        ScenarioCardTypeField(
+          scenario: draft.isScenario,
+          onChanged: (value) {
+            draft.isScenario = value;
+            onChanged();
+          },
+        ),
+        const SizedBox(height: 20),
 
         // Tags
         const CreatorInputLabel('Tags', required: false),

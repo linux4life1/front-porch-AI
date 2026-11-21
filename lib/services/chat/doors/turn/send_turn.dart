@@ -280,7 +280,10 @@ class SendTurn {
     // a chaos-off owner ticks nobody, and a parked event for another
     // member never rides this turn (Error Book: the tick-that-hit-everyone
     // trap, scoped here and in the injection, not just the UI).
-    final chaosGate = addressedGuest == null
+    final soloScenario =
+        _session.activeGroup == null &&
+        _s.deps.doors.sessions().genSettings.soloScenario != null;
+    final chaosGate = addressedGuest == null && !soloScenario
         ? _chance.chaosGateForTurn()
         : null;
     if (chaosGate != null) {
@@ -366,7 +369,7 @@ class SendTurn {
 
     // Check objective task completion BEFORE generating response
     // so the AI gets the updated task in its prompt
-    await _maybeCheckTaskCompletionSync();
+    if (!soloScenario) await _maybeCheckTaskCompletionSync();
 
     await _s.handoff.sendDecayAndGenerate(
       addressedGuest: addressedGuest,

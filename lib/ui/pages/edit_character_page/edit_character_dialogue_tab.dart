@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -49,16 +50,18 @@ class EditCharacterDialogueTab extends StatelessWidget {
               // ── First Message ──
               kit.sectionCard(
                 icon: Icons.chat_bubble_outline,
-                title: 'First Message',
+                title: d.isScenario ? 'Opening message' : 'First Message',
                 color: AppColors.formAccentOf(context),
                 children: [
                   kit.styledField(
                     controller: d.firstMessageController,
-                    label: 'Opening Message',
+                    label: d.isScenario ? 'Opening message' : 'Opening Message',
                     maxLines: 6,
                     expandable: true,
-                    hint:
-                        'The character\'s opening line when a conversation starts...',
+                    hint: d.isScenario
+                        ? 'Open the scene or ask where to begin...'
+                        : 'The character\'s opening line when a conversation starts...',
+                    help: d.isScenario ? scenarioOpeningHelp : null,
                   ),
                 ],
               ),
@@ -138,17 +141,18 @@ class EditCharacterDialogueTab extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            GreetingSeedForm(
-                              seed: idx < d.altGreetingSeeds.length
-                                  ? d.altGreetingSeeds[idx]
-                                  : null,
-                              showNeeds: true,
-                              showInventory: true,
-                              onChanged: (next) {
-                                d.setAltGreetingSeed(idx, next);
-                                onChanged();
-                              },
-                            ),
+                            if (!d.isScenario)
+                              GreetingSeedForm(
+                                seed: idx < d.altGreetingSeeds.length
+                                    ? d.altGreetingSeeds[idx]
+                                    : null,
+                                showNeeds: true,
+                                showInventory: true,
+                                onChanged: (next) {
+                                  d.setAltGreetingSeed(idx, next);
+                                  onChanged();
+                                },
+                              ),
                           ],
                         ),
                       );
@@ -160,16 +164,19 @@ class EditCharacterDialogueTab extends StatelessWidget {
               // ── Example Dialogue ──
               kit.sectionCard(
                 icon: Icons.format_quote_outlined,
-                title: 'Example Dialogue',
+                title: d.isScenario ? 'Reply examples' : 'Example Dialogue',
                 color: AppColors.porchTerracottaOf(context),
                 children: [
                   kit.styledField(
                     controller: d.mesExampleController,
-                    label: 'Example Conversations',
+                    label: d.isScenario
+                        ? 'Reply examples'
+                        : 'Example Conversations',
                     maxLines: 6,
                     expandable: true,
-                    hint:
-                        '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+                    hint: d.isScenario
+                        ? 'For example, describe what the player can observe and leave a choice open.'
+                        : '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
                   ),
                 ],
               ),

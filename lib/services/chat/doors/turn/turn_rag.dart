@@ -71,6 +71,7 @@ class TurnRag {
         _storageService.memorySettings.ragEnabled &&
         (_activeGroup == null || _members.groupRagEnabled);
 
+    if (t.facilitatesScenario) return;
     if (_isNewChat) {
       debugPrint('[RAG:Chat] Skipping memory retrieval - new chat in progress');
     } else if (t.mode == GenerationMode.continue_) {

@@ -276,13 +276,16 @@ class SwipeVariants {
       sender: groupCustom ? _activeGroup!.name : (old.sender),
       isUser: false,
       characterId: groupCustom ? null : old.characterId,
+      metadata: !groupCustom && old.isScenarioProse
+          ? {'presentation': scenarioPresentation}
+          : null,
     );
     _d.cast.stampGreetingIndex(index);
 
     if (_d.cast.isOpeningGreetingChat()) {
       if (groupCustom) {
         await _d.cast.seedGroupGreeting(index);
-      } else {
+      } else if (!old.isScenarioProse) {
         final owner = _d.cast.greetingOwner() ?? _session.activeCharacter;
         if (owner != null) {
           await _d.cast.seedGreeting(card: owner, index: index);

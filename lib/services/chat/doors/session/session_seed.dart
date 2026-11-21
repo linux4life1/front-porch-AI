@@ -240,6 +240,12 @@ class SessionSeed {
       'summary': _store.summary,
       'summary_last_index': _store.summaryLastIndex,
       'affection_score': _relationshipService.affectionScore,
+      if (_store.genSettings.soloScenario case final scenario?)
+        'scenario_card': scenario.toJson(),
+      if (_store.genSettings.groupScenarios.isNotEmpty)
+        'group_scenario_cards': _store.genSettings.groupScenarios.map(
+          (id, scenario) => MapEntry(id, scenario.toJson()),
+        ),
       'long_term_score': _relationshipService.longTermScore,
       'trust_level': _relationshipService.trustLevel,
       'relationship_tier': _relationshipService.relationshipTier,
@@ -289,6 +295,18 @@ class SessionSeed {
 
   /// Puts a package's `session` head back onto the live scalars.
   Future<void> applyHead(Map<String, dynamic> head) async {
+    if (_activeGroup == null) {
+      _store.genSettings.soloScenario = ScenarioCardSnapshot.fromJson(
+        head['scenario_card'],
+      );
+    } else {
+      final stored = readGroupScenarios(head['group_scenario_cards']);
+      _store.genSettings.groupScenarios = {
+        for (final member in _session.groupCharacters)
+          _session.characterIdFor(member):
+              ?stored[_session.characterIdFor(member)],
+      };
+    }
     if (head['realism_enabled'] is bool) {
       _realismChatSwitch = head['realism_enabled'] as bool;
     }

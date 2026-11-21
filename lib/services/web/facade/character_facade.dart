@@ -432,6 +432,8 @@ class CharacterFacade {
         'description': c.description,
         'personality': c.personality,
         'scenario': c.scenario,
+        'cardType': inMemory?.cardTypeLabel ?? 'character',
+        'facilitationRules': inMemory?.facilitationRules ?? '',
         'firstMessage': c.firstMessage,
         'mesExample': c.mesExample,
         'systemPrompt': c.systemPrompt,

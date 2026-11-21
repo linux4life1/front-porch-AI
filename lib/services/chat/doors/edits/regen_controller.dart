@@ -336,7 +336,10 @@ class RegenController {
       // 1:1 only: replay decay + the realism eval inline here (groups replay
       // via the per-speaker dance inside the generation). A cancel there has
       // already put the popped reply back with its accepted state.
-      if (_realismEnabled && _activeGroup == null && regenGuest == null) {
+      if (!lastMsg.isScenarioProse &&
+          _realismEnabled &&
+          _activeGroup == null &&
+          regenGuest == null) {
         if (!await _d.engine().replay.replayRegenJudges(lastMsg)) return;
       }
 
@@ -344,7 +347,9 @@ class RegenController {
       // happens inside the generation via RealismDance.evaluateForUpcomingSpeaker
       // for the correctly-forced speaker. Skip the 1:1 scalar synthesis here.
       Map<String, int>? regenPreTurn;
-      if (_activeGroup == null && regenGuest == null) {
+      if (!lastMsg.isScenarioProse &&
+          _activeGroup == null &&
+          regenGuest == null) {
         // Save pre-turn vector BEFORE the generation (which clears
         // the pending realism metadata).
         regenPreTurn =

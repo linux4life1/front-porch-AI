@@ -23,6 +23,8 @@ import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 
+import 'scenario_prompt.dart';
+
 /// The Context Viewer's budget for the open chat: the last send's rows and
 /// sections (kept per session, saved with it), the live estimate the
 /// Refresh button runs without a model call, and the prompt record a reply
@@ -102,9 +104,13 @@ class ContextBudget {
 
     var personaBlock = '';
     var speakerCard = '';
+    final speaker = _activeGroup == null
+        ? _session.activeCharacter
+        : _d.doors.turn().upcomingGroupSpeaker;
+    final scene = _directing || _observerMode ? null : _a.scenarioFor(speaker);
     if (_activeGroup != null) {
       final g = _activeGroup!;
-      systemPrompt = _source.groupBasePrompt;
+      systemPrompt = _source.resolveGroupBase(scenario: scene != null);
       scenario = g.scenario.isNotEmpty
           ? g.scenario
           : (_groupCharacters.isNotEmpty
@@ -119,10 +125,7 @@ class ContextBudget {
             if (c.isLite) c.name,
         },
       );
-      final speaker =
-          _session.groupManager?.nextSpeaker ??
-          (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
-      if (speaker != null) {
+      if (speaker != null && scene == null) {
         speakerCard = _a.blocks.groupSpeakerCard(
           speaker,
           userName: _userPersonaService.persona.name,
@@ -130,7 +133,7 @@ class ContextBudget {
       }
     } else if (_session.activeCharacter != null) {
       final c = _session.activeCharacter!;
-      systemPrompt = _source.resolveOneToOneBase(c);
+      systemPrompt = _source.resolveOneToOneBase(c, scenario: scene != null);
       scenario = c.scenario;
       examples = c.mesExample;
       postHistory = c.postHistoryInstructions;
@@ -138,7 +141,9 @@ class ContextBudget {
         if (c.description.trim().isNotEmpty) c.description.trim(),
         if (c.personality.trim().isNotEmpty) c.personality.trim(),
       ].join('\n');
-      if (block.isNotEmpty) identity.writeln('${c.name}: $block');
+      if (scene == null && block.isNotEmpty) {
+        identity.writeln('${c.name}: $block');
+      }
     }
 
     if (_source.amendmentsAllowed) {
@@ -148,7 +153,37 @@ class ContextBudget {
         postHistory,
       );
     }
-    if (_activeGroup != null) {
+    var authorNote = _authorNote;
+    if (scene != null && speaker != null) {
+      if (_activeGroup == null || _activeGroup!.scenario.isEmpty) {
+        scenario = scene.setting;
+      }
+      final rawSetting = scenario;
+      String resolve(String text) => resolveScenarioText(
+        text,
+        scene,
+        cardName: speaker.name,
+        playerName: _userPersonaService.persona.name,
+        setting: rawSetting,
+      );
+      if (_activeGroup != null) {
+        speakerCard = resolve(
+          _d.doors.entry().members.getSystemPromptForGroupCharacter(speaker),
+        );
+      }
+      systemPrompt =
+          resolve(systemPrompt) +
+          '\n$scenarioRole' +
+          (_activeGroup == null ? '' : scenarioGroupRole);
+      scenario = resolve(scenario);
+      examples = resolve(scene.examples);
+      personaBlock += '\n${resolve(scene.guidance)}';
+      postHistory = resolve(postHistory);
+      final memberNote = _activeGroup == null
+          ? ''
+          : _a.blocks.groupAuthorNoteBlock(speaker);
+      authorNote = resolve(_a.blocks.authorNoteBlock() + memberNote);
+    } else if (_activeGroup != null) {
       systemPrompt = withGroupSceneRules(systemPrompt, directing: _directing);
     }
 
@@ -169,7 +204,8 @@ class ContextBudget {
         scenario: scenario,
         examples: examples,
         postHistory: postHistory,
-        authorNote: _authorNote,
+        authorNote: authorNote,
+        scenarioReplyCue: scene == null ? '' : scenarioReplyCue,
         historyLines: historyLines,
         contextLimit: _a.contextSize,
         reserveTokens:

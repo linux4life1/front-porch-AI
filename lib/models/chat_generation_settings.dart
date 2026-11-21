@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 import 'package:front_porch_ai/models/output_sanitizer_rule.dart';
+import 'package:front_porch_ai/models/scenario_card.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// Per-session generation parameter overrides.
@@ -59,6 +60,9 @@ class ChatGenerationSettings {
   /// Chat Settings label. The values themselves live in the fields above.
   String? genPresetName;
 
+  ScenarioCardSnapshot? soloScenario;
+  Map<String, ScenarioCardSnapshot> groupScenarios;
+
   ChatGenerationSettings({
     this.temperature,
     this.minP,
@@ -83,7 +87,9 @@ class ChatGenerationSettings {
     this.systemPromptSource,
     this.promptAmendmentsEnabled,
     this.genPresetName,
-  });
+    this.soloScenario,
+    Map<String, ScenarioCardSnapshot>? groupScenarios,
+  }) : groupScenarios = groupScenarios ?? {};
 
   /// Whether any field has a non-null override.
   bool get hasOverrides =>
@@ -194,19 +200,29 @@ class ChatGenerationSettings {
     if (promptAmendmentsEnabled != null) {
       map['prompt_amendments_enabled'] = promptAmendmentsEnabled;
     }
+    if (soloScenario != null) map['scenario_card'] = soloScenario!.toJson();
+    if (groupScenarios.isNotEmpty) {
+      map['group_scenario_cards'] = groupScenarios.map(
+        (id, snapshot) => MapEntry(id, snapshot.toJson()),
+      );
+    }
     if (genPresetName != null) map['gen_preset'] = genPresetName;
     return map;
   }
 
   /// Returns the JSON string, or `null` if there are no overrides.
   String? toJsonString() {
-    if (!hasOverrides) return null;
+    if (!hasOverrides && soloScenario == null && groupScenarios.isEmpty) {
+      return null;
+    }
     return jsonEncode(toJson());
   }
 
   /// Parse from a JSON map. Missing keys stay `null` (inherit global).
   factory ChatGenerationSettings.fromJson(Map<String, dynamic> json) {
     return ChatGenerationSettings(
+      soloScenario: ScenarioCardSnapshot.fromJson(json['scenario_card']),
+      groupScenarios: readGroupScenarios(json['group_scenario_cards']),
       temperature: (json['temperature'] as num?)?.toDouble(),
       minP: (json['min_p'] as num?)?.toDouble(),
       topP: (json['top_p'] as num?)?.toDouble(),

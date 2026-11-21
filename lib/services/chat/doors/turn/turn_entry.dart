@@ -51,7 +51,6 @@ class TurnEntry {
 
   final TurnEngine _e;
 
-  /// The slash-command dispatcher, built on first use.
   ChatCommandHandler? _commandHandlerCache;
 
   TurnDeps get _d => _e.deps;
@@ -111,19 +110,8 @@ class TurnEntry {
   }) => _cast.guests.setStatus(msg, isError: isError, sticky: sticky);
   ToolTransportProbe get _toolProbe => _g.transport.probe;
 
-  /// True when generation must not proceed: the managed local backend is not
-  /// running and auto-start on chat open is off. Appends ONE system notice
-  /// naming the toggle (deduped against the last message so group
-  /// auto-advance and idle retries can't stack copies), so every entry point
-  /// — send, regenerate, continue, swipe, group advance, impersonate — fails
-  /// the same friendly way instead of a connection error or silent cancel.
-  ///
-  /// Deliberately does NOT _saveChat: the notice is transient status, and
-  /// persisting here from inside generate would write the transcript
-  /// mid-mutation for callers that pop a message before generating (regen
-  /// popped the last AI reply, abort saved the hole — permanent data loss).
-  /// Callers that pop MUST also run this check BEFORE their pop (regen paths
-  /// do); this deep guard is the backstop for the non-mutating entries.
+  /// Refuse a turn when the managed backend is down and auto-start is off.
+  /// The deduped notice stays transient so regen cannot save a popped turn.
   Future<bool> abortIfBackendDown() async {
     if (_llmProvider?.hasManagedProcess != true ||
         _storageService.backendSettings.autostartOnChatOpen ||
@@ -193,8 +181,29 @@ class TurnEntry {
     }
   }
 
-  /// 1:1 guest turn **or** a soft group member speaking. Do not set
-  /// `guestSpeaker` for the latter — that skip would drop Away / pick.
+  Future<bool> refuseScenarioTurn(GenTurn t, bool explicitlyPicked) async {
+    final groupUnavailable =
+        _activeGroup != null &&
+        (_directing || _entry.director.observerMode || !explicitlyPicked);
+    if (!t.facilitatesScenario || (!t.autonomous && !groupUnavailable)) {
+      return false;
+    }
+    _p.isGenerating = false;
+    _p.generationPhase = GenerationPhase.idle;
+    _p.tokenBroadcast.add('__DONE__');
+    _p.sentenceBroadcast.add('__DONE__');
+    if (!t.autonomous && !_directing) {
+      _setGuestStatus(
+        'Address the Scenario facilitator by name in player mode.',
+        isError: true,
+      );
+    }
+    await _saveChat();
+    _d.notify();
+    return true;
+  }
+
+  /// A facilitator, Scene Guest or soft member has no speaker simulation.
   bool isLiteTurn(GenTurn t) => _prompts.isLiteTurn(t);
 
   /// After the clock commits; body in [AfterglowPass.tickAfterClock]. A lite

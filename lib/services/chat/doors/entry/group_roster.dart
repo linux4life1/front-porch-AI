@@ -112,6 +112,9 @@ class GroupRoster {
       asLite: asLite,
     );
 
+    if (ScenarioCardSnapshot.fromCard(character) case final scenario?) {
+      _d.sessions().genSettings.groupScenarios[mid] = scenario;
+    }
     await groupRepo.save(_activeGroup!);
 
     // Re-resolve from private members (decoupled).

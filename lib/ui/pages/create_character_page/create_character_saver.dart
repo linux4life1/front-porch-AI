@@ -117,6 +117,8 @@ class CreateCharacterSaver {
       frontPorchExtensions: fpExt,
     );
 
+    card.setScenarioCard(draft.isScenario, draft.facilitationController.text);
+
     // Determine PNG path — always write a PNG so card data (including
     // Realism Engine extensions) can be embedded and survive app restarts.
     // Placeholder image for now: the Portrait & Avatars step overwrites the
