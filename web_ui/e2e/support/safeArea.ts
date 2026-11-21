@@ -23,11 +23,19 @@ export async function addFakeNotch(page: Page) {
   const css =
     `html:root{--fp-safe-top:${FAKE_NOTCH.top}px;--fp-safe-right:${FAKE_NOTCH.right}px;` +
     `--fp-safe-bottom:${FAKE_NOTCH.bottom}px;--fp-safe-left:${FAKE_NOTCH.left}px}`;
+  // An init script can run before the document has an element to hold the
+  // style (WebKit), so it waits for the parsed page; the app's deferred
+  // bundle has run by then and re-lays out when the tokens change.
   await page.addInitScript((text) => {
-    const style = document.createElement('style');
-    style.setAttribute('data-fake-notch', '');
-    style.textContent = text;
-    document.documentElement.appendChild(style);
+    const add = () => {
+      if (document.querySelector('style[data-fake-notch]')) return;
+      const style = document.createElement('style');
+      style.setAttribute('data-fake-notch', '');
+      style.textContent = text;
+      (document.head ?? document.documentElement).appendChild(style);
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', add);
+    else add();
   }, css);
 }
 
@@ -40,6 +48,9 @@ export async function addFakeNotch(page: Page) {
 export async function controlsInNotch(page: Page, scope = 'body'): Promise<string[]> {
   return page.evaluate(
     ({ scope, controls, inset }) => {
+      // The check means nothing unless the fake notch is actually in force.
+      const live = getComputedStyle(document.documentElement).getPropertyValue('--fp-safe-top').trim();
+      if (live !== `${inset.top}px`) return [`the fake notch is not applied (--fp-safe-top is "${live}")`];
       const root = document.querySelector(scope);
       if (!root) return [];
       const safe = {
