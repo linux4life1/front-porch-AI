@@ -127,7 +127,9 @@
 .growth-chip.selectable { cursor: pointer; opacity: 0.55; }
 .growth-chip.selectable.selected { opacity: 1; outline: 1px solid currentColor; }
 .growth-past-toggle { align-self: flex-start; font-size: 0.75rem; }
-.growth-actions { margin-top: 2px; }
+/* The three buttons overflow the narrow sidebar; the desktop
+   GrowthActionsRow wraps for the same reason. */
+.growth-actions { margin-top: 2px; flex-wrap: wrap; }
 .growth-actions .grow { flex: 1; }
 .growth-editor { width: min(420px, 94vw); }
 .growth-cat-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
