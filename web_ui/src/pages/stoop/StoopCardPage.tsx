@@ -77,7 +77,7 @@ export function StoopCardPage() {
     setError('');
     try {
       const kind = stoopCardKind(detail.type, detail.card as CardMap);
-      const r = await stoop.download(id, kind);
+      const r = await stoop.download(id, kind, detail.name);
       setNote(
         kind === 'GROUP'
           ? `“${r.name}” was added to your groups.`

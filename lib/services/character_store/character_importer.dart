@@ -252,6 +252,10 @@ class CharacterImporter {
     // Clone the card model
     final clonedCard = CharacterCard(
       name: newName,
+      title: card.title,
+      creator: card.creator,
+      creatorNotes: card.creatorNotes,
+      characterVersion: card.characterVersion,
       description: card.description,
       personality: card.personality,
       scenario: card.scenario,

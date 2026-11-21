@@ -220,6 +220,7 @@ class StoopFacade {
     String token,
     String cardId, {
     String? clientType,
+    String? listingName,
     String? webSession,
   }) async {
     rememberAssetToken(webSession: webSession, token: token);
@@ -265,6 +266,8 @@ class StoopFacade {
       final v2 = V2CardService();
       final card = await v2.readCardFromJsonFile(jsonPath);
       if (card == null) return {'ok': false, 'error': 'parse_failed'};
+      // The post's listing name is its title, as on the desktop detail page.
+      card.adoptTitle(listingName);
       String? avatarPath;
       final assetId = payload['primaryAssetId'] as String?;
       if (assetId != null) {

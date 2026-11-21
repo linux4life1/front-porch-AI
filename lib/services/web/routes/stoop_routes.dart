@@ -296,6 +296,7 @@ class WebStoopRoutes {
         token,
         id,
         clientType: clientType,
+        listingName: body?['name']?.toString(), // additive; older PWAs omit it
         webSession: Cookies.sessionToken(request),
       );
       final ok = result['ok'] == true;

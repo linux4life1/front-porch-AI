@@ -494,7 +494,7 @@ void main() {
 
     test('parseByaf reads every part of the archive', () async {
       final preview = await byaf.parseByaf(await writeArchive(tempDir));
-      expect(preview.name, 'Juniper Fixture');
+      expect(preview.name, 'Juniper');
       expect(preview.persona, contains('lighthouse painter'));
       expect(preview.loreItems.single.key, 'pier');
       expect(preview.galleryImagePaths, hasLength(2));
@@ -557,7 +557,7 @@ void main() {
       expect(rows.map((r) => r.position), [0, 1, 2, 3]);
       expect(rows.map((r) => r.isUser), [false, false, true, false]);
       expect(jsonDecode(rows[0].swipes), [
-        '*Juniper Fixture looks up.* Hi, Rowan.',
+        '*Juniper looks up.* Hi, Rowan.',
       ]);
       expect(jsonDecode(rows[1].swipes), hasLength(2));
       expect(rows[1].swipeIndex, 1);

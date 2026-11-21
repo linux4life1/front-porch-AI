@@ -103,17 +103,23 @@ void main() {
       final libraryCard = repository.characters.single;
       expect(
         libraryCard.creator,
-        isEmpty,
+        'Sosuke Aizen',
         reason:
-            'The repository intentionally does not hydrate PNG-only credits.',
+            'A library load restores the PNG-only credits (2026-11-20: '
+            'an edit after a restart used to write the PNG without them).',
       );
 
       // A portrait operation must not flush unrelated, possibly stale,
-      // in-memory card state into either the database or the PNG.
+      // in-memory card state into either the database or the PNG. The
+      // credits are blanked here too, so the PNG keeping them below proves
+      // the chara payload was carried forward, not re-encoded.
       libraryCard
         ..name = 'Unsaved in-memory name'
         ..description = ''
         ..personality = ''
+        ..creator = ''
+        ..creatorNotes = ''
+        ..characterVersion = ''
         ..lorebook = null;
 
       final replacement = img.Image(width: 7, height: 5);

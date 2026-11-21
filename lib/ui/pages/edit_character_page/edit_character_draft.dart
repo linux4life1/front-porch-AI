@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 /// disposed) by the page State; tabs mutate it and ask the page to rebuild.
 class EditCharacterDraft {
   final TextEditingController nameController;
+  final TextEditingController titleController;
   final StyledTextController descriptionController;
   final StyledTextController personalityController;
   final StyledTextController scenarioController;
@@ -159,6 +160,7 @@ class EditCharacterDraft {
     required bool Function() porchLifeNeedsDefault,
     WorldRepository? worlds,
   }) : nameController = TextEditingController(text: character.name),
+       titleController = TextEditingController(text: character.title),
        descriptionController = StyledTextController(
          text: character.description,
          preset: StyledTextPreset.macros,
@@ -254,6 +256,7 @@ class EditCharacterDraft {
   String fingerprint() => jsonEncode([
     for (final c in [
       nameController,
+      titleController,
       descriptionController,
       personalityController,
       scenarioController,
@@ -422,6 +425,7 @@ class EditCharacterDraft {
 
   void dispose() {
     nameController.dispose();
+    titleController.dispose();
     descriptionController.dispose();
     personalityController.dispose();
     scenarioController.dispose();

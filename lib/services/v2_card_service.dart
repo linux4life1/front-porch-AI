@@ -306,6 +306,7 @@ class V2CardService {
 
       return CharacterCard(
         name: text(data['name'] ?? jsonMap['name']),
+        title: text(data['title'] ?? jsonMap['title']).trim(),
         description: text(data['description'] ?? jsonMap['description']),
         personality: text(data['personality'] ?? jsonMap['personality']),
         scenario: text(data['scenario'] ?? jsonMap['scenario']),

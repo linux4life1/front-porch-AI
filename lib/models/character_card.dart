@@ -22,12 +22,19 @@ import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/lorebook_export.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
+import 'package:front_porch_ai/models/character/card_title.dart';
 import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 
+export 'package:front_porch_ai/models/character/card_title.dart';
 export 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 
 class CharacterCard {
   String name;
+
+  /// The library label beside [name]: a full name or the card's premise
+  /// (see card_title.dart). '' when the card has none. Lives in the card
+  /// JSON (`title`), so it is read back from the PNG like the V2 credits.
+  String title;
   String description;
   String personality;
   String scenario;
@@ -85,6 +92,7 @@ class CharacterCard {
     this.creatorNotes = '',
     this.characterVersion = '',
     required this.name,
+    this.title = '',
     this.description = '',
     this.personality = '',
     this.scenario = '',
@@ -150,6 +158,7 @@ class CharacterCard {
 
     return {
       'name': name,
+      if (title.isNotEmpty) 'title': title,
       'description': description,
       'personality': personality,
       'scenario': scenario,
@@ -180,6 +189,13 @@ class CharacterCard {
   }
 
   String get formattedDescription => replacePlaceholders(description);
+
+  /// Take [candidate] (a Backyard title, a Stoop listing name) as the title
+  /// when the card has none and it says more than the name.
+  void adoptTitle(String? candidate) {
+    if (title.trim().isNotEmpty) return;
+    title = distinctTitle(candidate, name) ?? title;
+  }
 
   /// Whether this card has any Front Porch extensions configured.
   bool get hasFrontPorchExtensions => frontPorchExtensions != null;
