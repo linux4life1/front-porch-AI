@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chat/llm_lanes.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 
@@ -79,7 +80,7 @@ class TurnRequest {
     // before the generation point — local models often ignore system-role
     // instructions but follow the last content in the user message.
     final idleCue = _pendingIdleCue;
-    if (idleCue != null) {
+    if (idleCue != null && !t.speaksAsBot) {
       t.suffix = '\n${t.speakingCharacter.name}: *';
     }
 
@@ -150,14 +151,24 @@ class TurnRequest {
       stopCharacterNames = [_session.activeCharacter!.name];
     }
 
-    final stopList = t.stopList = buildPrioritizedStops(
-      configured: g2.resolveStopSequences(_storageService),
-      userName: _userPersonaService.persona.name,
-      // In impersonate mode the model IS the user, so don't stop on user name
-      impersonating: t.mode == GenerationMode.impersonate,
-      characterNames: stopCharacterNames,
-      continueSpeakerName: continueSpeakerName,
-    );
+    final stopList = t.stopList = t.speaksAsBot
+        ? g2
+              .resolveStopSequences(_storageService)
+              .where(
+                (stop) =>
+                    stop.isNotEmpty &&
+                    !GenerationSettings.kDefaultStopSequences.contains(stop),
+              )
+              .toSet()
+              .toList()
+        : buildPrioritizedStops(
+            configured: g2.resolveStopSequences(_storageService),
+            userName: _userPersonaService.persona.name,
+            // In impersonate mode the model IS the user, so don't stop on user name
+            impersonating: t.mode == GenerationMode.impersonate,
+            characterNames: stopCharacterNames,
+            continueSpeakerName: continueSpeakerName,
+          );
 
     // Mouth speaks. Side-lane (clerk) may be a different host.
     final llmService = _lanes.mouth;
@@ -324,10 +335,12 @@ class TurnRequest {
               search: _mediaDoor.webSearchService,
               wiki: _mediaDoor.wikiSearchService,
               backendIdentity: _evalBackendIdentity,
+              bot: t.speaksAsBot,
             );
-            if (round.searchReceipt != null) {
-              t.searchReceipt = round.searchReceipt;
-            }
+            t.recordLookupReceipts(
+              search: round.searchReceipt,
+              wiki: round.wikiReceipt,
+            );
             if (round.toolReceipt != null) {
               t.toolReceipt = round.toolReceipt;
             }
@@ -342,12 +355,15 @@ class TurnRequest {
     final forced = await _mediaDoor.runForcedLookup(
       webQuery: t.forcedWebQuery,
       wikiQuery: t.forcedWikiQuery,
+      bot: t.speaksAsBot,
     );
     if (forced != null) {
       final injection = forced.injection;
       if (injection != null && injection.isNotEmpty) scraps.add(injection);
-      if (forced.searchReceipt != null) t.searchReceipt = forced.searchReceipt;
-      if (forced.wikiReceipt != null) t.wikiReceipt = forced.wikiReceipt;
+      t.recordLookupReceipts(
+        search: forced.searchReceipt,
+        wiki: forced.wikiReceipt,
+      );
     }
     final joined = collateCatalogInjections(scraps);
     if (joined != null && joined.isNotEmpty) {

@@ -23,6 +23,8 @@ import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/user_persona_service.dart';
 
+import 'bot_prompt.dart';
+
 /// The Context Viewer's budget for the open chat: the last send's rows and
 /// sections (kept per session, saved with it), the live estimate the
 /// Refresh button runs without a model call, and the prompt record a reply
@@ -102,14 +104,14 @@ class ContextBudget {
 
     var personaBlock = '';
     var speakerCard = '';
+    final speaker = _activeGroup == null
+        ? _session.activeCharacter
+        : (_d.doors.turn().upcomingGroupSpeaker ??
+              _groupCharacters.firstOrNull);
+    final bot = _d.doors.sessions().botFor(speaker);
     if (_activeGroup != null) {
-      final g = _activeGroup!;
       systemPrompt = _source.groupBasePrompt;
-      scenario = g.scenario.isNotEmpty
-          ? g.scenario
-          : (_groupCharacters.isNotEmpty
-                ? _groupCharacters.first.scenario
-                : '');
+      scenario = _source.sharedGroupScenario;
       personaBlock = buildGroupRosterLine(
         memberNames: [for (final c in _groupCharacters) c.name],
         userName: _userPersonaService.persona.name,
@@ -119,10 +121,7 @@ class ContextBudget {
             if (c.isLite) c.name,
         },
       );
-      final speaker =
-          _session.groupManager?.nextSpeaker ??
-          (_groupCharacters.isNotEmpty ? _groupCharacters.first : null);
-      if (speaker != null) {
+      if (speaker != null && bot == null) {
         speakerCard = _a.blocks.groupSpeakerCard(
           speaker,
           userName: _userPersonaService.persona.name,
@@ -130,15 +129,17 @@ class ContextBudget {
       }
     } else if (_session.activeCharacter != null) {
       final c = _session.activeCharacter!;
-      systemPrompt = _source.resolveOneToOneBase(c);
-      scenario = c.scenario;
-      examples = c.mesExample;
+      systemPrompt = _source.resolveOneToOneBase(c, bot: bot != null);
+      scenario = bot == null ? c.scenario : '';
+      examples = bot?.examples ?? c.mesExample;
       postHistory = c.postHistoryInstructions;
       final block = [
         if (c.description.trim().isNotEmpty) c.description.trim(),
         if (c.personality.trim().isNotEmpty) c.personality.trim(),
       ].join('\n');
-      if (block.isNotEmpty) identity.writeln('${c.name}: $block');
+      if (bot == null && block.isNotEmpty) {
+        identity.writeln('${c.name}: $block');
+      }
     }
 
     if (_source.amendmentsAllowed) {
@@ -150,6 +151,32 @@ class ContextBudget {
     }
     if (_activeGroup != null) {
       systemPrompt = withGroupSceneRules(systemPrompt, directing: _directing);
+    }
+
+    if (bot != null && speaker != null) {
+      systemPrompt += '\n\n$botReplyRules';
+      final memberPrompt = _activeGroup == null
+          ? ''
+          : _d.doors.entry().members.getSystemPromptForGroupCharacter(speaker);
+      final macroCtx = _a.blocks.macroContext(speaker, scenario: scenario);
+      systemPrompt = _a.macros.resolve(
+        systemPrompt,
+        macroCtx,
+        section: 'systemPrompt',
+      );
+      speakerCard = _a.macros.resolve(
+        [
+          memberPrompt,
+          bot.promptRole(speaker.name),
+        ].where((part) => part.isNotEmpty).join('\n'),
+        macroCtx,
+        section: 'speaker',
+      );
+      examples = _a.macros.resolve(
+        bot.examples,
+        macroCtx,
+        section: 'mesExample',
+      );
     }
 
     // The send's own line format (think blocks stripped) and trim rules,

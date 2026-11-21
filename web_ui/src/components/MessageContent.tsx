@@ -82,10 +82,12 @@ function MessageContentImpl({
   text,
   find,
   msgIndex,
+  plainProse = false,
 }: {
   text: string;
   find?: FindSurface | null;
   msgIndex?: number;
+  plainProse?: boolean;
 }) {
   const hits = find && msgIndex != null ? find.byMessage.get(msgIndex) : undefined;
   const active = find?.active;
@@ -99,12 +101,17 @@ function MessageContentImpl({
   const parts: ReactNode[] = [];
   let last = 0;
   let seg = 0;
+  const addText = (end: number) => {
+    if (end <= last) return;
+    const value = text.slice(last, end);
+    const key = `t${seg++}`;
+    if (plainProse) parts.push(mark ? mark(value, key, last) : value);
+    else parts.push(...renderRpInline(value, key, true, mark, last));
+  };
   let match: RegExpExecArray | null;
   IMAGE_RE.lastIndex = 0;
   while ((match = IMAGE_RE.exec(text)) !== null) {
-    if (match.index > last) {
-      parts.push(...renderRpInline(text.slice(last, match.index), `t${seg++}`, true, mark, last));
-    }
+    addText(match.index);
     const alt = match[1] || 'image';
     const url = match[2];
     parts.push(
@@ -112,7 +119,7 @@ function MessageContentImpl({
     );
     last = match.index + match[0].length;
   }
-  if (last < text.length) parts.push(...renderRpInline(text.slice(last), `t${seg++}`, true, mark, last));
+  addText(text.length);
 
   return (
     <>

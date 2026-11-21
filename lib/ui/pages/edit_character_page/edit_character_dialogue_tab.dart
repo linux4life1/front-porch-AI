@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/bot_card_type_field.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -49,16 +50,18 @@ class EditCharacterDialogueTab extends StatelessWidget {
               // ── First Message ──
               kit.sectionCard(
                 icon: Icons.chat_bubble_outline,
-                title: 'First Message',
+                title: d.isBot ? 'Opening message' : 'First Message',
                 color: AppColors.formAccentOf(context),
                 children: [
                   kit.styledField(
                     controller: d.firstMessageController,
-                    label: 'Opening Message',
+                    label: d.isBot ? 'Opening message' : 'Opening Message',
                     maxLines: 6,
                     expandable: true,
-                    hint:
-                        'The character\'s opening line when a conversation starts...',
+                    hint: d.isBot
+                        ? 'Greet the user or ask what they would like to work on...'
+                        : 'The character\'s opening line when a conversation starts...',
+                    help: d.isBot ? botOpeningHelp : null,
                   ),
                 ],
               ),
@@ -160,16 +163,17 @@ class EditCharacterDialogueTab extends StatelessWidget {
               // ── Example Dialogue ──
               kit.sectionCard(
                 icon: Icons.format_quote_outlined,
-                title: 'Example Dialogue',
+                title: d.isBot ? 'Reply examples' : 'Example Dialogue',
                 color: AppColors.porchTerracottaOf(context),
                 children: [
                   kit.styledField(
                     controller: d.mesExampleController,
-                    label: 'Example Conversations',
+                    label: d.isBot ? 'Reply examples' : 'Example Conversations',
                     maxLines: 6,
                     expandable: true,
-                    hint:
-                        '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+                    hint: d.isBot
+                        ? 'Show how the Bot addresses the user in a typical reply.'
+                        : '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
                   ),
                 ],
               ),

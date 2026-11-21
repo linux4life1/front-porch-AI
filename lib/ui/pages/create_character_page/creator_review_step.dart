@@ -18,7 +18,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/chat_components/bubbles/styled_chat_message.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/bot_card_type_field.dart';
 
 import 'create_character_draft.dart';
 import 'creator_form_fields.dart';
@@ -75,9 +77,11 @@ class CreatorReviewStep extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                Text(d.isBot ? 'Card type · Bot' : 'Card type · Character'),
+                const SizedBox(height: 12),
                 CreatorReviewField(
-                  'Description',
+                  d.isBot ? 'Role' : 'Description',
                   d.descriptionController,
                   maxLines: 4,
                 ),
@@ -87,18 +91,58 @@ class CreatorReviewStep extends StatelessWidget {
                   maxLines: 3,
                 ),
                 CreatorReviewField(
-                  'Scenario',
+                  d.isBot ? 'Scope' : 'Scenario',
                   d.scenarioController,
+                  help: d.isBot ? botScopeHelp : null,
                   maxLines: 3,
                 ),
+                if (d.isBot)
+                  CreatorReviewField(
+                    'Behavior instructions',
+                    d.behaviorController,
+                    help: botInstructionsHelp,
+                    maxLines: 3,
+                  ),
                 CreatorReviewField(
-                  'First Message',
+                  d.isBot ? 'Opening message' : 'First Message',
                   d.firstMessageController,
+                  help: d.isBot ? botOpeningHelp : null,
                   maxLines: 5,
                 ),
+                if (d.isBot)
+                  ValueListenableBuilder(
+                    valueListenable: d.firstMessageController,
+                    builder: (context, value, _) {
+                      if (value.text.trim().isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return ExpansionTile(
+                        title: const Text('Opening preview'),
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(d.nameController.text),
+                                const SizedBox(height: 4),
+                                StyledChatMessage(
+                                  text: value.text,
+                                  isUser: false,
+                                  plainProse: true,
+                                  onPage: true,
+                                  externalImagesAllowed: false,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 if (d.exampleDialogueController.text.isNotEmpty)
                   CreatorReviewField(
-                    'Example Dialogue',
+                    d.isBot ? 'Reply examples' : 'Example Dialogue',
                     d.exampleDialogueController,
                     maxLines: 4,
                   ),

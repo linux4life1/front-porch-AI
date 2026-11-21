@@ -70,20 +70,32 @@ Map<String, dynamic> _coworkerMap(CharacterCard c) => {
   'description': c.description,
   'systemPrompt': c.systemPrompt,
   'mesExample': c.mesExample,
+  if (c.isBotCard) ...{
+    'botScope': c.scenario,
+    'botBehaviorInstructions': c.behaviorInstructions,
+  },
   if (c.imagePath != null) 'imagePath': c.imagePath,
   // Lets a resumed session find its library card after a rename.
   if (c.dbId != null) 'dbId': c.dbId,
 };
 
-CharacterCard _coworkerFrom(Map map) => CharacterCard(
-  name: map['name']?.toString() ?? 'Coworker',
-  personality: map['personality']?.toString() ?? '',
-  description: map['description']?.toString() ?? '',
-  systemPrompt: map['systemPrompt']?.toString() ?? '',
-  mesExample: map['mesExample']?.toString() ?? '',
-  imagePath: map['imagePath']?.toString(),
-  dbId: _nonEmpty(map['dbId']),
-);
+CharacterCard _coworkerFrom(Map map) {
+  final card = CharacterCard(
+    name: map['name']?.toString() ?? 'Coworker',
+    personality: map['personality']?.toString() ?? '',
+    description: map['description']?.toString() ?? '',
+    systemPrompt: map['systemPrompt']?.toString() ?? '',
+    mesExample: map['mesExample']?.toString() ?? '',
+    imagePath: map['imagePath']?.toString(),
+    dbId: _nonEmpty(map['dbId']),
+  );
+  if (map['botScope'] case final String scope) {
+    card.scenario = scope;
+    final instructions = map['botBehaviorInstructions'];
+    card.setBotCard(true, instructions is String ? instructions : '');
+  }
+  return card;
+}
 
 String? _nonEmpty(Object? raw) {
   final s = raw?.toString().trim() ?? '';

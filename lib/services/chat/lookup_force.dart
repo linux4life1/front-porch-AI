@@ -137,6 +137,7 @@ Future<ForcedLookupOutcome> runForcedLookups({
   required WikiSearchService wiki,
   String? webQuery,
   String? wikiQuery,
+  bool bot = false,
 }) async {
   final parts = <String>[];
   Map<String, dynamic>? searchReceipt;
@@ -147,7 +148,9 @@ Future<ForcedLookupOutcome> runForcedLookups({
     final query = outcome.query.isEmpty ? webWords : outcome.query;
     parts.add(
       outcome.ok
-          ? SearchInjection.resultFragment(outcome.snippet)
+          ? (bot
+                ? SearchInjection.botResultFragment(outcome.snippet)
+                : SearchInjection.resultFragment(outcome.snippet))
           : SearchInjection.emptyResultFragment(query),
     );
     searchReceipt = {
@@ -162,7 +165,9 @@ Future<ForcedLookupOutcome> runForcedLookups({
     final query = page.query.isEmpty ? wikiWords : page.query;
     parts.add(
       page.ok
-          ? SearchInjection.wikiResultFragment(page.snippet)
+          ? (bot
+                ? SearchInjection.botResultFragment(page.snippet, wiki: true)
+                : SearchInjection.wikiResultFragment(page.snippet))
           : SearchInjection.emptyResultFragment(query),
     );
     wikiReceipt = {

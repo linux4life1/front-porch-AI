@@ -66,6 +66,7 @@ export interface Message {
   sender: string;
   text: string;
   isUser: boolean;
+  botProse?: boolean;
   chips?: Chips;
   swipeCount?: number;
   swipeIndex?: number;

@@ -30,6 +30,8 @@ import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.d
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart' show JournalMemoryData;
 
+import 'bot_prompt.dart';
+
 /// Phase 1 of `_generateResponse`: the system prompt + lorebook + persona +
 /// scenario + examples + Scene-Guest + summary + Journal prompt-section
 /// assembly, written onto the turn record. The body is the one the
@@ -87,6 +89,7 @@ class TurnBlocks {
   Future<void> assemble(GenTurn t) async {
     // Days lived off-screen land before any prompt reads a body.
     if (t.mode == GenerationMode.normal) _needsPass.landLivedBeatBeforeReply();
+    final bot = t.botCard;
     // ── System prompt selection (Path B clean hierarchy) ──
     // 1. Group base: the group's own prompt, else Settings' Group system
     //    prompt, else the built-in one for the mode (`_groupBasePrompt`).
@@ -99,7 +102,10 @@ class TurnBlocks {
       // Every backend now speaks the OpenAI chat protocol (local KoboldCpp
       // via its /v1/chat/completions door), so the server applies the model's
       // instruct template — use the chat-style default system prompt.
-      t.systemPrompt = _source.resolveOneToOneBase(t.speakingCharacter);
+      t.systemPrompt = _source.resolveOneToOneBase(
+        t.speakingCharacter,
+        bot: bot != null,
+      );
     }
 
     if (_source.amendmentsAllowed) {
@@ -112,6 +118,8 @@ class TurnBlocks {
         directing: _directing,
       );
     }
+
+    if (bot != null) t.systemPrompt += '\n\n$botReplyRules';
 
     // Per-character group overlay used to append here and churn the system
     // prefix every speaker. It now rides [t.speakerCardBlock] after history.
@@ -130,9 +138,14 @@ class TurnBlocks {
             t.directUserSend &&
             !t.autonomous &&
             t.mode != GenerationMode.continue_)) {
-      t.toolRulesBlock += '\n$kSearchCharacterLine\n';
+      t.toolRulesBlock += bot == null
+          ? '\n$kSearchCharacterLine\n'
+          : '\nUse relevant information from any enabled web or wiki lookup. '
+                'Tell the user if the results leave the answer uncertain.\n';
     }
-    t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    if (bot == null) {
+      t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    }
     if (shouldAdvertiseUserTools(
       hasCards: t.userToolCards.isNotEmpty,
       directUserSend: t.directUserSend,
@@ -184,8 +197,9 @@ class TurnBlocks {
         },
       );
     } else {
-      t.personaBlock =
-          "${t.speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(t.speakingCharacter, t.userName)}";
+      t.personaBlock = bot == null
+          ? "${t.speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(t.speakingCharacter, t.userName)}"
+          : '';
     }
     t.growthBlock = _growthDesk.resolvedGrowthBlock(
       t.speakingCharacter,
@@ -205,13 +219,11 @@ class TurnBlocks {
     // member's ORIGINAL scenario. A 1:1 still uses its evolved scenario.
     final String rawScenario;
     if (_activeGroup != null) {
-      rawScenario = _activeGroup!.scenario.isNotEmpty
-          ? _activeGroup!.scenario
-          : (_groupCharacters.isNotEmpty
-                ? _groupCharacters.first.scenario
-                : '');
-    } else {
+      rawScenario = _source.sharedGroupScenario;
+    } else if (bot == null) {
       rawScenario = _growthDesk.effectiveScenario(t.speakingCharacter);
+    } else {
+      rawScenario = '';
     }
     t.scenario = rawScenario;
     // A Scene Guest drops into the HOST's ongoing scene — it has no scenario
@@ -225,7 +237,7 @@ class TurnBlocks {
     t.suffix = "";
 
     if (t.mode == GenerationMode.normal) {
-      t.suffix = "\n${t.speakingCharacter.name}:";
+      t.suffix = bot == null ? "\n${t.speakingCharacter.name}:" : botReplyCue;
     } else if (t.mode == GenerationMode.impersonate) {
       t.suffix = "\n${t.userName}:";
     } else if (t.mode == GenerationMode.continue_) {
@@ -235,7 +247,9 @@ class TurnBlocks {
 
     // Build example dialogues block. Group examples ride the speaker card
     // (built below).
-    if (_activeGroup != null) {
+    if (bot != null) {
+      t.mesExampleBlock = bot.examples;
+    } else if (_activeGroup != null) {
       t.mesExampleBlock = '';
     } else if (t.speakingCharacter.mesExample.isNotEmpty) {
       t.mesExampleBlock = '${t.speakingCharacter.mesExample}\n';
@@ -377,7 +391,13 @@ class TurnBlocks {
     // Group: the speaker's card rides after the transcript. This turn's
     // notes keep the author-note seat near the end, as in 1:1: further up,
     // some models ignore the Author's Note and the Director goal.
-    if (_activeGroup != null) {
+    if (bot != null) {
+      t.speakerCardBlock = [
+        if (_activeGroup != null)
+          _members.getSystemPromptForGroupCharacter(t.speakingCharacter),
+        bot.promptRole(t.speakingCharacter.name),
+      ].where((part) => part.isNotEmpty).join('\n');
+    } else if (_activeGroup != null) {
       t.speakerCardBlock = _blocks.groupSpeakerCard(
         t.speakingCharacter,
         userName: t.userName,

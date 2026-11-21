@@ -53,8 +53,8 @@ class WikiSearchService {
 
   final String Function() getBaseUrl;
 
-  /// Request-level test seam. Production leaves this null.
-  final Future<http.Response> Function(http.BaseRequest request)? sendRequest;
+  /// Request-level test seam. Set before the first lookup or catalog request.
+  Future<http.Response> Function(http.BaseRequest request)? sendRequest;
 
   late final WikiHttpClient _http = WikiHttpClient(sendRequest: sendRequest);
   late final WikiStudioLister _studio = WikiStudioLister(

@@ -38,6 +38,17 @@ void applyCharacterFields(
   card.description = pick('description', card.description);
   card.personality = pick('personality', card.personality);
   card.scenario = pick('scenario', card.scenario);
+  final type = fields['cardType'];
+  if (type == 'character' || type == 'bot') {
+    card.setBotCard(
+      type == 'bot',
+      pick('behaviorInstructions', card.behaviorInstructions),
+    );
+  } else if (type == null &&
+      card.isBotCard &&
+      fields['behaviorInstructions'] is String) {
+    card.setBotCard(true, fields['behaviorInstructions'] as String);
+  }
   card.firstMessage = pick('firstMessage', card.firstMessage);
   card.mesExample = pick('mesExample', card.mesExample);
   card.systemPrompt = pick('systemPrompt', card.systemPrompt);
@@ -119,7 +130,7 @@ CharacterCard? newCharacterFromFields(Map<String, dynamic> fields) {
   // web-created cards get the same baselines as the desktop creator.
   final fpExt = frontPorchFromFields(fields);
 
-  return CharacterCard(
+  final card = CharacterCard(
     name: name,
     description: fields['description']?.toString() ?? '',
     personality: fields['personality']?.toString() ?? '',
@@ -137,6 +148,11 @@ CharacterCard? newCharacterFromFields(Map<String, dynamic> fields) {
     lorebook: buildLorebookFromJson(fields['lorebook']),
     frontPorchExtensions: fpExt,
   );
+  if (fields['cardType'] == 'bot') {
+    final rules = fields['behaviorInstructions'];
+    card.setBotCard(true, rules is String ? rules : '');
+  }
+  return card;
 }
 
 /// Write [card] as a V2 PNG into the characters dir and add it to [repo].

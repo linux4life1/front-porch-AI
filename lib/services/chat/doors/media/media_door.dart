@@ -350,6 +350,7 @@ class MediaDoor extends ChangeNotifier {
   Future<ForcedLookupOutcome?> runForcedLookup({
     String? webQuery,
     String? wikiQuery,
+    bool bot = false,
   }) async {
     if ((webQuery == null || webQuery.isEmpty) &&
         (wikiQuery == null || wikiQuery.isEmpty)) {
@@ -361,6 +362,7 @@ class MediaDoor extends ChangeNotifier {
       wiki: wikiSearchService,
       webQuery: webQuery,
       wikiQuery: wikiQuery,
+      bot: bot,
     );
   }
 
