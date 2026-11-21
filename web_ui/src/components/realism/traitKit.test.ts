@@ -42,6 +42,7 @@ describe('traitKitFromDetail — one reader, two ends', () => {
     const kit = traitKitFromDetail([
       { kind: 'power', text: 'flight' },
       { kind: 'boon', text: '   ' },
+      { kind: 'boon', text: 42 },
       { kind: 'boon', text: 'steady hands', tier: 'royal' },
       'junk',
       null,

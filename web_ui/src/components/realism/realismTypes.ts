@@ -531,12 +531,15 @@ export function traitKitFromDetail(raw: unknown): TraitKitEntry[] {
     const e = v as Record<string, unknown>;
     const kind = String(e.kind ?? '').trim().toLowerCase();
     if (kind !== 'boon' && kind !== 'bogey') continue;
-    const text = String(e.text ?? '').trim().slice(0, MAX_KIT_TEXT_CHARS);
-    if (!text) continue;
+    // Non-string text DROPS, exactly as the Dart reader does
+    // (`v['text'] is String`): a coercion here would show a web editor an
+    // entry that a card import discards, and saving would materialize it.
+    const rawText = typeof e.text === 'string' ? e.text.trim() : '';
+    if (!rawText) continue;
     const tier = String(e.tier ?? '').trim().toLowerCase();
     kit.push({
       kind,
-      text,
+      text: rawText.slice(0, MAX_KIT_TEXT_CHARS),
       tier: tier === 'developing' || tier === 'established' ? tier : 'emerging',
       // Defaults follow the card codec: a bogey arrives pinned unless the
       // author unticks it (§4).

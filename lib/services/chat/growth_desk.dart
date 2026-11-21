@@ -281,6 +281,7 @@ class GrowthDesk {
   /// load/switch, by the pass, and after every mutation above.
   Future<void> refreshCache() async {
     final sessionId = _currentSessionId;
+    final epoch = ++_settleEpoch;
     if (sessionId == null) {
       _growthStore.invalidate();
       return;
@@ -311,7 +312,7 @@ class GrowthDesk {
       activeCharId: activeId,
       isGroup: isGroup,
     );
-    await _settleKits(sessionId, cast);
+    await _settleKits(sessionId, cast, epoch);
   }
 
   // ── Kit seeding (docs/design/boons-and-bogies.md §4, ruling 13) ──────
@@ -323,20 +324,33 @@ class GrowthDesk {
   KitOffer? get growthKitOffer => _kitOffer;
   KitOffer? _kitOffer;
 
+  /// Bumped every [refreshCache]: a settle finishing across an await after
+  /// the user switched chats must not stamp the new chat's banner — same
+  /// discipline `GrowthStore.refresh` gives its cache (writes never are).
+  int _settleEpoch = 0;
+
   /// First Growth touch with the feature on: seed silently when the chat
   /// has nothing to preserve, offer when it has rings. Settled (or
   /// declined) chats are a sync no-op — the flag read never hits the DB.
-  Future<void> _settleKits(String sessionId, List<CharacterCard> cast) async {
+  Future<void> _settleKits(
+    String sessionId,
+    List<CharacterCard> cast,
+    int epoch,
+  ) async {
+    void stamp(KitOffer? o) {
+      if (epoch == _settleEpoch) _kitOffer = o;
+    }
+
     if (!memorySettings().characterEvolutionEnabled ||
         !memorySettings().boonsBogiesEnabled) {
-      _kitOffer = null;
+      stamp(null);
       return;
     }
     final withKit = cast.where(GrowthKitSeed.hasKit).toList();
     if (withKit.isEmpty ||
         _growthStore.kitSeedStateCachedFor(sessionId) !=
             GrowthKitSeed.kStateUnsettled) {
-      _kitOffer = null;
+      stamp(null);
       return;
     }
     final hasRings = cast.any(
@@ -357,14 +371,16 @@ class GrowthDesk {
           sessionId,
           GrowthKitSeed.kStateSettled,
         );
-        _kitOffer = null;
-        notify();
+        stamp(null);
+        if (epoch == _settleEpoch) notify();
       case KitAction.offer:
-        _kitOffer = KitOffer(
-          names: [for (final c in withKit) c.name],
-          entryCount: withKit.fold(
-            0,
-            (n, c) => n + GrowthKitSeed.kitOf(c).length,
+        stamp(
+          KitOffer(
+            names: [for (final c in withKit) c.name],
+            entryCount: withKit.fold(
+              0,
+              (n, c) => n + GrowthKitSeed.kitOf(c).length,
+            ),
           ),
         );
       case KitAction.none:
@@ -403,8 +419,7 @@ class GrowthDesk {
       ? _groupCharacters
       : [?_activeCharacter, ...sceneGuestCards()];
 
-  /// The cast's cards carry kits and the feature is on — the panel shows
-  /// the re-run button next to an offer it has not settled yet (ruling 13).
+  /// Kits on the cast and the feature on: the panel may offer a re-run.
   bool get growthKitReplayAvailable {
     if (_currentSessionId == null ||
         !memorySettings().characterEvolutionEnabled ||
