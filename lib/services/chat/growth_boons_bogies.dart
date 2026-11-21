@@ -19,6 +19,7 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/character/trait_kit.dart';
 
 import 'growth_physics.dart';
 
@@ -63,8 +64,9 @@ class BoonsBogies {
   static const double kBogeyMaxStrength = 0.90;
 
   /// A card carries at most this many boons and bogies combined, on a budget
-  /// separate from the 12 story rings.
-  static const int kMaxKitEntries = 6;
+  /// separate from the 12 story rings. Canonical value lives in the model
+  /// layer (`TraitKitEntry.maxEntries`) — the card parses there.
+  static const int kMaxKitEntries = TraitKitEntry.maxEntries;
 
   /// Active bogies per character, shared with card-seeded flaws. An add over
   /// the cap is dropped, never trimmed.
@@ -110,6 +112,49 @@ class BoonsBogies {
   /// True for either kind — the panel and the applier branch on this.
   static bool isBoonOrBogey(GrowthRingData ring) =>
       isBoon(ring) || isBogey(ring);
+
+  /// Copied from a card kit (§4) rather than grown in-story. Kit rings sit
+  /// on a budget separate from the 12 story rings: they never count
+  /// against it and capVictim never retires them.
+  static bool isKitSeeded(GrowthRingData ring) =>
+      bbOf(ring)[kSeededKey] == true;
+
+  // ── Card kit tiers (§4) ────────────────────────────────────────────────
+
+  /// The strength a seeded ring starts at for a card tier. `developing`
+  /// matches [GrowthPhysics.kDistillSeedStrength] on purpose.
+  static double kitSeedStrength(String tier) => switch (tier) {
+    'established' => 0.80,
+    'developing' => 0.60,
+    _ => 0.30,
+  };
+
+  /// The `advance_count` a seeded ring starts at for a card tier, chosen so
+  /// the stored strength and the displayed tier agree the moment the ring
+  /// exists: a bogey's strength is derived from its fire count (§3.2), so
+  /// its count is the exact inverse of [kitSeedStrength] (0.30+0.05n →
+  /// 0 / 6 / 10). A boon counts passes, so it starts at the ladder floor of
+  /// the tier it maps to — and the Master floor obeys the half-built
+  /// ceiling, so a seeded ring can never report a tier a growth pass would
+  /// have to walk backwards to keep.
+  static int kitSeedAdvance(String tier, {required bool bogey}) {
+    if (bogey) {
+      return switch (tier) {
+        'established' => 10,
+        'developing' => 6,
+        _ => 0,
+      };
+    }
+    final skilled = kBoonSkilledPasses;
+    final master = kMilestoneSurfaceShipped
+        ? kBoonMasterPasses
+        : kBoonMasterPasses - 1;
+    return switch (tier) {
+      'established' => master,
+      'developing' => skilled,
+      _ => 0,
+    };
+  }
 
   // ── Tiers (§3.2) ───────────────────────────────────────────────────────
 

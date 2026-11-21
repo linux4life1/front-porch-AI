@@ -244,6 +244,7 @@ class CreatorGenerationCore {
     state.realismTrustLevel = ext.trustLevel;
     state.realismCurrentTask = ext.currentTask;
     state.realismAmbitions = List<String>.from(ext.ambitions);
+    state.realismTraitKit = List<TraitKitEntry>.from(ext.traitKit);
     state.realismPlanLines = List<String>.from(ext.planLines);
     state.realismOccupation = ext.occupation;
     state.realismOccupationBrief = ext.occupationBrief;

@@ -63,6 +63,7 @@ class CreateCharacterDraft {
     realismPocketsEnabled,
     realismEnjoysLowHygiene,
     realismAmbitions,
+    realismTraitKit,
     realismPlanLines,
     realismOccupation,
     realismOccupationBrief,
@@ -155,6 +156,9 @@ class CreateCharacterDraft {
 
   /// Long-term ambitions (approved sketch §4) — a list, not newline text.
   List<String> realismAmbitions = const [];
+
+  /// Boons & Bogies kit (docs/design/boons-and-bogies.md §4).
+  List<TraitKitEntry> realismTraitKit = const [];
   List<String> realismPlanLines = const [];
   String realismOccupation = '';
   String realismOccupationBrief = '';
@@ -297,6 +301,7 @@ class CreateCharacterDraft {
     realismPocketsEnabled = true;
     realismEnjoysLowHygiene = false;
     realismAmbitions = const [];
+    realismTraitKit = const [];
     realismPlanLines = const [];
     realismOccupation = '';
     realismOccupationBrief = '';

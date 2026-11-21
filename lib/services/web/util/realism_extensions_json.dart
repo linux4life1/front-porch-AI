@@ -67,6 +67,15 @@ FrontPorchExtensions frontPorchFromFields(
     ];
   }
 
+  /// Defensive kit read: absent key keeps the base (every omitted key is
+  /// otherwise rebuilt from fallback), present list goes through the one
+  /// card reader — `TraitKitEntry.parse` — so the bridge cannot be gentler
+  /// or harsher than a PNG import of the same card.
+  List<TraitKitEntry> asTraitKit(String key, List<TraitKitEntry> fallback) =>
+      fields.containsKey(key)
+      ? TraitKitEntry.parse(fields[key])
+      : List<TraitKitEntry>.from(fallback);
+
   String asStr(String key, String fallback) =>
       fields.containsKey(key) && fields[key] != null
       ? fields[key].toString()
@@ -164,6 +173,7 @@ FrontPorchExtensions frontPorchFromFields(
     chaosModeEnabled: asBool('chaosModeEnabled', b.chaosModeEnabled),
     currentTask: asStr('currentTask', b.currentTask),
     ambitions: asStrList('ambitions', b.ambitions),
+    traitKit: asTraitKit('traitKit', b.traitKit),
     planLines: asStrList('planLines', b.planLines),
     occupation: asStr('occupation', b.occupation),
     hours: asStr('hours', b.hours),
@@ -279,6 +289,7 @@ Map<String, dynamic> frontPorchToJson(
   'chaosModeEnabled': e.chaosModeEnabled,
   'currentTask': e.currentTask,
   'ambitions': e.ambitions,
+  'traitKit': [for (final k in e.traitKit) k.toJson()],
   'planLines': e.planLines,
   'occupation': e.occupation,
   'hours': e.hours,

@@ -29,6 +29,18 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
     await _upgradeFromV40(m, from, to);
     // v66→v67: each group's stored member start moves onto the member's copy.
     if (from < 67) await migrateGroupSeedsToMemberCopies(this);
+    if (from < 69) {
+      // v68→v69: Boons & Bogies kit seeding — one INTEGER per session
+      // row saying whether the card kit has been settled (docs/design/
+      // boons-and-bogies.md §4). Additive; 0 reads "never touched".
+      try {
+        await customStatement(
+          'ALTER TABLE growth_state ADD COLUMN kit_seed_state INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
     if (from < 68) {
       // v67→v68: Boons & Bogies — the roll/advance columns on growth_rings
       // and the growth_moments queue (docs/design/boons-and-bogies.md §3.3,

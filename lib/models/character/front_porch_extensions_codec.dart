@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 import 'package:front_porch_ai/models/character/recovery_profile.dart';
+import 'package:front_porch_ai/models/character/trait_kit.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 
 /// Coerce an untrusted JSON value into a list of non-blank trimmed phrases.
@@ -106,6 +107,7 @@ FrontPorchExtensions decodeFrontPorchExtensions(
     startsAway: realism['starts_away'] as bool? ?? false,
     enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
     ambitions: _phrases(realism['ambitions']),
+    traitKit: TraitKitEntry.parse(realism['traitKit']),
     planLines: _phrases(realism['plan_lines']),
     occupation: realism['occupation'] as String? ?? '',
     hours: realism['hours'] as String? ?? '',
@@ -209,6 +211,9 @@ Map<String, dynamic> encodeFrontPorchExtensions(FrontPorchExtensions e) {
       if (e.startsAway) 'starts_away': true,
       'enjoys_low_hygiene': e.enjoysLowHygiene,
       'ambitions': e.ambitions,
+      // Additive and omitted when empty (the `?` element idiom): a card
+      // without a kit re-saves byte-identical, old apps ignore the key.
+      'traitKit': ?TraitKitEntry.encode(e.traitKit),
       'plan_lines': e.planLines,
       if (e.occupation.isNotEmpty) 'occupation': e.occupation,
       if (e.hours.isNotEmpty) 'hours': e.hours,

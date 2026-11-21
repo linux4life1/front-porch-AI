@@ -73,6 +73,7 @@ List<Widget> stoopStandardSections(
     stoopTextSection(context, 'Example dialogue', s('mes_example')),
     stoopBirthdaySection(context, re, asOf: asOf),
     stoopAmbitionsSection(context, re),
+    stoopKitSection(context, re),
     stoopPreferencesSection(context, re),
     // Kept with the other two card-authored identity sections and ahead of the
     // engine-gated pair below: what a character owns is theirs whether or not

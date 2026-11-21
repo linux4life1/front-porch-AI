@@ -170,6 +170,13 @@ class RealismStep extends StatelessWidget {
                   state.realismAmbitions = v;
                   state.notify();
                 },
+                traitKitEditor: TraitKitEditor(
+                  values: state.realismTraitKit,
+                  onChanged: (v) {
+                    state.realismTraitKit = v;
+                    state.notify();
+                  },
+                ),
                 planLines: state.realismPlanLines,
                 onPlanLinesChanged: (v) {
                   state.realismPlanLines = v;

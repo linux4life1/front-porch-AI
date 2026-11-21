@@ -1,6 +1,12 @@
 # Boons & Bogies — character traits that grow (design)
 
-Status: **design v2, 2026-11-20. Nothing is built.** v1 (2026-11-19) proposed
+Status: **design v2, 2026-11-20 — shipped through phase 3 (branch
+`feat/boons-and-bogies-phase3`, 2026-11-21): schema v68–v69, PressureRoll
+physics, ladders, Master guard, undo, Porch Life switches, the Growth panel
+sections (PR #754), and the card `traitKit` — kit editors on both surfaces,
+seed-on-first-touch with the retroactive offer (ruling 13), Stoop display.**
+Phase 4+ (overcome milestone UX polish, the `linkedTo` link UI) remain.
+v1 (2026-11-19) proposed
 the feature; a maintainer interview on 2026-11-20 replaced its approval model,
 its advancement physics and its rollout. Every "today" claim below names the
 file it was read from, at `ba5b37a2f`.

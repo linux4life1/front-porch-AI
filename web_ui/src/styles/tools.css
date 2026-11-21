@@ -69,6 +69,24 @@
   background: color-mix(in srgb, var(--porch-honey) 10%, transparent); border: 1px solid color-mix(in srgb, var(--porch-honey) 45%, transparent);
   border-radius: 10px; padding: 8px 10px; color: var(--porch-honey);
 }
+/* Kit offer banner (ruling 13): same honey treatment, rows its actions. */
+.growth-review-banner.kit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.growth-review-banner.kit .tool-row { margin-left: auto; display: flex; gap: 6px; }
+/* ── Boons & Bogies card kit editor (web mirror of trait_kit_editor.dart) ── */
+.trait-kit-row {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+  background: color-mix(in srgb, var(--porch-honey) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--porch-honey) 35%, transparent);
+  border-radius: 8px; padding: 4px 8px;
+}
+.trait-kit-row.bogey {
+  background: color-mix(in srgb, var(--bogey) 6%, transparent);
+  border-color: color-mix(in srgb, var(--bogey) 35%, transparent);
+}
+.trait-kit-row input { flex: 1; min-width: 8ch; }
+.trait-kit-row select { flex: none; max-width: 14ch; }
+.trait-kit-pin { background: none; border: none; cursor: pointer; opacity: 0.45; }
+.trait-kit-pin.on { opacity: 1; }
 .growth-tier-head {
   display: flex; align-items: center; gap: 6px; margin: 6px 0 4px;
   font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em;

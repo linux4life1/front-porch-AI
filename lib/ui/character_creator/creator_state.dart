@@ -243,9 +243,9 @@ class CreatorState extends ChangeNotifier {
   bool realismPocketsEnabled = true;
   bool realismEnjoysLowHygiene = false;
 
-  /// Long-term ambitions authored in the creator's realism step (approved
-  /// sketch §4). Card-resident like the rest of this state.
+  /// Long-term ambitions (approved sketch §4), card-resident like the kit.
   List<String> realismAmbitions = const [];
+  List<TraitKitEntry> realismTraitKit = const []; // kit — §4, boons-and-bogies
   List<String> realismPlanLines = const [];
 
   /// The opening task (saved as `currentTask`), from the facts pass.

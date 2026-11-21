@@ -244,6 +244,9 @@ export interface RealismValues {
   currentTask: string;
   /** Long-term goals, one per chip (approved sketch §4). */
   ambitions: string[];
+  /** Boons & Bogies card kit (docs/design/boons-and-bogies.md §4). The
+   *  desktop parse (`TraitKitEntry.parse`) is the law; this mirrors it. */
+  traitKit: TraitKitEntry[];
   /** Short plan-line sentences. Identity like ambitions. */
   planLines: string[];
   /** What they do. Blank is omitted from the card, same as desktop. */
@@ -372,6 +375,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   chaosModeEnabled: false,
   currentTask: '',
   ambitions: [],
+  traitKit: [],
   planLines: [],
   occupation: '',
   occupationBrief: '',
@@ -503,12 +507,55 @@ export function titleCase(value: string): string {
     .join(' ');
 }
 
+// ── Boons & Bogies card kit (docs/design/boons-and-bogies.md §4) ──────────
+
+export const MAX_KIT_ENTRIES = 6;
+export const MAX_KIT_TEXT_CHARS = 160;
+
+export interface TraitKitEntry {
+  kind: 'boon' | 'bogey';
+  text: string;
+  tier: 'emerging' | 'developing' | 'established';
+  pinned: boolean;
+  linkedTo?: string;
+}
+
+/** Mirror of the desktop `TraitKitEntry.parse`: unknown kind dropped, blank
+ *  text dropped, bad tier falls back to emerging, count truncated to 6. */
+export function traitKitFromDetail(raw: unknown): TraitKitEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const kit: TraitKitEntry[] = [];
+  for (const v of raw) {
+    if (kit.length >= MAX_KIT_ENTRIES) break;
+    if (typeof v !== 'object' || v == null) continue;
+    const e = v as Record<string, unknown>;
+    const kind = String(e.kind ?? '').trim().toLowerCase();
+    if (kind !== 'boon' && kind !== 'bogey') continue;
+    const text = String(e.text ?? '').trim().slice(0, MAX_KIT_TEXT_CHARS);
+    if (!text) continue;
+    const tier = String(e.tier ?? '').trim().toLowerCase();
+    kit.push({
+      kind,
+      text,
+      tier: tier === 'developing' || tier === 'established' ? tier : 'emerging',
+      // Defaults follow the card codec: a bogey arrives pinned unless the
+      // author unticks it (§4).
+      pinned: typeof e.pinned === 'boolean' ? e.pinned : kind === 'bogey',
+      ...(typeof e.linkedTo === 'string' && e.linkedTo.trim()
+        ? { linkedTo: e.linkedTo.trim() }
+        : {}),
+    });
+  }
+  return kit;
+}
+
 /** Coerce the /detail `realism` block (or null) into a full RealismValues,
  *  filling any missing key with its desktop default. */
 export function realismFromDetail(raw: Partial<RealismValues> | null | undefined): RealismValues {
   const merged: RealismValues = { ...REALISM_DEFAULTS, ...(raw ?? {}) };
   const present = raw != null && Object.prototype.hasOwnProperty.call(raw, 'workDays');
   merged.workDays = parseWorkDaysField(raw?.workDays, present);
+  merged.traitKit = traitKitFromDetail(raw?.traitKit);
   merged.sex = normalizeSex(raw?.sex ?? '');
   merged.recovery = recoveryFromDetail(raw?.recovery);
   return merged;

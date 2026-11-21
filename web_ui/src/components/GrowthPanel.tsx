@@ -39,6 +39,9 @@ interface GrowthData {
   passRunning: boolean;
   hasLegacyBlob?: boolean;
   reviewPending?: number;
+  /** Retroactive card-kit offer (ruling 13) — a chat fact, names the cast. */
+  kitOffer?: { names: string[]; entryCount: number } | null;
+  kitReplay?: boolean;
   rings: GrowthRing[];
 }
 
@@ -238,6 +241,15 @@ export function GrowthPanel({
           🌱 <strong>{d.name} has grown</strong> — {d.reviewPending} proposal(s) waiting. Tap to review.
         </button>
       )}
+      {d.kitOffer && (
+        <div className="growth-review-banner kit" role="region" aria-label="Card kit offer">
+          🎲 <span><strong>Kit from the cards</strong> — the character cards carry a Boons &amp; Bogies kit for {d.kitOffer.names.join(', ')} ({d.kitOffer.entryCount} {d.kitOffer.entryCount === 1 ? 'entry' : 'entries'}). Seed it into this chat?</span>
+          <span className="tool-row">
+            <button className="ghost small" onClick={() => act('declineKit')}>Not now</button>
+            <button className="small primary" onClick={() => act('acceptKit')}>Seed kit</button>
+          </span>
+        </div>
+      )}
       {d.hasLegacyBlob && (
         <p className="muted small">
           Growth recorded under the old system still applies — it converts to rings at the next check.
@@ -290,6 +302,9 @@ export function GrowthPanel({
           {d.passRunning ? 'Checking…' : 'Check now'}
         </button>
         <button className="small" onClick={() => setEditor({ mode: 'plant' })}>Plant a ring</button>
+        {d.kitReplay && !d.kitOffer && (
+          <button className="small" onClick={() => act('kitAgain')}>Seed from card</button>
+        )}
         <span className="grow" />
         <button
           className="small danger"

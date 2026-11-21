@@ -320,6 +320,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
               IdentityChipLists(
                 ambitions: d.ambitions,
                 onAmbitionsChanged: (v) => _edit(() => d.ambitions = v),
+                traitKitEditor: TraitKitEditor(
+                  values: d.traitKit,
+                  onChanged: (v) => _edit(() => d.traitKit = v),
+                ),
                 planLines: d.planLines,
                 onPlanLinesChanged: (v) => _edit(() => d.planLines = v),
                 occupation: d.occupation,

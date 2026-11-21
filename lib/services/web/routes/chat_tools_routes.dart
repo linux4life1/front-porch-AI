@@ -23,6 +23,7 @@ import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/services.dart' show OneShotMode;
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
+import 'package:front_porch_ai/services/web/routes/chat_tools_growth_routes.dart';
 import 'package:front_porch_ai/services/web/routes/chat_tools_member_toggles.dart';
 import 'package:front_porch_ai/services/web/routes/chat_tools_memory_bank_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
@@ -384,30 +385,10 @@ class WebChatToolsRoutes {
   );
 
   /// Growth mutation (`action`: plant/edit/pin/retire/restore/delete/reset/
-  /// check — same ChatService surface the desktop panel drives). Returns the
-  /// fresh growth block so the timeline can reflect the new state.
-  Future<shelf.Response> _growthPost(shelf.Request request) async {
-    final body = await _json(request);
-    final action = body['action']?.toString() ?? '';
-    final participant =
-        body['participant']?.toString() ??
-        request.url.queryParameters['participant'];
-    const known = {
-      'plant',
-      'edit',
-      'pin',
-      'retire',
-      'restore',
-      'delete',
-      'reset',
-      'check',
-    };
-    if (!known.contains(action)) {
-      return JsonResponse.badRequest('Unknown growth action: $action');
-    }
-    await _facade.growthAction(participant, action, body);
-    return JsonResponse.ok(_facade.growth(participant));
-  }
+  /// check/undoBb/acceptKit/declineKit/kitAgain — same ChatService surface
+  /// the desktop panel drives). The whitelist lives with the handler leaf.
+  Future<shelf.Response> _growthPost(shelf.Request request) =>
+      handleGrowthPost(request: request, readJson: _json, facade: _facade);
 
   /// The parked growth-review batch (review-first mode, default OFF).
   shelf.Response _growthReviewGet(shelf.Request request) =>

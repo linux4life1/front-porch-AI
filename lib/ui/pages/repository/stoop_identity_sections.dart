@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/character/trait_kit.dart';
 import 'package:front_porch_ai/services/chat/birthday.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/ui/pages/repository/repository.dart'
@@ -171,6 +172,61 @@ Widget stoopAmbitionsSection(BuildContext context, Map<String, dynamic> re) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _phraseRows(context, '🧭', items),
+    ),
+  );
+}
+
+/// The Boons & Bogies kit as authored (docs/design/boons-and-bogies.md §4):
+/// kind, starting tier, pin. Read through `TraitKitEntry.parse` — the one
+/// reader the runtime honours, which bounds count, length, and shape the
+/// same way for a Stoop blob and a mailed PNG. A reader has not opted into
+/// the feature to use a download; the kit always shows when written.
+Widget stoopKitSection(BuildContext context, Map<String, dynamic> re) {
+  final kit = TraitKitEntry.parse(re['traitKit']);
+  if (kit.isEmpty) return const SizedBox.shrink();
+  return StoopCollapsible(
+    title: 'Boons & Bogies (${kit.length})',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final e in kit)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  e.isBogey ? '🎲' : '🍀',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      text: e.text,
+                      children: [
+                        TextSpan(
+                          text:
+                              ' — ${e.tier[0].toUpperCase()}${e.tier.substring(1)}'
+                              '${e.pinned ? ' · pinned' : ''}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.35,
+                      color: AppColors.textPrimary(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     ),
   );
 }

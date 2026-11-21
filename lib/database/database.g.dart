@@ -14279,8 +14279,20 @@ class $GrowthStateTable extends GrowthState
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _kitSeedStateMeta = const VerificationMeta(
+    'kitSeedState',
+  );
   @override
-  List<GeneratedColumn> get $columns => [sessionId, cursor];
+  late final GeneratedColumn<int> kitSeedState = GeneratedColumn<int>(
+    'kit_seed_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [sessionId, cursor, kitSeedState];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -14307,6 +14319,15 @@ class $GrowthStateTable extends GrowthState
         cursor.isAcceptableOrUnknown(data['cursor']!, _cursorMeta),
       );
     }
+    if (data.containsKey('kit_seed_state')) {
+      context.handle(
+        _kitSeedStateMeta,
+        kitSeedState.isAcceptableOrUnknown(
+          data['kit_seed_state']!,
+          _kitSeedStateMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -14324,6 +14345,10 @@ class $GrowthStateTable extends GrowthState
         DriftSqlType.int,
         data['${effectivePrefix}cursor'],
       )!,
+      kitSeedState: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}kit_seed_state'],
+      )!,
     );
   }
 
@@ -14336,12 +14361,23 @@ class $GrowthStateTable extends GrowthState
 class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
   final String sessionId;
   final int cursor;
-  const GrowthStateData({required this.sessionId, required this.cursor});
+
+  /// v69 — Boons & Bogies kit seeding (docs/design/boons-and-bogies.md §4):
+  /// 0 = the chat has never been touched while the feature was on; 1 =
+  /// settled — seeded silently, offered and accepted, or declined. Decline
+  /// writes no ring, so this row is the only trace it exists.
+  final int kitSeedState;
+  const GrowthStateData({
+    required this.sessionId,
+    required this.cursor,
+    required this.kitSeedState,
+  });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['session_id'] = Variable<String>(sessionId);
     map['cursor'] = Variable<int>(cursor);
+    map['kit_seed_state'] = Variable<int>(kitSeedState);
     return map;
   }
 
@@ -14349,6 +14385,7 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     return GrowthStateCompanion(
       sessionId: Value(sessionId),
       cursor: Value(cursor),
+      kitSeedState: Value(kitSeedState),
     );
   }
 
@@ -14360,6 +14397,7 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     return GrowthStateData(
       sessionId: serializer.fromJson<String>(json['sessionId']),
       cursor: serializer.fromJson<int>(json['cursor']),
+      kitSeedState: serializer.fromJson<int>(json['kitSeedState']),
     );
   }
   @override
@@ -14368,17 +14406,26 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     return <String, dynamic>{
       'sessionId': serializer.toJson<String>(sessionId),
       'cursor': serializer.toJson<int>(cursor),
+      'kitSeedState': serializer.toJson<int>(kitSeedState),
     };
   }
 
-  GrowthStateData copyWith({String? sessionId, int? cursor}) => GrowthStateData(
+  GrowthStateData copyWith({
+    String? sessionId,
+    int? cursor,
+    int? kitSeedState,
+  }) => GrowthStateData(
     sessionId: sessionId ?? this.sessionId,
     cursor: cursor ?? this.cursor,
+    kitSeedState: kitSeedState ?? this.kitSeedState,
   );
   GrowthStateData copyWithCompanion(GrowthStateCompanion data) {
     return GrowthStateData(
       sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
       cursor: data.cursor.present ? data.cursor.value : this.cursor,
+      kitSeedState: data.kitSeedState.present
+          ? data.kitSeedState.value
+          : this.kitSeedState,
     );
   }
 
@@ -14386,43 +14433,50 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
   String toString() {
     return (StringBuffer('GrowthStateData(')
           ..write('sessionId: $sessionId, ')
-          ..write('cursor: $cursor')
+          ..write('cursor: $cursor, ')
+          ..write('kitSeedState: $kitSeedState')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(sessionId, cursor);
+  int get hashCode => Object.hash(sessionId, cursor, kitSeedState);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is GrowthStateData &&
           other.sessionId == this.sessionId &&
-          other.cursor == this.cursor);
+          other.cursor == this.cursor &&
+          other.kitSeedState == this.kitSeedState);
 }
 
 class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
   final Value<String> sessionId;
   final Value<int> cursor;
+  final Value<int> kitSeedState;
   final Value<int> rowid;
   const GrowthStateCompanion({
     this.sessionId = const Value.absent(),
     this.cursor = const Value.absent(),
+    this.kitSeedState = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GrowthStateCompanion.insert({
     required String sessionId,
     this.cursor = const Value.absent(),
+    this.kitSeedState = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : sessionId = Value(sessionId);
   static Insertable<GrowthStateData> custom({
     Expression<String>? sessionId,
     Expression<int>? cursor,
+    Expression<int>? kitSeedState,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (sessionId != null) 'session_id': sessionId,
       if (cursor != null) 'cursor': cursor,
+      if (kitSeedState != null) 'kit_seed_state': kitSeedState,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -14430,11 +14484,13 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
   GrowthStateCompanion copyWith({
     Value<String>? sessionId,
     Value<int>? cursor,
+    Value<int>? kitSeedState,
     Value<int>? rowid,
   }) {
     return GrowthStateCompanion(
       sessionId: sessionId ?? this.sessionId,
       cursor: cursor ?? this.cursor,
+      kitSeedState: kitSeedState ?? this.kitSeedState,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -14448,6 +14504,9 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
     if (cursor.present) {
       map['cursor'] = Variable<int>(cursor.value);
     }
+    if (kitSeedState.present) {
+      map['kit_seed_state'] = Variable<int>(kitSeedState.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -14459,6 +14518,7 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
     return (StringBuffer('GrowthStateCompanion(')
           ..write('sessionId: $sessionId, ')
           ..write('cursor: $cursor, ')
+          ..write('kitSeedState: $kitSeedState, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

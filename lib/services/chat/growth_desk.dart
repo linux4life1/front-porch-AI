@@ -17,6 +17,7 @@ import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
+import 'package:front_porch_ai/services/chat/growth_kit_seed.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
 import 'package:front_porch_ai/services/chat/journal_maintenance.dart';
@@ -286,17 +287,21 @@ class GrowthDesk {
     }
     final isGroup = _activeGroup != null;
     final ids = <String>[];
+    final cast = <CharacterCard>[];
     String? activeId;
     if (isGroup) {
       for (final c in _groupCharacters) {
+        cast.add(c);
         ids.add(_getCharacterIdFromCard(c));
       }
     } else {
       if (_activeCharacter != null) {
+        cast.add(_activeCharacter!);
         activeId = _getCharacterIdFromCard(_activeCharacter!);
         ids.add(activeId);
       }
       for (final g in sceneGuestCards()) {
+        cast.add(g);
         ids.add(_getCharacterIdFromCard(g));
       }
     }
@@ -306,6 +311,144 @@ class GrowthDesk {
       activeCharId: activeId,
       isGroup: isGroup,
     );
+    await _settleKits(sessionId, cast);
+  }
+
+  // ── Kit seeding (docs/design/boons-and-bogies.md §4, ruling 13) ──────
+
+  /// Pending retroactive kit offer for the current chat: non-null when the
+  /// cast carries kits and the chat already has earned rings, so seeding
+  /// must go through the panel instead of silently rewriting a story.
+  /// Recomputed by [refreshCache]; the web facade reads it from there.
+  KitOffer? get growthKitOffer => _kitOffer;
+  KitOffer? _kitOffer;
+
+  /// First Growth touch with the feature on: seed silently when the chat
+  /// has nothing to preserve, offer when it has rings. Settled (or
+  /// declined) chats are a sync no-op — the flag read never hits the DB.
+  Future<void> _settleKits(String sessionId, List<CharacterCard> cast) async {
+    if (!memorySettings().characterEvolutionEnabled ||
+        !memorySettings().boonsBogiesEnabled) {
+      _kitOffer = null;
+      return;
+    }
+    final withKit = cast.where(GrowthKitSeed.hasKit).toList();
+    if (withKit.isEmpty ||
+        _growthStore.kitSeedStateCachedFor(sessionId) !=
+            GrowthKitSeed.kStateUnsettled) {
+      _kitOffer = null;
+      return;
+    }
+    final hasRings = cast.any(
+      (c) =>
+          _getCharacterIdFromCard(c).isNotEmpty &&
+          _growthStore
+              .activeRingsFor(sessionId, _getCharacterIdFromCard(c))
+              .isNotEmpty,
+    );
+    switch (GrowthKitSeed.decide(
+      state: GrowthKitSeed.kStateUnsettled,
+      castHasKit: true,
+      sessionHasRings: hasRings,
+    )) {
+      case KitAction.autoSeed:
+        await _seedCastKits(sessionId, withKit);
+        await _growthStore.setKitSeedState(
+          sessionId,
+          GrowthKitSeed.kStateSettled,
+        );
+        _kitOffer = null;
+        notify();
+      case KitAction.offer:
+        _kitOffer = KitOffer(
+          names: [for (final c in withKit) c.name],
+          entryCount: withKit.fold(
+            0,
+            (n, c) => n + GrowthKitSeed.kitOf(c).length,
+          ),
+        );
+      case KitAction.none:
+        break;
+    }
+  }
+
+  Future<void> _seedCastKits(String sessionId, List<CharacterCard> cast) async {
+    for (final card in cast) {
+      final id = _getCharacterIdFromCard(card);
+      if (id.isEmpty) continue;
+      final plan = GrowthKitSeed.planOwner(
+        // Read here, at the ring-write edge: this is where a member's card
+        // kit becomes this chat's rings (the manifest names this line).
+        kit: card.frontPorchExtensions?.traitKit ?? const [],
+        activeRings: _growthStore.activeRingsFor(sessionId, id),
+      );
+      for (final r in plan) {
+        await _growthStore.addRing(
+          sessionId: sessionId,
+          characterId: id,
+          content: r.characterText,
+          category: r.category,
+          strength: r.strength,
+          pinned: r.pinned,
+          metadata: r.metadata,
+          advanceCount: r.advanceCount,
+        );
+      }
+    }
+  }
+
+  /// The current cast, as cards (members, or the active character plus
+  /// scene guests — the same roster [refreshCache] scopes).
+  List<CharacterCard> _castCards() => _activeGroup != null
+      ? _groupCharacters
+      : [?_activeCharacter, ...sceneGuestCards()];
+
+  /// The cast's cards carry kits and the feature is on — the panel shows
+  /// the re-run button next to an offer it has not settled yet (ruling 13).
+  bool get growthKitReplayAvailable {
+    if (_currentSessionId == null ||
+        !memorySettings().characterEvolutionEnabled ||
+        !memorySettings().boonsBogiesEnabled) {
+      return false;
+    }
+    return _castCards().any(GrowthKitSeed.hasKit);
+  }
+
+  /// Panel accept: seed every kit owner now and settle the chat.
+  Future<void> acceptGrowthKit() async {
+    final sessionId = _currentSessionId;
+    if (sessionId == null) return;
+    await _seedCastKits(
+      sessionId,
+      _castCards().where(GrowthKitSeed.hasKit).toList(),
+    );
+    await _growthStore.setKitSeedState(sessionId, GrowthKitSeed.kStateSettled);
+    await refreshCache();
+    notify();
+  }
+
+  /// Panel decline: settle without writing a ring (§4 "Decline changes
+  /// nothing") — the settle flag is the only trace, and the re-run clears
+  /// it.
+  Future<void> declineGrowthKit() async {
+    final sessionId = _currentSessionId;
+    if (sessionId == null) return;
+    await _growthStore.setKitSeedState(sessionId, GrowthKitSeed.kStateDeclined);
+    _kitOffer = null;
+    notify();
+  }
+
+  /// Panel re-run: the kits get their first-touch again — an empty chat
+  /// seeds silently, one with rings is offered again (ruling 13).
+  Future<void> offerGrowthKitAgain() async {
+    final sessionId = _currentSessionId;
+    if (sessionId == null) return;
+    await _growthStore.setKitSeedState(
+      sessionId,
+      GrowthKitSeed.kStateUnsettled,
+    );
+    await refreshCache();
+    notify();
   }
 
   // Effective getters (all injection paths route through these); moved

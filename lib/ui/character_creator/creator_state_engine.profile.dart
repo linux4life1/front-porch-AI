@@ -50,6 +50,7 @@ CharacterCard profileCardNow(CreatorState s) {
     shortTermBond: s.realismShortTermBond,
     trustLevel: s.realismTrustLevel,
     ambitions: s.realismAmbitions,
+    traitKit: s.realismTraitKit,
     planLines: s.realismPlanLines,
     likes: s.realismLikes,
     dislikes: s.realismDislikes,

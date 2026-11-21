@@ -50,6 +50,8 @@ class GrowthRingWriter {
 
   /// Insert a new ring, enforcing the active-ring cap by retiring the
   /// weakest unpinned, non-established ring (GrowthPhysics.capVictim).
+  /// Kit-seeded rings (bb.seeded) sit on a separate budget: they never
+  /// count against the 12 story rings and are never the victim (§4).
   Future<void> addRing({
     required String sessionId,
     required String characterId,
@@ -60,6 +62,7 @@ class GrowthRingWriter {
     bool pinned = false,
     bool retired = false,
     String? metadata,
+    int advanceCount = 0,
   }) async {
     final db = getDb();
     if (db == null) return;
@@ -68,8 +71,9 @@ class GrowthRingWriter {
         sessionId,
         characterId,
       )).where((r) => !r.retired).toList();
-      if (active.length >= GrowthPhysics.kMaxActiveRings) {
-        final victim = GrowthPhysics.capVictim(active);
+      final story = active.where((r) => !BoonsBogies.isKitSeeded(r)).toList();
+      if (story.length >= GrowthPhysics.kMaxActiveRings) {
+        final victim = GrowthPhysics.capVictim(story);
         if (victim != null) await _retire(db, victim.id);
       }
     }
@@ -84,6 +88,7 @@ class GrowthRingWriter {
         content: Value(_resolve(characterId, content)),
         category: Value(category),
         strength: Value(strength),
+        advanceCount: Value(advanceCount),
         pinned: Value(pinned),
         retired: Value(retired),
         sourceMessageIds: Value(

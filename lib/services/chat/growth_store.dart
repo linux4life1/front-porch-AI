@@ -68,6 +68,7 @@ class GrowthStore {
   String? _cacheSessionId;
   final Map<String, List<GrowthRingData>> _ringCache = {};
   int _cursorCache = 0;
+  int _kitSeedCache = 0;
 
   /// Bumped by every [refresh] and by [invalidate]. A load that finishes after
   /// a newer one started (or after an explicit invalidate) drops its result
@@ -89,6 +90,7 @@ class GrowthStore {
     _ringCache.clear();
     _legacyCache.clear();
     _cursorCache = 0;
+    _kitSeedCache = 0;
   }
 
   /// Reload the cache for [sessionId]: every owner's rings, plus the
@@ -150,6 +152,7 @@ class GrowthStore {
     }
 
     final cursor = await db.getGrowthCursor(sessionId);
+    final kitSeed = await db.getKitSeedState(sessionId);
 
     // Swap atomically only if no context switch happened mid-load. The comment
     // said this long before the check existed: the swap was unconditional, so
@@ -164,6 +167,7 @@ class GrowthStore {
       ..clear()
       ..addAll(legacy);
     _cursorCache = cursor;
+    _kitSeedCache = kitSeed;
   }
 
   bool _cacheValid(String? sessionId) =>
@@ -217,6 +221,17 @@ class GrowthStore {
     if (_cacheValid(sessionId)) _cursorCache = cursor;
   }
 
+  /// Kit seeding settle state (0 = the kit has not been settled on this
+  /// chat yet). 0 when the cache doesn't cover the session, so the settle
+  /// check just re-runs — settling is idempotent.
+  int kitSeedStateCachedFor(String? sessionId) =>
+      _cacheValid(sessionId) ? _kitSeedCache : 0;
+
+  Future<void> setKitSeedState(String sessionId, int state) async {
+    await getDb()?.setKitSeedState(sessionId, state);
+    if (_cacheValid(sessionId)) _kitSeedCache = state;
+  }
+
   /// Merged, deduplicated receipt positions for a ring + new citations.
   static List<int> mergedReceipts(GrowthRingData ring, List<int> extra) =>
       mergedGrowthReceipts(ring, extra);
@@ -238,6 +253,7 @@ class GrowthStore {
     bool pinned = false,
     bool retired = false,
     String? metadata,
+    int advanceCount = 0,
   }) => _writer.addRing(
     sessionId: sessionId,
     characterId: characterId,
@@ -248,6 +264,7 @@ class GrowthStore {
     pinned: pinned,
     retired: retired,
     metadata: metadata,
+    advanceCount: advanceCount,
   );
 
   /// See [GrowthRingWriter.reinforceBoon].

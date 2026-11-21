@@ -234,13 +234,25 @@ extension AppDatabaseMemoryQueries on AppDatabase {
           ))
           .go();
 
+  Future<GrowthStateData?> _growthStateRow(String sessionId) => (select(
+    growthState,
+  )..where((g) => g.sessionId.equals(sessionId))).getSingleOrNull();
+
   /// The growth pass cursor for a session (0 when no pass has run yet).
-  Future<int> getGrowthCursor(String sessionId) async {
-    final row = await (select(
-      growthState,
-    )..where((g) => g.sessionId.equals(sessionId))).getSingleOrNull();
-    return row?.cursor ?? 0;
-  }
+  Future<int> getGrowthCursor(String sessionId) async =>
+      (await _growthStateRow(sessionId))?.cursor ?? 0;
+
+  /// v69 kit seeding settle state: 0 = untouched, 1 = settled (§4).
+  Future<int> getKitSeedState(String sessionId) async =>
+      (await _growthStateRow(sessionId))?.kitSeedState ?? 0;
+
+  Future<void> setKitSeedState(String sessionId, int state) =>
+      into(growthState).insertOnConflictUpdate(
+        GrowthStateCompanion(
+          sessionId: Value(sessionId),
+          kitSeedState: Value(state),
+        ),
+      );
 
   Future<void> setGrowthCursor(String sessionId, int cursor) =>
       into(growthState).insertOnConflictUpdate(

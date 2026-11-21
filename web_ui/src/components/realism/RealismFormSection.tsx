@@ -11,6 +11,7 @@
 import { useRef } from 'react';
 import { Slider, ToggleRow, SelectRow } from './controls';
 import { ChipList } from './ChipList';
+import { TraitKitEditor } from './TraitKitEditor';
 import { RecoveryBlock } from './RecoveryBlock';
 import { GreyedOut } from '../GreyedOut';
 import { RelationshipFields } from './RelationshipFields';
@@ -295,6 +296,16 @@ export function IdentitySections({
           onChange={(a) => set({ ambitions: a })}
           placeholder="e.g. open a bakery"
           helper="What this character is working toward across the whole story. They colour how the character steers a scene, and they inch forward when objectives complete. Not a to-do list — quests live in the chat sidebar."
+        />
+      </RlCard>
+
+      {/* ── Boons & Bogies kit — starting traits the chat seeds from
+          (docs/design/boons-and-bogies.md §4). ── */}
+      <RlCard>
+        <TraitKitEditor
+          values={v.traitKit}
+          onChange={(t) => set({ traitKit: t })}
+          helper="What this character starts with: boons they can climb, bogies that surface under pressure. A new chat seeds these as growth rings; a chat already growing is asked first."
         />
       </RlCard>
 

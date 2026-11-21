@@ -218,6 +218,7 @@ export function CreateCharacterPage() {
                 d.realismEnabled ? `Engine on · bond ${d.shortTermBond}` : 'Engine off',
                 d.chaosModeEnabled ? 'Chaos' : null,
                 d.ambitions.length ? `ambitions ${d.ambitions.length}` : null,
+                d.traitKit.length ? `kit ${d.traitKit.length}` : null,
                 d.occupation.trim() ? d.occupation : null,
                 d.likes.length ? `likes ${d.likes.length}` : null,
                 inventoryToChips(d.inventory).worn.length

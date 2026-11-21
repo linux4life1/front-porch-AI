@@ -319,3 +319,98 @@ class BoonBogeyCard extends StatelessWidget {
     );
   }
 }
+
+/// Retroactive kit offer banner (docs/design/boons-and-bogies.md §4,
+/// ruling 13): a chat that already has earned rings is offered its cast's
+/// card kits once, naming every member that carries one. Accept seeds the
+/// copies in; decline writes nothing but the settle itself.
+class GrowthKitOfferBanner extends StatelessWidget {
+  final ChatService chatService;
+  final KitOffer offer;
+
+  const GrowthKitOfferBanner({
+    super.key,
+    required this.chatService,
+    required this.offer,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final honey = AppColors.porchHoneyOf(context);
+    final who = offer.names.length == 1
+        ? offer.names.first
+        : offer.names.join(', ');
+    return Padding(
+      padding: const EdgeInsets.only(left: 20, right: 12, bottom: 6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: honey.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(SidebarTokens.wellRadius),
+          border: Border.all(color: honey.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🎲', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'The character cards carry a Boons & Bogies kit for '
+                    '$who (${offer.entryCount} '
+                    '${offer.entryCount == 1 ? 'entry' : 'entries'}). '
+                    'Seed it into this chat?',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: honey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: chatService.declineGrowthKit,
+                  child: Text(
+                    'Not now',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: chatService.acceptGrowthKit,
+                  child: Text(
+                    'Seed kit',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: honey,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
