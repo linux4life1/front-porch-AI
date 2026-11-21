@@ -592,6 +592,9 @@
     "card.tags": {
       "notRead": "library labels; no chat reads a card's tags"
     },
+    "card.title": {
+      "notRead": "the library label beside the name (a full name or the card's premise); no chat reads it, chats use the name, and a member row keeps no copy, so the member editor hides its field"
+    },
     "card.ttsVoice": {
       "editor": [
         {

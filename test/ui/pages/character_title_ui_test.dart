@@ -30,7 +30,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/group_member_mode.dart';
