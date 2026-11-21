@@ -12,7 +12,7 @@ One editor to edit them all: a group and every member in it now open the charact
 
 - 🎚️ **Realism, Needs and Afterglow per character.** In a group, each switch belongs to the character you tapped: turn one off for one member and the others keep going.
 
-- 🧠 **Group memory belongs to each character.** A character remembers only the scenes they were there for, from their own memory and Data Bank. Chats you already have keep their memories.
+- 🧠 **Group memory belongs to each character.** In a group, each character's long-term memory is built only from the scenes they were there for; a scene they were Away for is never filed into it. They can still read the recent chat on screen, so this shapes what they recall from further back. Chats you already have keep their memories.
 
 - 🔖 **Characters keep their title.** A card can have a Title beside its name — a full name, or what the card is about — shown under the name in the library and found by search; chats still use the name. Backyard AI imports keep the name and the title apart, and characters from The Stoop keep their post's title. Desktop and phone.
 
