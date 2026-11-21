@@ -16,9 +16,10 @@
 // chat happened to still be loaded.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { api, ApiError } from '../api/client';
+import { api, ApiError, isTimeout } from '../api/client';
 import { confirmDiscard } from '../hooks/useUnsavedChanges';
 import { MakeCharacterDialog } from './library/PersonaConvertDialogs';
+import { PersonaEditForm, type PersonaDraft } from './PersonaEditForm';
 
 interface Persona {
   id: string;
@@ -42,7 +43,17 @@ interface PersonaDetail {
   birthday?: string;
 }
 
-type EditState = { id: string | null; title: string; name: string; persona: string; birthday: string } | null;
+type EditState = PersonaDraft | null;
+
+// A persona write is one row on the host — milliseconds when it is healthy.
+// Past this the host is stalled (a busy library, a sleeping laptop), and an
+// endless "Saving…" read as a broken button; say so and keep the text.
+const WRITE_TIMEOUT_MS = 20_000;
+const write = <T,>(path: string, body?: unknown) =>
+  api.post<T>(path, body, { timeoutMs: WRITE_TIMEOUT_MS });
+const STALLED =
+  'Front Porch did not answer within 20 seconds, so this may not have saved. ' +
+  'Your text is still here — try again in a moment.';
 
 // The desktop's PersonaColors._palette (persona_colors.dart). The desktop
 // hashes with Dart's String.hashCode, which is salted per run — its persona
@@ -69,7 +80,12 @@ const PersonGlyph = () => (
 /** `onDirtyChange` lets the page guard leaving an unsaved persona edit. */
 export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void } = {}) {
   const [personas, setPersonas] = useState<Persona[]>([]);
+  // A failed or timed-out read must not pass for "No personas yet".
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [edit, setEdit] = useState<EditState>(null);
+  // Ids listed when a NEW persona's form opened: a save that timed out may
+  // still land, and Save again must not make it twice.
+  const [idsAtOpen, setIdsAtOpen] = useState<Set<string>>(new Set());
   const [menuId, setMenuId] = useState<string | null>(null);
   // The edit as it was opened; anything else is unsaved.
   const [editBase, setEditBase] = useState<string | null>(null);
@@ -77,9 +93,16 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+  const sectionRef = useRef<HTMLElement>(null);
   const openEdit = (e: EditState) => {
     setEdit(e);
     setEditBase(JSON.stringify(e));
+    setIdsAtOpen(new Set(personas.map((p) => p.id)));
+    setError('');
+    setNotice('');
+    // The form replaces the list; bring its top into view wherever the
+    // list was scrolled to (a card thirty rows down opens Edit too).
+    sectionRef.current?.scrollIntoView?.({ block: 'start' });
   };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -88,7 +111,16 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
   const importInput = useRef<HTMLInputElement>(null);
 
   const load = () =>
-    api.get<{ personas: Persona[] }>('/api/personas').then((r) => setPersonas(r.personas)).catch(() => {});
+    api
+      .get<{ personas: Persona[] }>('/api/personas')
+      .then((r) => {
+        setPersonas(r.personas);
+        setLoadState('ready');
+      })
+      .catch((e: unknown) => {
+        console.warn('[personas] list failed', e);
+        setLoadState('error');
+      });
 
   useEffect(() => {
     void load();
@@ -99,16 +131,25 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
     setError('');
     p.then((r) => {
       setPersonas(r.personas);
+      setLoadState('ready');
       if (closeEditor) setEdit(null);
     })
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Action failed'))
+      .catch((e: unknown) => {
+        if (isTimeout(e)) {
+          setError(STALLED);
+          // The host may finish late; the list catches up when it does.
+          void load();
+        } else {
+          setError(e instanceof ApiError ? e.message : 'Action failed');
+        }
+      })
       .finally(() => setBusy(false));
   };
 
-  // Choosing the default or deleting another persona keeps the open edit.
-  // Tapping a card makes it the default — the desktop's card tap.
+  // Tapping a card makes it the default — the desktop's card tap. (The grid
+  // is hidden while a form is open, so no list action races an edit.)
   const select = (id: string) =>
-    apply(api.post('/api/personas/select', { id }).then(() => api.get('/api/personas')), false);
+    apply(write('/api/personas/select', { id }).then(() => api.get('/api/personas')), false);
   const beginEdit = async (id: string) => {
     if (!confirmDiscard(dirty)) return;
     setMenuId(null);
@@ -129,11 +170,29 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
   };
   const save = () => {
     if (!edit) return;
+    // A create that timed out and then landed is already in the list: done,
+    // not a second copy.
+    const landed =
+      !edit.id &&
+      personas.some(
+        (p) => !idsAtOpen.has(p.id) && p.name === edit.name && (p.description ?? '') === edit.persona,
+      );
+    if (landed) {
+      setEdit(null);
+      setError('');
+      setNotice('Persona saved successfully');
+      return;
+    }
     const body = { title: edit.title, name: edit.name, persona: edit.persona, birthday: edit.birthday };
+    setNotice('');
     apply(
-      edit.id
-        ? api.post(`/api/personas/${edit.id}`, body)
-        : api.post('/api/personas/create', body),
+      (edit.id
+        ? write<{ personas: Persona[] }>(`/api/personas/${edit.id}`, body)
+        : write<{ personas: Persona[] }>('/api/personas/create', body)
+      ).then((r) => {
+        setNotice('Persona saved successfully');
+        return r;
+      }),
     );
   };
 
@@ -202,40 +261,86 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
   const tint = (id: string) => ({ '--pc': personaColor(id) } as CSSProperties);
 
   return (
-    <section className="card" data-testid="persona-manager">
-      <div className="card-head">
-        <h3>User Personas</h3>
-        <button
-          className="ghost"
-          onClick={() => importInput.current?.click()}
-          disabled={busy}
-          title="Import Persona (JSON)"
-        >
-          Import JSON
-        </button>
-        <input
-          ref={importInput}
-          type="file"
-          accept=".json,application/json"
-          style={{ display: 'none' }}
-          data-testid="persona-import-file"
-          onChange={(e) => void importJson(e.target.files?.[0] ?? null)}
-        />
-        <button className="ghost" onClick={() => void exportAll()} disabled={busy || !personas.length} title="Export Personas (JSON)">
-          Export All JSON
-        </button>
-        <button
-          className="primary"
-          onClick={() =>
-            confirmDiscard(dirty) &&
-            openEdit({ id: null, title: '', name: 'User', persona: '', birthday: '' })
-          }
-        >
-          + New Persona
-        </button>
-      </div>
+    <section className="card" data-testid="persona-manager" ref={sectionRef}>
+      {edit ? (
+        // The desktop's AppBar while editing: back arrow, "Create Persona" /
+        // "Edit Persona", and no page actions.
+        <div className="card-head persona-edit-head">
+          <button
+            className="icon-btn"
+            aria-label="Back to personas"
+            title="Back"
+            onClick={() => confirmDiscard(dirty) && setEdit(null)}
+          >
+            ←
+          </button>
+          <h3>{edit.id ? 'Edit Persona' : 'Create Persona'}</h3>
+        </div>
+      ) : (
+        <div className="card-head">
+          <h3>User Personas</h3>
+          <button
+            className="ghost"
+            onClick={() => importInput.current?.click()}
+            disabled={busy}
+            title="Import Persona (JSON)"
+          >
+            Import JSON
+          </button>
+          <input
+            ref={importInput}
+            type="file"
+            accept=".json,application/json"
+            style={{ display: 'none' }}
+            data-testid="persona-import-file"
+            onChange={(e) => void importJson(e.target.files?.[0] ?? null)}
+          />
+          <button className="ghost" onClick={() => void exportAll()} disabled={busy || !personas.length} title="Export Personas (JSON)">
+            Export All JSON
+          </button>
+          <button
+            className="primary"
+            onClick={() =>
+              confirmDiscard(dirty) &&
+              openEdit({ id: null, title: '', name: '', persona: '', birthday: '' })
+            }
+          >
+            + New Persona
+          </button>
+        </div>
+      )}
 
-      {personas.length === 0 && !edit && (
+      {edit && (
+        <PersonaEditForm
+          draft={edit}
+          busy={busy}
+          onChange={setEdit}
+          onCancel={() => confirmDiscard(dirty) && setEdit(null)}
+          onSave={save}
+        />
+      )}
+
+      {!edit && loadState === 'loading' && (
+        <p className="muted" role="status">Loading personas…</p>
+      )}
+
+      {!edit && loadState === 'error' && (
+        <div className="persona-load-error" role="alert">
+          <p className="error">
+            Could not load your personas — Front Porch did not answer. Nothing has been deleted.
+          </p>
+          <button
+            onClick={() => {
+              setLoadState('loading');
+              void load();
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {!edit && loadState === 'ready' && personas.length === 0 && (
         <div className="persona-empty">
           <span className="persona-empty-av"><PersonGlyph /></span>
           <p className="persona-empty-title">No personas yet</p>
@@ -246,7 +351,7 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
         </div>
       )}
 
-      {fallback && (
+      {!edit && fallback && (
         <div className="persona-hero" style={tint(fallback.id)}>
           <span className="persona-av persona-av-lg">
             {fallback.hasAvatar
@@ -281,149 +386,110 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
         </div>
       )}
 
-      {personas.length > 0 && (
+      {!edit && personas.length > 0 && (
         <div className="persona-section">
           <span className="persona-tick" aria-hidden />
           All Personas ({personas.length})
         </div>
       )}
 
-      <ul className="persona-grid">
-        {personas.map((p) => (
-          <li
-            key={p.id}
-            className={p.default ? 'default' : undefined}
-            style={tint(p.id)}
-            onClick={() => !p.default && !busy && select(p.id)}
-          >
-            <div className="persona-card-top">
-              <span className="persona-av">
-                {p.hasAvatar
-                  ? <img src={`/api/personas/${p.id}/avatar`} alt="" />
-                  : <PersonGlyph />}
-              </span>
-              <span className="persona-main">
-                <span className="pname">{p.label}</span>
-                {!!p.title && <span className="psub">{p.name}</span>}
-              </span>
-              <button
-                className="icon-btn card-kebab"
-                title="More actions"
-                aria-label={`More actions for ${p.label}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMenuId(menuId === p.id ? null : p.id);
-                }}
-              >
-                ⋮
-              </button>
-            </div>
-            <p className={`persona-desc${p.description ? '' : ' empty'}`}>
-              {p.description || 'No description'}
-            </p>
-            <div className="persona-card-foot">
-              {p.default
-                ? <span className="persona-badge">Default</span>
-                : (
-                  <button
-                    className="persona-make"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      select(p.id);
-                    }}
-                  >
-                    Make default
-                  </button>
-                )}
-            </div>
-            {menuId === p.id && (
-              <>
-                <div
-                  className="card-menu-backdrop"
+      {!edit && (
+        <ul className="persona-grid">
+          {personas.map((p) => (
+            <li
+              key={p.id}
+              className={p.default ? 'default' : undefined}
+              style={tint(p.id)}
+              onClick={() => !p.default && !busy && select(p.id)}
+            >
+              <div className="persona-card-top">
+                <span className="persona-av">
+                  {p.hasAvatar
+                    ? <img src={`/api/personas/${p.id}/avatar`} alt="" />
+                    : <PersonGlyph />}
+                </span>
+                <span className="persona-main">
+                  <span className="pname">{p.label}</span>
+                  {!!p.title && <span className="psub">{p.name}</span>}
+                </span>
+                <button
+                  className="icon-btn card-kebab"
+                  title="More actions"
+                  aria-label={`More actions for ${p.label}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setMenuId(null);
+                    setMenuId(menuId === p.id ? null : p.id);
                   }}
-                />
-                <div className="card-menu persona-card-menu" role="menu" onClick={(e) => e.stopPropagation()}>
-                  <button className="card-menu-item" role="menuitem" aria-label={`Edit ${p.label}`} onClick={() => void beginEdit(p.id)}>
-                    <span className="cmi-icon" aria-hidden>✎</span> Edit
-                  </button>
-                  <button
-                    className="card-menu-item"
-                    role="menuitem"
-                    aria-label={`Export ${p.label} as JSON`}
-                    onClick={() => void exportJson(p)}
-                  >
-                    <span className="cmi-icon" aria-hidden>⤓</span> Export JSON
-                  </button>
-                  <button
-                    className="card-menu-item"
-                    role="menuitem"
-                    aria-label={`Make a character from ${p.label}`}
-                    onClick={() => void beginMakeCharacter(p.id)}
-                  >
-                    <span className="cmi-icon" aria-hidden>🧑</span> Make a Character
-                  </button>
-                  {personas.length > 1 && (
+                >
+                  ⋮
+                </button>
+              </div>
+              <p className={`persona-desc${p.description ? '' : ' empty'}`}>
+                {p.description || 'No description'}
+              </p>
+              <div className="persona-card-foot">
+                {p.default
+                  ? <span className="persona-badge">Default</span>
+                  : (
                     <button
-                      className="card-menu-item danger"
-                      role="menuitem"
-                      disabled={busy}
-                      onClick={() => {
-                        setMenuId(null);
-                        apply(api.post(`/api/personas/${p.id}/delete`), edit?.id === p.id);
+                      className="persona-make"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        select(p.id);
                       }}
                     >
-                      <span className="cmi-icon" aria-hidden>🗑</span> Delete
+                      Make default
                     </button>
                   )}
-                </div>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {edit && (
-        <div className="persona-edit">
-          <h4 className="section-label">{edit.id ? 'Edit persona' : 'New persona'}</h4>
-          <label>
-            Title (optional)
-            <input value={edit.title} onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
-          </label>
-          <label>
-            Name
-            <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
-          </label>
-          <label>
-            Birthday
-            <input
-              type="date"
-              value={edit.birthday}
-              onChange={(e) => {
-                const raw = e.target.value;
-                if (/^\d{4}-02-29$/.test(raw)) return;
-                setEdit({ ...edit, birthday: raw });
-              }}
-            />
-          </label>
-          <label>
-            Persona
-            <textarea
-              rows={4}
-              value={edit.persona}
-              onChange={(e) => setEdit({ ...edit, persona: e.target.value })}
-              placeholder="How the AI should picture you…"
-            />
-          </label>
-          <div className="tool-row">
-            <button onClick={() => confirmDiscard(dirty) && setEdit(null)}>Cancel</button>
-            <button className="primary" disabled={busy || !edit.name.trim()} onClick={save}>
-              {busy ? 'Saving…' : 'Save persona'}
-            </button>
-          </div>
-        </div>
+              </div>
+              {menuId === p.id && (
+                <>
+                  <div
+                    className="card-menu-backdrop"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuId(null);
+                    }}
+                  />
+                  <div className="card-menu persona-card-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+                    <button className="card-menu-item" role="menuitem" aria-label={`Edit ${p.label}`} onClick={() => void beginEdit(p.id)}>
+                      <span className="cmi-icon" aria-hidden>✎</span> Edit
+                    </button>
+                    <button
+                      className="card-menu-item"
+                      role="menuitem"
+                      aria-label={`Export ${p.label} as JSON`}
+                      onClick={() => void exportJson(p)}
+                    >
+                      <span className="cmi-icon" aria-hidden>⤓</span> Export JSON
+                    </button>
+                    <button
+                      className="card-menu-item"
+                      role="menuitem"
+                      aria-label={`Make a character from ${p.label}`}
+                      onClick={() => void beginMakeCharacter(p.id)}
+                    >
+                      <span className="cmi-icon" aria-hidden>🧑</span> Make a Character
+                    </button>
+                    {personas.length > 1 && (
+                      <button
+                        className="card-menu-item danger"
+                        role="menuitem"
+                        disabled={busy}
+                        onClick={() => {
+                          setMenuId(null);
+                          apply(write(`/api/personas/${p.id}/delete`));
+                        }}
+                      >
+                        <span className="cmi-icon" aria-hidden>🗑</span> Delete
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       {makeFrom && (
@@ -435,7 +501,7 @@ export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: bool
         />
       )}
 
-      {notice && !error && <p className="small" role="status">{notice}</p>}
+      {notice && !error && <p className="small" role="status" data-testid="persona-save-notice">{notice}</p>}
       {error && <p className="error">{error}</p>}
     </section>
   );
