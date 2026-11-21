@@ -19,17 +19,16 @@ It's all built in. Turn it on for one chat from the sidebar, or for every new ch
 
 **`main` is the stable release branch.** All work targets `Rawhide` and is promoted here when it's ready. Nightlies are built from Rawhide and keep a **separate** library, so they never touch a stable install.
 
-> ### 🌇 New in 1.7.0 — A Porch to Remember
-> The porch remembers now — your half-typed line, your cast, your sounds, your settings — and the groups grew up doing it.
+> ### 💍 New in 1.7.1 — Porch of the Rings
+> One editor to edit them all: a group and every member in it now open the character editor you know, and each character in a group keeps their own switches, memory and name.
 >
-> - **A half-typed message survives.** Close the chat or restart the app and the line you never sent is still in the box when you come back.
-> - **Groups, grown up.** Members start from their character cards, the seven-step wizard runs in full on the phone, every group gets its own world, and members can be edited in full.
-> - **Mood, on the face.** Portraits wear their mood, bond and needs, and the latest reply wears its stamped mood.
-> - **The sky follows the story clock.** A sun by day, a moon with its phase by night, and real field recordings with a custom-sound library.
-> - **Generation presets that follow the model,** and an Image Studio that keeps every result on a Recent shelf.
-> - **A backup that's really complete** — library, settings, portraits and every file you added.
+> - **Edit group is a page, and a member is a character.** The same tabs as a character, with the group's own fields, and members edited in the character editor.
+> - **A group chat's sidebar reads like a 1:1,** with Group Dynamics showing how each character feels about the others.
+> - **Each character keeps their own.** Realism, Needs, Afterglow and memory belong to each character in a group.
+> - **Characters keep their title.** A full name or the card's premise beside the name; Backyard AI and Stoop titles come along.
+> - **The web app matches the desktop,** screen for screen.
 >
-> The in-app What's New has all seventeen.
+> The in-app What's New has all six.
 
 **Docs:** [User guide](https://frontporchai.app) · [Getting started](docs/getting-started.md) · [Install](docs/install.md) · [FAQ](docs/faq.md) · [Discord](https://discord.gg/e4tET6rpdv)
 

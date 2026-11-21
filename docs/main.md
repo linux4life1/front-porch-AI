@@ -2,6 +2,22 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
+## v1.7.1 — Porch of the Rings
+
+One editor to edit them all: a group and every member in it now open the character editor you know, and each character in a group keeps their own switches, memory and name.
+
+- 👥 **Edit group is a page, and a member is a character.** "Edit group…" opens a page with the same tabs as a character, plus the group's own fields and your stats together. Editing a member opens the character editor on the group's copy, with what the group sets greyed out. Add, remove and bring back members without opening the chat, Duplicate Group really copies a group, and a member can start away. Your groups keep every setting they had. Desktop and phone.
+
+- 🫂 **A group chat's sidebar reads like a 1:1.** Tap a character and Character State shows their bond bars, Needs, ambitions, Pockets and time, with Objectives too. A Group Dynamics section shows how they feel about the others, and Away and Back sit on their face in the cast strip.
+
+- 🎚️ **Realism, Needs and Afterglow per character.** In a group, each switch belongs to the character you tapped: turn one off for one member and the others keep going.
+
+- 🧠 **Group memory belongs to each character.** A character remembers only the scenes they were there for, from their own memory and Data Bank. Chats you already have keep their memories.
+
+- 🔖 **Characters keep their title.** A card can have a Title beside its name — a full name, or what the card is about — shown under the name in the library and found by search; chats still use the name. Backyard AI imports keep the name and the title apart, and characters from The Stoop keep their post's title. Desktop and phone.
+
+- 🪞 **The web app matches the desktop.** The web editor, toolbar, menus and navigation show the same sections and wording in the same order as the desktop, personas work on a phone, and long names no longer break mid-word in the phone editor.
+
 ## v1.7.0 — A Porch to Remember
 
 The porch remembers now — your half-typed line, your cast, your sounds, your settings — and the groups grew up doing it.
