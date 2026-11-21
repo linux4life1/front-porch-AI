@@ -73,8 +73,9 @@
 .select-check.on { background: var(--accent); border-color: transparent; color: var(--on-accent); }
 .lib-card.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-.card-menu-backdrop { position: fixed; inset: 0; z-index: 60; }
+.card-menu-backdrop { position: fixed; inset: 0; z-index: 60; /* safe-area: an invisible tap-outside catcher */ }
 .card-menu {
+  /* safe-area: CardMenu places it with placeInSafeArea (utils/safeArea.ts) */
   position: fixed; background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 6px; display: flex; flex-direction: column;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);

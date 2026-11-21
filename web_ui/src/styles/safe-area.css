@@ -1,0 +1,65 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The one owner of the device's safe area: the notch, the Dynamic Island,
+   the home bar, a landscape notch, an Android cutout or gesture bar. The
+   browser reports each edge through env(safe-area-inset-*) for whatever
+   device it runs on, so nothing here names a device.
+
+   - The tokens below are the ONLY place env(safe-area-inset-*) is read.
+     Everything else reads var(--fp-safe-*). The browser sweep overrides the
+     tokens with a fake notch on all four edges (WebKit under Playwright
+     reports 0), so a surface that reads the tokens is tested on every run.
+   - #root keeps every page inside the safe area: the app shell, the chat,
+     the creator, the login screen and any page added later. A page never
+     pads for the notch itself.
+   - A full-screen layer (position: fixed) escapes #root, so each one is
+     listed below and gets a transparent border as wide as each inset. The
+     scrim still paints edge to edge (backgrounds paint under the border)
+     while the layer's content box, and every drawer, sheet or dialog in it,
+     sits inside the safe area. A border composes with the layer's own
+     padding, so its spacing stays where it is declared.
+   - src/styles/overlayHitTesting.test.ts fails on a bare env() outside this
+     file and on a full-screen layer that is not listed here or marked
+     `safe-area:` with its reason.
+*/
+
+html {
+  --fp-safe-top: env(safe-area-inset-top, 0px);
+  --fp-safe-right: env(safe-area-inset-right, 0px);
+  --fp-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fp-safe-left: env(safe-area-inset-left, 0px);
+}
+
+#root {
+  padding: var(--fp-safe-top) var(--fp-safe-right) var(--fp-safe-bottom) var(--fp-safe-left);
+}
+
+/* Full-screen layers. */
+.drawer-backdrop,
+.chat-sidebar-host,
+.chance-overlay,
+.chat-place-attach-modal,
+.wsg-dialog-backdrop,
+.s-backdrop,
+.cg-scope .cg-sheet-scrim {
+  border-style: solid;
+  border-color: transparent;
+  border-width: var(--fp-safe-top) var(--fp-safe-right) var(--fp-safe-bottom) var(--fp-safe-left);
+}
+
+/* The story contents drawer is a panel pinned to the right edge, not a
+   layer with content inside: its own surface runs under the insets and its
+   content moves in. It keeps its divider line on the left. */
+.s-toc {
+  padding-top: var(--fp-safe-top);
+  padding-right: var(--fp-safe-right);
+  padding-bottom: var(--fp-safe-bottom);
+}
+
+/* The phone's message editor and model sheet track the visual viewport (the
+   keyboard moves it, #330) and pad their own sheet with the same tokens
+   (messages.css, chat.css), so their layer adds nothing. */
+[data-layout="phone"] .drawer-backdrop.msg-edit-overlay,
+[data-layout="phone"] .drawer-backdrop.model-switch-overlay {
+  border-width: 0;
+}

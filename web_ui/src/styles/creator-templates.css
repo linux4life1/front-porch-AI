@@ -193,7 +193,7 @@
 [data-layout="phone"] .cg-scope .cg-sheet-scrim { align-items: flex-end; padding: 0; }
 [data-layout="phone"] .cg-scope .cg-sheet {
   width: 100%; max-height: calc(100% - 24px); gap: 14px; border-bottom: 0; border-radius: 20px 20px 0 0;
-  padding: 10px 20px calc(24px + env(safe-area-inset-bottom)); box-shadow: none;
+  padding: 10px 20px 24px; box-shadow: none;
 }
 [data-layout="phone"] .cg-scope .cg-sheet-title svg { width: 20px; height: 20px; }
 [data-layout="phone"] .cg-scope .cg-sheet-field input { height: 48px; font-size: 16px; }

@@ -8,7 +8,8 @@
 // in-chat slash commands (which route through ChatService), so behavior matches
 // the desktop exactly.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { placeInSafeArea } from '../utils/safeArea';
 
 export interface CastMember {
   id: string;
@@ -64,10 +65,19 @@ function ChipMenu({
       window.removeEventListener('keydown', off);
     };
   }, [onClose]);
+  // Opened at the finger; moved once it has a size so it never runs off an
+  // edge or under the notch or home bar.
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: x, top: y });
+  useLayoutEffect(() => {
+    const box = ref.current?.getBoundingClientRect();
+    if (box) setPos(placeInSafeArea(x, y, box.width, box.height));
+  }, [x, y]);
   return (
     <div
+      ref={ref}
       className="cast-menu"
-      style={{ left: x, top: y }}
+      style={pos}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="cast-menu-head">{member.name}</div>

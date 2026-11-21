@@ -143,15 +143,11 @@
   width: min(360px, 88%); height: 100%; background: var(--surface);
   border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 12px;
-  padding-top: calc(16px + env(safe-area-inset-top));
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 .settings-drawer {
   width: min(440px, 92%); height: 100%; background: var(--surface);
   border-left: 1px solid var(--border); padding: 16px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 12px;
-  padding-top: calc(16px + env(safe-area-inset-top));
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
 }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; font-weight: 700; }
 .new-chat { width: 100%; }

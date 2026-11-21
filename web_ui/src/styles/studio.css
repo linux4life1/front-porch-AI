@@ -389,7 +389,7 @@
 .s-pager-pill { display: flex; align-items: center; gap: 12px; padding: 4px 8px; border-radius: 20px; background: var(--studio-card); border: 1px solid var(--studio-line); }
 .s-pager-ind { font-family: var(--studio-serif); font-size: 13px; color: var(--studio-ink); min-width: 86px; text-align: center; }
 /* Contents drawer */
-.s-toc-scrim { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, var(--scrim-ink) 50%, transparent); }
+.s-toc-scrim { position: fixed; inset: 0; z-index: 40; background: color-mix(in srgb, var(--scrim-ink) 50%, transparent); /* safe-area: a bare scrim, nothing to tap but itself */ }
 .s-toc { position: fixed; top: 0; right: 0; bottom: 0; z-index: 41; width: min(304px, 85vw); display: flex; flex-direction: column; background: var(--studio-bg); color: var(--studio-ink); border-left: 1px solid var(--studio-line); box-shadow: -8px 0 24px rgba(0, 0, 0, 0.4); font-family: var(--studio-serif); }
 .s-toc-head { padding: 24px 20px 16px; border-bottom: 1px solid var(--studio-line); }
 .s-toc-head .t { font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }

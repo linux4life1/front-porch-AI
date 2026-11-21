@@ -14,7 +14,12 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Front Porch" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- "default", never "black-translucent": translucent lets the page draw
+         under the iOS status bar, so every top-edge button must dodge the notch
+         on every iPhone model. With "default" iOS starts the page below the
+         bar on every device. The other edges (home bar, landscape notch) are
+         handled once, in src/styles/safe-area.css. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Front Porch AI</title>
   </head>
   <body>

@@ -3,7 +3,9 @@
 //
 // The sweeper: visit every screen and poke everything a person can tap,
 // without a per-feature script. Per screen it fails on any control that is
-// covered or tap-through, a phone screen that scrolls sideways, a button whose
+// covered or tap-through, a phone screen that scrolls sideways, a phone
+// control (on the screen or in a dialog) under the notch, home bar or a side
+// cutout (support/safeArea.ts fakes them on every phone run), a button whose
 // tap throws or hits a failing endpoint, and a dialog that a finger cannot
 // close (Close/Cancel button or a tap outside — phones have no Escape key).
 // Buttons that destroy, generate, sign out or reach the internet are left
@@ -20,6 +22,7 @@ import {
   overlayCount,
   untappableControls,
 } from './support/probes';
+import { addFakeNotch, controlsInNotch } from './support/safeArea';
 
 /** Running total of visible controls. A sparse screen is fine. */
 let controlsSeen = 0;
@@ -217,6 +220,11 @@ async function checkAndCloseOverlay(
   for (const p of await untappableControls(page, '[data-sweep-overlay]')) {
     problems.push(`${where}: in the dialog opened by "${opener}", ${p}`);
   }
+  if (test.info().project.name.startsWith('phone')) {
+    for (const p of await controlsInNotch(page, '[data-sweep-overlay]')) {
+      problems.push(`${where}: in the dialog opened by "${opener}", ${p}`);
+    }
+  }
   const before = await overlayCount(page);
   const overlay = page.locator('[data-sweep-overlay]');
   const closer = overlay.getByRole('button', { name: CLOSE }).first();
@@ -252,6 +260,8 @@ async function checkAndCloseOverlay(
 
 async function sweep(page: Page, route: string, info: TestInfo): Promise<string[]> {
   const found: string[] = [];
+  // Phones run with a notch, home bar and side cutouts (support/safeArea.ts).
+  if (info.project.name.startsWith('phone')) await addFakeNotch(page);
   await show(page, route);
 
   for (const p of await untappableControls(page)) found.push(`${route}: ${p}`);
@@ -260,6 +270,7 @@ async function sweep(page: Page, route: string, info: TestInfo): Promise<string[
   for (const p of await overlappingContent(page)) found.push(`${route}: ${p}`);
   if (info.project.name.startsWith('phone')) {
     for (const p of await horizontalOverflow(page)) found.push(`${route}: ${p}`);
+    for (const p of await controlsInNotch(page)) found.push(`${route}: ${p}`);
   }
 
   let next = await tag(page, 0);

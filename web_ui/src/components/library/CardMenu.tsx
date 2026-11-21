@@ -7,6 +7,7 @@
 // exactly one menu implementation.
 
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { placeInSafeArea } from '../../utils/safeArea';
 
 export interface CardMenuItem {
   label: string;
@@ -36,15 +37,9 @@ export function CardMenu({
   /** The creator's template menu is narrower (its spec draws 150px). */
   width?: number;
 }) {
-  // Clamp into the viewport so a kebab near the right/bottom edge stays visible.
-  const [pos] = useState(() => {
-    const maxLeft = window.innerWidth - width - 8;
-    const maxTop = window.innerHeight - menu.items.length * ITEM_H - 8;
-    return {
-      left: Math.max(8, Math.min(menu.x, maxLeft)),
-      top: Math.max(8, Math.min(menu.y, maxTop)),
-    };
-  });
+  // Clamp inside the safe area so a kebab near an edge, the notch or the
+  // home bar opens a menu a finger can reach.
+  const [pos] = useState(() => placeInSafeArea(menu.x, menu.y, width, menu.items.length * ITEM_H));
 
   const listRef = useRef<HTMLDivElement>(null);
 

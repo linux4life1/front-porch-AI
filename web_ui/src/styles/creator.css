@@ -42,8 +42,8 @@
 
 /* ── Phone top bar (the app's header while the creator is open) ─── */
 [data-layout="phone"] .app-shell:has(.cg-scope) .app-header {
-  height: calc(44px + env(safe-area-inset-top)); flex: none; gap: 12px;
-  padding: env(safe-area-inset-top) 12px 0;
+  height: 44px; flex: none; gap: 12px;
+  padding: 0 12px;
   background: var(--studio-side); border-bottom: 1px solid var(--studio-line);
 }
 [data-layout="phone"] .app-shell:has(.cg-scope) .hamburger {
@@ -368,7 +368,6 @@
 
 [data-layout="phone"] .cg-scope .wizard-nav.cg-nav {
   justify-content: flex-start; gap: 10px; padding: 12px 16px 16px;
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--studio-line);
 }
 [data-layout="phone"] .cg-scope .cg-nav button { gap: 8px; }
