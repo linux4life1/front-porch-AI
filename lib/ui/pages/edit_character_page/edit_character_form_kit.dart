@@ -169,13 +169,14 @@ class EditCharacterFormKit {
     bool expandable = false,
     bool enabled = true,
     String? hint,
+    String? help,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            fieldLabel(label),
+            ExcludeSemantics(child: fieldLabel(label)),
             if (expandable) ...[
               const SizedBox(width: 8),
               InkWell(
@@ -189,7 +190,7 @@ class EditCharacterFormKit {
                 child: Padding(
                   padding: const EdgeInsets.all(2),
                   child: Tooltip(
-                    message: 'Open fullscreen editor',
+                    message: 'Expand $label',
                     child: Icon(
                       Icons.open_in_full,
                       size: 14,
@@ -202,17 +203,22 @@ class EditCharacterFormKit {
           ],
         ),
         const SizedBox(height: 8),
-        AppTextField(
-          controller: controller,
-          maxLines: maxLines,
-          enabled: enabled,
-          style: TextStyle(
-            color: enabled
-                ? AppColors.textPrimary(context)
-                : AppColors.textTertiary(context),
-            fontSize: 14,
+        Semantics(
+          label: label,
+          child: AppTextField(
+            controller: controller,
+            maxLines: maxLines,
+            enabled: enabled,
+            style: TextStyle(
+              color: enabled
+                  ? AppColors.textPrimary(context)
+                  : AppColors.textTertiary(context),
+              fontSize: 14,
+            ),
+            decoration: inputDecoration(
+              hint ?? 'Enter $label...',
+            ).copyWith(helperText: help, helperMaxLines: 3),
           ),
-          decoration: inputDecoration(hint ?? 'Enter $label...'),
         ),
       ],
     );

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/bot_card_type_field.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
@@ -44,16 +45,20 @@ class CreatorDialogueStep extends StatelessWidget {
       children: [
         const CreatorStepTitle('Dialogue & Greetings'),
         const SizedBox(height: 8),
-        const CreatorStepLead(
-          'Configure the character\'s opening message and example dialogue.',
+        CreatorStepLead(
+          draft.isBot
+              ? 'Write an opening and examples of the Bot’s replies.'
+              : 'Configure the character\'s opening message and example dialogue.',
         ),
         const SizedBox(height: 32),
 
         CreatorExpandableField(
-          'First Message',
+          draft.isBot ? 'Opening message' : 'First Message',
           draft.firstMessageController,
-          hint:
-              'The character\'s opening message when a conversation starts...',
+          hint: draft.isBot
+              ? 'Greet the user or ask what they would like to work on...'
+              : 'The character\'s opening message when a conversation starts...',
+          help: draft.isBot ? botOpeningHelp : null,
           maxLines: 6,
         ),
         const SizedBox(height: 24),
@@ -127,9 +132,11 @@ class CreatorDialogueStep extends StatelessWidget {
         const SizedBox(height: 20),
 
         CreatorExpandableField(
-          'Example Dialogue',
+          draft.isBot ? 'Reply examples' : 'Example Dialogue',
           draft.exampleDialogueController,
-          hint: '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
+          hint: draft.isBot
+              ? 'Show how the Bot addresses the user in a typical reply.'
+              : '<START>\n{{user}}: Hello!\n{{char}}: *smiles warmly*',
           maxLines: 6,
         ),
 

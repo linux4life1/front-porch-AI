@@ -276,6 +276,9 @@ class SwipeVariants {
       sender: groupCustom ? _activeGroup!.name : (old.sender),
       isUser: false,
       characterId: groupCustom ? null : old.characterId,
+      metadata: !groupCustom && old.isBotProse
+          ? {'presentation': botPresentation}
+          : null,
     );
     _d.cast.stampGreetingIndex(index);
 

@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/bot_card.dart';
 import 'package:front_porch_ai/utils/reasoning_markers.dart';
 
 /// Metadata flag for backend-down / generation-error System banners.
@@ -143,6 +144,9 @@ class ChatMessage {
     }
     return displayText;
   }
+
+  bool get isBotProse =>
+      !isUser && activeMetadata?['presentation'] == botPresentation;
 
   /// Backend-down / generation-error banners. Not story.
   bool get isStatusBanner => activeMetadata?[kStatusBannerMeta] == true;

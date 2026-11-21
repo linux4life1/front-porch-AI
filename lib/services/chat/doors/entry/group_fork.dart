@@ -182,13 +182,27 @@ class GroupFork {
     // and every additional character. Without this, the group loads empty
     // (setActiveGroup / GroupTurnManager will have no one to speak).
     // Ported from the fix originally contributed in PR #44 by @MisterLotto.
-    await _door.roster.createGroupMember(group.id, _session.activeCharacter!);
+    final hostMemberId = await _door.roster.createGroupMember(
+      group.id,
+      _session.activeCharacter!,
+    );
+    final botSettings = ChatGenerationSettings();
+    if (_store.genSettings.soloBot case final hostBot?) {
+      botSettings.groupBots[hostMemberId] = hostBot;
+    }
     for (final c in orderedArrivals) {
       final key = _getCharacterIdFromCard(c);
       final asLite =
           liteArrivalKeys.contains(key) ||
           (c.dbId != null && liteArrivalKeys.contains(c.dbId));
-      await _door.roster.createGroupMember(group.id, c, asLite: asLite);
+      final memberId = await _door.roster.createGroupMember(
+        group.id,
+        c,
+        asLite: asLite,
+      );
+      if (BotCardSnapshot.fromCard(c) case final arrivalBot?) {
+        botSettings.groupBots[memberId] = arrivalBot;
+      }
     }
 
     // Create a new session for the group and copy all messages
@@ -198,7 +212,9 @@ class GroupFork {
       final m = _session.messages[i];
       // Back-fill characterId on AI messages (null in 1:1 mode)
       String? charId = m.characterId;
-      if (!m.isUser && charId == null) {
+      if (m.isBotProse && (charId == null || charId == originalCharId)) {
+        charId = hostMemberId;
+      } else if (!m.isUser && charId == null) {
         charId = originalCharId;
       }
       copiedMessages.add(
@@ -237,6 +253,7 @@ class GroupFork {
       SessionsCompanion.insert(
         id: newSessionId,
         groupId: drift.Value(group.id),
+        generationSettings: drift.Value(botSettings.toJsonString()),
         name: drift.Value(_store.sessionName),
         description: drift.Value(_store.sessionDescription),
         authorNote: drift.Value(_store.authorNote),

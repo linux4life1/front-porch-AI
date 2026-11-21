@@ -447,6 +447,9 @@ class NewChatOpener {
             sender: greetingSender,
             isUser: false,
             characterId: greetingCharId,
+            metadata: botOpeningMetadata(
+              _store.genSettings.groupBots[greetingCharId],
+            ),
           ),
         );
         _lorebookScanner.scanLatest();
@@ -478,6 +481,7 @@ class NewChatOpener {
               greetingText: opening.first,
             ),
             sender: _session.activeCharacter!.name,
+            metadata: botOpeningMetadata(_store.genSettings.soloBot),
             isUser: false,
           ),
         );

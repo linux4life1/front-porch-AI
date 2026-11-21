@@ -19,6 +19,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/bot_card_type_field.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -188,6 +189,18 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
+                  BotCardTypeField(
+                    bot: d.isBot,
+                    unsupported: d.unsupportedCardMode,
+                    onChanged: (value) {
+                      d.isBot = value;
+                      d.updateTokenCount();
+                      onChanged();
+                    },
+                  ),
+                  const Text(botNewChatHelp),
+                  if (member != null) const Text(botGroupScopeHelp),
+                  const SizedBox(height: 16),
                   // A group member's copy keeps no title (its row has no
                   // place for one, and it has no library tile to show it on).
                   if (member == null) ...[
@@ -259,10 +272,12 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(
                     controller: d.descriptionController,
-                    label: 'Description',
+                    label: d.isBot ? 'Role' : 'Description',
                     maxLines: 4,
                     expandable: true,
-                    hint: 'Physical appearance, backstory, key traits...',
+                    hint: d.isBot
+                        ? 'For example, a study coach who helps plan practice.'
+                        : 'Physical appearance, backstory, key traits...',
                   ),
                   const SizedBox(height: 16),
                   kit.styledField(
@@ -270,19 +285,31 @@ class EditCharacterDetailsTab extends StatelessWidget {
                     label: 'Personality',
                     maxLines: 3,
                     expandable: true,
-                    hint: 'How they act, speak, think...',
+                    hint: d.isBot
+                        ? 'Tone, habits, and speaking style...'
+                        : 'How they act, speak, think...',
                   ),
                   const SizedBox(height: 16),
                   kit.styledField(
                     controller: d.scenarioController,
-                    label: 'Scenario',
+                    label: d.isBot ? 'Scope' : 'Scenario',
                     maxLines: 3,
                     expandable: true,
                     hint: 'The setting, situation, or context...',
+                    help: d.isBot ? botScopeHelp : null,
                   ),
                 ],
               ),
               const SizedBox(height: 20),
+
+              if (d.isBot)
+                kit.styledField(
+                  controller: d.behaviorController,
+                  label: 'Behavior instructions',
+                  maxLines: 3,
+                  hint: 'For example, ask one question at a time.',
+                  help: botInstructionsHelp,
+                ),
 
               // ── Advanced Prompts ──
               kit.sectionCard(

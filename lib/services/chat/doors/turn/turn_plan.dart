@@ -135,7 +135,12 @@ class TurnPlan {
       final ruleUser = safeUser.isEmpty ? 'the user' : safeUser;
       // A group names the speaker and bans the whole rest of the cast, not
       // just the user (who is not in a directed scene at all).
-      if (_activeGroup != null) {
+      if (t.speaksAsBot) {
+        t.suffix =
+            '\n[Continue the exact reply below in the Bot’s voice. '
+            'Add only the continuation, without a speaker label.]\n'
+            '${padContinuePartial(partial)}';
+      } else if (_activeGroup != null) {
         final speaker = t.speakingCharacter.name;
         t.suffix =
             groupContinueRule(
@@ -194,7 +199,15 @@ class TurnPlan {
       macroCtx,
       section: 'scenario',
     );
-    if (_activeGroup == null && t.mesExampleBlock.isNotEmpty) {
+    if (t.speaksAsBot) {
+      t.speakerCardBlock = _macroResolver.resolve(
+        t.speakerCardBlock,
+        macroCtx,
+        section: 'speaker',
+      );
+    }
+    if ((_activeGroup == null || t.speaksAsBot) &&
+        t.mesExampleBlock.isNotEmpty) {
       t.mesExampleBlock = _macroResolver.resolve(
         t.mesExampleBlock,
         macroCtx,

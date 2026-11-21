@@ -414,6 +414,7 @@ class ChatEntry {
                   greetingText: opening.first,
                 ),
                 sender: _session.activeCharacter!.name,
+                metadata: botOpeningMetadata(_store.genSettings.soloBot),
                 isUser: false,
               ),
             );

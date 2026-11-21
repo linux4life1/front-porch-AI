@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/chat_defaults.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_deps.dart';
+import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -70,14 +71,24 @@ class PromptSource {
   /// The 1:1 base chain with the per-chat source applied. Shared by the
   /// generation, impersonation, and budget-estimate paths so the live
   /// estimate always matches the sent prompt.
-  String resolveOneToOneBase(CharacterCard card) {
-    if (_promptSourceOverride == 'user') {
-      final fallback = _storageService.generationSettings.systemPrompt;
-      return fallback.isNotEmpty ? fallback : defaultApiSystemPrompt;
+  String resolveOneToOneBase(CharacterCard card, {bool bot = false}) {
+    if (_promptSourceOverride != 'user' && card.systemPrompt.isNotEmpty) {
+      return card.systemPrompt;
     }
-    if (card.systemPrompt.isNotEmpty) return card.systemPrompt;
     final fallback = _storageService.generationSettings.systemPrompt;
+    if (bot &&
+        (fallback.trim().isEmpty ||
+            fallback.trim() == GenerationSettings.defaultSystemPrompt)) {
+      return '';
+    }
     return fallback.isNotEmpty ? fallback : defaultApiSystemPrompt;
+  }
+
+  String get sharedGroupScenario {
+    final own = _activeGroup?.scenario ?? '';
+    if (own.isNotEmpty) return own;
+    final first = _session.groupCharacters.firstOrNull;
+    return _sessions.botFor(first) == null ? first?.scenario ?? '' : '';
   }
 
   /// The character key whose new 1:1 chat is waiting on the picker, or

@@ -338,7 +338,7 @@ const TranscriptRows = memo(function TranscriptRows({
                     />
                   )}
                   {m.text ? (
-                    <MessageContent text={m.text} find={find} msgIndex={m.index} />
+                    <MessageContent text={m.text} plainProse={m.botProse} find={find} msgIndex={m.index} />
                   ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
                     <span className="muted small">
                       💭 Only thoughts this turn — Continue or Regenerate for a
@@ -412,7 +412,7 @@ const TranscriptRows = memo(function TranscriptRows({
                 />
               )}
               {m.text ? (
-                <MessageContent text={m.text} find={find} msgIndex={m.index} />
+                <MessageContent text={m.text} plainProse={m.botProse} find={find} msgIndex={m.index} />
               ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
                 // Thought-only reply (the model spent its whole turn inside a
                 // <think> block): say so instead of a bare empty bubble.

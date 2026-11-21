@@ -148,10 +148,8 @@ class Impersonator {
       // else the anchor member's original one.
       String rawScenario = '';
       if (_activeGroup != null) {
-        rawScenario = _activeGroup!.scenario.isNotEmpty
-            ? _activeGroup!.scenario
-            : (_groupCharacters.firstOrNull?.scenario ?? '');
-      } else {
+        rawScenario = _p.source.sharedGroupScenario;
+      } else if (_d.sessions().botFor(speakingCharacter) == null) {
         rawScenario = _s.graph().growthDesk.effectiveScenario(
           speakingCharacter,
         );
