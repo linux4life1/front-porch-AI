@@ -170,4 +170,39 @@ void main() {
     final row = await ringRow("id = 'rBad'");
     expect(row['created_at'] as int, greaterThan(0));
   });
+
+  test('v68 adds the bogey columns and the moments queue', () async {
+    // setUp built the raw v36 table, so the v68 columns are genuinely absent
+    // (the in-memory createAll path would hide that).
+    await db.customStatement('DROP TABLE IF EXISTS growth_moments');
+    await db.migration.onUpgrade(Migrator(db), 67, 68);
+
+    final cols = await db.customSelect('PRAGMA table_info(growth_rings)').get();
+    final names = [for (final c in cols) c.data['name'] as String];
+    expect(
+      names,
+      containsAll(const [
+        'advance_count',
+        'bogey_pressure',
+        'bogey_cooldown',
+        'bogey_pending',
+        'bogey_delivered',
+        'master_declined',
+      ]),
+    );
+    final tables = await db
+        .customSelect(
+          "SELECT name FROM sqlite_master "
+          "WHERE type = 'table' AND name = 'growth_moments'",
+        )
+        .get();
+    expect(tables, isNotEmpty);
+
+    // Re-running is a no-op, never a crash (the silent-catch contract).
+    await db.migration.onUpgrade(Migrator(db), 67, 68);
+    expect(
+      (await db.customSelect('PRAGMA table_info(growth_rings)').get()).length,
+      names.length,
+    );
+  });
 }

@@ -131,7 +131,7 @@ extension RealismMemoryWiring on RealismGraph {
     );
   }
 
-  // ── Growth Rings (docs/design/growth-rings.md) ──
+  // ── Growth Rings (docs/design/boons-and-bogies.md) ──
   // Per-chat, per-character growth entries — replaced EvolutionService's
   // whole-personality rewrites (the evolved* session columns are dormant;
   // their content is distilled into rings by the first growth pass). Rings
@@ -186,6 +186,8 @@ extension RealismMemoryWiring on RealismGraph {
       store: growthStore,
       getSessionId: () => session.currentSessionId,
       getIsGroup: () => session.activeGroup != null,
+      getBoonsBogiesEnabled: () =>
+          _storageService.memorySettings.boonsBogiesEnabled,
       onApplied: () => growthDesk.refreshCache(),
       onNotify: deps.notify,
     );
@@ -218,6 +220,8 @@ extension RealismMemoryWiring on RealismGraph {
       getGrowthEnabled: () =>
           _storageService.memorySettings.characterEvolutionEnabled,
       getReviewFirst: () => _storageService.memorySettings.growthReviewFirst,
+      getBoonsBogiesEnabled: () =>
+          _storageService.memorySettings.boonsBogiesEnabled,
       getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => growthPassRunning,
       setIsPassRunning: (v) => growthPassRunning = v,

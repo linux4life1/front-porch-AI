@@ -1,0 +1,4268 @@
+{
+  "note": "Chaos Mode pressure roll, captured from ChaosModeService at 7303ae149 (schema v67) BEFORE the PressureRoll extraction. One entry per user turn; on a fire the event was applied, so pressure reads 0 and cooldown the frequency value. The guard test must reproduce these exactly or the extraction changed a roll.",
+  "scenarios": [
+    {
+      "name": "rare",
+      "base": 2,
+      "growth": 2,
+      "cooldown": 4,
+      "seed": 7,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 22,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 22,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 24,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 22,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 24,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 26,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "normal",
+      "base": 5,
+      "growth": 5,
+      "cooldown": 2,
+      "seed": 7,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "wild",
+      "base": 10,
+      "growth": 10,
+      "cooldown": 0,
+      "seed": 7,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 60,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 70,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "rare",
+      "base": 2,
+      "growth": 2,
+      "cooldown": 4,
+      "seed": 99,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 22,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 24,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 26,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 12,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 14,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 16,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 18,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 2,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 4,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 6,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 8,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 4
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 3
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "normal",
+      "base": 5,
+      "growth": 5,
+      "cooldown": 2,
+      "seed": 99,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 45,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 45,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "normal",
+      "base": 5,
+      "growth": 5,
+      "cooldown": 2,
+      "seed": 1234,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 35,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 5,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 15,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 25,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 2
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 1
+        },
+        {
+          "fired": false,
+          "pressure": 0,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "name": "wild",
+      "base": 10,
+      "growth": 10,
+      "cooldown": 0,
+      "seed": 1234,
+      "turns": [
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 60,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 60,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 50,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 60,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 30,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 40,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 20,
+          "cooldown": 0
+        },
+        {
+          "fired": true,
+          "pressure": 0,
+          "cooldown": 0
+        },
+        {
+          "fired": false,
+          "pressure": 10,
+          "cooldown": 0
+        }
+      ]
+    }
+  ]
+}

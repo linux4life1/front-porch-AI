@@ -17,8 +17,15 @@
 // Callback contract note for future extractors: all on*/get* passed at construction must be
 // exercised (current coverage: notify, save, setPendingRealismMetadata).
 
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/group_member_realism.dart';
+import 'package:front_porch_ai/services/chat/pressure_roll.dart';
 
 /// Test factory to reduce callback boilerplate (modeled exactly on needs_simulation_test).
 /// Supplies realistic defaults; override for targeted scenarios (e.g. enabled state, nsfw).
@@ -182,6 +189,166 @@ void main() {
       expect(ChaosModeService.pressureCap, 100);
       expect(ChaosModeService.chanceTimeEventPool.length, greaterThan(100));
       expect(ChaosModeService.chanceTimeNsfwPool.length, greaterThan(20));
+    });
+  });
+
+  // The PressureRoll extraction (docs/design/boons-and-bogies.md phase 1)
+  // moved the grow → roll → cooldown math out of ChaosModeService. These
+  // vectors were captured from the pre-extraction service; any change to the
+  // numbers, the clamp order or the number of random draws shifts the
+  // sequence and fails here — chaos stays bit-for-bit unchanged.
+  group('PressureRoll golden vectors (Chaos Mode bit-for-bit)', () {
+    final fixture =
+        jsonDecode(
+              File(
+                'test/fixtures/chaos/pressure_roll_vectors.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final scenarios = (fixture['scenarios'] as List)
+        .cast<Map<String, dynamic>>();
+
+    test('fixture covers every frequency with several seeds', () {
+      expect(scenarios.length, greaterThanOrEqualTo(6));
+      expect(
+        scenarios.map((s) => s['name']).toSet(),
+        containsAll(<String>['rare', 'normal', 'wild']),
+      );
+    });
+
+    for (final scenario in scenarios) {
+      test(
+        '${scenario['name']} seed ${scenario['seed']} replays exactly',
+        () async {
+          final freq = ChaosFrequency.fromName(scenario['name'] as String);
+          final turns = (scenario['turns'] as List)
+              .cast<Map<String, dynamic>>();
+          final svc = ChaosModeService(
+            onNotify: () {},
+            onSaveChat: () async {},
+            onSetPendingRealismMetadata: (_, _) {},
+            getFrequency: () => freq,
+            random: Random(scenario['seed'] as int),
+          )..setModeEnabled(true);
+
+          for (var i = 0; i < turns.length; i++) {
+            final fired = svc.checkAndTickChaosPressure();
+            if (fired) await svc.applyPreparedEvent('capture event');
+            expect(fired, turns[i]['fired'], reason: 'turn $i fired');
+            expect(
+              svc.chaosPressure,
+              turns[i]['pressure'],
+              reason: 'turn $i pressure',
+            );
+            expect(
+              svc.cooldownTurns,
+              turns[i]['cooldown'],
+              reason: 'turn $i cooldown',
+            );
+          }
+        },
+      );
+    }
+  });
+
+  group('PressureRoll draw order', () {
+    test('a fixed growth range consumes exactly the roll draw', () {
+      // The old inline loop drew one nextInt(100) per live turn. An extra
+      // draw for a fixed growth range would make this differ from the twin.
+      final twin = Random(4242);
+      final expected = twin.nextInt(PressureRoll.rollScale);
+      final tick = PressureRoll.tick(
+        base: 5,
+        growthMin: 5,
+        growthMax: 5,
+        pressureCap: 100,
+        chanceCap: 100,
+        pressure: 0,
+        cooldown: 0,
+        random: Random(4242),
+      );
+      expect(tick.roll, expected);
+      expect(tick.pressure, 5);
+    });
+
+    test('a cooldown turn draws nothing and holds pressure', () {
+      final tick = PressureRoll.tick(
+        base: 5,
+        growthMin: 5,
+        growthMax: 5,
+        pressureCap: 100,
+        chanceCap: 100,
+        pressure: 40,
+        cooldown: 3,
+        random: Random(1),
+      );
+      expect(tick.fired, isFalse);
+      expect(tick.pressure, 40);
+      expect(tick.cooldown, 2);
+      expect(tick.roll, isNull);
+    });
+
+    test('jittered growth and cooldown stay inside their ranges', () {
+      final rnd = Random(11);
+      for (var i = 0; i < 500; i++) {
+        final t = PressureRoll.tick(
+          base: 3,
+          growthMin: 2,
+          growthMax: 6,
+          pressureCap: 100,
+          chanceCap: 45,
+          pressure: 0,
+          cooldown: 0,
+          random: rnd,
+        );
+        expect(t.pressure, inInclusiveRange(2, 6));
+        expect(
+          PressureRoll.cooldownAfterFire(min: 1, max: 3, random: rnd),
+          inInclusiveRange(1, 3),
+        );
+      }
+    });
+
+    test('the chance ceiling clamps without shrinking the roll scale', () {
+      final tick = PressureRoll.tick(
+        base: 3,
+        growthMin: 4,
+        growthMax: 4,
+        pressureCap: 100,
+        chanceCap: 45,
+        pressure: 99,
+        cooldown: 0,
+        random: Random(0),
+      );
+      expect(tick.pressure, 100);
+      // Chance would be 103, capped to 45 — a 45% roll on the 0–99 scale.
+      expect(tick.fired, tick.roll! < 45);
+    });
+
+    test('the group member twin replays the scalar sequence', () async {
+      ChaosModeService build() => ChaosModeService(
+        onNotify: () {},
+        onSaveChat: () async {},
+        onSetPendingRealismMetadata: (_, _) {},
+        getFrequency: () => ChaosFrequency.normal,
+        random: Random(777),
+      );
+
+      final scalar = build()..setModeEnabled(true);
+      final memberSvc = build();
+      final bag = GroupMemberRealism()..chaosSwitch = true;
+
+      for (var i = 0; i < 80; i++) {
+        final a = scalar.checkAndTickChaosPressure();
+        final b = memberSvc.checkAndTickMember(bag);
+        expect(b, a, reason: 'turn $i fired');
+        expect(bag.chaosPressure, scalar.chaosPressure, reason: 'turn $i');
+        expect(bag.chaosCooldown, scalar.cooldownTurns, reason: 'turn $i');
+        if (a) {
+          await scalar.applyPreparedEvent('x');
+          await memberSvc.applyPreparedEventMember(bag, 'x');
+        }
+      }
     });
   });
 }

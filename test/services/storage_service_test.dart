@@ -817,11 +817,31 @@ void main() {
       final svc = await createStorageService();
       await svc.memorySettings.setGrowthInterval(
         1,
-      ); // should clamp to 2 (growth-rings §6)
+      ); // should clamp to 2 (boons-and-bogies)
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('growth_interval'), 2);
       await svc.memorySettings.setGrowthInterval(50); // and down to 20
       expect(prefs.getInt('growth_interval'), 20);
+    });
+  });
+
+  group('Boons & Bogies settings', () {
+    test('ships off with rolls and popups on', () async {
+      final svc = await createStorageService();
+      expect(svc.memorySettings.boonsBogiesEnabled, isFalse);
+      expect(svc.memorySettings.bogeyRollsEnabled, isTrue);
+      expect(svc.memorySettings.milestonePopupsEnabled, isTrue);
+    });
+
+    test('each switch persists to SharedPreferences', () async {
+      final svc = await createStorageService();
+      await svc.memorySettings.setBoonsBogiesEnabled(true);
+      await svc.memorySettings.setBogeyRollsEnabled(false);
+      await svc.memorySettings.setMilestonePopupsEnabled(false);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('boons_bogies_enabled'), true);
+      expect(prefs.getBool('bogey_rolls_enabled'), false);
+      expect(prefs.getBool('milestone_popups_enabled'), false);
     });
   });
 

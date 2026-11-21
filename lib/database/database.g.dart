@@ -13312,6 +13312,83 @@ class $GrowthRingsTable extends GrowthRings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _advanceCountMeta = const VerificationMeta(
+    'advanceCount',
+  );
+  @override
+  late final GeneratedColumn<int> advanceCount = GeneratedColumn<int>(
+    'advance_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _bogeyPressureMeta = const VerificationMeta(
+    'bogeyPressure',
+  );
+  @override
+  late final GeneratedColumn<int> bogeyPressure = GeneratedColumn<int>(
+    'bogey_pressure',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _bogeyCooldownMeta = const VerificationMeta(
+    'bogeyCooldown',
+  );
+  @override
+  late final GeneratedColumn<int> bogeyCooldown = GeneratedColumn<int>(
+    'bogey_cooldown',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _bogeyPendingMeta = const VerificationMeta(
+    'bogeyPending',
+  );
+  @override
+  late final GeneratedColumn<String> bogeyPending = GeneratedColumn<String>(
+    'bogey_pending',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bogeyDeliveredMeta = const VerificationMeta(
+    'bogeyDelivered',
+  );
+  @override
+  late final GeneratedColumn<bool> bogeyDelivered = GeneratedColumn<bool>(
+    'bogey_delivered',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("bogey_delivered" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _masterDeclinedMeta = const VerificationMeta(
+    'masterDeclined',
+  );
+  @override
+  late final GeneratedColumn<bool> masterDeclined = GeneratedColumn<bool>(
+    'master_declined',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("master_declined" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -13327,6 +13404,12 @@ class $GrowthRingsTable extends GrowthRings
     lastReinforcedAt,
     updatedAt,
     metadata,
+    advanceCount,
+    bogeyPressure,
+    bogeyCooldown,
+    bogeyPending,
+    bogeyDelivered,
+    masterDeclined,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -13432,6 +13515,60 @@ class $GrowthRingsTable extends GrowthRings
         metadata.isAcceptableOrUnknown(data['metadata']!, _metadataMeta),
       );
     }
+    if (data.containsKey('advance_count')) {
+      context.handle(
+        _advanceCountMeta,
+        advanceCount.isAcceptableOrUnknown(
+          data['advance_count']!,
+          _advanceCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bogey_pressure')) {
+      context.handle(
+        _bogeyPressureMeta,
+        bogeyPressure.isAcceptableOrUnknown(
+          data['bogey_pressure']!,
+          _bogeyPressureMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bogey_cooldown')) {
+      context.handle(
+        _bogeyCooldownMeta,
+        bogeyCooldown.isAcceptableOrUnknown(
+          data['bogey_cooldown']!,
+          _bogeyCooldownMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bogey_pending')) {
+      context.handle(
+        _bogeyPendingMeta,
+        bogeyPending.isAcceptableOrUnknown(
+          data['bogey_pending']!,
+          _bogeyPendingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('bogey_delivered')) {
+      context.handle(
+        _bogeyDeliveredMeta,
+        bogeyDelivered.isAcceptableOrUnknown(
+          data['bogey_delivered']!,
+          _bogeyDeliveredMeta,
+        ),
+      );
+    }
+    if (data.containsKey('master_declined')) {
+      context.handle(
+        _masterDeclinedMeta,
+        masterDeclined.isAcceptableOrUnknown(
+          data['master_declined']!,
+          _masterDeclinedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -13493,6 +13630,30 @@ class $GrowthRingsTable extends GrowthRings
         DriftSqlType.string,
         data['${effectivePrefix}metadata'],
       ),
+      advanceCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}advance_count'],
+      )!,
+      bogeyPressure: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bogey_pressure'],
+      )!,
+      bogeyCooldown: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}bogey_cooldown'],
+      )!,
+      bogeyPending: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bogey_pending'],
+      ),
+      bogeyDelivered: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}bogey_delivered'],
+      )!,
+      masterDeclined: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}master_declined'],
+      )!,
     );
   }
 
@@ -13519,6 +13680,31 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
   final DateTime lastReinforcedAt;
   final DateTime updatedAt;
   final String? metadata;
+
+  /// Advancement evidence. A boon counts growth passes that used it (3 →
+  /// Skilled, 8 → Master); a bogey counts the times it actually fired
+  /// (4 → Skilled, 12 → Master).
+  final int advanceCount;
+
+  /// Bogey roll gauge, 0..100. Written ONLY by the roll gauge writer —
+  /// never by the content applier.
+  final int bogeyPressure;
+
+  /// Replies left before this bogey can roll again.
+  final int bogeyCooldown;
+
+  /// The injected sentence for the reply being generated. A soft nudge, not
+  /// an event; cleared on the next user turn.
+  final String? bogeyPending;
+
+  /// True once [bogeyPending] reached a generation. Regen and swipe re-inject
+  /// the same bogey until the slot clears (the chaos delivered-flag pattern).
+  final bool bogeyDelivered;
+
+  /// A Master proposal the user rejected never nags again. A boon latches
+  /// permanently; a bogey may re-raise only after its count falls below 4
+  /// and climbs back to 12.
+  final bool masterDeclined;
   const GrowthRingData({
     required this.id,
     required this.sessionId,
@@ -13533,6 +13719,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
     required this.lastReinforcedAt,
     required this.updatedAt,
     this.metadata,
+    required this.advanceCount,
+    required this.bogeyPressure,
+    required this.bogeyCooldown,
+    this.bogeyPending,
+    required this.bogeyDelivered,
+    required this.masterDeclined,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -13554,6 +13746,14 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
     if (!nullToAbsent || metadata != null) {
       map['metadata'] = Variable<String>(metadata);
     }
+    map['advance_count'] = Variable<int>(advanceCount);
+    map['bogey_pressure'] = Variable<int>(bogeyPressure);
+    map['bogey_cooldown'] = Variable<int>(bogeyCooldown);
+    if (!nullToAbsent || bogeyPending != null) {
+      map['bogey_pending'] = Variable<String>(bogeyPending);
+    }
+    map['bogey_delivered'] = Variable<bool>(bogeyDelivered);
+    map['master_declined'] = Variable<bool>(masterDeclined);
     return map;
   }
 
@@ -13576,6 +13776,14 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
       metadata: metadata == null && nullToAbsent
           ? const Value.absent()
           : Value(metadata),
+      advanceCount: Value(advanceCount),
+      bogeyPressure: Value(bogeyPressure),
+      bogeyCooldown: Value(bogeyCooldown),
+      bogeyPending: bogeyPending == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bogeyPending),
+      bogeyDelivered: Value(bogeyDelivered),
+      masterDeclined: Value(masterDeclined),
     );
   }
 
@@ -13598,6 +13806,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
       lastReinforcedAt: serializer.fromJson<DateTime>(json['lastReinforcedAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       metadata: serializer.fromJson<String?>(json['metadata']),
+      advanceCount: serializer.fromJson<int>(json['advanceCount']),
+      bogeyPressure: serializer.fromJson<int>(json['bogeyPressure']),
+      bogeyCooldown: serializer.fromJson<int>(json['bogeyCooldown']),
+      bogeyPending: serializer.fromJson<String?>(json['bogeyPending']),
+      bogeyDelivered: serializer.fromJson<bool>(json['bogeyDelivered']),
+      masterDeclined: serializer.fromJson<bool>(json['masterDeclined']),
     );
   }
   @override
@@ -13617,6 +13831,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
       'lastReinforcedAt': serializer.toJson<DateTime>(lastReinforcedAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'metadata': serializer.toJson<String?>(metadata),
+      'advanceCount': serializer.toJson<int>(advanceCount),
+      'bogeyPressure': serializer.toJson<int>(bogeyPressure),
+      'bogeyCooldown': serializer.toJson<int>(bogeyCooldown),
+      'bogeyPending': serializer.toJson<String?>(bogeyPending),
+      'bogeyDelivered': serializer.toJson<bool>(bogeyDelivered),
+      'masterDeclined': serializer.toJson<bool>(masterDeclined),
     };
   }
 
@@ -13634,6 +13854,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
     DateTime? lastReinforcedAt,
     DateTime? updatedAt,
     Value<String?> metadata = const Value.absent(),
+    int? advanceCount,
+    int? bogeyPressure,
+    int? bogeyCooldown,
+    Value<String?> bogeyPending = const Value.absent(),
+    bool? bogeyDelivered,
+    bool? masterDeclined,
   }) => GrowthRingData(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -13650,6 +13876,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
     lastReinforcedAt: lastReinforcedAt ?? this.lastReinforcedAt,
     updatedAt: updatedAt ?? this.updatedAt,
     metadata: metadata.present ? metadata.value : this.metadata,
+    advanceCount: advanceCount ?? this.advanceCount,
+    bogeyPressure: bogeyPressure ?? this.bogeyPressure,
+    bogeyCooldown: bogeyCooldown ?? this.bogeyCooldown,
+    bogeyPending: bogeyPending.present ? bogeyPending.value : this.bogeyPending,
+    bogeyDelivered: bogeyDelivered ?? this.bogeyDelivered,
+    masterDeclined: masterDeclined ?? this.masterDeclined,
   );
   GrowthRingData copyWithCompanion(GrowthRingsCompanion data) {
     return GrowthRingData(
@@ -13672,6 +13904,24 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
           : this.lastReinforcedAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       metadata: data.metadata.present ? data.metadata.value : this.metadata,
+      advanceCount: data.advanceCount.present
+          ? data.advanceCount.value
+          : this.advanceCount,
+      bogeyPressure: data.bogeyPressure.present
+          ? data.bogeyPressure.value
+          : this.bogeyPressure,
+      bogeyCooldown: data.bogeyCooldown.present
+          ? data.bogeyCooldown.value
+          : this.bogeyCooldown,
+      bogeyPending: data.bogeyPending.present
+          ? data.bogeyPending.value
+          : this.bogeyPending,
+      bogeyDelivered: data.bogeyDelivered.present
+          ? data.bogeyDelivered.value
+          : this.bogeyDelivered,
+      masterDeclined: data.masterDeclined.present
+          ? data.masterDeclined.value
+          : this.masterDeclined,
     );
   }
 
@@ -13690,7 +13940,13 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
           ..write('createdAt: $createdAt, ')
           ..write('lastReinforcedAt: $lastReinforcedAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('metadata: $metadata')
+          ..write('metadata: $metadata, ')
+          ..write('advanceCount: $advanceCount, ')
+          ..write('bogeyPressure: $bogeyPressure, ')
+          ..write('bogeyCooldown: $bogeyCooldown, ')
+          ..write('bogeyPending: $bogeyPending, ')
+          ..write('bogeyDelivered: $bogeyDelivered, ')
+          ..write('masterDeclined: $masterDeclined')
           ..write(')'))
         .toString();
   }
@@ -13710,6 +13966,12 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
     lastReinforcedAt,
     updatedAt,
     metadata,
+    advanceCount,
+    bogeyPressure,
+    bogeyCooldown,
+    bogeyPending,
+    bogeyDelivered,
+    masterDeclined,
   );
   @override
   bool operator ==(Object other) =>
@@ -13727,7 +13989,13 @@ class GrowthRingData extends DataClass implements Insertable<GrowthRingData> {
           other.createdAt == this.createdAt &&
           other.lastReinforcedAt == this.lastReinforcedAt &&
           other.updatedAt == this.updatedAt &&
-          other.metadata == this.metadata);
+          other.metadata == this.metadata &&
+          other.advanceCount == this.advanceCount &&
+          other.bogeyPressure == this.bogeyPressure &&
+          other.bogeyCooldown == this.bogeyCooldown &&
+          other.bogeyPending == this.bogeyPending &&
+          other.bogeyDelivered == this.bogeyDelivered &&
+          other.masterDeclined == this.masterDeclined);
 }
 
 class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
@@ -13744,6 +14012,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
   final Value<DateTime> lastReinforcedAt;
   final Value<DateTime> updatedAt;
   final Value<String?> metadata;
+  final Value<int> advanceCount;
+  final Value<int> bogeyPressure;
+  final Value<int> bogeyCooldown;
+  final Value<String?> bogeyPending;
+  final Value<bool> bogeyDelivered;
+  final Value<bool> masterDeclined;
   final Value<int> rowid;
   const GrowthRingsCompanion({
     this.id = const Value.absent(),
@@ -13759,6 +14033,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
     this.lastReinforcedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.metadata = const Value.absent(),
+    this.advanceCount = const Value.absent(),
+    this.bogeyPressure = const Value.absent(),
+    this.bogeyCooldown = const Value.absent(),
+    this.bogeyPending = const Value.absent(),
+    this.bogeyDelivered = const Value.absent(),
+    this.masterDeclined = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GrowthRingsCompanion.insert({
@@ -13775,6 +14055,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
     this.lastReinforcedAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.metadata = const Value.absent(),
+    this.advanceCount = const Value.absent(),
+    this.bogeyPressure = const Value.absent(),
+    this.bogeyCooldown = const Value.absent(),
+    this.bogeyPending = const Value.absent(),
+    this.bogeyDelivered = const Value.absent(),
+    this.masterDeclined = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -13794,6 +14080,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
     Expression<DateTime>? lastReinforcedAt,
     Expression<DateTime>? updatedAt,
     Expression<String>? metadata,
+    Expression<int>? advanceCount,
+    Expression<int>? bogeyPressure,
+    Expression<int>? bogeyCooldown,
+    Expression<String>? bogeyPending,
+    Expression<bool>? bogeyDelivered,
+    Expression<bool>? masterDeclined,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -13810,6 +14102,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
       if (lastReinforcedAt != null) 'last_reinforced_at': lastReinforcedAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (metadata != null) 'metadata': metadata,
+      if (advanceCount != null) 'advance_count': advanceCount,
+      if (bogeyPressure != null) 'bogey_pressure': bogeyPressure,
+      if (bogeyCooldown != null) 'bogey_cooldown': bogeyCooldown,
+      if (bogeyPending != null) 'bogey_pending': bogeyPending,
+      if (bogeyDelivered != null) 'bogey_delivered': bogeyDelivered,
+      if (masterDeclined != null) 'master_declined': masterDeclined,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -13828,6 +14126,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
     Value<DateTime>? lastReinforcedAt,
     Value<DateTime>? updatedAt,
     Value<String?>? metadata,
+    Value<int>? advanceCount,
+    Value<int>? bogeyPressure,
+    Value<int>? bogeyCooldown,
+    Value<String?>? bogeyPending,
+    Value<bool>? bogeyDelivered,
+    Value<bool>? masterDeclined,
     Value<int>? rowid,
   }) {
     return GrowthRingsCompanion(
@@ -13844,6 +14148,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
       lastReinforcedAt: lastReinforcedAt ?? this.lastReinforcedAt,
       updatedAt: updatedAt ?? this.updatedAt,
       metadata: metadata ?? this.metadata,
+      advanceCount: advanceCount ?? this.advanceCount,
+      bogeyPressure: bogeyPressure ?? this.bogeyPressure,
+      bogeyCooldown: bogeyCooldown ?? this.bogeyCooldown,
+      bogeyPending: bogeyPending ?? this.bogeyPending,
+      bogeyDelivered: bogeyDelivered ?? this.bogeyDelivered,
+      masterDeclined: masterDeclined ?? this.masterDeclined,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -13890,6 +14200,24 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
     if (metadata.present) {
       map['metadata'] = Variable<String>(metadata.value);
     }
+    if (advanceCount.present) {
+      map['advance_count'] = Variable<int>(advanceCount.value);
+    }
+    if (bogeyPressure.present) {
+      map['bogey_pressure'] = Variable<int>(bogeyPressure.value);
+    }
+    if (bogeyCooldown.present) {
+      map['bogey_cooldown'] = Variable<int>(bogeyCooldown.value);
+    }
+    if (bogeyPending.present) {
+      map['bogey_pending'] = Variable<String>(bogeyPending.value);
+    }
+    if (bogeyDelivered.present) {
+      map['bogey_delivered'] = Variable<bool>(bogeyDelivered.value);
+    }
+    if (masterDeclined.present) {
+      map['master_declined'] = Variable<bool>(masterDeclined.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -13912,6 +14240,12 @@ class GrowthRingsCompanion extends UpdateCompanion<GrowthRingData> {
           ..write('lastReinforcedAt: $lastReinforcedAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('metadata: $metadata, ')
+          ..write('advanceCount: $advanceCount, ')
+          ..write('bogeyPressure: $bogeyPressure, ')
+          ..write('bogeyCooldown: $bogeyCooldown, ')
+          ..write('bogeyPending: $bogeyPending, ')
+          ..write('bogeyDelivered: $bogeyDelivered, ')
+          ..write('masterDeclined: $masterDeclined, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -14125,6 +14459,522 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
     return (StringBuffer('GrowthStateCompanion(')
           ..write('sessionId: $sessionId, ')
           ..write('cursor: $cursor, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GrowthMomentsTable extends GrowthMoments
+    with TableInfo<$GrowthMomentsTable, GrowthMomentData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GrowthMomentsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _characterIdMeta = const VerificationMeta(
+    'characterId',
+  );
+  @override
+  late final GeneratedColumn<String> characterId = GeneratedColumn<String>(
+    'character_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ringIdMeta = const VerificationMeta('ringId');
+  @override
+  late final GeneratedColumn<String> ringId = GeneratedColumn<String>(
+    'ring_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _kindMeta = const VerificationMeta('kind');
+  @override
+  late final GeneratedColumn<String> kind = GeneratedColumn<String>(
+    'kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _tierMeta = const VerificationMeta('tier');
+  @override
+  late final GeneratedColumn<String> tier = GeneratedColumn<String>(
+    'tier',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _seenMeta = const VerificationMeta('seen');
+  @override
+  late final GeneratedColumn<bool> seen = GeneratedColumn<bool>(
+    'seen',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("seen" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    sessionId,
+    characterId,
+    ringId,
+    kind,
+    tier,
+    createdAt,
+    seen,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'growth_moments';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GrowthMomentData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('character_id')) {
+      context.handle(
+        _characterIdMeta,
+        characterId.isAcceptableOrUnknown(
+          data['character_id']!,
+          _characterIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_characterIdMeta);
+    }
+    if (data.containsKey('ring_id')) {
+      context.handle(
+        _ringIdMeta,
+        ringId.isAcceptableOrUnknown(data['ring_id']!, _ringIdMeta),
+      );
+    }
+    if (data.containsKey('kind')) {
+      context.handle(
+        _kindMeta,
+        kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_kindMeta);
+    }
+    if (data.containsKey('tier')) {
+      context.handle(
+        _tierMeta,
+        tier.isAcceptableOrUnknown(data['tier']!, _tierMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('seen')) {
+      context.handle(
+        _seenMeta,
+        seen.isAcceptableOrUnknown(data['seen']!, _seenMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  GrowthMomentData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GrowthMomentData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      characterId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}character_id'],
+      )!,
+      ringId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ring_id'],
+      ),
+      kind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kind'],
+      )!,
+      tier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tier'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      seen: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}seen'],
+      )!,
+    );
+  }
+
+  @override
+  $GrowthMomentsTable createAlias(String alias) {
+    return $GrowthMomentsTable(attachedDatabase, alias);
+  }
+}
+
+class GrowthMomentData extends DataClass
+    implements Insertable<GrowthMomentData> {
+  final String id;
+  final String sessionId;
+  final String characterId;
+
+  /// The ring the moment is about; kept even if the ring is later deleted.
+  final String? ringId;
+
+  /// new_boon / new_bogey / master_boon / master_bogey / overcome.
+  final String kind;
+
+  /// The tier reached (novice / skilled / master) when the moment is a
+  /// crossing; null for a plain add or overcome.
+  final String? tier;
+  final DateTime createdAt;
+  final bool seen;
+  const GrowthMomentData({
+    required this.id,
+    required this.sessionId,
+    required this.characterId,
+    this.ringId,
+    required this.kind,
+    this.tier,
+    required this.createdAt,
+    required this.seen,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['session_id'] = Variable<String>(sessionId);
+    map['character_id'] = Variable<String>(characterId);
+    if (!nullToAbsent || ringId != null) {
+      map['ring_id'] = Variable<String>(ringId);
+    }
+    map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || tier != null) {
+      map['tier'] = Variable<String>(tier);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['seen'] = Variable<bool>(seen);
+    return map;
+  }
+
+  GrowthMomentsCompanion toCompanion(bool nullToAbsent) {
+    return GrowthMomentsCompanion(
+      id: Value(id),
+      sessionId: Value(sessionId),
+      characterId: Value(characterId),
+      ringId: ringId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ringId),
+      kind: Value(kind),
+      tier: tier == null && nullToAbsent ? const Value.absent() : Value(tier),
+      createdAt: Value(createdAt),
+      seen: Value(seen),
+    );
+  }
+
+  factory GrowthMomentData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GrowthMomentData(
+      id: serializer.fromJson<String>(json['id']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      characterId: serializer.fromJson<String>(json['characterId']),
+      ringId: serializer.fromJson<String?>(json['ringId']),
+      kind: serializer.fromJson<String>(json['kind']),
+      tier: serializer.fromJson<String?>(json['tier']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      seen: serializer.fromJson<bool>(json['seen']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'characterId': serializer.toJson<String>(characterId),
+      'ringId': serializer.toJson<String?>(ringId),
+      'kind': serializer.toJson<String>(kind),
+      'tier': serializer.toJson<String?>(tier),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'seen': serializer.toJson<bool>(seen),
+    };
+  }
+
+  GrowthMomentData copyWith({
+    String? id,
+    String? sessionId,
+    String? characterId,
+    Value<String?> ringId = const Value.absent(),
+    String? kind,
+    Value<String?> tier = const Value.absent(),
+    DateTime? createdAt,
+    bool? seen,
+  }) => GrowthMomentData(
+    id: id ?? this.id,
+    sessionId: sessionId ?? this.sessionId,
+    characterId: characterId ?? this.characterId,
+    ringId: ringId.present ? ringId.value : this.ringId,
+    kind: kind ?? this.kind,
+    tier: tier.present ? tier.value : this.tier,
+    createdAt: createdAt ?? this.createdAt,
+    seen: seen ?? this.seen,
+  );
+  GrowthMomentData copyWithCompanion(GrowthMomentsCompanion data) {
+    return GrowthMomentData(
+      id: data.id.present ? data.id.value : this.id,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      characterId: data.characterId.present
+          ? data.characterId.value
+          : this.characterId,
+      ringId: data.ringId.present ? data.ringId.value : this.ringId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      tier: data.tier.present ? data.tier.value : this.tier,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      seen: data.seen.present ? data.seen.value : this.seen,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthMomentData(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('ringId: $ringId, ')
+          ..write('kind: $kind, ')
+          ..write('tier: $tier, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('seen: $seen')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    sessionId,
+    characterId,
+    ringId,
+    kind,
+    tier,
+    createdAt,
+    seen,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GrowthMomentData &&
+          other.id == this.id &&
+          other.sessionId == this.sessionId &&
+          other.characterId == this.characterId &&
+          other.ringId == this.ringId &&
+          other.kind == this.kind &&
+          other.tier == this.tier &&
+          other.createdAt == this.createdAt &&
+          other.seen == this.seen);
+}
+
+class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
+  final Value<String> id;
+  final Value<String> sessionId;
+  final Value<String> characterId;
+  final Value<String?> ringId;
+  final Value<String> kind;
+  final Value<String?> tier;
+  final Value<DateTime> createdAt;
+  final Value<bool> seen;
+  final Value<int> rowid;
+  const GrowthMomentsCompanion({
+    this.id = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.characterId = const Value.absent(),
+    this.ringId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.tier = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.seen = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GrowthMomentsCompanion.insert({
+    required String id,
+    required String sessionId,
+    required String characterId,
+    this.ringId = const Value.absent(),
+    required String kind,
+    this.tier = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.seen = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       sessionId = Value(sessionId),
+       characterId = Value(characterId),
+       kind = Value(kind);
+  static Insertable<GrowthMomentData> custom({
+    Expression<String>? id,
+    Expression<String>? sessionId,
+    Expression<String>? characterId,
+    Expression<String>? ringId,
+    Expression<String>? kind,
+    Expression<String>? tier,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? seen,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sessionId != null) 'session_id': sessionId,
+      if (characterId != null) 'character_id': characterId,
+      if (ringId != null) 'ring_id': ringId,
+      if (kind != null) 'kind': kind,
+      if (tier != null) 'tier': tier,
+      if (createdAt != null) 'created_at': createdAt,
+      if (seen != null) 'seen': seen,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GrowthMomentsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? sessionId,
+    Value<String>? characterId,
+    Value<String?>? ringId,
+    Value<String>? kind,
+    Value<String?>? tier,
+    Value<DateTime>? createdAt,
+    Value<bool>? seen,
+    Value<int>? rowid,
+  }) {
+    return GrowthMomentsCompanion(
+      id: id ?? this.id,
+      sessionId: sessionId ?? this.sessionId,
+      characterId: characterId ?? this.characterId,
+      ringId: ringId ?? this.ringId,
+      kind: kind ?? this.kind,
+      tier: tier ?? this.tier,
+      createdAt: createdAt ?? this.createdAt,
+      seen: seen ?? this.seen,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (characterId.present) {
+      map['character_id'] = Variable<String>(characterId.value);
+    }
+    if (ringId.present) {
+      map['ring_id'] = Variable<String>(ringId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(kind.value);
+    }
+    if (tier.present) {
+      map['tier'] = Variable<String>(tier.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (seen.present) {
+      map['seen'] = Variable<bool>(seen.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrowthMomentsCompanion(')
+          ..write('id: $id, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('characterId: $characterId, ')
+          ..write('ringId: $ringId, ')
+          ..write('kind: $kind, ')
+          ..write('tier: $tier, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('seen: $seen, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -18344,6 +19194,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $GrowthRingsTable growthRings = $GrowthRingsTable(this);
   late final $GrowthStateTable growthState = $GrowthStateTable(this);
+  late final $GrowthMomentsTable growthMoments = $GrowthMomentsTable(this);
   late final $ObjectivesTable objectives = $ObjectivesTable(this);
   late final $StoryProjectsTable storyProjects = $StoryProjectsTable(this);
   late final $SyncMetaTable syncMeta = $SyncMetaTable(this);
@@ -18381,6 +19232,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     journalMemories,
     growthRings,
     growthState,
+    growthMoments,
     objectives,
     storyProjects,
     syncMeta,

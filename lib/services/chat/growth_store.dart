@@ -20,11 +20,13 @@ import 'package:drift/drift.dart';
 
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'growth_boons_bogies.dart';
 import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
+import 'growth_store/growth_ring_codec.dart';
 import 'growth_store/growth_ring_writer.dart';
 
-/// Growth Rings — ring persistence (docs/design/growth-rings.md §5) plus the
+/// Growth Rings — ring persistence (docs/design/boons-and-bogies.md) plus the
 /// DB half of the ring physics (§4.4): reinforcement, per-pass fade, and
 /// cap-trim.
 ///
@@ -235,6 +237,7 @@ class GrowthStore {
     double strength = GrowthPhysics.kNewRingStrength,
     bool pinned = false,
     bool retired = false,
+    String? metadata,
   }) => _writer.addRing(
     sessionId: sessionId,
     characterId: characterId,
@@ -244,7 +247,38 @@ class GrowthStore {
     strength: strength,
     pinned: pinned,
     retired: retired,
+    metadata: metadata,
   );
+
+  /// See [GrowthRingWriter.reinforceBoon].
+  Future<void> reinforceBoon(
+    GrowthRingData ring, {
+    required int advanceCount,
+    required String metadata,
+    List<int> sourcePositions = const [],
+  }) => _writer.reinforceBoon(
+    ring,
+    advanceCount: advanceCount,
+    metadata: metadata,
+    sourcePositions: sourcePositions,
+  );
+
+  /// See [GrowthRingWriter.reinforceBogey].
+  Future<void> reinforceBogey(
+    GrowthRingData ring, {
+    required int advanceCount,
+    required String metadata,
+    List<int> sourcePositions = const [],
+  }) => _writer.reinforceBogey(
+    ring,
+    advanceCount: advanceCount,
+    metadata: metadata,
+    sourcePositions: sourcePositions,
+  );
+
+  /// See [GrowthRingWriter.restoreUndo].
+  Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
+      _writer.restoreUndo(ring, undo);
 
   /// See [GrowthRingWriter.reinforceRing].
   Future<void> reinforceRing(
@@ -257,7 +291,13 @@ class GrowthStore {
     GrowthRingData ring, {
     required String content,
     String? category,
-  }) => _writer.reviseRing(ring, content: content, category: category);
+    String? metadata,
+  }) => _writer.reviseRing(
+    ring,
+    content: content,
+    category: category,
+    metadata: metadata,
+  );
 
   /// See [GrowthRingWriter.retireRing].
   Future<void> retireRing(String id) => _writer.retireRing(id);

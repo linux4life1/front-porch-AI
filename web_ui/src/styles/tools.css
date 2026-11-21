@@ -111,6 +111,15 @@
 .growth-chip.cat-skill { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
 .growth-chip.cat-scar { background: color-mix(in srgb, var(--growth-scar) 18%, transparent); color: var(--growth-scar); }
 .growth-chip.cat-archive { background: color-mix(in srgb, var(--growth-archive) 20%, transparent); color: var(--muted); }
+.growth-chip.cat-bogey { background: color-mix(in srgb, var(--bogey) 16%, transparent); color: var(--bogey); }
+.growth-chip.cat-boon { background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey); }
+.growth-ring.boon { border-color: color-mix(in srgb, var(--porch-honey) 35%, transparent); }
+.growth-ring.bogey { border-color: color-mix(in srgb, var(--bogey) 35%, transparent); }
+/* Boon strength / bogey pressure bars: the desktop card's solid hue. */
+.growth-ring.boon .growth-strength i { background: var(--porch-honey); }
+.growth-ring.bogey .growth-strength i { background: var(--bogey); }
+.growth-ring .growth-undo { font-size: 0.62rem; font-weight: 700; padding: 1px 5px; }
+.growth-ring .growth-bb-meta { font-size: 0.62rem; color: var(--muted); white-space: nowrap; }
 .growth-chip.act-add { background: color-mix(in srgb, var(--growth-habit) 15%, transparent); color: var(--growth-habit); }
 .growth-chip.act-reinforce { background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey); }
 .growth-chip.act-revise { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
@@ -118,7 +127,9 @@
 .growth-chip.selectable { cursor: pointer; opacity: 0.55; }
 .growth-chip.selectable.selected { opacity: 1; outline: 1px solid currentColor; }
 .growth-past-toggle { align-self: flex-start; font-size: 0.75rem; }
-.growth-actions { margin-top: 2px; }
+/* The three buttons overflow the narrow sidebar; the desktop
+   GrowthActionsRow wraps for the same reason. */
+.growth-actions { margin-top: 2px; flex-wrap: wrap; }
 .growth-actions .grow { flex: 1; }
 .growth-editor { width: min(420px, 94vw); }
 .growth-cat-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }

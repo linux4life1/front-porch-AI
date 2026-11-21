@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Growth Rings engine tests (docs/design/growth-rings.md): deterministic
+// Growth Rings engine tests (docs/design/boons-and-bogies.md): deterministic
 // physics (tiers, reinforcement, fade, cap victim, injection prefixes),
 // both op transports (XML tags + tool calls) with forgiving parsing, the
 // store's DB half (cap trim, receipts merge, fade-to-retire, legacy-blob
@@ -16,8 +16,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
+import 'package:front_porch_ai/services/chat/growth_prompt.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
@@ -34,6 +36,12 @@ GrowthRingData _ring({
   bool retired = false,
   String category = 'trait',
   String? receipts,
+  String? metadata,
+  int advanceCount = 0,
+  int bogeyPressure = 0,
+  int bogeyCooldown = 0,
+  bool bogeyDelivered = false,
+  bool masterDeclined = false,
 }) => GrowthRingData(
   id: id,
   sessionId: 's1',
@@ -47,7 +55,12 @@ GrowthRingData _ring({
   createdAt: DateTime(2026),
   lastReinforcedAt: DateTime(2026),
   updatedAt: DateTime(2026),
-  metadata: null,
+  metadata: metadata,
+  advanceCount: advanceCount,
+  bogeyPressure: bogeyPressure,
+  bogeyCooldown: bogeyCooldown,
+  bogeyDelivered: bogeyDelivered,
+  masterDeclined: masterDeclined,
 );
 
 ChatMessage _msg(
@@ -889,6 +902,412 @@ Some prose the model wrote.
       await makeService(messages: chatty).runGrowthPass();
       expect(await store.cursorFor('s1'), 0);
       expect(passRunning, isFalse); // finally released the guard
+    });
+  });
+
+  // ── Boons & Bogies (docs/design/boons-and-bogies.md phase 2) ──────────
+
+  group('Boons & Bogies physics', () {
+    GrowthRingData bb({
+      String id = 'bb1',
+      String category = 'skill',
+      String? metadata,
+      double strength = 0.5,
+      int advance = 0,
+      bool pinned = false,
+      String content = 'Moves through a guarded room unseen',
+    }) => GrowthRingData(
+      id: id,
+      sessionId: 's1',
+      characterId: 'c1',
+      content: content,
+      category: category,
+      strength: strength,
+      pinned: pinned,
+      retired: false,
+      createdAt: DateTime(2026),
+      lastReinforcedAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+      metadata: metadata,
+      advanceCount: advance,
+      bogeyPressure: 0,
+      bogeyCooldown: 0,
+      bogeyDelivered: false,
+      masterDeclined: false,
+    );
+
+    test('a boon is a tagged skill; a plain skill stays ordinary', () {
+      final boon = bb(metadata: BoonsBogies.boonMetadata());
+      expect(BoonsBogies.isBoon(boon), isTrue);
+      expect(BoonsBogies.isBogey(boon), isFalse);
+      expect(BoonsBogies.isBoon(bb()), isFalse);
+      expect(
+        BoonsBogies.isBoon(
+          bb(category: 'trait', metadata: BoonsBogies.boonMetadata()),
+        ),
+        isFalse,
+      );
+    });
+
+    test('boon tiers require both used passes and strength', () {
+      String tier(int passes, double strength) => BoonsBogies.tierOf(
+        bb(
+          metadata: BoonsBogies.boonMetadata(),
+          advance: passes,
+          strength: strength,
+        ),
+      );
+      expect(tier(2, 0.9), 'novice');
+      expect(tier(3, 0.4), 'novice');
+      expect(tier(3, 0.5), 'skilled');
+      // Master is held one step below until the milestone surface ships.
+      expect(tier(8, 0.9), 'skilled');
+    });
+
+    test('bogey tiers are fire-count only and Master is held', () {
+      String tier(int fires) => BoonsBogies.tierOf(
+        bb(
+          category: 'bogey',
+          metadata: BoonsBogies.bogeyMetadata(),
+          advance: fires,
+        ),
+      );
+      expect(tier(3), 'novice');
+      expect(tier(4), 'skilled');
+      expect(tier(11), 'skilled');
+      expect(tier(12), 'skilled'); // guard until the milestone surface
+    });
+
+    test('bogey strength follows the fire count, clamped', () {
+      expect(BoonsBogies.bogeyStrength(0), closeTo(0.30, 1e-9));
+      expect(BoonsBogies.bogeyStrength(4), closeTo(0.50, 1e-9));
+      expect(BoonsBogies.bogeyStrength(12), closeTo(0.90, 1e-9));
+      expect(BoonsBogies.bogeyStrength(40), closeTo(0.90, 1e-9));
+    });
+
+    test('advance counters stop one below Master before the surface ships', () {
+      expect(BoonsBogies.nextBoonAdvance(2), 3);
+      expect(BoonsBogies.nextBoonAdvance(7), 7);
+      expect(BoonsBogies.nextBogeyAdvance(11), 11);
+      expect(BoonsBogies.fadedBogeyAdvance(0), 0);
+      expect(BoonsBogies.fadedBogeyAdvance(3), 2);
+    });
+
+    test('the undo snapshot round-trips strength, count and text', () {
+      final before = bb(
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.7,
+        advance: 3,
+        content: 'Picks a lock by feel',
+      );
+      final withUndo = bb(
+        metadata: BoonsBogies.metadataWithUndo(before, at: 12),
+        strength: 0.7,
+        advance: 3,
+        content: 'Picks a lock by feel',
+      );
+      final undo = BoonsBogies.undoOf(withUndo)!;
+      expect(undo.strength, 0.7);
+      expect(undo.advance, 3);
+      expect(undo.text, 'Picks a lock by feel');
+      expect(undo.at, 12);
+      expect(BoonsBogies.kindOf(withUndo), 'boon'); // kind survives
+      expect(
+        BoonsBogies.undoOf(
+          bb(metadata: BoonsBogies.metadataWithoutUndo(withUndo)),
+        ),
+        isNull,
+      );
+    });
+
+    test('the chat injection drops bogeys — the roll is the only door', () {
+      final rings = [
+        bb(id: 'boon'),
+        bb(
+          id: 'flaw',
+          category: 'bogey',
+          metadata: BoonsBogies.bogeyMetadata(),
+        ),
+      ];
+      expect(GrowthPhysics.injectionSelection(rings).map((r) => r.id), [
+        'boon',
+      ]);
+    });
+  });
+
+  group('Boons & Bogies transport + prompt', () {
+    test('a bogey parses from XML and aliases normalize to it', () {
+      final ops = parseGrowthOps(
+        '<ring action="add" category="bogey" src="5">Flinches at fire</ring>',
+      );
+      expect(ops.single.category, 'bogey');
+      expect(normalizeGrowthCategory('flaw'), 'bogey');
+      expect(normalizeGrowthCategory('weakness'), 'bogey');
+      expect(normalizeGrowthCategory('something-new'), 'trait');
+    });
+
+    test('the tool schema offers the bogey category', () {
+      final add = kGrowthTools.first['function']! as Map<String, dynamic>;
+      final params = add['parameters']! as Map<String, dynamic>;
+      final props = params['properties']! as Map<String, dynamic>;
+      final category = props['category']! as Map<String, dynamic>;
+      expect(category['enum'], contains('bogey'));
+    });
+
+    String prompt({required bool boonsBogies}) => buildGrowthPrompt(
+      ownerName: 'Mira',
+      userName: 'Sam',
+      basePersonality: 'Quiet.',
+      recap: '',
+      activeRings: const [],
+      journalCards: const [],
+      window: [_msg('Sam', 'hello', isUser: true)],
+      windowStart: 0,
+      legacyBlob: '',
+      toolsMode: false,
+      boonsBogies: boonsBogies,
+    );
+
+    test('the prompt asks for bogeys only when the feature is on', () {
+      expect(prompt(boonsBogies: false), isNot(contains('bogey')));
+      final on = prompt(boonsBogies: true);
+      expect(on, contains('bogey'));
+      expect(on, contains('Never reinforce a bogey'));
+      expect(on, contains('Never retire a bogey'));
+    });
+  });
+
+  group('Boons & Bogies applier (real DB)', () {
+    late AppDatabase db;
+    late GrowthStore store;
+    late GrowthReview review;
+    var boonsBogiesOn = true;
+
+    setUp(() {
+      db = AppDatabase.forTesting(sameIsolate: true);
+      store = GrowthStore(getDb: () => db);
+      boonsBogiesOn = true;
+      review = GrowthReview(
+        store: store,
+        getSessionId: () => 's1',
+        getIsGroup: () => false,
+        getBoonsBogiesEnabled: () => boonsBogiesOn,
+        onApplied: () async {},
+        onNotify: () {},
+      );
+    });
+
+    tearDown(() async => db.close());
+
+    GrowthOwnerProposals owner(List<GrowthProposedOp> ops) =>
+        GrowthOwnerProposals(ownerId: 'c1', ownerName: 'Mira', ops: ops);
+
+    Future<GrowthRingData> seed({
+      required String category,
+      required String content,
+      String? metadata,
+      double strength = 0.5,
+      int advance = 0,
+      bool pinned = false,
+    }) async {
+      await store.addRing(
+        sessionId: 's1',
+        characterId: 'c1',
+        content: content,
+        category: category,
+        strength: strength,
+        pinned: pinned,
+        metadata: metadata,
+      );
+      final ring = (await store.ringsFor(
+        's1',
+        'c1',
+      )).firstWhere((r) => r.content == content);
+      if (advance > 0) {
+        await db.updateGrowthRing(
+          ring.id,
+          GrowthRingsCompanion(advanceCount: Value(advance)),
+        );
+      }
+      return (await store.ringsFor(
+        's1',
+        'c1',
+      )).firstWhere((r) => r.content == content);
+    }
+
+    test('a new skill becomes a tagged boon while the feature is on', () async {
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.add,
+            category: 'skill',
+            text: 'Reads a lock by feel in the dark',
+          ),
+        ]),
+      );
+      final ring = (await store.ringsFor('s1', 'c1')).single;
+      expect(BoonsBogies.isBoon(ring), isTrue);
+    });
+
+    test('with the feature off a new skill stays an ordinary ring', () async {
+      boonsBogiesOn = false;
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.add,
+            category: 'skill',
+            text: 'Reads a lock by feel in the dark',
+          ),
+        ]),
+      );
+      final ring = (await store.ringsFor('s1', 'c1')).single;
+      expect(BoonsBogies.isBoon(ring), isFalse);
+    });
+
+    test('the fourth active bogey is dropped, not trimmed', () async {
+      for (var i = 0; i < BoonsBogies.kMaxActiveBogies; i++) {
+        await seed(
+          category: 'bogey',
+          content: 'flaw $i',
+          metadata: BoonsBogies.bogeyMetadata(),
+        );
+      }
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.add,
+            category: 'bogey',
+            text: 'A fourth flaw',
+          ),
+        ]),
+      );
+      final rings = await store.ringsFor('s1', 'c1');
+      expect(
+        rings.where(BoonsBogies.isBogey).length,
+        BoonsBogies.kMaxActiveBogies,
+      );
+      expect(rings.any((r) => r.content == 'A fourth flaw'), isFalse);
+    });
+
+    test('a boon advances once per pass even with two reinforces', () async {
+      final ring = await seed(
+        category: 'skill',
+        content: 'Shadow Step',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.5,
+        advance: 2,
+      );
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.reinforce,
+            ringId: ring.id,
+            sourcePositions: [3],
+          ),
+          GrowthProposedOp(
+            action: GrowthOpAction.reinforce,
+            ringId: ring.id,
+            sourcePositions: [4],
+          ),
+        ]),
+      );
+      final after = (await store.ringsFor('s1', 'c1')).single;
+      expect(after.advanceCount, 3);
+      expect(BoonsBogies.undoOf(after), isNotNull);
+    });
+
+    test('a bogey reinforce raises the count and derives strength', () async {
+      final ring = await seed(
+        category: 'bogey',
+        content: 'Clumsy with anything breakable',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.40,
+        advance: 2,
+      );
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.reinforce,
+            ringId: ring.id,
+            sourcePositions: [7],
+          ),
+        ]),
+      );
+      final after = (await store.ringsFor('s1', 'c1')).single;
+      expect(after.advanceCount, 3);
+      expect(after.strength, closeTo(0.45, 1e-9));
+    });
+
+    test('a coping pass lowers an unpinned bogey count (floor 0)', () async {
+      final ring = await seed(
+        category: 'bogey',
+        content: 'Afraid of heights',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.45,
+        advance: 3,
+      );
+      await store.fadeUnreinforced('s1', 'c1', const {});
+      final after = (await store.ringsFor('s1', 'c1')).single;
+      expect(after.advanceCount, 2);
+      expect(after.strength, closeTo(0.40, 1e-9));
+      expect(BoonsBogies.undoOf(after), isNotNull);
+      // A pinned bogey never fades.
+      await db.updateGrowthRing(
+        ring.id,
+        const GrowthRingsCompanion(pinned: Value(true)),
+      );
+      await store.fadeUnreinforced('s1', 'c1', const {});
+      final pinned = (await store.ringsFor('s1', 'c1')).single;
+      expect(pinned.advanceCount, 2);
+    });
+
+    test('undo restores strength, count and text together', () async {
+      final ring = await seed(
+        category: 'skill',
+        content: 'Picks a lock by feel',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.5,
+        advance: 2,
+      );
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(
+            action: GrowthOpAction.revise,
+            ringId: ring.id,
+            text: 'Picks any lock by feel',
+          ),
+        ]),
+      );
+      final revised = (await store.ringsFor('s1', 'c1')).single;
+      expect(revised.content, 'Picks any lock by feel');
+      expect(await review.undoBoonBogey('s1', 'c1', ring.id), isTrue);
+      final restored = (await store.ringsFor('s1', 'c1')).single;
+      expect(restored.content, 'Picks a lock by feel');
+      expect(restored.strength, closeTo(0.5, 1e-9));
+      expect(restored.advanceCount, 2);
+      expect(BoonsBogies.undoOf(restored), isNull);
+    });
+
+    test('the model cannot retire a bogey (overcome asks first)', () async {
+      final ring = await seed(
+        category: 'bogey',
+        content: 'Cannot resist showing off',
+        metadata: BoonsBogies.bogeyMetadata(),
+      );
+      await review.applyOwnerProposals(
+        's1',
+        owner([
+          GrowthProposedOp(action: GrowthOpAction.retire, ringId: ring.id),
+        ]),
+      );
+      final after = (await store.ringsFor('s1', 'c1')).single;
+      expect(after.retired, isFalse);
     });
   });
 }

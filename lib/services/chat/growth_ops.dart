@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Growth Rings — transport parsing (docs/design/growth-rings.md §4.3).
+/// Growth Rings — transport parsing (docs/design/boons-and-bogies.md).
 ///
 /// One applier, two front doors, both normalized here into the same
 /// [GrowthOp] list (the journal_ops.dart pattern):
@@ -62,12 +62,16 @@ class GrowthOp {
 }
 
 /// Model-writable categories ([GrowthPhysics.kArchiveCategory] is code-only).
+/// `bogey` is a Boons & Bogies category (docs/design/boons-and-bogies.md §3);
+/// a model that ignores it simply keeps emitting the old five, which parse
+/// exactly as before.
 const List<String> kGrowthCategories = [
   'trait',
   'stance',
   'habit',
   'skill',
   'scar',
+  'bogey',
 ];
 
 final RegExp _ringTag = RegExp(
@@ -182,6 +186,10 @@ String normalizeGrowthCategory(String? raw) {
     case 'trauma':
     case 'fear':
       return 'scar';
+    case 'flaw':
+    case 'weakness':
+    case 'bogie':
+      return 'bogey';
     default:
       return 'trait';
   }

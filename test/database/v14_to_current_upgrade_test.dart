@@ -148,8 +148,10 @@ void main() {
     // 2026-11-07: v65 adds sessions.composer_draft (the half-typed message
     // left in the box survives a chat close).
     // 2026-11-11: v66 adds the group editor's columns on groups; v67 moves each
-    // group's stored member start onto the member copies. The ladder ends at 67.
-    expect(first['_meta']!['user_version'], 67);
+    // group's stored member start onto the member copies. 2026-11-20: v68 adds
+    // the Boons & Bogies roll/advance columns on growth_rings and the
+    // growth_moments queue. The ladder ends at 68.
+    expect(first['_meta']!['user_version'], 68);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -174,7 +176,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 67);
+    expect(second['_meta']!['user_version'], 68);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

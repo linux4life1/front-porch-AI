@@ -164,6 +164,9 @@ class ChatToolsSnapshot {
         'growthEnabled': mem.characterEvolutionEnabled,
         'growthInterval': mem.growthInterval,
         'growthReviewFirst': mem.growthReviewFirst,
+        'boonsBogiesEnabled': mem.boonsBogiesEnabled,
+        'bogeyRollsEnabled': mem.bogeyRollsEnabled,
+        'milestonePopupsEnabled': mem.milestonePopupsEnabled,
       },
       // Kept under the 'summary' key for the bundled web UI: this is the
       // Journal's per-chat recap ("Where we are") — same ChatService surface

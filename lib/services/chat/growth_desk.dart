@@ -15,6 +15,7 @@ import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
@@ -25,7 +26,7 @@ import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/services/storage/settings/memory_settings.dart';
 
 /// Growth Rings — trigger, cache plumbing, and the UI/facade surface
-/// (docs/design/growth-rings.md). The pass itself lives in growth_service
+/// (docs/design/boons-and-bogies.md). The pass itself lives in growth_service
 /// .dart, persistence + the sync injection cache in growth_store.dart,
 /// review parking in growth_review.dart. Mutations here route through the
 /// store and then re-sync the cache + notify, so the desktop timeline, the
@@ -123,13 +124,20 @@ class GrowthDesk {
   }) async {
     final sessionId = _currentSessionId;
     if (sessionId == null || text.trim().isEmpty) return;
+    final normalized = normalizeGrowthCategory(category);
+    final isBogey = normalized == BoonsBogies.kCategoryBogey;
     await _growthStore.addRing(
       sessionId: sessionId,
       characterId: ownerId,
       content: text.trim(),
-      category: normalizeGrowthCategory(category),
-      strength: GrowthPhysics.kDistillSeedStrength,
+      category: normalized,
+      // A planted bogey starts at count 0, so its strength is the ladder's
+      // floor, not the plant default (docs/design/boons-and-bogies.md §3.2).
+      strength: isBogey
+          ? BoonsBogies.bogeyStrength(0)
+          : GrowthPhysics.kDistillSeedStrength,
       pinned: true,
+      metadata: isBogey ? BoonsBogies.bogeyMetadata() : null,
     );
     await refreshCache();
     notify();
@@ -326,7 +334,7 @@ class GrowthDesk {
     );
   }
 
-  // Scenario evolution is retired (growth-rings design §3.2): the Journal
+  // Scenario evolution is retired (boons-and-bogies design): the Journal
   // recap owns "where we are", so every mode uses the card's own scenario.
   String effectiveScenario(CharacterCard card) => card.scenario;
 }

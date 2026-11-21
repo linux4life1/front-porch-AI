@@ -107,6 +107,9 @@ class ChatToolsFacade {
     await ifBool('growthEnabled', mem.setCharacterEvolutionEnabled);
     await ifInt('growthInterval', mem.setGrowthInterval);
     await ifBool('growthReviewFirst', mem.setGrowthReviewFirst);
+    await ifBool('boonsBogiesEnabled', mem.setBoonsBogiesEnabled);
+    await ifBool('bogeyRollsEnabled', mem.setBogeyRollsEnabled);
+    await ifBool('milestonePopupsEnabled', mem.setMilestonePopupsEnabled);
     _ctx.notify();
   }
 

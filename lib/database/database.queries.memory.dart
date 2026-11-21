@@ -166,7 +166,7 @@ extension AppDatabaseMemoryQueries on AppDatabase {
 
   // ── Growth Ring Queries ────────────────────────────────────────────────
   // Growth Rings: per-chat, per-character growth entries + per-session pass
-  // cursor (docs/design/growth-rings.md). No bumpSyncVersion, matching the
+  // cursor (docs/design/boons-and-bogies.md). No bumpSyncVersion, matching the
   // JournalMemories precedent (derived, session-local data).
 
   /// All rings (active AND retired) for one owner in one chat — active first
@@ -249,6 +249,10 @@ extension AppDatabaseMemoryQueries on AppDatabase {
           cursor: Value(cursor),
         ),
       );
+
+  // Boons & Bogies milestone moments: the table lands with phase 2; the
+  // read/list API lands with the Moments panel (phase 5), where it has a
+  // consumer. Cascade deletes live with the ring deletes and chat delete.
 
   // ── Data Bank Queries ────────────────────────────────────────────────────────
 

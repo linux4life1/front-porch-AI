@@ -201,6 +201,12 @@ class SettingsSnapshot {
         'journalEnabled': _storage.memorySettings.journalEnabled,
         'characterEvolutionEnabled':
             _storage.memorySettings.characterEvolutionEnabled,
+        // Boons & Bogies (docs/design/boons-and-bogies.md §8). Additive;
+        // an older PWA ignores the keys.
+        'boonsBogiesEnabled': _storage.memorySettings.boonsBogiesEnabled,
+        'bogeyRollsEnabled': _storage.memorySettings.bogeyRollsEnabled,
+        'milestonePopupsEnabled':
+            _storage.memorySettings.milestonePopupsEnabled,
         'realismDefault': _storage.realismSettings.realismDefault,
         // Additive: Porch Life allows the Realism Engine (missing = on).
         'realismAllowed': _storage.realismSettings.realismAllowed,

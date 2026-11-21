@@ -18,12 +18,18 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/database/database.dart';
+
+import 'growth_boons_bogies.dart';
 import 'growth_ops.dart';
 import 'growth_physics.dart';
 import 'growth_store.dart';
 
-/// Growth Rings — proposals + the ONE applier (docs/design/growth-rings.md
-/// §4.3; the journal_review.dart pattern).
+/// Default for callers that predate Boons & Bogies (tests, fakes): off.
+bool boonsBogiesOff() => false;
+
+/// Growth Rings — proposals + the ONE applier
+/// (docs/design/boons-and-bogies.md; the journal_review.dart pattern).
 ///
 /// The growth pass resolves every parsed [GrowthOp] into a
 /// [GrowthProposedOp] — handles become ring ids — at pass time, while the
@@ -108,6 +114,11 @@ class GrowthReview {
   final String? Function() getSessionId;
   final bool Function() getIsGroup;
 
+  /// Whether Boons & Bogies is on. Off leaves new skills untagged (ordinary
+  /// rings) and the prompt never asks for bogeys; already-tagged rings keep
+  /// their physics either way (off is never destructive).
+  final bool Function() getBoonsBogiesEnabled;
+
   /// Re-syncs the injection cache after any apply (both modes).
   final Future<void> Function() onApplied;
   final VoidCallback onNotify;
@@ -116,6 +127,7 @@ class GrowthReview {
     required this.store,
     required this.getSessionId,
     required this.getIsGroup,
+    this.getBoonsBogiesEnabled = boonsBogiesOff,
     required this.onApplied,
     required this.onNotify,
   });
@@ -145,6 +157,13 @@ class GrowthReview {
     final addCap = owner.distilled
         ? kDistillApplyCap
         : GrowthPhysics.kMaxNewRingsPerPass;
+    final boonsBogiesOn = getBoonsBogiesEnabled();
+    // One advance per ring per pass: a pass that reinforces the same boon
+    // twice counts once (docs/design/boons-and-bogies.md §3.2).
+    final advancedThisPass = <String>{};
+    var activeBogeys = rings
+        .where((r) => !r.retired && BoonsBogies.isBogey(r))
+        .length;
     var adds = 0;
     var reinforced = 0;
     var revised = 0;
@@ -159,7 +178,19 @@ class GrowthReview {
             );
             continue;
           }
+          // The three-bogey cap is shared with card-seeded flaws. An add
+          // over the cap is dropped, not trimmed — existing flaws are the
+          // user's story.
+          if (op.category == BoonsBogies.kCategoryBogey &&
+              activeBogeys >= BoonsBogies.kMaxActiveBogies) {
+            debugPrint(
+              '[Growth] bogey cap (${BoonsBogies.kMaxActiveBogies}) reached '
+              '— dropping: ${op.text}',
+            );
+            continue;
+          }
           adds++;
+          if (op.category == BoonsBogies.kCategoryBogey) activeBogeys++;
           await store.addRing(
             sessionId: sessionId,
             characterId: owner.ownerId,
@@ -167,22 +198,74 @@ class GrowthReview {
             category: op.category,
             sourcePositions: op.sourcePositions,
             strength: op.seedStrength,
+            metadata: switch (op.category) {
+              // A new skill is a boon when the feature is on; a bogey is
+              // always tagged so the panel and the roll agree on the kind.
+              'skill' when boonsBogiesOn => BoonsBogies.boonMetadata(),
+              BoonsBogies.kCategoryBogey => BoonsBogies.bogeyMetadata(),
+              _ => null,
+            },
           );
           break;
         case GrowthOpAction.reinforce:
           final ring = byId[op.ringId];
           if (ring == null || ring.retired) continue;
-          await store.reinforceRing(ring, sourcePositions: op.sourcePositions);
+          if (BoonsBogies.isBoon(ring)) {
+            // One step per ring per pass: a pass that reinforces the same
+            // boon twice counts (and advances) once.
+            if (advancedThisPass.contains(ring.id)) continue;
+            await store.reinforceBoon(
+              ring,
+              advanceCount: BoonsBogies.nextBoonAdvance(ring.advanceCount),
+              metadata: BoonsBogies.metadataWithUndo(
+                ring,
+                at: op.sourcePositions.isEmpty ? 0 : op.sourcePositions.last,
+              ),
+              sourcePositions: op.sourcePositions,
+            );
+            advancedThisPass.add(ring.id);
+          } else if (BoonsBogies.isBogey(ring)) {
+            // A second reinforce for the same bogey in one pass adds no
+            // evidence — the roll is the only other writer.
+            if (advancedThisPass.contains(ring.id)) continue;
+            await store.reinforceBogey(
+              ring,
+              advanceCount: BoonsBogies.nextBogeyAdvance(ring.advanceCount),
+              metadata: BoonsBogies.metadataWithUndo(
+                ring,
+                at: op.sourcePositions.isEmpty ? 0 : op.sourcePositions.last,
+              ),
+              sourcePositions: op.sourcePositions,
+            );
+            advancedThisPass.add(ring.id);
+          } else {
+            await store.reinforceRing(
+              ring,
+              sourcePositions: op.sourcePositions,
+            );
+          }
           reinforced++;
           break;
         case GrowthOpAction.revise:
           final ring = byId[op.ringId];
           if (ring == null) continue;
-          await store.reviseRing(ring, content: op.text);
+          await store.reviseRing(
+            ring,
+            content: op.text,
+            metadata: BoonsBogies.isBoonOrBogey(ring)
+                ? BoonsBogies.metadataWithUndo(ring)
+                : null,
+          );
           revised++;
           break;
         case GrowthOpAction.retire:
-          if (op.ringId == null || !byId.containsKey(op.ringId)) continue;
+          if (op.ringId == null) continue;
+          final ring = byId[op.ringId];
+          if (ring == null) continue;
+          // A bogey is only retired by the accepted overcome milestone
+          // (§3.2) — a model "outgrown" retire would silently take a flaw
+          // away, which is the one thing the approval rule exists to stop.
+          if (BoonsBogies.isBogey(ring)) continue;
           await store.retireRing(op.ringId!);
           retired++;
           break;
@@ -203,6 +286,33 @@ class GrowthReview {
       revised: revised,
       retired: retired,
     );
+  }
+
+  /// Restore one boon/bogey ring from its stored one-step snapshot (the
+  /// reply chip and the panel row). Content still moves through this class,
+  /// not the UI, so the single-write-path invariant holds. False when the
+  /// ring or its snapshot is gone (a second tap, or a chat switch).
+  Future<bool> undoBoonBogey(
+    String sessionId,
+    String characterId,
+    String ringId,
+  ) async {
+    final rings = await store.ringsFor(sessionId, characterId);
+    GrowthRingData? target;
+    for (final ring in rings) {
+      if (ring.id == ringId) {
+        target = ring;
+        break;
+      }
+    }
+    if (target == null) return false;
+    final undo = BoonsBogies.undoOf(target);
+    if (undo == null) return false;
+    await store.restoreUndo(target, undo);
+    await onApplied();
+    onNotify();
+    debugPrint('[Growth] ↶ Undo applied to ${target.content}');
+    return true;
   }
 
   /// Commit the pending batch: accepted ops, cursor past the reviewed

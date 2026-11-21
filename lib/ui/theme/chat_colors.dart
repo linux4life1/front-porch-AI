@@ -107,6 +107,14 @@ class ChatColors {
   static Color speedOf(BuildContext context) =>
       AppColors.resolve(context, Colors.amberAccent, const Color(0xFF92400E));
 
+  /// Boons & Bogies — the flaw accent (bogey violet, the mockup's proposed
+  /// MilestoneColors.bogey flipped per brightness). Boons use porchHoney.
+  static Color bogeyOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFB79BE0),
+    const Color(0xFF7B4FB8),
+  );
+
   /// One hue per group member, by seat: avatars, roster rings, accents.
   static const List<Color> groupMembers = [
     Color(0xFF8B5CF6),

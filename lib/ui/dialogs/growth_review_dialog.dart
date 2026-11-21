@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Growth review-first mode (docs/design/growth-rings.md §3.1, default OFF):
+/// Growth review-first mode (docs/design/boons-and-bogies.md, default OFF):
 /// the pending [GrowthReviewBatch] rendered for approval. Proposals speak
 /// plain words — new / stronger / reworded / outgrown — the engine vocabulary
 /// stays in the code. Every proposal ships checked; unchecking drops just

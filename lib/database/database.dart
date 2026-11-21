@@ -72,6 +72,7 @@ const _uuid = Uuid();
     JournalMemories, // v35 — The Journal: per-chat, per-character memory cards
     GrowthRings, // v36 — Growth Rings: per-chat, per-character growth entries
     GrowthState, // v36 — Growth Rings: per-session pass cursor
+    GrowthMoments, // v68 — Boons & Bogies: over-budget milestone moments
     Objectives,
     StoryProjects,
     SyncMeta,
@@ -283,7 +284,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 67;
+  int get schemaVersion => 68;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

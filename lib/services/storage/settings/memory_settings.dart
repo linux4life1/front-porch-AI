@@ -46,7 +46,7 @@ class MemorySettings with SettingsBase {
   bool _importLlmertaPorchMemories = true;
   Set<String> _porchConsumedBlockKeys = {};
 
-  // Character Growth (Growth Rings — docs/design/growth-rings.md §6).
+  // Character Growth (Growth Rings — docs/design/boons-and-bogies.md).
   // The enable key is the old character_evolution_enabled pref so existing
   // users keep their on/off choice; the interval is a NEW key because rings
   // check far more often than the old whole-personality rewrites did (an
@@ -54,6 +54,14 @@ class MemorySettings with SettingsBase {
   bool _characterEvolutionEnabled = false;
   int _growthInterval = 5;
   bool _growthReviewFirst = false; // default OFF — autonomous growth
+
+  // Boons & Bogies (docs/design/boons-and-bogies.md §8) — nested under Growth
+  // Rings, ships OFF (ruling 4). Off is never destructive: existing boon and
+  // bogey rings stay in the chat, nothing new is proposed, no bogey rolls,
+  // and kits are not copied into new chats.
+  bool _boonsBogiesEnabled = false;
+  bool _bogeyRollsEnabled = true;
+  bool _milestonePopupsEnabled = true;
 
   bool get ragEnabled => _ragEnabled;
   int get ragRetrievalCount => _ragRetrievalCount;
@@ -72,6 +80,9 @@ class MemorySettings with SettingsBase {
   bool get characterEvolutionEnabled => _characterEvolutionEnabled;
   int get growthInterval => _growthInterval;
   bool get growthReviewFirst => _growthReviewFirst;
+  bool get boonsBogiesEnabled => _boonsBogiesEnabled;
+  bool get bogeyRollsEnabled => _bogeyRollsEnabled;
+  bool get milestonePopupsEnabled => _milestonePopupsEnabled;
 
   void load() {
     _ragEnabled = prefs?.getBool(k('rag_enabled')) ?? false;
@@ -96,6 +107,11 @@ class MemorySettings with SettingsBase {
         prefs?.getBool(k('character_evolution_enabled')) ?? false;
     _growthInterval = prefs?.getInt(k('growth_interval')) ?? 5;
     _growthReviewFirst = prefs?.getBool(k('growth_review_first')) ?? false;
+
+    _boonsBogiesEnabled = prefs?.getBool(k('boons_bogies_enabled')) ?? false;
+    _bogeyRollsEnabled = prefs?.getBool(k('bogey_rolls_enabled')) ?? true;
+    _milestonePopupsEnabled =
+        prefs?.getBool(k('milestone_popups_enabled')) ?? true;
   }
 
   Future<void> setRagEnabled(bool value) async {
@@ -182,6 +198,24 @@ class MemorySettings with SettingsBase {
   Future<void> setGrowthReviewFirst(bool value) async {
     _growthReviewFirst = value;
     await prefs?.setBool(k('growth_review_first'), value);
+    notify();
+  }
+
+  Future<void> setBoonsBogiesEnabled(bool value) async {
+    _boonsBogiesEnabled = value;
+    await prefs?.setBool(k('boons_bogies_enabled'), value);
+    notify();
+  }
+
+  Future<void> setBogeyRollsEnabled(bool value) async {
+    _bogeyRollsEnabled = value;
+    await prefs?.setBool(k('bogey_rolls_enabled'), value);
+    notify();
+  }
+
+  Future<void> setMilestonePopupsEnabled(bool value) async {
+    _milestonePopupsEnabled = value;
+    await prefs?.setBool(k('milestone_popups_enabled'), value);
     notify();
   }
 }

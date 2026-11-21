@@ -185,7 +185,7 @@ extension _AppDatabaseMigrationMid on AppDatabase {
     }
     if (from < 36) {
       // v35→v36: Growth Rings — per-chat, per-character growth entries +
-      // per-session pass cursor (docs/design/growth-rings.md §5). NEW
+      // per-session pass cursor (docs/design/boons-and-bogies.md). NEW
       // tables only, additive, outside the Character Card Forge
       // external-writer set. The old Sessions evolved* columns go dormant
       // (content is distilled into rings by the first growth pass).

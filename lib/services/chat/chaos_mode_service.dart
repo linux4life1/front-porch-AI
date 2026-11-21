@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 
 import 'chaos/chaos.dart';
 import 'group_member_realism.dart';
+import 'pressure_roll.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the Chaos Mode / Chance Time
 /// state and logic (pressure gauge growth + auto-trigger roll, wheel sampling,
@@ -72,7 +73,11 @@ class ChaosModeService {
   bool _chaosEventDelivered =
       false; // true after the event has been used in at least one generation
   final List<String> _recentEvents = []; // raw texts, newest last
-  final Random _random = Random();
+
+  /// The roll stream. Injectable so tests can pin a sequence — the golden
+  /// vectors in test/fixtures/chaos prove the PressureRoll extraction never
+  /// shifts a Chance Time roll.
+  final Random _random;
 
   ChaosModeService({
     required this.onNotify,
@@ -81,7 +86,8 @@ class ChaosModeService {
     this.isAdultAllowed,
     this.getFrequency,
     this.isHardLockActive,
-  });
+    Random? random,
+  }) : _random = random ?? Random();
 
   // ── Public surface (for shims in ChatService + direct test/UI callers) ──────
 
@@ -262,21 +268,25 @@ class ChaosModeService {
   /// During a cooldown the turn is spent with no growth and no roll.
   bool checkAndTickChaosPressure() {
     if (!_chaosModeEnabled) return false;
-    if (_cooldownTurns > 0) {
-      _cooldownTurns--;
-      return false;
-    }
     final f = frequency;
-    _chaosPressure = (_chaosPressure + f.growth).clamp(0, pressureCap);
-    final effectiveChance = (f.base + _chaosPressure).clamp(0, pressureCap);
-    final roll = _random.nextInt(100);
-    final fires = roll < effectiveChance;
-    if (fires) {
+    final tick = PressureRoll.tick(
+      base: f.base,
+      growthMin: f.growth,
+      growthMax: f.growth,
+      pressureCap: pressureCap,
+      chanceCap: pressureCap,
+      pressure: _chaosPressure,
+      cooldown: _cooldownTurns,
+      random: _random,
+    );
+    _chaosPressure = tick.pressure;
+    _cooldownTurns = tick.cooldown;
+    if (tick.fired) {
       debugPrint(
-        '[ChanceTime] Auto-trigger! pressure=$_chaosPressure% roll=$roll',
+        '[ChanceTime] Auto-trigger! pressure=$_chaosPressure% roll=${tick.roll}',
       );
     }
-    return fires;
+    return tick.fired;
   }
 
   // ── Prompt injection support ───────────────────────────────────────────────
@@ -316,21 +326,25 @@ class ChaosModeService {
   /// grown, not rolled.
   bool checkAndTickMember(GroupMemberRealism bag) {
     if (!memberEnabled(bag)) return false;
-    if (bag.chaosCooldown > 0) {
-      bag.chaosCooldown = bag.chaosCooldown - 1;
-      return false;
-    }
     final f = frequency;
-    bag.chaosPressure = (bag.chaosPressure + f.growth).clamp(0, pressureCap);
-    final effectiveChance = (f.base + bag.chaosPressure).clamp(0, pressureCap);
-    final roll = _random.nextInt(100);
-    final fires = roll < effectiveChance;
-    if (fires) {
+    final tick = PressureRoll.tick(
+      base: f.base,
+      growthMin: f.growth,
+      growthMax: f.growth,
+      pressureCap: pressureCap,
+      chanceCap: pressureCap,
+      pressure: bag.chaosPressure,
+      cooldown: bag.chaosCooldown,
+      random: _random,
+    );
+    bag.chaosPressure = tick.pressure;
+    bag.chaosCooldown = tick.cooldown;
+    if (tick.fired) {
       debugPrint(
-        '[ChanceTime] Auto-trigger (${bag.chaosPressure}%) roll=$roll',
+        '[ChanceTime] Auto-trigger (${bag.chaosPressure}%) roll=${tick.roll}',
       );
     }
-    return fires;
+    return tick.fired;
   }
 
   /// Bag twin of [applyPreparedEvent]: park the resolved event on the

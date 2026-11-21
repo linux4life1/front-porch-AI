@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Growth review-first modal — the web mirror of the desktop
-// GrowthReviewDialog (docs/design/growth-rings.md §3.1, default OFF).
+// GrowthReviewDialog (docs/design/boons-and-bogies.md, default OFF).
 // Proposals speak plain words — new / stronger / reworded / outgrown — and
 // every one ships checked; unchecking drops just that one. Apply commits the
 // accepted set through the same applier autonomous mode uses; Discard writes

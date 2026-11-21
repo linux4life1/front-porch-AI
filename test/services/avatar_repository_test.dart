@@ -135,7 +135,7 @@ void main() {
       //      example dialogue, tags, story start, verification, author's
       //      notes). v67: each group's stored member start moves onto the
       //      members' own copies (One Chat UX PR 5).
-      expect(db.schemaVersion, 67);
+      expect(db.schemaVersion, 68);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
