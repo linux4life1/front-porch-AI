@@ -62,7 +62,10 @@ export function CharacterCard({
             <span className="lib-name">{char.name}</span>
             {char.messageCount > 0 && <span className="lib-msgs">💬 {char.messageCount}</span>}
           </div>
-          {char.tags.length > 0 && (
+          {/* One line under the name: the title, else the tags (desktop's rule). */}
+          {char.title ? (
+            <span className="lib-title">{char.title}</span>
+          ) : char.tags.length > 0 && (
             <div className="tag-pills">
               {char.tags.slice(0, 3).map((t) => (
                 <span key={t} className="tag-pill">

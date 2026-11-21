@@ -25,6 +25,8 @@ import { useLibraryActions } from './useLibrary.actions';
 export interface LibChar {
   id: string;
   name: string;
+  /** Library label under the name ('' = none). Absent on older apps. */
+  title?: string;
   tags: string[];
   hasAvatar: boolean;
   /** The picture is only the flat colour a card made without a portrait

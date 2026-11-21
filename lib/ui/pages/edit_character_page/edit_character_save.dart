@@ -74,6 +74,7 @@ class EditCharacterCardWriter {
   void writeFields() {
     final d = draft;
     character.name = d.nameController.text;
+    character.title = d.titleController.text.trim();
     character.description = d.descriptionController.text;
     character.personality = d.personalityController.text;
     character.scenario = d.scenarioController.text;

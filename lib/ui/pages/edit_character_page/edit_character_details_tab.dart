@@ -188,6 +188,24 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
+                  // A group member's copy keeps no title (its row has no
+                  // place for one, and it has no library tile to show it on).
+                  if (member == null) ...[
+                    kit.styledField(
+                      controller: d.titleController,
+                      label: 'Title',
+                      hint: kCardTitleHint,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      kCardTitleHelp,
+                      style: TextStyle(
+                        color: AppColors.textTertiary(context),
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   EditorTagsField(
                     tags: d.tags,
                     controller: d.tagController,

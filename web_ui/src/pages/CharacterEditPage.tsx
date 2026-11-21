@@ -47,9 +47,16 @@ interface RawLore {
    *  that tells its own entries from hand-edited ones) survives. */
   ext?: unknown;
 }
+/** The Title field's placeholder and help line; the desktop editor shows the
+ *  same two strings (lib/models/character/card_title.dart). */
+const CARD_TITLE_HINT = 'Optional: a full name, or what the card is about';
+const CARD_TITLE_HELP = 'Shown under the name in your library. Chats still use the name.';
+
 interface CharDetail {
   id: string;
   name: string;
+  /** Library label beside the name (additive; absent from an older app). */
+  title?: string;
   description: string;
   personality: string;
   scenario: string;
@@ -221,6 +228,8 @@ export function CharacterEditPage() {
     try {
       await api.post(base, {
         name: c.name,
+        // A group member's copy keeps no title (desktop hides it too).
+        ...(member ? {} : { title: (c.title ?? '').trim() }),
         description: c.description,
         personality: c.personality,
         scenario: c.scenario,
@@ -372,6 +381,19 @@ export function CharacterEditPage() {
             <span>Name</span>
             <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
           </label>
+          {!member && (
+            <>
+              <label>
+                <span>Title</span>
+                <input
+                  value={c.title ?? ''}
+                  placeholder={CARD_TITLE_HINT}
+                  onChange={(e) => setField('title', e.target.value)}
+                />
+              </label>
+              <p className="muted small">{CARD_TITLE_HELP}</p>
+            </>
+          )}
           <TagsField tags={tags} onChange={setTags} />
 
           {/* A character voice OVERRIDES the global Settings voice, and one can

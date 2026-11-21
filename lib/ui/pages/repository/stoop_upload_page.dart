@@ -219,7 +219,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     // Intimate preferences force 18+ — and picking something else withdraws
     // that force again (the author's own tick survives; see StoopAdultFlag).
     _adult.reconcile(forced: _forcedAdult);
-    _name.text = card.name;
+    _name.text = card.title.trim().isNotEmpty ? card.title.trim() : card.name;
     _setSummaryFrom(card.description);
     // De-duplicate (preserving order) into the candidate pool, then
     // pre-select the first [_maxTags]; the creator can re-pick on the step.
