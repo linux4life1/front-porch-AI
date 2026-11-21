@@ -54,7 +54,7 @@ One editor to edit them all: a group and every member in it now open the charact
 
 - 🔖 **Characters keep their title** — a card can have a Title beside its name, a full name or what the card is about, shown under the name in the library and found by search, while chats still use the name. Backyard AI imports keep the name as the name and the title as the title (the title used to replace the name), a character from The Stoop keeps the post's name as its title, and a card's creator credits now survive an edit after a restart.
 
-- 🪞 **The web app matches the desktop** — the web character editor, home toolbar, menus and navigation show the same sections, buttons and wording in the same order as the desktop. Personas on the web open their form in place, a slow save says so and keeps your text, the Speak as… list scrolls on a phone, and a long name in a phone editor no longer breaks mid-word.
+- 🪞 **The web app catches up** — the web character editor, home toolbar, menus and navigation show the same sections, buttons and wording in the same order as the desktop. Personas on the web open their form in place, a slow save says so and keeps your text, the Speak as… list scrolls on a phone, and a long name in a phone editor no longer breaks mid-word.
 
 ---
 
