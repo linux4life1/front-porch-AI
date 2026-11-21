@@ -165,7 +165,7 @@ export function GrowthPanel({
   const ringCard = (r: GrowthRing, isPast: boolean) => {
     const isBogey = r.kind === 'bogey';
     const isBoon = r.kind === 'boon';
-    const chipClass = isBogey ? 'cat-bogey' : isBoon ? 'cat-skill' : `cat-${r.category}`;
+    const chipClass = isBogey ? 'cat-bogey' : isBoon ? 'cat-boon' : `cat-${r.category}`;
     const chipText = isBogey
       ? 'Bogey'
       : isBoon

@@ -91,6 +91,11 @@ class GrowthBbWriter {
 
   /// One coping step: the fire count drops (floor 0) and strength follows it.
   /// False when the ring cannot fade (pinned, or already at zero).
+  ///
+  /// The pass prompt reinforces a bogey only when the story makes it worse,
+  /// so "this pass did not reinforce it" is the coping case (§3.2) — the same
+  /// mapping the ordinary fade already uses, named here because the ruling
+  /// talks about the story rather than the op list.
   Future<bool> fadeBogey(GrowthRingData ring) async {
     final db = getDb();
     if (db == null) return false;

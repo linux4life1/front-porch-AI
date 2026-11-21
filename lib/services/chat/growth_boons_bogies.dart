@@ -245,7 +245,7 @@ class BoonsBogies {
         kBbKey: {
           kKindKey: kKindBogey,
           if (seeded) kSeededKey: true,
-          if (linkedBoon != null) kLinkedBoonKey: linkedBoon,
+          kLinkedBoonKey: ?linkedBoon,
         },
       });
 

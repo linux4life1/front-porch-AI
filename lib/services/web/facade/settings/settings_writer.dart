@@ -220,8 +220,9 @@ class SettingsWriter {
         await _storage.realismSettings.setPocketTransfersEnabled(transfers);
       }
       final mood = realism['standingMoodEnabled'];
-      if (mood is bool)
+      if (mood is bool) {
         await _storage.realismSettings.setStandingMoodEnabled(mood);
+      }
       // No live-chat push: both are read straight off StorageService at
       // the moment they matter. "Acts on desires" is resolved per turn when the
       // preferences fragment is built, and Chaos seeds when a chat is entered —
