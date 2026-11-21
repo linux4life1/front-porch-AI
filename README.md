@@ -26,7 +26,7 @@ It's all built in. Turn it on for one chat from the sidebar, or for every new ch
 > - **A group chat's sidebar reads like a 1:1,** with Group Dynamics showing how each character feels about the others.
 > - **Each character keeps their own.** Realism, Needs, Afterglow and memory belong to each character in a group.
 > - **Characters keep their title.** A full name or the card's premise beside the name; Backyard AI and Stoop titles come along.
-> - **The web app matches the desktop,** screen for screen.
+> - **The web app catches up.** Its character editor, home toolbar, menus and navigation now match the desktop's.
 >
 > The in-app What's New has all six.
 

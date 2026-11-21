@@ -16,7 +16,7 @@ One editor to edit them all: a group and every member in it now open the charact
 
 - 🔖 **Characters keep their title.** A card can have a Title beside its name — a full name, or what the card is about — shown under the name in the library and found by search; chats still use the name. Backyard AI imports keep the name and the title apart, and characters from The Stoop keep their post's title. Desktop and phone.
 
-- 🪞 **The web app matches the desktop.** The web editor, toolbar, menus and navigation show the same sections and wording in the same order as the desktop, personas work on a phone, and long names no longer break mid-word in the phone editor.
+- 🪞 **The web app catches up.** The web character editor, home toolbar, menus and navigation now show the same sections and wording in the same order as the desktop, personas work on a phone, and long names no longer break mid-word in the phone editor.
 
 ## v1.7.0 — A Porch to Remember
 
