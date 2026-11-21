@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/chat_defaults.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_deps.dart';
+import 'package:front_porch_ai/services/storage/settings/generation_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -59,25 +60,30 @@ class PromptSource {
   /// The group base chain: the group's own prompt, else Settings' Group
   /// system prompt, else the built-in one for the mode. Shared by the
   /// generation, impersonation, and budget-estimate paths.
-  String get groupBasePrompt {
+  String get groupBasePrompt => resolveGroupBase();
+
+  String resolveGroupBase({bool scenario = false}) {
     final own = _activeGroup?.systemPrompt ?? '';
     if (own.isNotEmpty) return own;
     final global = _storageService.generationSettings.groupSystemPrompt;
     if (global.trim().isNotEmpty) return global;
-    return defaultGroupSystemPrompt;
+    return scenario ? '' : defaultGroupSystemPrompt;
   }
 
   /// The 1:1 base chain with the per-chat source applied. Shared by the
   /// generation, impersonation, and budget-estimate paths so the live
   /// estimate always matches the sent prompt.
-  String resolveOneToOneBase(CharacterCard card) {
-    if (_promptSourceOverride == 'user') {
-      final fallback = _storageService.generationSettings.systemPrompt;
-      return fallback.isNotEmpty ? fallback : defaultApiSystemPrompt;
+  String resolveOneToOneBase(CharacterCard card, {bool scenario = false}) {
+    if (_promptSourceOverride != 'user' && card.systemPrompt.isNotEmpty) {
+      return card.systemPrompt;
     }
-    if (card.systemPrompt.isNotEmpty) return card.systemPrompt;
     final fallback = _storageService.generationSettings.systemPrompt;
-    return fallback.isNotEmpty ? fallback : defaultApiSystemPrompt;
+    if (scenario && fallback.trim() == GenerationSettings.defaultSystemPrompt) {
+      return '';
+    }
+    return fallback.isNotEmpty
+        ? fallback
+        : (scenario ? '' : defaultApiSystemPrompt);
   }
 
   /// The character key whose new 1:1 chat is waiting on the picker, or

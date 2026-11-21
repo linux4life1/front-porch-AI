@@ -111,6 +111,7 @@ List<Widget> messageBubbleContentChildren(
       StyledChatMessage(
         text: message.displayText,
         isUser: message.isUser,
+        plainProse: message.isScenarioProse,
         externalImagesAllowed: widget.externalImagesAllowed,
         onRequestImagePermission: widget.onRequestImagePermission,
         character: widget.character ?? bubbleHost(widget.chatService),

@@ -137,7 +137,8 @@ class SendHandoff {
     }
     // First exchange complete — arm idle timer
     _hasCompletedExchange = true;
-    if (_storageService.generationSettings.dynamicResponses) {
+    if (_storageService.generationSettings.dynamicResponses &&
+        _s.deps.doors.sessions().genSettings.soloScenario == null) {
       debugPrint(
         '[DynamicResponses] First exchange done, arming idle timer (interval=${_storageService.generationSettings.dynamicResponseInterval}s)',
       );
@@ -185,6 +186,10 @@ class SendHandoff {
     required ChatMessage userMsg,
     CharacterCard? addressedGuest,
   }) async {
+    if (_activeGroup == null &&
+        _s.deps.doors.sessions().genSettings.soloScenario != null) {
+      return;
+    }
     if (addressedGuest == null && _activeGroup == null) {
       stampUserTurnBaseline(userMsg);
     }

@@ -191,7 +191,7 @@ class NewChatPrep {
     _store.selectedLooks.clear();
     // Fresh chat: drop the prior chat's per-chat gen overrides — forkSession
     // is the ONE path that inherits them on purpose (keep reset blocks in sync).
-    _store.genSettings = ChatGenerationSettings();
+    _store.genSettings = _store.freshGenerationSettings();
     _s
         .prompts()
         .source

@@ -91,6 +91,18 @@ class PromptBlocks {
     }
   }
 
+  String groupAuthorNoteBlock(CharacterCard speaker) {
+    final note = _members.getAuthorNoteForGroupCharacter(speaker);
+    if (note.isEmpty) return '';
+    final strength = _members.getAuthorNoteStrengthForGroupCharacter(speaker);
+    final name = speaker.name;
+    if (strength <= 3) {
+      return "[Author's Note (gentle suggestion for $name): $note]\n";
+    }
+    if (strength <= 7) return "[Author's Note (for $name): $note]\n";
+    return "[Author's Note (IMPORTANT for $name — apply immediately): $note]\n";
+  }
+
   /// Build the user persona block for the generation prompt.
   /// The user's self-description is ground truth. (What the character has
   /// *learned* about the user now lives in their per-chat Journal cards —
@@ -191,6 +203,15 @@ class PromptBlocks {
   /// (locals ride _loreTimedEffects per chat; globals live in settings).
   /// Shared by generation, impersonation, and lore-key resolution.
   MacroContext macroContext(CharacterCard speaking, {String? scenario}) {
+    if (_a.scenarioFor(speaking) case final scene?) {
+      return MacroContext(
+        userName: _userPersonaService.persona.name,
+        characterName: speaking.name,
+        description: scene.description,
+        personality: scene.personality,
+        scenario: scenario ?? scene.setting,
+      );
+    }
     ChatMessage? lastUser;
     ChatMessage? lastChar;
     for (final m in _session.messages.reversed) {

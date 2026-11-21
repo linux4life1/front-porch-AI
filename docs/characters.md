@@ -9,6 +9,7 @@ Characters are the heart of Front Porch AI. This guide covers everything about t
 1. [What Is a Character Card?](#what-is-a-character-card)
 2. [Getting Characters Into the App](#getting-characters-into-the-app)
 3. [Creating Your Own Character](#creating-your-own-character)
+   - [Scenario cards](#scenario-cards)
 4. [What's Inside a Card](#whats-inside-a-card)
 5. [Editing & Managing Your Library](#editing--managing-your-library)
 6. [Expression Images](#expression-images)
@@ -109,6 +110,20 @@ The card is saved when you leave the Review step, *before* the portrait stage �
 The Realism step sets where the character *starts*: their initial bond and trust toward you, their mood, the time of day and story start date, and which Realism Engine features are on. These become the character's defaults — every new chat begins from them. (Full details in the [Realism Engine guide](realism-engine.md).)
 
 ---
+
+## Scenario cards
+
+Choose **Scenario** under **Card type** in the manual creator or in **Edit Character → Details** when the card should run a situation without a primary character. Its name identifies the scene in the library and transcript. The narrator describes the world and speaks for incidental characters. You choose your own actions and dialogue.
+
+- **Setting** holds the starting premise. Leave it blank if the player should choose the setting during the chat.
+- **Facilitation rules** describes how to run a turn. For example, ask one setup question at a time, end a turn with choices, or keep the story open to any action the player proposes.
+- Use the existing opening, alternate greetings, and examples for different starting points, NPC exchanges or text-adventure controls. Dialogue and punctuation remain ordinary text in the Scenario's replies.
+- In a group, address the facilitator with an @mention or select them as the next speaker in player mode. The group can supply a shared Setting. Other cast members still speak for themselves.
+
+Existing chats keep their original card type, setting, scene notes, narration style, facilitation rules and reply examples. Advanced prompts can affect existing chats. Editing a group member changes that member’s copy in the group. The card keeps your full facilitation rules and the chat uses the first 2,000 characters.
+
+To adapt a public narrator or world card, choose its type explicitly in the editor and start a new chat. Its existing scenario text becomes Setting. A name, tag, or populated Scenario field on an ordinary card does not change its type. PNG and JSON exports carry the type in a Front Porch extension. Apps that ignore that extension can still read the standard card text.
+
 
 ## What's Inside a Card
 

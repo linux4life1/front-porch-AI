@@ -65,6 +65,8 @@ class GenTurn {
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
+  ScenarioCardSnapshot? scenarioCard;
+  bool get facilitatesScenario => scenarioCard != null;
 
   /// The group rotation before this turn picked its speaker. Put back when
   /// the turn ends before its reply bubble lands ([replyLanded]).
@@ -149,6 +151,7 @@ class GenTurn {
   // ── request phase → stream/postgen phases ──
   late List<String> stopList;
   late Stream<String> stream;
+  List<OutputSanitizerRule>? scenarioSanitizerRules;
   late ChatGenerationSettings g2; // alias of _sessionGenSettings
   bool isLocalBackend = false;
   Timer? perfPoller; // cancelled at first-token, cancel-path, and postgen (H7)

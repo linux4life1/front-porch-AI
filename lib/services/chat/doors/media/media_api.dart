@@ -51,7 +51,10 @@ extension ChatServiceWebSearch on ChatService {
   /// Shadowed by the class's own `webSearchEnabled`, which always wins.
   bool get webSearchEnabled => mediaDoor.webSearchDefault;
   bool get wikiLookupAvailable => mediaDoor.wikiLookupAvailable;
-  String? lookupCommandBlock(String raw) => mediaDoor.lookupCommandBlock(raw);
+  String? lookupCommandBlock(String raw) => mediaDoor.lookupCommandBlock(
+    raw,
+    scenario: activeGroup == null && sessionGenSettings.soloScenario != null,
+  );
   void announceLookupForce(String message) =>
       mediaDoor.announceLookupForce(message);
 }

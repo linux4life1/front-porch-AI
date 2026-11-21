@@ -96,6 +96,34 @@ class SessionStore {
   /// Per-session generation overrides.
   ChatGenerationSettings genSettings = ChatGenerationSettings();
 
+  ChatGenerationSettings freshGenerationSettings() {
+    final session = _d.session;
+    if (session.activeGroup == null) {
+      return ChatGenerationSettings(
+        soloScenario: ScenarioCardSnapshot.fromCard(session.activeCharacter),
+      );
+    }
+    return ChatGenerationSettings(
+      groupScenarios: {
+        for (final member in session.groupCharacters)
+          session.characterIdFor(member): ?ScenarioCardSnapshot.fromCard(
+            member,
+          ),
+      },
+    );
+  }
+
+  ScenarioCardSnapshot? scenarioFor(CharacterCard? speaker) {
+    if (speaker == null) return null;
+    final session = _d.session;
+    if (session.activeGroup == null) {
+      return identical(session.activeCharacter, speaker)
+          ? genSettings.soloScenario
+          : null;
+    }
+    return genSettings.groupScenarios[session.characterIdFor(speaker)];
+  }
+
   /// Per-chat theme overrides (preset, colours, font, background, border).
   ChatThemeOverrides themeOverrides = ChatThemeOverrides();
   String? sessionName;
@@ -173,6 +201,8 @@ class SessionStore {
 
   /// The settings dialog's write: keep, save, repaint.
   void setGenSettings(ChatGenerationSettings value) {
+    value.soloScenario = genSettings.soloScenario;
+    value.groupScenarios = Map.of(genSettings.groupScenarios);
     genSettings = value;
     save();
     _d.notify();

@@ -158,6 +158,9 @@ class TurnEngine {
   ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
   TimeService get _timeService => _g.time;
 
+  CharacterCard? get upcomingGroupSpeaker =>
+      _send.speakers.upcomingGroupSpeaker;
+
   Future<void> generate(
     GenerationMode mode, {
     CharacterCard? guestSpeaker,
@@ -210,6 +213,10 @@ class TurnEngine {
       t.userName = userName;
 
       // Determine the speaking character first (needed for system prompt priority)
+      final pickedScenarioExplicitly =
+          forceSpeaker != null ||
+          (_session.groupManager?.hasForcedSpeaker ?? false) ||
+          (_session.groupManager?.hasQueuedSpeaker ?? false);
       CharacterCard speakingCharacter;
       if (guestSpeaker != null) {
         // Scene Guest (Lite NPC) turn — stays in 1:1 (_activeGroup remains null),
@@ -238,8 +245,13 @@ class TurnEngine {
         speakingCharacter = _session.activeCharacter!;
       }
       t.speakingCharacter = speakingCharacter;
+      if (guestSpeaker == null && mode != GenerationMode.impersonate) {
+        t.scenarioCard = _sessions.scenarioFor(speakingCharacter);
+      }
+      if (await entry.refuseScenarioTurn(t, pickedScenarioExplicitly)) return;
 
-      if (guestSpeaker == null &&
+      if (!t.facilitatesScenario &&
+          guestSpeaker == null &&
           _activeGroup != null &&
           mode != GenerationMode.continue_ &&
           forceSpeaker == null &&

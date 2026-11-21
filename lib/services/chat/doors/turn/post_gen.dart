@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/chat/doors/objectives/objectives_door.da
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/session/session_store.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
@@ -111,8 +112,6 @@ class PostGen {
     _p.generationStartTime = null;
     t.perfPoller?.cancel();
     t.perfPoller = null;
-
-    // Fetch final perf stats from KoboldCPP for post-generation display
     if (t.isLocalBackend) {
       _koboldService.fetchPerf().then((perf) {
         if (perf != null) _p.lastPerfData = perf;
@@ -135,16 +134,10 @@ class PostGen {
       return;
     }
 
-    // Signal generation complete to SSE listeners
-    _p.tokenBroadcast.add('__DONE__');
-
-    // Flush remaining sentence buffer and signal done to sentence listeners
-    if (_p.sentenceBuffer.trim().isNotEmpty) {
-      _p.sentenceBroadcast.add(_p.sentenceBuffer.trim());
-      _p.sentenceBuffer = '';
+    final deferredScenario = t.scenarioSanitizerRules != null;
+    if (!deferredScenario || t.epoch != _p.generationEpoch) {
+      _p.finishReplyStream();
     }
-    _p.sentenceBroadcast.add('__DONE__');
-
     _d.notify();
 
     // Only finalize if this generation is still current
@@ -155,12 +148,11 @@ class PostGen {
       // bubble collapses to the continuation fragment (audit 2026-08-11 P0.1).
       String newPart = t.accumulatedResponse;
 
-      // SillyTavern-like safety net for Continue (and call mode): even after
-      // requesting enabled:false + max_tokens:0 + exclude:true on the
-      // provider, some thinking models still emit stray <think> text. Strip
-      // from the NEW portion only — never re-strip the pre-continue body.
+      // Some providers emit reasoning in Continue and voice calls. Only strip the new fragment.
       if (t.mode == GenerationMode.continue_ || _callMode) {
-        newPart = stripEvalThinkBlocks(newPart);
+        newPart = t.facilitatesScenario
+            ? scenarioContinuationProse(newPart)
+            : stripEvalThinkBlocks(newPart);
       }
 
       // Close an open think on the PREFIX before glue — closing after
@@ -172,10 +164,11 @@ class PostGen {
           ? glueContinueText(prefix, newPart)
           : (t.continuePrefix + newPart).trim(); // prefix: a rewrite's seed
 
-      // Close a dangling think. Lift only a short closed think-only line.
-      // A long reasoning dump stays tagged. An unclosed cut-off stays tagged.
+      // Scenario replies keep tagged thoughts separate from speech.
+      String finishSpeech(String text) =>
+          resolveMouthSpeech(text, retainThoughts: t.facilitatesScenario);
       final mouthIn = finalResponse;
-      finalResponse = resolveMouthSpeech(mouthIn);
+      finalResponse = finishSpeech(mouthIn);
       final mouthParts = splitMessageForEdit(closeOpenThink(mouthIn));
       if (mouthParts.body.trim().isEmpty &&
           mouthParts.thinking.trim().isNotEmpty) {
@@ -189,15 +182,20 @@ class PostGen {
       }
 
       // ── Output Sanitizer ──────────────────────────────────────────────
-      // NOTE: This runs BEFORE _lorebookScanner.scanLatest() below, so
-      // lorebook keyword triggers operate on the sanitized text. If a rule
-      // replaces text that a lorebook keyword was matching, the trigger
-      // would stop matching. This is intentional — sanitized output is the
-      // "final" text that enters history and is scanned for lore.
-      if (t.g2.resolveOutputSanitizerEnabled(_storageService)) {
-        final rules = t.g2.resolveOutputSanitizerRules(_storageService);
-        final sanitized = sanitizeOutput(finalResponse, rules);
-        if (sanitized.trim().isEmpty && finalResponse.trim().isNotEmpty) {
+      // Apply the rules before lorebook scanning and publishing the reply.
+      if (deferredScenario ||
+          (!t.facilitatesScenario &&
+              t.g2.resolveOutputSanitizerEnabled(_storageService))) {
+        final rules =
+            t.scenarioSanitizerRules ??
+            t.g2.resolveOutputSanitizerRules(_storageService);
+        final fragment =
+            t.facilitatesScenario && t.mode == GenerationMode.continue_;
+        final before = fragment ? newPart : finalResponse;
+        final sanitized = deferredScenario
+            ? sanitizeScenarioReply(before, rules)
+            : sanitizeOutput(before, rules);
+        if (sanitized.trim().isEmpty && before.trim().isNotEmpty) {
           // A runaway rule ate the entire reply — keep the original text
           // rather than persisting an empty message the user can't recover.
           debugPrint(
@@ -205,7 +203,9 @@ class PostGen {
             'keeping the unsanitized text.',
           );
         } else {
-          finalResponse = sanitized;
+          finalResponse = fragment
+              ? finishSpeech(glueContinueText(prefix, sanitized))
+              : sanitized;
         }
       }
 
@@ -220,6 +220,16 @@ class PostGen {
       // and when sanitizer DID run it wrote new-tokens-only. One write-back.
       if (finalResponse.isNotEmpty || t.mode == GenerationMode.continue_) {
         t.streamTarget.text = finalResponse;
+      }
+      if (deferredScenario) {
+        final fullVisible = t.streamTarget.displayText;
+        final visiblePrefix = stripThinkTags(prefix);
+        final accepted = fullVisible.startsWith(visiblePrefix)
+            ? fullVisible.substring(visiblePrefix.length)
+            : '';
+        _p.publishReplyText(accepted);
+        _p.finishReplyStream();
+        _d.notify();
       }
       _stampTokenAlts(t);
 
@@ -274,7 +284,9 @@ class PostGen {
         final scored = t.mode == GenerationMode.continue_
             ? (_isGuestAuthoredMessage(t.streamTarget) ? '' : newPart.trim())
             : finalResponse;
-        await _e.group.runLiteGroupGlancePass(t, scored);
+        if (!t.facilitatesScenario) {
+          await _e.group.runLiteGroupGlancePass(t, scored);
+        }
         if (t.mode == GenerationMode.continue_ || !_clockRunning) {
           _timeService.clearBodyBeat();
         }
@@ -302,9 +314,11 @@ class PostGen {
               isContinue: t.mode == GenerationMode.continue_,
             );
           } else {
-            _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
-            _e.entry.tickRefractoryAfterClock(t);
-            _e.side.maybeKickDreamPrefetch();
+            if (!t.facilitatesScenario) {
+              _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
+              _e.entry.tickRefractoryAfterClock(t);
+              _e.side.maybeKickDreamPrefetch();
+            }
             await _saveChat();
           }
         }

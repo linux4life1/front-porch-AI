@@ -294,6 +294,7 @@ class ContextBudgetEstimateInput {
   final String examples;
   final String postHistory;
   final String authorNote;
+  final String scenarioReplyCue;
 
   /// One prompt line per message, oldest first; blank lines stay so the
   /// dropped count is in messages, as on a real send.
@@ -320,6 +321,7 @@ class ContextBudgetEstimateInput {
     this.examples = '',
     this.postHistory = '',
     this.authorNote = '',
+    this.scenarioReplyCue = '',
     this.historyLines = const [],
     this.contextLimit = 0,
     this.reserveTokens = 0,
@@ -401,7 +403,10 @@ ContextViewerSnapshot buildContextBudgetEstimate(
   if (input.postHistory.trim().isNotEmpty) {
     add('Post-History', input.postHistory);
   }
-  if (input.authorNote.trim().isNotEmpty) {
+  if (input.scenarioReplyCue.isNotEmpty) {
+    add("Author's Note", input.authorNote);
+    add('Scenario reply instructions', input.scenarioReplyCue);
+  } else if (input.authorNote.trim().isNotEmpty) {
     add('Post-History', 'Author note: ${input.authorNote.trim()}\n');
   }
 
@@ -409,7 +414,15 @@ ContextViewerSnapshot buildContextBudgetEstimate(
   var dropped = 0;
   var marked = false;
   if (input.contextLimit > 0) {
-    final fixed = budget.values.fold<int>(0, (a, b) => a + b);
+    var fixed = budget.values.fold<int>(0, (a, b) => a + b);
+    if (input.scenarioReplyCue.isNotEmpty && history.isNotEmpty) {
+      final latest = history.skip(input.overflowStart).join('\n');
+      final latestTokens = ContextViewerSnapshot.estimateTokens(latest);
+      if (fixed + latestTokens + input.reserveTokens > input.contextLimit) {
+        fixed -= budget.remove('Examples') ?? 0;
+        sections.remove('Examples');
+      }
+    }
     final room = input.contextLimit - fixed - input.reserveTokens;
     final fit = fitHistoryEstimate(
       history,

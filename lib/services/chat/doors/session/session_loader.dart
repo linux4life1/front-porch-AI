@@ -66,6 +66,7 @@ class SessionLoader {
         _session.activeCharacter!.dbId!,
       );
     } else {
+      _store.genSettings = _store.freshGenerationSettings();
       return;
     }
 
@@ -115,7 +116,7 @@ class SessionLoader {
       _store.selectedLooks.clear(); // 0-session: no per-chat look selection
       // 0-session: no per-chat gen overrides — without this, character B's
       // first chat ran (and could SAVE) character A's temp/stops/sanitizer.
-      _store.genSettings = ChatGenerationSettings();
+      _store.genSettings = _store.freshGenerationSettings();
       _s
           .prompts()
           .source

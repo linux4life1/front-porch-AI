@@ -76,7 +76,10 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     super.dispose();
   }
 
-  void _onDraftChanged() => setState(() {});
+  void _onDraftChanged() {
+    _draft.updateTokenEstimate();
+    setState(() {});
+  }
 
   void _goToStep(int step) => setState(() => _currentStep = step);
 
@@ -157,11 +160,14 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   Widget _buildStep() {
     switch (_currentStep) {
       case 0:
-        return CreatorIdentityStep(
-          key: const ValueKey('identity'),
-          draft: _draft,
-          onChanged: _onDraftChanged,
-          onGoToStep: _goToStep,
+        return FocusTraversalGroup(
+          policy: WidgetOrderTraversalPolicy(),
+          child: CreatorIdentityStep(
+            key: const ValueKey('identity'),
+            draft: _draft,
+            onChanged: _onDraftChanged,
+            onGoToStep: _goToStep,
+          ),
         );
       case 1:
         return CreatorPersonalityStep(

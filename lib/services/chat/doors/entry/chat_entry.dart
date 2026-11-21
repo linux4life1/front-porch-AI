@@ -414,6 +414,9 @@ class ChatEntry {
                   greetingText: opening.first,
                 ),
                 sender: _session.activeCharacter!.name,
+                metadata: scenarioOpeningMetadata(
+                  _store.genSettings.soloScenario,
+                ),
                 isUser: false,
               ),
             );

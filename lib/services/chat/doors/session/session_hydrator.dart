@@ -195,19 +195,25 @@ class SessionHydrator {
         swipes = [''];
       }
 
-      // Model output ONLY — the feature's contract. Without the isUser
-      // gate, a broad rule + retroactive-on rewrote the USER's own words in
-      // memory, and the next save persisted the corruption. (Impersonate
-      // drafts are sanitized at creation time, before they become user rows.)
-      // System rows (backend notices, app status) are skipped too — rules
-      // rewriting those could break the backend-notice dedupe comparison.
-      if (!m.isUser &&
-          m.sender != 'System' &&
-          compiledRules.isNotEmpty &&
-          swipes.isNotEmpty) {
-        swipes = swipes
-            .map((s) => sanitizeOutputCompiled(s, compiledRules))
-            .toList();
+      final metadata = m.metadata == null
+          ? null
+          : Map<String, dynamic>.from(jsonDecode(m.metadata!));
+      final swipeMetadata = m.swipeMetadata == null
+          ? null
+          : (jsonDecode(m.swipeMetadata!) as List<dynamic>)
+                .map(
+                  (e) => e == null ? null : Map<String, dynamic>.from(e as Map),
+                )
+                .toList();
+      if (!m.isUser && m.sender != 'System' && compiledRules.isNotEmpty) {
+        for (var i = 0; i < swipes.length; i++) {
+          final fields = (swipeMetadata?.elementAtOrNull(i)) ?? metadata;
+          // Scenario prose was finalized already. A new regex cannot turn
+          // a saved transcript into a fresh rewrite when the chat reopens.
+          if (fields?['presentation'] != scenarioPresentation) {
+            swipes[i] = sanitizeOutputCompiled(swipes[i], compiledRules);
+          }
+        }
       }
 
       List<int> swipeDurations;
@@ -232,18 +238,8 @@ class SessionHydrator {
           swipes: swipes,
           swipeIndex: safeSwipeIndex,
           swipeDurations: swipeDurations,
-          metadata: m.metadata != null
-              ? Map<String, dynamic>.from(jsonDecode(m.metadata!))
-              : null,
-          swipeMetadata: m.swipeMetadata != null
-              ? (jsonDecode(m.swipeMetadata!) as List<dynamic>)
-                    .map(
-                      (e) => e != null
-                          ? Map<String, dynamic>.from(e as Map)
-                          : null,
-                    )
-                    .toList()
-              : null,
+          metadata: metadata,
+          swipeMetadata: swipeMetadata,
         ),
       );
     }
