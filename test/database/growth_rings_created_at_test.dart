@@ -52,6 +52,10 @@ void main() {
           .data;
 
   test('addRing on an upgraded table stamps real timestamps', () async {
+    // The companion insert names every current column (advance_count since
+    // v68), so the raw v36 table has to come up the ladder before addRing
+    // can write it — which is the whole point: real installs ARE upgraded.
+    await db.migration.onUpgrade(Migrator(db), 53, db.schemaVersion);
     final store = GrowthStore(getDb: () => db);
     await store.addRing(
       sessionId: 's1',

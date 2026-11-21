@@ -50,7 +50,7 @@ void main() {
       await db.close();
     });
 
-    test('schema version is 42', () {
+    test('schema version is 69', () {
       // v40: Living Worlds (worlds columns + chat_worlds + chat_biome_spans).
       // v41: worlds.place_traits (atmosphere/gravity JSON).
       // v42: groups.folder_id (groups movable through folders).
@@ -135,7 +135,15 @@ void main() {
       //      example dialogue, tags, story start, verification, author's
       //      notes). v67: each group's stored member start moves onto the
       //      members' own copies (One Chat UX PR 5).
-      expect(db.schemaVersion, 68);
+      // v68: the Boons & Bogies roll/advance columns on growth_rings and
+      //      the growth_moments queue (phase 2).
+      // v69: growth_state.kit_seed_state — the retroactive card-kit offer
+      //      (phase 3, ruling 13). Guarded by
+      //      test/services/chat/growth_kit_seed_test (the settle unit is
+      //      the chat; decline writes nothing) and by
+      //      test/database/v14_to_current_upgrade_test (the ladder lands
+      //      here).
+      expect(db.schemaVersion, 69);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
