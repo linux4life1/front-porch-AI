@@ -1,0 +1,74 @@
+name: Republish Linux packages
+
+# Publishes an existing stable release's .deb and .rpm to the APT and RPM
+# repositories, for a tag whose own "Publish to APT/RPM Repository" jobs
+# failed (v1.7.1 shipped a release.yml that still used scp after the server
+# moved to the forced-command key). Start it by hand with the tag; it uses
+# the same deploy key and commands as release.yml. The server's forced
+# command refuses anything but a front-porch-ai package and any downgrade,
+# so running it for an older tag is refused, not applied.
+#
+# workflow_dispatch only lists from the default branch (main); keep this
+# file identical on main and Rawhide so the promotion gate stays green.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag whose packages to publish (e.g. v1.7.1)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.tag }} to APT and RPM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download the release's Linux packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          case "$TAG" in
+            v[0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::not a stable release tag: $TAG"; exit 1 ;;
+          esac
+          case "$TAG" in
+            *beta*|*alpha*|*rc*|*dev*) echo "::error::pre-release tags are not published: $TAG"; exit 1 ;;
+          esac
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'Front_Porch_AI-Linux.deb' \
+            --pattern 'Front_Porch_AI-Linux.rpm'
+          ls -l Front_Porch_AI-Linux.deb Front_Porch_AI-Linux.rpm
+
+      - name: Publish .deb to the APT repository
+        env:
+          SSH_KEY: ${{ secrets.APT_DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/apt_deploy_key
+          chmod 600 ~/.ssh/apt_deploy_key
+          ssh-keyscan -H apt.frontporchai.app >> ~/.ssh/known_hosts 2>/dev/null
+          SSH_OPTS="-i ~/.ssh/apt_deploy_key -o StrictHostKeyChecking=accept-new"
+          # Forced-command key: publish-deb with the package on stdin.
+          ssh $SSH_OPTS apt-deploy@apt.frontporchai.app publish-deb < Front_Porch_AI-Linux.deb
+
+      - name: Publish .rpm to the RPM repository
+        env:
+          SSH_KEY: ${{ secrets.APT_DEPLOY_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/apt_deploy_key
+          chmod 600 ~/.ssh/apt_deploy_key
+          ssh-keyscan -H rpm.frontporchai.app >> ~/.ssh/known_hosts 2>/dev/null
+          SSH_OPTS="-i ~/.ssh/apt_deploy_key -o StrictHostKeyChecking=accept-new"
+          # Forced-command key: publish-rpm with the package on stdin.
+          ssh $SSH_OPTS apt-deploy@rpm.frontporchai.app publish-rpm < Front_Porch_AI-Linux.rpm
+
+      - name: Remove the deploy key
+        if: always()
+        run: rm -f ~/.ssh/apt_deploy_key
