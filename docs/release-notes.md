@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.7.0, "A Porch to Remember".**
+**The current stable release is v1.7.1, "Porch of the Rings".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,7 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.7.1 — Porch of the Rings](#v171--porch-of-the-rings)
 - [v1.7.0 — A Porch to Remember](#v170--a-porch-to-remember)
 - [v1.6.1 — Cloudy with a Chance of Porch](#v161--cloudy-with-a-chance-of-porch)
 - [v1.6.0 — Fifty Shades of Porch](#v160--fifty-shades-of-porch)
@@ -37,9 +38,29 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.7.1 — Porch of the Rings
+
+**Released:** v1.7.1 — current stable
+
+One editor to edit them all: a group and every member in it now open the character editor you know, and each character in a group keeps their own switches, memory and name.
+
+- 👥 **Edit group is a page, and a member is a character** — Group Settings is gone: "Edit group…" opens a page with the same Details, Dialogue, Lorebook and Worlds tabs as a character, with new group fields (Personality, Post-History Instructions, Tags, story start, Realism Verification) and your stats together. Editing a member opens the character editor on the group's own copy, with what the group sets greyed out and the member's group prompt, author's note and starting feelings at the end. Add, remove and bring back members without opening the chat, Duplicate Group really copies a group, a member can start away, and example dialogue lives on each member's card. Member Reset, Reset ALL and the memory importance sliders are gone; your groups keep every setting they had.
+
+- 🫂 **A group chat's sidebar reads like a 1:1** — tap a character and Character State shows their bond bars, fixation, Needs, ambitions, Pockets and time, exactly as a 1:1 does, with Objectives and the AFK switch too. A read-only Group Dynamics section shows how they feel about each of the others, and Away and Back sit on their face in the cast strip.
+
+- 🎚️ **Realism, Needs and Afterglow per character** — in a group, the Realism switch, the Needs line and the Afterglow line belong to the character you tapped: turn one off for one member and the others keep going. Chats you already have behave as before.
+
+- 🧠 **Group memory belongs to each character** — a character remembers only the scenes they were there for, from their own memory, Data Bank and sources. The Memory section shows for the character you tapped and runs only while Memory is on in general and for the group. Chats you already have keep the memories they made.
+
+- 🔖 **Characters keep their title** — a card can have a Title beside its name, a full name or what the card is about, shown under the name in the library and found by search, while chats still use the name. Backyard AI imports keep the name as the name and the title as the title (the title used to replace the name), a character from The Stoop keeps the post's name as its title, and a card's creator credits now survive an edit after a restart.
+
+- 🪞 **The web app matches the desktop** — the web character editor, home toolbar, menus and navigation show the same sections, buttons and wording in the same order as the desktop. Personas on the web open their form in place, a slow save says so and keeps your text, the Speak as… list scrolls on a phone, and a long name in a phone editor no longer breaks mid-word.
+
+---
+
 ## v1.7.0 — A Porch to Remember
 
-**Released:** v1.7.0 — current stable
+**Released:** v1.7.0
 
 The porch remembers now — your half-typed line, your sound, your cast, your settings — and the groups grew up doing it.
 
