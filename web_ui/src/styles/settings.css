@@ -4,15 +4,69 @@
    and persona pickers, persona manager, account.
 */
 
-/* ── Chat colors settings ──────────────────────────────────────────────── */
-.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
-.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
-.color-row input[type='color'] {
-  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
-  border-radius: 6px; background: none; cursor: pointer;
+/* ── Chat appearance (desktop chat_appearance_section.dart) ────────────── */
+.chat-type-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 4px 14px; margin: 10px 0 16px;
 }
-.color-preview { padding: 12px; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; }
-@media (max-width: 768px) { .color-rows { grid-template-columns: 1fr; } }
+.chat-type-card .setting-row { margin: 0; padding: 12px 0; }
+.chat-type-card .setting-row:last-child { border-bottom: 0; }
+.chat-type-card .setting-row:hover { background: none; }
+.reading-size-badge {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
+  padding: 2px 8px; font-size: 0.8rem; font-weight: 700; color: var(--accent);
+}
+.card-header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.card-header-row .reset-btn { font-size: 0.8rem; padding: 4px 8px; flex-shrink: 0; }
+.color-preview {
+  display: flex; flex-direction: column; position: relative; padding: 12px 14px; gap: 8px;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.preview-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.preview-label-row { display: inline-flex; align-items: center; gap: 6px; }
+.preview-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
+.preview-label { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
+.preview-font { font-size: 0.65rem; color: var(--faint); font-family: var(--chat-font, inherit); }
+.preview-ai-row { display: flex; align-items: flex-start; gap: 8px; }
+.preview-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--on-accent);
+  border: 1.5px solid var(--border); font-size: 0.65rem; font-weight: 700;
+}
+.color-preview .preview-bubble {
+  border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  font-family: var(--chat-font, inherit); text-align: left; cursor: pointer;
+  max-width: min(380px, 85%); margin: 0; align-self: flex-start;
+}
+.color-preview .preview-bubble.user { max-width: min(320px, 85%); align-self: flex-end; }
+.color-preview .preview-bubble:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 2px; }
+.color-groups-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 8px; }
+.color-group-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.color-group-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 10px; }
+.color-chips-row { display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.color-chip-item {
+  position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 5px 8px;
+  min-height: 32px; box-sizing: border-box;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+  font-size: 0.8rem; color: var(--text); cursor: pointer; margin: 0;
+}
+.color-chip-item:focus-within { outline: 2px solid var(--porch-amber); outline-offset: 1px; }
+.color-chip-swatch {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--border);
+  font-size: 0.7rem; font-weight: 700;
+}
+.color-chip-swatch.ink { width: 22px; }
+.color-chip-sample { font-size: 0.7rem; font-weight: 600; }
+.color-chip-input {
+  position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
+  padding: 0; border: 0; cursor: pointer;
+}
+@media (max-width: 600px) {
+  .color-groups-grid { grid-template-columns: 1fr; }
+}
 
 /* ── Chat theme settings (per-chat theme presets + customization) ────────── */
 .theme-settings { margin-bottom: 16px; }
@@ -39,7 +93,166 @@
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius); color: var(--text); font-size: 0.85rem;
 }
+.color-rows { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; margin: 8px 0 12px; }
+.color-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; color: var(--text); }
+.color-row input[type='color'] {
+  width: 44px; height: 28px; padding: 0; border: 1px solid var(--border);
+  border-radius: 6px; background: none; cursor: pointer;
+}
+@media (max-width: 768px) {
+  .color-rows { grid-template-columns: 1fr; }
+}
 .theme-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+/* ── Appearance: theme gallery (the desktop's ThemeCardGrid) ───────────── */
+.theme-gallery-wrap { margin: 10px 0 14px; }
+.theme-gallery {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.theme-gallery-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 0 0 8px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); cursor: pointer; text-align: left;
+  overflow: hidden; color: var(--text);
+}
+.theme-gallery-card:hover { border-color: var(--accent); }
+.theme-gallery-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.theme-gallery-preview {
+  display: flex; height: 64px; border-bottom: 1px solid;
+}
+.theme-gallery-rail { width: 14px; border-right: 1px solid; }
+.theme-gallery-chat {
+  flex: 1; display: flex; flex-direction: column; justify-content: space-evenly;
+  padding: 8px;
+}
+.theme-gallery-bar { height: 9px; border-radius: 5px; }
+.theme-gallery-bar.left { width: 62%; }
+.theme-gallery-bar.right { width: 45%; align-self: flex-end; }
+.theme-gallery-bar.accent { width: 30%; }
+.theme-gallery-name { padding: 0 10px; font-size: 0.82rem; font-weight: 600; }
+.theme-gallery-tag { padding: 0 10px; font-size: 0.68rem; }
+@media (max-width: 760px) {
+  .theme-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
+
+.chat-type-card .reading-size-row > span:first-child { display: none; }
+
+/* ── Appearance: shell controls card, accent bar, atmosphere grid ──────── */
+.appearance-shell-card {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 4px 14px; margin-bottom: 12px;
+}
+.appearance-shell-card .setting-row { margin: 0; padding: 12px 0; }
+.appearance-shell-card .setting-row:hover { background: none; }
+.appearance-shell-card > :last-child .setting-row,
+.appearance-shell-card > section:last-child .setting-row:last-of-type { border-bottom: 0; }
+.accent-bar-card {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 10px 12px; padding: 12px 14px; margin-bottom: 12px;
+}
+.accent-bar-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.accent-bar-eyebrow {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: var(--muted);
+}
+.accent-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.accent-swatch {
+  width: 28px; height: 28px; border-radius: 50%; padding: 0;
+  border: 2px solid transparent; cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.accent-swatch.accent-theme-pill {
+  width: auto; height: auto; border-radius: 999px; padding: 5px 10px;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; font-weight: 600;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--border); box-shadow: none;
+}
+.accent-swatch.accent-theme-pill.selected {
+  color: var(--text); border-color: var(--porch-amber);
+  background: color-mix(in srgb, var(--porch-amber) 15%, transparent);
+  box-shadow: none;
+}
+.accent-swatch.selected { border-color: var(--text); box-shadow: 0 0 0 2px var(--accent); }
+.accent-swatch.custom {
+  display: grid; place-items: center; overflow: hidden;
+  background: conic-gradient(var(--accent), var(--porch-honey), var(--porch-terracotta), var(--accent));
+}
+.accent-swatch.custom input[type='color'] {
+  width: 34px; height: 34px; padding: 0; border: 0; background: none;
+  cursor: pointer; opacity: 0;
+}
+.accent-bar-note { margin: 0; }
+.appearance-reset { margin: 6px 0 12px; }
+.atmosphere-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .atmosphere-grid { grid-template-columns: 1fr; }
+}
+.atmosphere-card { padding: 14px; margin: 0; }
+.atmosphere-card .setting-row { margin: 0; padding: 10px 0; }
+.atmosphere-card .setting-row:last-of-type { border-bottom: 0; }
+.atmosphere-card .setting-row:hover { background: none; }
+.atmosphere-card-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 4px;
+}
+.atmosphere-card-head .settings-group-heading { margin: 0; }
+.atmosphere-eyebrow {
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; color: var(--muted);
+}
+.atmosphere-badge { font-size: 0.7rem; font-weight: 600; }
+.atmosphere-badge-accent { color: var(--accent); }
+.atmosphere-badge-ok { color: var(--ok); }
+.atmosphere-caption { margin: 0 0 8px; line-height: 1.45; }
+.sr-only-select {
+  /* Visually hidden, NOT display:none — the native select must stay in the
+     accessibility tree (and reachable by test labels) while the painted
+     chips beside it carry the visuals. display:none deleted the control
+     and the journey that switches the device theme with it. */
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.atmosphere-control-block { margin-top: 10px; }
+.atmosphere-sub-eyebrow {
+  display: block; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.06em;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 6px;
+}
+.atmosphere-seg { width: 100%; }
+.atmosphere-seg .mode-seg-btn { flex: 1; text-align: center; }
+.atmosphere-footer-row {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px; margin-top: 12px;
+}
+.atmosphere-toggle-col { display: flex; flex-direction: column; align-items: flex-start; }
+.atmosphere-sound-col { flex: 1; min-width: 180px; }
+.atmosphere-sound-inline { display: flex; align-items: center; gap: 10px; }
+.atmosphere-inline-slider { flex: 1; min-width: 80px; }
+.atmosphere-drama-slider { width: 140px; }
+
+/* Desktop pill-capsule segmented bar for Appearance controls */
+.settings-section .mode-seg {
+  display: inline-flex; align-items: stretch; gap: 0;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--bg); overflow: hidden; max-width: 100%;
+}
+.settings-section .mode-seg-btn {
+  font-size: 0.78rem; font-weight: 500; padding: 6px 12px;
+  border: none; border-right: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--muted); line-height: 1.25;
+  white-space: nowrap;
+}
+@media (max-width: 639px) {
+  .settings-section .mode-seg { flex-wrap: wrap; border-radius: 14px; }
+  .settings-section .mode-seg-btn { border-right: none; padding: 6px 10px; }
+}
+.settings-section .mode-seg-btn:last-child { border-right: none; }
+.settings-section .mode-seg-btn.selected {
+  background: color-mix(in srgb, var(--porch-amber) 18%, transparent);
+  color: var(--text); font-weight: 600; border-radius: 999px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--porch-amber) 55%, transparent);
+}
 
 /* ── Image-gen settings two-up rows ────────────────────────────────────── */
 .img-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
@@ -48,17 +261,316 @@
 .img-host-chips .chip-toggle { flex: 1; min-width: 7rem; }
 .img-host-chips .chip-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* ── Generation sampler sliders (desktop-style: label + value box, slider) ─ */
+/* ── Generation sampler sliders (desktop-style: studio console) ─ */
 .slider-field { margin: 14px 0; }
 .slider-head {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-bottom: 6px; color: var(--text); font-size: 0.85rem;
 }
-.slider-val { width: 96px; text-align: right; padding: 4px 8px; font-size: 0.85rem; }
+.slider-head > span:first-child,
+.slider-label {
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--text);
+}
+.slider-label { display: inline-flex; align-items: center; gap: 4px; }
+.slider-val {
+  width: 72px; text-align: right; padding: 4px 6px; font-size: 0.82rem;
+  font-variant-numeric: tabular-nums; font-family: inherit; font-weight: 700;
+  border-radius: 6px;
+  appearance: textfield; -moz-appearance: textfield;
+}
+.slider-val::-webkit-outer-spin-button,
+.slider-val::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+.slider-track-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
 .slider-field input[type='range'] {
-  width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px; cursor: pointer; padding: 0;
+  border-radius: 2px; background: var(--border); border: none;
+}
+.slider-field input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-field input[type='range'].in-danger::-webkit-slider-thumb {
+  background: var(--danger);
+}
+.slider-field input[type='range']::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--accent); border: none; cursor: pointer;
+}
+.slider-field input[type='range'].in-danger::-moz-range-thumb {
+  background: var(--danger);
 }
 .slider-field input:disabled { opacity: 0.45; cursor: not-allowed; }
+.slider-default-pip {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 12px;
+  background-color: var(--muted);
+  opacity: 0.75;
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+.studio-sampler-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+  margin-bottom: 16px;
+}
+.studio-column-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.studio-slider-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.studio-slider-card .slider-field {
+  margin: 0;
+}
+
+/* ── Stop sequences & Sanitizer rule editor (desktop UI/UX parity) ── */
+.stop-sequence-box,
+.sanitizer-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.sanitizer-box { margin-top: 8px; }
+.stop-sequence-input-row {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  gap: 8px;
+}
+.stop-sequence-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 4px 6px;
+  outline: none;
+}
+.stop-sequence-input:focus {
+  outline: none;
+}
+.stop-sequence-add-btn,
+.sanitizer-add-btn {
+  color: var(--accent);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+}
+.stop-sequence-add-btn:hover,
+.sanitizer-add-btn:hover {
+  opacity: 0.8;
+}
+.stop-sequence-list {
+  border-top: 1px solid var(--border);
+}
+.stop-sequence-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.82rem;
+}
+.stop-sequence-item:last-child {
+  border-bottom: none;
+}
+
+.circle-remove-btn {
+  color: var(--danger);
+  background: transparent;
+  border: none;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.circle-remove-btn:hover {
+  opacity: 1;
+}
+
+.sanitizer-input-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.sanitizer-find-input,
+.sanitizer-replace-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: inherit;
+  padding: 4px 6px;
+  outline: none;
+}
+.sanitizer-find-input:focus,
+.sanitizer-replace-input:focus {
+  border-bottom-color: var(--accent);
+}
+.sanitizer-input-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+.sanitizer-rules-list {
+  display: flex;
+  flex-direction: column;
+}
+.sanitizer-empty {
+  padding: 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.sanitizer-rule-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  font-size: 0.82rem;
+  background: var(--surface-2);
+  transition: background 0.15s ease;
+  cursor: default;
+}
+.sanitizer-rule-row:last-child {
+  border-bottom: none;
+}
+.sanitizer-rule-row.dragging {
+  opacity: 0.4;
+}
+.sanitizer-rule-row.drag-over {
+  border-top: 2px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
+}
+.sanitizer-drag-handle {
+  color: var(--muted);
+  cursor: grab;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+.sanitizer-drag-handle:active {
+  cursor: grabbing;
+}
+.stop-circle-btn {
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.stop-circle-btn.on {
+  color: var(--accent);
+}
+.sanitizer-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--surface-2) 80%, var(--card));
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.sanitizer-rule-inputs {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.sanitizer-inline-input,
+.stop-sequence-inline-input {
+  flex: 1;
+  min-width: 60px;
+  padding: 3px 6px;
+  font-size: 0.82rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-badge);
+  color: var(--text);
+}
+.stop-sequence-inline-input {
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  font-family: var(--font-mono, monospace);
+}
+.sanitizer-inline-input:focus,
+.stop-sequence-inline-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+.reorder-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 0.72rem;
+  line-height: 1;
+  border-radius: var(--radius-badge);
+}
+.reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.reorder-btn:not(:disabled):hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.sanitizer-warn-text {
+  color: var(--danger);
+  font-size: 0.78rem;
+  margin: 4px 12px 0;
+}
+
 
 /* ── Group creation member picker ──────────────────────────────────────── */
 .grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
@@ -100,7 +612,9 @@
 .icon-btn.mic.recording { color: var(--danger); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* ── Persona manager (card grid, not a flat list) ─────────────── */
+/* ── Persona manager (hero card + card grid, the desktop's page twin) ── */
+/* The chat's persona switcher stays a flat list (the desktop's in-chat
+   switcher is one too): the shared bits live here, manager-only styles below. */
 .persona-list {
   list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 8px;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -111,17 +625,139 @@
   background: var(--surface-2);
 }
 .persona-list li.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
+.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
 .persona-av {
   width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; background: var(--surface-2);
   color: var(--accent); font-weight: 700;
 }
-.persona-list li.active .persona-av { background: var(--accent); color: var(--on-accent); }
+/* --pc is the persona's palette color, set per card in PersonaManager.tsx
+   (the desktop paints the same tints from PersonaColors). */
+.persona-hero {
+  display: flex; align-items: flex-start; gap: 16px; margin-top: 12px; padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 35%, var(--border));
+  border-radius: calc(var(--radius) + 4px);
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--pc, var(--accent)) 10%, var(--surface)),
+    var(--surface) 60%);
+}
+/* The desktop's hero edit button is tinted with the persona colour. */
+.persona-hero > .icon-btn { color: color-mix(in srgb, var(--pc, var(--accent)) 70%, transparent); }
+/* Phone: the title takes the first line and the three buttons share the
+   next, none of them mid-word. */
+@media (max-width: 640px) {
+  [data-testid="persona-manager"] .card-head { flex-wrap: wrap; }
+  [data-testid="persona-manager"] .card-head h3 { flex-basis: 100%; }
+  [data-testid="persona-manager"] .card-head button {
+    flex: 1 1 auto; white-space: nowrap; padding: 8px 10px;
+  }
+  /* Editing: the back arrow and its title share one line, title at the
+     arrow's side as in the desktop's app bar. */
+  [data-testid="persona-manager"] .persona-edit-head { flex-wrap: nowrap; }
+  [data-testid="persona-manager"] .persona-edit-head h3 { flex-basis: auto; }
+  [data-testid="persona-manager"] .persona-edit-head button { flex: 0 0 auto; }
+}
+.persona-hero-main { flex: 1; min-width: 0; }
+.persona-hero-name { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.persona-hero-name strong {
+  font-size: 1.15rem; letter-spacing: -0.01em; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-hero-sub { margin-top: 2px; font-size: 0.85rem; font-weight: 500; color: color-mix(in srgb, var(--pc) 80%, transparent); }
+.persona-hero-desc {
+  margin: 6px 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-badge {
+  flex-shrink: 0; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 999px;
+  color: var(--pc, var(--accent)); background: color-mix(in srgb, var(--pc, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+}
+.persona-chip {
+  display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+  padding: 4px 10px; border-radius: 8px; font-size: 0.68rem; color: var(--muted);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border: 1px solid var(--border);
+}
+.persona-chip svg { opacity: 0.7; }
+.persona-section {
+  display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
+  font-size: 0.85rem; font-weight: 600; letter-spacing: 0.02em; color: var(--muted);
+}
+.persona-tick { width: 3px; height: 16px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+.persona-grid {
+  list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.persona-grid li {
+  position: relative; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-2); cursor: pointer;
+}
+.persona-grid li.default {
+  border-color: color-mix(in srgb, var(--pc, var(--accent)) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--accent)) 40%, transparent);
+}
+.persona-card-top { display: flex; align-items: center; gap: 10px; }
+.persona-grid .persona-av, .persona-hero .persona-av {
+  overflow: hidden;
+  color: #fff; /* theme-keep: palette glyph ink, the desktop's white-on-color avatar */
+  background: var(--pc, var(--surface));
+}
+.persona-grid .persona-av img, .persona-hero .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+/* The chat's "Speak as…" switcher: the head stays put and the list scrolls,
+   as the desktop dialog's ListView does — a long persona list on a phone
+   otherwise ran off both ends of the screen with nothing to scroll. */
+.modal.chat-persona-modal { max-height: 90vh; max-height: calc(100dvh - 32px); overflow: hidden; }
+.chat-persona-modal .persona-list {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+}
+.persona-list .persona-av { overflow: hidden; }
+.persona-list .persona-av img { width: 100%; height: 100%; object-fit: cover; }
+.persona-hero .persona-av-lg { width: 56px; height: 56px; box-shadow: 0 0 18px -4px color-mix(in srgb, var(--pc, transparent) 60%, transparent); }
+/* The shared .card-kebab is an absolute cover overlay (library-cards.css);
+   on a persona card it must sit IN the header row, or it paints over the
+   name and the sweep's overlap guard fails the page. */
+.persona-grid .card-kebab { position: static; opacity: 1; margin-left: auto; flex-shrink: 0; }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }
-.persona-actions { display: flex; gap: 2px; flex-shrink: 0; }
-.persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
+.persona-main .psub {
+  font-size: 0.72rem; color: color-mix(in srgb, var(--pc) 75%, transparent);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.persona-desc {
+  margin: 0; font-size: 0.76rem; line-height: 1.5; color: var(--muted); min-height: 2.3em;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.persona-desc.empty { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.persona-card-foot { display: flex; justify-content: flex-end; align-items: center; }
+.persona-make {
+  font-size: 0.66rem; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+  color: var(--pc, var(--accent)); border: 1px solid color-mix(in srgb, var(--pc, var(--accent)) 25%, transparent);
+  background: color-mix(in srgb, var(--pc, var(--accent)) 12%, transparent);
+}
+.persona-card-menu { position: absolute; top: 38px; right: 10px; z-index: 61; width: 190px; }
+.persona-empty { text-align: center; padding: 34px 12px; }
+.persona-empty-av {
+  width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
+}
+.persona-empty-title { font-weight: 700; font-size: 1.05rem; color: var(--muted); margin: 0 0 4px; }
+.persona-edit { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.persona-edit label { display: flex; flex-direction: column; gap: 6px; }
+.persona-edit textarea { min-height: 8em; }
+.persona-edit-head { gap: 8px; }
+.persona-edit-head h3 { flex: 1; min-width: 0; margin: 0; text-align: start; }
+.persona-edit-actions { justify-content: flex-end; }
+.persona-load-error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 0; }
+.persona-load-error .error { margin: 0; flex: 1 1 240px; }
 
 /* ── Account ──────────────────────────────────────────────────── */
 .qr { background: #fff; /* theme-keep: QR codes need a white quiet zone */ padding: 12px; border-radius: 10px; width: fit-content; margin: 10px 0; }
@@ -165,19 +801,179 @@
 .sg-signed-in { margin: 0; font-weight: 600; color: var(--ok); }
 .sg-fine { margin: 0; font-size: 0.75rem; color: var(--porch-amber); }
 
-/* ── Settings sections (desktop-tab parity: General → Advanced) ─────────── */
-.settings-section { margin-bottom: 28px; }
-.settings-section-heading {
-  margin: 0 0 12px; font-size: 1.15rem; color: var(--text);
-  border-bottom: 1px solid var(--border); padding-bottom: 6px;
+.page.settings-page { max-width: 1120px; }
+.settings-page > .settings-section:not([data-section="porch-life"]) {
+  max-width: 720px; margin-left: auto; margin-right: auto;
 }
-.settings-group { margin-bottom: 16px; }
-.settings-group-heading { margin: 0 0 8px; font-size: 0.95rem; color: var(--muted); }
+
+/* ── Settings tabs + rows (one-chat-ux PR 7a: the desktop's look) ─────────
+   A tab strip under the title with the accent underline on the active tab,
+   and flat setting rows — title + muted explanation left, control right,
+   hairline divider below. No card outlines where the desktop shows rows.
+   The porch at dusk, not a spreadsheet: the warm accent family glows
+   through the strip, the switches and the group headings. */
+.settings-tabs {
+  display: flex; gap: 2px; overflow-x: auto;
+  margin: -4px 0 8px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--porch-amber) 7%, transparent),
+    transparent
+  );
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.settings-tabs::-webkit-scrollbar { display: none; }
+.settings-tab {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  padding: 10px 14px; font: inherit; color: var(--muted); cursor: pointer;
+  white-space: nowrap; transition: color 0.15s, background 0.15s;
+}
+.settings-tab:hover {
+  color: var(--porch-honey);
+  background: color-mix(in srgb, var(--porch-amber) 8%, transparent);
+  border-radius: 8px 8px 0 0;
+}
+.settings-tab[aria-selected="true"] {
+  color: var(--text); font-weight: 600;
+  border-image: linear-gradient(90deg, var(--porch-terracotta), var(--porch-amber), var(--porch-honey)) 1;
+  text-shadow: 0 0 18px color-mix(in srgb, var(--porch-amber) 45%, transparent);
+}
+/* The desktop's window is wide; the 720px `.page` default clipped the tab
+   rail ("your tab rail is getting cut off because its not full screen
+   width", maintainer 2026-11-13). Settings spans the content column on
+   desktop and tablet, like the library page already does. */
+[data-layout="desktop"] .page.settings-page,
+[data-layout="tablet"] .page.settings-page { max-width: none; padding: 20px 32px; }
+.settings-section { max-width: 1100px; }
+.setting-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 24px; padding: 14px 10px; margin: 0 -10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px; transition: background 0.15s;
+}
+.setting-row:hover { background: color-mix(in srgb, var(--porch-amber) 5%, transparent); }
+.setting-row-title { font-weight: 600; }
+.setting-row-blurb {
+  margin: 6px 0 0; color: var(--muted); font-size: 0.85rem; line-height: 1.5;
+  max-width: 60ch;
+}
+.setting-row-control {
+  flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-top: 2px;
+}
+.setting-row-control input[type='range'] { width: 180px; accent-color: var(--accent); }
+.setting-row-select {
+  padding: 6px 10px; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 0.85rem; min-width: 190px;
+}
+.setting-row-select:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 1px; }
+.setting-row-slider { accent-color: var(--accent); }
+/* The desktop's Material 3 switch, on a plain checkbox: a 52x32 pill. Off is
+   the raised ground with a grey outline and a small grey knob at the left;
+   on is the accent with a larger knob at the right in the accent's own ink
+   (dark in a dark theme, white in a light one — the desktop's onPrimary).
+   `input.switch` so it outranks base.css's `input[type='checkbox']` (which
+   set width: auto) and the generic input padding. The outline is an inset
+   shadow, not a border, so the touch rule below can widen the hit area with
+   a transparent border without moving what is drawn. */
+input.switch {
+  appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0;
+  box-sizing: content-box; width: 52px; height: 32px; padding: 0; margin: 0;
+  border: 0 solid transparent; border-radius: 16px; cursor: pointer;
+  background-color: var(--surface-2); background-clip: padding-box;
+  box-shadow: inset 0 0 0 2px var(--faint);
+  transition: background-color 0.15s, box-shadow 0.15s;
+}
+input.switch::after {
+  content: ''; position: absolute; top: 50%; left: 8px; width: 16px; height: 16px;
+  border-radius: 50%; background: var(--faint); transform: translateY(-50%);
+  transition: left 0.15s, width 0.15s, height 0.15s, background 0.15s;
+}
+input.switch:checked { background-color: var(--porch-amber); box-shadow: none; }
+input.switch:checked::after { left: 24px; width: 24px; height: 24px; background: var(--on-accent); }
+input.switch:focus-visible { outline: 2px solid var(--porch-amber); outline-offset: 2px; }
+input.switch:disabled { opacity: 0.5; cursor: default; }
+/* Touch: a 44px-tall tap area (touch.css's rule) from a transparent border,
+   pulled back by an equal negative margin so the row's layout and the drawn
+   pill stay exactly as with a mouse. */
+@media (pointer: coarse) {
+  input.switch { border-width: 6px; margin: -6px; border-radius: 22px; }
+}
+.settings-save { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.settings-save button.primary {
+  border-radius: 999px; padding: 10px 22px;
+}
+.gp-buttons button:not(.primary):not(.ghost) {
+  border-radius: 999px; background: transparent;
+  border: 1px solid var(--border); color: var(--porch-amber);
+  font-weight: 600; padding: 8px 18px;
+}
+.gp-buttons button.ghost {
+  border-radius: 999px; border-color: transparent;
+  color: var(--porch-amber); font-weight: 600; padding: 8px 14px;
+}
+.gp-buttons button.primary {
+  border-radius: 999px; padding: 8px 18px;
+}
+.settings-save .step-up { flex: 1 1 320px; }
+.settings-save .primary:hover:not(:disabled) {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--porch-amber) 35%, transparent);
+  transform: translateY(-1px);
+}
+@media (max-width: 768px) {
+  .setting-row { flex-direction: column; gap: 10px; }
+  .setting-row-control { width: 100%; }
+  .setting-row-control input[type='range'] { flex: 1; width: auto; }
+  .setting-row-select { flex: 1; }
+}
+.settings-group { margin: 20px 0; }
+/* Accent group headings, as the desktop's SectionHeader paints them: bold
+   accent text and nothing else (no trailing rule, no glow). */
+.settings-group-heading {
+  margin: 0 0 10px; font-size: 0.95rem; font-weight: 700;
+  color: var(--porch-amber);
+}
+.settings-group-sub {
+  margin: -4px 0 12px; line-height: 1.45;
+}
+.inline-macro {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem; font-weight: 600; color: var(--porch-amber);
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 6px;
+}
+/* Unified SettingsGroupCard container matching desktop SettingsGroupCard. */
+.settings-group-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 4px 16px;
+}
+.settings-group-card .setting-row {
+  margin: 0; padding: 14px 0; border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.settings-group-card .setting-row:hover { background: none; }
+.settings-group-card > .setting-row:last-child,
+.settings-group-card > :last-child .setting-row { border-bottom: 0; }
+.settings-group-card .setting-toggle-card {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  padding: 14px 0; margin: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.settings-group-card .setting-toggle-card:last-child { border-bottom: 0; }
+/* Settings → General: the Porch Life pointer card (desktop twin has an
+   amber cottage icon beside one muted line inside a rounded card). */
+.porch-life-pointer {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 16px; margin-top: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.porch-life-pointer-icon { font-size: 1rem; line-height: 1.4; }
+.porch-life-pointer p { margin: 0; font-size: 0.85rem; color: var(--muted); line-height: 1.45; }
 
 /* Settings prompt slots (PromptSlot.tsx). */
 .prompt-slot { display: flex; flex-direction: column; gap: 8px; }
 .prompt-slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.prompt-slot-head h4 { margin: 0; }
+.prompt-slot-head h4 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text); }
 .prompt-slot-badge {
   font-size: 12px; padding: 2px 10px; border-radius: 999px;
   border: 1px solid var(--border); overflow-wrap: anywhere;
@@ -185,3 +981,114 @@
 .prompt-slot-badge.strong { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .prompt-slot-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
 .prompt-slot-actions label { flex: 1 1 200px; }
+
+/* ── Generation settings: top-level section cards matching Desktop ── */
+.gen-sections {
+  display: flex;
+  flex-direction: column;
+}
+.gen-section-card {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+.gen-section-title {
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--porch-amber);
+}
+.gen-subsection-heading {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--porch-amber);
+}
+.gen-engine-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 639px) {
+  .gen-engine-grid { grid-template-columns: 1fr; }
+}
+.gen-engine-tile {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+.gen-engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+}
+.gen-engine-row-title {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.slider-label { display: inline-flex; align-items: center; gap: 4px; }
+.slider-info {
+  background: none; border: none; padding: 0 2px; cursor: pointer;
+  color: var(--muted); font-size: 0.8rem; line-height: 1;
+}
+.slider-info:hover, .slider-info[aria-expanded='true'] { color: var(--accent); }
+.slider-ends {
+  display: flex; justify-content: space-between; margin-top: 2px;
+  font-size: 0.7rem; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.slider-info-text { margin: 4px 0 0; }
+
+/* ── Setting toggle card (switch on right) ─────────────────────────────── */
+.setting-toggle-card { padding: 14px 18px; margin-bottom: 12px; }
+.setting-toggle-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.setting-toggle-info { flex: 1; min-width: 0; }
+.setting-toggle-info h3 { margin: 0; font-size: 1rem; font-weight: 600; color: var(--text); }
+.setting-toggle-info .reading-blurb { margin: 6px 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--muted); max-width: 60ch; }
+
+/* Toggle switch control: the painted pill IS the input — `input.switch`
+   above. The old `.toggle-switch` wrapper (717) collapsed its input to 0×0
+   and painted a span, which deleted the labelled control from the
+   accessibility tree; both cards now use the canonical idiom. */
+
+/* ── Macro badges row ──────────────────────────────────────────────────── */
+.macro-badges-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px;
+}
+.macro-label { font-size: 0.75rem; color: var(--muted); margin-right: 2px; }
+.macro-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px;
+  border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font-size: 0.75rem; cursor: pointer; transition: all 0.15s ease;
+}
+.macro-chip:hover {
+  border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--surface-2));
+}
+.macro-chip code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 600; color: var(--accent);
+}
+.macro-desc { font-size: 0.68rem; color: var(--muted); }
+
+/* ── Refined prompt card spacing ───────────────────────────────────────── */
+.prompt-slot-card, .prompt-additions-card { margin-bottom: 14px; }
+.prompt-field-group { margin-top: 14px; }
+.prompt-field-group label { margin-bottom: 4px; font-weight: 500; }
+.prompt-field-group textarea { margin-top: 2px; }
+
+/* Match Desktop rounded pill Save / Reset buttons */
+.prompt-slot button:not(.primary):not(.icon-btn) {
+  border-radius: 999px; background: transparent;
+  border: 1px solid var(--border); color: var(--porch-amber);
+  font-weight: 600; padding: 8px 18px;
+}
+.prompt-slot button.primary { border-radius: 999px; padding: 8px 18px; }

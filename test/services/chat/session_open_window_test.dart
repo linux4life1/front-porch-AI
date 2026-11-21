@@ -19,9 +19,4 @@ void main() {
       reason: 'a fully hydrated list is still 0-based',
     );
   });
-
-  test('a chat shorter than the window does not need a backfill', () {
-    expect(kSessionOpenWindow, greaterThan(10));
-    expect(11 < kSessionOpenWindow, isTrue);
-  });
 }

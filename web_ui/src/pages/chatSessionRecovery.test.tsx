@@ -169,6 +169,10 @@ describe('ChatPage conversation switch', () => {
     act(() => emit({ event: 'token', data: 'half a rep' }));
     expect(container.querySelector('.bubble.ai.streaming')).not.toBeNull();
 
+    // PR 1a: at wide, Conversations ▾ sits one click deeper — behind the
+    // composer's Chat Management folder. Same button, one lookup added.
+    click('.chat-mgmt-btn');
+    await flush();
     click('.conversations-btn');
     await flush();
     click('.conv-item');
@@ -182,6 +186,10 @@ describe('ChatPage conversation switch', () => {
     act(() => emit({ event: 'token', data: 'half a rep' }));
     expect(container.querySelector('.bubble.ai.streaming')).not.toBeNull();
 
+    // PR 1a: at wide, Conversations ▾ sits one click deeper — behind the
+    // composer's Chat Management folder. Same button, one lookup added.
+    click('.chat-mgmt-btn');
+    await flush();
     click('.conversations-btn');
     await flush();
     click('.new-chat');

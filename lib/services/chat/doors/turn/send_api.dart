@@ -73,6 +73,18 @@ extension ChatServiceTurnFlow on ChatService {
   void setNextCharacter(CharacterCard character) =>
       sendSpine.speakers.setNextCharacter(character);
 
+  /// Hold a cast member (full member or lite guest) to answer the next
+  /// turn — the sidebar chip and Director cue "Next". Releases a held-Away
+  /// member back onto the scene. One-shot: consumed by the next normal pick.
+  void queueSpeaker(CharacterCard character) =>
+      sendSpine.speakers.queueSpeaker(character);
+
+  /// The queued member, or null when nobody is held.
+  CharacterCard? get queuedSpeaker => sendSpine.speakers.queuedSpeaker;
+
+  /// Cancel the queued member (second tap on a filled NEXT pill).
+  void clearQueuedSpeaker() => sendSpine.speakers.clearQueuedSpeaker();
+
   /// True when auto-trigger fires. UI reads then calls consumeChanceTimeTrigger().
   bool get chanceTimePendingTrigger =>
       sendSpine.chanceReveal.chanceTimePendingTrigger;
@@ -88,9 +100,10 @@ extension ChatServiceTurnFlow on ChatService {
   /// accepted (the web reveal modal's durable signal).
   bool get isAwaitingChanceTime => sendSpine.chanceReveal.isAwaitingChanceTime;
 
-  /// Manual SPIN NOW. Parks a pre-picked event until accept.
-  bool requestManualChanceTime() =>
-      sendSpine.chanceReveal.requestManualChanceTime();
+  /// Manual SPIN NOW. Parks a pre-picked event until accept. PR 5b: in a
+  /// group [memberId] names the cast member whose card was spun.
+  bool requestManualChanceTime({String? memberId}) =>
+      sendSpine.chanceReveal.requestManualChanceTime(memberId: memberId);
 
   /// The speaker a Chance Time event is attributed to, shared by the desktop
   /// wheel overlay and the web accept path.

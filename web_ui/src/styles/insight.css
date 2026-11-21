@@ -9,8 +9,11 @@
 .msg-row .bubble.user { align-self: flex-end; }
 .msg-row .bubble.ai { align-self: flex-start; }
 /* Realism (row 1) + Needs (row 2) chips sit in their own block under a reply.
- * Each row wraps independently so Realism never bleeds into the Needs line. */
-.chips-block { display: flex; flex-direction: column; gap: 3px; align-self: flex-start; max-width: 85%; margin: 4px 0 2px; }
+ * Each row wraps independently so Realism never bleeds into the Needs line.
+ * Inside the bubble the block may use the bubble's full width (the sketch's
+ * phone rows put four chips on a line); 1a's 85% cap was for the old chips
+ * outside the bubble and wrapped the last chip on a phone. */
+.chips-block { display: flex; flex-direction: column; gap: 3px; align-self: flex-start; max-width: 100%; margin: 4px 0 2px; }
 .chips-row { display: flex; flex-wrap: wrap; gap: 4px; }
 /* One line per chip: a long label (a Pockets receipt) ends in an ellipsis
  * inside the bubble's width, the ⓘ stays visible, and a tap shows it whole. */
@@ -113,6 +116,17 @@
 .model-picker-trigger .mp-value.muted { color: var(--muted); }
 .mp-caret { color: var(--muted); flex: none; }
 .mp-refresh { flex: none; padding: 0 12px; font-size: 1rem; }
+/* Desktop RemoteModelPickerField head: label left, "Refresh Models" right. */
+.mp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin: 2px 0 6px;
+}
+.mp-head-label { font-size: 0.85rem; color: var(--muted); }
+.mp-refresh-btn {
+  border: 0; background: none; cursor: pointer; font: inherit;
+  font-size: 0.85rem; font-weight: 600; color: var(--accent); padding: 2px 4px;
+}
+.mp-refresh-btn:disabled { opacity: 0.55; cursor: default; }
 .model-picker-menu {
   position: absolute; z-index: 40; top: calc(100% + 4px); left: 0; right: 0;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius, 12px);
@@ -347,3 +361,105 @@
 @media (prefers-reduced-motion: reduce) {
   .mood-portrait.on::after, .mood-portrait.on.need > *:first-child, .stat.need-low, .stat.need-low .stat-fill { animation: none !important; }
 }
+
+/* ── Chat sidebar (PR 1a wide, PR 1b phone and tablet) ──────────────────
+   ChatSidebar renders the portrait, Main Settings, pills, then the
+   cast/Director/tool cards at every width; only its container changes. */
+.sidebar-main-settings {
+  width: 100%; margin-top: 10px; background: none; border: none; cursor: pointer;
+  color: var(--text); font-weight: 600; font-size: 0.95rem; padding: 8px;
+}
+/* The wide header has no chip; Main Settings → Model Settings opens this
+   same sheet, so only the sheet shows and the chip does not. */
+.model-sheet-host { display: contents; }
+.model-sheet-host .model-switch-chip { display: none; }
+.wide-card { min-width: 0; }
+.wide-card .insight-section { margin-top: 6px; }
+/* Grey card subtitle in the collapsed summary line (target's card titles
+   carry a one-line state summary). */
+.card-sub { font-weight: 400; font-size: 0.72rem; color: var(--muted); margin-left: 6px; }
+/* No-portrait square: the window's initial tile, sized like a real portrait. */
+.portrait-initial {
+  width: 100%; aspect-ratio: 1 / 1; min-height: 180px; border-radius: 10px;
+  display: grid; place-items: center; font-size: 4rem; font-weight: 700;
+  background: var(--surface-2); color: var(--text);
+}
+/* Wide reply rows keep the shared .msg-actions base, whose align-self was
+   written for the phone column; stretch so right-alignment reaches. */
+.msg-row-desktop .msg-actions { align-self: stretch; }
+/* Cast pills in the sidebar wrap to its width — the window stacks its cast
+   list. The role strip hides so every chip's Away / speak / remove stay
+   fully visible in the column at 1024 and 1440, and in the drawer below. */
+.chat-sidebar .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
+.chat-sidebar .cast-row { flex-wrap: wrap; overflow-x: visible; }
+/* Card headers carry the window's padlock + chevron (pass 4): the grip
+   sits inside the header's left edge instead of floating above the card. */
+.chat-sidebar .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
+.chat-sidebar .tool-section > summary { padding-left: 32px; }
+.chat-sidebar .one-shot-row { padding-left: 32px; }
+.chat-sidebar .tool-pill { padding-left: 32px; }
+.card-chev {
+  display: inline-block; margin: 0 6px 0 2px; color: var(--muted);
+  font-size: 0.7rem; transition: transform 0.12s;
+}
+.chat-sidebar details[open] > summary > .card-chev { transform: rotate(90deg); }
+/* The 1:1 portrait fills the column like the group's. */
+.chat-sidebar .portrait-swiper { max-width: none; }
+.chat-sidebar .portrait-wrap img.portrait { max-width: none; width: 100%; }
+
+/* ── Character State, the window's arrangement (pass 5) ─────────────────
+   The Realism engine switch rides the card header; the body reads bonds,
+   Afterglow/Lust, fixation, Needs and its bars, ambitions, Pockets, then
+   one compact time line — the desktop sidebar's order. */
+.chat-sidebar .state-card > summary { display: flex; align-items: center; gap: 2px; }
+/* Title over its grey subtitle, like the window: the subtitle takes a line of
+   its own and wraps rather than being cut off beside the switch. */
+.chat-sidebar .state-card > summary .card-head-text {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+}
+.chat-sidebar .state-card > summary .card-title { white-space: nowrap; }
+.chat-sidebar .state-card > summary .card-sub { white-space: normal; line-height: 1.25; }
+.card-switch { display: inline-flex; align-items: center; margin-left: 6px; flex: none; }
+/* Pill switches, the desktop's shape: a themed track with a white thumb.
+   appearance:none makes the checkbox drawable; the thumb is a gradient dot
+   because form controls take no pseudo-elements. */
+.card-switch input, .state-switch {
+  appearance: none; -webkit-appearance: none; margin: 0;
+  width: 30px; height: 16px; border-radius: 999px; border: none;
+  background-color: var(--border);
+  background-image: radial-gradient(circle 6px at 8px 50%, var(--image-ink) 0 100%, transparent 0);
+  background-repeat: no-repeat; cursor: pointer; flex: none;
+  transition: background-color 0.15s;
+}
+.card-switch input:checked, .state-switch:checked {
+  /* The theme's accent (Plum paints it pink), not a fixed Porch hue. */
+  background-color: var(--accent);
+  background-image: radial-gradient(circle 6px at 22px 50%, var(--image-ink) 0 100%, transparent 0);
+}
+.card-switch input:disabled, .state-switch:disabled { opacity: 0.5; cursor: default; }
+/* One control line inside the card: label left, switch right. */
+.state-line {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; font-size: 0.85rem; padding: 2px 0;
+}
+.state-line > span:first-child { font-weight: 600; }
+.state-body { gap: 6px; }
+.lust-bar .stat-fill { background: var(--lust-up); }
+.state-time-line {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  font-size: 0.82rem; margin-top: 2px;
+}
+.state-time-when { color: var(--muted); }
+.state-time-nudges { display: inline-flex; gap: 6px; }
+.state-time-nudges button { white-space: nowrap; }
+.ambition-pct { color: var(--muted); font-size: 0.78rem; margin-right: 6px; }
+/* Cards are content-sized in the wide column: a flex child must never
+   shrink below its content, or two cards land on one spot. */
+.chat-sidebar .realism-panel > .wide-card { flex: none; }
+/* A closed card's body takes no layout space at all. Chromium keeps a box
+   for the content of a closed <details>, so its controls sat under the next
+   card and the sweep hit-tested them as covered (2026-11-09). */
+.chat-sidebar details:not([open]) > .tool-body { display: none; }
+
+/* The Director card is open like the desktop card: clear the padlock grip. */
+.chat-sidebar .director-card { padding: 10px 12px 12px 34px; }

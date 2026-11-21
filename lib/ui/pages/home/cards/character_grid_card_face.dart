@@ -162,8 +162,8 @@ class CharacterGridCardTinyBody extends StatelessWidget {
   }
 }
 
-/// The full card face: portrait, name + message count, and tags (or the
-/// description when there are none).
+/// The full card face: portrait, name + message count, and one line under
+/// it: the title, else the tags, else the description.
 class CharacterGridCardFullBody extends StatelessWidget {
   const CharacterGridCardFullBody({
     super.key,
@@ -247,7 +247,21 @@ class CharacterGridCardFullBody extends StatelessWidget {
                 ),
                 if (!isCompact) ...[
                   const SizedBox(height: 4),
-                  if (character.tags.isNotEmpty)
+                  // One line under the name: the title says the most about
+                  // the card, then its tags, then its description.
+                  if (character.title.isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        character.title,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textSecondary(context),
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )
+                  else if (character.tags.isNotEmpty)
                     Flexible(
                       child: Wrap(
                         spacing: 4,

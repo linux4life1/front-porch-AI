@@ -33,11 +33,16 @@ import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
 
 /// Builds the web Settings JSON snapshot from live storage + backend state.
 class SettingsSnapshot {
-  SettingsSnapshot(this._storage, this._llm, this._reasoning);
+  SettingsSnapshot(this._storage, this._llm, this._reasoning, {this.update});
 
   final StorageService _storage;
   final LLMProvider _llm;
   final SettingsReasoning _reasoning;
+
+  /// The desktop's update service, when the host has one. Its auto-check
+  /// switch is a host setting the PWA mirrors; absent, the key is omitted
+  /// and an older/partial host simply shows no row.
+  final UpdateService? update;
 
   String _loadedModel() {
     final b = _storage.backendSettings;
@@ -212,9 +217,20 @@ class SettingsSnapshot {
       // older PWA ignores the key.
       'evaluationMinimized': _storage.uiSettings.evaluationMinimized,
       'followStreamingReplies': _storage.uiSettings.followStreamingReplies,
+      // Generation → Display Output (Smooth Output Buffer & pacing).
+      'displayBufferEnabled': _storage.uiSettings.displayBufferEnabled,
+      'targetDisplayTps': _storage.uiSettings.targetDisplayTps,
+      'bufferDurationSeconds': _storage.uiSettings.bufferDurationSeconds,
       // The resolved app theme (mode + both token maps). The web never
       // computes a palette; it paints these. Additive.
       'theme': webThemeWire(_storage.appearance),
+      // The Appearance tab's host picks and the catalogs it renders (theme
+      // gallery previews, accent swatches, chat fonts). Additive: an older
+      // PWA ignores the key and keeps the controls it shipped with.
+      'appearance': appearanceWire(_storage.appearance, _storage.uiSettings),
+      // General → Auto-check for Updates, the desktop's own switch. Absent
+      // on a host without the update service (and on older hosts).
+      if (update != null) 'autoCheckForUpdates': update!.autoCheckEnabled,
       // Appearance → Ambient scene: what the stage paints over the chat
       // background. Additive; the PWA paints the chat state's `scene`.
       'ambientScene': _storage.appearance.ambientScene.key,

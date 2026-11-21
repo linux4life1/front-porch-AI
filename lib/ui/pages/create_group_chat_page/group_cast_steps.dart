@@ -140,6 +140,21 @@ class GroupMembersStep extends StatelessWidget {
               final c = members[i];
               final id = draft.stableId(c);
               final voice = draft.characterVoices[id] ?? c.ttsVoice ?? '';
+              // Starts Away: the pick lands in the member row; every chat
+              // this group creates seeds their hold from it. Untouched keeps
+              // the card's own switch, and the row says where its value came
+              // from - a bare switch's 400 ms tooltip was no label at all.
+              final picked = draft.characterStartsAway[id];
+              final startsAway =
+                  picked ?? (c.frontPorchExtensions?.startsAway ?? false);
+              final String pickState;
+              if (picked == null) {
+                pickState = "their card's own";
+              } else {
+                pickState = picked
+                    ? 'away in every chat here'
+                    : 'present in every chat here';
+              }
               // {{char}} / {{user}} resolved, as the library grid shows it.
               final desc = c.formattedDescription;
               return Card(
@@ -148,12 +163,37 @@ class GroupMembersStep extends StatelessWidget {
                 child: ListTile(
                   leading: groupMemberAvatar(context, c, radius: 22),
                   title: Text(c.name),
-                  subtitle: Text(
-                    '${desc.isNotEmpty ? desc.substring(0, desc.length.clamp(0, 60)) : "No description"}...',
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${desc.isNotEmpty ? desc.substring(0, desc.length.clamp(0, 60)) : "No description"}...',
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Starts away',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary(context),
+                        ),
+                      ),
+                      Text(
+                        pickState,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary(context),
+                        ),
+                      ),
+                    ],
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Switch(
+                        value: startsAway,
+                        onChanged: (v) => draft.setStartsAway(id, v),
+                      ),
                       SizedBox(
                         width: 200,
                         child: CharacterVoicePicker(

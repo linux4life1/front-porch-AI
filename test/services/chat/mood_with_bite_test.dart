@@ -397,6 +397,10 @@ void main() {
           ),
         );
       }
+      // A group's new chats start each member from their own copy (PR 5): move
+      // the stored start onto the copies, as the v67 upgrade and every create
+      // path do.
+      await moveGroupSeedsOntoMembers(db, 'grp-mood', blobs.defaultMemberJson);
       await chat.setActiveGroup(
         GroupChat(
           id: 'grp-mood',

@@ -28,7 +28,7 @@ import '../sidebar_tokens.dart';
 /// the same words).
 const kGroupLorebookUnreadableSidebarNote =
     "This group's lorebook couldn't be read, so its entries aren't being "
-    'used. Open Group Settings, Lorebook & Worlds, to bring it back.';
+    'used. Open Edit group, Lorebook tab, to bring it back.';
 
 /// Trigger-state dot color: gray = enabled but idle (or an inclusion-group
 /// loser this turn — idle is calm, not an error), blue = constant (always

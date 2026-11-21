@@ -296,6 +296,9 @@ class ReprocessHarness {
         ),
       );
     }
+    // A group's new chats start members from their own copies: move the stored
+    // start onto them, as the v67 upgrade does.
+    await moveGroupSeedsOntoMembers(db, 'rn-grp', blobs.defaultMemberJson);
     await chat.setActiveGroup(
       GroupChat(
         id: 'rn-grp',

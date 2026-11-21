@@ -33,7 +33,11 @@ export 'package:front_porch_ai/services/byaf_chat.dart'
 
 /// Preview data from a parsed .byaf file.
 class ByafImportPreview {
+  /// What the character is called in chat (Backyard's `name`).
   final String name;
+
+  /// Backyard's title (`displayName`, its "full name"), or null.
+  final String? title;
   final String persona;
   final List<ByafLoreItem> loreItems;
 
@@ -61,6 +65,7 @@ class ByafImportPreview {
 
   ByafImportPreview({
     required this.name,
+    this.title,
     required this.persona,
     this.loreItems = const [],
     this.galleryImagePaths = const [],
@@ -162,9 +167,15 @@ class ByafService {
         jsonDecode(utf8.decode(characterFile.content as List<int>))
             as Map<String, dynamic>;
 
-    // 3. Extract character fields
-    final name = (charJson['displayName'] ?? charJson['name'] ?? 'Unknown')
-        .toString();
+    // 3. Extract character fields. The BYAF spec: `name` is the shorthand
+    // the character goes by ({character} in its text), `displayName` its full
+    // name, which Backyard shows as the title. A card missing `name` falls
+    // back to the title.
+    final title = charJson['displayName']?.toString().trim() ?? '';
+    final shortName = charJson['name']?.toString().trim() ?? '';
+    final name = shortName.isNotEmpty
+        ? shortName
+        : (title.isNotEmpty ? title : 'Unknown');
     final persona = (charJson['persona'] ?? '').toString();
 
     // Parse lore items
@@ -246,6 +257,7 @@ class ByafService {
 
     return ByafImportPreview(
       name: name,
+      title: distinctTitle(title, name),
       persona: persona,
       loreItems: loreItems,
       galleryImagePaths: galleryImagePaths,
@@ -323,6 +335,7 @@ class ByafService {
 
     return CharacterCard(
       name: preview.name,
+      title: distinctTitle(preview.title, preview.name) ?? '',
       description: _convertPlaceholders(preview.persona),
       personality: '',
       scenario: _convertPlaceholders(preview.narrative ?? ''),

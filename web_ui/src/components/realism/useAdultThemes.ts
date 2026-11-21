@@ -19,22 +19,31 @@ import { api } from '../../api/client';
 // (desktop RealismSettings.afterglowEnabled): the Afterglow switches on
 // characters, groups and chats, and a character's Recovery block, show while
 // it is on.
-export function useAdultFlags(): { adult: boolean; afterglow: boolean } {
-  const [flags, setFlags] = useState({ adult: false, afterglow: false });
+// `planner` is Porch Life's day planner (RealismSettings.plannerEnabled):
+// the identity block's Plan lines show only while it is on, as on the
+// desktop (plannerEnabledOf).
+export function useAdultFlags(): { adult: boolean; afterglow: boolean; planner: boolean } {
+  const [flags, setFlags] = useState({ adult: false, afterglow: false, planner: false });
   useEffect(() => {
     let alive = true;
     // Deferred, so a page whose api has no get (a narrow test double) stays
     // hidden instead of throwing mid-render.
     Promise.resolve()
       .then(() =>
-        api.get<{ realism?: { adultThemesEnabled?: boolean; nsfwCooldownDefault?: boolean } }>(
+        api.get<{
+          realism?: { adultThemesEnabled?: boolean; nsfwCooldownDefault?: boolean; plannerEnabled?: boolean };
+        }>(
           '/api/settings',
         ),
       )
       .then((s) => {
         if (!alive) return;
         const adult = s.realism?.adultThemesEnabled === true;
-        setFlags({ adult, afterglow: adult && s.realism?.nsfwCooldownDefault === true });
+        setFlags({
+          adult,
+          afterglow: adult && s.realism?.nsfwCooldownDefault === true,
+          planner: s.realism?.plannerEnabled === true,
+        });
       })
       .catch(() => {
         /* stay hidden — see above */

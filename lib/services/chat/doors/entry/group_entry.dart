@@ -31,6 +31,8 @@ import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
 import 'entry_door.dart';
+import 'group_member_starts_away.dart';
+import 'group_start_seeds.dart';
 
 /// Open a group: the departing chat flushed and detached, every per-chat
 /// register reset, the roster resolved from the member table, Chaos seeded
@@ -128,6 +130,7 @@ class GroupEntry {
       _sceneGuest.ids.clear();
       _sceneGuest.cards.clear();
       _sceneGuest.pendingDeparture = null;
+      _sceneGuest.nextQueuedSpeakerId = null;
       _sceneGuest.pendingPickerFilter = null;
       _cast.guests.resetActivityState();
       // Phase 2 cast detection: reset the scan cadence + pending/debounce state
@@ -269,6 +272,12 @@ class GroupEntry {
       // (The actual load of any prior session state happens in _loadLastSession below.)
       if (_session.messages.isEmpty && _activeGroup != null) {
         await _store.groupState.loadGroupRealismState(null);
+        // Each member's own copy lays its start over the group's seeds.
+        _groupStore.members = groupStartMembers(
+          group,
+          resolved,
+          _getCharacterIdFromCard,
+        );
 
         // Promote the group definition's realism/needs intent on first entry.
         // The creator (and Group Card import) express "realism on" by writing non-empty
@@ -322,6 +331,9 @@ class GroupEntry {
       // that loader at all; see its group branch.) `addAll`, not assign, so a
       // legacy blob that did carry entries keeps them.
       _group.characterSystemPrompts.addAll(group.characterSystemPrompts);
+      // The group's own Author's Notes for its members open the chat; an
+      // existing chat reloads its own from its session below.
+      _group.seedNewChatDefaults(group);
 
       // Seed objectives that came from an imported Group Card (one-time)
       await _s.objectives().writer.seedImportedMemberObjectivesIfPresent();
@@ -372,6 +384,20 @@ class GroupEntry {
         // group chat (`_session.currentSessionId` already set) keeps its own.
         if (_session.currentSessionId == null) {
           await _s.personas.setActivePersona(_s.personas.defaultPersonaId);
+          // Starts Away (docs/design/group-initial-presence.md): seed each
+          // member's runtime hold from their card once, at chat creation.
+          // Same gate as the persona reset above: only a real first
+          // creation runs it. A restore re-reads the saved chat - whose
+          // holds are the ones that survive a re-open - and never re-seeds,
+          // even when the restored row's message list is empty. A chat with
+          // no row at all (e.g. no greeting anywhere) has nothing to
+          // reopen: its next entry is a creation and seeds like one. Both
+          // run outside every realism gate, like the import below.
+          seedMemberStartsAway(
+            _groupCharacters,
+            _groupStore,
+            idOf: _getCharacterIdFromCard,
+          );
         }
         // Each member's authored starting quest, imported once per fresh chat.
         for (final c in _groupCharacters) {

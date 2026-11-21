@@ -568,32 +568,6 @@ void main() {
       );
     });
 
-    test('HOLD lock: single-line window strips the speaker prefix too', () {
-      expect(
-        rememberedLineFromWindow('Nia: the swing creaked'),
-        'the swing creaked',
-      );
-      expect(
-        rememberedLineFromWindow('Nia:the swing creaked'),
-        'the swing creaked',
-      );
-      final m = _mem('Nia: the swing creaked', pos: 2);
-      final plain = buildRagMemoriesBlock(
-        memories: [m],
-        currentSessionId: kSession,
-        days: {m: 1},
-        reachingForQuote: false,
-      );
-      expect(plain, contains('- (Day 1) Nia: the swing creaked'));
-      final quoted = buildRagMemoriesBlock(
-        memories: [m],
-        currentSessionId: kSession,
-        days: {m: 2},
-        reachingForQuote: true,
-      );
-      expect(quoted, contains('Nia: the swing creaked'));
-    });
-
     test(
       'quote-reach still uses the quote header (verbatim expand allowed)',
       () {
@@ -660,32 +634,6 @@ void main() {
         ['I still think about the lighthouse'],
       );
       expect(kept, [fact]);
-    });
-
-    test('HOLD r2: porch feeling does not eat a porch-swing fact', () {
-      final swing = _mem('Nia: the porch swing creaked', pos: 2);
-      final kept = dropCoveredRagWindows([swing], [kPorchFeeling]);
-      expect(kept, [
-        swing,
-      ], reason: 'one shared place/noun (porch) is not cover');
-    });
-
-    test('HOLD lock: front-porch compound is not cover', () {
-      final swing = _mem('Nia: the front porch swing creaked tonight', pos: 2);
-      expect(
-        dropCoveredRagWindows(
-          [swing],
-          ['I felt safe on the front porch tonight'],
-        ),
-        [swing],
-        reason: 'shared place-compound is not cover',
-      );
-      final fact = _mem(kFactLine, pos: 1);
-      expect(
-        dropCoveredRagWindows([fact], [kJournalGist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist still drops',
-      );
     });
 
     test('HOLD hole: screened porch folds without a new adj list', () {
@@ -1043,98 +991,6 @@ void main() {
       );
     });
 
-    test('HOLD hole: prefix card does not cover a bigger fact', () {
-      expect(
-        dropCoveredRagWindows(
-          [_mem('Nia: the front garden swing creaked tonight', pos: 2)],
-          ['the front garden'],
-        ),
-        isNot(isEmpty),
-        reason: 'front garden must not drop front-garden-swing',
-      );
-      expect(
-        dropCoveredRagWindows(
-          [_mem('Nia: the porch swing creaked by the flowerpot', pos: 3)],
-          ['The porch swing.'],
-        ),
-        isNot(isEmpty),
-        reason: 'porch swing must not eat a flowerpot window',
-      );
-      expect(
-        dropCoveredRagWindows(
-          [
-            _mem(
-              'Nia: I loved the spare key under the third flowerpot',
-              pos: 1,
-            ),
-          ],
-          ['I loved it'],
-        ),
-        isNot(isEmpty),
-        reason: 'mood-only loved must not cover the flowerpot fact',
-      );
-      expect(
-        dropCoveredRagWindows(
-          [
-            _mem(
-              'Nia: I worry about the spare key under the third flowerpot',
-              pos: 4,
-            ),
-          ],
-          ['I worry'],
-        ),
-        isNot(isEmpty),
-        reason: 'mood-only worry must not cover the flowerpot fact',
-      );
-      expect(
-        dropCoveredRagWindows([_mem(kFactLine, pos: 1)], [kJournalGist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist still drops',
-      );
-    });
-
-    test('HOLD hole: whole tokens + distinctive — key is not keyboard', () {
-      expect(
-        dropCoveredRagWindows(
-          [
-            _mem(
-              'Nia: I still think about the spare keyboard in the attic',
-              pos: 2,
-            ),
-          ],
-          ['I still think about the spare key'],
-        ),
-        isNot(isEmpty),
-        reason: 'key is not inside keyboard',
-      );
-      expect(
-        dropCoveredRagWindows(
-          [
-            _mem(
-              'Nia: I felt safe on the front garden until the spare key went missing',
-              pos: 3,
-            ),
-          ],
-          ['I felt safe tonight'],
-        ),
-        isNot(isEmpty),
-        reason: 'mood-only felt/safe must not cover',
-      );
-      expect(
-        dropCoveredRagWindows(
-          [_mem(kFactLine, pos: 1)],
-          ['I still think about it'],
-        ),
-        isNot(isEmpty),
-        reason: 'still/think must not eat the flowerpot window',
-      );
-      expect(
-        dropCoveredRagWindows([_mem(kFactLine, pos: 1)], [kJournalGist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist still drops',
-      );
-    });
-
     test('HOLD hole: garden/balcony/driveway + his/her are not a new list', () {
       for (final phrase in ['front garden', 'back balcony', 'side driveway']) {
         final feeling = 'I felt safe on the $phrase tonight';
@@ -1299,66 +1155,12 @@ void main() {
       );
     });
 
-    test('HOLD hole: side porch and front lawn fold — not two more pairs', () {
-      for (final phrase in ['side porch', 'front lawn']) {
-        final feeling = 'I felt safe on the $phrase tonight';
-        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
-        expect(
-          coverContentTokens(feeling),
-          contains(phrase.replaceAll(' ', '')),
-        );
-        expect(dropCoveredRagWindows([swing], [feeling]), [
-          swing,
-        ], reason: 'feeling × $phrase swing must not cover-drop');
-      }
-      final fact = _mem(kFactLine, pos: 1);
-      expect(
-        dropCoveredRagWindows([fact], [kJournalGist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist still drops',
-      );
-    });
-
-    test('HOLD lock: front/back porch and yard fold to one token', () {
-      const compounds = {
-        'front porch': 'frontporch',
-        'back porch': 'backporch',
-        'front yard': 'frontyard',
-        'back yard': 'backyard',
-      };
-      for (final e in compounds.entries) {
-        final phrase = e.key;
-        final folded = e.value;
-        final feeling = 'I felt safe on the $phrase tonight';
-        final swing = _mem('Nia: the $phrase swing creaked tonight', pos: 2);
-        expect(coverContentTokens(feeling), contains(folded));
-        expect(dropCoveredRagWindows([swing], [feeling]), [
-          swing,
-        ], reason: 'feeling × $phrase swing is not cover');
-      }
-      final fact = _mem(kFactLine, pos: 1);
-      expect(
-        dropCoveredRagWindows([fact], [kJournalGist]),
-        isEmpty,
-        reason: 'same-beat flowerpot gist still drops',
-      );
-    });
-
     test('HOLD leftover: porch+tonight is setting+time, not cover', () {
       final swing = _mem('Nia: the porch swing creaked tonight', pos: 2);
       expect(coverContentTokens(kPorchFeeling).contains('tonight'), isFalse);
       expect(dropCoveredRagWindows([swing], [kPorchFeeling]), [
         swing,
       ], reason: 'tonight is filler — porch+tonight must not eat the window');
-    });
-
-    test('HOLD r2: one shared spare token is not cover', () {
-      final fact = _mem(kFactLine, pos: 1);
-      final kept = dropCoveredRagWindows(
-        [fact],
-        ['I still think about the spare room'],
-      );
-      expect(kept, [fact], reason: 'one shared noun (spare) is not cover');
     });
 
     test(

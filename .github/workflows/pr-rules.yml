@@ -20,8 +20,19 @@ name: PR rules
 #    docs/screenshots/ present on the PR's head. CLAUDE.md "One UI": every
 #    UI or UX change is shown, desktop and web. No label skips it and no
 #    author is exempt, maintainer included.
+# 5. Web parity. A PR that changes desktop UI (lib/ui/) or web UI
+#    (web_ui/src/) but not both needs a `## Web parity` section saying why:
+#    a line starting `none:` or `deferred:` with a reason. CLAUDE.md "One UI":
+#    the surfaces ship together unless the maintainer deferred it.
 # 3. Smoke tier. The job summary prints the tier the changed files call for
 #    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
+# 6. Attribution. The description ends with one line — `Generated with
+#    <harness> (<model ID>)` — naming what drove the work and the exact
+#    model it reported (CLAUDE.md "Git"). Un-replaced `<placeholders>` do
+#    not count; a human may name their editor and skip the model; dependabot,
+#    which cannot edit its own body, is exempt from this check only. #748
+#    and #749 shipped without footers and this file said nothing, which is
+#    what a rule without a check buys you.
 #
 # pull_request_target, like test-integrity.yml: the base branch's copy runs,
 # so a PR cannot loosen the check that gates it, and the description edit
@@ -213,6 +224,71 @@ jobs:
                     'data only. No label or author is exempt.',
                 );
               }
+            }
+
+            // --- Web parity (One UI) -----------------------------------------
+            // Desktop UI and web UI ship together. When a PR changes only one
+            // side, the description says why in a `## Web parity` section: a
+            // line starting `none:` (the other side has nothing to change) or
+            // `deferred:` (the maintainer deferred it in conversation), then
+            // the reason. When both sides changed there is nothing to ask.
+            const desktopUi = paths.filter(
+              (p) => p.startsWith('lib/ui/') && p.endsWith('.dart') && !isTest(p),
+            );
+            const webUi = paths.filter(
+              (p) => p.startsWith('web_ui/src/') && !isTest(p),
+            );
+            if ((desktopUi.length > 0) !== (webUi.length > 0)) {
+              const side = desktopUi.length ? 'desktop (lib/ui/)' : 'web (web_ui/src/)';
+              const other = desktopUi.length ? 'web (web_ui/src/)' : 'desktop (lib/ui/)';
+              const par = body.match(/^##\s+Web parity\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/im);
+              const ruling = par
+                ? par[1]
+                    .split('\n')
+                    .map((l) => l.trim().replace(/^([-*+]\s+)?(\[[ xX]\]\s+)?/, ''))
+                    .find((l) => /^(none|deferred):\s*.{12,}/i.test(l))
+                : undefined;
+              if (!ruling) {
+                errors.push(
+                  `Changes ${side} UI but nothing under ${other}. One UI: both ship ` +
+                    'together. Either change the other side in this PR, or add a ' +
+                    '`## Web parity` section to the description with one line: ' +
+                    '`none: <why the other side has nothing to change>` or ' +
+                    '`deferred: <what the maintainer deferred, and where it is tracked>`.',
+                );
+              }
+            }
+
+            // --- Attribution -----------------------------------------------
+            // Comments are already out of `body`, so a template left half-
+            // edited still shows its example — but that example is now a
+            // `<placeholder>`, and a body that never replaced it attributes
+            // the work to a model that never ran (Error Book, 2026-11-16:
+            // exercise the gate on what your own docs emit — including the
+            // template `gh pr create` prefills). Dependabot cannot edit its
+            // own body, and its weekly bumps end in `</details>` boilerplate;
+            // exempt the bot from this check only, not the gates around it.
+            const bodyLines = body
+              .split('\n')
+              .map((l) => l.trim())
+              .filter(Boolean);
+            const lastBodyLine = bodyLines[bodyLines.length - 1] || '';
+            const isDependabot = pr.user?.login === 'dependabot[bot]';
+            if (
+              !isDependabot &&
+              (!/^Generated with\s+\S/.test(lastBodyLine) ||
+                /<(harness|model)/i.test(lastBodyLine))
+            ) {
+              errors.push(
+                'No attribution footer. CLAUDE.md "Git": the body ends with ' +
+                  'one line in this shape:\n' +
+                  '  Generated with <harness> (<model ID>)\n' +
+                  'naming the harness that drove the work and the exact model ' +
+                  'ID it reported this session — replace the placeholders, ' +
+                  'they do not count as an answer (a human may name their ' +
+                  'editor and skip the model). An agent PR that hides its ' +
+                  'model ships the change and vanishes before the blame.',
+              );
             }
 
             // --- Smoke tier --------------------------------------------------

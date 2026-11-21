@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Desktop cast chips are the only Promote chrome for soft guests.
-// Proven red: drop isLite / onPromote and these fail. The member-card
-// twin (group_member_card_overflow_test) asserts Promote is absent.
+// Desktop cast chips: Promote stays the guest's only Promote chrome (the
+// GUEST label is gone — the wider chip with a Promote button is already the
+// guest's sign). The Next pill queues any member; a queued chip reads the
+// other way and cancels. Proven red: drop the pill wiring and these fail.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,7 +29,9 @@ void main() {
     );
   });
 
-  testWidgets('lite chip shows amber GUEST and a tappable Promote', (t) async {
+  testWidgets('lite chip shows a tappable Promote and no GUEST label', (
+    t,
+  ) async {
     var promoted = false;
     await t.pumpWidget(
       MaterialApp(
@@ -41,20 +44,54 @@ void main() {
             isLite: true,
             onFocus: () {},
             onPromote: () => promoted = true,
+            onQueue: () {},
           ),
         ),
       ),
     );
 
-    expect(find.text('GUEST'), findsOneWidget);
+    expect(find.text('GUEST'), findsNothing);
     expect(find.text('Promote'), findsOneWidget);
+    expect(find.text('Next'), findsOneWidget);
     expect(find.text('Mara'), findsOneWidget);
+
+    // The Next pill is the bottom row on every chip: a guest's Promote
+    // rides above it, so the hold never moves between faces.
+    expect(
+      t.getTopLeft(find.text('Next')).dy,
+      greaterThan(t.getTopLeft(find.text('Promote')).dy),
+    );
 
     await t.tap(find.text('Promote'));
     expect(promoted, isTrue);
   });
 
-  testWidgets('full member chip has no GUEST or Promote', (t) async {
+  testWidgets('queued chip reads NEXT and its tap cancels', (t) async {
+    var cancelled = false;
+    await t.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(brightness: Brightness.dark),
+        home: Scaffold(
+          body: CastRosterChip(
+            name: 'Zinna',
+            color: AppColors.formMasterAccent,
+            isFocused: false,
+            isLite: false,
+            onFocus: () {},
+            onQueue: () => cancelled = true,
+            queued: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('NEXT'), findsOneWidget);
+    expect(find.text('Next'), findsNothing);
+    await t.tap(find.text('NEXT'));
+    expect(cancelled, isTrue);
+  });
+
+  testWidgets('no queue wiring draws no pill', (t) async {
     await t.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -69,7 +106,7 @@ void main() {
       ),
     );
 
-    expect(find.text('GUEST'), findsNothing);
+    expect(find.text('Next'), findsNothing);
     expect(find.text('Promote'), findsNothing);
     expect(find.text('Zinna'), findsOneWidget);
   });

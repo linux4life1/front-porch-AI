@@ -178,8 +178,7 @@ LibraryView libraryViewOf({
     final q = query.toLowerCase();
     cards = [
       for (final c in cards)
-        if (c.name.toLowerCase().contains(q) ||
-            c.tags.any((t) => t.toLowerCase().contains(q)))
+        if (libraryEntryMatches(q, name: c.name, title: c.title, tags: c.tags))
           c,
     ];
     casts = [

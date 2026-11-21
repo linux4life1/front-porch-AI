@@ -125,6 +125,35 @@ class GuestFlow {
     return guest;
   }
 
+  /// The cast chip's Next pill in 1:1: hold [card] to answer the next
+  /// user message — the promise an `@name` makes, made by a tap. The
+  /// host's card is the default answer: queueing the host releases the
+  /// hold. The rule and keying live in SceneGuestState.
+  void queueNextGuest(CharacterCard card) =>
+      state.queueHold(card, hostDbId: _session.activeCharacter?.dbId);
+
+  /// The held guest, or null (the host answers).
+  CharacterCard? get nextQueuedGuest => state.resolveHold();
+
+  /// Consume the hold for the send that is about to route.
+  CharacterCard? takeNextQueuedGuest() => state.takeHold();
+
+  void clearNextQueuedGuest() {
+    if (state.nextQueuedSpeakerId != null) {
+      state.nextQueuedSpeakerId = null;
+      _d.notify();
+    }
+  }
+
+  /// True when the line explicitly addresses the host. In 1:1 a held
+  /// guest waits such a turn out unspent (host wins absolutely, as in
+  /// the address router); always false in groups, where the hold lives
+  /// in the rotation and this surface is reset-empty anyway.
+  bool hostIsAddressed(String promptText) {
+    if (_session.activeGroup != null) return false;
+    return _h.guestDirector().hostDirectlyAddressed(promptText);
+  }
+
   /// Who an `@` can name here: the group's members, or in a 1:1 with
   /// Scene Guests the host and the guests. A plain 1:1 has nobody to
   /// address, so its lines are left exactly as typed.

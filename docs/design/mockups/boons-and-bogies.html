@@ -1,0 +1,681 @@
+<title>Boons &amp; Bogies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column of the proposal, with live mockups set in Porch-theme "app windows" between sections.
+   Palette transcribed from lib/ui/theme/app_colors.dart (Porch theme); bogey violet is a proposed new semantic token. */
+:root {
+  --bg: #F8F4ED;          /* lightBackground */
+  --surface: #F0EBE3;     /* lightSurface */
+  --card: #FFFFFF;        /* lightCard */
+  --container: #E8E0D4;
+  --divider: #D9CFC1;
+  --ink: #2A2118;
+  --ink-soft: #6B5D4E;
+  --honey: #B8860B;       /* porchHoney, darkened for light-ground contrast */
+  --honey-fill: #E9C46A;
+  --terracotta: #C0694A;
+  --bogey: #7B4FB8;       /* proposed MilestoneColors.bogey */
+  --bogey-fill: #B79BE0;
+  --good: #3F8F5A;
+  --scrim: rgba(27,22,17,.55);
+  --font-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1611; --surface: #1F1913; --card: #251E17; --container: #30271E; --divider: #3E3328;
+    --ink: #F8F4ED; --ink-soft: #B5A794; --honey: #E9C46A; --honey-fill: #E9C46A; --terracotta: #E29578;
+    --bogey: #B79BE0; --bogey-fill: #8E68C9; --good: #7CC79A; --scrim: rgba(0,0,0,.6);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1611; --surface: #1F1913; --card: #251E17; --container: #30271E; --divider: #3E3328;
+  --ink: #F8F4ED; --ink-soft: #B5A794; --honey: #E9C46A; --honey-fill: #E9C46A; --terracotta: #E29578;
+  --bogey: #B79BE0; --bogey-fill: #8E68C9; --good: #7CC79A; --scrim: rgba(0,0,0,.6);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body);
+  font-size: 15px; line-height: 1.6; margin: 0;
+}
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+  display: flex; flex-direction: column; gap: 56px;
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(34px, 6vw, 52px); letter-spacing: -.02em; }
+h2 { font-size: 26px; letter-spacing: -.01em; }
+h3 { font-size: 17px; }
+p { margin: 0; max-width: 66ch; }
+code, .mono { font-family: var(--font-mono); font-size: .86em; }
+code { background: var(--surface); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-soft); font-weight: 600; }
+.section { display: flex; flex-direction: column; gap: 18px; }
+.lede { font-size: 18px; color: var(--ink-soft); }
+.status { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+.pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--divider); color: var(--ink-soft); }
+.pill.honey { color: var(--honey); border-color: var(--honey); }
+.pill.bogey { color: var(--bogey); border-color: var(--bogey); }
+
+/* hero: the two kinds side by side */
+.kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.kind { padding: 20px; border-radius: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; }
+.kind .glyph { font-family: var(--font-display); font-size: 13px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.kind.boon .glyph { color: var(--honey); }
+.kind.bogey .glyph { color: var(--bogey); }
+.kind p { font-size: 14px; color: var(--ink-soft); }
+
+/* app window frame */
+.window { border: 1px solid var(--divider); border-radius: 12px; overflow: hidden; background: var(--card); }
+.window-bar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--divider); font-size: 12px; color: var(--ink-soft); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--divider); display: block; }
+.window-body { padding: 18px; }
+.caption { font-size: 13px; color: var(--ink-soft); }
+
+/* moment tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font: 600 13px var(--font-body); padding: 7px 12px; border-radius: 8px; border: 1px solid var(--divider); background: var(--card); color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.tab:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--honey); outline-offset: 2px; }
+
+/* Milestone palette: the moment's own game identity, fixed in every theme like
+   chance_time_palette.dart (proposed milestone_palette.dart + web theme-keep twin).
+   Card chrome (surface, border, text) follows the app theme, exactly like .chance-card. */
+:root {
+  --ms-gold: #FFD166; --ms-gold-deep: #FFC233; --ms-on-gold: #1A1200;
+  --ms-bogey: #9B5DE5; --ms-bogey-deep: #6A3FB0; --ms-smoke: #B79BE0;
+  --ms-overcome: #06D6A0; --ms-blue: #118AB2; --ms-ash: #5A5A5A;
+}
+.btn { font: 600 13px var(--font-body); padding: 8px 14px; border-radius: 9px; border: 1px solid var(--divider); background: var(--card); color: var(--ink); cursor: pointer; }
+
+/* desktop + phone side by side, one sim */
+.dual { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; margin-top: 14px; }
+@media (max-width: 760px) { .dual { grid-template-columns: minmax(0, 1fr); justify-items: center; } .dual .device.desktop { width: 100%; } }
+.device { margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.device figcaption { font-size: 12px; color: var(--ink-soft); display: flex; justify-content: space-between; gap: 8px; }
+.device figcaption b { color: var(--ink); font-weight: 600; }
+.device.phone .frame { width: 300px; max-width: 100%; border-radius: 30px; border: 8px solid var(--ink); overflow: hidden; }
+.device.desktop .frame { border: 1px solid var(--divider); border-radius: 12px; overflow: hidden; }
+.stage { position: relative; height: 470px; overflow: hidden; background: var(--surface); }
+.device.phone .stage { height: 560px; }
+.chat { position: absolute; inset: 0; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.bubble { max-width: 76%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.45; }
+.device.phone .bubble { font-size: 13px; max-width: 84%; }
+.bubble.ai { background: var(--container); align-self: flex-start; }
+.bubble.me { background: #3B82F6; color: #fff; align-self: flex-end; }
+.bubble em { color: var(--terracotta); font-style: italic; }
+.scrim { position: absolute; inset: 0; background: var(--scrim); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+canvas.fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.ms-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 2; }
+.ms-card {
+  width: min(360px, 100%); text-align: center; background: var(--card); border: 1px solid var(--divider);
+  border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.5); padding: 24px 20px; display: flex; flex-direction: column; gap: 14px;
+  animation: ms-pop .28s cubic-bezier(.2, 1.1, .4, 1);
+}
+.device.phone .ms-wrap { padding: 12px; }
+.device.phone .ms-card { padding: 20px 14px; gap: 12px; }
+.device.phone .ms-btn { padding: 9px 12px; }
+.ms-title { font-weight: 800; font-size: 1.1rem; letter-spacing: .02em; color: var(--honey); }
+.ms-kind { font-weight: 900; font-size: 1rem; letter-spacing: .04em; }
+.ms-kind.tone-boon { color: var(--ms-gold-deep); }
+.ms-kind.tone-bogey { color: var(--ms-bogey); }
+.ms-kind.tone-overcome { color: var(--ms-overcome); }
+.ms-event { line-height: 1.45; font-size: .95rem; background: var(--surface); border: 1px solid var(--divider); border-radius: 12px; padding: 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ms-event b { font-family: var(--font-display); font-size: 1.08rem; }
+.ms-tier { font-size: 12px; color: var(--ink-soft); }
+.ms-tier strong { color: var(--ink); }
+.ms-sub { margin: 0 auto; font-size: 12.5px; line-height: 1.4; color: var(--ink-soft); }
+.ms-actions { display: flex; gap: 6px; justify-content: center; flex-wrap: nowrap; }
+.ms-actions .ms-btn { white-space: nowrap; }
+.ms-btn { cursor: pointer; font: 700 .88rem var(--font-body); padding: 10px 18px; border-radius: 999px; border: 1px solid var(--divider); background: var(--card); color: var(--ink); transition: transform .1s ease, filter .15s ease; }
+.ms-btn:active { transform: scale(.96); }
+.ms-btn.accept { border: none; color: var(--ms-on-gold); background: linear-gradient(180deg, var(--ms-gold), var(--ms-gold-deep)); box-shadow: 0 0 18px rgba(255,209,102,.45); }
+.ms-card.bogey .ms-btn.accept { color: #fff; background: linear-gradient(135deg, var(--ms-bogey), var(--ms-bogey-deep)); box-shadow: 0 6px 18px rgba(124,58,237,.4); }
+.ms-card.overcome .ms-btn.accept { color: #fff; background: linear-gradient(135deg, var(--ms-overcome), var(--ms-blue)); box-shadow: 0 6px 18px rgba(6,214,160,.35); }
+.toast { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 4; white-space: nowrap; }
+@keyframes ms-pop { from { opacity: 0; transform: translateY(10px) scale(.94); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ms-card { animation: none; } }
+.stage-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--ink-soft); }
+.stage-tools label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+.parity { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 14px; }
+.parity div { font-size: 13px; padding: 12px 14px; border-radius: 10px; background: var(--surface); display: flex; flex-direction: column; gap: 3px; }
+.parity b { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+
+/* growth panel */
+.panel-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+@media (max-width: 720px) { .panel-grid { grid-template-columns: minmax(0, 1fr); } }
+.sidebar { background: var(--surface); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.cast { display: flex; gap: 8px; }
+.face { width: 34px; height: 34px; border-radius: 50%; background: var(--container); display: grid; place-items: center; font-size: 12px; font-weight: 700; border: 2px solid transparent; }
+.face.on { border-color: var(--honey); }
+.group-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-soft); }
+.rings { display: flex; flex-direction: column; gap: 8px; }
+.ringrow { background: var(--card); border-radius: 9px; padding: 10px 12px; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 4px 10px; align-items: center; border: 1px solid var(--divider); }
+.ringrow .tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; }
+.ringrow.boon .tag { color: var(--honey); border: 1px solid var(--honey); }
+.ringrow.bogey .tag { color: var(--bogey); border: 1px solid var(--bogey); }
+.ringrow .txt { font-size: 13px; min-width: 0; }
+.ringrow .meta { font-size: 11px; color: var(--ink-soft); white-space: nowrap; }
+.meter { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--container); position: relative; overflow: hidden; }
+.meter span { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+.boon .meter span { background: var(--honey-fill); }
+.bogey .meter span { background: var(--bogey-fill); }
+.ticks { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 10px; color: var(--ink-soft); }
+.retired { opacity: .55; }
+.retired .txt { text-decoration: line-through; }
+.note { font-size: 13px; color: var(--ink-soft); display: flex; flex-direction: column; gap: 8px; }
+.note li { margin-left: 18px; }
+ul.clean { margin: 0; padding: 0; }
+
+/* settings tree */
+.tree { display: flex; flex-direction: column; gap: 2px; }
+.row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: center; padding: 12px 14px; border-radius: 10px; background: var(--card); border: 1px solid var(--divider); }
+.row .label { font-weight: 600; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row .sub { font-size: 12.5px; color: var(--ink-soft); grid-column: 1; }
+.child { margin-left: 26px; border-left: 2px solid var(--divider); padding-left: 12px; display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.needchip { font-size: 11px; font-weight: 600; color: var(--honey); background: color-mix(in srgb, var(--honey-fill) 14%, transparent); border-radius: 99px; padding: 1px 8px; }
+.row.off { opacity: .5; }
+.switch { position: relative; width: 42px; height: 24px; flex: none; }
+.switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 99px; background: var(--container); border: 1px solid var(--divider); transition: background .15s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%; top: 2px; left: 2px; background: var(--ink-soft); transition: transform .15s; }
+.switch input:checked + span { background: var(--honey-fill); border-color: var(--honey-fill); }
+.switch input:checked + span::after { transform: translateX(18px); background: #2A2118; }
+.switch input:disabled { cursor: not-allowed; }
+
+/* kit editor */
+.kit { display: flex; flex-direction: column; gap: 8px; }
+.kitrow { display: grid; grid-template-columns: 104px minmax(0,1fr) 140px auto; gap: 8px; align-items: center; }
+@media (max-width: 640px) { .kitrow { grid-template-columns: 1fr 1fr; } .kitrow input[type=text] { grid-column: 1 / -1; order: -1; } }
+.kitrow select, .kitrow input[type=text] { font: 14px var(--font-body); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--divider); background: var(--card); color: var(--ink); min-width: 0; width: 100%; }
+.kitrow label { font-size: 12px; color: var(--ink-soft); display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+
+/* simulator */
+.sim svg { width: 100%; height: auto; display: block; }
+.sim-tools { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--ink-soft); }
+.sim-tools input[type=range] { width: 120px; accent-color: var(--bogey); }
+.stats { display: flex; gap: 22px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stats div { display: flex; flex-direction: column; }
+.stats b { font-family: var(--font-display); font-size: 22px; }
+.stats span { font-size: 12px; color: var(--ink-soft); }
+
+/* plan */
+.phases { display: flex; flex-direction: column; gap: 0; border-top: 1px solid var(--divider); }
+.phase { display: grid; grid-template-columns: 34px minmax(0,1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--divider); }
+.phase .n { font-family: var(--font-mono); color: var(--ink-soft); font-size: 13px; padding-top: 2px; }
+.phase b { font-weight: 600; }
+.phase p { font-size: 14px; color: var(--ink-soft); }
+.open { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.q { padding: 14px 16px; border-radius: 10px; border: 1px solid var(--divider); background: var(--card); font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.q b { font-size: 13px; }
+.q span { color: var(--ink-soft); font-size: 13px; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 560px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--divider); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); font-weight: 600; }
+footer { font-size: 12.5px; color: var(--ink-soft); border-top: 1px solid var(--divider); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { .switch span, .switch span::after { transition: none; } }
+</style>
+
+<div class="wrap">
+
+  <header class="section">
+    <div class="status"><span class="pill">Design proposal</span><span class="pill">Nothing built yet</span><span class="pill">2026-11-19</span></div>
+    <h1>Boons &amp; Bogies</h1>
+    <p class="lede">Characters get abilities that improve as the story earns them, and flaws that surface now and then on a roll. Both live on Growth Rings, the system that already tracks how a character changes within a chat.</p>
+    <div class="kinds">
+      <div class="kind boon">
+        <div class="glyph">Boon · advancement</div>
+        <h3>Kaito's stealth</h3>
+        <p>Climbs Novice → Skilled → Master as scenes reinforce it. Uses Growth's existing <code>skill</code> category and tier physics.</p>
+      </div>
+      <div class="kind bogey">
+        <div class="glyph">Bogey · flaw on a roll</div>
+        <h3>Kaito is clumsy</h3>
+        <p>A pressure roll decides when it shows up: never every turn, never twice in a row, but always eventually. A growing boon can wear it down until it's overcome.</p>
+      </div>
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="m-h">
+    <div class="eyebrow">Mockup 1</div>
+    <h2 id="m-h">The milestone moment</h2>
+    <p>One screen on every surface, the way Chance Time works. The card, wording, buttons and their order are identical on desktop and web. The particles come from one shared, seeded simulation: Flame draws it on desktop and a canvas draws it on web, so the same moment bursts the same way everywhere. Press Accept on either one and both play.</p>
+    <div class="tabs" role="tablist" aria-label="Moment type">
+      <button class="tab" role="tab" id="tab-boon" aria-selected="true" data-moment="boon">New boon</button>
+      <button class="tab" role="tab" id="tab-tier" aria-selected="false" data-moment="tier">Tier up</button>
+      <button class="tab" role="tab" id="tab-bogey" aria-selected="false" data-moment="bogey">New bogey</button>
+      <button class="tab" role="tab" id="tab-over" aria-selected="false" data-moment="over">Bogey overcome</button>
+    </div>
+    <div class="dual">
+      <figure class="device desktop">
+        <figcaption><b>Desktop app</b><span>Flame paints the sim</span></figcaption>
+        <div class="frame"><div class="stage" data-stage="desktop"></div></div>
+      </figure>
+      <figure class="device phone">
+        <figcaption><b>Web · phone</b><span>canvas paints the sim</span></figcaption>
+        <div class="frame"><div class="stage" data-stage="phone"></div></div>
+      </figure>
+    </div>
+    <div class="stage-tools">
+      <label for="rm"><input type="checkbox" id="rm"> Preview with Reduce Motion (the card only, no particles)</label>
+      <span>Redo reruns the proposal for the same messages.</span>
+    </div>
+    <div class="parity">
+      <div><b>Shared</b>One burst sim in Dart and TypeScript, pinned to the same vectors file, the way the Chance Time spin is.</div>
+      <div><b>Seed</b>Taken from the ring's id, so a reconnect or a second device replays the same burst.</div>
+      <div><b>Palette</b>Gold, violet and green are the moment's own identity in every theme. The card itself follows the theme.</div>
+      <div><b>May differ</b>Only the layout: card padding and the phone's width. Nothing else.</div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="g-h">
+    <div class="eyebrow">Mockup 2</div>
+    <h2 id="g-h">In the Growth panel</h2>
+    <p>Boons and bogies show alongside the other rings for the focused cast member. In a group chat, the cast bar picks whose list you're seeing, the same way the Chaos card works.</p>
+    <div class="panel-grid">
+      <div class="window">
+        <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div>Sidebar · Growth</div>
+        <div class="window-body sidebar">
+          <div class="cast" aria-hidden="true"><div class="face on">K</div><div class="face">M</div><div class="face">R</div></div>
+          <div class="group-title"><span>Boons</span><span>Kaito</span></div>
+          <div class="rings">
+            <div class="ringrow boon">
+              <span class="tag">Boon</span><span class="txt">Shadow Step: crosses a guarded room unseen</span><span class="meta">Skilled</span>
+              <div class="meter"><span style="width:62%"></span></div>
+              <div class="ticks"><span>Novice</span><span>Skilled</span><span>Master</span></div>
+            </div>
+            <div class="ringrow boon">
+              <span class="tag">Boon</span><span class="txt">Reads a lock by feel in the dark</span><span class="meta">Novice · kit</span>
+              <div class="meter"><span style="width:30%"></span></div>
+            </div>
+          </div>
+          <div class="group-title"><span>Bogies</span><span>2 of 3</span></div>
+          <div class="rings">
+            <div class="ringrow bogey">
+              <span class="tag">Bogey</span><span class="txt">Clumsy with anything breakable</span><span class="meta">📌 kit · 41%</span>
+              <div class="meter"><span style="width:41%"></span></div>
+              <div class="ticks"><span>pressure</span><span>worn down by Shadow Step</span></div>
+            </div>
+            <div class="ringrow bogey">
+              <span class="tag">Bogey</span><span class="txt">Can't resist showing off</span><span class="meta">cooldown 2</span>
+              <div class="meter"><span style="width:0%"></span></div>
+            </div>
+            <div class="ringrow bogey retired">
+              <span class="tag">Bogey</span><span class="txt">Afraid of heights</span><span class="meta">overcome</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="note">
+        <h3>What you're looking at</h3>
+        <ul class="clean">
+          <li><b>Boon meters</b> show ring strength; the tier marks fall on Growth's existing thresholds (0.35 and 0.80).</li>
+          <li><b>Bogey meters</b> show roll pressure. A bogey on cooldown reads 0 and says so.</li>
+          <li><b>"kit"</b> marks rings seeded from the character card. Kit bogies start pinned (📌), so they can't fade out early.</li>
+          <li><b>2 of 3</b>: code caps active bogies at three. The model can't add a fourth.</li>
+          <li><b>Overcome</b> bogies are retired: they stay in history and stop reaching the prompt.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="s-h">
+    <div class="eyebrow">Mockup 3</div>
+    <h2 id="s-h">The Porch Life switch</h2>
+    <p>Boons &amp; Bogies sits under Growth Rings in the Memory group and needs it, because advancement runs as part of a Growth pass. Try the switches: turning a parent off greys out everything under it. Nothing is ever deleted.</p>
+    <div class="window">
+      <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div>Settings · Porch Life · Memory</div>
+      <div class="window-body tree">
+        <div class="row" id="r-growth">
+          <div><div class="label">Growth Rings</div><div class="sub">Adds lived experience as slow layers without rewriting who they are.</div></div>
+          <label class="switch"><input type="checkbox" id="sw-growth" checked aria-label="Growth Rings"><span></span></label>
+        </div>
+        <div class="child">
+          <div class="row" id="r-bb">
+            <div><div class="label">Boons &amp; Bogies <span class="needchip">needs Growth Rings</span></div><div class="sub">Abilities that grow and flaws that surface. New ones always ask you first.</div></div>
+            <label class="switch"><input type="checkbox" id="sw-bb" checked aria-label="Boons and Bogies"><span></span></label>
+          </div>
+          <div class="child">
+            <div class="row" id="r-roll">
+              <div><div class="label">Bogey rolls</div><div class="sub">Let flaws show up now and then. Off keeps progression only.</div></div>
+              <label class="switch"><input type="checkbox" id="sw-roll" checked aria-label="Bogey rolls"><span></span></label>
+            </div>
+            <div class="row" id="r-pop">
+              <div><div class="label">Milestone popups</div><div class="sub">Center-screen moments. Off sends proposals to the Growth panel's review list.</div></div>
+              <label class="switch"><input type="checkbox" id="sw-pop" checked aria-label="Milestone popups"><span></span></label>
+            </div>
+          </div>
+        </div>
+        <p class="caption" id="tree-note" style="margin-top:10px"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="k-h">
+    <div class="eyebrow">Mockup 4</div>
+    <h2 id="k-h">The kit on the character card</h2>
+    <p>Card authors can pre-seed boons and bogies in the realism step of the creator and editor. The kit travels with the card through export, import and Stoop review. Each new chat copies it into starting rings, and each chat's character then grows differently from there.</p>
+    <div class="window">
+      <div class="window-bar"><div class="dots"><i></i><i></i><i></i></div>Create character · Realism · Boons &amp; Bogies</div>
+      <div class="window-body kit" id="kit">
+        <div class="kitrow">
+          <select id="k1-kind" aria-label="Kind"><option>Boon</option><option>Bogey</option></select>
+          <input type="text" id="k1-text" aria-label="Text" value="Reads a lock by feel in the dark">
+          <select id="k1-tier" aria-label="Starting tier"><option selected>Novice</option><option>Skilled</option><option>Master</option></select>
+          <label for="k1-pin"><input type="checkbox" id="k1-pin"> Pinned</label>
+        </div>
+        <div class="kitrow">
+          <select id="k2-kind" aria-label="Kind"><option>Boon</option><option selected>Bogey</option></select>
+          <input type="text" id="k2-text" aria-label="Text" value="Clumsy with anything breakable">
+          <select id="k2-tier" aria-label="Worn down by"><option selected>Worn down by: lock boon</option><option>Not linked</option></select>
+          <label for="k2-pin"><input type="checkbox" id="k2-pin" checked> Pinned</label>
+        </div>
+        <div class="kitrow">
+          <select id="k3-kind" aria-label="Kind"><option>Boon</option><option selected>Bogey</option></select>
+          <input type="text" id="k3-text" aria-label="Text" value="Afraid of heights">
+          <select id="k3-tier" aria-label="Worn down by"><option>Worn down by: lock boon</option><option selected>Not linked</option></select>
+          <label for="k3-pin"><input type="checkbox" id="k3-pin" checked> Pinned</label>
+        </div>
+        <p class="caption">Starting tiers map to existing strengths: Novice 0.30, Skilled 0.60, Master 0.80. Kit bogies default to pinned.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section sim" aria-labelledby="r-h">
+    <div class="eyebrow">Try it</div>
+    <h2 id="r-h">How often a bogey fires</h2>
+    <p>This is the Chance Time pressure roll, run with the starting numbers the proposal suggests: pressure grows each reply without a hit, the chance is base plus pressure, and a hit resets pressure and starts a cooldown. Each dot is a reply where the clumsiness shows.</p>
+    <div class="window">
+      <div class="window-body" style="display:flex;flex-direction:column;gap:14px">
+        <div class="sim-tools">
+          <label for="s-growth">Growth per reply <input type="range" id="s-growth" min="1" max="10" value="4"> <span class="mono" id="v-growth">4</span></label>
+          <label for="s-cool">Cooldown <input type="range" id="s-cool" min="0" max="10" value="4"> <span class="mono" id="v-cool">4</span></label>
+          <label for="s-boon"><input type="checkbox" id="s-boon"> Linked boon at Skilled (growth halved)</label>
+          <button class="btn" id="s-reroll">Reroll</button>
+        </div>
+        <div id="chart" aria-label="Bogey pressure over 60 replies"></div>
+        <div class="stats">
+          <div><b id="st-fires">0</b><span>bogey moments in 60 replies</span></div>
+          <div><b id="st-gap">0</b><span>average replies between</span></div>
+          <div><b id="st-max">0</b><span>longest dry spell</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="e-h">
+    <div class="eyebrow">Grounding</div>
+    <h2 id="e-h">What already exists</h2>
+    <p>Each row was checked against the code on 2026-11-19.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Piece</th><th>Where</th><th>What it gives us</th></tr></thead>
+        <tbody>
+          <tr><td>Growth ring</td><td><code>database.tables.features.dart</code></td><td>Category, strength 0–1, pinned, retired, receipts, and a <code>metadata</code> JSON field for bogey roll state with no migration.</td></tr>
+          <tr><td>Tier physics</td><td><code>growth_physics.dart</code></td><td>Reinforce +0.20, fade −0.05 per pass, Skilled at 0.35, Master at 0.80 (physics names: developing, established).</td></tr>
+          <tr><td>Review + single write path</td><td><code>growth_review.dart</code></td><td>Proposals held for accept or discard; the popup's Accept, Redo and Reject sit on top of this.</td></tr>
+          <tr><td>Pressure roll</td><td><code>chaos_mode_service.dart</code></td><td>The grow, roll and cooldown math, pulled out into a shared helper so chaos is unchanged.</td></tr>
+          <tr><td>Card identity fields</td><td><code>front_porch_extensions.dart</code></td><td>Ambitions, likes and dislikes travel with the card. The kit joins them.</td></tr>
+          <tr><td>Flame</td><td><code>ambient_stage_game.dart</code></td><td>Already drives the weather stage, so the desktop popup needs no new package.</td></tr>
+          <tr><td>Porch Life dependencies</td><td><code>feature_tree.dart</code></td><td><code>FeatureNeed.needs</code>, the dependency chip and jump-to.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="p-h">
+    <div class="eyebrow">Plan</div>
+    <h2 id="p-h">Build phases</h2>
+    <p>Each phase leaves the app working, desktop and web together.</p>
+    <div class="phases">
+      <div class="phase"><span class="n">0</span><div><b>Repoint the Growth comments</b><p>The old Growth Rings doc stays deleted. Its 19 references in the code move to this doc. Comments only.</p></div></div>
+      <div class="phase"><span class="n">1</span><div><b>Pull out the pressure roll</b><p>Shared helper, with golden vectors that fail if any Chance Time roll changes.</p></div></div>
+      <div class="phase"><span class="n">2</span><div><b>Bogey category and Growth panel</b><p>New category, roll state in metadata, the three-bogey cap, prompt and parser support, and the settings switches (default off).</p></div></div>
+      <div class="phase"><span class="n">3</span><div><b>The card kit</b><p>Card field, seeding at chat start, creator and editor on both surfaces, group card manifest.</p></div></div>
+      <div class="phase"><span class="n">4</span><div><b>Bogey rolls</b><p>Injection, regen and swipe re-inject the same bogey, Continue never rolls, heavy scenes hold the roll.</p></div></div>
+      <div class="phase"><span class="n">5</span><div><b>Milestone popup</b><p>Flame on desktop, a canvas twin on web, Reduce Motion, a queue, and Redo.</p></div></div>
+      <div class="phase"><span class="n">6</span><div><b>Boons wear bogies down</b><p>The linked boon slows bogey pressure; reaching Master can propose that the bogey is overcome.</p></div></div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="o-h">
+    <div class="eyebrow">Decided 2026-11-19</div>
+    <h2 id="o-h">Rulings</h2>
+    <div class="open">
+      <div class="q"><b>Approval</b><span>New boons, tier-ups, new bogies and bogies overcome always ask first, even with review-first off. Other rings are unchanged.</span></div>
+      <div class="q"><b>Tier names</b><span>Novice, Skilled, Master. The tier maths underneath stays the same.</span></div>
+      <div class="q"><b>Roll numbers</b><span>Base 3, growth 4, cooldown 4. The Chaos frequency setting doesn't change them.</span></div>
+      <div class="q"><b>Default</b><span>Off in the first release.</span></div>
+      <div class="q"><b>Heavy scenes</b><span>A bogey that would fire is held, and its pressure kept, until the scene calms.</span></div>
+      <div class="q"><b>Growth doc</b><span>Stays deleted. This proposal becomes the Growth design reference.</span></div>
+    </div>
+  </section>
+
+  <footer>Source: <code>docs/design/boons-and-bogies.md</code>. Character, chat and numbers on this page are examples.</footer>
+</div>
+
+<script>
+(function () {
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const reduceOS = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const rm = document.getElementById('rm');
+  rm.checked = reduceOS;
+
+  /* ---------- milestone moments: one card template for every surface ---------- */
+  const el = id => document.getElementById(id);
+  const MOMENTS = {
+    boon:  { tone: 'boon',     kind: 'Kaito learned a boon',    name: 'Shadow Step',               ring: 'Kaito can cross a guarded room without being seen.', tier: ['Starts at', 'Novice'], sub: 'From message 42: slipped past the gate guards without help.', burst: 'confetti', toast: 'Shadow Step added', id: 'ring-7f3a' },
+    tier:  { tone: 'boon',     kind: 'Boon tier up',            name: 'Shadow Step',               ring: 'Kaito can cross a guarded room without being seen.', tier: ['Novice →', 'Skilled'], sub: 'Reinforced by messages 57 and 63: the rooftop and the vault.', burst: 'confetti', toast: 'Shadow Step is Skilled', id: 'ring-7f3a:t2' },
+    bogey: { tone: 'bogey',    kind: 'Kaito picked up a bogey', name: "Can't resist showing off",  ring: 'Kaito takes a needless risk when someone is watching.', tier: ['Bogies', '2 of 3'], sub: 'From message 44: "Told you. Not even a creak."', burst: 'smoke', toast: 'Bogey added', id: 'ring-91c2' },
+    over:  { tone: 'overcome', kind: 'Kaito overcame a bogey',  name: 'Afraid of heights',         ring: 'Walked the bell tower ledge without freezing.', tier: ['Bogey', 'retired'], sub: 'From message 88. It stays in history and stops reaching the prompt.', burst: 'burnoff', toast: 'Bogey overcome', id: 'ring-22be:ret' }
+  };
+  const CHAT = {
+    desktop: [['me', 'Okay, the guards just changed shifts. Go now.'], ['ai', '<em>Kaito drops from the rafters without a sound, slips between the two lanterns and is through the gate before the new guard has finished yawning.</em> "Told you. Not even a creak."'], ['me', "Okay, I'm impressed."]],
+    phone: [['me', 'The guards just changed shifts. Go now.'], ['ai', '<em>Kaito drops from the rafters without a sound and is through the gate before the new guard has finished yawning.</em> "Told you."'], ['me', "Okay, I'm impressed."]]
+  };
+
+  /* ---------- the shared burst sim (proposed milestone_burst.dart / milestoneBurst.ts) ----------
+     Plain maths, outcome first: the seed and kind fix every particle before anything moves.
+     Units are card widths, origin at the card's centre, fixed 1/60 s steps. Painters only draw. */
+  const CONFETTI = ['#FFD166', '#FFC233', '#FF6B9D', '#118AB2', '#06D6A0', '#FF9F1C']; // theme-keep: milestone identity
+  const SMOKE = '#B79BE0'; // theme-keep: milestone identity
+  const DT = 1 / 60;
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function seedOf(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function confettiParts(rnd, n, oy) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const a = rnd() * Math.PI * 2, s = 0.5 + rnd() * 1.1;
+      out.push({ k: 'c', x: 0, y: oy, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.7, r: rnd() * 6, vr: (rnd() - .5) * 24, w: .024 + rnd() * .02, h: .014 + rnd() * .014, c: CONFETTI[i % CONFETTI.length], life: 1.9 + rnd() * .7, age: 0 });
+    }
+    return out;
+  }
+  function smokeParts(rnd, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) out.push({ k: 's', x: (rnd() - .5) * .18, y: (rnd() - .5) * .09, vx: (rnd() - .5) * .2, vy: -.07 - rnd() * .18, rad: .03 + rnd() * .05, life: 2 + rnd(), age: 0 });
+    return out;
+  }
+  function planBurst(kind, seed) {
+    const rnd = mulberry32(seed);
+    if (kind === 'confetti') return { t: 0, parts: confettiParts(rnd, 140, 0), later: [] };
+    if (kind === 'smoke') return { t: 0, parts: smokeParts(rnd, 46), later: [] };
+    return { t: 0, parts: smokeParts(rnd, 36), later: [{ at: .7, parts: confettiParts(rnd, 120, -.05) }] }; // burnoff
+  }
+  function stepBurst(b) {
+    b.t += DT;
+    while (b.later.length && b.later[0].at <= b.t) b.parts.push(...b.later.shift().parts);
+    for (const p of b.parts) {
+      p.age += DT;
+      if (p.k === 'c') { p.vy += 1.9 * DT; p.vx *= .99; p.x += p.vx * DT; p.y += p.vy * DT; p.r += p.vr * DT; }
+      else { p.x += p.vx * DT; p.y += p.vy * DT; p.rad += .075 * DT; }
+    }
+    b.parts = b.parts.filter(p => p.age < p.life);
+    return b.parts.length > 0 || b.later.length > 0;
+  }
+
+  /* ---------- one painter per surface; both read the same sim state ---------- */
+  function painter(canvas) {
+    const ctx = canvas.getContext('2d');
+    return function paint(b, unit, cx, cy) {
+      const dpr = window.devicePixelRatio || 1, r = canvas.getBoundingClientRect();
+      if (canvas.width !== Math.round(r.width * dpr)) { canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr); }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, r.width, r.height);
+      if (!b) return;
+      for (const p of b.parts) {
+        const t = p.age / p.life, x = cx + p.x * unit, y = cy + p.y * unit;
+        if (p.k === 'c') {
+          ctx.save(); ctx.globalAlpha = 1 - t * t; ctx.translate(x, y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+          ctx.fillRect(-p.w * unit / 2, -p.h * unit / 2, p.w * unit, p.h * unit * Math.abs(Math.cos(p.age * 9))); ctx.restore();
+        } else {
+          ctx.globalAlpha = .38 * (1 - t); ctx.fillStyle = SMOKE;
+          ctx.beginPath(); ctx.arc(x, y, p.rad * unit, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+        }
+      }
+    };
+  }
+
+  /* ---------- build both stages from the one template ---------- */
+  const stages = [...document.querySelectorAll('[data-stage]')].map(root => {
+    const which = root.dataset.stage;
+    root.innerHTML =
+      '<div class="chat" aria-hidden="true">' + CHAT[which].map(([w, t]) => `<div class="bubble ${w}">${t}</div>`).join('') + '</div>' +
+      '<div class="scrim"></div>' +
+      '<div class="ms-wrap"><div class="ms-card" role="dialog" aria-modal="true" aria-label="Milestone">' +
+        '<div class="ms-title">✦ Milestone</div><div class="ms-kind"></div>' +
+        '<div class="ms-event"><b class="ms-name"></b><span class="ms-ring"></span><span class="ms-tier"><span></span> <strong></strong></span></div>' +
+        '<p class="ms-sub"></p>' +
+        '<div class="ms-actions"><button type="button" class="ms-btn" data-act="reject">Reject</button><button type="button" class="ms-btn" data-act="redo">Redo</button><button type="button" class="ms-btn accept" data-act="accept">Accept</button></div>' +
+      '</div></div>' +
+      '<canvas class="fx"></canvas><div class="toast" hidden></div>';
+    const s = { root, which, q: sel => root.querySelector(sel), burst: null };
+    s.paint = painter(s.q('canvas'));
+    root.querySelectorAll('[data-act]').forEach(btn => btn.addEventListener('click', () => act(btn.dataset.act)));
+    return s;
+  });
+
+  let current = 'boon', raf = 0, timer = 0;
+  function render(key) {
+    current = key;
+    const m = MOMENTS[key];
+    for (const s of stages) {
+      const card = s.q('.ms-card');
+      card.className = 'ms-card ' + m.tone;
+      s.q('.ms-kind').className = 'ms-kind tone-' + m.tone;
+      s.q('.ms-kind').textContent = m.kind;
+      s.q('.ms-name').textContent = m.name;
+      s.q('.ms-ring').textContent = m.ring;
+      s.q('.ms-tier span').textContent = m.tier[0];
+      s.q('.ms-tier strong').textContent = m.tier[1];
+      s.q('.ms-sub').textContent = m.sub;
+      s.q('.ms-wrap').hidden = false; s.q('.scrim').hidden = false; s.q('.toast').hidden = true;
+      s.burst = null; s.paint(null);
+    }
+    document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.moment === key ? 'true' : 'false'));
+  }
+  function toastAll(msg) { for (const s of stages) { const t = s.q('.toast'); t.textContent = msg; t.hidden = false; } }
+  function act(what) {
+    const m = MOMENTS[current];
+    clearTimeout(timer);
+    if (what === 'redo') {
+      for (const s of stages) s.q('.ms-sub').textContent = 'Asking again for the same messages…';
+      timer = setTimeout(() => { for (const s of stages) s.q('.ms-sub').textContent = m.sub; }, 900);
+      return;
+    }
+    // Measure each card before hiding it: its width is that surface's unit.
+    for (const s of stages) {
+      const cr = s.q('.ms-card').getBoundingClientRect(), sr = s.root.getBoundingClientRect();
+      s.unit = cr.width; s.cx = cr.left - sr.left + cr.width / 2; s.cy = cr.top - sr.top + cr.height / 2;
+      s.q('.ms-wrap').hidden = true; s.q('.scrim').hidden = true;
+    }
+    if (what === 'reject') { toastAll('Rejected. Nothing changed.'); timer = setTimeout(() => render(current), 1800); return; }
+    toastAll(m.toast);
+    if (!rm.checked) {
+      const seed = seedOf(m.id);                  // same ring, same burst, on every device
+      for (const s of stages) s.burst = planBurst(m.burst, seed);
+      cancelAnimationFrame(raf);
+      const frame = () => {
+        let alive = false;
+        for (const s of stages) { if (s.burst && stepBurst(s.burst)) alive = true; s.paint(s.burst, s.unit, s.cx, s.cy); }
+        raf = alive ? requestAnimationFrame(frame) : 0;
+      };
+      raf = requestAnimationFrame(frame);
+    }
+    timer = setTimeout(() => render(current), rm.checked ? 1800 : 3400);
+  }
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => { clearTimeout(timer); cancelAnimationFrame(raf); render(t.dataset.moment); }));
+  render('boon');
+
+  /* ---------- settings tree ---------- */
+  const swG = el('sw-growth'), swB = el('sw-bb'), swR = el('sw-roll'), swP = el('sw-pop');
+  function syncTree() {
+    const bbLive = swG.checked;
+    const kidsLive = swG.checked && swB.checked;
+    swB.disabled = !bbLive; swR.disabled = !kidsLive; swP.disabled = !kidsLive;
+    el('r-bb').classList.toggle('off', !bbLive);
+    el('r-roll').classList.toggle('off', !kidsLive);
+    el('r-pop').classList.toggle('off', !kidsLive);
+    let note;
+    if (!swG.checked) note = 'Growth Rings is off, so nothing can advance and nothing new is proposed. Existing boons and bogies stay in each chat.';
+    else if (!swB.checked) note = 'Boons & Bogies is off. Existing ones stay as plain rings; no bogey rolls, no new proposals, and kits are not copied into new chats.';
+    else if (!swR.checked && !swP.checked) note = 'Progression only, and proposals wait in the Growth panel\'s review list.';
+    else if (!swR.checked) note = 'Progression only: boons grow, bogies never fire.';
+    else if (!swP.checked) note = 'Proposals wait in the Growth panel\'s review list instead of popping up.';
+    else note = 'Everything on.';
+    el('tree-note').textContent = note;
+  }
+  [swG, swB, swR, swP].forEach(s => s.addEventListener('change', syncTree));
+  syncTree();
+
+  /* ---------- roll simulator: same math as checkAndTickChaosPressure ---------- */
+  const BASE = 3, CAP = 100, N = 60;
+  function simulate(growth, cool, rand) {
+    let pressure = 0, cd = 0; const pts = [], fires = [];
+    for (let i = 0; i < N; i++) {
+      if (cd > 0) { cd--; pts.push(0); continue; }
+      pressure = Math.min(CAP, pressure + growth);
+      const chance = Math.min(CAP, BASE + pressure);
+      const hit = Math.floor(rand() * 100) < chance;
+      pts.push(pressure);
+      if (hit) { fires.push(i); pressure = 0; cd = cool; }
+    }
+    return { pts, fires };
+  }
+  let seed = 7;
+  function rng(s) { let x = s >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return ((x >>> 0) % 1e6) / 1e6; }; }
+  function draw() {
+    const g0 = +el('s-growth').value, c = +el('s-cool').value;
+    el('v-growth').textContent = g0; el('v-cool').textContent = c;
+    const g = el('s-boon').checked ? Math.max(1, Math.round(g0 / 2)) : g0;
+    const { pts, fires } = simulate(g, c, rng(seed));
+    const W = 640, H = 190, L = 34, R = 10, T = 12, B = 26;
+    const x = i => L + (i / (N - 1)) * (W - L - R);
+    const y = v => T + (1 - v / 60) * (H - T - B);
+    const line = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(Math.min(60, v)).toFixed(1)).join(' ');
+    const area = line + ` L ${x(N - 1)} ${y(0)} L ${x(0)} ${y(0)} Z`;
+    let grid = '';
+    [0, 20, 40, 60].forEach(v => { grid += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--divider)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${v}%</text>`; });
+    [0, 15, 30, 45, 59].forEach(i => { grid += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle" font-size="10" fill="var(--ink-soft)">${i + 1}</text>`; });
+    const dots = fires.map(i => `<circle cx="${x(i)}" cy="${y(Math.min(60, pts[i]))}" r="5" fill="var(--bogey)" stroke="var(--card)" stroke-width="2"/>`).join('');
+    el('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Pressure line with ${fires.length} bogey moments"><g font-family="var(--font-body)">${grid}</g><path d="${area}" fill="var(--bogey-fill)" fill-opacity=".18"/><path d="${line}" fill="none" stroke="var(--bogey)" stroke-width="2"/>${dots}<text x="${W - R}" y="${H - 8}" text-anchor="end" font-size="10" fill="var(--ink-soft)">reply</text></svg>`;
+    el('st-fires').textContent = fires.length;
+    const gaps = fires.slice(1).map((f, i) => f - fires[i]);
+    el('st-gap').textContent = gaps.length ? (gaps.reduce((a, b) => a + b, 0) / gaps.length).toFixed(1) : '–';
+    const edges = [-1, ...fires, N];
+    el('st-max').textContent = Math.max(...edges.slice(1).map((f, i) => f - edges[i] - 1));
+  }
+  ['s-growth', 's-cool', 's-boon'].forEach(id => el(id).addEventListener('input', draw));
+  el('s-reroll').addEventListener('click', () => { seed = Math.floor(Math.random() * 1e9); draw(); });
+  draw();
+})();
+</script>

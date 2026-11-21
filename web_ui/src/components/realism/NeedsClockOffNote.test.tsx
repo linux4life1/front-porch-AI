@@ -44,7 +44,7 @@ describe('the clock-off line in the Needs forms', () => {
     const v = { ...REALISM_DEFAULTS, needsSimEnabled: true };
     render(createElement(NeedsFormSection, { v, set: () => {}, clockOn: false }));
     const toggle = container.querySelector('label.realism-toggle');
-    expect(toggle?.textContent).toContain('Needs simulation');
+    expect(toggle?.textContent).toContain('Needs Simulation');
     expect(toggle?.nextElementSibling).toBe(note());
     expect(note()?.textContent).toBe(LINE);
 

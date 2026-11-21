@@ -98,6 +98,8 @@ extension RealismInjectionWiring on RealismGraph {
       getClockMinutes: () => time.clockMinutes,
       getWeekday: () => time.clock.weekday,
       getIsGroup: () => session.activeGroup != null,
+      getHeldAway: () =>
+          groups.members[groups.currentSpeakerId()]?.awayHeld ?? false,
     );
   }
 
@@ -124,6 +126,11 @@ extension RealismInjectionWiring on RealismGraph {
       getCurrentSpeakerIdForRealism: groups.currentSpeakerId,
       getGroupCharacters: () => session.groupCharacters,
       getCharacterIdFromCard: session.characterIdFor,
+      getHeldAway: () =>
+          groups.members[groups.currentSpeakerId()]?.awayHeld ?? false,
+      getOccupation: () => groups.workFieldsForCurrentSpeaker().occupation,
+      getHours: () => groups.workFieldsForCurrentSpeaker().hours,
+      getWorkDays: () => groups.workFieldsForCurrentSpeaker().workDays,
     );
   }
 
@@ -265,6 +272,15 @@ extension RealismInjectionWiring on RealismGraph {
       chaosModeService: chaos,
       // The member pinned for the turn in a group, the host in 1:1.
       getActiveCharacter: () => groups.workSpeakerCard(),
+      // PR 5b: the pinned speaker's bag, so a group's Chance Time event
+      // injects only when the member it was rolled FOR generates — and
+      // never rides another member's turn (Error Book: the group tick
+      // that hit everyone). Null in 1:1: the scalar path stays law.
+      getSpeakerBag: () {
+        if (session.activeGroup == null) return null;
+        final id = groups.currentSpeakerId();
+        return id.isEmpty ? null : groups.members[id];
+      },
     );
   }
 

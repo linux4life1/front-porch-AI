@@ -9,6 +9,11 @@
 
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
+import { api } from '../api/client';
+import {
+  IconFolder, IconImage, IconMic, IconNextTurn, IconSend, IconSparkle, IconUser,
+} from './chatLineIcons';
+import { CardMenu, type MenuState } from './library/CardMenu';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
 import {
@@ -16,27 +21,12 @@ import {
   persistComposerDraft,
 } from '../composerDraft';
 
-// Mirrors ChatCommandHandler.commands (lib/services/chat/chat_command_handler.dart)
-// — the single source of truth for the desktop "type /" helper. Keep in sync if
-// commands change. Display-only cheat sheet (clicking inserts the command); no
-// autocomplete/filtering. All are dispatched server-side in ChatService.
-const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
-  { cmd: '/create', args: '<name>: <concept>', desc: 'Create a new guest NPC and bring them into the scene' },
-  { cmd: '/join', args: '[--full|--lite] [name]', desc: 'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member' },
-  { cmd: '/promote', args: '[name]', desc: 'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them' },
-  { cmd: '/speak', args: '[name]', desc: 'Anyone on the porch (host, guest, or group member) takes a turn now' },
-  { cmd: '/exit', args: '[name]', desc: 'A guest leaves (narrated); in a group, removes that full member by name' },
-  { cmd: '/director', args: '[off]', desc: 'Step out of a group scene to direct it; /director off steps you back in' },
-  { cmd: '/whisper', args: '<name> <direction> | /whisper <name> off', desc: 'While directing: a private direction only that character sees, until you clear it' },
-  { cmd: '/goal', args: '<where the scene should go> | /goal off', desc: 'While directing: pin a scene goal the cast steers toward every turn' },
-  { cmd: '/narrate', args: '[what happens]', desc: 'While directing: a narrator describes the scene, then the cast reacts' },
-  { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },
-  { cmd: '/scan', args: '', desc: 'Scan the scene for a new recurring character to add' },
-  { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
-  { cmd: '/search', args: '-- <what to look up>', desc: 'Look up these exact words on the web before she answers. Put your line first, then the command' },
-  { cmd: '/wiki', args: '-- <what to look up>', desc: "Look up these exact words in this chat's wiki. Put your line first, then the command" },
-  { cmd: '/skip', args: '<8h | 2d | morning | 07:30>', desc: 'Skip story time by exactly this much. Put your line first, then the command; alone, it only moves the clock' },
-];
+// The sheet's rows come from the host (`GET /api/chat/slash-commands`), which
+// serves kSlashCommands — the same list the desktop "type /" helper renders —
+// so this copy can never drift from it (drift ledger #14). Display-only cheat
+// sheet (clicking inserts the command); no autocomplete/filtering. All are
+// dispatched server-side in ChatService.
+type SlashCommand = { command: string; example: string; description: string };
 
 /** The in-progress "@" token ending at `caret`, or null. Mirrors the engine's
  *  boundary rule: the @ must not follow a word char/dot/hyphen/plus, so typing
@@ -70,6 +60,7 @@ export function ChatComposer({
   isSettlingTurn = false,
   isSendWaitingOnSettle = false,
   canMic,
+  autoSendMic = false,
   onDraftChange,
   cast,
   impersonateFill,
@@ -78,6 +69,11 @@ export function ChatComposer({
   apiHint,
   directing = false,
   draftBox,
+  isDesktop = false,
+  onPersona,
+  folderItems,
+  nextName,
+  onNextTurn,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -85,6 +81,9 @@ export function ChatComposer({
   isSettlingTurn?: boolean;
   isSendWaitingOnSettle?: boolean;
   canMic: boolean;
+  /** Settings → Voice & Media → Auto-send transcription (the host's switch):
+   *  dictation into an empty box sends at once, as on the desktop. */
+  autoSendMic?: boolean;
   /** Live draft mirror for the lorebook "would trigger next" preview. */
   onDraftChange?: (text: string) => void;
   /** Present cast for the "@" autocomplete (host + guests, or group members).
@@ -106,6 +105,20 @@ export function ChatComposer({
    *  those drafts ride the owner mailbox so the next new chat picks
    *  them up, as on the desktop. Null with no chat: nothing persists. */
   draftBox?: { sessionKey: string; ownerKey: string; fresh: boolean } | null;
+  /** The window's composer: the tools move from the input line to an icon
+   *  row under the box. Every width renders it (PR 1a wide, PR 1b phone
+   *  and tablet); the legacy one-line layout stays for its unit tests. */
+  isDesktop?: boolean;
+  /** Round persona button at the row's left end (desktop; opens the same
+   *  `Speak as…` modal the header button did). */
+  onPersona?: () => void;
+  /** Chat Management folder menu, desktop row (Conversations, budget…).
+   *  `className` carries any class the control already had (e.g.
+   *  `conversations-btn`) so journeys keep finding it. */
+  folderItems?: { label: string; className?: string; onClick: () => void }[];
+  /** Group next-up speaker; the purple Next button's tooltip (desktop). */
+  nextName?: string;
+  onNextTurn?: () => void;
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = useCallback(
@@ -186,6 +199,26 @@ export function ChatComposer({
   );
 
   const [slashDismissed, setSlashDismissed] = useState(false);
+  // The cheat-sheet rows are the host's catalog (drift ledger #14): a small
+  // static JSON fetched once per mount, the same list the desktop "type /"
+  // helper paints. While the host has not answered (or is offline) the sheet
+  // stays hidden rather than showing a stale hand-copy.
+  const [slashCommands, setSlashCommands] = useState<SlashCommand[]>([]);
+  useEffect(() => {
+    let live = true;
+    api
+      .get<SlashCommand[]>('/api/chat/slash-commands')
+      .then((cmds) => {
+        if (live) setSlashCommands(cmds);
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
+  // Desktop composer folder menu (Chat Management).
+  const [folderMenu, setFolderMenu] = useState<MenuState | null>(null);
+  const folderRef = useRef<HTMLButtonElement>(null);
 
   // "@" cast autocomplete — the cast-name twin of the slash cheat sheet
   // (same panel styles). Tracks the caret so a token being typed mid-draft
@@ -203,7 +236,10 @@ export function ChatComposer({
     : [];
   const showMention = !mentionDismissed && mentionMatches.length > 0;
   const showSlash =
-    draft.trimStart().startsWith('/') && !slashDismissed && !showMention;
+    draft.trimStart().startsWith('/') &&
+    !slashDismissed &&
+    !showMention &&
+    slashCommands.length > 0;
 
   const insertMention = (name: string) => {
     if (!mentionQuery) return;
@@ -317,6 +353,21 @@ export function ChatComposer({
       .finally(() => setPhotoBusy(false));
   };
 
+  // What the mic heard. The desktop (chat_page.input_actions.dart) sends it
+  // straight away when Auto-send is on and the box is empty; otherwise it
+  // joins whatever is typed. A pending photo also keeps it in the box, so the
+  // picture is never sent apart from the words meant for it.
+  const onMicText = (t: string) => {
+    if (autoSendMic && !draft.trim() && !photo && !isGenerating) {
+      setSlashDismissed(false);
+      setMentionDismissed(false);
+      if (isSettlingTurn) setHeldLocal(true);
+      onSend(t);
+      return;
+    }
+    setDraft((d) => (d ? `${d} ${t}` : t));
+  };
+
   return (
     <div className="chat-composer-wrap">
     {held && (
@@ -329,7 +380,7 @@ export function ChatComposer({
         {apiHint}
       </div>
     )}
-    <div className="chat-input">
+    <div className={isDesktop ? 'chat-input chat-input-desktop' : 'chat-input'}>
       <input
         ref={photoInputRef}
         type="file"
@@ -368,19 +419,24 @@ export function ChatComposer({
             <span>Chat commands</span>
             <button className="link-btn" onClick={() => setSlashDismissed(true)}>Close</button>
           </div>
-          {SLASH_COMMANDS.map((c) => (
+          {slashCommands.map((c) => (
             <button
-              key={c.cmd}
+              key={c.command}
               className="cheatsheet-row"
               onClick={() => {
-                setDraft(c.args ? `${c.cmd} ` : c.cmd);
+                // Same insert as the desktop helper: the full example
+                // skeleton, so the argument shape arrives with the command.
+                setDraft(c.example);
                 setSlashDismissed(true);
               }}
             >
               <span className="cheatsheet-cmd">
-                {c.cmd}{c.args && <span className="muted"> {c.args}</span>}
+                /{c.command}
+                {c.example.startsWith(`/${c.command} `) && (
+                  <span className="muted"> {c.example.slice(c.command.length + 2)}</span>
+                )}
               </span>
-              <span className="cheatsheet-desc">{c.desc}</span>
+              <span className="cheatsheet-desc">{c.description}</span>
             </button>
           ))}
         </div>
@@ -460,44 +516,157 @@ export function ChatComposer({
           rows={1}
         />
       </div>
-      <button
-        type="button"
-        className="icon-btn"
-        title="Attach photo"
-        aria-label="Attach photo"
-        disabled={isGenerating || photoBusy}
-        onClick={() => photoInputRef.current?.click()}
-      >
-        🖼
-      </button>
-      {onImpersonate && (
-        <button
-          type="button"
-          className="icon-btn impersonate-btn"
-          title="Impersonate (AI writes your message)"
-          aria-label="Impersonate"
-          disabled={isGenerating}
-          onClick={() => onImpersonate(draft)}
-        >
-          ✦
-        </button>
-      )}
-      {canMic && (
-        <MicButton
-          disabled={isGenerating}
-          onText={(t) => setDraft((d) => (d ? `${d} ${t}` : t))}
-        />
-      )}
-      {isGenerating ? (
-        <button className="primary" onClick={onStop}>Stop</button>
+      {isDesktop ? (
+        /* Desktop (≥1024): the tools sit in an icon row UNDER the box, as
+           the desktop window draws them — persona, Chat Management, attach
+           on the left; impersonate, mic, Next, send on the right. */
+        <div className="composer-icon-row">
+          <div className="composer-icons-left">
+            {onPersona && (
+              <button
+                type="button"
+                className="composer-persona-btn"
+                aria-label="Persona"
+                title="Who you are in this chat"
+                onClick={onPersona}
+              >
+                <IconUser />
+              </button>
+            )}
+            {folderItems && folderItems.length > 0 && (
+              <>
+                <button
+                  ref={folderRef}
+                  type="button"
+                  className="icon-btn chat-mgmt-btn"
+                  aria-label="Chat Management"
+                  title="Chat Management"
+                  aria-haspopup="menu"
+                  aria-expanded={folderMenu !== null}
+                  onClick={() => {
+                    const r = folderRef.current?.getBoundingClientRect();
+                    setFolderMenu(
+                      folderMenu
+                        ? null
+                        : {
+                            x: r?.left ?? 8,
+                            y: (r?.top ?? 40) - folderItems.length * 38 - 8,
+                            items: folderItems.map((f) => ({
+                              label: f.label,
+                              className: f.className,
+                              onClick: () => {
+                                setFolderMenu(null);
+                                f.onClick();
+                              },
+                            })),
+                          },
+                    );
+                  }}
+                >
+                  <IconFolder />
+                </button>
+                {folderMenu && <CardMenu menu={folderMenu} onClose={() => setFolderMenu(null)} />}
+              </>
+            )}
+            <button
+              type="button"
+              className="icon-btn"
+              title="Attach photo"
+              aria-label="Attach photo"
+              disabled={isGenerating || photoBusy}
+              onClick={() => photoInputRef.current?.click()}
+            >
+              <IconImage />
+            </button>
+          </div>
+          <div className="composer-icons-right">
+            {onImpersonate && (
+              <button
+                type="button"
+                className="icon-btn impersonate-btn"
+                title="Impersonate (AI writes your message)"
+                aria-label="Impersonate"
+                disabled={isGenerating}
+                onClick={() => onImpersonate(draft)}
+              >
+                <IconSparkle />
+              </button>
+            )}
+            {canMic && (
+              <MicButton
+                disabled={isGenerating}
+                icon={<IconMic />}
+                onText={onMicText}
+              />
+            )}
+            {onNextTurn && (
+              <button
+                type="button"
+                className="icon-btn composer-next-btn"
+                aria-label="Next character"
+                title={nextName ? `Next: ${nextName}` : 'Trigger next character'}
+                disabled={isGenerating}
+                onClick={onNextTurn}
+              >
+                <IconNextTurn />
+              </button>
+            )}
+            {isGenerating ? (
+              <button className="primary" onClick={onStop}>Stop</button>
+            ) : (
+              <button
+                className="primary composer-send-btn"
+                aria-label="Send"
+                onClick={send}
+                disabled={photoBusy || (!draft.trim() && !photo)}
+              >
+                <IconSend /><span className="visually-hidden">Send</span>
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
-        <button
-          className="primary"
-          onClick={send}
-          disabled={photoBusy || (!draft.trim() && !photo)}
-        >
-          Send
-        </button>
+        <>
+          <button
+            type="button"
+            className="icon-btn"
+            title="Attach photo"
+            aria-label="Attach photo"
+            disabled={isGenerating || photoBusy}
+            onClick={() => photoInputRef.current?.click()}
+          >
+            🖼
+          </button>
+          {onImpersonate && (
+            <button
+              type="button"
+              className="icon-btn impersonate-btn"
+              title="Impersonate (AI writes your message)"
+              aria-label="Impersonate"
+              disabled={isGenerating}
+              onClick={() => onImpersonate(draft)}
+            >
+              ✦
+            </button>
+          )}
+          {canMic && (
+            <MicButton
+              disabled={isGenerating}
+              onText={onMicText}
+            />
+          )}
+          {isGenerating ? (
+            <button className="primary" onClick={onStop}>Stop</button>
+          ) : (
+            <button
+              className="primary"
+              onClick={send}
+              disabled={photoBusy || (!draft.trim() && !photo)}
+            >
+              Send
+            </button>
+          )}
+        </>
       )}
     </div>
     </div>

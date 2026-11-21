@@ -104,7 +104,8 @@ class TransferHost {
   /// The stable id a card's rows are keyed by.
   final String Function(CharacterCard card) characterIdFor;
 
-  /// The memory bucket of the open chat (`group_<id>` for a group).
+  /// The open chat's id (`group_<id>` for a group); a group's memory is
+  /// per member, see `MemberMemory`.
   final String Function() ragCharacterId;
 
   /// Re-reads the open group's roster from the database.

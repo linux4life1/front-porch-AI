@@ -1,9 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Web mirror of Settings → General → Follow streaming replies.
-// Desktop sits this immediately above Dark mode, and so does the web
-// (AppearanceSettings).
+// Web mirror of Settings → General → Follow streaming replies. The desktop
+// puts it second in General, under My messages on the right, above the
+// update row (lib/ui/settings/tabs/general_tab.dart:45-102); the web
+// matches that order (one-chat-ux PR 7a).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
@@ -32,21 +33,23 @@ export function FollowStreamingSettings() {
   };
 
   return (
-    <section className="card" data-testid="follow-streaming-card">
-      <h3>Follow streaming replies</h3>
-      <p className="reading-blurb">
-        Keep the chat pinned to the newest words while a reply is writing, as
-        long as you are at the bottom. Scroll up to stop.
-      </p>
-      <label>
+    <section className="card setting-toggle-card" data-testid="follow-streaming-card">
+      <div className="setting-toggle-header">
+        <div className="setting-toggle-info">
+          <h3>Follow streaming replies</h3>
+          <p className="reading-blurb">
+            Keep the chat pinned to the newest words while a reply is writing, as
+            long as you are at the bottom. Scroll up to stop.
+          </p>
+        </div>
         <input
+          className="switch"
           type="checkbox"
           checked={on}
           onChange={(e) => commit(e.target.checked)}
           aria-label="Follow streaming replies"
         />
-        {' '}Follow streaming replies
-      </label>
+      </div>
     </section>
   );
 }

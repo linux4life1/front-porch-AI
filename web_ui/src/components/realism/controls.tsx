@@ -5,6 +5,8 @@
 // character create/edit wizards). Presentation-only; all colors come from CSS
 // tokens in styles.css so the desktop and phone shells stay consistent.
 
+import type { ReactNode } from 'react';
+
 /** Labelled slider with an optional right-aligned tier/value badge. */
 export function Slider({
   label,
@@ -16,6 +18,7 @@ export function Slider({
   step = 1,
   unset = false,
   onClear,
+  tone,
 }: {
   label: string;
   min: number;
@@ -26,9 +29,11 @@ export function Slider({
   step?: number;
   unset?: boolean;
   onClear?: () => void;
+  /** The desktop paints bond and trust in its relationship blue. */
+  tone?: 'bond';
 }) {
   return (
-    <div className="realism-slider">
+    <div className={`realism-slider${tone ? ` tone-${tone}` : ''}`}>
       <div className="realism-slider-head">
         <span>{label}</span>
         {unset ? (
@@ -53,25 +58,32 @@ export function Slider({
   );
 }
 
-/** On/off switch with an optional descriptive subtitle. */
+/** On/off row as the desktop's buildRealismToggleRow draws it: an icon, the
+ *  title with its subtitle, the pill switch at the right. `master` is the
+ *  Enable Realism Engine card (icon tile, accent subtitle, accent border). */
 export function ToggleRow({
   label,
   hint,
   value,
   onChange,
+  icon,
+  variant,
 }: {
   label: string;
   hint?: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  icon?: ReactNode;
+  variant?: 'master';
 }) {
   return (
-    <label className="realism-toggle">
+    <label className={`realism-toggle${variant ? ` ${variant}` : ''}${icon ? ' has-icon' : ''}`}>
+      {icon && <span className="realism-toggle-icon">{icon}</span>}
       <span className="realism-toggle-text">
         <span>{label}</span>
         {hint && <small>{hint}</small>}
       </span>
-      <input type="checkbox" checked={value} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="switch" checked={value} onChange={(e) => onChange(e.target.checked)} />
     </label>
   );
 }

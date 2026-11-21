@@ -5,8 +5,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { isLmStudioUrl, parkRemoteModel, rememberedRemoteModel, urlHasStoredApiKey } from '../remoteApiKeys';
 import { ModelPicker } from './ModelPicker';
+import { ProviderChipBar } from './ProviderChipBar';
 import { type LocalModelFile } from './models/types';
-import { INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
+import { BACKEND_OPTIONS, INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
 import { useLocalUnsupported } from '../hooks/useLocalUnsupported';
 import {
   kWorkerDualLocalMessage,
@@ -38,15 +39,9 @@ export interface WorkerBackendFields {
   remoteApiUrlsWithKeys?: string[];
 }
 
-const HOSTS: { id: string; label: string; backend: string; url?: string }[] = [
-  { id: 'kobold', label: 'KoboldCpp', backend: 'kobold' },
-  { id: 'openrouter', label: 'OpenRouter', backend: 'openRouter', url: 'https://openrouter.ai/api/v1' },
-  { id: 'nanogpt', label: 'Nano-GPT', backend: 'openRouter', url: 'https://nano-gpt.com/api/v1' },
-  { id: 'lmstudio', label: 'LM Studio', backend: 'openRouter', url: 'http://localhost:1234/v1' },
-  { id: 'omlx', label: 'oMLX', backend: 'omlx', url: 'http://localhost:8000/v1' },
-  { id: 'custom', label: 'Custom', backend: 'openRouter', url: '' },
-];
+const HOSTS = BACKEND_OPTIONS;
 
+/** The shared option id the worker lane sits on; '' when evals ride the chat host. */
 function selectedId(s: WorkerBackendFields): string {
   const type = s.workerBackend ?? '';
   if (!type) return '';
@@ -69,6 +64,7 @@ export function WorkerBackendCard({
   totpCode = '',
   totpEnabled = false,
   onTotpRequired,
+  compact = false,
 }: {
   s: WorkerBackendFields;
   workerApiKey: string;
@@ -80,6 +76,9 @@ export function WorkerBackendCard({
   totpCode?: string;
   totpEnabled?: boolean;
   onTotpRequired?: () => void;
+  /** In-chat Model Settings: the desktop's compact sentence, no GPU-rotation
+   *  clause (the dialog shows the tighter chrome). Default is Settings'. */
+  compact?: boolean;
 }) {
   const off = workerBackendIsOff(s.workerBackend ?? '');
   const [pickingDifferent, setPickingDifferent] = useState(!off);
@@ -95,7 +94,7 @@ export function WorkerBackendCard({
   );
   const workerUrl = (s.workerRemoteApiUrl ?? '').trim();
   const vaultHasKey = urlHasStoredApiKey(workerUrl, s.remoteApiUrlsWithKeys);
-  const needsKeyFamily = id === 'openrouter' || id === 'nanogpt' || id === 'custom';
+  const needsKeyFamily = id === 'openrouter' || id === 'nanogpt' || id === 'xai' || id === 'custom';
   const showUrl = different && !off && !sameHost && id === 'custom';
   const showKey = different &&
     !off &&
@@ -133,6 +132,8 @@ export function WorkerBackendCard({
   const localUnsupported = useLocalUnsupported(different);
 
   const onHostChange = (nextId: string) => {
+    // Re-tapping the chip you are on is a no-op, not a re-save.
+    if (nextId === (off ? '' : id)) return;
     const opt = HOSTS.find((o) => o.id === nextId);
     if (!opt) return;
     const url = nextId === 'custom' ? '' : (opt.url ?? workerUrl);
@@ -158,12 +159,17 @@ export function WorkerBackendCard({
     <div className="side-jobs" data-testid="side-jobs-card">
       <h4>Realism evals</h4>
       <p className="muted small">
-        Feelings, wiki/web, journal, growth can use another host. Chat speech stays above.
-        Two local engines take turns on the GPU when unload/swap is available.
+        {compact
+          ? 'Feelings, wiki/web, journal, and growth can use another host. Chat speech stays above.'
+          : 'Feelings, wiki/web, journal, growth can use another host. Chat speech stays above. ' +
+            'Two local engines take turns on the GPU when this app can unload one model before the other runs.'}
       </p>
       {different && banner && (
-        <p className="error" data-testid="worker-dual-local-banner">{banner}</p>
+        <p className="worker-lane-warn" role="alert" data-testid="worker-dual-local-banner">
+          {banner}
+        </p>
       )}
+      <div className="side-jobs-card">
       <div className="side-jobs-seg" role="group" aria-label="Realism evals host">
         <button
           type="button"
@@ -194,28 +200,22 @@ export function WorkerBackendCard({
       )}
       {different && (
         <>
-          <label>
-            Host
-            <select
-              data-testid="side-jobs-host"
-              value={id}
-              onChange={(e) => onHostChange(e.target.value)}
-            >
-              {off && <option value="">Choose a host…</option>}
-              {visible.map((o) => (
-                <option
-                  key={o.id}
-                  value={o.id}
-                  disabled={o.id === 'kobold' && localUnsupported}
-                >
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ProviderChipBar
+            selected={off ? '' : id}
+            options={visible}
+            onSelect={onHostChange}
+            koboldDisabled={localUnsupported}
+            testId="side-jobs-host"
+            ariaLabel="Realism evals host"
+          />
           {localUnsupported && (
             <p className="muted small" data-testid="side-jobs-local-unsupported">
               {INTEL_MAC_LOCAL_UNSUPPORTED}
+            </p>
+          )}
+          {off && (
+            <p className="muted small" data-testid="side-jobs-pick-host">
+              Pick a host for Realism evals. Chat speech stays above.
             </p>
           )}
           {!off && sameHost && (
@@ -240,20 +240,18 @@ export function WorkerBackendCard({
             </label>
           )}
           {showModel && (
-            <label>
-              Model
-              <ModelPicker
-                apiUrl={pickerUrl}
-                apiKey={pickerKey}
-                savedApiUrl={savedRemoteApiUrl}
-                currentPassword={currentPassword}
-                totpCode={totpCode}
-                totpEnabled={totpEnabled}
-                onTotpRequired={onTotpRequired}
-                value={s.workerRemoteModelName ?? ''}
-                onChange={(modelId) => onPatch({ workerRemoteModelName: modelId })}
-              />
-            </label>
+            <ModelPicker
+              label="Model"
+              apiUrl={pickerUrl}
+              apiKey={pickerKey}
+              savedApiUrl={savedRemoteApiUrl}
+              currentPassword={currentPassword}
+              totpCode={totpCode}
+              totpEnabled={totpEnabled}
+              onTotpRequired={onTotpRequired}
+              value={s.workerRemoteModelName ?? ''}
+              onChange={(modelId) => onPatch({ workerRemoteModelName: modelId })}
+            />
           )}
           {showKey && (
             <label>
@@ -332,6 +330,7 @@ export function WorkerBackendCard({
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

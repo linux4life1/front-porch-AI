@@ -26,10 +26,20 @@ import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
 /// Deliberately a focused slice of the huge desktop settings page: backend,
 /// model/API, and the most-used sampler values.
 class SettingsFacade {
-  SettingsFacade(this._storage, this._llm, {ChatService? chat}) : _chat = chat;
+  SettingsFacade(
+    this._storage,
+    this._llm, {
+    ChatService? chat,
+    UpdateService? update,
+  }) : _chat = chat,
+       _update = update;
 
   final StorageService _storage;
   final LLMProvider _llm;
+
+  /// The desktop's update service, when the host has one: the PWA mirrors
+  /// its auto-check switch. Null on a partial host; the key is then absent.
+  final UpdateService? _update;
 
   /// Optional: present whenever a chat is open. Porch Life defaults no
   /// longer push into the live conversation (that wiped lived-in Needs).
@@ -57,11 +67,13 @@ class SettingsFacade {
     _storage,
     _llm,
     _reasoning,
+    update: _update,
   );
   late final SettingsWriter _writer = SettingsWriter(
     _storage,
     _llm,
     _reasoning,
+    update: _update,
   );
 
   /// Await the local-template verdict so a web GET/POST does not return

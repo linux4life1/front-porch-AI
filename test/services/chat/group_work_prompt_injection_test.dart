@@ -171,6 +171,38 @@ void main() {
     expect(txt, contains('Write from there.'));
   });
 
+  // H1/H2 (docs/design/held-away-presence-reads.md): the Away hold — the
+  // user's hand-set Away or a seeded "starts away" — rides with the
+  // position read, so a held member mid-shift takes the away line, not
+  // the at-work line. Bea's shift (9-5) is open at 14:30.
+  test('a held member mid-shift injects the away line, never the at-work '
+      'line', () async {
+    await chat.setActiveGroup(
+      GroupChat(
+        id: 'grp-work',
+        name: 'The Porch',
+        defaultMemberRealismState: blobs.defaultMemberJson,
+        baselineRealismState: blobs.baselineJson,
+      ),
+      groupRepo: GroupChatRepository(storage, db),
+    );
+    final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
+    chat.debugPinTurnSpeakerForRealism(bea.stableGroupId);
+    await chat.timeService.setClockDirect(DateTime.utc(2026, 1, 1, 14, 30));
+    await chat.setGroupMemberAway('mem-bea', away: true);
+
+    final txt = chat.debugBuildPositionInjection();
+    expect(
+      txt,
+      contains('Away from {{user}}'),
+      reason:
+          'THE BUG: the position read ignored the hold, so a held '
+          'member mid-shift got the at-work line and the prompt said she '
+          'was at her shift while every other read said Away',
+    );
+    expect(txt, isNot(contains('At work as a clerk')));
+  });
+
   // A member card is named after its group_members row, so only the row's
   // provenance links it to the library card it was copied from. The card,
   // the prompt and the web cast all found that card by NAME: after the

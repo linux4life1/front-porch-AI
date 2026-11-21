@@ -63,6 +63,9 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
       library: deps.characterLibraryFacade,
     );
   }
+  if (deps.characterAuthoringFacade != null) {
+    WebCharacterAvatarRoutes(deps.characterAuthoringFacade!, router);
+  }
   if (deps.chargenFacade != null) WebChargenRoutes(deps.chargenFacade!, router);
   if (deps.chatFacade != null) {
     WebChatRoutes(deps.chatFacade!, router);

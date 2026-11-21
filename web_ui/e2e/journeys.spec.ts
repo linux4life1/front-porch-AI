@@ -10,7 +10,7 @@
 import { readFile } from 'node:fs/promises';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { sendLine } from './support/composer';
-import { expect, openRoute, SERIAL, test } from './support/fixtures';
+import { expect, openRoute, openSettingsTab, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
 
@@ -120,6 +120,57 @@ async function send(page: Page, text: string) {
   await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 }
 
+/** The sidebar is the wide column at ≥1024 and a drawer below (PR 1b). */
+const isWide = () => !test.info().project.name.startsWith('phone');
+
+/** Below 1024 the sidebar lives behind the header's sidebar button. */
+async function openSidebar(page: Page) {
+  if (isWide()) return;
+  const backdrop = page.locator('.chat-sidebar-backdrop');
+  if ((await backdrop.count()) > 0 && (await backdrop.getAttribute('aria-hidden')) !== 'true') {
+    return;
+  }
+  await page.getByRole('button', { name: 'Toggle sidebar' }).click();
+}
+
+/** The element that carries the sidebar sections at this width. */
+function sidebarPanel(page: Page) {
+  return isWide() ? page.locator('.chat-aside') : page.locator('.chat-sidebar-drawer');
+}
+
+/** Below 1024 the drawer covers the chat; close it before tapping the chat. */
+async function closeSidebar(page: Page) {
+  if (isWide()) return;
+  const close = page.locator('.chat-sidebar-drawer').getByRole('button', { name: 'Close' });
+  if (await close.isVisible()) await close.click();
+}
+
+/** The Director card is always open, as on the desktop (PR 5), and only
+ *  mounts once a guest has joined. */
+async function openDirectorCard(page: Page) {
+  await openSidebar(page);
+  const card = sidebarPanel(page).locator('.director-card').first();
+  await expect(card).toBeVisible();
+  await expect(card.locator('.director-strip')).toBeVisible();
+}
+
+async function openConversations(page: Page) {
+  await page.locator('.chat-mgmt-btn').click();
+  await page.locator('.conversations-btn').click();
+}
+
+async function openChatSettings(page: Page) {
+  await openSidebar(page);
+  await page.locator('.sidebar-main-settings').click();
+  await page.getByRole('menuitem', { name: /Chat Settings/ }).click();
+}
+
+async function openModelSheet(page: Page) {
+  await openSidebar(page);
+  await page.locator('.sidebar-main-settings').click();
+  await page.getByRole('menuitem', { name: /Model Settings/ }).click();
+}
+
 test.describe('signing in', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -140,7 +191,7 @@ test.describe('signing in', () => {
 test.describe.serial('a conversation', { tag: SERIAL }, () => {
   test('open a character, start a fresh chat, and get a reply', async ({ page }) => {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     await expect(rows(page)).toHaveCount(1); // just the greeting
@@ -237,6 +288,56 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect(count).toHaveText('1/2');
   });
 
+  // The buried-host regen (drift ledger #15a): a Scene Guest chime after the
+  // host's reply moves the plain ⟳ off the host bubble; the desktop's second
+  // ⟳ "Regenerate main character (removes the NPC’s reply)" then pops the
+  // stale guest tail, regrows the host as a new swipe, and lets the chime
+  // gate re-run. The stand-in backend's junk is not a chime verdict, so the
+  // guest does not speak again — the row count returning to its pre-chime
+  // value is the removal's proof.
+  test('regenerate the main character under a guest chime drops the stale bubble', async ({ page }) => {
+    await openRoute(page, '/');
+    await page.locator('.lib-card', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await openConversations(page);
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    await sendLine(page, 'Evening, neighbor.');
+    await waitIdle(page);
+    await sendLine(page, '/join Porch Tester');
+    await waitIdle(page);
+    // Make the guest speak last on purpose: that buries the host reply and
+    // the plain ⟳ can no longer reach it.
+    await sendLine(page, '/speak Porch Tester');
+    await waitIdle(page);
+
+    // The guest enters with a line of their own AND speaks on /speak, so the
+    // host sits under two chimes — let the page point at the bubble that
+    // carries the affordance rather than assume an offset.
+    const buried = page.locator(
+      '.chat-messages .msg-row .msg-actions button[title="Regenerate main character (removes the NPC’s reply)"]',
+    );
+    await expect(buried).toBeVisible();
+    await buried.click();
+    const dialog = page.getByTestId('regen-critique-dialog');
+    await dialog.getByRole('button', { name: 'Regenerate' }).click();
+    await waitIdle(page);
+
+    // The host came back as a second take (the regen merges an alternate
+    // into the host's own bubble). The chime gate RE-RUNS after the regen
+    // and Scene Guest admission is deliberately not serialized behind it
+    // (the same race class as the ledger #16 wedge, minus the wedge), so
+    // fresh chimes may land around the host row in varying shape — pin the
+    // guaranteed outcome, not the transcript's length.
+    const secondTake = rows(page).filter({
+      has: page.locator('.swipe-count', { hasText: '2/2' }),
+    });
+    await expect(secondTake, 'the host reply regenerated as a second take').toHaveCount(1);
+    await expect(secondTake.locator('.bubble.ai')).toBeVisible();
+  });
+
   test('continue adds to the last reply', async ({ page }) => {
     await openPorchChat(page);
     const bubble = lastRow(page).locator('.bubble.ai');
@@ -269,16 +370,138 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
 
   test('switch to a new chat and back again', async ({ page }) => {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     await expect(rows(page)).toHaveCount(1);
 
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.locator('.conv-item:not(.active)').filter({ hasText: /msgs/ }).first().click();
     await waitIdle(page);
     await expect(rows(page).filter({ hasText: 'I sit on the porch swing instead.' })).toHaveCount(1);
   });
+});
+
+test('the sidebar walks its sections in the desktop order at every width', async ({ page }) => {
+  await openPorchChat(page);
+  await openSidebar(page);
+  const panel = sidebarPanel(page);
+  // The tools snapshot fills the later cards; wait for the first one that
+  // needs it, then read the whole tree.
+  await expect(panel.locator('.state-card')).toBeVisible();
+  const order = await panel
+    .locator('.insight-section[data-id]')
+    .evaluateAll((els) => els.map((el) => el.getAttribute('data-id')));
+  // 1:1: no cast, no Director; the window's order otherwise (one-chat-ux PR 1).
+  expect(order).toEqual([
+    'portrait',
+    'one_shot_eval',
+    'tool_calling_pill',
+    'author_note',
+    'wiki',
+    'character_state',
+    'journal_memory',
+    'objectives',
+    'story_tools',
+  ]);
+  // The Character State card carries the window's leaves, in order.
+  const state = panel.locator('.state-card');
+  await expect(state).toContainText('Short-Term Bond');
+  await expect(state).toContainText('Long-Term Bond');
+  await expect(state).toContainText('Trust');
+  await expect(state).toContainText('Needs');
+  await expect(state).toContainText('Pockets & Wardrobe');
+  const stateText = (await state.innerText()).replace(/\s+/g, ' ');
+  expect(stateText.indexOf('Short-Term Bond')).toBeLessThan(stateText.indexOf('Needs'));
+  expect(stateText.indexOf('Needs')).toBeLessThan(stateText.indexOf('Pockets & Wardrobe'));
+
+  if (!isWide()) {
+    // Full screen on a phone, with the chat's title and Close at the top.
+    await expect(page.locator('.chat-sidebar-drawer-title')).toHaveText('Porch Tester');
+    await closeSidebar(page);
+    await expect(page.locator('.chat-sidebar-backdrop')).toHaveAttribute('aria-hidden', 'true');
+  }
+});
+
+// Serial, and Memory put back as it was: the links only show while Memory is
+// on, and that switch is the app-wide setting the other journeys share.
+test('the Memory section: pick memory sources and keep a Data Bank, as on the desktop', { tag: SERIAL }, async ({ page }) => {
+  await openPorchChat(page);
+  await openSidebar(page);
+  const memorySection = async () => {
+    const panel = sidebarPanel(page);
+    const jm = panel.locator('.insight-section[data-id="journal_memory"] details').first();
+    if (!(await jm.evaluate((d) => (d as HTMLDetailsElement).open))) await jm.locator('summary').first().click();
+    const mem = panel.locator('details.tool-section', { has: page.locator(':scope > summary', { hasText: /^Memory$/ }) });
+    if (!(await mem.evaluate((d) => (d as HTMLDetailsElement).open))) await mem.locator(':scope > summary').click();
+    return mem;
+  };
+  // Start and end with no memory sources picked, whatever an earlier run left.
+  const clearSources = async () => {
+    const src = await (await page.request.get('/api/chat/tools/memory/sources')).json();
+    for (const id of (src.selected ?? []) as string[]) {
+      const r = await page.request.post('/api/chat/tools/memory/sources', { data: { id, selected: false } });
+      expect(r.ok(), `clearing memory source ${id}: ${r.status()}`).toBe(true);
+    }
+  };
+  await clearSources();
+  await page.reload();
+  await waitIdle(page);
+  await openSidebar(page);
+  const memory = await memorySection();
+  const use = memory.getByLabel('Use memory (RAG)');
+  // The app's real setting, not the box before the tools snapshot lands (it
+  // reads unchecked until then, and a click would turn Memory off).
+  const tools = await (await page.request.get('/api/chat/tools')).json();
+  const wasOn = tools.memory.ragEnabled === true;
+  await expect(use).toBeChecked({ checked: wasOn });
+  if (!wasOn) {
+    await use.click();
+    await expect(use).toBeChecked();
+  }
+  try {
+    // The links, in the desktop leaf's order.
+    const links = memory.locator('.memory-link');
+    await expect(links).toHaveText(['Settings', 'Sources', 'Data Bank']);
+
+    // Sources: pick another character; it is saved at once and survives a reload.
+    await links.nth(1).click();
+    const first = memory.getByRole('checkbox', { name: /^Include memories from / }).first();
+    await first.check();
+    await expect(links.nth(1)).toHaveText('Sources (1)');
+    await page.reload();
+    await waitIdle(page);
+    await openSidebar(page);
+    // The reload folds the sections again; open them before using the links.
+    const after = await memorySection();
+    const linksAfter = after.locator('.memory-link');
+    await expect(linksAfter.nth(1)).toHaveText('Sources (1)');
+    await linksAfter.nth(1).click();
+    await after.getByRole('checkbox', { name: /^Include memories from / }).first().uncheck();
+    await expect(linksAfter.nth(1)).toHaveText('Sources');
+
+    // Data Bank: add an entry, see it listed, delete it.
+    await linksAfter.nth(2).click();
+    const bank = page.getByRole('dialog', { name: 'Data Bank' });
+    await expect(bank).toContainText('No entries yet');
+    await bank.getByRole('button', { name: 'Add Entry' }).click();
+    await bank.getByLabel('Title').fill('Gate');
+    await bank.getByLabel('Content').fill('The garden gate is blue.');
+    await bank.getByRole('button', { name: 'Save' }).click();
+    await expect(bank).toContainText('Gate');
+    await expect(bank).toContainText('1 entries');
+    await bank.getByRole('button', { name: 'Delete Gate' }).click();
+    await expect(bank).toContainText('No entries yet');
+    await bank.getByRole('button', { name: 'Close' }).click();
+    await expect(bank).toBeHidden();
+  } finally {
+    await clearSources();
+    if (!wasOn) {
+      const box = (await memorySection()).getByLabel('Use memory (RAG)');
+      await box.click();
+      await expect(box).not.toBeChecked();
+    }
+  }
 });
 
 test('a setting survives a reload', async ({ page }) => {
@@ -303,15 +526,20 @@ test('edit a character, save, and nothing else on the card is lost', async ({ pa
       firstMessage: string;
     };
   const before = await detail();
-  const tags = `porch, journey-${test.info().project.name}`;
+  // Tags are the desktop's chip field now ("Add a tag..." + Enter) and the
+  // button is the desktop's "Save" (PR 5: the web editor matches the desktop).
+  const tag = `journey-${test.info().project.name}`.toLowerCase();
 
   await openRoute(page, `/edit/${id}`);
-  await page.getByLabel('Tags (comma-separated)').fill(tags);
-  await page.getByRole('button', { name: 'Save character' }).click();
+  const addTag = page.getByPlaceholder('Add a tag...').first();
+  await addTag.fill(tag);
+  await addTag.press('Enter');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('button', { name: /Saving/ })).toHaveCount(0);
 
   await openRoute(page, `/edit/${id}`);
-  await expect(page.getByLabel('Tags (comma-separated)')).toHaveValue(tags);
+  await expect(page.getByRole('button', { name: `Remove tag ${tag}` })).toBeVisible();
+  expect((await detail()).tags).toContain(tag);
   const after = await detail();
   expect(after.alternateGreetings).toEqual(before.alternateGreetings);
   expect(after.firstMessage).toBe(before.firstMessage);
@@ -368,8 +596,13 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
       .poll(async () => (await detail()).alternateGreetings)
       .toEqual(['A calm morning on the jetty.', REPLY]);
 
-    await page.getByRole('button', { name: 'Open in editor' }).click();
-    await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
+    // Greetings is no longer the last step: Realism, then Review (PR 8d),
+    // whose Save & Finish closes the creator at Home.
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await page.getByRole('button', { name: /Save & Finish/ }).click();
+    await expect(page).toHaveURL(/\/$/);
   } finally {
     const gone = await page.request.post(`/api/characters/${id}/delete`);
     expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
@@ -383,7 +616,10 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
 // reload finds the pause again; Next writes the rest and lands on the
 // Greetings step with no "profile changed" hint and the two review cards.
 // The character is deleted whatever happens.
-test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page }) => {
+test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page, allowHttp }) => {
+  // The sandbox has no image engine; the Review rail's readiness probe may
+  // answer 500 there (the Realism journey notes the same class).
+  allowHttp((url, status) => status === 500 && /\/api\/image\/studio\/ready/.test(url));
   const name = `Profile Journey ${test.info().project.name}`;
   let id = '';
   try {
@@ -430,6 +666,10 @@ test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then
     id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
     expect(id, 'the saved character is in the URL').not.toBe('');
     await expect(page.getByTestId('creator-hint')).toHaveCount(0);
+    // The review cards live in the Review step now (PR 8d).
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByTestId('review-example-dialogue')).toContainText('Mind the third step');
     await expect(page.getByTestId('review-lorebook')).toContainText('2 entries');
     const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
@@ -554,7 +794,11 @@ test('the creator\'s Interview card: edit, remove, add and drag a question, then
 // deleted whatever happens.
 test('the creator\'s Interview card switches off: no interview, and the stamp remembers', async ({
   page,
+  allowHttp,
 }) => {
+  // The sandbox has no image engine; the Review rail's readiness probe may
+  // answer 500 there (the Realism journey notes the same class).
+  allowHttp((url, status) => status === 500 && /\/api\/image\/studio\/ready/.test(url));
   const name = `Interview Skip Journey ${test.info().project.name}`;
   let id = '';
   try {
@@ -586,7 +830,11 @@ test('the creator\'s Interview card switches off: no interview, and the stamp re
     expect(id, 'the saved character is in the URL').not.toBe('');
 
     // The stamp says no unconditional question was asked, so the review
-    // card's subtitle stops crediting an interview that never ran.
+    // card's subtitle stops crediting an interview that never ran. The cards
+    // live in the Review step now (PR 8d).
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
     await expect(page.getByTestId('review-example-dialogue')).toContainText('straight from your settings');
   } finally {
     if (id) {
@@ -775,12 +1023,7 @@ test('a new chat with a prompted card asks which system prompt it sends', { tag:
     await expect.poll(async () => (await source())?.source).toBe('user');
     expect((await source())?.picker).toBeUndefined();
 
-    if (test.info().project.name.startsWith('phone')) {
-      await page.getByRole('button', { name: 'More chat options' }).click();
-      await page.getByRole('menuitem', { name: /Theme/ }).click();
-    } else {
-      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
-    }
+    await openChatSettings(page);
     const drawer = page.locator('.settings-drawer');
     await expect(drawer.getByRole('radio', { name: 'My prompt' })).toHaveAttribute('aria-checked', 'true');
     await drawer.getByRole('radio', { name: 'Card only' }).click();
@@ -795,9 +1038,11 @@ test('a new chat with a prompted card asks which system prompt it sends', { tag:
 
 test('the chat model sheet lists models you can tap, and offers providers', async ({ page }) => {
   await openPorchChat(page);
-  await page.locator('.model-switch-chip').click();
+  await openModelSheet(page);
   const sheet = page.getByRole('dialog', { name: 'Change model' });
-  await expect(sheet.locator('.model-switch-provider select')).toBeVisible();
+  const providerBar = sheet.getByRole('group', { name: 'Provider' });
+  await expect(providerBar.getByRole('button', { name: 'Nano-GPT' })).toBeVisible();
+  await expect(providerBar.getByRole('button', { name: 'xAI' })).toBeVisible();
   await sheet.locator('.model-picker-trigger').click();
   const option = sheet.locator('.mp-option').first();
   await expect(option).toBeVisible({ timeout: 30_000 });
@@ -808,6 +1053,12 @@ test('the chat model sheet lists models you can tap, and offers providers', asyn
     return !!at && el.contains(at);
   });
   expect(hit).toBe(true);
+  await sheet.locator('.model-picker-trigger').click();
+  // The Realism evals lane rides the sheet (docs/design/one-chat-ux.md PR 6),
+  // on phone too: same controls as the desktop dialog, in the same order.
+  await expect(sheet.getByRole('heading', { name: 'Realism evals' })).toBeVisible();
+  await expect(sheet.getByTestId('side-jobs-same-as-chat')).toBeVisible();
+  await expect(sheet.getByTestId('side-jobs-host')).toHaveCount(0);
   await sheet.getByRole('button', { name: 'Close' }).click();
   await expect(sheet).toHaveCount(0);
 });
@@ -896,7 +1147,7 @@ test('New Story walks four steps, keeps the draft when you leave, and the shelf 
 // chat that was open, so the journeys after this one find it unchanged.
 test('export two characters as one .porchpack; importing it back skips both by name', async ({ page }) => {
   await openRoute(page, '/');
-  await page.getByRole('button', { name: '☑ Select' }).click();
+  await page.getByTitle('Multi-select characters (for organizing, moving, etc.)').click();
   for (const name of ['Porch Tester', 'Second Guest']) {
     await page.locator('.lib-card', { hasText: name }).locator('.lib-open').click();
   }
@@ -999,6 +1250,7 @@ test.describe('the Local model card', () => {
     // The preset sets the context: Settings locks the slider, in the desktop's
     // words, and the host refuses another one however it is asked.
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'generation');
     const slider = page.locator('.slider-field', { hasText: 'Context size' });
     await expect(slider.locator('input[type="range"]')).toBeDisabled();
     await expect(
@@ -1089,24 +1341,34 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
     const box = page.locator('textarea.composer-input');
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
     // The join settles after the send returns; stepping out before it lands
-    // is refused as a busy turn.
+    // is refused as a busy turn. The cast banner lives in the sidebar, so
+    // below 1024 the drawer is opened to read it (PR 1b).
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
+    await openDirectorCard(page);
     await expect(strip).toContainText('You’re in the scene');
 
     // Stepping out turns the 1:1 with a guest into a group, then directs it.
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
     await expect(box).toHaveAttribute('placeholder', 'Direct the scene…');
+    // Below 1024 the Director lives in the drawer; step back to the chat.
+    await closeSidebar(page);
     const undo = page.locator('.undo-bar');
     await expect(undo).toContainText('You stepped out to direct');
     const before = await rows(page).count();
@@ -1114,8 +1376,8 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect(strip).toContainText('You’re in the scene');
     await expect(rows(page)).toHaveCount(before - 1); // the goodbye is gone
 
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await openDirectorCard(page);
+    await stepOut();
     await expect(undo).toContainText('You stepped out to direct'); // offered again
     // The auto-chat delay saves on the host when the slider is let go.
     const delay = strip.getByLabel('Auto-chat delay in seconds');
@@ -1131,12 +1393,14 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       })
       .toBe(4.5);
     await page.request.post('/api/chat/director/delay', { data: { seconds: Number(savedDelay) } });
+    await closeSidebar(page);
     await sendLine(page, 'The porch light flickers out.');
     await waitIdle(page);
     const note = page.locator('.bubble.director-note', { hasText: 'The porch light flickers out.' });
     await expect(note).toContainText('Director');
     await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 
+    await openDirectorCard(page);
     await strip.getByRole('button', { name: 'Step back in' }).click();
     await waitIdle(page);
     await expect(strip).toContainText('You’re in the scene');
@@ -1148,16 +1412,24 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
+    // The cast banner lives in the sidebar; below 1024 it is in the drawer.
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await openDirectorCard(page);
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
 
     const directorState = async () =>
@@ -1176,11 +1448,17 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect.poll(async () => (await directorState())?.turnBudget).toBe(6);
     await page.request.post('/api/chat/director/budget', { data: { turns: Number(savedRun) } });
 
-    // A cue has that member take their turn now.
-    let before = await rows(page).count();
+    // A cue no longer fires the member: it holds them for the next send,
+    // the same slot the cast chip's Next pill uses. The chip fills, the
+    // row says who is held, and the held member answers the next line.
     await strip.getByLabel('Cue who speaks next').getByRole('button', { name: 'Porch Tester' }).click();
+    await expect(strip.getByRole('button', { name: '✓ Porch Tester' })).toBeVisible();
+    await expect(strip.getByLabel(/Cue who speaks next — Porch Tester is held/)).toBeVisible();
+    let before = await rows(page).count();
+    await sendLine(page, 'What do we do now?');
     await waitIdle(page);
-    await expect(rows(page)).toHaveCount(before + 1);
+    await expect(rows(page)).toHaveCount(before + 2);
+    await expect(lastRow(page).locator('.msg-speaker')).toContainText('Porch Tester');
     await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 
     // A quick beat is a director's note the cast answers.
@@ -1220,16 +1498,24 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
     const strip = page.locator('.director-strip');
+    // The strip's own button is disabled while the join's turn settles, and
+    // Playwright waits for that before clicking.
+    const stepOut = async () => {
+      await strip.getByRole('button', { name: 'Step out to direct' }).click();
+      await waitIdle(page);
+    };
     await sendLine(page, '/join Porch Tester');
+    // The cast banner lives in the sidebar; below 1024 it is in the drawer.
+    await openSidebar(page);
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
-    await strip.getByRole('button', { name: 'Step out to direct' }).click();
-    await waitIdle(page);
+    await openDirectorCard(page);
+    await stepOut();
     await expect(strip).toContainText('You’re directing');
 
     type Director = { delaySeconds?: number | null; turnBudget?: number; turnsLeft?: number | null };
@@ -1473,6 +1759,7 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
     page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   const mode = () => page.evaluate(() => document.documentElement.dataset.theme);
   await openRoute(page, '/settings');
+  await openSettingsTab(page, 'appearance');
   const dark = page.getByLabel('Dark mode');
   await expect(dark).toBeEnabled();
   const was = await dark.isChecked();
@@ -1481,6 +1768,9 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
     await expect.poll(mode).toBe('light');
     await expect.poll(bg).toBe('#f8f4ed');
     await page.reload();
+    // A reload reopens Settings on its first tab, as the desktop does; the
+    // device controls live under Appearance, so open it again.
+    await openSettingsTab(page, 'appearance');
     await expect.poll(mode).toBe('light');
     await expect(page.getByLabel('Dark mode')).not.toBeChecked();
 
@@ -1496,7 +1786,54 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
   }
 });
 
-// Bubble opacity is the desktop's own setting: the phone's slider writes it,
+// The Appearance tab is host-wide (PR 7b): a gallery card, an accent swatch,
+// the corner scale and the UI font set here are the desktop's settings, the
+// page repaints at once, and a reload reads them back.
+test('the theme gallery, accent, corners and font set on the web are the desktop settings', { tag: SERIAL }, async ({ page }) => {
+  type Appearance = { themeId?: string; accent?: string | null; corners?: string; uiFont?: string };
+  const read = async () =>
+    ((await (await page.request.get('/api/settings')).json()) as { appearance?: Appearance }).appearance ?? {};
+  const radiusScale = () =>
+    page.evaluate(() => document.documentElement.style.getPropertyValue('--radius-scale'));
+  const uiFont = () =>
+    page.evaluate(() => document.documentElement.style.getPropertyValue('--ui-font'));
+  const was = await read();
+  await openRoute(page, '/settings');
+  await openSettingsTab(page, 'appearance');
+  try {
+    await page.getByRole('radio', { name: 'Harbor theme' }).click();
+    await expect.poll(async () => (await read()).themeId).toBe('harbor');
+
+    await page.getByRole('radio', { name: /^Accent #/ }).first().click();
+    await expect.poll(async () => (await read()).accent).not.toBeNull();
+
+    await page.getByRole('radio', { name: 'Sharp' }).click();
+    await expect.poll(async () => (await read()).corners).toBe('sharp');
+    await expect.poll(radiusScale).toBe('0.25');
+
+    await page.getByRole('radio', { name: 'Atkinson' }).click();
+    await expect.poll(async () => (await read()).uiFont).toBe('atkinson');
+    await expect.poll(uiFont).toContain('Atkinson');
+
+    await page.reload();
+    await openSettingsTab(page, 'appearance');
+    await expect(page.getByRole('radio', { name: 'Harbor theme' })).toHaveAttribute('aria-checked', 'true');
+    await expect.poll(radiusScale).toBe('0.25');
+    await expect.poll(uiFont).toContain('Atkinson');
+  } finally {
+    const back = await page.request.post('/api/settings', {
+      data: {
+        themeId: was.themeId ?? 'porch',
+        accent: was.accent ?? '',
+        corners: was.corners ?? 'default',
+        uiFont: was.uiFont ?? 'inter',
+      },
+    });
+    expect(back.ok(), `restoring the appearance: ${back.status()}`).toBe(true);
+  }
+});
+
+// Bubble Opacity is the desktop's own setting: the phone's slider writes it,
 // this page's bubbles fade at once, and a reload reads the stored value back.
 test('bubble opacity set on the phone is the desktop setting and survives a reload', { tag: SERIAL }, async ({ page }) => {
   const read = async () =>
@@ -1506,19 +1843,87 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
   const was = (await read()) ?? 1;
   const target = Math.abs(was - 0.45) < 0.01 ? 0.55 : 0.45;
   await openRoute(page, '/settings');
-  const slider = page.getByLabel('Bubble opacity', { exact: true });
+  await openSettingsTab(page, 'appearance');
+  const slider = page.getByLabel('Bubble Opacity', { exact: true });
   await expect(slider).toBeEnabled();
   try {
     await slider.fill(String(target));
     await expect.poll(alpha).toBe(String(target));
     await expect.poll(read, { message: 'the posted opacity round-trips' }).toBe(target);
     await page.reload();
-    await expect(page.getByLabel('Bubble opacity', { exact: true })).toBeEnabled();
-    expect(Number(await page.getByLabel('Bubble opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
+    // Reload reopens Settings on General (the desktop's first tab); the
+    // slider lives under Appearance.
+    await openSettingsTab(page, 'appearance');
+    await expect(page.getByLabel('Bubble Opacity', { exact: true })).toBeEnabled();
+    expect(Number(await page.getByLabel('Bubble Opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
     await expect.poll(alpha).toBe(String(target));
   } finally {
     const back = await page.request.post('/api/settings', { data: { bubbleOpacity: was } });
-    expect(back.ok(), `restoring Bubble opacity: ${back.status()}`).toBe(true);
+    expect(back.ok(), `restoring Bubble Opacity: ${back.status()}`).toBe(true);
+  }
+});
+
+// Settings → Voice & Media (PR 7c): the expression controls, the Image
+// Generation switch and Auto-send transcription are the desktop's own host
+// settings — each change lands on the host, and a reload reads it back.
+test('Voice & Media set on the web are the desktop settings and survive a reload', { tag: SERIAL }, async ({ page }) => {
+  type Voice = {
+    sttEnabled?: boolean;
+    autoSendTranscription?: boolean;
+    imageGenEnabled?: boolean;
+    expressionEnabled?: boolean;
+    expressionMode?: string;
+    expressionEmojiBurst?: boolean;
+    expressionEmojiBurstSize?: number;
+  };
+  const read = async () => (await (await page.request.get('/api/voice/status')).json()) as Voice;
+  const was = await read();
+  const box = (name: string) => page.getByRole('checkbox', { name, exact: true });
+  const mode = was.expressionMode === 'manual' ? 'llm' : 'manual';
+  const size = was.expressionEmojiBurstSize === 44 ? 52 : 44;
+  await openRoute(page, '/settings');
+  await openSettingsTab(page, 'voice-media');
+  try {
+    // The sub-controls show only while their switch is on, as on the desktop.
+    await box('Expression Images').setChecked(true);
+    await expect.poll(async () => (await read()).expressionEnabled).toBe(true);
+    await page.getByLabel('Classification', { exact: true }).selectOption(mode);
+    await expect.poll(async () => (await read()).expressionMode).toBe(mode);
+    await box('Expression Emoji Burst').setChecked(true);
+    await expect.poll(async () => (await read()).expressionEmojiBurst).toBe(true);
+    await page.getByLabel('Burst emoji size', { exact: true }).fill(String(size));
+    await expect.poll(async () => (await read()).expressionEmojiBurstSize).toBe(size);
+
+    await box('Image Generation').setChecked(!was.imageGenEnabled);
+    await expect.poll(async () => (await read()).imageGenEnabled).toBe(!was.imageGenEnabled);
+
+    await box('Enable Voice Input').setChecked(true);
+    await expect.poll(async () => (await read()).sttEnabled).toBe(true);
+    await box('Auto-send transcription').setChecked(!was.autoSendTranscription);
+    await expect
+      .poll(async () => (await read()).autoSendTranscription, { message: 'auto-send reached the host' })
+      .toBe(!was.autoSendTranscription);
+
+    await page.reload();
+    await openSettingsTab(page, 'voice-media');
+    await expect(page.getByLabel('Classification', { exact: true })).toHaveValue(mode);
+    await expect(page.getByLabel('Burst emoji size', { exact: true })).toHaveValue(String(size));
+    await expect(page.getByText(`${size} px`, { exact: true })).toBeVisible();
+    await expect(box('Image Generation')).toBeChecked({ checked: !was.imageGenEnabled });
+    await expect(box('Auto-send transcription')).toBeChecked({ checked: !was.autoSendTranscription });
+  } finally {
+    const back = await page.request.post('/api/voice/settings', {
+      data: {
+        sttEnabled: was.sttEnabled ?? false,
+        autoSendTranscription: was.autoSendTranscription ?? false,
+        imageGenEnabled: was.imageGenEnabled ?? true,
+        expressionEnabled: was.expressionEnabled ?? false,
+        expressionMode: was.expressionMode ?? 'llm',
+        expressionEmojiBurst: was.expressionEmojiBurst ?? false,
+        expressionEmojiBurstSize: was.expressionEmojiBurstSize ?? 28,
+      },
+    });
+    expect(back.ok(), `restoring Voice & Media: ${back.status()}`).toBe(true);
   }
 });
 
@@ -1791,7 +2196,7 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
   expect((await setPot(true)).ok()).toBe(true);
   try {
     await openPorchChat(page);
-    await page.locator('.conversations-btn').click();
+    await openConversations(page);
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
     const clock = await page.request.post('/api/chat/tools/time', {
@@ -2004,13 +2409,11 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     const before = new Set(
       ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories.map((s) => s.id),
     );
-    // The insight column on a wide window; the Stats drawer below 1024px.
-    let panel = page.locator('.chat-aside');
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
-      await page.locator('.stats-btn').first().click();
-      panel = page.locator('.stats-drawer');
-    }
-    await panel.locator('summary', { hasText: 'Our story' }).click();
+    // The composer's Chat Management folder opens Turn Into a Story in its
+    // own sheet at every width (PR 1b: the phone gets the folder too).
+    await page.locator('.chat-mgmt-btn').click();
+    await page.getByRole('menuitem', { name: /Turn Into a Story/ }).click();
+    const panel = page.getByRole('dialog', { name: 'Turn Into a Story' });
     const lead = panel.getByTestId('story-lead');
     await expect(lead.locator('option')).toHaveText(['Porch Tester', 'Second Guest', 'You']);
     await lead.selectOption({ label: 'Second Guest' });
@@ -2130,10 +2533,14 @@ test(
   },
 );
 
-// Group Settings' "Realism for new chats": the switches save the group's
-// settings for new chats, and a group made on the web (not from a 1:1)
-// shows no forked-group notice.
-test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, async ({ page }) => {
+// REWRITTEN for the Edit group rework (docs/design/group-editor.md). The old
+// journey drove the Group Settings sheet's "Realism for new chats" switches,
+// which no longer exist: Realism and Needs for new chats are now set per member
+// on the member's own card (the same Realism block as a 1:1 editor), and are
+// saved to the member's copy inside the group. Same intent, new surface: the
+// switches save, Needs follows Realism, and a group made on the web shows no
+// forked-group notice.
+test("a member's card switches Realism and Needs for the group's new chats", { tag: SERIAL }, async ({ page }) => {
   const request = page.request;
   const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
   const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
@@ -2141,42 +2548,62 @@ test('Group Settings switch Realism and Needs for new chats', { tag: SERIAL }, a
   const created = await request.post('/api/groups', { data: { name, memberIds } });
   expect(created.ok(), `create group: ${created.status()}`).toBe(true);
   const groupId = ((await created.json()) as { id: string }).id;
-  const newChats = async () =>
-    (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as {
-      realism: boolean;
-      needs: boolean;
-      forkSource: unknown;
-    };
+  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
+  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
+  const realism = async () =>
+    (
+      (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
+        realism: { realismEnabled: boolean; needsSimEnabled: boolean };
+      }
+    ).realism;
+  const edit = async () => {
+    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
+    await expect(page.getByText(/You're editing .* in .* only\./)).toBeVisible();
+  };
+  const save = async () => {
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    // Save's leave() history-backs to the group editor, and that popstate is
+    // async: a goto issued before it lands pushes the member-edit entry and
+    // the late back() pops it right off (desktop-Chromium timing; trace of
+    // this test's failure: no members/<id>/detail fetch after the third
+    // goto, group editor's /detail+/stats instead). Wait for the router to
+    // arrive before reopening the card.
+    await expect(page).toHaveURL(/#\/groups\/[^/]+\/edit$/);
+  };
   try {
-    await openRoute(page, '/');
-    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
-    await expect(page.locator('.chat-view')).toBeVisible();
-    await waitIdle(page);
-
-    // The insight column on a wide window; the Stats drawer below 1024px.
-    let panel = page.locator('.chat-aside');
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
-      await page.locator('.stats-btn').first().click();
-      panel = page.locator('.stats-drawer');
-    }
-    await panel.locator('summary', { hasText: 'Group settings' }).click();
-    const section = panel.getByTestId('group-new-chats-section');
-    await expect(section).toContainText('Realism for new chats');
-    await expect(panel.getByTestId('group-fork-notice')).toHaveCount(0);
-    expect(await newChats()).toMatchObject({ realism: true, needs: true, forkSource: null });
-
-    const realism = section.getByRole('checkbox', { name: 'Realism Engine' });
-    const needs = section.getByRole('checkbox', { name: 'Needs' });
-    await expect(realism).toBeChecked();
+    await edit();
+    const engine = page.getByRole('checkbox', { name: /^Enable Realism Engine/ });
+    const needs = page.getByRole('checkbox', { name: /^Needs Simulation/ });
+    await expect(engine).toBeChecked();
+    await expect(needs).toBeChecked();
     await needs.uncheck();
-    await expect.poll(async () => (await newChats()).needs).toBe(false);
-    await expect(realism).toBeChecked();
-    await realism.uncheck();
-    await expect.poll(async () => (await newChats()).realism).toBe(false);
-    await expect(needs).toBeDisabled();
-    await realism.check();
-    await expect.poll(async () => (await newChats()).realism).toBe(true);
+    await save();
+    await expect.poll(async () => (await realism()).needsSimEnabled).toBe(false);
+    expect((await realism()).realismEnabled).toBe(true);
+
+    await edit();
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).uncheck();
+    // Needs only shows while the engine is on.
+    await expect(page.getByRole('checkbox', { name: /^Needs Simulation/ })).toHaveCount(0);
+    await save();
+    await expect.poll(async () => (await realism()).realismEnabled).toBe(false);
+
+    await edit();
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).check();
+    await save();
+    await expect.poll(async () => (await realism()).realismEnabled).toBe(true);
+
+    // A group made on the web (not from a 1:1) shows no forked-group notice.
+    const fork = (await (await request.get(`/api/groups/${groupId}/new-chats`)).json()) as { forkSource: unknown };
+    expect(fork.forkSource).toBeNull();
   } finally {
+    // Save returns to the group editor, whose stats card refetches
+    // /api/groups/<id>/stats on mount; deleting first races that fetch
+    // (trace run 43389757090: delete mono 196765.2, the stats 404 at
+    // 196804.9). Leave the page first so nothing polls the deleted group.
+    await openRoute(page, '/');
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
@@ -2238,19 +2665,18 @@ test('Porch Life Realism off greys the chat\'s Realism switch; on again asks abo
     expect((await setOwn(false)).ok()).toBe(true);
     expect((await setAllowed(false)).ok()).toBe(true);
     await openPorchChat(page);
-    let panel = page.locator('.chat-aside');
-    if ((page.viewportSize()?.width ?? 0) < 1024) {
-      await page.locator('.stats-btn').first().click();
-      panel = page.locator('.stats-drawer');
-    }
+    // The sidebar is the wide column at ≥1024 and the drawer below (PR 1b).
+    await openSidebar(page);
+    const panel = sidebarPanel(page);
     const own = panel.getByRole('checkbox', { name: 'Realism engine', exact: true });
     await expect(own).toBeDisabled();
     await expect(own).not.toBeChecked();
     await expect(panel).toContainText('The Realism Engine is off in Porch Life');
 
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'porch-life');
     const card = page.getByTestId('porch-life-card');
-    const engine = card.getByRole('checkbox', { name: 'Realism Engine', exact: true });
+    const engine = card.getByRole('switch', { name: 'Realism Engine', exact: true });
     await expect(engine).not.toBeChecked();
     await engine.check();
     const dialog = page.getByRole('dialog', { name: 'Realism is on' });
@@ -2344,41 +2770,48 @@ test('a new group starts each member from their character card', { tag: SERIAL }
   }
 });
 
-// A group member's editor on the phone shows the group's own switches as
-// read-only lines, and where the member starts in the group's new chats
-// saves to the group's seed for them (Long-Term Bond under its own key),
-// never to their card.
-test("a member's start in the group's new chats saves to the group", { tag: SERIAL }, async ({ page }) => {
+// REWRITTEN for the Edit group rework. The old journey saved a member's start
+// to the group's per-member seed and checked read-only "group lines" on the
+// member editor; both are gone. A member's start (Realism, bonds, Needs) is now
+// stored on the member's own copy in the group, edited with the same Realism
+// block as a 1:1 card. Same intent: the start saves for the group's new chats
+// (Long-Term Bond under its own key, Trust untouched) and never reaches the
+// library character.
+test("a member's start in the group's new chats saves to the member's copy", { tag: SERIAL }, async ({ page }) => {
   const request = page.request;
   const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+  const libId = chars.find((c) => c.name === 'Porch Tester')!.id;
   const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
   const name = `Start Crew ${test.info().project.name}`;
   const created = await request.post('/api/groups', { data: { name, memberIds } });
   expect(created.ok(), `create group: ${created.status()}`).toBe(true);
   const groupId = ((await created.json()) as { id: string }).id;
-  type Groups = { groups?: { id: string; members: { id: string }[] }[] };
+  type Groups = { groups?: { id: string; members: { id: string; name: string }[] }[] };
   const groups = ((await (await request.get('/api/groups')).json()) as Groups).groups ?? [];
-  const memberId = groups.find((g) => g.id === groupId)!.members[0].id;
-  type Start = { longTermBond: number; trustLevel: number };
-  const detail = async () =>
-    (await (await request.get(`/api/groups/${groupId}/members/${memberId}/detail`)).json()) as {
-      start: Start | null;
-      group: { realism: boolean } | null;
-    };
+  const member = groups.find((g) => g.id === groupId)!.members.find((m) => m.name === 'Porch Tester')!;
+  type Start = { realism: { longTermBond: number; trustLevel: number } };
+  const memberStart = async () =>
+    ((await (await request.get(`/api/groups/${groupId}/members/${member.id}/detail`)).json()) as Start).realism;
+  const libraryStart = async () =>
+    ((await (await request.get(`/api/characters/${libId}/detail`)).json()) as Start).realism;
   try {
-    const before = (await detail()).start!;
-    expect((await detail()).group?.realism).toBe(true);
-    await openRoute(page, `/groups/${groupId}/members/${memberId}/edit`);
-    await expect(page.getByTestId('group-line-realism')).toContainText("Realism Engine · On for this group's new chats");
-    await expect(page.getByText('Enable Realism Engine')).toHaveCount(0);
+    const before = await memberStart();
+    const libBefore = await libraryStart();
+    await openRoute(page, `/groups/${groupId}/members/${member.id}/edit`);
+    await expect(page.getByText(/You're editing .* in .* only\./)).toBeVisible();
 
-    const longTerm = page.locator('.realism-slider', { hasText: 'Long-term bond' }).locator('input');
+    const longTerm = page.locator('.realism-slider', { hasText: 'Long-Term Bond' }).locator('input');
     await longTerm.focus();
     await longTerm.press('End');
-    await page.getByRole('button', { name: 'Save character' }).click();
-    await expect.poll(async () => (await detail()).start?.longTermBond).toBe(300);
-    expect((await detail()).start?.trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+    await expect.poll(async () => (await memberStart()).longTermBond).toBe(300);
+    expect((await memberStart()).trustLevel, 'Trust keeps its own value').toBe(before.trustLevel);
+    expect(await libraryStart(), 'the library character is unchanged').toEqual(libBefore);
   } finally {
+    // Same stats-poll race as the Realism/Needs journey above: leave the
+    // group editor before deleting, or its stats card can poll the corpse.
+    await openRoute(page, '/');
     await request.post(`/api/groups/${groupId}/delete`);
   }
 });
@@ -2420,6 +2853,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
   const standInModel = before.remoteModelName;
   try {
     await openRoute(page, '/settings');
+    await openSettingsTab(page, 'generation');
     const bar = page.getByTestId('gen-preset-bar');
     await expect(bar).toContainText('Generation preset');
     const temp = page
@@ -2435,7 +2869,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
 
     // Link it to the chat model from the chat's model sheet.
     await openPorchChat(page);
-    await page.locator('.model-switch-chip').click();
+    await openModelSheet(page);
     const sheet = page.getByRole('dialog', { name: 'Change model' });
     await sheet.getByLabel('Generation preset for this model').selectOption(NAME);
     const key = (await presets()).model!.key;
@@ -2453,7 +2887,7 @@ test('save a generation preset, link it, switch model, see it load, and Undo', {
 
     // Back to the linked model through the sheet: the preset loads.
     await openPorchChat(page);
-    await page.locator('.model-switch-chip').click();
+    await openModelSheet(page);
     await sheet.locator('.model-picker-trigger').click();
     await sheet.locator('.mp-option', { hasText: standInModel }).first().click();
     const toast = page.getByTestId('gen-preset-toast');
@@ -2496,12 +2930,7 @@ test('the chat drawer loads a preset into this chat and follows the model again'
   const wasGlobal = await globalTemp();
   try {
     await openPorchChat(page);
-    if (test.info().project.name.startsWith('phone')) {
-      await page.getByRole('button', { name: 'More chat options' }).click();
-      await page.getByRole('menuitem', { name: /Theme/ }).click();
-    } else {
-      await page.locator('.chat-view').getByRole('button', { name: 'Theme', exact: true }).click();
-    }
+    await openChatSettings(page);
     const section = page.getByTestId('chat-generation');
     await expect(section).toContainText('Generation for this chat');
     await section.getByLabel('Preset for this chat').selectOption(NAME);
@@ -2519,5 +2948,102 @@ test('the chat drawer loads a preset into this chat and follows the model again'
   } finally {
     await page.request.post('/api/chat/generation/preset', { data: { name: null } });
     await page.request.post('/api/gen-presets/delete', { data: { name: NAME } });
+  }
+});
+
+test.describe.serial('editing a group member', { tag: SERIAL }, () => {
+  test("open a group, edit a member's card, change a field, save: the library character is unchanged", async ({
+    page,
+  }) => {
+    type Groups = { groups?: { id: string; name: string; members: { id: string; name: string }[] }[] };
+    const characters = (await (await page.request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const porch = characters.find((c) => c.name === 'Porch Tester') ?? characters[0];
+    const second = characters.find((c) => c.id !== porch.id) ?? porch;
+    let groups = ((await (await page.request.get('/api/groups')).json()) as Groups).groups ?? [];
+    let group = groups.find((g) => g.name === 'Journey Group');
+    if (!group) {
+      await page.request.post('/api/groups', {
+        data: { name: 'Journey Group', memberIds: [porch.id, second.id] },
+      });
+      groups = ((await (await page.request.get('/api/groups')).json()) as Groups).groups ?? [];
+      group = groups.find((g) => g.name === 'Journey Group');
+    }
+    const member = group!.members[0];
+    const libraryBefore = (await (await page.request.get(`/api/characters/${porch.id}/detail`)).json()) as {
+      description: string;
+    };
+
+    await openRoute(page, `/groups/${group!.id}/edit`);
+    await page.getByRole('button', { name: new RegExp(`Edit ${member.name}.s card`) }).click();
+    await expect(page.getByText(`You're editing ${member.name} in Journey Group only.`)).toBeVisible();
+    await page.getByLabel('Description').fill('Changed only inside the group.');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    // The editor closes once the save landed; only then read persisted state.
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+
+    const inGroup = (await (
+      await page.request.get(`/api/groups/${group!.id}/members/${member.id}/detail`)
+    ).json()) as { description: string };
+    expect(inGroup.description).toBe('Changed only inside the group.');
+    const libraryAfter = (await (await page.request.get(`/api/characters/${porch.id}/detail`)).json()) as {
+      description: string;
+    };
+    expect(libraryAfter.description).toBe(libraryBefore.description);
+  });
+});
+
+// The AI creator's Realism step (PR 8c), after Greetings: the saved
+// character's Porch Life values open there, and a change saves as you go,
+// the Realism values alone (the first message typed on Greetings stays).
+// A reload reads it back from the card. The character is deleted whatever
+// happens.
+test("the creator's Realism step saves Porch Life onto the saved character", async ({ page, allowHttp }) => {
+  // The CI sandbox has no image engine, so a fresh character's portrait
+  // request can answer 500 (the creator Greetings journey above fails the
+  // same way there); that is the sandbox, not this step.
+  allowHttp((url, status) => status === 500 && /\/api\/characters\/[^/]+\/avatar$/.test(url));
+  const created = await page.request.post('/api/characters/create', {
+    data: {
+      name: `Realism Journey ${test.info().project.name}`,
+      firstMessage: '*The lamp turns.* "You came."',
+      realismEnabled: true,
+      occupation: 'lighthouse keeper',
+    },
+  });
+  expect(created.ok(), `create: ${created.status()}`).toBe(true);
+  const id = String(((await created.json()) as { id: string | number }).id);
+  type Detail = { firstMessage: string; realism: { realismEnabled: boolean; occupation: string } };
+  const detail = async () =>
+    (await (await page.request.get(`/api/characters/${id}/detail`)).json()) as Detail;
+  try {
+    await openRoute(page, `/create-ai?greetings=${id}`);
+    await expect(page.getByTestId('greetings-step')).toBeVisible();
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    const step = page.getByTestId('realism-step');
+    await expect(step).toBeVisible();
+    await expect(step.getByRole('heading', { name: 'Porch Life' })).toBeVisible();
+    await expect(page.getByTestId('work-occupation')).toHaveValue('lighthouse keeper');
+
+    await page.getByTestId('work-occupation').fill('ferry pilot');
+    await expect.poll(async () => (await detail()).realism.occupation, { message: 'occupation saved' }).toBe('ferry pilot');
+    await page.getByRole('checkbox', { name: /^Enable Realism Engine/ }).uncheck();
+    await expect
+      .poll(async () => (await detail()).realism.realismEnabled, { message: 'engine switch saved' })
+      .toBe(false);
+    // The greetings were not sent back.
+    expect((await detail()).firstMessage).toBe('*The lamp turns.* "You came."');
+
+    await page.reload();
+    await page.getByRole('button', { name: /Next: Realism/ }).click();
+    await expect(page.getByTestId('work-occupation')).toHaveValue('ferry pilot');
+    await expect(page.getByRole('checkbox', { name: /^Enable Realism Engine/ })).not.toBeChecked();
+
+    await page.getByRole('button', { name: /Next: Review/ }).click();
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible();
+    await page.getByRole('button', { name: /Save & Finish/ }).click();
+    await expect(page).toHaveURL(/\/$/);
+  } finally {
+    const gone = await page.request.post(`/api/characters/${id}/delete`);
+    expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
   }
 });

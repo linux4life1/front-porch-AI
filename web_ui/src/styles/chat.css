@@ -170,20 +170,92 @@
   background: var(--surface-2); flex-shrink: 0;
 }
 .chat-header-avatar.group { display: grid; place-items: center; font-size: 1rem; }
-/* Phone: one line, nothing off-screen. ChatHeader puts Edit, Persona and
-   Theme in a ⋯ menu; the chip and the buttons join the header's own row
-   (display: contents). Short of room, the model chip gives way first, down
-   to a stub; only then does the name ellipsize. The huge shrink weight is
-   what orders them: beside it the name's share is under a layout unit. */
-[data-layout="phone"] .chat-header { flex-wrap: nowrap; column-gap: 2px; padding: 8px 12px; }
-[data-layout="phone"] .chat-header-id { flex: 0 1 auto; min-width: 56px; gap: 8px; margin-right: auto; padding-right: 4px; }
-[data-layout="phone"] .chat-header-avatar { width: 28px; height: 28px; }
-[data-layout="phone"] .chat-header-actions { display: contents; }
-[data-layout="phone"] .chat-header .model-switch-chip { flex: 0 100000 auto; min-width: 2.75rem; }
-[data-layout="phone"] .chat-header .link-btn {
-  flex: 0 0 auto; padding: 4px 5px; white-space: nowrap; font-size: 0.875rem;
+/* Wide 1:1 header with no picture to show: the window's initial circle
+   (PR 1a). Phone/tablet never get this class — they keep hiding. */
+.chat-header-avatar.initials {
+  display: grid; place-items: center; font-weight: 700; font-size: 1rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent);
 }
-[data-layout="phone"] .chat-header .chat-header-more { font-size: 1.15rem; line-height: 1; }
+/* The chat header is the desktop window's at every width (PR 1a wide, PR 1b
+   phone and tablet): Back, cast stack or portrait, the name with its group
+   line, and the sidebar toggle at the far right. Everything else left the
+   header for the composer row and the sidebar. */
+.chat-header-desktop { flex-wrap: nowrap; gap: 12px; }
+.chat-back-btn {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--text); font-size: 1.25rem; line-height: 1; padding: 6px 8px;
+}
+.chat-back-btn:hover { color: var(--accent); }
+.chat-header-stack { display: flex; flex-shrink: 0; }
+.chat-stack-avatar {
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.9rem;
+  background: color-mix(in oklab, var(--accent) 75%, var(--surface-2));
+  color: var(--on-accent); border: 2px solid var(--bg); flex-shrink: 0;
+}
+.chat-stack-avatar + .chat-stack-avatar { margin-left: -8px; }
+.chat-header-titles {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1 1 auto;
+}
+.chat-header-titles .chat-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-header-sub { font-weight: 400; font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-sidebar-toggle {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--text); font-size: 1rem; padding: 6px 8px;
+}
+.chat-sidebar-toggle:hover { color: var(--accent); }
+/* Phone: a compact header (the sketch's 54px bar) with the same 44px tap
+   areas; the avatars step down so the group line fits without an ellipsis. */
+[data-layout="phone"] .chat-header { padding: 4px 12px; }
+[data-layout="phone"] .chat-header-avatar,
+[data-layout="phone"] .chat-stack-avatar { width: 28px; height: 28px; }
+[data-layout="phone"] .chat-header-sub { font-size: 0.72rem; }
+
+/* ── Sidebar below 1024 (PR 1b) ────────────────────────────────────────
+   The same ChatSidebar card tree as the wide column, in an overlay. A phone
+   gets it full screen; a tablet gets a 380px panel from the right over a
+   dimmed chat. It mounts on the first open and then hides with
+   `visibility:hidden`, so the card tree keeps its scroll position and its
+   loaded snapshot while leaving the tab and accessibility trees. The closed
+   host drops the `.drawer-backdrop` class so the sweep's overlay probe does
+   not count a hidden drawer as an open dialog. */
+.chat-sidebar-host {
+  position: fixed; inset: 0; z-index: 45; display: flex;
+  justify-content: flex-end; align-items: stretch;
+  background: color-mix(in srgb, var(--scrim-ink) 50%, transparent);
+}
+.chat-sidebar-host.closed { visibility: hidden; pointer-events: none; }
+.chat-sidebar-drawer {
+  display: flex; flex-direction: column; height: 100%; min-height: 0;
+  background: var(--surface); border-left: 1px solid var(--border);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.35);
+  padding-top: env(safe-area-inset-top);
+}
+.chat-sidebar-drawer.slide { width: 380px; max-width: 92%; }
+.chat-sidebar-drawer.full {
+  width: 100%; max-width: none; border-left: none; box-shadow: none;
+}
+.chat-sidebar-drawer-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border); flex: none;
+}
+.chat-sidebar-drawer-title {
+  font-weight: 700; font-size: 1.05rem; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chat-sidebar-close { font-size: 1.1rem; padding: 8px 10px; }
+.chat-sidebar-drawer-body {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px calc(16px + env(safe-area-inset-bottom));
+}
+/* The drawer's portrait is the window's tile, cut to a landscape banner so
+   the cards below stay in reach (the sketch's phone/tablet board); the wide
+   column keeps its square. */
+.chat-sidebar-drawer .portrait-wrap img.portrait,
+.chat-sidebar-drawer .portrait-swiper img.portrait { aspect-ratio: 16 / 9; }
+.chat-sidebar-drawer .portrait-initial { aspect-ratio: 16 / 9; min-height: 0; }
 
 /* In-chat model chip. The sheet reuses the #330 phone pattern (messages.css
    message editor): visual-viewport box, safe-area padding, never 100dvh. */
@@ -208,8 +280,6 @@
 .model-switch-body .model-picker-menu {
   position: static; max-height: none; box-shadow: none;
 }
-.model-switch-provider { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; }
-.model-switch-provider select,
 .model-switch-body input {
   font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
@@ -221,7 +291,6 @@ a.model-switch-settings {
   padding: 10px 14px; border-radius: 10px; background: var(--accent);
   color: var(--on-accent); font-weight: 600; text-decoration: none; text-align: center;
 }
-[data-layout="phone"] .model-switch-chip { max-width: 8.5rem; }
 [data-layout="phone"] .drawer-backdrop.model-switch-overlay {
   top: var(--fp-vv-top, 0px);
   left: var(--fp-vv-left, 0px);
@@ -259,10 +328,9 @@ a.model-switch-settings {
   background: color-mix(in srgb, var(--image-scrim) 78%, transparent); color: var(--image-ink);
   text-transform: capitalize;
 }
-/* Phone: no expression portrait (too much for the small screen — the mood still
-   shows in the Mood stat row), and the Chat insight drawer goes full-screen. */
-[data-layout="phone"] .portrait-wrap { display: none; }
-[data-layout="phone"] .stats-drawer { width: 100%; max-width: none; }
+/* Phone: the Chat insight drawer goes full screen (PR 1b renders the same
+   ChatSidebar tree there; the old flat panel's portrait hiding is gone). */
+[data-layout="phone"] .chat-sidebar-drawer.full { width: 100%; max-width: none; }
 /* Look swiper: chevrons over the sidebar portrait to flip between uploaded looks */
 .portrait-swiper { position: relative; align-self: center; width: 100%; max-width: 240px; }
 .portrait-chevron {
@@ -279,28 +347,68 @@ a.model-switch-settings {
   font-size: 0.64rem; padding: 1px 8px; border-radius: 999px;
   background: color-mix(in srgb, var(--image-scrim) 60%, transparent); color: var(--image-ink);
 }
-[data-layout="phone"] .portrait-swiper { display: none; }
 
 /* ── Unified cast bar ─────────────────────────────────────────── */
 .cast-bar { border-bottom: 1px solid var(--border); background: var(--surface); padding: 6px 10px; }
 .cast-row { display: flex; align-items: center; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+/* One face per member, as the desktop strip draws it (cast_roster_chip.dart):
+   a 32px round avatar ringed when focused, the name under it, then Away /
+   Back, or GUEST and Promote. */
 .cast-chip {
-  display: flex; align-items: center; gap: 2px; flex-shrink: 0;
-  border: 1px solid var(--border); border-radius: 999px; padding: 2px 4px 2px 2px; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0;
+  width: 56px;
 }
-.cast-chip.focused { border-color: var(--accent); }
-.cast-chip.next { box-shadow: 0 0 0 1px var(--ok) inset; }
-/* Away / At work: dimmed like the desktop card, still tappable. */
-.cast-chip.away .cast-chip-main { opacity: 0.55; }
-.cast-chip-main { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px 4px; }
-.cast-name { font-size: 0.82rem; font-weight: 600; }
-.cast-role { font-size: 0.62rem; color: var(--muted); text-transform: capitalize; }
-.cast-actions { display: flex; }
-.cast-add {
-  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; padding: 0;
-  display: grid; place-items: center; font-size: 1rem; background: var(--surface-2);
+.cast-chip.lite { width: 76px; }
+.cast-chip-main { display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none; padding: 0; min-height: 0; color: inherit; }
+.cast-face {
+  width: 36px; height: 36px; border-radius: 50%; padding: 2px; border: 2px solid transparent;
+  display: grid; place-items: center; box-sizing: border-box; position: relative;
 }
-.cast-controls { display: flex; gap: 6px; margin-top: 4px; }
+/* PR 5b: the dice rides the face of a member whose own Chaos Mode is on
+   (the desktop's CastRosterChip badge). Gold is the Chance Time identity,
+   theme-keep as in overlays.css. */
+.cast-chaos {
+  position: absolute; right: -3px; bottom: -3px;
+  font-size: 10px; line-height: 1; padding: 1.5px;
+  background: rgba(255, 209, 102, 0.9); /* theme-keep: Chance Time game identity */
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--surface-1, rgba(0, 0, 0, 0.35));
+}
+.cast-chip.focused .cast-face { border-color: var(--accent); }
+.cast-face img, .cast-initial { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.cast-initial { display: grid; place-items: center; background: var(--surface-2); color: var(--text); font-weight: 700; font-size: 0.75rem; }
+.cast-name { font-size: 0.66rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-chip.focused .cast-name { color: var(--text); }
+/* Away / At work: dimmed like the desktop, still tappable. */
+.cast-chip.away .cast-face { opacity: 0.55; }
+/* Status word, not an action (desktop cast_roster_chip.dart): the row under
+   the name tells the truth — With you / Away / At work. The toggle lives in
+   the chip menu and the Character State word. */
+.cast-word { font-size: 0.62rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cast-word.here { color: var(--porch-amber); }
+.cast-word.gone { color: var(--muted); }
+/* The Next pill: one tap holds this member for the next turn (desktop
+   chip parity). Filled + checked while held; cancels on a second tap. */
+.cast-next {
+  font-size: 0.58rem; padding: 1px 5px; min-height: 18px; border-radius: 9px;
+  max-width: 100%; white-space: nowrap; overflow: hidden;
+  background: transparent; border: 1px solid var(--porch-amber); color: var(--porch-amber);
+}
+.cast-next.on { background: var(--porch-amber); color: var(--accent-ink); font-weight: 700; letter-spacing: 0.04em; }
+.cast-next:disabled { opacity: 0.45; }
+/* Queued face: an amber ring hugging the avatar — the desktop's halo. */
+.cast-chip.queued .cast-face { border-color: var(--porch-amber); }
+/* Right-click / hold menu (desktop chip menu's twin). */
+.cast-menu {
+  position: fixed; z-index: 60; min-width: 170px; display: flex; flex-direction: column;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 4px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.cast-menu-head { font-size: 0.66rem; color: var(--muted); padding: 4px 10px 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.cast-menu button { text-align: left; background: none; border: none; color: var(--text); font-size: 0.76rem; padding: 7px 10px; border-radius: 7px; min-height: 0; }
+.cast-menu button:hover { background: color-mix(in srgb, var(--porch-amber) 14%, transparent); color: var(--porch-amber); }
+.cast-guest { font-size: 0.56rem; font-weight: 700; color: var(--porch-amber); }
+.cast-promote { font-size: 0.6rem; padding: 1px 6px; min-height: 18px; border-radius: 6px; border: none; background: var(--accent); color: var(--accent-ink); }
 button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; background: transparent; border-color: var(--border); }
 .cast-banner {
   margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
@@ -309,17 +417,26 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 .cast-banner.error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
 .cast-banner.detect { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--text); }
-/* Director Mode: the desktop sidebar's Director card, as one strip. */
+/* Director Mode: the desktop sidebar's Director card (director_panel.dart):
+   header + status pill, a line of copy, a full-width step button. */
 .director-strip {
-  margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
-  display: flex; align-items: center; gap: 4px 8px; flex-wrap: wrap;
-  align-content: flex-start;
-  background: var(--surface-2); color: var(--muted);
+  padding: 4px 2px; font-size: 0.82rem;
+  display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap;
+  color: var(--muted);
 }
-.director-strip.directing {
-  color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
+.director-head { flex-basis: 100%; display: flex; align-items: center; gap: 8px; }
+.director-title { flex: 1; min-width: 0; color: var(--muted); }
+.director-status {
+  flex: none; font-size: 0.72rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text);
 }
-.director-status { flex: 1; min-width: 0; font-weight: 600; }
+.director-strip.directing .director-status { color: var(--porch-amber); border-color: color-mix(in srgb, var(--porch-amber) 55%, transparent); }
+.director-strip.directing .director-title { color: var(--porch-amber); }
+.director-blurb { flex-basis: 100%; margin: 0; font-size: 0.78rem; color: var(--muted); }
+.director-step {
+  flex-basis: 100%; min-height: 40px; border-radius: 10px; background: transparent;
+  color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 50%, transparent); font-weight: 600;
+}
 .director-delay {
   flex-basis: 100%; display: flex; align-items: center; gap: 8px; color: var(--muted);
 }
@@ -328,6 +445,9 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 .director-tools { flex-basis: 100%; display: flex; flex-direction: column; gap: 4px; }
 .director-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .director-label { color: var(--muted); font-weight: 600; min-width: 4.5em; }
+/* Held cue (DirectorTools): amber fill while a member is queued — same
+   identity as the cast chip's NEXT pill and the desktop's cue chip. */
+.director-row .chip.on { background: var(--porch-amber); border-color: transparent; color: var(--accent-ink); font-weight: 700; }
 .director-hint { color: var(--muted); font-size: 0.72rem; }
 .director-goal-input { flex: 1; min-width: 0; }
 .director-pinned {

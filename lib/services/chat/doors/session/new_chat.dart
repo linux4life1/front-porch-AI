@@ -25,7 +25,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 import 'session_store.dart';
+import '../entry/group_member_starts_away.dart';
 
 /// A fresh chat for the open cast: the departing chat flushed, the live
 /// scalars re-seeded from the card (1:1) or the group's member baselines,
@@ -214,10 +216,7 @@ class NewChatOpener {
           _scope.groups.afterglowOn = groupAfterglowIn(
             _activeGroup!.defaultMemberRealismState,
           );
-          final timeSeed = parseGroupTimeSeed(
-            _activeGroup!.defaultMemberRealismState,
-            _activeGroup!.baselineRealismState,
-          );
+          final timeSeed = parseGroupTimeSeedOf(_activeGroup!);
           if (timeSeed != null) {
             _timeService.seedFromV2OrExt(
               dayCount: timeSeed.dayCount,
@@ -258,10 +257,24 @@ class NewChatOpener {
         // parseGroupRealismSeeds pulls just the perChar baselines.
         if (_activeGroup != null) {
           _h.resetDirectorModeToDefault();
-          _scope.groups.members = parseGroupRealismSeeds(
-            _activeGroup!.defaultMemberRealismState,
-          ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
+          _scope.groups.members = groupStartMembers(
+            _activeGroup!,
+            _groupCharacters,
+            _session.characterIdFor,
+          );
           await _h.rekeyGroupStores();
+          // Each member's system prompt and Author's Note start from the
+          // group's defaults, not the chat before this one.
+          _store.groupConfig.seedNewChatDefaults(_activeGroup!);
+          // Starts Away (docs/design/group-initial-presence.md): a new chat
+          // is a chat creation too, so the card's switch seeds the runtime
+          // hold again — only in the CHAT the member starts in, never over
+          // a restore, and outside every realism gate like fresh entry.
+          seedMemberStartsAway(
+            _groupCharacters,
+            _scope.groups,
+            idOf: _h.characterIdFor,
+          );
           // Re-derive Needs from those seeds, exactly as FRESH GROUP ENTRY
           // does (doors/entry/group_entry.dart — presence-inference: the
           // creator omits the per-member 'needs' sub-map when Needs was off

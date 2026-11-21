@@ -16,16 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
 class EditCharacterPage extends StatefulWidget {
   final CharacterCard character;
@@ -45,14 +46,10 @@ class EditCharacterPage extends StatefulWidget {
   /// written to the group (via the caller) so nothing backflows to the library.
   final Future<void> Function(CharacterCard saved)? onSaveOverride;
 
-  /// The group this card is a member of, when editing a member's own copy:
-  /// the page says so, and its Realism section shows only the member's own
-  /// settings.
-  final String? memberOfGroup;
-
-  /// The member's group, when [memberOfGroup] is set: its own switches as
-  /// read-only lines, and where the member starts in its new chats.
-  final MemberGroupView? memberGroup;
+  /// Member mode: this card is a member's own copy in a group. The editor is
+  /// the 1:1 editor, plus the notice and "In the group", with Time & Day, the
+  /// Worlds tab and Chaos Mode greyed out (docs/design/group-editor.md).
+  final GroupMemberMode? member;
 
   /// Allow changing the avatar (default true). Disabled for group members in this
   /// pass, since a member's avatar lives at a private group path.
@@ -73,8 +70,7 @@ class EditCharacterPage extends StatefulWidget {
     this.saveLabel = 'Save',
     this.popWithCardOnSave = false,
     this.onSaveOverride,
-    this.memberOfGroup,
-    this.memberGroup,
+    this.member,
     this.allowAvatarChange = true,
     this.onSaved,
   });
@@ -83,45 +79,19 @@ class EditCharacterPage extends StatefulWidget {
   State<EditCharacterPage> createState() => _EditCharacterPageState();
 }
 
-/// Closes the character editor that holds [context], asking first when it
-/// has unsaved edits, as its back button does. [onLeave] runs only when it
-/// closes, just before (whoever awaits the editor resumes after it), so a
-/// link out of a member's editor that the user backs out of with "Keep
-/// editing" leaves everything where it was. True when it closed.
-Future<bool> leaveCharacterEditor(
-  BuildContext context, {
-  VoidCallback? onLeave,
-}) async {
-  final page = context.findAncestorStateOfType<_EditCharacterPageState>();
-  if (page == null || !page.mounted) return false;
-  final dirty = page._draft.isDirty || page._startMoved;
-  if (dirty && !await confirmDiscardChanges(page.context)) return false;
-  if (!page.mounted) return false;
-  onLeave?.call();
-  Navigator.of(page.context).pop();
-  return true;
-}
-
 class _EditCharacterPageState extends State<EditCharacterPage>
     with SingleTickerProviderStateMixin {
   late final EditCharacterDraft _draft;
   late final TabController _tabController;
 
-  /// The member's start as the group holds it, and as edited; saved to the
-  /// group's seed when it moved.
-  late GroupMemberStart? _startBase = widget.memberGroup?.start;
-  late GroupMemberStart? _start = _startBase;
-  bool get _startMoved => _start != _startBase;
+  /// The group's values for the member, as edited here; stored on the group
+  /// when moved ([GroupMemberMode.saveValues]).
+  late GroupMemberValues? _values = widget.member?.values;
+  bool get _valuesMoved =>
+      widget.member != null && _values != widget.member!.values;
 
-  /// The group's start was read again (its Group Settings link closed): an
-  /// unmoved start follows it, a moved one is kept.
-  void _onStartReloaded() {
-    final fresh = widget.memberGroup?.startUpdates?.value;
-    setState(() {
-      if (!_startMoved) _start = fresh;
-      _startBase = fresh;
-    });
-  }
+  /// 1:1 mode: the groups this character is also in (the line at the top).
+  List<String> _inGroups = const [];
 
   @override
   void initState() {
@@ -132,7 +102,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       worlds: _worldsOrNull(),
     );
     _tabController = TabController(length: 4, vsync: this);
-    widget.memberGroup?.startUpdates?.addListener(_onStartReloaded);
+    if (widget.member == null) unawaited(_loadGroups());
+  }
+
+  Future<void> _loadGroups() async {
+    final AppDatabase db;
+    try {
+      db = liveDatabase(context);
+    } on ProviderNotFoundException {
+      return; // no database above (a golden): no groups to name
+    }
+    final names = await groupNamesOfCharacter(db, widget.character);
+    if (mounted) setState(() => _inGroups = names);
   }
 
   WorldRepository? _worldsOrNull() {
@@ -161,7 +142,6 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   @override
   void dispose() {
-    widget.memberGroup?.startUpdates?.removeListener(_onStartReloaded);
     _draft.dispose();
     _tabController.dispose();
     super.dispose();
@@ -171,119 +151,14 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   List<LorebookEntry> get _loreEntries => _draft.loreEntries;
 
-  void _snack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  Future<void> _addLoreEntry() async {
-    final result = await showLorebookEntryDialog(context: context);
-    if (result != null) {
-      setState(() => _loreEntries.add(result));
-    }
-  }
-
-  void _removeLoreEntry(int index) {
-    setState(() {
-      _loreEntries.removeAt(index);
-    });
-  }
-
-  Future<void> _editLoreEntry(int index) async {
-    final entry = _loreEntries[index];
-    final result = await showLorebookEntryDialog(
-      context: context,
-      existing: entry,
-      showEnabled: true,
-    );
-    if (result != null) {
-      setState(() => _loreEntries[index] = result);
-    }
-  }
-
-  Future<void> _importLoreFromCharacter() async {
-    final repo = Provider.of<CharacterRepository>(context, listen: false);
-    final entries = await showImportCharacterLoreDialog(
-      context: context,
-      characters: repo.characters,
-      excludeCharacterName: widget.character.name,
-    );
-    if (entries == null || entries.isEmpty) return;
-    setState(() {
-      _loreEntries.addAll(entries);
-    });
-    if (mounted) {
-      _snack('Added ${entries.length} entries from character.');
-    }
-  }
-
-  Future<void> _importLorebookJson() async {
-    final result = await GuardedPicker.pickFiles(
-      context,
-      category: PickerPrefs.catImport,
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-    );
-    if (result == null || result.files.isEmpty) return;
-
-    try {
-      final lorebook = parseLorebookImport(
-        await result.files.single.readAsBytes(),
-      );
-
-      if (lorebook.entries.isEmpty) {
-        if (mounted) _snack('No entries found in file.');
-        return;
-      }
-
-      setState(() {
-        _loreEntries.addAll(lorebook.entries);
-      });
-
-      if (mounted) _snack('Imported ${lorebook.entries.length} entries.');
-    } on FormatException catch (e) {
-      if (mounted) _snack('Invalid file format: ${e.message}');
-    } on Exception catch (_) {
-      if (mounted) _snack('Import failed. Please try again.');
-    }
-  }
-
-  /// World-info JSON, the same shape Import file already accepts.
-  Future<void> _exportLorebookJson() async {
-    if (_loreEntries.isEmpty) {
-      if (!mounted) return;
-      _snack('No lorebook entries to export.');
-      return;
-    }
-
-    final selected = await showLorebookExportPicker(
-      context: context,
-      entries: _loreEntries,
-    );
-    if (selected == null || selected.isEmpty || !mounted) return;
-
-    final name = _draft.nameController.text.trim();
-    final bytes = encodeLorebookExport(selected, name);
-
-    try {
-      final path = await GuardedPicker.saveFile(
-        context,
-        category: PickerPrefs.catExport,
-        dialogTitle: 'Export lorebook',
-        fileName: lorebookExportFileName(name),
-        type: FileType.custom,
-        allowedExtensions: const ['json'],
-        bytes: bytes,
-      );
-      if (path == null || !mounted) return;
-      final n = selected.length;
-      _snack('Exported $n ${n == 1 ? 'entry' : 'entries'}.');
-    } catch (e) {
-      if (!mounted) return;
-      _snack('Export failed: $e');
-    }
-  }
+  late final _lore = EditorLorebookActions(
+    context: () => context,
+    mounted: () => mounted,
+    entries: () => _loreEntries,
+    changed: _rebuild,
+    bookName: () => _draft.nameController.text,
+    excludeCharacterName: widget.character.name,
+  );
 
   /// A save is running: a second tap of Save before it ends writes nothing
   /// (it would write the row twice and pop the page twice).
@@ -331,10 +206,11 @@ class _EditCharacterPageState extends State<EditCharacterPage>
         await _backfillAddedWorlds(writer.addedWorlds);
       }
 
-      final start = _start;
-      final saveStart = widget.memberGroup?.saveStart;
-      if (_startMoved && start != null && saveStart != null) {
-        await saveStart(start);
+      // The group's own values for the member (system prompt, note, feelings)
+      // belong to the group; the card above is the member's copy.
+      final values = _values;
+      if (_valuesMoved && values != null) {
+        await widget.member!.saveValues(values);
       }
 
       if (widget.onSaved != null) {
@@ -405,16 +281,13 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   @override
   Widget build(BuildContext context) {
     return UnsavedChangesGuard(
-      isDirty: () => _draft.isDirty || _startMoved,
+      isDirty: () => _draft.isDirty || _valuesMoved,
       child: _scaffold(),
     );
   }
 
   Widget _scaffold() {
-    final group = widget.memberOfGroup == null ? null : widget.memberGroup;
-    final notes = group == null
-        ? null
-        : memberTabNotes(_draft.nameController.text, group.read(), group);
+    final mode = widget.member;
     return EditCharacterScaffold(
       characterName: widget.character.name,
       saveLabel: widget.saveLabel,
@@ -422,35 +295,29 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       onSave: _saveCharacter,
       tabController: _tabController,
       tokenNotifier: _draft.tokenNotifier,
+      worldsLockedTooltip: mode == null ? null : kWorldsLockedTooltip,
       tabs: [
         EditCharacterDetailsTab(
           character: widget.character,
           draft: _draft,
-          memberOfGroup: widget.memberOfGroup,
-          memberGroup: group,
-          scenarioNote: notes?.scenario,
-          start: _start,
-          onStartChanged: (s) => setState(() => _start = s),
+          member: mode,
+          memberValues: _values,
+          onMemberValuesChanged: (v) => setState(() => _values = v),
+          inGroups: _inGroups,
           onChanged: _rebuild,
         ),
-        EditCharacterDialogueTab(
-          draft: _draft,
-          onChanged: _rebuild,
-          greetingNote: notes?.greeting,
-        ),
+        EditCharacterDialogueTab(draft: _draft, onChanged: _rebuild),
         EditCharacterLorebookTab(
-          memberNote: notes?.lorebook,
           entries: _loreEntries,
-          onImportFile: _importLorebookJson,
-          onExportFile: _exportLorebookJson,
-          onImportFromCharacter: _importLoreFromCharacter,
-          onAddEntry: _addLoreEntry,
-          onEditEntry: _editLoreEntry,
-          onRemoveEntry: _removeLoreEntry,
+          onImportFile: _lore.importFile,
+          onExportFile: _lore.exportFile,
+          onImportFromCharacter: _lore.importFromCharacter,
+          onAddEntry: _lore.add,
+          onEditEntry: _lore.edit,
+          onRemoveEntry: _lore.remove,
           onChanged: _rebuild,
         ),
         EditCharacterWorldsTab(
-          memberNote: notes?.worlds,
           value: _draft.worldChoice,
           onChanged: (c) => setState(() => _draft.worldChoice = c),
           characterName: _draft.nameController.text,

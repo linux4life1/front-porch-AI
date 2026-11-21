@@ -46,7 +46,6 @@ Do these on the Mac/PC app:
 - **Suggest Actions**
 - Photo Understanding (the phone **can** attach a photo; the offline describer is desktop)
 - Stoop **upload / share** (the phone Share tab is not a live uploader)
-- Backups & Restore
 - Database Scan & Clean / change data folder
 - Turn Into a Story from chat
 - Director auto-play + response delay (toggle exists; pacing is desktop)

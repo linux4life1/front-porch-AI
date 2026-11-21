@@ -34,7 +34,8 @@ class EpisodeCrumbMinter {
     required this.workFieldsFor,
     required this.characterIdFor,
     required this.journalStore,
-  });
+    bool Function(CharacterCard card)? heldAwayFor,
+  }) : heldAwayFor = heldAwayFor ?? ((_) => false);
 
   final bool Function() clockRunning;
   final MemorySettings Function() memorySettings;
@@ -48,6 +49,13 @@ class EpisodeCrumbMinter {
   final WorkFields Function(CharacterCard card) workFieldsFor;
   final String Function(CharacterCard card) characterIdFor;
   final JournalStore Function() journalStore;
+
+  /// Whether the chat holds this member Away (the cast chip's hold, or a
+  /// seeded "starts away"). A held member is not at work (H1,
+  /// docs/design/held-away-presence-reads.md), so the commit that crosses
+  /// their clock-out mints them no shift-end crumb. Unset reads "never
+  /// held" — the 1:1 truth, and every test that has no group to ask.
+  final bool Function(CharacterCard card) heldAwayFor;
 
   Future<void> maybeMint(DateTime before, DateTime after) async {
     if (!clockRunning()) return;
@@ -74,6 +82,9 @@ class EpisodeCrumbMinter {
       )) {
         continue;
       }
+      // The hold outranks the shift (H1): a member the chat holds Away did
+      // not clock out of anything, and their journal says so.
+      if (heldAwayFor(card)) continue;
       final owner = characterIdFor(card);
       final existing = await journalStore().cardsFor(sid, owner);
       if (alreadyHasWorkEpisodeToday(cards: existing, storyDay: leftDay)) {

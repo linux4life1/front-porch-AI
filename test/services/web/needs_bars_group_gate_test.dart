@@ -56,6 +56,12 @@ void _setupPathProviderMock() {
       });
 }
 
+/// This chat's own Afterglow switch for [card]: the live per-chat switch.
+/// (`setMemberAfterglowEnabled` is the member copy's new-chat default and
+/// never changes a chat that is open.)
+Future<void> _liveAfterglow(ChatService chat, CharacterCard card, bool on) =>
+    chat.setMemberAfterglowSwitch(chat.characterIdFor(card), on);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _setupPathProviderMock();
@@ -211,13 +217,9 @@ void main() {
       await storage.realismSettings.setNsfwCooldownDefault(true);
     });
     await lust(shows: true, why: 'all three on');
-    await tester.runAsync(
-      () => chat.setMemberAfterglowEnabled(member().card, false),
-    );
+    await tester.runAsync(() => _liveAfterglow(chat, member().card, false));
     await lust(shows: false, why: "this member's own switch off");
-    await tester.runAsync(
-      () => chat.setMemberAfterglowEnabled(member().card, true),
-    );
+    await tester.runAsync(() => _liveAfterglow(chat, member().card, true));
     await tester.runAsync(() => chat.setAfterglowEnabled(false));
     await lust(shows: false, why: "the group chat's switch off");
   });
@@ -259,7 +261,7 @@ void main() {
     expect(find.text('Lust: Intense'), findsOneWidget);
     expect(find.text(chip), findsOneWidget);
 
-    await tester.runAsync(() => chat.setMemberAfterglowEnabled(card, false));
+    await tester.runAsync(() => _liveAfterglow(chat, card, false));
     await cardShowsBars(tester);
     expect(find.textContaining('Lust:'), findsNothing, reason: 'member card');
     expect(find.text(chip), findsNothing);
@@ -270,7 +272,7 @@ void main() {
     expect(tools()['refractoryLabel'], isEmpty);
     expect(chat.getArousalForGroupCharacter(card), 60, reason: 'kept');
 
-    await tester.runAsync(() => chat.setMemberAfterglowEnabled(card, true));
+    await tester.runAsync(() => _liveAfterglow(chat, card, true));
     await cardShowsBars(tester);
     expect(find.text('Lust: Intense'), findsOneWidget);
     expect(find.text(chip), findsOneWidget);
@@ -361,7 +363,7 @@ void main() {
     expect(bare.statusCode, 400, reason: 'no Recovery block, no reset');
     expect(card.frontPorchExtensions?.recovery.recoveryMinutes, 45);
 
-    await chat.setMemberAfterglowEnabled(card, false);
+    await _liveAfterglow(chat, card, false);
     expect(row()['afterglowRuns'], isFalse);
   });
 
@@ -555,7 +557,7 @@ void main() {
       await storage.realismSettings.setAdultThemesEnabled(true);
       await storage.realismSettings.setNsfwCooldownDefault(true);
       final owner = members().first;
-      await chat.setMemberAfterglowEnabled(owner.card, false);
+      await _liveAfterglow(chat, owner.card, false);
       expect(
         chat.nsfwService.nsfwCooldownEnabled,
         isTrue,
@@ -566,7 +568,7 @@ void main() {
           (ChatToolsFacade(chat, storage, null).state()['nsfw']
               as Map)['cooldownEnabled'];
       expect(runs(), isFalse, reason: "the owner's own switch is off");
-      await chat.setMemberAfterglowEnabled(owner.card, true);
+      await _liveAfterglow(chat, owner.card, true);
       expect(runs(), isTrue);
     });
 

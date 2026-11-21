@@ -108,10 +108,13 @@ workFieldsForMember(CharacterCard member, Iterable<CharacterCard> library) {
 
 /// Derive the glance word.
 ///
-/// Order: at work (occupation + hours + weekday contain the live clock)
-/// → Away (not in this scene) → With you. 1:1 may be Away or At work.
-/// Skip is group-only. [inScene] fails toward true. Missing [workDays]
-/// is Mon–Fri.
+/// Order: a hand-set hold ([heldAway] — the member's Away hold `Back` or a
+/// group's seeded "starts away" leaves on them) → at work (occupation +
+/// hours + weekday contain the live clock) → Away (not in this scene) →
+/// With you. 1:1 may be Away or At work. Skip is group-only. [inScene]
+/// fails toward true. Missing [workDays] is Mon–Fri. The hold sits above
+/// the shift so it cannot disagree with the card the hold was set on: only
+/// `Back` clears it.
 PresenceWhere derivePresence({
   required String occupation,
   required String hours,
@@ -119,7 +122,9 @@ PresenceWhere derivePresence({
   required bool inScene,
   required int weekday,
   List<int>? workDays,
+  bool heldAway = false,
 }) {
+  if (heldAway) return PresenceWhere.away;
   if (occupation.trim().isNotEmpty &&
       hours.trim().isNotEmpty &&
       onShift(

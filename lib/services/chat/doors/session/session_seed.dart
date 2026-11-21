@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 
+import 'package:front_porch_ai/services/chat/doors/entry/group_start_seeds.dart';
 import 'session_store.dart';
 
 /// An imported chat's live state: the phase-0 seed of a fresh import, and
@@ -84,6 +85,7 @@ class SessionSeed {
     guests.state.ids.clear();
     guests.state.cards.clear();
     guests.state.pendingDeparture = null;
+    guests.state.nextQueuedSpeakerId = null;
     guests.state.pendingPickerFilter = null;
     guests.resetActivityState();
     guests.state.turnsSinceCastScan = 0;
@@ -155,10 +157,7 @@ class SessionSeed {
         _groupStore.afterglowOn = groupAfterglowIn(
           _activeGroup!.defaultMemberRealismState,
         );
-        final timeSeed = parseGroupTimeSeed(
-          _activeGroup!.defaultMemberRealismState,
-          _activeGroup!.baselineRealismState,
-        );
+        final timeSeed = parseGroupTimeSeedOf(_activeGroup!);
         if (timeSeed != null) {
           _timeService.seedFromV2OrExt(
             dayCount: timeSeed.dayCount,
@@ -168,9 +167,11 @@ class SessionSeed {
           );
           _s.graph().applySeededPassageOfTime();
         }
-        _groupStore.members = parseGroupRealismSeeds(
-          _activeGroup!.defaultMemberRealismState,
-        ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));
+        _groupStore.members = groupStartMembers(
+          _activeGroup!,
+          _session.groupCharacters,
+          _session.characterIdFor,
+        );
         await _h.rekeyGroupStores();
         _chaosModeService.seedFromGroupOrExt(
           _activeGroup!.chaosModeEnabled || settings.chaosModeDefault,

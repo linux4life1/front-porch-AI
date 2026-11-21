@@ -230,7 +230,14 @@ void main() {
     nested.pop();
     await settle(tester);
     nested.push(MaterialPageRoute<void>(builder: (_) => const BackupsPage()));
-    await settle(tester);
+    // The page re-lists the backups from disk after the push, and a loaded
+    // CI runner is slower than a fixed settle — the same lesson this file's
+    // pumpUntil comment records for the restore itself. Wait for the row.
+    await pumpUntil(
+      tester,
+      () => find.widgetWithText(TextButton, 'Restore').evaluate().isNotEmpty,
+      'the re-listed backup row',
+    );
     await tester.tap(find.widgetWithText(TextButton, 'Restore'));
     await tester.pumpAndSettle();
     return root;

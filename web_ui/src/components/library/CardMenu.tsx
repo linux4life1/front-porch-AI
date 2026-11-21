@@ -12,6 +12,8 @@ export interface CardMenuItem {
   label: string;
   icon?: string;
   danger?: boolean;
+  /** Extra class for items that tests/styles already key off (additive). */
+  className?: string;
   onClick: () => void;
 }
 
@@ -92,7 +94,7 @@ export function CardMenu({
           <button
             key={i}
             role="menuitem"
-            className={`card-menu-item${it.danger ? ' danger' : ''}`}
+            className={`card-menu-item${it.danger ? ' danger' : ''}${it.className ? ` ${it.className}` : ''}`}
             onClick={() => {
               onClose();
               it.onClick();

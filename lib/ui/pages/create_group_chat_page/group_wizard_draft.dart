@@ -61,6 +61,7 @@ class GroupWizardDraft extends ChangeNotifier {
         if (e.value.text.isNotEmpty) e.key: e.value.text,
     },
     characterVoices,
+    characterStartsAway,
     [for (final e in groupLoreEntries) e.toJson()],
     worldChoice.settingId,
     worldChoice.loreIds,
@@ -117,6 +118,12 @@ class GroupWizardDraft extends ChangeNotifier {
   /// Members step Voice picks, charId → a voice id, or '' for "Use the global
   /// voice". A member with no entry keeps the card's own voice.
   final Map<String, String> characterVoices = {};
+
+  /// Members step Starts Away picks, charId → the switch's value. A member
+  /// with no entry keeps their card's own `ext.startsAway`; a picked value
+  /// overrides it, and lands in the member row through
+  /// groupMemberExtensions (the creation seeder reads it from there).
+  final Map<String, bool> characterStartsAway = {};
 
   // Lore & Worlds
   final List<LorebookEntry> groupLoreEntries = [];
@@ -249,6 +256,7 @@ class GroupWizardDraft extends ChangeNotifier {
     update(() {
       members.removeWhere((c) => stableId(c) == id);
       characterVoices.remove(id);
+      characterStartsAway.remove(id);
       characterSystemPrompts.remove(id);
       memberRealismSeeds.remove(id);
 
@@ -286,6 +294,15 @@ class GroupWizardDraft extends ChangeNotifier {
   void setVoice(String charId, String? voiceId) {
     update(() {
       characterVoices[charId] = voiceId ?? '';
+    });
+  }
+
+  /// The Members step's Starts Away switch for [charId]: the pick written to
+  /// their member row at commit (groupMemberExtensions). Every chat the
+  /// group CREATES seeds their hold from it; only Back lifts it.
+  void setStartsAway(String charId, bool away) {
+    update(() {
+      characterStartsAway[charId] = away;
     });
   }
 

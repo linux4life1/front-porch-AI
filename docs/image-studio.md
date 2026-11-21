@@ -63,7 +63,6 @@ From a result: Variations, edit prompt & regenerate, send to chat, save to galle
 
 ![Image generation](screenshots/local_image_gen.png)
 
-![Image generation settings](screenshots/local_image_gen_settings.png)
 
 ---
 

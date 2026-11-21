@@ -19,10 +19,14 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chat/chat_command_handler/slash_command_catalog.dart';
 import 'package:front_porch_ai/services/services.dart' show FeelingsRescore;
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'chat_place_move_route.dart';
+import 'chat_host_turn_route.dart';
+import 'chat_persona_routes.dart';
 
 /// Chat state + action endpoints for the rewritten server. Live tokens stream
 /// over the WebSocket hub (/api/ws); these endpoints drive and read state.
@@ -33,13 +37,8 @@ class WebChatRoutes {
     router.post('/api/chat/context-budget/refresh', _refreshContextBudget);
     router.get('/api/chat/participant/<id>/realism', _participantRealism);
     router.get('/api/chat/sessions', _sessions);
-    router.get('/api/personas', _personas);
-    router.post('/api/personas/select', _selectPersona);
-    router.post('/api/chat/persona', _selectChatPersona);
-    router.post('/api/personas/create', _createPersona);
-    router.get('/api/personas/<id>/detail', _personaDetail);
-    router.post('/api/personas/<id>/delete', _deletePersona);
-    router.post('/api/personas/<id>', _updatePersona);
+    router.get('/api/chat/slash-commands', _slashCommands);
+    registerPersonaRoutes(router, _facade);
     router.post('/api/chat/select', _select);
     router.post('/api/chat/select-group', _selectGroup);
     router.post('/api/chat/start-fresh', _startFresh);
@@ -54,6 +53,7 @@ class WebChatRoutes {
     router.post('/api/chat/stop', _stop);
     router.post('/api/chat/regenerate', _regenerate);
     router.post('/api/chat/continue', _continue);
+    router.post('/api/chat/host-turn', (r) => handleHostTurn(_facade, r));
     router.post('/api/chat/fork', _fork);
     router.post('/api/chat/impersonate', _impersonate);
     router.post('/api/chat/swipe', _swipe);
@@ -140,65 +140,18 @@ class WebChatRoutes {
         ),
       });
 
-  shelf.Response _personas(shelf.Request request) =>
-      JsonResponse.ok({'personas': _facade.personas()});
-
-  Future<shelf.Response> _selectPersona(shelf.Request request) async {
-    final body = await _json(request);
-    final id = body['id']?.toString();
-    if (id == null) return JsonResponse.badRequest('id is required');
-    final ok = await _facade.setPersona(id);
-    if (!ok) return JsonResponse.error(404, 'Persona not found');
-    return JsonResponse.ok({'status': 'ok'});
-  }
-
-  /// Speak as a different persona in the CURRENT chat. Separate endpoint from
-  /// /api/personas/select on purpose: that one moves the default for new chats
-  /// and must not touch the chat you are in.
-  Future<shelf.Response> _selectChatPersona(shelf.Request request) async {
-    final body = await _json(request);
-    final id = body['id']?.toString();
-    if (id == null) return JsonResponse.badRequest('id is required');
-    final ok = await _facade.setChatPersona(id);
-    if (!ok) return JsonResponse.error(404, 'Persona not found');
-    return JsonResponse.ok({'status': 'ok'});
-  }
-
-  Future<shelf.Response> _createPersona(shelf.Request request) async {
-    final body = await _json(request);
-    if ((body['name']?.toString().trim() ?? '').isEmpty) {
-      return JsonResponse.badRequest('name is required');
-    }
-    final ok = await _facade.createPersona(body);
-    if (!ok) return JsonResponse.error(503, 'Personas unavailable');
-    return JsonResponse.ok({'personas': _facade.personas()});
-  }
-
-  shelf.Response _personaDetail(shelf.Request request, String id) {
-    final detail = _facade.personaDetail(id);
-    if (detail == null) return JsonResponse.error(404, 'Persona not found');
-    return JsonResponse.ok(detail);
-  }
-
-  Future<shelf.Response> _updatePersona(
-    shelf.Request request,
-    String id,
-  ) async {
-    final ok = await _facade.updatePersona(id, await _json(request));
-    if (!ok) return JsonResponse.error(404, 'Persona not found');
-    return JsonResponse.ok({'personas': _facade.personas()});
-  }
-
-  Future<shelf.Response> _deletePersona(
-    shelf.Request request,
-    String id,
-  ) async {
-    final ok = await _facade.deletePersona(id);
-    if (!ok) {
-      return JsonResponse.error(409, 'Cannot delete (last persona or unknown)');
-    }
-    return JsonResponse.ok({'personas': _facade.personas()});
-  }
+  /// The "type /" cheat-sheet catalog, served so the web sheet renders the
+  /// desktop helper's own list ([kSlashCommands], the single source of truth)
+  /// instead of a hand-copy that drifts from it (drift ledger #14). Aliases
+  /// stay omitted here for the same reason as on desktop: scannability.
+  shelf.Response _slashCommands(shelf.Request request) => JsonResponse.ok([
+    for (final c in kSlashCommands)
+      {
+        'command': c.command,
+        'example': c.example,
+        'description': c.description,
+      },
+  ]);
 
   Future<shelf.Response> _select(shelf.Request request) async {
     final body = await _json(request);
@@ -284,8 +237,15 @@ class WebChatRoutes {
     return JsonResponse.ok({'status': 'ok'});
   }
 
-  shelf.Response _spinChanceTime(shelf.Request request) {
-    if (!_facade.requestChanceTimeSpin()) {
+  Future<shelf.Response> _spinChanceTime(shelf.Request request) async {
+    // PR 5b: in a group the body names the cast member whose card spun
+    // (`memberId`); 1:1 stays bodyless like it always was.
+    final body = await _json(request);
+    final memberId = body['memberId']?.toString();
+    if (!requestManualSpin(
+      chat: _facade.chat,
+      memberId: memberId == null || memberId.isEmpty ? null : memberId,
+    )) {
       return JsonResponse.badRequest(
         'Chaos is off or an event is already pending',
       );
@@ -300,10 +260,19 @@ class WebChatRoutes {
 
   Future<shelf.Response> _regenerate(shelf.Request request) async {
     final body = await _json(request);
+    // Absent is the normal last-reply regen. `mainCharacter` is the desktop's
+    // second ⟳ for a host reply buried under Scene Guest chimes. Anything
+    // else is a 400 rather than a silent fallback: guessing would run the
+    // other action, and these two are not interchangeable.
+    final target = body['target'];
+    if (target != null && target != 'mainCharacter') {
+      return JsonResponse.badRequest('unknown regenerate target');
+    }
     _facade.regenerate(
       critique: body['critique']?.toString(),
       webQuery: body['webQuery']?.toString(),
       wikiQuery: body['wikiQuery']?.toString(),
+      mainCharacter: target == 'mainCharacter',
     );
     return JsonResponse.ok({'status': 'ok'});
   }

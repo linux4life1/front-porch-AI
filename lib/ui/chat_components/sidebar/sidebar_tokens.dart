@@ -78,6 +78,11 @@ class SidebarSubHeader extends StatelessWidget {
   /// the leaf's own controls.
   final Widget? dragHandle;
 
+  /// The leaf is vetoed (its switch is locked): the icon and label read as
+  /// unavailable, as under a Porch Life veto. A disabled switch that is on
+  /// still paints bright, so it cannot carry that signal alone.
+  final bool dimmed;
+
   const SidebarSubHeader({
     super.key,
     required this.icon,
@@ -85,6 +90,7 @@ class SidebarSubHeader extends StatelessWidget {
     required this.accent,
     this.trailing,
     this.dragHandle,
+    this.dimmed = false,
   });
 
   @override
@@ -99,7 +105,11 @@ class SidebarSubHeader extends StatelessWidget {
             child: dragHandle!,
           ),
         const SizedBox(width: 6),
-        Icon(icon, size: 14, color: accent),
+        Icon(
+          icon,
+          size: 14,
+          color: dimmed ? AppColors.textTertiary(context) : accent,
+        ),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -107,7 +117,9 @@ class SidebarSubHeader extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary(context),
+              color: dimmed
+                  ? AppColors.textTertiary(context)
+                  : AppColors.textPrimary(context),
             ),
           ),
         ),

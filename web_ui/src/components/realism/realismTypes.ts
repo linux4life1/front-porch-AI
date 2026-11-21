@@ -232,6 +232,9 @@ export interface RealismValues {
   emotionIntensity: string;
   nsfwCooldownEnabled: boolean;
   passageOfTimeEnabled: boolean;
+  /** The Story begins row: an ISO date and an HH:MM, null for "not set". */
+  storyStartDate?: string | null;
+  storyStartTime?: string | null;
   chaosModeEnabled: boolean;
   /**
    * No longer authored anywhere (Ambitions replaced the field in both editors);
@@ -304,6 +307,13 @@ export interface RealismValues {
    * recovery); each chat keeps its own switch from then on. Missing reads on.
    */
   afterglowEnabled: boolean;
+  /**
+   * How this group member starts in every chat the group CREATES: Away at
+   * the door, before any turn runs (docs/design/group-initial-presence.md).
+   * Authored on the member (or picked per member in the create wizard); the
+   * creation seeder reads it once. Missing reads false — present.
+   */
+  startsAway: boolean;
   // Needs Simulation
   needsSimEnabled: boolean;
   enjoysLowHygiene: boolean;
@@ -383,6 +393,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   // writes false silently vetoes Needs even after the engine is turned on.
   pocketsEnabled: true,
   afterglowEnabled: true,
+  startsAway: false,
   needsSimEnabled: true,
   enjoysLowHygiene: false,
   needsPace: 'normal',

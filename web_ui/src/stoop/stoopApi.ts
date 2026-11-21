@@ -351,12 +351,13 @@ export const stoop = {
       `/api/stoop/cards/${encodeURIComponent(id)}/vote`,
       { value },
     ),
-  /** Download + import into the desktop library (runs server-side). */
-  download: (id: string, type: 'SOLO' | 'GROUP' | 'WORLD') =>
+  /** Download + import into the desktop library (runs server-side). [name]
+   *  is the listing name; a character keeps it as its title. */
+  download: (id: string, type: 'SOLO' | 'GROUP' | 'WORLD', name?: string) =>
     call<{ ok: boolean; name: string; type: string }>(
       'POST',
       `/api/stoop/cards/${encodeURIComponent(id)}/download`,
-      { type },
+      { type, name },
     ),
   report: (id: string, category: string, reason: string) =>
     call<void>('POST', `/api/stoop/cards/${encodeURIComponent(id)}/report`, {

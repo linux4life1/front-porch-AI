@@ -6,9 +6,8 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
-import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';
-import {
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react';
+import { moodAtmosphereOf, type MoodLook, type MoodPaints } from '../theme/moodAtmosphere';import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
   holdTranscriptAfterPrepend,
@@ -21,11 +20,13 @@ import { applyTranscriptSpan, revealOlderSpan, revealAroundSpan, type Transcript
 import { useFindSurface, markRanges } from './chatSearch';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
-import { MessageActions } from './MessageActions';
+import { MessageActions, BubbleActions, ReplyActions } from './MessageActions';
 import { type CastMember } from './CastBar';
 import { type Message } from './chatTypes';
+import { cardLookStyle, loadCardFonts } from './cardLook';
 import { canonicalizeReasoning } from '../utils/reasoningMarkers';
 import { DIRECTOR_CHARACTER_ID } from './DirectorStrip';
+import { IconTrash } from './chatLineIcons';
 
 /// Truthful generation status (desktop status-bar parity): live prompt-reading
 /// counts from the managed local backend + which background pass holds the
@@ -144,7 +145,11 @@ type TranscriptProps = {
   onRegenerate: (
     critique?: string,
     lookup?: { source: 'web' | 'wiki'; query: string },
+    target?: 'mainCharacter',
   ) => void;
+  /** The host reply buried under Scene Guest chimes; its bubble gets the
+   *  second ⟳ (desktop `regenerableHostBelowGuestsIndex`). */
+  regenerableHostBelowGuests?: number | null;
   lookupWeb?: boolean;
   lookupWiki?: boolean;
   onContinue: () => void;
@@ -164,6 +169,11 @@ type TranscriptProps = {
   moodPaints?: MoodPaints | null;
   /** The 1:1 host's live mood, so a bubble whose stamp still matches it paints at full loudness. */
   liveMood?: { emotion: string; intensity: string; held: number } | null;
+  /** The desktop window's row layout: avatar column, name + actions inside
+   *  the bubble's top row, reply controls under the bubble. Every width
+   *  renders it (PR 1a wide, PR 1b phone and tablet); the flat hover row
+   *  below is the legacy path its unit tests still exercise. */
+  isDesktop?: boolean;
 };
 
 // Memoized separately from the live streaming tail: token/processing WS
@@ -182,6 +192,7 @@ const TranscriptRows = memo(function TranscriptRows({
   onBeginEdit,
   onSwipe,
   onRegenerate,
+  regenerableHostBelowGuests = null,
   lookupWeb,
   lookupWiki,
   onContinue,
@@ -197,6 +208,7 @@ const TranscriptRows = memo(function TranscriptRows({
   moodLook,
   moodPaints,
   liveMood,
+  isDesktop,
 }: TranscriptProps) {
   // The latest reply, which wears its mood at the full level.
   const moodTarget = moodLook?.level === 'all' && moodPaints
@@ -220,6 +232,16 @@ const TranscriptRows = memo(function TranscriptRows({
       style: { '--mood-hue': moodPaints.tones[mood.tone], '--mood-a': mood.strength.toFixed(3) } as CSSProperties,
     };
   };
+  // The speaker card's own font and colours (PR 8b), over the mood's.
+  const bubbleStyle = (m: Message, isDirectorNote: boolean): CSSProperties | undefined => {
+    const mood = moodOf(m).style;
+    const look = cardLookStyle(m.look, isDirectorNote ? 'director' : m.isUser ? 'user' : 'ai');
+    return mood || look ? { ...mood, ...look } : undefined;
+  };
+  const cardFonts = messages.flatMap((m) => (m.look?.font ? [m.look.font] : [])).join('\n');
+  useEffect(() => {
+    if (cardFonts) loadCardFonts(cardFonts.split('\n'));
+  }, [cardFonts]);
   const userHasReplied = messages.some((m) => m.isUser);
   const find = useFindSurface();
   // The engine's sender hits index m.sender; only a header showing exactly
@@ -248,6 +270,115 @@ const TranscriptRows = memo(function TranscriptRows({
             </div>
           );
         }
+        const speakerName = speaker?.name ?? m.sender;
+        // Desktop (≥1024) window layout (PR 1a): avatar column with the
+        // number under it, name + tools inside the bubble's top row,
+        // thought and chips inside the bubble, reply controls under the
+        // bubble. Every class the phone path exposes (msg-row, bubble,
+        // msg-speaker, msg-number, thinking, msg-actions) is kept, so the
+        // shared journeys selectors work on both layouts.
+        if (isDesktop) {
+          return (
+            <div key={m.rowKey ?? m.index} data-msg-index={m.index} className="msg-row msg-row-desktop">
+              <div className="msg-avatar-col">
+                <span className="msg-avatar" aria-hidden>
+                  {speakerName.charAt(0).toUpperCase()}
+                </span>
+                <span className={m.isUser ? 'msg-number user' : 'msg-number'}>
+                  #{(m.position ?? m.index) + 1}
+                </span>
+              </div>
+              <div className="msg-main">
+                <div
+                  className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
+                  style={bubbleStyle(m, isDirectorNote)}
+                  data-card-look={m.look && !isDirectorNote ? '' : undefined}
+                >
+                  <div className={`msg-actions bubble-actions${m.isUser ? ' user' : ''}`}>
+                    <span className="msg-speaker">{markSpeaker(m, speakerName)}</span>
+                    {m.isNarration ? (
+                      // A narrator beat offers Delete only, as on the desktop.
+                      <button
+                        className="icon-btn"
+                        title="Delete"
+                        disabled={busy && m.index === lastIndex}
+                        onClick={() => onDelete(m.index)}
+                      >
+                        <IconTrash />
+                      </button>
+                    ) : (
+                      <BubbleActions
+                        m={m}
+                        isLast={m.index === lastIndex}
+                        busy={busy}
+                        canSpeak={canSpeak}
+                        onFork={() => onFork(m.index)}
+                        onEdit={() => onBeginEdit(m)}
+                        onDelete={() => onDelete(m.index)}
+                      />
+                    )}
+                  </div>
+                  {isDirectorNote && (
+                    <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
+                  )}
+                  {m.hasThinking && m.thinkingContent && (
+                    <details className="thinking">
+                      <summary>💭 Thoughts</summary>
+                      <div className="thinking-body">{m.thinkingContent}</div>
+                    </details>
+                  )}
+                  {m.image && (
+                    <img
+                      className="chat-image"
+                      src={`/api/image/saved/${encodeURIComponent(m.image)}`}
+                      alt={m.imagePrompt || 'generated image'}
+                      title={m.imagePrompt}
+                      loading="lazy"
+                      onLoad={onChatImageLoad}
+                    />
+                  )}
+                  {m.text ? (
+                    <MessageContent text={m.text} find={find} msgIndex={m.index} />
+                  ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
+                    <span className="muted small">
+                      💭 Only thoughts this turn — Continue or Regenerate for a
+                      spoken reply.
+                    </span>
+                  ) : null}
+                  {!m.isUser && m.chips && (
+                    <ChipsRow
+                      chips={m.chips}
+                      isLast={m.index === lastIndex}
+                      busy={busy || !!settling}
+                      onReprocess={() => onReprocess(m.index)}
+                      onRevert={() => onRevert(m.index)}
+                    />
+                  )}
+                  <div className={`msg-actions reply-actions${m.isUser ? ' user' : ''}`}>
+                    {!m.isNarration && (
+                      <ReplyActions
+                        m={m}
+                        isLast={m.index === lastIndex}
+                        busy={busy}
+                        greetCount={greetCount}
+                        greetingIndex={greetingIndex}
+                        userHasReplied={userHasReplied}
+                        onSwipe={onSwipe}
+                        onRegenerate={onRegenerate}
+                        regenerableHostBelowGuests={regenerableHostBelowGuests}
+                        lookupWeb={lookupWeb}
+                        lookupWiki={lookupWiki}
+                        onContinue={onContinue}
+                        onVariantPicked={onVariantPicked}
+                        onActionFailed={onActionFailed}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        }
         return (
           <div key={m.rowKey ?? m.index} data-msg-index={m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{markSpeaker(m, speaker.name)}</span>}
@@ -262,7 +393,8 @@ const TranscriptRows = memo(function TranscriptRows({
             )}
             <div
               className={(isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai') + moodOf(m).className}
-              style={moodOf(m).style}
+              style={bubbleStyle(m, isDirectorNote)}
+              data-card-look={m.look && !isDirectorNote ? '' : undefined}
             >
               {isDirectorNote && (
                 <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
@@ -322,6 +454,7 @@ const TranscriptRows = memo(function TranscriptRows({
                 userHasReplied={userHasReplied}
                 onSwipe={onSwipe}
                 onRegenerate={onRegenerate}
+                regenerableHostBelowGuests={regenerableHostBelowGuests}
                 lookupWeb={lookupWeb}
                 lookupWiki={lookupWiki}
                 onContinue={onContinue}

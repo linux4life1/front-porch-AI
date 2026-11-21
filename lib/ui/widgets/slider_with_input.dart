@@ -17,6 +17,7 @@ class SliderWithInput extends StatefulWidget {
     this.unset = false,
     this.onCleared,
     this.trailing,
+    this.child,
   });
 
   final String label;
@@ -39,6 +40,9 @@ class SliderWithInput extends StatefulWidget {
 
   /// Shown after the number box, such as a per-value reset.
   final Widget? trailing;
+
+  /// Optional custom studio slider body wrapped for [SliderWithInput] finders.
+  final Widget? child;
 
   @override
   State<SliderWithInput> createState() => _SliderWithInputState();
@@ -118,6 +122,9 @@ class _SliderWithInputState extends State<SliderWithInput> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.child != null) {
+      return widget.child!;
+    }
     final theme = Theme.of(context);
     final box = SizedBox(
       width: 80,

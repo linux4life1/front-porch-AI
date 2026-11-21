@@ -110,6 +110,14 @@ The June-6 "Stage 4" refactor shipped a *functionally dead* creator to stable
 - ⬜ memory — reads `Provider<EmbeddingSidecar>` (RAG subprocess manager) +
   CharacterRepository + StorageService; needs those doubles (deferred)
 
+## One-UI sidebar parity — `widget/group_sidebar_parity_golden_test.dart` (real ChatService, in-memory DB)
+- ✅ Character State, 1:1 baseline (Realism, Needs, Afterglow on): `_goldens/group_sidebar_parity/character_state_1to1.{light,dark}.png`
+- ✅ Character State, group member, all switches on; must look like the 1:1 one: `character_state_group.{light,dark}.png`
+- ✅ Character State, group member, Realism off for that member only ("off for Ana in this chat"): `character_state_group_realism_off.{light,dark}.png`
+- ✅ Character State, group member, Needs off for that member only: `character_state_group_needs_off.{light,dark}.png`
+- ✅ Group Dynamics for a tapped member with two others: `group_dynamics.{light,dark}.png`
+- Structural twin (no pixels): `test/hygiene/one_ui_parity_test.dart`.
+
 ## Chat overlays — `lib/ui/chat_components/overlays/`
 - ✅ `generation_status_bar.dart` — `widget/chat_overlays_golden_test.dart`: idle (no metrics),
   generating (50%, 32 t/s, token counter), prefilling (4200-token prompt). All `settle: false`
@@ -160,7 +168,7 @@ The June-6 "Stage 4" refactor shipped a *functionally dead* creator to stable
   _buildColorRow() globalXxxColor fallbacks. settle:false (StyledTextControllers).
 - ✅ `image_crop_dialog.dart` — 64×64 grey PNG bytes generated via image package;
   no Provider tree needed.
-- ✅ `group_settings_dialog.dart` — activeGroup==null renders "No active group chat"
+- `group_settings_dialog.dart` — replaced by the Edit group page (PR 5)
   empty state in tab 0; FakeChatService + FakeGroupChatRepository injected as
   constructor params. settle:false (TabController).
 - 🚫 `rocm_guidance_dialog.dart` — inner widget `_RocmGuidanceDialog` is private; public API
@@ -227,5 +235,9 @@ doubles before they can be pumped. Leaf widgets with heavy service deps
 - ⬜ main surfaces + generation options tab (extend existing `test/ui/image_studio/`)
 
 ## Settings + layout
-- ⬜ `lib/ui/settings/*` panels
+- ✅ `lib/ui/settings/tabs/{general_tab,appearance_tab,generation_tab}` — `widget/settings_tabs_golden_test.dart`
+  (wide 1440 + phone 400 surfaces × light + dark; `_SettingsStorage` = the house
+  `FakeStorageService` plus the three members only these tabs read: `appearance`,
+  `genPresets`, `spellCheckLanguage`)
+- ⬜ the remaining `lib/ui/settings/*` tabs (voice-media, backend)
 - ⬜ `lib/ui/layout/main_layout.dart` (shell: sidebar + content)

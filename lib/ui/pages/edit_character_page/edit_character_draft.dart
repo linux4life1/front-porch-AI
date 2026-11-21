@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 /// disposed) by the page State; tabs mutate it and ask the page to rebuild.
 class EditCharacterDraft {
   final TextEditingController nameController;
+  final TextEditingController titleController;
   final StyledTextController descriptionController;
   final StyledTextController personalityController;
   final StyledTextController scenarioController;
@@ -107,6 +108,12 @@ class EditCharacterDraft {
   /// How new chats with this character start Afterglow.
   bool realismAfterglow = true;
 
+  /// How this group member starts in every chat the group creates: Away at
+  /// the door (docs/design/group-initial-presence.md). A 1:1 edit never
+  /// writes it: the row is member-only, but the field rides the shared
+  /// draft's load and save.
+  bool realismStartsAway = false;
+
   /// Structured sex (read/keep — no editor for it on this page; the AI
   /// creators persist it) + the recovery profile the Realism section's
   /// Recovery block authors (recovery overhaul PR 2).
@@ -153,6 +160,7 @@ class EditCharacterDraft {
     required bool Function() porchLifeNeedsDefault,
     WorldRepository? worlds,
   }) : nameController = TextEditingController(text: character.name),
+       titleController = TextEditingController(text: character.title),
        descriptionController = StyledTextController(
          text: character.description,
          preset: StyledTextPreset.macros,
@@ -248,6 +256,7 @@ class EditCharacterDraft {
   String fingerprint() => jsonEncode([
     for (final c in [
       nameController,
+      titleController,
       descriptionController,
       personalityController,
       scenarioController,
@@ -291,6 +300,7 @@ class EditCharacterDraft {
     realismPassageOfTime,
     realismChaosMode,
     realismAfterglow,
+    realismStartsAway,
     sex,
     recovery.toJson(),
     realismNeedsSim,
@@ -329,6 +339,7 @@ class EditCharacterDraft {
     realismPassageOfTime = ext.passageOfTimeEnabled;
     realismChaosMode = ext.chaosModeEnabled;
     realismAfterglow = ext.afterglowEnabled;
+    realismStartsAway = ext.startsAway;
     sex = ext.sex;
     recovery = ext.recovery;
     if (ext.needsSimChoice == null) {
@@ -414,6 +425,7 @@ class EditCharacterDraft {
 
   void dispose() {
     nameController.dispose();
+    titleController.dispose();
     descriptionController.dispose();
     personalityController.dispose();
     scenarioController.dispose();

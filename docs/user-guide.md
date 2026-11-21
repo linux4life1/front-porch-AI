@@ -511,7 +511,6 @@ No base portrait → it stops and says so. No edit model → expression pack fro
 
 ![Image generation](screenshots/local_image_gen.png)
 
-![Image generation settings](screenshots/local_image_gen_settings.png)
 
 ---
 

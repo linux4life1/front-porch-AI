@@ -11,7 +11,10 @@ const List<int> kDirectorTurnBudgetChoices = [0, 3, 6, 10, 20];
 
 /// The Director panel's tools while the user directs: cue who speaks next,
 /// one-tap beats, the pinned scene goal, the private whispers, and how long
-/// an auto-chat run goes before it pauses.
+/// an auto-chat run goes before it pauses. Cueing **holds** the member for
+/// the next turn (the cast chip's Next pill, same slot) — it does not fire
+/// a turn; the note or beat you post next is what they answer. Cueing the
+/// held member again cancels.
 class DirectorTools extends StatefulWidget {
   const DirectorTools({
     super.key,
@@ -27,6 +30,7 @@ class DirectorTools extends StatefulWidget {
     required this.onGoal,
     required this.onClearWhisper,
     required this.onTurnBudget,
+    this.queuedName,
   });
 
   final List<String> memberNames;
@@ -40,6 +44,10 @@ class DirectorTools extends StatefulWidget {
 
   /// A turn is running: cues and beats wait for it.
   final bool busy;
+
+  /// The member currently held for the next turn — their cue chip wears
+  /// the filled state. Null when nobody is held.
+  final String? queuedName;
   final ValueChanged<String> onCue;
   final ValueChanged<String> onBeat;
   final ValueChanged<String> onGoal;
@@ -75,7 +83,12 @@ class _DirectorToolsState extends State<DirectorTools> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 8),
-        Text('Cue who speaks next', style: label),
+        Text(
+          widget.queuedName == null
+              ? 'Cue who speaks next'
+              : 'Cue who speaks next — ${widget.queuedName} is held',
+          style: label,
+        ),
         const SizedBox(height: 4),
         Wrap(
           spacing: 6,
@@ -85,6 +98,15 @@ class _DirectorToolsState extends State<DirectorTools> {
               ActionChip(
                 key: ValueKey('director-cue-$name'),
                 label: Text(name, style: const TextStyle(fontSize: 11)),
+                avatar: widget.queuedName == name
+                    ? Icon(Icons.check, size: 13, color: amber)
+                    : null,
+                backgroundColor: widget.queuedName == name
+                    ? amber.withValues(alpha: 0.22)
+                    : null,
+                side: widget.queuedName == name
+                    ? BorderSide(color: amber)
+                    : null,
                 onPressed: widget.busy ? null : () => widget.onCue(name),
                 visualDensity: VisualDensity.compact,
               ),

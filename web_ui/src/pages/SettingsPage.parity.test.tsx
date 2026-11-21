@@ -3,9 +3,10 @@
 //
 // SETTINGS PARITY — WEB SIDE. docs/design/settings-parity-manifest.json maps
 // every Settings control to its home on each surface. This guard proves the
-// web half: SettingsPage renders the six desktop-tab sections in order, and
-// each control sits in its pinned section (the chat-appearance controls also
-// inside their group). The desktop half is guarded by
+// web half: SettingsPage offers the desktop's tabs in order (minus Advanced,
+// a desktop-only ruling recorded in the manifest) and shows one section at a
+// time, and each control sits in its pinned section (the grouped controls
+// also inside their group). The desktop half is guarded by
 // test/hygiene/settings_parity_manifest_test.dart. Move a card in the page
 // without the manifest, and this fails.
 
@@ -36,11 +37,78 @@ vi.mock('../components/FollowStreamingSettings', async () => {
 });
 vi.mock('../components/ReadingSizeSettings', async () => {
   const { createElement: h } = await import('react');
-  return { ReadingSizeSettings: () => h('div', { 'data-testid': 'reading-size-card' }, 'Reading size') };
+  return { ReadingSizeSettings: () => h('div', { 'data-testid': 'reading-size-card' }, 'Reading Size') };
 });
 vi.mock('../components/ChatColorsSettings', async () => {
   const { createElement: h } = await import('react');
   return { ChatColorsSettings: () => h('div', { 'data-testid': 'chat-colors-card' }, 'Chat colors') };
+});
+vi.mock('../components/ThemeModeSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { ThemeModeSettings: () => h('div', { 'data-testid': 'theme-mode-card' }, 'Dark mode') };
+});
+vi.mock('../components/ThemeGallerySettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ThemeGallerySettings: () =>
+      h('div', { 'data-testid': 'theme-gallery-card' }, 'Porch · Slate · High Contrast'),
+  };
+});
+vi.mock('../components/AccentPickerSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { AccentPickerSettings: () => h('div', { 'data-testid': 'accent-card' }, 'Theme accent') };
+});
+vi.mock('../components/UiFontSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { UiFontSettings: () => h('div', { 'data-testid': 'ui-font-card' }, 'UI font') };
+});
+vi.mock('../components/CornersSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { CornersSettings: () => h('div', { 'data-testid': 'corners-card' }, 'Corners') };
+});
+vi.mock('../components/ThemeResetSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ThemeResetSettings: () =>
+      h('div', { 'data-testid': 'appearance-reset-card' }, 'Reset accent, font and corners'),
+  };
+});
+vi.mock('../components/ChatFontSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { ChatFontSettings: () => h('div', { 'data-testid': 'chat-font-card' }, 'Chat Font') };
+});
+vi.mock('../components/ChatColorsResetSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    ChatColorsResetSettings: () =>
+      h('div', { 'data-testid': 'chat-colors-reset-card' }, "Use the theme's chat colors"),
+  };
+});
+vi.mock('../components/AutoCheckSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    AutoCheckSettings: () => h('div', { 'data-testid': 'auto-check-card' }, 'Auto-check for Updates'),
+  };
+});
+vi.mock('../components/BackgroundWeatherSettings', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    BackgroundWeatherSettings: () =>
+      h('div', { 'data-testid': 'background-weather' },
+        'Ambient scene · Pause effects while generating · Scene sound · Scene sound volume'),
+  };
+});
+vi.mock('../components/MoodOnCharacterSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { MoodOnCharacterSettings: () => h('div', { 'data-testid': 'mood-on-character' }, 'Mood on the character · Drama') };
+});
+vi.mock('../components/SpellCheckSettings', async () => {
+  const { createElement: h } = await import('react');
+  return { SpellCheckSettings: () => h('div', { 'data-testid': 'spell-check-card' }, 'Spell check language') };
+});
+vi.mock('../components/AdultThemesCard', async () => {
+  const { createElement: h } = await import('react');
+  return { AdultThemesCard: () => h('div', { 'data-testid': 'adult-themes-card' }, '18+ themes') };
 });
 vi.mock('../components/PorchLifeSettings', async () => {
   const { createElement: h } = await import('react');
@@ -48,7 +116,7 @@ vi.mock('../components/PorchLifeSettings', async () => {
 });
 vi.mock('../components/GenerationSettingsFields', async () => {
   const { createElement: h } = await import('react');
-  return { GenerationSettingsFields: () => h('div', { 'data-testid': 'generation-fields' }, 'Temperature · Spell check language') };
+  return { GenerationSettingsFields: () => h('div', { 'data-testid': 'generation-fields' }, 'Temperature') };
 });
 vi.mock('../components/ModelTransportCard', async () => {
   const { createElement: h } = await import('react');
@@ -56,7 +124,17 @@ vi.mock('../components/ModelTransportCard', async () => {
 });
 vi.mock('../components/VoiceMediaSettings', async () => {
   const { createElement: h } = await import('react');
-  return { VoiceMediaSettings: () => h('div', { 'data-testid': 'voice-media-card' }, 'Voice & Media') };
+  // The groups the real component renders (VoiceMediaSettings.test.tsx pins
+  // them) with every sub-control showing: the switches on, the photo helper
+  // installed, the ONNX button's label.
+  return {
+    VoiceMediaSettings: () =>
+      h('div', { 'data-testid': 'voice-media-card' },
+        'Text-to-Speech · Enable Voice Input · Auto-send transcription · Offline vision helper · ' +
+        'Expression Images · LLM (Realism Engine) · Download ONNX model for local expression classification · ' +
+        'Sidebar Only · Re-roll if same sprite repeats · Expression Emoji Burst · Burst emoji size · ' +
+        'Neutral Sprite · Image Studio button shown in chat'),
+  };
 });
 vi.mock('../components/IdleUnloadSettings', async () => {
   const { createElement: h } = await import('react');
@@ -118,6 +196,38 @@ async function open() {
 const section = (id: string): HTMLElement | null =>
   container.querySelector(`[data-section="${id}"]`);
 const textOf = (el: Element | null) => el?.textContent ?? '';
+const clickTab = async (id: string) => {
+  const el = container.querySelector<HTMLButtonElement>(`button[role="tab"][data-tab="${id}"]`);
+  expect(el, `tab "${id}"`).not.toBeNull();
+  await act(async () => {
+    el!.click();
+  });
+};
+
+/**
+ * Clicks every tab in manifest order and collects what each section rendered
+ * (and each of its groups) while it was mounted. The page shows one tab at a
+ * time like the desktop, so a section only exists while its tab is active.
+ */
+async function visitTabs() {
+  await open();
+  const sections = new Map<string, string>();
+  const groups = new Map<string, string>();
+  for (const id of manifest.sections) {
+    await clickTab(id);
+    sections.set(id, textOf(section(id)));
+    // Exactly one section mounts: the tab I just opened. (The desktop shows
+    // one tab at a time; a second [data-section] here means a leaked panel.)
+    const mounted = [...container.querySelectorAll('[data-section]')].map((el) =>
+      el.getAttribute('data-section'),
+    );
+    expect(mounted, `sections mounted on tab "${id}"`).toEqual([id]);
+    for (const g of container.querySelectorAll('[data-section] [data-testid$="-group"]')) {
+      groups.set(`${id}/${g.getAttribute('data-testid')}`, textOf(g));
+    }
+  }
+  return { sections, groups };
+}
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -136,50 +246,73 @@ afterEach(() => {
 });
 
 describe('Settings sections mirror the desktop tabs', () => {
-  it('renders the six sections in the manifest order', async () => {
+  it('renders the desktop\u2019s tabs (minus its desktop-only Advanced), one section at a time', async () => {
     await open();
-    const rendered = [...container.querySelectorAll('[data-section]')].map((el) =>
-      el.getAttribute('data-section'),
+    const tabs = [...container.querySelectorAll('button[role="tab"]')].map((el) =>
+      el.getAttribute('data-tab'),
     );
-    expect(rendered).toEqual(manifest.sections);
+    expect(tabs).toEqual(manifest.sections);
+    // The page opens on General; nothing else is mounted until its tab is
+    // clicked — the desktop shows one tab at a time, not a scroll of all.
+    expect(section('general')).not.toBeNull();
+    expect(section('appearance')).toBeNull();
+    expect(textOf(section('general'))).not.toBe('');
   });
 
   it('mounts every control in its pinned section', async () => {
-    await open();
+    const { sections, groups } = await visitTabs();
     for (const [key, control] of Object.entries(manifest.controls)) {
       const host = control.group
-        ? container.querySelector(
-            `[data-section="${control.section}"] [data-testid="${control.group}-group"]`,
-          )
-        : section(control.section);
-      expect(host, `section "${control.section}" for ${key}`).not.toBeNull();
+        ? groups.get(`${control.section}/${control.group}-group`)
+        : sections.get(control.section);
+      expect(host, `section "${control.section}" for ${key}`).toBeDefined();
       expect(
-        textOf(host).includes(control.webMarker),
+        (host ?? '').includes(control.webMarker),
         `${key}: "${control.webMarker}" missing from "${control.group ?? control.section}"`,
       ).toBe(true);
     }
   });
 
-  it('keeps the chat-appearance controls inside their group in General', async () => {
-    await open();
-    const group = container.querySelector(
-      '[data-section="general"] [data-testid="chat-appearance-group"]',
-    );
-    expect(group).not.toBeNull();
-    for (const key of ['userMessagesOnRight', 'followStreamingReplies', 'readingSize', 'chatColors']) {
+  it('keeps the chat-appearance controls inside their group in Appearance', async () => {
+    const { groups } = await visitTabs();
+    const group = groups.get('appearance/chat-appearance-group');
+    expect(group).toBeDefined();
+    for (const key of ['readingSize', 'moodOnCharacter', 'bubbleOpacity', 'chatColors']) {
       expect(
-        textOf(group).includes(manifest.controls[key].webMarker),
+        (group ?? '').includes(manifest.controls[key].webMarker),
         `${key} left the chat-appearance group`,
       ).toBe(true);
     }
   });
 
+  it('keeps the bubble-less chat rows in General, as the desktop does', async () => {
+    const { sections } = await visitTabs();
+    const general = sections.get('general') ?? '';
+    expect(general).toContain(manifest.controls.userMessagesOnRight.webMarker);
+    expect(general).toContain(manifest.controls.followStreamingReplies.webMarker);
+    expect(general).toContain(manifest.controls.spellCheckLanguage.webMarker);
+    // Appearance must not repeat them, and while Appearance is the visible
+    // tab General is unmounted entirely — the desktop shows one tab at a
+    // time, so a control lives on exactly one tab.
+    const appearance = sections.get('appearance') ?? '';
+    expect(appearance).not.toContain(manifest.controls.userMessagesOnRight.webMarker);
+    expect(appearance).toContain(manifest.controls.darkMode.webMarker);
+  });
+
+  it('keeps the 18+ themes switch in the General Porch Life group', async () => {
+    const { groups } = await visitTabs();
+    const group = groups.get('general/porch-life-group');
+    expect(group).toBeDefined();
+    expect(group).toContain('18+ themes');
+    expect(group).toContain('live in the Porch Life tab now');
+  });
+
   it('moves the prompt family out of Generation into General, flat', async () => {
-    await open();
-    const general = textOf(section('general'));
+    const { sections } = await visitTabs();
+    const general = sections.get('general') ?? '';
     expect(general).toContain('Fallback system prompt');
     expect(general).toContain('Additional system instructions');
     expect(general).toContain('Additional post-history instructions');
-    expect(textOf(section('generation'))).not.toContain('Fallback system prompt');
+    expect(sections.get('generation') ?? '').not.toContain('Fallback system prompt');
   });
 });

@@ -125,6 +125,15 @@ void main() {
       expect(spy.phone, everyElement(isTrue));
     });
 
+    // The buried-host dispatch rides the same web caller zone before its
+    // tail can pop — the no-ask must reach the model it asks.
+    test('regenerated as the main character from the phone is', () async {
+      facade.regenerate(mainCharacter: true);
+      await _turn(h, spy);
+      expect(spy.phone, isNotEmpty);
+      expect(spy.phone, everyElement(isTrue));
+    });
+
     test('continued from the phone is', () async {
       facade.continueGeneration();
       await _turn(h, spy);

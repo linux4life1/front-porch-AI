@@ -93,9 +93,9 @@ void main() {
       ),
     );
 
-    final sw = tester.widget<Switch>(find.byType(Switch));
-    expect(sw.value, isTrue);
-    expect(sw.onChanged, isNull);
+    // Off lives in the level row now; a mandatory model cannot pick it.
+    expect(find.byType(Switch), findsNothing);
+    expect(find.text('Off'), findsOneWidget);
     expect(find.textContaining('always thinks'), findsWidgets);
     expect(find.text('Extra high'), findsOneWidget);
     expect(find.text('Low'), findsOneWidget);

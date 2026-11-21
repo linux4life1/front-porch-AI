@@ -1,19 +1,19 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The chat page's top bar: avatar, chat name, model chip and the chat's
-// buttons. Wide screens show every button in a row. A phone keeps one line:
-// model chip, Stats, Conversations and a ⋯ menu holding Edit, Persona and
-// Theme (the library's own popover menu, so it looks and closes the same way).
+// The chat page's top bar, the desktop window's at every width (PR 1a wide,
+// PR 1b phone and tablet): Back, the cast's stacked avatars (or the one
+// chat's portrait), the chat's name with its group line, and one sidebar
+// button at the far right. The model, Persona, Theme, Conversations, Edit
+// and Stats left the header for the composer row and the sidebar. Below
+// 1024 the sidebar button opens the drawer; at 1024 and up it shows or
+// hides the column.
 
-import { useEffect, useRef, useState } from 'react';
 import { SmartImg } from '../../components/ChatAvatar';
 import type { CastMember } from '../../components/CastBar';
-import { CardMenu, type CardMenuItem, type MenuState } from '../../components/library/CardMenu';
-import { ChatModelSwitcher } from './ChatModelSwitcher';
 
-/** Menu width in CardMenu; the menu's right edge lines up with the ⋯ button. */
-const MENU_WIDTH = 210;
+/** Stack at most this many member circles, as the desktop window does. */
+const STACK_MAX = 6;
 
 export function ChatHeader({
   title,
@@ -21,128 +21,101 @@ export function ChatHeader({
   isGroupMode,
   expressionLabel,
   characterId,
-  isPhone,
-  hasStats,
-  onEdit,
-  onStats,
-  onPersona,
-  onTheme,
-  onConversations,
+  cast,
+  groupLine,
+  onBack,
+  onToggleSidebar,
 }: {
   title: string;
   focused: CastMember | undefined;
   isGroupMode: boolean;
   expressionLabel: string | undefined;
   characterId: string | undefined;
-  isPhone: boolean;
-  hasStats: boolean;
-  /** Absent when there is no library character to edit (a group). */
-  onEdit: (() => void) | undefined;
-  onStats: () => void;
-  onPersona: () => void;
-  onTheme: () => void;
-  onConversations: () => void;
+  /** The cast, for the group header's stacked avatars. */
+  cast: CastMember[];
+  /** Second header line for groups, e.g. `4 characters • Round Robin`. */
+  groupLine: string | undefined;
+  onBack: () => void;
+  onToggleSidebar: () => void;
 }) {
-  const [menu, setMenu] = useState<MenuState | null>(null);
-  const moreRef = useRef<HTMLButtonElement>(null);
-
-  // Turning the phone to a wide layout drops the ⋯; its open menu goes too,
-  // or turning back would re-show it at the old spot.
-  useEffect(() => {
-    if (!isPhone) setMenu(null);
-  }, [isPhone]);
-
-  const closeMenu = () => {
-    setMenu(null);
-    moreRef.current?.focus();
-  };
-
-  const openMenu = () => {
-    const r = moreRef.current?.getBoundingClientRect();
-    const items: CardMenuItem[] = [
-      ...(onEdit ? [{ label: 'Edit character', icon: '✎', onClick: onEdit }] : []),
-      { label: 'Persona', icon: '👤', onClick: onPersona },
-      { label: 'Theme', icon: '🎨', onClick: onTheme },
-    ];
-    setMenu({ x: (r?.right ?? window.innerWidth) - MENU_WIDTH, y: (r?.bottom ?? 0) + 4, items });
-  };
-
-  const stats = hasStats && (
-    <button className="link-btn stats-btn" onClick={onStats}>
-      Stats ▾
-    </button>
-  );
-  const conversations = (
-    <button className="link-btn conversations-btn" onClick={onConversations}>
-      Conversations ▾
-    </button>
-  );
+  const avatar =
+    focused && isGroupMode ? (
+      // Groups have no single avatar and member images don't resolve in
+      // the cast — show a group glyph rather than a broken image.
+      <span className="chat-header-avatar group" aria-hidden>
+        👥
+      </span>
+    ) : focused ? (
+      focused.isHost ? (
+        // A mood picture still shows; the flat no-portrait colour does not.
+        // The window's initial circle replaces it when nothing loads.
+        <SmartImg
+          primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
+          fallback={
+            focused.placeholderPortrait
+              ? undefined
+              : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
+          }
+          className="chat-header-avatar"
+          initial={focused.name}
+        />
+      ) : (
+        <SmartImg
+          primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
+          className="chat-header-avatar"
+          initial={focused.name}
+        />
+      )
+    ) : null;
 
   return (
-    <div className="chat-header">
+    <div className="chat-header chat-header-desktop">
+      <button className="chat-back-btn" aria-label="Back" title="Back" onClick={onBack}>
+        ←
+      </button>
       <div className="chat-header-id">
-        {focused &&
-          (isGroupMode ? (
-            // Groups have no single avatar and member images don't resolve in
-            // the cast — show a group glyph rather than a broken image.
-            <span className="chat-header-avatar group" aria-hidden>
-              👥
-            </span>
-          ) : focused.isHost ? (
-            // A mood picture still shows; the flat no-portrait colour does not.
-            <SmartImg
-              primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
-              fallback={
-                focused.placeholderPortrait
-                  ? undefined
-                  : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
-              }
-              className="chat-header-avatar"
-            />
-          ) : (
-            <SmartImg
-              primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
-              className="chat-header-avatar"
-            />
-          ))}
-        <span className="chat-title">{title}</span>
+        {isGroupMode ? (
+          <span className="chat-header-stack" aria-hidden>
+            {cast.slice(0, STACK_MAX).map((m) =>
+              m.hasAvatar && !m.placeholderPortrait && m.avatarUrl ? (
+                <img key={m.id} className="chat-stack-avatar" src={m.avatarUrl} alt="" />
+              ) : (
+                <span key={m.id} className="chat-stack-avatar initials">
+                  {m.name.charAt(0).toUpperCase()}
+                </span>
+              ),
+            )}
+          </span>
+        ) : (
+          avatar
+        )}
+        <span className="chat-header-titles">
+          <span className="chat-title">{title}</span>
+          {isGroupMode && groupLine && <span className="chat-header-sub">{groupLine}</span>}
+        </span>
       </div>
-      {isPhone ? (
-        <div className="chat-header-actions">
-          <ChatModelSwitcher />
-          {stats}
-          {conversations}
-          <button
-            ref={moreRef}
-            className="link-btn chat-header-more"
-            aria-label="More chat options"
-            title="More chat options"
-            aria-haspopup="menu"
-            aria-expanded={menu !== null}
-            onClick={openMenu}
-          >
-            ⋯
-          </button>
-          {menu && <CardMenu menu={menu} onClose={closeMenu} />}
-        </div>
-      ) : (
-        <div className="chat-header-actions">
-          <ChatModelSwitcher />
-          {onEdit && (
-            <button className="link-btn" title="Edit character" onClick={onEdit}>
-              ✎
-            </button>
-          )}
-          {stats}
-          <button className="link-btn" title="Who you are in this chat" onClick={onPersona}>
-            Persona
-          </button>
-          <button className="link-btn" onClick={onTheme}>
-            Theme
-          </button>
-          {conversations}
-        </div>
-      )}
+      <button
+        className="chat-sidebar-toggle"
+        aria-label="Toggle sidebar"
+        title="Toggle sidebar"
+        onClick={onToggleSidebar}
+      >
+        {/* The window's panel icon: a rectangle with the sidebar column. */}
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <path d="M15 4v16" />
+        </svg>
+      </button>
     </div>
   );
 }

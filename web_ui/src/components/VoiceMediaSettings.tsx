@@ -1,77 +1,36 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Voice & Media enable toggles for the web Settings page. Desktop Voice &
-// Media lives on the host; a phone/remote user still needs to turn TTS and
-// STT on (audit P2.12). Engine pick / voice download stay on desktop.
+// Settings → Voice & Media: the desktop tab (lib/ui/settings/tabs/
+// voice_media_tab.dart) group for group, in its order — Text-to-Speech,
+// Voice Input (STT), Photo Understanding (self-hiding), Expression Images,
+// Image Generation. Every value is the host's: a change here changes the
+// desktop, and a change there repaints this page (useVoiceMediaWire). What
+// stays desktop-only (voice calls, microphone, Whisper model, engine and
+// voice setup) is listed in dev-notes/web-parity.md.
 
-import { useEffect, useState } from 'react';
-import { api } from '../api/client';
-
-interface VoiceStatus {
-  ttsEnabled: boolean;
-  sttEnabled?: boolean;
-  sttAvailable: boolean;
-  ttsEngine?: string;
-  globalVoice?: string;
-}
+import { ExpressionImagesCard } from './voiceMedia/ExpressionImagesCard';
+import { ImageGenCard } from './voiceMedia/ImageGenCard';
+import { PhotoUnderstandingCard } from './voiceMedia/PhotoUnderstandingCard';
+import { SttCard } from './voiceMedia/SttCard';
+import { TtsCard } from './voiceMedia/TtsCard';
+import { useVoiceMediaWire } from './voiceMedia/useVoiceMediaWire';
 
 export function VoiceMediaSettings() {
-  const [v, setV] = useState<VoiceStatus | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const load = () =>
-    api.get<VoiceStatus>('/api/voice/status').then(setV).catch(() => {});
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  if (!v) return null;
-
-  const patch = async (p: Partial<VoiceStatus>) => {
-    setSaving(true);
-    try {
-      const next = await api.post<VoiceStatus>('/api/voice/settings', p);
-      setV(next);
-    } catch {
-      /* keep last known */
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  const { status, error, write, act } = useVoiceMediaWire();
+  if (!status) return null;
   return (
-    <section className="card">
-      <h3>Voice &amp; Media</h3>
-      <p className="muted small">
-        Turn spoken replies and the microphone on for this computer. Pick the
-        engine and voice on the desktop app — this page only enables them.
-      </p>
-      <label className="row-label">
-        <span>Enable text-to-speech</span>
-        <input
-          type="checkbox"
-          checked={v.ttsEnabled}
-          disabled={saving}
-          onChange={(e) => void patch({ ttsEnabled: e.target.checked })}
-        />
-      </label>
-      <label className="row-label">
-        <span>Enable speech-to-text</span>
-        <input
-          type="checkbox"
-          checked={!!v.sttEnabled}
-          disabled={saving}
-          onChange={(e) => void patch({ sttEnabled: e.target.checked })}
-        />
-      </label>
-      {!v.sttAvailable && v.sttEnabled && (
-        <p className="muted small">
-          Speech-to-text is on, but the host has not finished loading a
-          recogniser yet. Try the mic again in a moment.
+    <div className="vm-settings" data-testid="voice-media-card">
+      {error && (
+        <p className="error" role="alert">
+          {error}
         </p>
       )}
-    </section>
+      <TtsCard status={status} write={write} />
+      <SttCard status={status} write={write} />
+      <PhotoUnderstandingCard photo={status.photoHelper} act={act} />
+      <ExpressionImagesCard status={status} write={write} act={act} />
+      <ImageGenCard enabled={status.imageGenEnabled} write={write} />
+    </div>
   );
 }

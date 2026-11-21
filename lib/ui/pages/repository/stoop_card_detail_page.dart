@@ -237,6 +237,9 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
       final v2 = V2CardService();
       final card = await v2.readCardFromJsonFile(jsonPath);
       if (card == null) throw Exception('parse failed');
+      // The listing name is the post's title ("Misty Meadows, Misguided
+      // Meteorologist" for Misty); keep it on the card.
+      card.adoptTitle(d.name);
       String? avatarPath;
       final assetId = payload['primaryAssetId'] as String?;
       if (assetId != null) {

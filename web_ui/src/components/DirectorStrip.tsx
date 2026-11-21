@@ -53,6 +53,8 @@ export function DirectorStrip({
   onPauseAutoPlay,
   onDelay,
   memberNames = [],
+  queuedName = null,
+  onCueQueue,
   onGoal,
   onClearWhisper,
   onTurnBudget,
@@ -67,6 +69,11 @@ export function DirectorStrip({
   onPauseAutoPlay?: () => void;
   onDelay: (seconds: number) => void;
   memberNames?: string[];
+  /** The member held for the next turn (cast chip / cue), passed to the
+   *  tools so the cue chip shows the filled state. */
+  queuedName?: string | null;
+  /** Hold (or release) a cue for the next turn — the cast chip's slot. */
+  onCueQueue?: (name: string, queue: boolean) => void;
   onGoal?: (text: string) => void;
   onClearWhisper?: (id: string) => void;
   onTurnBudget?: (turns: number) => void;
@@ -85,9 +92,17 @@ export function DirectorStrip({
   };
   return (
     <div className={`director-strip${directing ? ' directing' : ''}`}>
-      <span className="director-status">
-        🎬 {directing ? 'You’re directing' : 'You’re in the scene'}
-      </span>
+      {/* The desktop card (director_panel.dart): a header with the status
+          pill, one line on what stepping out does, then the button. */}
+      <div className="director-head">
+        <span className="director-title">🎬 Director</span>
+        <span className="director-status">{directing ? 'You’re directing' : 'You’re in the scene'}</span>
+      </div>
+      <p className="director-blurb">
+        {directing
+          ? 'The cast plays on without you. Type a note to steer the scene. Bond and trust toward you hold still.'
+          : 'Step out to watch the cast play the scene and steer it with notes.'}
+      </p>
       {directing && (
         <button
           className="ghost small"
@@ -119,7 +134,7 @@ export function DirectorStrip({
         </button>
       )}
       <button
-        className="ghost small"
+        className="director-step"
         disabled={turnBusy}
         onClick={() => onCommand(directing ? '/director off' : '/director')}
         title={
@@ -157,7 +172,9 @@ export function DirectorStrip({
           turnBudget={director.turnBudget ?? 0}
           turnsLeft={director.turnsLeft ?? null}
           busy={turnBusy}
+          queuedName={queuedName}
           onCommand={onCommand}
+          onCueQueue={onCueQueue}
           onGoal={onGoal}
           onClearWhisper={onClearWhisper}
           onTurnBudget={onTurnBudget}

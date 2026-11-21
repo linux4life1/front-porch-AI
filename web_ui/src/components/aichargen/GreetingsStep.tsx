@@ -9,16 +9,15 @@
 // saved by the relay only when it is done, so Stop leaves the card as it was.
 // When the profile changed after these greetings were written (the relay
 // compares fingerprints) a hint offers to write them all again from it or
-// keep them. The example dialogue and lorebook rewrites sit at the foot, as
-// this is the phone's last step. The outfit hint is desktop-only: the web
-// creator has no Realism step.
+// keep them. The example dialogue and lorebook rewrites sit at the foot (the
+// desktop's Review content; the web has no Review step). The Realism step
+// follows; a first message changed here raises its outfit hint (#370).
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { ChatSocket, type WsEvent } from '../../api/ws';
 import { CreatorHint } from './CreatorHint';
 import { GreetingCard, PlusIcon } from './GreetingCard';
-import { ReviewSection, type ReviewSectionHandle } from './ReviewSection';
 import { keepGreetings, rewriteAllGreetings } from './profileApi';
 import {
   MAX_ALTERNATES,
@@ -51,10 +50,8 @@ export const GreetingsStep = forwardRef<
   {
     characterId: string;
     onWritingChange?: (writing: boolean) => void;
-    /** The lorebook card's "Open the lorebook editor". */
-    onOpenEditor?: () => void;
   }
->(function GreetingsStep({ characterId: id, onWritingChange, onOpenEditor }, ref) {
+>(function GreetingsStep({ characterId: id, onWritingChange }, ref) {
   const [g, setG] = useState<Greetings | null>(null);
   const [loadError, setLoadError] = useState('');
   const [steers, setSteers] = useState<string[]>([]);
@@ -66,7 +63,6 @@ export const GreetingsStep = forwardRef<
   const [changed, setChanged] = useState(false);
   const [rewritingAll, setRewritingAll] = useState(false);
   const [hintError, setHintError] = useState('');
-  const [reviewWriting, setReviewWriting] = useState(false);
 
   // The latest of each, for saves and socket events that outlive a render.
   const gRef = useRef<Greetings | null>(null);
@@ -75,7 +71,6 @@ export const GreetingsStep = forwardRef<
   writingRef.current = writing;
   /** The last index a rewrite-all writes, while it runs. */
   const allRef = useRef<number | null>(null);
-  const review = useRef<ReviewSectionHandle>(null);
   const dirty = useRef({ first: false, alts: false });
   const timer = useRef<number | undefined>(undefined);
 
@@ -128,8 +123,8 @@ export const GreetingsStep = forwardRef<
   // Leaving the step keeps what was typed in the last moment.
   useEffect(() => () => void flush(), [flush]);
   useEffect(() => {
-    onWritingChange?.(writing !== null || rewritingAll || reviewWriting);
-  }, [writing, rewritingAll, reviewWriting, onWritingChange]);
+    onWritingChange?.(writing !== null || rewritingAll);
+  }, [writing, rewritingAll, onWritingChange]);
   // Edits held while an alternate was written go out once it is done.
   useEffect(() => {
     if (!writing && dirty.current.alts) void flush();
@@ -185,11 +180,6 @@ export const GreetingsStep = forwardRef<
         writingStatus(id)
           .then((s) => setChanged(s.profileChanged === true))
           .catch((err) => console.warn('[creator] could not ask whether the profile changed', err));
-        review.current?.onEvent(e);
-        return;
-      }
-      if (e.event.startsWith('chargen_rewrite_')) {
-        review.current?.onEvent(e);
         return;
       }
       if (!e.event.startsWith('chargen_greeting')) return;
@@ -301,7 +291,7 @@ export const GreetingsStep = forwardRef<
   if (loadError) return <p className="error">{loadError}</p>;
   if (!g) return <p className="muted">Loading the greetings…</p>;
 
-  const busy = writing !== null || rewritingAll || reviewWriting;
+  const busy = writing !== null || rewritingAll;
   const addIndex = g.alts.length + 1;
   const adding = writing?.index === addIndex;
   const card = (index: number, value: string | null) => (
@@ -378,13 +368,6 @@ export const GreetingsStep = forwardRef<
         <span className="cg-g-hint">Writes a new one right away</span>
       </div>
       {saveError && <p className="error">{saveError}</p>}
-      <ReviewSection
-        ref={review}
-        characterId={id}
-        locked={writing !== null || rewritingAll}
-        onWritingChange={setReviewWriting}
-        onOpenEditor={onOpenEditor}
-      />
     </div>
   );
 });

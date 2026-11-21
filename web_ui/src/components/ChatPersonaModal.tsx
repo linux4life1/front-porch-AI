@@ -21,6 +21,7 @@ interface Persona {
   name: string;
   active: boolean;
   default: boolean;
+  hasAvatar?: boolean;
 }
 
 export function ChatPersonaModal({
@@ -57,7 +58,12 @@ export function ChatPersonaModal({
 
   return (
     <div className="drawer-backdrop center" onClick={() => !busy && onClose()}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal chat-persona-modal"
+        role="dialog"
+        aria-label="Speak as"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="drawer-head">
           <span>Speak as…</span>
           <button className="link-btn" onClick={onClose} disabled={busy}>Close</button>
@@ -71,7 +77,9 @@ export function ChatPersonaModal({
           {personas.map((p) => (
             <li key={p.id} className={p.active ? 'active' : undefined}>
               <span className="persona-av" aria-hidden>
-                {(p.name || p.label || '?').charAt(0).toUpperCase()}
+                {p.hasAvatar
+                  ? <img src={`/api/personas/${p.id}/avatar`} alt="" />
+                  : (p.name || p.label || '?').charAt(0).toUpperCase()}
               </span>
               <span className="persona-main">
                 <span className="pname">{p.label}</span>

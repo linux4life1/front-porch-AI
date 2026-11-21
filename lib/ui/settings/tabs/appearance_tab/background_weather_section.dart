@@ -48,73 +48,106 @@ class BackgroundWeatherSection extends StatelessWidget {
     if (!storage.realismSettings.weatherEnabled) {
       return const SizedBox.shrink(key: ValueKey('background-weather-off'));
     }
+    final corners = AppCorners.of(context);
     final appearance = storage.appearance;
-    return Column(
+    return Container(
       key: const ValueKey('background-weather'),
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 28),
-        // The header shrinks beside its icon so a narrow tab wraps the
-        // title instead of overflowing.
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Flexible(child: SectionHeader('Background weather')),
-            const SizedBox(width: 6),
-            Tooltip(
-              message: tooltip,
-              child: Icon(
-                Icons.info_outline,
-                size: 16,
-                color: AppColors.textSecondary(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          caption,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 28,
-          runSpacing: 16,
-          children: [
-            AppearanceChoice<AmbientScene>(
-              key: const ValueKey('appearance-ambient-scene'),
-              label: 'Ambient scene',
-              values: AmbientScene.values,
-              selected: appearance.ambientScene,
-              labelOf: (s) => s.label,
-              onChanged: appearance.setAmbientScene,
-            ),
-            // A local model shares the GPU with the stage's moving
-            // weather; on by default, it only matters with effects on.
-            MergeSemantics(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        borderRadius: corners.circular(12),
+        border: Border.all(color: AppColors.borderOf(context), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
                 children: [
-                  const AppearanceCaption('Pause effects while generating'),
-                  const SizedBox(height: 6),
-                  Switch(
-                    key: const ValueKey('appearance-ambient-pause'),
-                    value: appearance.pauseEffectsWhileGenerating,
-                    onChanged: appearance.setPauseEffectsWhileGenerating,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Flexible(
+                          child: SectionHeader('Background weather'),
+                        ),
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: tooltip,
+                          child: Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: AppColors.textSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    'Climate Active',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.formAccentOf(context),
+                    ),
                   ),
                 ],
               ),
             ),
-            // Rain, wind, birds or crickets for the scene, thunder after
-            // a storm's flash; off by default.
-            SceneSoundControls(appearance: appearance),
-          ],
-        ),
-      ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            caption,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary(context),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 28,
+            runSpacing: 16,
+            children: [
+              AppearanceChoice<AmbientScene>(
+                key: const ValueKey('appearance-ambient-scene'),
+                label: 'Ambient scene',
+                values: AmbientScene.values,
+                selected: appearance.ambientScene,
+                labelOf: (s) => s.label,
+                onChanged: appearance.setAmbientScene,
+              ),
+              // A local model shares the GPU with the stage's moving
+              // weather; on by default, it only matters with effects on.
+              MergeSemantics(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const AppearanceCaption('Pause effects while generating'),
+                    const SizedBox(height: 6),
+                    Switch(
+                      key: const ValueKey('appearance-ambient-pause'),
+                      value: appearance.pauseEffectsWhileGenerating,
+                      onChanged: appearance.setPauseEffectsWhileGenerating,
+                    ),
+                  ],
+                ),
+              ),
+              // Rain, wind, birds or crickets for the scene, thunder after
+              // a storm's flash; off by default.
+              SceneSoundControls(appearance: appearance),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

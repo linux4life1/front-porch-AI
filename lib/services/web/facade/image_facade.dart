@@ -139,6 +139,7 @@ class ImageFacade {
         referenceImage: reference,
         intent: edit ? StudioIntent.edit : StudioIntent.create,
         editStrength: (f['editStrength'] as num?)?.toDouble(),
+        isPortrait: f['isPortrait'] == true,
       ),
     );
     if (bytes == null) return null;

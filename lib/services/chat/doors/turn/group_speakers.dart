@@ -65,6 +65,50 @@ class GroupSpeakers {
     }
   }
 
+  /// The cast chip and Director cue "Next": hold [character] to answer
+  /// the next turn. In a group — full member or lite guest, both are
+  /// rotation rows — the hold lives in GroupTurnManager's queue slot:
+  /// a turn stopped or refused before its bubble gives it back; a failed
+  /// stream goes down the standard failure path. A hand pick replaces it.
+  /// Held-Away members are released back on scene (they're about to
+  /// speak); At work speaks anyway, as under a forced @.
+  /// In 1:1 with Scene Guests the hold lives on the guest door and routes
+  /// the next send like an `@name` would; the host is the default, so
+  /// queueing the host releases the hold.
+  void queueSpeaker(CharacterCard character) {
+    if (_activeGroup != null) {
+      _s.cast.away.releaseHeldAway(character);
+      _session.groupManager?.queueSpeaker(character);
+    } else if (character.dbId != null &&
+        character.dbId == _session.activeCharacter?.dbId) {
+      _s.cast.guests.clearNextQueuedGuest();
+    } else {
+      _s.cast.guests.queueNextGuest(character);
+    }
+    notifyListeners();
+  }
+
+  /// The held member — the chip queue first, then any hand pick (@name,
+  /// bubble tap, /speak): all reads of "who is next" see one answer.
+  /// In 1:1: the held Scene Guest, or null (the host answers).
+  CharacterCard? get queuedSpeaker {
+    final manager = _session.groupManager;
+    if (_activeGroup != null && manager != null) {
+      if (!manager.hasQueuedSpeaker && !manager.hasForcedSpeaker) return null;
+      return manager.nextSpeaker;
+    }
+    return _s.cast.guests.nextQueuedGuest;
+  }
+
+  /// Cancel a queued speaker — the second tap on a filled NEXT pill.
+  /// Clears a hand pick too: both answer the same question.
+  void clearQueuedSpeaker() {
+    _session.groupManager?.clearQueuedSpeaker();
+    _session.groupManager?.clearForcedSpeaker();
+    _s.cast.guests.clearNextQueuedGuest();
+    notifyListeners();
+  }
+
   /// Pick which character speaks next based on turn order.
   /// A _forcedNextSpeakerId (set by manual user choice) is consumed first
   /// and works for both TurnOrder.random and roundRobin. After consumption
@@ -77,6 +121,8 @@ class GroupSpeakers {
   }
 
   /// At work (and Away when we know they are not in scene). 1:1 never skips.
+  /// A held member (the user's Away, or a chat that seeded "starts away")
+  /// skips whenever their hold is on — Back is the only way back in.
   bool groupSpeakerSkips(CharacterCard card) {
     if (_activeGroup == null) return false;
     final work = workFieldsFor(card);
@@ -86,6 +132,7 @@ class GroupSpeakers {
       clockMinutes: _timeService.clockMinutes,
       weekday: _timeService.clock.weekday,
       workDays: work.workDays,
+      heldAway: _groupRealism[_getCharacterIdFromCard(card)]?.awayHeld ?? false,
       inScene: memberInScene(card),
     );
     return groupTurnSkips(where);
@@ -95,9 +142,13 @@ class GroupSpeakers {
   /// turn order must not re-roll the same At-work member and miss the
   /// only free one — walk the roster once.
   CharacterCard pickPresentGroupSpeaker() {
-    // Forced / @ of a present member wins over a quiet Away return.
-    // Serving pendingReturnSpeakId first stole @Bea when Ana flipped.
-    final forced = _session.groupManager?.hasForcedSpeaker ?? false;
+    // Forced / @ of a present member wins over a quiet Away return — and
+    // so does a chip queue: the user named them, At work speaks anyway
+    // (same rule as a forced @). Serving pendingReturnSpeakId first stole
+    // @Bea when Ana flipped.
+    final forced =
+        (_session.groupManager?.hasForcedSpeaker ?? false) ||
+        (_session.groupManager?.hasQueuedSpeaker ?? false);
     if (forced) {
       return _pickNextGroupCharacter();
     }
@@ -125,7 +176,11 @@ class GroupSpeakers {
     final manager = _session.groupManager;
     if (manager == null || !manager.isActive) return null;
     final head = manager.nextSpeaker;
-    if (manager.hasForcedSpeaker) return head;
+    // A forced @ and a chip queue both name the speaker exactly: the
+    // present-walk must not skip an At-work member who was explicitly
+    // queued (the pick speaks them anyway — same rule, or the tooltip
+    // and the turn disagree).
+    if (manager.hasForcedSpeaker || manager.hasQueuedSpeaker) return head;
     final returnId = _awayPulse.pendingReturnSpeakId;
     if (returnId != null) {
       for (final card in _groupCharacters) {
@@ -160,6 +215,7 @@ class GroupSpeakers {
       clockMinutes: _timeService.clockMinutes,
       weekday: _timeService.clock.weekday,
       workDays: work.workDays,
+      heldAway: _groupRealism[_getCharacterIdFromCard(card)]?.awayHeld ?? false,
       inScene: memberInScene(card),
     );
     if (where == PresenceWhere.atWork) {

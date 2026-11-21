@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/chat/director/director.dart'
 import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chance_time_wire.dart';
+import 'package:front_porch_ai/services/web/facade/chat/chat_card_look.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
@@ -96,6 +97,8 @@ class ChatStateSnapshot {
         'swipeCount': m.swipes.length,
         'swipeIndex': m.swipeIndex,
         'characterId': m.characterId,
+        // Additive (PR 8b): the speaker card's own font and colours.
+        'look': ?webCardLook(_chat, m),
         if (m.isDirectorNarration) 'isNarration': true,
         if (!m.isUser && md?[kReplyContextKey] is Map) 'hasContext': true,
         if (!m.isUser && md?[kTokenAltsKey] is List) 'hasTokenAlts': true,
@@ -243,6 +246,11 @@ class ChatStateSnapshot {
         'isError': _chat.guestActivityIsError,
         'busy': _chat.isGuestBusy,
       },
+      // Index of the host reply buried under trailing Scene Guest chimes —
+      // the bubble the desktop offers "Regenerate main character" on, and
+      // null whenever that regen does not apply (groups, host-last, a user
+      // or System row in the tail). Additive; older PWAs ignore it.
+      'regenerableHostBelowGuests': _chat.regenerableHostBelowGuestsIndex,
       // Director Mode: the user off stage, auto-chat, and whether a member
       // may leave (not the second-to-last while directing). Additive.
       'director': {
@@ -389,8 +397,16 @@ class ChatStateSnapshot {
                   ? _chat.getEmotionForGroupCharacter(card)
                   : _chat.characterEmotion),
         'isNext': card.dbId != null && card.dbId == nextDbId,
+        // Held for the next turn by the user (chip Next pill / Director
+        // cue) — not the rotation preview. Name-matched, as the hold slot
+        // itself is (ChatService.queueSpeaker). In 1:1 the slot is the
+        // Scene Guest door's hold. Additive.
+        'queued': _chat.queuedSpeaker?.name == p.name,
         // Group members only: withYou / away / atWork (additive).
         'presence': isGroup ? _chat.groupMemberPresence(p.id)?.name : null,
+        // PR 5b: whose face carries the dice — the member's own Chaos Mode
+        // is on. Group-only, additive: 1:1 chaos belongs to the chat.
+        'chaos': isGroup && !p.isLite ? _chat.chaosSwitchFor(p.id) : null,
         'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
         'avatarUrl': avatarUrl,
         // The picture is only the flat no-portrait colour: the header and

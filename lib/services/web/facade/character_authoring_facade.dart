@@ -24,6 +24,10 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/portrait_promotion.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart'
+    show SpritePackResult, SpritePackTooLarge, decodeSpritePack;
+import 'package:front_porch_ai/utils/emotion_labels.dart';
+import 'package:front_porch_ai/utils/portrait_image_cache.dart';
 
 /// Write-side adapter for character authoring beyond create/edit: delete and
 /// avatar (expression image) management. Thin over [CharacterRepository] — the
@@ -53,16 +57,18 @@ class CharacterAuthoringFacade {
     final images = await _repo.getAvatarImages(id);
     final favoriteId = card.frontPorchExtensions?.favoriteAvatarId;
     return images
-        .map((a) => {
-              'id': a.id,
-              // A look's label is the internal '__look__' sentinel — never show
-              // it as a user-facing caption (isLook already marks looks).
-              'label': a.isLook ? '' : (a.label ?? ''),
-              'displayOrder': a.displayOrder,
-              'isPrime': a.displayOrder + 1 == card.primeAvatarIndex,
-              'isLook': a.isLook,
-              'isFavorite': a.id == favoriteId,
-            })
+        .map(
+          (a) => {
+            'id': a.id,
+            // A look's label is the internal '__look__' sentinel — never show
+            // it as a user-facing caption (isLook already marks looks).
+            'label': a.isLook ? '' : (a.label ?? ''),
+            'displayOrder': a.displayOrder,
+            'isPrime': a.displayOrder + 1 == card.primeAvatarIndex,
+            'isLook': a.isLook,
+            'isFavorite': a.id == favoriteId,
+          },
+        )
         .toList();
   }
 
@@ -75,7 +81,8 @@ class CharacterAuthoringFacade {
     // ?label=__look__ would write the file to avatars/ but mark the row a look
     // (AvatarImage.isLook), so it resolves/deletes from the wrong folder: a
     // broken tile + an orphaned PNG. Treat it as unlabeled.
-    final clean = (label == null ||
+    final clean =
+        (label == null ||
             label.trim().isEmpty ||
             label.trim() == AvatarImage.lookLabel)
         ? null
@@ -91,6 +98,70 @@ class CharacterAuthoringFacade {
     if (card == null) return false;
     await _repo.addLook(id, card.name, Uint8List.fromList(bytes));
     return true;
+  }
+
+  /// Set [bytes] as the card's portrait: written over the existing in-app
+  /// portrait file IN PLACE (folders key members by its basename) or a fresh
+  /// file when none exists, then re-embedded via `updateCharacter`. The web
+  /// twin of `AvatarCreationController.applyPortrait`.
+  Future<bool> attachPortrait(String id, List<int> bytes) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return false;
+    final target = portraitWriteTarget(card: card, storage: _storage);
+    await target.writeAsBytes(bytes);
+    await evictPortraitImage(target);
+    await _repo.updateCharacter(card);
+    return true;
+  }
+
+  /// Re-tag one expression image. [label] must be empty (clear) or one of
+  /// [EmotionLabels.all]; the avatar must belong to [id] and not be a look.
+  /// False when the card or avatar is gone (a bad label is the route's 400).
+  Future<bool> setAvatarLabel(String id, String avatarId, String label) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return false;
+    final images = await _repo.getAvatarImages(id);
+    if (!images.any((a) => a.id == avatarId && !a.isLook)) return false;
+    final clean = label.trim();
+    if (clean.isNotEmpty && !EmotionLabels.all.contains(clean)) return false;
+    await _repo.updateAvatarLabel(avatarId, clean);
+    return true;
+  }
+
+  /// Cap on the unpacked size of a ZIP sprite pack from the web. The body is
+  /// already capped at 32 MiB compressed; a zip can expand far past that, and
+  /// this route is internet-exposed (the desktop's picker is local-only).
+  static const int maxExpressionZipUnpackedBytes = 64 * 1024 * 1024;
+
+  /// Import an emotion-named ZIP sprite pack: each image whose base name is an
+  /// emotion label becomes an expression avatar, and a non-empty import flips
+  /// the expression engine on (the desktop's `importExpressionZip`). Returns
+  /// how many landed and how many files were not recognised, null when the
+  /// card is gone, and `tooLarge` when the unpacked pack passes the cap.
+  Future<({int added, int unrecognized, bool tooLarge})?> importExpressionZip(
+    String id,
+    List<int> bytes,
+  ) async {
+    final card = await _repo.getCharacterCardById(id);
+    if (card == null) return null;
+    final SpritePackResult result;
+    try {
+      result = decodeSpritePack(
+        Uint8List.fromList(bytes),
+        maxUnpackedBytes: maxExpressionZipUnpackedBytes,
+      );
+    } on SpritePackTooLarge {
+      return (added: 0, unrecognized: 0, tooLarge: true);
+    }
+    var added = 0;
+    for (final e in result.entries) {
+      await _repo.addAvatar(id, card.name, e.bytes, e.emotion);
+      added++;
+    }
+    if (added > 0 && !_storage.expressionSettings.expressionEnabled) {
+      await _storage.expressionSettings.setExpressionEnabled(true);
+    }
+    return (added: added, unrecognized: result.unrecognized, tooLarge: false);
   }
 
   /// Web mirror of the desktop portrait delete: promotes the ★ (else first)

@@ -55,6 +55,8 @@ class MemoryWindowEmbedder {
     int positionOffset = 0,
     int? maxWindows,
     bool Function()? shouldContinue,
+    List<bool>? lineMask,
+    List<String> skipRangesStoredUnder = const [],
   }) {
     // Serialize discover+insert per session so import backfill and live
     // post-gen cannot double-insert the same range (no unique DB key).
@@ -68,6 +70,8 @@ class MemoryWindowEmbedder {
         positionOffset: positionOffset,
         maxWindows: maxWindows,
         shouldContinue: shouldContinue,
+        lineMask: lineMask,
+        skipRangesStoredUnder: skipRangesStoredUnder,
       ),
     );
   }
@@ -98,6 +102,8 @@ class MemoryWindowEmbedder {
     required int positionOffset,
     int? maxWindows,
     bool Function()? shouldContinue,
+    List<bool>? lineMask,
+    List<String> skipRangesStoredUnder = const [],
   }) async {
     await ensureEmbeddingsReady(_embeddings);
     if (!_isOperational()) {
@@ -127,9 +133,30 @@ class MemoryWindowEmbedder {
         characterId: characterId,
       );
 
+      // Ranges another owner already filed (the old shared group pool) stay
+      // covered there; re-filing them would be a hidden migration.
+      final covered = <(int, int)>{...existingRanges};
+      for (final other in skipRangesStoredUnder) {
+        covered.addAll(
+          await _db().getEmbeddingRangesForSession(
+            sessionId,
+            characterId: other,
+          ),
+        );
+      }
+
       debugPrint(
         '[RAG:Memory] Existing ranges: ${existingRanges.length}, window size: $windowSize',
       );
+
+      bool lineShown(int k) =>
+          lineMask == null || k >= lineMask.length || lineMask[k];
+      bool anyShown(int from, int to) {
+        for (var k = from; k <= to; k++) {
+          if (lineShown(k)) return true;
+        }
+        return false;
+      }
 
       // Discover missing windows. When [maxWindows] is set, stop after finding
       // that many candidates and remember that more may exist past the scan.
@@ -147,11 +174,15 @@ class MemoryWindowEmbedder {
         final persistEnd = end + positionOffset;
         final range = (persistStart, persistEnd);
 
-        if (existingRanges.contains(range)) {
+        if (covered.contains(range)) {
           continue; // Already embedded
         }
+        if (!anyShown(i, end)) continue; // Nobody to file this stretch for
 
-        final windowText = formattedMessages.sublist(i, end + 1).join('\n');
+        final windowText = [
+          for (var k = i; k <= end; k++)
+            if (lineShown(k)) formattedMessages[k],
+        ].join('\n');
         final cleanedText = cleanForEmbedding(windowText);
         if (cleanedText.isEmpty) continue; // Skip if only think blocks
         newWindows.add((
@@ -170,10 +201,11 @@ class MemoryWindowEmbedder {
               0,
               formattedMessages.length - 1,
             );
-            if (!existingRanges.contains((
-              j + positionOffset,
-              jEnd + positionOffset,
-            ))) {
+            if (!covered.contains((
+                  j + positionOffset,
+                  jEnd + positionOffset,
+                )) &&
+                anyShown(j, jEnd)) {
               cappedDiscovery = true;
               break;
             }

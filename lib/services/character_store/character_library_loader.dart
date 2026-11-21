@@ -84,6 +84,13 @@ class CharacterLibraryLoader {
           if (reloaded != null) {
             card.frontPorchExtensions = reloaded.frontPorchExtensions;
             card.rawExtensions = reloaded.rawExtensions;
+            // No DB column holds these either: an edit rewrites the PNG from
+            // this card, so one not restored here is gone after that edit.
+            card
+              ..title = reloaded.title
+              ..creator = reloaded.creator
+              ..creatorNotes = reloaded.creatorNotes
+              ..characterVersion = reloaded.characterVersion;
           } else {
             noCardDataNames.add(card.name);
           }

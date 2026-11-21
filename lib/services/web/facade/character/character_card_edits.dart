@@ -34,6 +34,7 @@ void applyCharacterFields(
   String pick(String key, String current) =>
       fields.containsKey(key) ? (fields[key]?.toString() ?? current) : current;
   card.name = pick('name', card.name);
+  card.title = pick('title', card.title).trim();
   card.description = pick('description', card.description);
   card.personality = pick('personality', card.personality);
   card.scenario = pick('scenario', card.scenario);

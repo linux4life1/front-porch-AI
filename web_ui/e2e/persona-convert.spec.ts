@@ -35,8 +35,8 @@ test('a character becomes a persona, and the persona starts a character both way
     await openRoute(page, '/');
     const card = page.locator('.lib-card', { hasText: charName });
     await card.getByRole('button', { name: 'More actions' }).click();
-    await page.getByRole('menuitem', { name: 'Use as persona' }).click();
-    const convert = page.getByRole('dialog', { name: 'Use as persona' });
+    await page.getByRole('menuitem', { name: 'Use as Persona' }).click();
+    const convert = page.getByRole('dialog', { name: 'Use as Persona' });
     await expect(convert.getByRole('checkbox')).toBeChecked();
     await convert.getByRole('button', { name: 'Create persona' }).click();
     await expect(page.getByTestId('persona-notice')).toContainText(`"${charName}" is now a persona`);
@@ -50,8 +50,11 @@ test('a character becomes a persona, and the persona starts a character both way
     expect(detail.persona).toBe('{{user}} lives next door to {{char}}.\n\nPersonality: Nosy but kind.');
 
     // ── Persona → character, Manual ────────────────────────────────────
-    await openRoute(page, '/settings');
-    await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
+    // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    // "Make a Character" lives in each card's kebab, like the desktop's.
+    await openRoute(page, '/persona');
+    await page.getByRole('button', { name: `More actions for ${charName}` }).click();
+    await page.getByRole('menuitem', { name: `Make a character from ${charName}` }).click();
     const make = page.getByRole('dialog', { name: 'Make a character' });
     await make.getByRole('button', { name: 'Manual' }).click();
     await expect(page).toHaveURL(/\/create\?fromPersona=/);
@@ -81,8 +84,11 @@ test('a character becomes a persona, and the persona starts a character both way
     expect(madeId, 'the character made from the persona is in the library').toBeTruthy();
 
     // ── Persona → character, AI Assist (pre-fill only; nothing generates) ──
-    await openRoute(page, '/settings');
-    await page.getByRole('button', { name: `Make a character from ${charName}` }).click();
+    // User Persona is its own page now, as in the desktop sidebar (PR 5).
+    // "Make a Character" is in the card's kebab, which opens fresh closed.
+    await openRoute(page, '/persona');
+    await page.getByRole('button', { name: `More actions for ${charName}` }).click();
+    await page.getByRole('menuitem', { name: `Make a character from ${charName}` }).click();
     await page.getByRole('dialog', { name: 'Make a character' }).getByRole('button', { name: 'AI Assist' }).click();
     await expect(page).toHaveURL(/\/create-ai\?fromPersona=/);
     await expect(page.getByTestId('persona-seed-note')).toContainText(charName);

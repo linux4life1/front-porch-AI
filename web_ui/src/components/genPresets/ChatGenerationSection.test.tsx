@@ -89,17 +89,19 @@ describe('Generation for this chat', () => {
     const select = container.querySelector<HTMLSelectElement>('select[aria-label="Preset for this chat"]')!;
     expect(select.options[0].textContent).toBe('Follow the model: “Precise”');
     expect(labels()).toEqual([
-      'Temperature', 'Min-P', 'Top-P', 'Top-K', 'Repeat penalty', 'Max output tokens',
+      'Temperature', 'Min-P', 'Top-P', 'Top-K', 'Repeat Penalty', 'Max Output Tokens',
       'Stop sequences (one per line)',
     ]);
-    expect(container.textContent).not.toContain('Dynamic temperature');
+    expect(container.textContent).not.toContain('Dynamic Temperature');
     expect(resetOf('Temperature'), 'nothing of its own to hand back').toBeNull();
   });
 
   it('a value of its own has ↺, which hands it back to the global one', async () => {
     await open(chatOf({ values: { temperature: 1.3 }, overrides: 1 }));
     const value = container.querySelector<HTMLInputElement>('.slider-val')!;
-    expect(value.value).toBe('1.3');
+    // Two decimals, the way the desktop's drawer slider formats it
+    // (chat_settings_generation_section.dart:61,66 — decimalPlaces: 2).
+    expect(value.value).toBe('1.30');
     const reset = resetOf('Temperature')!;
     expect(reset.title).toBe('Use the global value (0.7)');
     put.mockResolvedValue(chatOf());
@@ -155,7 +157,7 @@ describe('Generation for this chat', () => {
 
   it('serves a group chat the same way, and hides with no chat open', async () => {
     await open(chatOf({ isGroup: true, values: { maxLength: 300 }, overrides: 1 }));
-    expect(resetOf('Max output tokens')).not.toBeNull();
+    expect(resetOf('Max Output Tokens')).not.toBeNull();
     act(() => root.unmount());
     root = createRoot(container);
     await open({ open: false });

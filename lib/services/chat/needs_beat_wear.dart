@@ -44,9 +44,16 @@ class BeatWear {
 }
 
 class NeedsBeatWear {
-  const NeedsBeatWear(this._scope);
+  const NeedsBeatWear(this._scope, {this.activeFor});
 
   final RealismScope _scope;
+
+  /// Whether Needs run for member [id] (their Realism and Needs switches
+  /// and the Porch Life one). A body whose Needs are off is not worn: the
+  /// rest of the cast still is. Unwired, every body is.
+  final bool Function(String id)? activeFor;
+
+  bool _runsFor(String id) => activeFor?.call(id) ?? true;
 
   NeedsSimulation get _needsSimulation => _scope.needs();
   String _idFor(CharacterCard c) => _scope.characterIdFor(c);
@@ -139,6 +146,7 @@ class NeedsBeatWear {
               .firstOrNull;
     if (card == null) return BeatWear.none;
     final id = _idFor(card);
+    if (group != null && !_runsFor(id)) return BeatWear.none;
     final on = needsThatAreOn(
       needsTickPerReply.keys.toList(),
       card.frontPorchExtensions?.needsOff ?? const [],
@@ -208,7 +216,7 @@ class NeedsBeatWear {
     for (final card in _scope.session.groupCharacters) {
       final id = _idFor(card);
       final stored = _scope.groups.needsOf(id);
-      if (stored.isEmpty) continue;
+      if (stored.isEmpty || !_runsFor(id)) continue;
       final ext = card.frontPorchExtensions;
       final member = _scope.groups.memberForWrite(id);
       final carried = Map<String, double>.from(member.needsWearCarry);

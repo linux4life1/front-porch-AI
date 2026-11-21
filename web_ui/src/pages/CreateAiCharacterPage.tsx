@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // AI character creator — a stepped wizard (Mode → Details → Output → Generate
-// → Greetings) mirroring the desktop creator's three modes (Quick / Guided /
-// Automated). All three feed the same headless generator via POST
-// /api/chargen/create; the per-mode field assembly lives in chargenForm.ts so a
-// web-created card matches a desktop one. Progress streams over the WebSocket
-// hub; the saved character then opens on the Greetings step (?greetings=<id>,
-// so a reload keeps it), and "Open in editor" goes on to the editor.
+// → Greetings → Realism → Review) mirroring the desktop creator's three modes
+// (Quick / Guided / Automated). All three feed the same headless generator via
+// POST /api/chargen/create; the per-mode field assembly lives in chargenForm.ts
+// so a web-created card matches a desktop one. Progress streams over the
+// WebSocket hub; the saved character then opens on the Greetings step
+// (?greetings=<id>, so a reload keeps it), and Save & Finish on the Review
+// step closes the creator at Home.
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -22,6 +23,8 @@ import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
+import { RealismStep, type RealismStepHandle } from '../components/aichargen/RealismStep';
+import { ReviewStep, type ReviewStepHandle } from '../components/aichargen/ReviewStep';
 import { GeneratingPanel } from '../components/aichargen/GeneratingPanel';
 import { ModeCards } from '../components/aichargen/ModeCards';
 import { ProfileStep, type ProfileStepHandle } from '../components/aichargen/ProfileStep';
@@ -32,7 +35,7 @@ import {
   viewOf,
   type ProfileView,
 } from '../components/aichargen/profileApi';
-import { ArrowLeft, ArrowRight, Sparkle } from '../components/aichargen/creatorIcons';
+import { ArrowLeft, ArrowRight, CheckIcon, Sparkle } from '../components/aichargen/creatorIcons';
 import { TemplatePicker } from '../components/aichargen/TemplatePicker';
 import { TemplateSaveBar } from '../components/aichargen/TemplateSaveBar';
 import { templateToForm } from '../components/aichargen/templateForm';
@@ -43,11 +46,14 @@ import '../styles/studio.css';
 import '../styles/creator.css';
 import '../styles/creator-templates.css';
 import '../styles/profile.css';
+import '../styles/creator-review.css';
 
-const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings'];
+const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings', 'Realism', 'Review'];
 const GENERATE = STEPS.indexOf('Generate');
 const PROFILE = STEPS.indexOf('Profile');
 const GREETINGS = STEPS.indexOf('Greetings');
+const REALISM = STEPS.indexOf('Realism');
+const REVIEW = STEPS.indexOf('Review');
 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
@@ -83,7 +89,9 @@ export function CreateAiCharacterPage() {
   const [step, setStep] = useState(() => (createdId ? GREETINGS : restoring ? PROFILE : 0));
   const [writing, setWriting] = useState(false);
   const greetings = useRef<GreetingsStepHandle>(null);
+  const realism = useRef<RealismStepHandle>(null);
   const profile = useRef<ProfileStepHandle>(null);
+  const review = useRef<ReviewStepHandle>(null);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
@@ -221,7 +229,9 @@ export function CreateAiCharacterPage() {
   const canAdvance =
     (step !== 0 || form.name.trim().length > 0) &&
     (step !== GENERATE || !!createdId || !!pending) &&
-    (step !== PROFILE || !!createdId || !!pending);
+    (step !== PROFILE || !!createdId || !!pending) &&
+    (step !== GREETINGS || !!createdId) &&
+    (step !== REVIEW || !!createdId);
 
   // Next on Profile: a pending run writes the rest (the Generate screen
   // again, then chargen_done lands on Greetings); a saved character saves
@@ -252,11 +262,27 @@ export function CreateAiCharacterPage() {
   };
   const held = busy || writing;
 
-  const openEditor = async () => {
-    // Edits typed in the last moment go first, so the editor opens on them.
+  // Greetings → Realism: what was typed is saved before the step changes.
+  const toRealism = async () => {
     await greetings.current?.flush();
-    navigate(`/edit/${createdId}`);
+    setStep(REALISM);
   };
+  // Save & Finish: everything typed in Review goes first (the text cards,
+  // the greetings' seeds, the lorebook keep list), then Home, as the desktop
+  // closes the creator with its created snackbar.
+  const saveAndFinish = async () => {
+    try {
+      await review.current?.flush();
+    } catch {
+      setError('Your last edit could not be saved. Try again.');
+      return;
+    }
+    setStartedFrom(null);
+    navigate('/');
+  };
+  // The saved character's steps wait for a save or a write; the others for
+  // the create.
+  const savedStep = step === GREETINGS || step === REALISM || step === REVIEW;
 
   return (
     <div className="page wizard studio-scope cg-scope">
@@ -274,7 +300,11 @@ export function CreateAiCharacterPage() {
       </div>
 
       <div className="cg-content">
-        <div className={`cg-column${step === 0 ? ' cg-column-mode' : ''}`}>
+        <div
+          className={`cg-column${step === 0 ? ' cg-column-mode' : ''}${
+            step === REVIEW ? ' cg-column-review' : ''
+          }`}
+        >
           {personaSeed && <PersonaSeedNote seed={personaSeed} />}
           {seedError && <p className="error">{seedError}</p>}
 
@@ -400,12 +430,26 @@ export function CreateAiCharacterPage() {
                 ref={greetings}
                 characterId={createdId}
                 onWritingChange={setWriting}
-                onOpenEditor={() => void openEditor()}
               />
             )}
             {step === GREETINGS && !createdId && (
               <p className="muted">Generate a character first; its greetings open here.</p>
             )}
+
+            {step === REALISM && createdId && (
+              <RealismStep ref={realism} characterId={createdId} onWritingChange={setWriting} />
+            )}
+            {step === REALISM && !createdId && (
+              <p className="muted">Generate a character first; its Porch Life opens here.</p>
+            )}
+
+            {step === REVIEW && createdId && (
+              <ReviewStep ref={review} characterId={createdId} onWritingChange={setWriting} />
+            )}
+            {step === REVIEW && !createdId && (
+              <p className="muted">Generate a character first; its review opens here.</p>
+            )}
+            {step === REVIEW && error && <p className="error">{error}</p>}
           </div>
         </div>
       </div>
@@ -415,24 +459,34 @@ export function CreateAiCharacterPage() {
           <button
             type="button"
             className="cg-back"
-            disabled={step === GREETINGS ? writing : held}
+            disabled={savedStep ? writing : held}
             onClick={() => setStep(step - 1)}
           >
             <ArrowLeft />
             Back
           </button>
         )}
-        {step === GREETINGS ? (
-          <button type="button" className="cg-next" disabled={writing || !createdId} onClick={() => void openEditor()}>
-            Open in editor
-            <ArrowRight />
+        {step === REVIEW ? (
+          <button
+            type="button"
+            className="cg-next cg-save-check"
+            disabled={writing || !createdId}
+            onClick={() => void saveAndFinish()}
+          >
+            <CheckIcon /> Save &amp; Finish
           </button>
         ) : (
           <button
             type="button"
             className="cg-next"
             disabled={!canAdvance || held}
-            onClick={() => (step === PROFILE ? void nextFromProfile() : setStep(step + 1))}
+            onClick={() =>
+              step === PROFILE
+                ? void nextFromProfile()
+                : step === GREETINGS
+                  ? void toRealism()
+                  : setStep(step + 1)
+            }
           >
             Next: {STEPS[step + 1]}
             <ArrowRight />

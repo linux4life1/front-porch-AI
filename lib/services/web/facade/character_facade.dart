@@ -102,52 +102,6 @@ class CharacterFacade {
       }
     }
 
-    if (term != null && term.isNotEmpty) {
-      characters = characters.where((c) {
-        if (c.name.toLowerCase().contains(term)) return true;
-        return decodeJsonList(
-          c.tags,
-        ).any((t) => t.toString().toLowerCase().contains(term));
-      }).toList();
-    }
-
-    // Case-insensitive name comparison, reused as a stable tiebreak so equal
-    // keys (no activity, no messages, no import date) keep a deterministic
-    // order instead of jittering. Kept 1:1 with the desktop sort helper
-    // (lib/utils/character_sort.dart).
-    int byName(Character a, Character b) =>
-        a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    final epochZero = DateTime.fromMillisecondsSinceEpoch(0);
-    switch (sort) {
-      case 'recent':
-        // Most recent turn first — by real per-character activity, not a bare
-        // reversal of insertion order (which ignored activity entirely).
-        characters.sort((a, b) {
-          final at = lastActivity[a.id] ?? epochZero;
-          final bt = lastActivity[b.id] ?? epochZero;
-          final c = bt.compareTo(at);
-          return c != 0 ? c : byName(a, b);
-        });
-        break;
-      case 'messages':
-        characters.sort((a, b) {
-          final c = (msgCounts[b.id] ?? 0).compareTo(msgCounts[a.id] ?? 0);
-          return c != 0 ? c : byName(a, b);
-        });
-        break;
-      case 'importDate':
-        // Newest first by the real DB createdAt (not the fragile filename
-        // epoch, which was 0 for JSON/Chub/renamed cards).
-        characters.sort((a, b) {
-          final c = b.createdAt.compareTo(a.createdAt);
-          return c != 0 ? c : byName(a, b);
-        });
-        break;
-      case 'name':
-      default:
-        characters.sort(byName);
-    }
-
     // One id→card index for the whole page instead of a fresh
     // `_repo.characters` copy + linear scan per row (that made a 300-card
     // library 300 list copies and 90k comparisons per refresh).
@@ -157,6 +111,16 @@ class CharacterFacade {
       if (id != null) byDbId[id] = card;
     }
 
+    if (term != null && term.isNotEmpty) {
+      characters = searchCharacterRows(characters, term, byDbId);
+    }
+    sortCharacterRows(
+      characters,
+      sort,
+      msgCounts: msgCounts,
+      lastActivity: lastActivity,
+    );
+
     final placeholderIds = _placeholderPortraitIds(characters, byDbId);
 
     return characters
@@ -164,6 +128,8 @@ class CharacterFacade {
           (c) => {
             'id': c.id,
             'name': c.name,
+            // The library label under the name (additive; '' = none).
+            'title': byDbId[c.id]?.title ?? '',
             // The grid only needs name/tags/avatar/count — the heavy free-text
             // fields (description/personality/scenario) are served by
             // `/detail` for the editor, not here, so they're intentionally
@@ -287,21 +253,21 @@ class CharacterFacade {
   /// Forget the memoized avatar versions — call whenever the library changes.
   void invalidateAvatarVersions() => _versions.clear();
 
-  /// The character folder tree (id, name, parentId) so the web library can show
-  /// folder navigation. Character membership is queried separately via
-  /// `list(folder: id)`, which already routes through FolderService.
-  List<Map<String, dynamic>> folders() {
+  /// The folder tree (id, name, parentId, the recursive counts Delete
+  /// Folder shows plus the tile's direct-member counts, and up to 4 member
+  /// previews for the web's portrait tile — drift ledger #4). Membership
+  /// is `list(folder: id)`.
+  Future<List<Map<String, dynamic>>> folders() async {
     final svc = _folders;
     if (svc == null) return const [];
-    return svc.folders
-        .map(
-          (f) => {
-            'id': f.id,
-            'name': f.name,
-            if (f.parentId != null) 'parentId': f.parentId,
-          },
-        )
-        .toList();
+    final characters = await _db.getAllCharacters();
+    return folderListPayload(
+      svc,
+      characters,
+      cards,
+      _placeholderPortraitIds,
+      _avatarVersion,
+    );
   }
 
   /// Edit an existing character's fields through the desktop save path (the
@@ -447,8 +413,7 @@ class CharacterFacade {
     }
   }
 
-  /// Full character card detail, matching the legacy `/detail` payload
-  /// (including session-scoped evolution state when a chat is active).
+  /// Full character card detail (the legacy `/detail` payload).
   Future<Map<String, dynamic>?> detail(String id) async {
     try {
       final c = await _db.getCharacterById(id);
@@ -462,6 +427,8 @@ class CharacterFacade {
       return {
         'id': c.id,
         'name': c.name,
+        // PNG-backed like realism: the row has no title column.
+        'title': inMemory?.title ?? '',
         'description': c.description,
         'personality': c.personality,
         'scenario': c.scenario,
@@ -485,9 +452,8 @@ class CharacterFacade {
         'narrativePerspective': voice.perspective,
         'narrativeTense': voice.tense,
         'sex': voice.sex,
-        // (The old evolved*/evolutionCount fields are gone — growth is served
-        // per-participant by /api/chat/tools/growth; the bundled web UI ships
-        // in lockstep with this facade.)
+        'inGroups': await groupNamesOfCharacter(_db, inMemory),
+        // (Growth is served per-participant by /api/chat/tools/growth.)
       };
     } catch (_) {
       return null;

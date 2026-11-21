@@ -57,14 +57,17 @@ test.describe('the composer draft', () => {
     await expect(box(page)).toBeVisible();
     await box(page).fill(draft);
 
-    // Leave (the composer unmounts and must flush) and come back.
-    await openRoute(page, '/library');
+    // Leave (the composer unmounts and must flush) and come back. `/` is the
+    // library route; `/library` is not a route (the app redirects it to `/`),
+    // and on a slow CI runner that redirect can land after the next
+    // `openRoute('/chat')`, leaving the library instead of the chat.
+    await openRoute(page, '/');
     await openRoute(page, '/chat');
     await expect(box(page), 'the half-typed line back in the box').toHaveValue(draft);
 
     // Put the box away empty so a later route visit starts clean.
     await box(page).fill('');
-    await openRoute(page, '/library');
+    await openRoute(page, '/');
   });
 
   test('a sent line is never replayed', async ({ page }) => {
@@ -75,7 +78,7 @@ test.describe('the composer draft', () => {
     await expect(box(page)).toHaveValue('');
     await lineIsFlushed(page, line); // the storage flush, not just the box
 
-    await openRoute(page, '/library');
+    await openRoute(page, '/');
     await openRoute(page, '/chat');
     await expect(box(page), 'the sent line not to haunt the box').toHaveValue('');
   });
@@ -94,7 +97,7 @@ test.describe('the composer draft', () => {
     await waitSendable(page); // keep the host quiet while we navigate
 
     // Abandon it unsent; start ANOTHER new chat with the same character.
-    await openRoute(page, '/library');
+    await openRoute(page, '/');
     await startNewChat(request);
     await openRoute(page, '/chat');
     await expect(
@@ -104,6 +107,6 @@ test.describe('the composer draft', () => {
 
     // The mailbox is one letter: empty the box for whoever is next.
     await box(page).fill('');
-    await openRoute(page, '/library');
+    await openRoute(page, '/');
   });
 });

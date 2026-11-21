@@ -34,20 +34,56 @@ function useFallbackSrc(primary: string, fallback?: string) {
   return { src, gone: failed || !src, ref, onError };
 }
 
-/** A bare <img> for the small chat-header avatar. */
-export function SmartImg({ primary, fallback, className }: { primary: string; fallback?: string; className: string }) {
+/** A bare <img> for the small chat-header avatar. `initial` (additive, wide
+ *  header only) draws an initial circle where every source failed — the window
+ *  shows one for a portrait-less chat; phone/tablet never pass it and hide. */
+export function SmartImg({
+  primary,
+  fallback,
+  className,
+  initial,
+}: {
+  primary: string;
+  fallback?: string;
+  className: string;
+  initial?: string;
+}) {
   const { src, gone, ref, onError } = useFallbackSrc(primary, fallback);
-  if (gone) return null;
+  if (gone) {
+    return initial ? (
+      <span className={`${className} initials`} aria-hidden>
+        {initial.charAt(0).toUpperCase()}
+      </span>
+    ) : null;
+  }
   return <img ref={ref} className={className} src={src} alt="" onError={onError} />;
 }
 
 /** Larger character portrait for the insight panel — prefers the mood-driven
  *  expression avatar (cache-busted by mood) and falls back to the static card
  *  avatar; if every source fails it renders NOTHING. The mood also appears in the
- *  Mood stat row, so hiding here loses no information. */
-export function Portrait({ primary, fallback, mood }: { primary: string; fallback?: string; mood?: string }) {
+ *  Mood stat row, so hiding here loses no information. `initial` (additive,
+ *  wide sidebar only) draws the window's initial square instead of nothing
+ *  where the portrait was; phone/tablet never pass it and hide as before. */
+export function Portrait({
+  primary,
+  fallback,
+  mood,
+  initial,
+}: {
+  primary: string;
+  fallback?: string;
+  mood?: string;
+  initial?: string;
+}) {
   const { src, gone, ref, onError } = useFallbackSrc(primary, fallback);
-  if (gone) return null;
+  if (gone) {
+    return initial ? (
+      <div className="portrait-initial" aria-hidden>
+        {initial.charAt(0).toUpperCase()}
+      </div>
+    ) : null;
+  }
   return (
     <div className="portrait-wrap">
       <img ref={ref} className="portrait" src={src} alt="" onError={onError} />
@@ -68,11 +104,14 @@ export function LookSwiper({
   basePrimary,
   baseFallback,
   mood,
+  initial,
 }: {
   characterId: string;
   basePrimary: string;
   baseFallback?: string;
   mood?: string;
+  /** Passed through to [Portrait]; see its note (wide sidebar only). */
+  initial?: string;
 }) {
   const [looks, setLooks] = useState<{ id: string }[]>([]);
   const [idx, setIdx] = useState(0); // 0 = base; 1..N = looks[idx-1]
@@ -128,6 +167,7 @@ export function LookSwiper({
         primary={primary}
         fallback={onLook ? undefined : baseFallback}
         mood={onLook ? undefined : mood}
+        initial={onLook ? undefined : initial}
       />
       {looks.length > 0 && (
         <>

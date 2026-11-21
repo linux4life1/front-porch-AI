@@ -72,16 +72,38 @@ class SpritePackResult {
   final int unrecognized;
 }
 
+/// Thrown when a pack's declared (or actually read) unpacked size passes the
+/// caller's cap. The web route maps this to 413; the desktop's local import
+/// passes no cap.
+class SpritePackTooLarge implements Exception {
+  const SpritePackTooLarge();
+}
+
 /// Decode a ZIP sprite pack: image files whose base name matches an emotion
 /// label (`joy.png`, `anger-1.png`, `sad_2.png`, …) become [SpritePackEntry]s;
 /// others are counted as [SpritePackResult.unrecognized]. Same matching as the
 /// old expression dialog.
-SpritePackResult decodeSpritePack(Uint8List zipBytes) {
+///
+/// [maxUnpackedBytes] bounds the total unpacked size before any entry is
+/// decompressed (the ZIP central directory carries each entry's size), and
+/// again as entries are read, so an internet-exposed caller cannot be handed a
+/// zip bomb. The archive package decompresses lazily on `entry.content`, so
+/// the pre-scan costs only the directory.
+SpritePackResult decodeSpritePack(Uint8List zipBytes, {int? maxUnpackedBytes}) {
   const imageExts = {'png', 'jpg', 'jpeg', 'webp', 'gif'};
   final entries = <SpritePackEntry>[];
   var unrecognized = 0;
 
   final archive = ZipDecoder().decodeBytes(zipBytes);
+  if (maxUnpackedBytes != null) {
+    var declared = 0;
+    for (final entry in archive) {
+      if (!entry.isFile) continue;
+      declared += entry.size;
+      if (declared > maxUnpackedBytes) throw const SpritePackTooLarge();
+    }
+  }
+  var read = 0;
   for (final entry in archive) {
     if (!entry.isFile) continue;
     // Match on the file's BASENAME so packs with folders ("sprites/joy.png")
@@ -102,6 +124,10 @@ SpritePackResult decodeSpritePack(Uint8List zipBytes) {
       }
     }
     final data = entry.content as Uint8List?;
+    if (maxUnpackedBytes != null && data != null) {
+      read += data.length;
+      if (read > maxUnpackedBytes) throw const SpritePackTooLarge();
+    }
     if (emotion == null || data == null) {
       unrecognized++;
       continue;

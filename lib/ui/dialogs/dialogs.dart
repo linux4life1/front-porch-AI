@@ -17,7 +17,6 @@ export 'database_cleanup_dialog.dart';
 export 'export_persona_dialog.dart';
 export 'kcpps_editor/kcpps_editor.dart';
 export 'group_objectives_dialog.dart';
-export 'group_settings_dialog.dart';
 export 'growth_review_dialog.dart';
 export 'image_crop_dialog.dart';
 export 'image_gen_settings_dialog.dart';
