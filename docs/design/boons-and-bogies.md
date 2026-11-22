@@ -76,6 +76,13 @@ file it was read from, at `ba5b37a2f`.
     born owner-aware. The participation UI ships with the next PR that
     touches the Porch Life or group-sidebar surfaces on both stacks;
     it does not wait for phase 5. (Migrated from issue #765, 2026-11-21.)
+19. **No rerolling around a bogey.** Regen and swipe re-inject the same
+    bogey with the identical nudge text — no "already tried, pick another
+    manifestation" hint. The flaw is a fixed fact of the turn; the user's
+    regen reason is the only slider on how it lands in the scene. A hint
+    would make swiping converge on endearing clumsiness, which is a
+    reroll escaping the mechanic the rate math exists to guarantee.
+    (Maintainer ruling, 2026-11-21.)
 
 ## 1. Pitch
 
@@ -294,7 +301,11 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   not the test.
 - **Injection** is a soft nudge, not an event: *"This reply, let {{char}}'s
   clumsiness show in a small, natural way."* Regen and swipe re-inject the same
-  bogey (the chaos delivered-flag pattern); the slot clears on the next user
+  bogey with the **identical** nudge (the chaos delivered-flag pattern); no
+  "you already tried this, pick another manifestation" hint — the user's own
+  regen reason is the only slider on how it lands, and a hint would let a
+  fourth swipe converge on endearing clumsiness, which is rerolling around the
+  bogey (ruling 19). The slot clears on the next user
   turn. Continue does not roll.
 - **Scene check:** if the emotional judge read `emotion_intensity: strong`, the
   roll is skipped and pressure holds. If the judge did not run (one-shot,
