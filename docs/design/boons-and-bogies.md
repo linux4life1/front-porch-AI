@@ -1,11 +1,13 @@
 # Boons & Bogies — character traits that grow (design)
 
-Status: **design v2, 2026-11-20 — shipped through phase 3 (branch
-`feat/boons-and-bogies-phase3`, 2026-11-21): schema v68–v69, PressureRoll
+Status: **design v2 amended 2026-11-21 — shipped through phase 3 (PR #762,
+Rawhide): schema v68–v69, PressureRoll
 physics, ladders, Master guard, undo, Porch Life switches, the Growth panel
 sections (PR #754), and the card `traitKit` — kit editors on both surfaces,
 seed-on-first-touch with the retroactive offer (ruling 13), Stoop display.**
 Phase 4+ (overcome milestone UX polish, the `linkedTo` link UI) remain.
+Ruling 18 (three-layer participation) and the §3 absence amendment are law
+for phases 4–5.
 v1 (2026-11-19) proposed
 the feature; a maintainer interview on 2026-11-20 replaced its approval model,
 its advancement physics and its rollout. Every "today" claim below names the
@@ -65,6 +67,15 @@ file it was read from, at `ba5b37a2f`.
     pending injection, delivered flag, advance count and the Master-declined
     latch are `growth_rings` columns (v68). Metadata holds only the undo
     snapshot, written by the same applier that writes content.
+18. **Participation has three layers.** Boons & Bogies follow the
+    realism/needs pattern: a global kill switch (Porch Life), a
+    character-editor default that new chats inherit, and a per-member
+    sidebar toggle for mid-chat opt-out. An opted-out member's existing
+    rings freeze — visible, injectable, but no fade, no advance, no
+    rolls, no proposals; off never deletes. Phase 4's roll wiring is
+    born owner-aware. The participation UI ships with the next PR that
+    touches the Porch Life or group-sidebar surfaces on both stacks;
+    it does not wait for phase 5. (Migrated from issue #765, 2026-11-21.)
 
 ## 1. Pitch
 
@@ -149,6 +160,13 @@ coping decrements it by 1 (floor 0). A bogey's `strength` is kept equal to
 code keeps working, but its tier is derived from the count. The growth prompt
 is told never to reinforce a bogey for merely appearing; only the story making
 it worse, and the roll does that.
+
+**Absence is not coping** (amended 2026-11-21, from issue #764): the Growth
+pass records a third per-ring outcome, `not offered`, alongside reinforced
+and coped-against. A ring the scene never had a surface to touch gets
+neither fade nor advance; charging silence as recovery is how a bar-bound
+flaw withers when the story leaves the bar. Roll injection already knows
+what a scene contains — the verdict must record what it implicitly reads.
 
 **Master.** Reaching Master always produces a milestone. On Accept the trait
 becomes permanent. On Reject `master_declined` latches: a boon is never
@@ -374,10 +392,13 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
    (default off), Moments table. Master is held one step below until phase 5.
 3. Card `traitKit` + 6-item cap + seeding + retroactive offer + creator/editor
    on both surfaces + manifest + the Stoop line.
-4. Bogey rolls + injection + regen/swipe behaviour + scene gate + Chance Time
-   precedence.
-5. Milestone card (static burst), budget, Moments list, Master and overcome,
-   queue, group naming.
+4. Bogey rolls + injection + regen/swipe behaviour + scene gate + Chance
+   Time precedence. Rolls respect ruling 18: opted-out members are not
+   rolled, and the pass prompt records `not offered` (§3).
+5. Milestone card (static burst), budget, Moments list, Master and
+   overcome, queue, group naming. Ships the ruling-18 participation UI
+   (character default + sidebar toggle, both stacks) and lifts the BETA
+   markers everywhere — the #763 checklist executes here.
 6. (v2) Deterministic particle sim: Flame + canvas, shared vectors, golden,
    parity entry.
 7. (v2) Boon link and its slowdown; a linked Master makes overcome likely.
