@@ -266,36 +266,72 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
                 .withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        entry.kindLabel,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w800,
-          color: entry.isBogey
-              ? ChatColors.bogeyOf(context)
-              : AppColors.porchHoneyOf(context),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            entry.kindLabel,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: entry.isBogey
+                  ? ChatColors.bogeyOf(context)
+                  : AppColors.porchHoneyOf(context),
+            ),
+          ),
+          // A badge you cannot tell is a dropdown is a badge you poke at
+          // blindly; the web twin is a select with its native arrow, so
+          // this chip grows one too.
+          Icon(
+            Icons.arrow_drop_down,
+            size: 15,
+            color: entry.isBogey
+                ? ChatColors.bogeyOf(context)
+                : AppColors.porchHoneyOf(context),
+          ),
+        ],
       ),
     ),
   );
+
+  // One label per tier for every surface — closed control and menu both
+  // read from this table, so they cannot drift (ruling 2 vocabulary).
+  static const Map<String, String> _tierBuys = {
+    TraitKitEntry.tierEmerging: 'starts faint',
+    TraitKitEntry.tierDeveloping: 'a known habit',
+    TraitKitEntry.tierEstablished: 'core to them',
+  };
+
+  static String tierLabel(String tier) =>
+      '${TraitKitEntry.seedTierNameFor(tier)} — '
+      '${_tierBuys[tier] ?? _tierBuys[TraitKitEntry.tierEmerging]}';
 
   Widget _tierMenu(int i, TraitKitEntry entry) => PopupMenuButton<String>(
     tooltip: 'Starting tier',
     initialValue: entry.tier,
     position: PopupMenuPosition.under,
-    icon: const Icon(Icons.unfold_more, size: 14),
+    padding: const EdgeInsets.symmetric(horizontal: 6),
+    // The closed control spells out the current tier in full — a chevron
+    // alone hid what the trait seeds at, and the web select never did.
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          tierLabel(entry.tier),
+          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+        const Icon(Icons.unfold_more, size: 14),
+      ],
+    ),
     itemBuilder: (context) => [
       // Ladder name (ruling 2) + what the seed buys the trait; the tier
       // wire value rides on `value:`, never on the label.
-      for (final (tier, buys) in const [
-        (TraitKitEntry.tierEmerging, 'starts faint'),
-        (TraitKitEntry.tierDeveloping, 'a known habit'),
-        (TraitKitEntry.tierEstablished, 'core to them'),
+      for (final tier in const [
+        TraitKitEntry.tierEmerging,
+        TraitKitEntry.tierDeveloping,
+        TraitKitEntry.tierEstablished,
       ])
-        PopupMenuItem(
-          value: tier,
-          child: Text('${TraitKitEntry.seedTierNameFor(tier)} — $buys'),
-        ),
+        PopupMenuItem(value: tier, child: Text(tierLabel(tier))),
     ],
     onSelected: (tier) => _update(i, (e) => _with(e, tier: tier)),
   );

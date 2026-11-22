@@ -137,6 +137,32 @@ void main() {
     expect(last!.last.tier, 'established');
   });
 
+  testWidgets('the closed controls show their value, not just arrows', (
+    tester,
+  ) async {
+    // The maintainer read the shipped editor as hiding everything: tier
+    // was a bare chevron, and the kind badge looked like a static label.
+    // Both must state what they are with the menu shut.
+    await pump(
+      tester,
+      values: const [
+        TraitKitEntry(kind: 'bogey', text: 'bad temper', tier: 'established'),
+      ],
+    );
+    expect(
+      find.text('Master-bound — core to them'),
+      findsOneWidget,
+      reason: 'the closed tier control names the current tier in full',
+    );
+    expect(
+      find.text('Bogey'),
+      findsOneWidget,
+      reason: 'the kind chip reads as a dropdown, and says Bogey',
+    );
+    expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
+    expect(find.byIcon(Icons.unfold_more), findsOneWidget);
+  });
+
   testWidgets('the pin button toggles', (tester) async {
     await pump(
       tester,

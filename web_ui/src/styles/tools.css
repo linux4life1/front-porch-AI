@@ -83,8 +83,13 @@
   background: color-mix(in srgb, var(--bogey) 6%, transparent);
   border-color: color-mix(in srgb, var(--bogey) 35%, transparent);
 }
-.trait-kit-row input { flex: 1; min-width: 8ch; }
-.trait-kit-row select { flex: none; max-width: 14ch; }
+/* No max-width on the selects: a 14ch cap silently clipped the ladder
+   names ("Master-bou…"). Unset width sizes a select to its longest
+   option, which is the label the ruling demands we show in full; the
+   row wraps first so the trait input keeps room on phone widths. */
+.trait-kit-row { flex-wrap: wrap; }
+.trait-kit-row input { flex: 1 1 8ch; min-width: 8ch; }
+.trait-kit-row select { flex: none; }
 .trait-kit-pin { background: none; border: none; cursor: pointer; opacity: 0.45; }
 .trait-kit-pin.on { opacity: 1; }
 .growth-tier-head {
