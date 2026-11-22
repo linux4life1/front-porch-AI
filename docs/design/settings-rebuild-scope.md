@@ -7,9 +7,13 @@ are **desktop-only** (§5). **7a merged** (#729, Rawhide `94ab08b97`).
 gallery previews, bundled Inter/Atkinson, corners token-only, auto-check
 keys in, chat font + chat colors folded in, #716–#719 ignored. **7b built**
 on `feat/settings-rebuild-7b` (items 1–10, each reviewer-passed) and
-**merged** (#730, Rawhide `ec33b3b18`). **7c built** and in review (#731;
-Voice & Media, with the shared switch and heading restyle in its own
-commit). **7d in flight** (2026-11-14). This is the
+**merged** (#730, Rawhide `ec33b3b18`). **7c merged** (#731, Rawhide
+`e1f6998ff`; Voice & Media, with the shared switch and heading restyle in
+its own commit). **7d merged** (#734, Rawhide `c2561ff19`; slash catalog
+served from the host, folder portrait tiles with the montage, buried-host
+regen, persona file import/export, models filter). The post-#716–#719
+polish pass (#745, `91e01b409`) and the Porch Life tab redesign (#744,
+`31b68da2d`) landed on top. This is the
 work file for **PR 7 of [one-chat-ux.md](one-chat-ux.md)** (bumped from
 PR 8; closes `dev-notes/drift-ledger-726.md` ledger #5, #13, #14, #4, #15).
 Every file:line here was read this sitting — do not re-sweep, and do not
