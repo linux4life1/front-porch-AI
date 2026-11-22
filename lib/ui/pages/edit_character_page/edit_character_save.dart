@@ -117,6 +117,7 @@ class EditCharacterCardWriter {
     // on a card that HAS extensions still writes, via the clause below it.
     final hasIdentityContent =
         d.ambitions.isNotEmpty ||
+        d.traitKit.any((e) => e.text.trim().isNotEmpty) ||
         d.planLines.isNotEmpty ||
         d.occupation.trim().isNotEmpty ||
         d.occupationBrief.trim().isNotEmpty ||
@@ -172,6 +173,10 @@ class EditCharacterCardWriter {
       pocketsEnabled: d.realismPocketsEnabled,
       enjoysLowHygiene: d.realismEnjoysLowHygiene,
       ambitions: _trimmed(d.ambitions),
+      // Re-parse through the card codec's reader: one blank text dropped,
+      // the 6-entry budget truncated, tier normalized — same rule as an
+      // import from anywhere (trait_kit.dart).
+      traitKit: TraitKitEntry.parse([for (final e in d.traitKit) e.toJson()]),
       planLines: _trimmed(d.planLines),
       occupation: d.occupation.trim(),
       occupationBrief: d.occupationBrief.trim(),

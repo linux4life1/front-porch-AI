@@ -131,6 +131,7 @@ class IdentityChipLists extends StatelessWidget {
     super.key,
     this.ambitions,
     this.onAmbitionsChanged,
+    this.traitKitEditor,
     this.planLines,
     this.onPlanLinesChanged,
     this.occupation,
@@ -164,6 +165,12 @@ class IdentityChipLists extends StatelessWidget {
 
   final List<String>? ambitions;
   final ValueChanged<List<String>>? onAmbitionsChanged;
+
+  /// Prebuilt [TraitKitEditor] — the card kit block sits between Ambitions
+  /// and Plan lines (docs/design/boons-and-bogies.md §4). A slot, not a
+  /// param pair: this widget is one edit from the 500-line bar, and the
+  /// structured editor owns its own state on the caller's side.
+  final Widget? traitKitEditor;
 
   final List<String>? planLines;
   final ValueChanged<List<String>>? onPlanLinesChanged;
@@ -278,6 +285,7 @@ class IdentityChipLists extends StatelessWidget {
     final hasBirthday = birthday != null && onBirthdayChanged != null;
 
     if (!hasAmbitions &&
+        traitKitEditor == null &&
         !hasPlanLines &&
         !hasWork &&
         !hasBirthday &&
@@ -312,6 +320,14 @@ class IdentityChipLists extends StatelessWidget {
                   'list — quests live in the chat sidebar.',
             ),
           ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Boons & Bogies kit (docs/design/boons-and-bogies.md §4) ──
+        if (traitKitEditor != null) ...[
+          _header(Icons.auto_awesome, 'Boons & Bogies', AppColors.taskAccent),
+          const SizedBox(height: 12),
+          _card(context, traitKitEditor!),
           const SizedBox(height: 20),
         ],
 

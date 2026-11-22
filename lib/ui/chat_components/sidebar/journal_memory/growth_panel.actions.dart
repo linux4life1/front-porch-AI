@@ -118,6 +118,30 @@ class GrowthActionsRow extends StatelessWidget {
               ),
             ),
           ),
+          // Kit re-run (ruling 13): the banner already carries the offer
+          // itself; this is the do-over after a decline or a settle.
+          if (chatService.growthKitReplayAvailable &&
+              chatService.growthKitOffer == null)
+            TextButton.icon(
+              style: TextButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              onPressed: chatService.offerGrowthKitAgain,
+              icon: Icon(
+                Icons.style_outlined,
+                size: 13,
+                color: AppColors.iconSecondary(context),
+              ),
+              label: Text(
+                'Seed from card',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+            ),
         ],
       ),
     );

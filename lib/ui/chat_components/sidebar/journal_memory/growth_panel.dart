@@ -156,6 +156,8 @@ class GrowthPanel extends StatelessWidget {
                 chatService.currentSessionId,
               ))
                 _reviewBanner(context),
+              if (chatService.growthKitOffer case final KitOffer kit)
+                GrowthKitOfferBanner(chatService: chatService, offer: kit),
               _cadenceSlider(context, storage, accent),
               if (chatService.hasLegacyGrowthBlobFor(characterId))
                 Padding(

@@ -31,6 +31,7 @@ export 'avatar_image.dart';
 export 'character_card.dart';
 export 'character/pcd_mood.dart';
 export 'character/recovery_profile.dart';
+export 'character/trait_kit.dart';
 export 'greeting_realism_seed.dart';
 export 'chat_generation_settings.dart';
 export 'chat_message.dart';

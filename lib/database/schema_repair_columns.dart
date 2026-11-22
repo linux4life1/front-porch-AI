@@ -88,6 +88,12 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     // carries them too. Defaults match the Table class exactly.
     ...kGrowthBogeyColumnsV68,
   ],
+  'growth_state': [
+    // v69 — kit seeding settles here (docs/design/boons-and-bogies.md §4).
+    // The repair must carry it: Drift's generated SELECT names the column on
+    // every cursor read, so one missed ALTER makes chats fail to open.
+    'kit_seed_state INTEGER NOT NULL DEFAULT 0',
+  ],
   'groups': [
     // v30
     'default_member_realism_state TEXT NOT NULL DEFAULT "{}"',

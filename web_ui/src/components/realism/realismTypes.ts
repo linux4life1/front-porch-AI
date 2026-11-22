@@ -244,6 +244,9 @@ export interface RealismValues {
   currentTask: string;
   /** Long-term goals, one per chip (approved sketch §4). */
   ambitions: string[];
+  /** Boons & Bogies card kit (docs/design/boons-and-bogies.md §4). The
+   *  desktop parse (`TraitKitEntry.parse`) is the law; this mirrors it. */
+  traitKit: TraitKitEntry[];
   /** Short plan-line sentences. Identity like ambitions. */
   planLines: string[];
   /** What they do. Blank is omitted from the card, same as desktop. */
@@ -372,6 +375,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   chaosModeEnabled: false,
   currentTask: '',
   ambitions: [],
+  traitKit: [],
   planLines: [],
   occupation: '',
   occupationBrief: '',
@@ -503,16 +507,84 @@ export function titleCase(value: string): string {
     .join(' ');
 }
 
+// ── Boons & Bogies card kit (docs/design/boons-and-bogies.md §4) ──────────
+
+export const MAX_KIT_ENTRIES = 6;
+export const MAX_KIT_TEXT_CHARS = 160;
+
+export interface TraitKitEntry {
+  kind: 'boon' | 'bogey';
+  text: string;
+  tier: 'emerging' | 'developing' | 'established';
+  pinned: boolean;
+  linkedTo?: string;
+}
+
+/** Mirror of the desktop `TraitKitEntry.parse`: unknown kind dropped, blank
+ *  text dropped, bad tier falls back to emerging, count truncated to 6. */
+export function traitKitFromDetail(raw: unknown): TraitKitEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const kit: TraitKitEntry[] = [];
+  for (const v of raw) {
+    if (kit.length >= MAX_KIT_ENTRIES) break;
+    if (typeof v !== 'object' || v == null) continue;
+    const e = v as Record<string, unknown>;
+    const kind = String(e.kind ?? '').trim().toLowerCase();
+    if (kind !== 'boon' && kind !== 'bogey') continue;
+    // Non-string text DROPS, exactly as the Dart reader does
+    // (`v['text'] is String`): a coercion here would show a web editor an
+    // entry that a card import discards, and saving would materialize it.
+    const rawText = typeof e.text === 'string' ? e.text.trim() : '';
+    if (!rawText) continue;
+    const tier = String(e.tier ?? '').trim().toLowerCase();
+    kit.push({
+      kind,
+      text: rawText.slice(0, MAX_KIT_TEXT_CHARS),
+      // Seed cap (ruling 8, amended 2026-11-21), mirroring the Dart
+      // factory clamp: `established` is a pre-cap card spelling and
+      // steps down to `developing`. A kit seeds at Skilled at most —
+      // Master is where the story asks, never where a card asserts.
+      tier: tier === 'developing' || tier === 'established' ? 'developing' : 'emerging',
+      // Default pin is tier-aware (ruling, 2026-11-21), mirroring the
+      // Dart parse: a Skilled bogey arrives pinned unless the author
+      // unticks it (§4); a Novice bogey arrives unpinned, as authored.
+      // `tier` here is pre-clamp, so `established` (Skilled's pre-cap
+      // spelling) counts as Skilled, exactly as on desktop.
+      pinned:
+        typeof e.pinned === 'boolean'
+          ? e.pinned
+          : kind === 'bogey' && (tier === 'developing' || tier === 'established'),
+      ...(typeof e.linkedTo === 'string' && e.linkedTo.trim()
+        ? { linkedTo: e.linkedTo.trim() }
+        : {}),
+    });
+  }
+  return kit;
+}
+
 /** Coerce the /detail `realism` block (or null) into a full RealismValues,
  *  filling any missing key with its desktop default. */
 export function realismFromDetail(raw: Partial<RealismValues> | null | undefined): RealismValues {
   const merged: RealismValues = { ...REALISM_DEFAULTS, ...(raw ?? {}) };
   const present = raw != null && Object.prototype.hasOwnProperty.call(raw, 'workDays');
   merged.workDays = parseWorkDaysField(raw?.workDays, present);
+  merged.traitKit = traitKitFromDetail(raw?.traitKit);
   merged.sex = normalizeSex(raw?.sex ?? '');
   merged.recovery = recoveryFromDetail(raw?.recovery);
   return merged;
 }
+
+// ── Kit seed-tier display names (mirror trait_kit.dart `seedTierName`) ──────
+/** Ruling 2 vocabulary under the seed cap (ruling 8, amended 2026-11-21):
+ *  a kit starts at Novice or Skilled and nothing else — Master is never
+ *  seeded, it is earned at a milestone. `established` is the pre-cap wire
+ *  spelling that the reader clamps to `developing`; it reads as Skilled.
+ *  Post-`traitKitFromDetail` the tier is always a canonical key. */
+export const SEED_TIER_NAMES: Record<string, string> = {
+  emerging: 'Novice',
+  developing: 'Skilled',
+  established: 'Skilled',
+};
 
 // ── Relationship tier names (mirror realism_form_section.dart) ──────────────
 export function shortTermTier(score: number): string {

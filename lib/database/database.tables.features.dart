@@ -284,6 +284,12 @@ class GrowthState extends Table {
   TextColumn get sessionId => text()();
   IntColumn get cursor => integer().withDefault(const Constant(0))();
 
+  /// v69 — Boons & Bogies kit seeding (docs/design/boons-and-bogies.md §4):
+  /// 0 = the chat has never been touched while the feature was on; 1 =
+  /// settled — seeded silently, offered and accepted, or declined. Decline
+  /// writes no ring, so this row is the only trace it exists.
+  IntColumn get kitSeedState => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {sessionId};
 }

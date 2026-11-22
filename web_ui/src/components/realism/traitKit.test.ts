@@ -1,0 +1,126 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// The web half of the kit contract (docs/design/boons-and-bogies.md §4).
+//
+// CharacterEditPage sends `...rv` wholesale, so `realismFromDetail` is the
+// gate: a kit part it does not carry is a kit part every web save drops —
+// the inventory lesson (realismTypes.test.ts) applied to the new field.
+// These mirror the Dart reader's rules so the two ends of one bridge can
+// not drift into disagreeing about what a card means.
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  MAX_KIT_ENTRIES,
+  MAX_KIT_TEXT_CHARS,
+  realismFromDetail,
+  traitKitFromDetail,
+  SEED_TIER_NAMES,
+} from './realismTypes';
+
+describe('traitKitFromDetail — one reader, two ends', () => {
+  it('keeps a good kit and caps an over-strong tier', () => {
+    const kit = traitKitFromDetail([
+      { kind: 'boon', text: 'reads a room in one breath', tier: 'established' },
+      { kind: 'bogey', text: 'bad temper', tier: 'developing', pinned: false },
+    ]);
+    expect(kit).toHaveLength(2);
+    // Seed cap (ruling 8, amended 2026-11-21), mirroring the Dart factory:
+    // a pre-cap `established` card entry reads back as `developing`.
+    expect(kit[0].tier).toBe('developing');
+    expect(kit[0].pinned).toBe(false); // boons default unpinned
+    expect(kit[1].pinned).toBe(false); // explicit false beats the bogey default
+  });
+
+  it('defaults a Skilled bogey pinned, a Novice one not, boons never (§4)', () => {
+    const kit = traitKitFromDetail([
+      { kind: 'bogey', text: 'bad temper' },
+      { kind: 'bogey', text: 'short fuse', tier: 'developing' },
+      { kind: 'bogey', text: 'old grudge', tier: 'established' },
+      { kind: 'boon', text: 'steady hands', tier: 'developing' },
+    ]);
+    // Tier-aware default (ruling 2026-11-21), mirroring the Dart parse:
+    // Novice fragile, Skilled pinned, pre-cap established counts Skilled.
+    expect(kit.map((e) => e.pinned)).toEqual([false, true, true, false]);
+    expect(kit[2].tier).toBe('developing');
+  });
+
+  it('drops unknown kinds and blank text, falls back bad tiers', () => {
+    const kit = traitKitFromDetail([
+      { kind: 'power', text: 'flight' },
+      { kind: 'boon', text: '   ' },
+      { kind: 'boon', text: 42 },
+      { kind: 'boon', text: 'steady hands', tier: 'royal' },
+      'junk',
+      null,
+    ]);
+    expect(kit).toHaveLength(1);
+    expect(kit[0].tier).toBe('emerging');
+  });
+
+  it('truncates long text and caps the count, never throws', () => {
+    const kit = traitKitFromDetail([
+      { kind: 'boon', text: 'x'.repeat(200) },
+      ...Array.from({ length: 9 }, (_, i) => ({ kind: 'boon', text: `t ${i}` })),
+    ]);
+    expect(kit).toHaveLength(MAX_KIT_ENTRIES);
+    expect(kit[0].text).toHaveLength(MAX_KIT_TEXT_CHARS);
+  });
+
+  it('yields empty for junk shapes', () => {
+    for (const junk of [undefined, null, 'kit', 7, {}, [42]]) {
+      expect(traitKitFromDetail(junk)).toEqual([]);
+    }
+  });
+
+  it('carries linkedTo only when it says something', () => {
+    const kit = traitKitFromDetail([
+      { kind: 'bogey', text: 'a', linkedTo: 'reads a room' },
+      { kind: 'bogey', text: 'b', linkedTo: '  ' },
+    ]);
+    expect(kit[0].linkedTo).toBe('reads a room');
+    expect(kit[1].linkedTo).toBeUndefined();
+  });
+});
+
+describe('realismFromDetail carries the kit like the Dart bridge does', () => {
+  it('parses a realism block that has one', () => {
+    const rv = realismFromDetail({
+      traitKit: [{ kind: 'bogey', text: 'bad temper', tier: 'established' }],
+    });
+    expect(rv.traitKit).toHaveLength(1);
+    expect(rv.traitKit[0].pinned).toBe(true);
+  });
+
+  it('defaults to an empty kit — a web save never invents entries', () => {
+    expect(realismFromDetail({}).traitKit).toEqual([]);
+    expect(realismFromDetail(null).traitKit).toEqual([]);
+  });
+
+  it('truncates past the budget instead of trusting the payload', () => {
+    const rv = realismFromDetail({
+      traitKit: Array.from({ length: 9 }, (_, i) => ({
+        kind: 'boon',
+        text: `t ${i}`,
+      })),
+    });
+    expect(rv.traitKit).toHaveLength(MAX_KIT_ENTRIES);
+  });
+});
+
+describe('SEED_TIER_NAMES — ruling 2 vocabulary, never the wire value', () => {
+  it('names seeds Novice / Skilled, and never Master', () => {
+    expect(SEED_TIER_NAMES.emerging).toBe('Novice');
+    expect(SEED_TIER_NAMES.developing).toBe('Skilled');
+    // Seed cap (ruling 8, amended 2026-11-21): `established` is a pre-cap
+    // wire spelling; no surface may offer or print "Master" for a seed.
+    expect(SEED_TIER_NAMES.established).toBe('Skilled');
+  });
+
+  it('echoes no wire tier value', () => {
+    for (const wire of ['emerging', 'developing', 'established']) {
+      expect(SEED_TIER_NAMES[wire].toLowerCase()).not.toBe(wire);
+    }
+  });
+});

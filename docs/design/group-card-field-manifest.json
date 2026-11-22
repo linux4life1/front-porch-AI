@@ -10,7 +10,8 @@
   ],
   "opaqueTypes": {
     "Lorebook": "a lorebook is edited as one book in the Lorebook tab and read as one book for the speaker; its entries are not card fields",
-    "AvatarImage": "gallery rows of the library card (looks and expressions); a member inherits the origin card's"
+    "AvatarImage": "gallery rows of the library card (looks and expressions); a member inherits the origin card's",
+    "TraitKitEntry": "a Boons & Bogies kit entry is edited as one row — kind, wording, starting tier and pin together (trait_kit_editor.dart, TraitKitEditor.tsx) — and seeding consumes it as one row; its parts are never edited or read apart"
   },
   "memberHidden": {},
   "spine": [
@@ -827,6 +828,42 @@
           "marker": "card.frontPorchExtensions?.ambitions"
         }
       ]
+    },
+    "ext.traitKit": {
+      "editor": [
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_details_tab.dart",
+          "in": "EditCharacterDetailsTab.build",
+          "marker": "d.traitKit = v"
+        },
+        {
+          "path": "lib/ui/pages/edit_character_page/edit_character_save.dart",
+          "in": "EditCharacterCardWriter._writeExtensions",
+          "marker": "traitKit: TraitKitEntry.parse"
+        },
+        {
+          "path": "web_ui/src/components/realism/RealismFormSection.tsx",
+          "marker": "set({ traitKit:"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchFromFields",
+          "marker": "asTraitKit('traitKit', b.traitKit"
+        },
+        {
+          "path": "lib/services/web/util/realism_extensions_json.dart",
+          "in": "frontPorchToJson",
+          "marker": "'traitKit': [for (final k in e.traitKit) k.toJson()]"
+        }
+      ],
+      "reader": [
+        {
+          "path": "lib/services/chat/growth_desk.dart",
+          "in": "GrowthDesk._seedCastKits",
+          "marker": "card.frontPorchExtensions?.traitKit"
+        }
+      ],
+      "note": "the kit is identity: it rides the member's card copy like ambitions, and seeding copies it into per-chat growth rings."
     },
     "ext.avatarLocked": {
       "editor": [

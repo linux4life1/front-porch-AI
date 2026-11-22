@@ -54,6 +54,15 @@ class ChatToolsMemory {
       'reviewPending': _chat.growthReview.hasPendingFor(_chat.currentSessionId)
           ? _chat.growthReview.pending!.totalProposals
           : 0,
+      // Kit offer is a CHAT fact (it names the whole cast); every member's
+      // payload carries it so the panel sees it however it is focused.
+      'kitOffer': _chat.growthKitOffer == null
+          ? null
+          : {
+              'names': _chat.growthKitOffer!.names,
+              'entryCount': _chat.growthKitOffer!.entryCount,
+            },
+      'kitReplay': _chat.growthKitReplayAvailable,
       'rings': [
         for (final r in rings)
           {
@@ -136,6 +145,15 @@ class ChatToolsMemory {
         break;
       case 'check':
         await _chat.forceGrowthPass();
+        break;
+      case 'acceptKit':
+        await _chat.acceptGrowthKit();
+        break;
+      case 'declineKit':
+        await _chat.declineGrowthKit();
+        break;
+      case 'kitAgain':
+        await _chat.offerGrowthKitAgain();
         break;
     }
     _notify();

@@ -130,6 +130,7 @@ class CreatorReviewSummary extends StatelessWidget {
           if (d.realismWorn.isNotEmpty ||
               d.realismCarrying.isNotEmpty ||
               d.realismAmbitions.isNotEmpty ||
+              d.realismTraitKit.isNotEmpty ||
               d.realismLikes.isNotEmpty ||
               d.realismDislikes.isNotEmpty ||
               d.realismChaosMode ||
@@ -184,6 +185,11 @@ class CreatorReviewSummary extends StatelessWidget {
                   if (d.realismAmbitions.isNotEmpty)
                     Text(
                       'Ambitions: ${d.realismAmbitions.join(', ')}',
+                      style: tertiary11,
+                    ),
+                  if (d.realismTraitKit.isNotEmpty)
+                    Text(
+                      'Boons & Bogies: ${d.realismTraitKit.map((e) => '${e.kindLabel} ${e.text} (${e.seedTierName})').join('; ')}',
                       style: tertiary11,
                     ),
                   if (d.realismLikes.isNotEmpty)

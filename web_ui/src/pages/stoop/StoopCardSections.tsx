@@ -9,6 +9,8 @@ import { useState } from 'react';
 import {
   type InventoryRecord,
   inventoryToChips,
+  traitKitFromDetail,
+  SEED_TIER_NAMES,
 } from '../../components/realism/realismTypes';
 import {
   stoopCardKind,
@@ -72,6 +74,7 @@ function PhraseList({ title, items, mark }: { title: string; items: string[]; ma
 
 function IdentityExtras({ card }: { card: CardMap }) {
   const ambitions = phrases(card, 'ambitions');
+  const kit = traitKitFromDetail(realismBlock(card)?.traitKit);
   const likes = phrases(card, 'likes');
   const dislikes = phrases(card, 'dislikes');
   const inventoryRaw = realismBlock(card)?.inventory;
@@ -82,6 +85,19 @@ function IdentityExtras({ card }: { card: CardMap }) {
   return (
     <>
       <PhraseList title="Ambitions" items={ambitions} mark="🧭" />
+      {kit.length > 0 && (
+        <section className="card stoop-section">
+          <h4>Boons &amp; Bogies ({kit.length})</h4>
+          <ul className="stoop-ambitions">
+            {kit.map((e, i) => (
+              <li key={i}>
+                {e.kind === 'bogey' ? '🎲' : '🍀'} {e.text} — {SEED_TIER_NAMES[e.tier] ?? 'Novice'}
+                {e.pinned ? ' · pinned' : ''}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       {(likes.length > 0 || dislikes.length > 0) && (
         <section className="card stoop-section">
           <h4>Likes &amp; Dislikes ({likes.length + dislikes.length})</h4>

@@ -150,8 +150,9 @@ void main() {
     // 2026-11-11: v66 adds the group editor's columns on groups; v67 moves each
     // group's stored member start onto the member copies. 2026-11-20: v68 adds
     // the Boons & Bogies roll/advance columns on growth_rings and the
-    // growth_moments queue. The ladder ends at 68.
-    expect(first['_meta']!['user_version'], 68);
+    // growth_moments queue. 2026-11-21: v69 adds growth_state.kit_seed_state
+    // (the retroactive card-kit offer, ruling 13). The ladder ends at 69.
+    expect(first['_meta']!['user_version'], 69);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -176,7 +177,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 68);
+    expect(second['_meta']!['user_version'], 69);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

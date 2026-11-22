@@ -30,6 +30,7 @@
 
 export 'character_stats_section.dart';
 export 'chip_list_editor.dart';
+export 'trait_kit_editor.dart';
 export 'gpu_layers_field.dart';
 export 'identity_chip_lists.dart';
 export 'kv_quant_picker.dart';

@@ -214,6 +214,7 @@ extension CreatorEngine on CreatorState {
         pocketsEnabled: realismPocketsEnabled,
         enjoysLowHygiene: realismEnjoysLowHygiene,
         ambitions: realismAmbitions,
+        traitKit: realismTraitKit,
         planLines: realismPlanLines,
         currentTask: realismCurrentTask,
         occupation: realismOccupation,

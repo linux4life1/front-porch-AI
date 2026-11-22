@@ -67,6 +67,9 @@ class RealismFormSection extends StatelessWidget {
   final List<String>? ambitions;
   final ValueChanged<List<String>>? onAmbitionsChanged;
 
+  /// Boons & Bogies kit block slot, forwarded to IdentityChipLists (§4).
+  final Widget? traitKitEditor;
+
   /// Plan-line sentences. Same optional-pair convention as [ambitions].
   final List<String>? planLines;
   final ValueChanged<List<String>>? onPlanLinesChanged;
@@ -203,6 +206,7 @@ class RealismFormSection extends StatelessWidget {
     required this.onChaosModeChanged,
     this.ambitions,
     this.onAmbitionsChanged,
+    this.traitKitEditor,
     this.planLines,
     this.onPlanLinesChanged,
     this.occupation,
@@ -457,6 +461,7 @@ class RealismFormSection extends StatelessWidget {
         IdentityChipLists(
           ambitions: ambitions,
           onAmbitionsChanged: onAmbitionsChanged,
+          traitKitEditor: traitKitEditor,
           planLines: planLines,
           onPlanLinesChanged: onPlanLinesChanged,
           occupation: occupation,

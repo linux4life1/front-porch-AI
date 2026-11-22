@@ -65,6 +65,10 @@ class EditCharacterDraft {
   /// with the card; per-chat progress lives in the Journal.
   // Ambitions are a LIST, not newline-encoded text (see ChipListEditor).
   List<String> ambitions = const [];
+
+  /// Boons & Bogies kit (docs/design/boons-and-bogies.md §4). The dirty
+  /// fingerprint sees it through [TraitKitEntry.toJson].
+  List<TraitKitEntry> traitKit = const [];
   List<String> planLines = const [];
   String occupation = '';
   String occupationBrief = '';
@@ -274,6 +278,7 @@ class EditCharacterDraft {
     tags,
     ttsVoice,
     ambitions,
+    [for (final e in traitKit) e.toJson()],
     planLines,
     occupation,
     occupationBrief,
@@ -367,6 +372,7 @@ class EditCharacterDraft {
 
   void _seedIdentity(FrontPorchExtensions? ext) {
     ambitions = List<String>.from(ext?.ambitions ?? const []);
+    traitKit = List<TraitKitEntry>.from(ext?.traitKit ?? const []);
     planLines = List<String>.from(ext?.planLines ?? const []);
     occupation = ext?.occupation ?? '';
     occupationBrief = ext?.occupationBrief ?? '';

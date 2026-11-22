@@ -353,6 +353,23 @@ extension ChatServiceMemoryDoors on ChatService {
   }) =>
       realism.growthDesk.plantGrowthRingFor(ownerId, text, category: category);
 
+  /// Pending retroactive kit offer for the current chat (ruling 13), or
+  /// null when there is nothing to offer.
+  KitOffer? get growthKitOffer => realism.growthDesk.growthKitOffer;
+
+  /// Seed the offered kits into the chat now (panel accept).
+  Future<void> acceptGrowthKit() => realism.growthDesk.acceptGrowthKit();
+
+  /// Settle the offer without writing anything (panel decline).
+  Future<void> declineGrowthKit() => realism.growthDesk.declineGrowthKit();
+
+  /// Give the cast's kits another first touch (panel re-run).
+  Future<void> offerGrowthKitAgain() => realism.growthDesk.offerGrowthKitAgain();
+
+  /// Whether the re-run button earns its seat in the action row.
+  bool get growthKitReplayAvailable =>
+      realism.growthDesk.growthKitReplayAvailable;
+
   /// Edit a ring's wording/category in place.
   Future<void> editGrowthRing(
     GrowthRingData ring, {

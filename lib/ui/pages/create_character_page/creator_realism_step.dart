@@ -95,6 +95,10 @@ class CreatorRealismStep extends StatelessWidget {
               _set(() => d.realismPocketsEnabled = v),
           ambitions: d.realismAmbitions,
           onAmbitionsChanged: (v) => _set(() => d.realismAmbitions = v),
+          traitKitEditor: TraitKitEditor(
+            values: d.realismTraitKit,
+            onChanged: (v) => _set(() => d.realismTraitKit = v),
+          ),
           planLines: d.realismPlanLines,
           onPlanLinesChanged: (v) => _set(() => d.realismPlanLines = v),
           occupation: d.realismOccupation,

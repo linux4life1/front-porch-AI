@@ -526,7 +526,7 @@ export function PorchLifeSettings({
             rowRef={setRowRef('boons-bogies')}
             icon="✨"
             label="Boons & Bogies"
-            subtitle="Abilities that grow and flaws that surface. New ones always ask you first."
+            subtitle="Abilities that grow and flaws that surface. New ones always ask you first. Beta: milestones (Master, overcome) arrive in a later update."
             need="needs"
             dependsOn="Growth Rings"
             satisfied={growthOn}

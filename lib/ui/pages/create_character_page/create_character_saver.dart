@@ -57,6 +57,7 @@ class CreateCharacterSaver {
       pocketsEnabled: draft.realismPocketsEnabled,
       enjoysLowHygiene: draft.realismEnjoysLowHygiene,
       ambitions: draft.realismAmbitions,
+      traitKit: draft.realismTraitKit,
       planLines: draft.realismPlanLines,
       occupation: draft.realismOccupation,
       occupationBrief: draft.realismOccupationBrief,

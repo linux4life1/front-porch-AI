@@ -21,6 +21,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/models/character/front_porch_extensions_codec.dart';
 import 'package:front_porch_ai/models/character/recovery_profile.dart';
+import 'package:front_porch_ai/models/character/trait_kit.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 
 /// Front Porch AI V2.5 extensions — stored inside V2 `extensions.front_porch`.
@@ -94,6 +95,7 @@ class FrontPorchExtensions {
   /// not story state: they travel with the card; per-chat PROGRESS lives in
   /// journal cards (Living Time §6). Authored in the character editor.
   List<String> ambitions;
+  List<TraitKitEntry> traitKit; // Boons & Bogies kit — see trait_kit.dart (§4)
 
   /// Short plan-line sentences. Identity like [ambitions]: travel with the card.
   /// The today sentence is session state, never stored here.
@@ -255,6 +257,7 @@ class FrontPorchExtensions {
     // Never mutated in place — always replaced wholesale (copyWith/editor),
     // so the const default is safe.
     this.ambitions = const [],
+    this.traitKit = const [],
     this.planLines = const [],
     this.occupation = '',
     this.hours = '',
@@ -341,6 +344,7 @@ class FrontPorchExtensions {
     bool? startsAway,
     bool? enjoysLowHygiene,
     List<String>? ambitions,
+    List<TraitKitEntry>? traitKit,
     List<String>? planLines,
     String? occupation,
     String? hours,
@@ -406,6 +410,7 @@ class FrontPorchExtensions {
       startsAway: startsAway ?? this.startsAway,
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
+      traitKit: traitKit ?? this.traitKit,
       planLines: planLines ?? this.planLines,
       occupation: occupation ?? this.occupation,
       hours: hours ?? this.hours,
