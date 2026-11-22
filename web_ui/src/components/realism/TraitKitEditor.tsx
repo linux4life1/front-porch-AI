@@ -13,9 +13,9 @@ import { MAX_KIT_ENTRIES } from './realismTypes';
 const KINDS = ['boon', 'bogey'] as const;
 const TIERS = ['emerging', 'developing', 'established'] as const;
 const TIER_LABEL: Record<string, string> = {
-  emerging: 'Emerging — starts faint',
-  developing: 'Developing — a known habit',
-  established: 'Established — core to them',
+  emerging: 'Novice — starts faint',
+  developing: 'Skilled — a known habit',
+  established: 'Master-bound — core to them',
 };
 
 export function TraitKitEditor({

@@ -207,7 +207,7 @@ Widget stoopKitSection(BuildContext context, Map<String, dynamic> re) {
                       children: [
                         TextSpan(
                           text:
-                              ' — ${e.tier[0].toUpperCase()}${e.tier.substring(1)}'
+                              ' — ${e.seedTierName}'
                               '${e.pinned ? ' · pinned' : ''}',
                           style: TextStyle(
                             fontSize: 11,

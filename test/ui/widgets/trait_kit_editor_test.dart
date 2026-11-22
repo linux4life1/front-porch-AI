@@ -132,7 +132,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.byTooltip('Starting tier'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Established — core to them'));
+    await tester.tap(find.text('Master-bound — core to them'));
     await tester.pumpAndSettle();
     expect(last!.last.tier, 'established');
   });

@@ -287,15 +287,15 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
     itemBuilder: (context) => const [
       PopupMenuItem(
         value: TraitKitEntry.tierEmerging,
-        child: Text('Emerging — starts faint'),
+        child: Text('Novice — starts faint'),
       ),
       PopupMenuItem(
         value: TraitKitEntry.tierDeveloping,
-        child: Text('Developing — a known habit'),
+        child: Text('Skilled — a known habit'),
       ),
       PopupMenuItem(
         value: TraitKitEntry.tierEstablished,
-        child: Text('Established — core to them'),
+        child: Text('Master-bound — core to them'),
       ),
     ],
     onSelected: (tier) => _update(i, (e) => _with(e, tier: tier)),

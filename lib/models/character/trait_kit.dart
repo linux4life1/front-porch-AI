@@ -78,6 +78,20 @@ class TraitKitEntry {
 
   bool get isBogey => kind == kindBogey;
 
+  /// The kit tier's display name in the ladder vocabulary (ruling 2: the
+  /// user sees Novice / Skilled / Master, never the physics names). A seed
+  /// tier is not a rung you can hold — the established seed lands at
+  /// strength 0.80 with the advance floor ONE pass short of the Master
+  /// milestone (ruling 8: Master is always asked, never seeded) — hence
+  /// "Master-bound", not "Master". Every user-facing surface (kit editor,
+  /// Stoop tile) names the tier through here; the wire value stays
+  /// emerging/developing/established (§4).
+  String get seedTierName => switch (tier) {
+    tierDeveloping => 'Skilled',
+    tierEstablished => 'Master-bound',
+    _ => 'Novice',
+  };
+
   Map<String, dynamic> toJson() => {
     'kind': kind,
     'text': text,
