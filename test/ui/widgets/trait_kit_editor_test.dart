@@ -66,7 +66,7 @@ void main() {
   ) async {
     await pump(
       tester,
-      values: const [
+      values: [
         TraitKitEntry(kind: 'bogey', text: 'bad temper', tier: 'established'),
       ],
     );
@@ -108,7 +108,7 @@ void main() {
   ) async {
     await pump(
       tester,
-      values: const [
+      values: [
         TraitKitEntry(kind: 'boon', text: 'steady hands', pinned: false),
       ],
     );
@@ -126,15 +126,27 @@ void main() {
     );
   });
 
-  testWidgets('the tier menu sets the starting tier', (tester) async {
+  testWidgets('the tier menu sets the starting tier, and caps at Skilled', (
+    tester,
+  ) async {
     await pump(tester);
     await tester.tap(find.text('Add trait'));
     await tester.pump();
     await tester.tap(find.byTooltip('Starting tier'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Master-bound — core to them'));
+    // Seed cap (ruling 8, amended 2026-11-21): exactly two options, and no
+    // label says Master — a card seeds a habit, never a mastery. The closed
+    // row already reads Novice, so its menu twin makes that one appear twice.
+    expect(find.text('Novice — starts faint'), findsNWidgets(2));
+    expect(find.text('Skilled — a known habit'), findsOneWidget);
+    expect(
+      find.textContaining('Master', findRichText: true),
+      findsNothing,
+      reason: 'the editor must not offer a Master-level seed',
+    );
+    await tester.tap(find.text('Skilled — a known habit'));
     await tester.pumpAndSettle();
-    expect(last!.last.tier, 'established');
+    expect(last!.last.tier, 'developing');
   });
 
   testWidgets('the closed controls show their value, not just arrows', (
@@ -145,14 +157,17 @@ void main() {
     // Both must state what they are with the menu shut.
     await pump(
       tester,
-      values: const [
+      values: [
         TraitKitEntry(kind: 'bogey', text: 'bad temper', tier: 'established'),
       ],
     );
     expect(
-      find.text('Master-bound — core to them'),
+      find.text('Skilled — a known habit'),
       findsOneWidget,
-      reason: 'the closed tier control names the current tier in full',
+      reason:
+          'the closed tier control names the current '
+          'tier in full, and a pre-cap established entry '
+          'reads as its capped Skilled',
     );
     expect(
       find.text('Bogey'),
@@ -166,7 +181,7 @@ void main() {
   testWidgets('the pin button toggles', (tester) async {
     await pump(
       tester,
-      values: const [
+      values: [
         TraitKitEntry(kind: 'bogey', text: 'bad temper', pinned: true),
       ],
     );
@@ -180,7 +195,7 @@ void main() {
   testWidgets('remove drops the row', (tester) async {
     await pump(
       tester,
-      values: const [
+      values: [
         TraitKitEntry(kind: 'bogey', text: 'bad temper'),
         TraitKitEntry(kind: 'boon', text: 'steady hands'),
       ],

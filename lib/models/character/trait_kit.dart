@@ -34,18 +34,42 @@ library;
 
 /// One boon or bogey on a card kit.
 class TraitKitEntry {
-  const TraitKitEntry({
+  const TraitKitEntry._raw({
     required this.kind,
     required this.text,
-    this.tier = tierEmerging,
-    this.pinned = false,
+    required this.tier,
+    required this.pinned,
     this.linkedTo,
   });
+
+  /// The one clamp for the seed cap (ruling 8, amended 2026-11-21): a kit
+  /// seeds at Skilled at most, so an `established` tier — the over-strong
+  /// seed a pre-cap card may carry — steps down to [tierDeveloping] HERE.
+  /// Editors, Stoop tiles and the seed math then never see a tier that
+  /// would "seed a Master", which the MD forbids: Master is where the
+  /// story asks, never where a card asserts.
+  factory TraitKitEntry({
+    required String kind,
+    required String text,
+    String tier = tierEmerging,
+    bool pinned = false,
+    String? linkedTo,
+  }) => TraitKitEntry._raw(
+    kind: kind,
+    text: text,
+    tier: tier == tierEstablished ? tierDeveloping : tier,
+    pinned: pinned,
+    linkedTo: linkedTo,
+  );
 
   static const String kindBoon = 'boon';
   static const String kindBogey = 'bogey';
   static const String tierEmerging = 'emerging';
   static const String tierDeveloping = 'developing';
+
+  /// Read-off name, kept so unparsed or legacy card JSON that says
+  /// "established" still round-trips through [parse]; constructing an entry
+  /// with it clamps to [tierDeveloping] (seed cap, ruling 8).
   static const String tierEstablished = 'established';
 
   /// Combined boons + bogies per card, on a budget separate from the 12
@@ -63,8 +87,10 @@ class TraitKitEntry {
   /// What the trait is, in the author's words. Non-blank by construction.
   final String text;
 
-  /// [tierEmerging], [tierDeveloping] or [tierEstablished] — the strength
-  /// the seeded ring starts at (0.30 / 0.60 / 0.80, §4).
+  /// [tierEmerging] or [tierDeveloping] — the strength the seeded ring
+  /// starts at (0.30 / 0.60). The third wire tier, `established`, is a
+  /// pre-cap shape: the factory clamps it here to `developing` (seed cap,
+  /// ruling 8 amended 2026-11-21).
   final String tier;
 
   /// Seeded rings from this entry start pinned, so the author's core flaw
@@ -78,18 +104,18 @@ class TraitKitEntry {
 
   bool get isBogey => kind == kindBogey;
 
-  /// The kit tier's display name in the ladder vocabulary (ruling 2: the
-  /// user sees Novice / Skilled / Master, never the physics names). A seed
-  /// tier is not a rung you can hold — the established seed lands at
-  /// strength 0.80 with the advance floor ONE pass short of the Master
-  /// milestone (ruling 8: Master is always asked, never seeded) — hence
-  /// "Master-bound", not "Master". Every user-facing surface (kit editor,
+  /// The kit tier's display name in the ladder vocabulary (ruling 2), under
+  /// the seed cap (ruling 8, amended 2026-11-21): a kit can only start at
+  /// Novice or Skilled — Master is never seeded, it is where the story asks
+  /// and the user answers. The `established` wire value predates the cap
+  /// and reads as Skilled here, matching the factory's clamp; there is no
+  /// display name for it anymore. Every user-facing surface (kit editor,
   /// Stoop tile, creator review) names the tier through here; the wire
-  /// value stays emerging/developing/established (§4). Mirrored in web by
+  /// value stays on the §4 vocabulary. Mirrored in web by
   /// `SEED_TIER_NAMES` (realismTypes.ts).
   static String seedTierNameFor(String tier) => switch (tier) {
     tierDeveloping => 'Skilled',
-    tierEstablished => 'Master-bound',
+    tierEstablished => 'Skilled',
     _ => 'Novice',
   };
 
@@ -112,7 +138,9 @@ class TraitKitEntry {
   /// Fail-soft like `_phrases`: a card can arrive from ANYWHERE, so a wrong
   /// type yields an empty kit, an entry with an unknown `kind` or a blank
   /// `text` is dropped, and a bad `tier` falls back to emerging (the
-  /// weakest, safest start). The count is truncated, never thrown away.
+  /// weakest, safest start). A pre-cap `established` tier arrives, survives
+  /// this line, and is clamped to developing by the constructor — the seed
+  /// cap lives in ONE place. The count is truncated, never thrown away.
   static List<TraitKitEntry> parse(Object? raw) {
     if (raw is! List) return const [];
     final kit = <TraitKitEntry>[];

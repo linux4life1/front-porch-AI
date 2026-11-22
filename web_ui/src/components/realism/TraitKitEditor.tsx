@@ -11,12 +11,15 @@ import type { TraitKitEntry } from './realismTypes';
 import { MAX_KIT_ENTRIES, SEED_TIER_NAMES } from './realismTypes';
 
 const KINDS = ['boon', 'bogey'] as const;
-const TIERS = ['emerging', 'developing', 'established'] as const;
+// Seed cap (ruling 8, amended 2026-11-21): the editor offers Novice and
+// Skilled only. Master is milestone ground; a card that claims it (the old
+// `established` wire value) reads back as Skilled after the reader clamps.
+const TIERS = ['emerging', 'developing'] as const;
 // Ladder name (SEED_TIER_NAMES, ruling 2) + what the seed buys the trait.
 const TIER_SUFFIX: Record<string, string> = {
   emerging: 'starts faint',
   developing: 'a known habit',
-  established: 'core to them',
+  established: 'a known habit',
 };
 const TIER_LABEL: Record<string, string> = Object.fromEntries(
   TIERS.map((t) => [t, `${SEED_TIER_NAMES[t]} — ${TIER_SUFFIX[t]}`]),

@@ -20,7 +20,7 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 void main() {
   FrontPorchExtensions seeded() => FrontPorchExtensions(
     ambitions: ['open her own bakery'],
-    traitKit: const [
+    traitKit: [
       TraitKitEntry(
         kind: 'bogey',
         text: 'bad temper',
@@ -38,7 +38,11 @@ void main() {
         'description': 'edited from a phone',
       }, base: seeded());
       expect(back.traitKit, hasLength(2));
-      expect(back.traitKit.singleWhere((e) => e.isBogey).tier, 'established');
+      expect(
+        back.traitKit.singleWhere((e) => e.isBogey).tier,
+        'developing',
+        reason: 'a pre-cap established base entry rides through capped',
+      );
       expect(
         back.ambitions,
         ['open her own bakery'],
@@ -61,7 +65,7 @@ void main() {
       final back = frontPorchFromFields(frontPorchToJson(seeded()));
       final bogey = back.traitKit.singleWhere((e) => e.isBogey);
       expect(bogey.text, 'bad temper');
-      expect(bogey.tier, 'established');
+      expect(bogey.tier, 'developing');
       expect(
         bogey.pinned,
         isTrue,

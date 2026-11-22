@@ -90,7 +90,7 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
     if (_full) return;
     _replace([
       ...widget.values,
-      const TraitKitEntry(kind: TraitKitEntry.kindBoon, text: ''),
+      TraitKitEntry(kind: TraitKitEntry.kindBoon, text: ''),
     ]);
   }
 
@@ -296,10 +296,13 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
 
   // One label per tier for every surface — closed control and menu both
   // read from this table, so they cannot drift (ruling 2 vocabulary).
+  // `established` is the pre-cap wire spelling of Skilled (seed cap,
+  // ruling 8 amended 2026-11-21); the model already clamped it, this arm
+  // only serves unparsed data.
   static const Map<String, String> _tierBuys = {
     TraitKitEntry.tierEmerging: 'starts faint',
     TraitKitEntry.tierDeveloping: 'a known habit',
-    TraitKitEntry.tierEstablished: 'core to them',
+    TraitKitEntry.tierEstablished: 'a known habit',
   };
 
   static String tierLabel(String tier) =>
@@ -324,12 +327,12 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
       ],
     ),
     itemBuilder: (context) => [
-      // Ladder name (ruling 2) + what the seed buys the trait; the tier
-      // wire value rides on `value:`, never on the label.
+      // Novice and Skilled, and nothing else: Master is milestone ground
+      // and is never a starting seed (ruling 8). The wire tier value
+      // rides on `value:`, never on the label.
       for (final tier in const [
         TraitKitEntry.tierEmerging,
         TraitKitEntry.tierDeveloping,
-        TraitKitEntry.tierEstablished,
       ])
         PopupMenuItem(value: tier, child: Text(tierLabel(tier))),
     ],

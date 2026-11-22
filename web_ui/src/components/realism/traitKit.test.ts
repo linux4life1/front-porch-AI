@@ -20,12 +20,15 @@ import {
 } from './realismTypes';
 
 describe('traitKitFromDetail — one reader, two ends', () => {
-  it('keeps a good kit untouched', () => {
+  it('keeps a good kit and caps an over-strong tier', () => {
     const kit = traitKitFromDetail([
       { kind: 'boon', text: 'reads a room in one breath', tier: 'established' },
       { kind: 'bogey', text: 'bad temper', tier: 'developing', pinned: false },
     ]);
     expect(kit).toHaveLength(2);
+    // Seed cap (ruling 8, amended 2026-11-21), mirroring the Dart factory:
+    // a pre-cap `established` card entry reads back as `developing`.
+    expect(kit[0].tier).toBe('developing');
     expect(kit[0].pinned).toBe(false); // boons default unpinned
     expect(kit[1].pinned).toBe(false); // explicit false beats the bogey default
   });
@@ -103,12 +106,12 @@ describe('realismFromDetail carries the kit like the Dart bridge does', () => {
 });
 
 describe('SEED_TIER_NAMES — ruling 2 vocabulary, never the wire value', () => {
-  it('names the three tiers Novice / Skilled / Master-bound', () => {
+  it('names seeds Novice / Skilled, and never Master', () => {
     expect(SEED_TIER_NAMES.emerging).toBe('Novice');
     expect(SEED_TIER_NAMES.developing).toBe('Skilled');
-    // "Master-bound", never "Master": a seeded kit starts one advance
-    // pass short of the milestone (ruling 8).
-    expect(SEED_TIER_NAMES.established).toBe('Master-bound');
+    // Seed cap (ruling 8, amended 2026-11-21): `established` is a pre-cap
+    // wire spelling; no surface may offer or print "Master" for a seed.
+    expect(SEED_TIER_NAMES.established).toBe('Skilled');
   });
 
   it('echoes no wire tier value', () => {

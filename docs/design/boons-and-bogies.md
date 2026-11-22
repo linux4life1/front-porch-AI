@@ -33,7 +33,10 @@ file it was read from, at `ba5b37a2f`.
    panel row, any time, across restarts.
 8. **Master always asks.** Silent changes stop one step below Master. A trait
    going permanent is a milestone with Accept / Reject. A boon Master is
-   confetti; a bogey Master is the permanence question.
+   confetti; a bogey Master is the permanence question. Master is also
+   **never seeded**: a card kit tops out at Skilled (amended 2026-11-21 —
+   the editor once offered an "established" seed, which read as seeding a
+   Master and is withdrawn; see §4).
 9. **Popup budget.** At most one milestone per 8 user messages. Anything over
    budget lands unread in the **Moments** list in the Growth panel and can be
    replayed, celebration included. Nothing is lost.
@@ -204,15 +207,20 @@ inherit the Pockets bug class. Rings are already keyed
 ## 4. Pre-seeding from the card
 
 - New card field `traitKit` on `FrontPorchExtensions`:
-  `[{kind: boon|bogey, text, tier: emerging|developing|established, pinned, linkedTo?}]`.
+  `[{kind: boon|bogey, text, tier: emerging|developing, pinned, linkedTo?}]`.
   Identity, like `ambitions`: it travels with the card, exports, imports, and
   goes through Stoop review.
+- **Seed cap (amended 2026-11-21, ruling 8):** a kit seeds at Skilled at
+  most. `established` survives in pre-cap card JSON and clamps to
+  `developing` when parsed — on both stacks, in the one reader each. The
+  kit editors (desktop and web) offer Novice and Skilled only; nothing
+  user-facing prints "Master" for a seed.
 - **Budget:** at most 6 entries combined (ruling 11), enforced in the creator
   and at review. Card entries use a separate budget from the 12 story rings, so
   a kit never evicts story growth. Card bogies share the 3-bogey limit.
 - **Seeding is a copy, not a link.** On the chat's first Growth touch, each kit
   entry becomes a ring at its tier's strength (emerging 0.30, developing 0.60 —
-  `kDistillSeedStrength` — established 0.80), with `bb.seeded = true` and
+  `kDistillSeedStrength`), with `bb.seeded = true` and
   `advance_count` set to the tier's floor. Each chat's ninja starts with the
   same kit and grows apart from there.
 - Seeded bogies start **pinned** by default so the author's core flaw cannot

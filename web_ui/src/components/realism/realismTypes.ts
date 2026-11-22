@@ -540,7 +540,11 @@ export function traitKitFromDetail(raw: unknown): TraitKitEntry[] {
     kit.push({
       kind,
       text: rawText.slice(0, MAX_KIT_TEXT_CHARS),
-      tier: tier === 'developing' || tier === 'established' ? tier : 'emerging',
+      // Seed cap (ruling 8, amended 2026-11-21), mirroring the Dart
+      // factory clamp: `established` is a pre-cap card spelling and
+      // steps down to `developing`. A kit seeds at Skilled at most —
+      // Master is where the story asks, never where a card asserts.
+      tier: tier === 'developing' || tier === 'established' ? 'developing' : 'emerging',
       // Defaults follow the card codec: a bogey arrives pinned unless the
       // author unticks it (§4).
       pinned: typeof e.pinned === 'boolean' ? e.pinned : kind === 'bogey',
@@ -565,14 +569,15 @@ export function realismFromDetail(raw: Partial<RealismValues> | null | undefined
 }
 
 // ── Kit seed-tier display names (mirror trait_kit.dart `seedTierName`) ──────
-/** Ruling 2: an author sees Novice / Skilled / Master, never the wire tier.
- *  The top option is "Master-bound", not "Master": a seeded kit starts one
- *  advance pass short of the milestone (ruling 8), it never holds Master.
+/** Ruling 2 vocabulary under the seed cap (ruling 8, amended 2026-11-21):
+ *  a kit starts at Novice or Skilled and nothing else — Master is never
+ *  seeded, it is earned at a milestone. `established` is the pre-cap wire
+ *  spelling that the reader clamps to `developing`; it reads as Skilled.
  *  Post-`traitKitFromDetail` the tier is always a canonical key. */
 export const SEED_TIER_NAMES: Record<string, string> = {
   emerging: 'Novice',
   developing: 'Skilled',
-  established: 'Master-bound',
+  established: 'Skilled',
 };
 
 // ── Relationship tier names (mirror realism_form_section.dart) ──────────────

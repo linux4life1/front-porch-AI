@@ -122,7 +122,12 @@ class BoonsBogies {
   // ── Card kit tiers (§4) ────────────────────────────────────────────────
 
   /// The strength a seeded ring starts at for a card tier. `developing`
-  /// matches [GrowthPhysics.kDistillSeedStrength] on purpose.
+  /// matches [GrowthPhysics.kDistillSeedStrength] on purpose. The
+  /// `established` arms below are defensive: the seed cap (ruling 8,
+  /// amended 2026-11-21) clamps `established` to `developing` in
+  /// [TraitKitEntry]'s factory, so no kit entry reaches this function
+  /// carrying it — a kit seeds at 0.60 at most, and 0.80 stays territory
+  /// only a growth pass (or the milestone) earns.
   static double kitSeedStrength(String tier) => switch (tier) {
     'established' => 0.80,
     'developing' => 0.60,

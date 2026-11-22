@@ -116,10 +116,14 @@ void main() {
       );
       expect(plan, hasLength(2));
       expect(plan[0].category, 'skill');
-      expect(plan[0].strength, closeTo(0.80, 1e-9));
+      // The seed cap (ruling 8, amended 2026-11-21): an `established`
+      // card entry was clamped to `developing` by the model, so it seeds
+      // at Skilled strength — 0.80 is milestone territory a card cannot
+      // claim. Both entries now seed identically strong.
+      expect(plan[0].strength, closeTo(0.60, 1e-9));
       expect(
         plan[0].advanceCount,
-        BoonsBogies.kitSeedAdvance(TraitKitEntry.tierEstablished, bogey: false),
+        BoonsBogies.kitSeedAdvance(TraitKitEntry.tierDeveloping, bogey: false),
       );
       expect(plan[1].category, BoonsBogies.kCategoryBogey);
       expect(plan[1].strength, closeTo(0.60, 1e-9));
@@ -216,14 +220,14 @@ void main() {
         characterId: 'c1',
         content: 'bad temper',
         category: 'bogey',
-        strength: BoonsBogies.kitSeedStrength('established'),
-        advanceCount: BoonsBogies.kitSeedAdvance('established', bogey: true),
+        strength: BoonsBogies.kitSeedStrength('developing'),
+        advanceCount: BoonsBogies.kitSeedAdvance('developing', bogey: true),
         pinned: true,
         metadata: BoonsBogies.bogeyMetadata(seeded: true),
       );
       await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
       final ring = store.activeRingsFor('s1', 'c1').single;
-      expect(ring.advanceCount, 10);
+      expect(ring.advanceCount, 6);
       expect(ring.pinned, isTrue);
       expect(BoonsBogies.isKitSeeded(ring), isTrue);
     });

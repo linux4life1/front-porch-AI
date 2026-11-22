@@ -20,12 +20,22 @@ FrontPorchExtensions _roundTrip(FrontPorchExtensions e) =>
 
 void main() {
   group('seedTierName — ruling 2 vocabulary, never the wire value', () {
-    test('the three tiers are Novice / Skilled / Master-bound', () {
+    test('a kit offers Novice and Skilled — never Master', () {
       expect(TraitKitEntry.seedTierNameFor('emerging'), 'Novice');
       expect(TraitKitEntry.seedTierNameFor('developing'), 'Skilled');
-      // "Master-bound", never "Master": a seeded kit starts one advance
-      // pass short of the milestone (ruling 8).
-      expect(TraitKitEntry.seedTierNameFor('established'), 'Master-bound');
+      // Seed cap (ruling 8, amended 2026-11-21): a card that pre-dates the
+      // cap still says `established` on the wire; it reads as Skilled, and
+      // the constructor clamps it. No surface may print "Master" for a seed.
+      expect(TraitKitEntry.seedTierNameFor('established'), 'Skilled');
+    });
+
+    test('the constructor clamps a pre-cap established tier to developing', () {
+      final e = TraitKitEntry(
+        kind: 'boon',
+        text: 'reads a room',
+        tier: TraitKitEntry.tierEstablished,
+      );
+      expect(e.tier, TraitKitEntry.tierDeveloping);
     });
 
     test('junk coerces to Novice like the parser does', () {
@@ -58,7 +68,13 @@ void main() {
       ]);
       expect(kit, hasLength(2));
       expect(kit[0].kind, 'boon');
-      expect(kit[0].tier, 'established');
+      expect(
+        kit[0].tier,
+        'developing',
+        reason:
+            'the seed cap clamps a pre-cap '
+            'established card entry to Skilled (ruling 8)',
+      );
       expect(kit[0].pinned, isFalse, reason: 'boons default unpinned');
       expect(kit[1].isBogey, isTrue);
       expect(
@@ -125,20 +141,26 @@ void main() {
     test('a written kit round-trips through encode/decode', () {
       final e = FrontPorchExtensions(
         traitKit: [
-          const TraitKitEntry(
+          TraitKitEntry(
             kind: 'bogey',
             text: 'bad temper',
             tier: 'established',
             pinned: true,
             linkedTo: 'reads a room',
           ),
-          const TraitKitEntry(kind: 'boon', text: 'steady hands'),
+          TraitKitEntry(kind: 'boon', text: 'steady hands'),
         ],
       );
       final back = _roundTrip(e);
       expect(back.traitKit, hasLength(2));
       expect(back.traitKit[0].kind, 'bogey');
-      expect(back.traitKit[0].tier, 'established');
+      expect(
+        back.traitKit[0].tier,
+        'developing',
+        reason:
+            'a card that claims established '
+            're-reads as the capped developing',
+      );
       expect(back.traitKit[0].pinned, isTrue);
       expect(back.traitKit[0].linkedTo, 'reads a room');
       expect(back.traitKit[1].pinned, isFalse);
@@ -180,7 +202,7 @@ void main() {
 
   group('the model API', () {
     test('toJson writes every authored part, linkedTo only when set', () {
-      const e = TraitKitEntry(kind: 'boon', text: 'steady hands');
+      final e = TraitKitEntry(kind: 'boon', text: 'steady hands');
       expect(e.toJson(), {
         'kind': 'boon',
         'text': 'steady hands',
@@ -190,8 +212,8 @@ void main() {
     });
 
     test('kindLabel is the one display word editors and Stoop share', () {
-      const boon = TraitKitEntry(kind: 'boon', text: 'x');
-      const bogey = TraitKitEntry(kind: 'bogey', text: 'x');
+      final boon = TraitKitEntry(kind: 'boon', text: 'x');
+      final bogey = TraitKitEntry(kind: 'bogey', text: 'x');
       expect(boon.kindLabel, 'Boon');
       expect(bogey.kindLabel, 'Bogey');
     });
