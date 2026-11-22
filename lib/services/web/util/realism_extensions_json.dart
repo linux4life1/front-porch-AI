@@ -174,6 +174,11 @@ FrontPorchExtensions frontPorchFromFields(
     currentTask: asStr('currentTask', b.currentTask),
     ambitions: asStrList('ambitions', b.ambitions),
     traitKit: asTraitKit('traitKit', b.traitKit),
+    // Ruling 18's card default; absent keeps the base (null = follow the
+    // global), like needsSimEnabled above.
+    boonsBogiesChoice: fields['boonsBogiesEnabled'] is bool
+        ? fields['boonsBogiesEnabled'] as bool
+        : b.boonsBogiesChoice,
     planLines: asStrList('planLines', b.planLines),
     occupation: asStr('occupation', b.occupation),
     hours: asStr('hours', b.hours),
@@ -290,6 +295,9 @@ Map<String, dynamic> frontPorchToJson(
   'currentTask': e.currentTask,
   'ambitions': e.ambitions,
   'traitKit': [for (final k in e.traitKit) k.toJson()],
+  // Null = the card made no choice (follow the global); the web toggle
+  // shows "on" for null and writes a real value only when touched.
+  'boonsBogiesEnabled': e.boonsBogiesChoice,
   'planLines': e.planLines,
   'occupation': e.occupation,
   'hours': e.hours,

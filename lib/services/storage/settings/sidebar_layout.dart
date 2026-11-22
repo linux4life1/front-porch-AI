@@ -61,6 +61,9 @@ const _kLeafDefaults = {
     'bond_bars',
     'fixation',
     'needs',
+    // Spec ruling 18's mid-chat switch: one line under Needs, movable on
+    // its own like every leaf here.
+    'boons_bogies',
     'ambitions',
     'pockets',
     'time',

@@ -153,6 +153,8 @@ class WebChatToolsRoutes {
         await _facade.setRealismEnabled(value);
       case 'needs':
         await _facade.setNeedsEnabled(value);
+      case 'boonsBogies':
+        await _facade.setBbEnabled(value);
       case 'pockets':
         await _facade.setPocketsEnabled(value);
       case 'oneShotEval':

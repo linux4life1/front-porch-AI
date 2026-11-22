@@ -72,6 +72,8 @@ const _webLeafMarkers = {
   'bond_bars': 'label="Short-Term Bond"',
   'fixation': 'stat-fixation',
   'needs': '💗 Needs',
+  // Ruling 18's mid-chat switch, one line under Needs (spec §10 phase 4).
+  'boons_bogies': '✨ Boons &amp; Bogies',
   'ambitions': 'state-ambitions',
   'pockets': 'state-pockets',
   'time': 'className="state-time"',

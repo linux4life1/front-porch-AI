@@ -36,11 +36,19 @@ class TraitKitEditor extends StatefulWidget {
     required this.values,
     required this.onChanged,
     this.helper,
+    this.newChatEnabled,
+    this.onNewChatEnabledChanged,
   });
 
   final List<TraitKitEntry> values;
   final ValueChanged<List<TraitKitEntry>> onChanged;
   final String? helper;
+
+  /// The card's default for NEW chats (spec ruling 18's middle layer): null
+  /// hides the switch, which is how the creator steps and any caller without
+  /// the field keep working. The live mid-chat switch is the sidebar's.
+  final bool? newChatEnabled;
+  final ValueChanged<bool>? onNewChatEnabledChanged;
 
   @override
   State<TraitKitEditor> createState() => _TraitKitEditorState();
@@ -169,6 +177,29 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
           Text(
             widget.helper!,
             style: TextStyle(fontSize: 11, color: textSecondary),
+          ),
+        ],
+        if (widget.newChatEnabled != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Boons & Bogies in new chats',
+                  style: TextStyle(fontSize: 11.5, color: textSecondary),
+                ),
+              ),
+              SizedBox(
+                height: 24,
+                child: FittedBox(
+                  child: Switch(
+                    value: widget.newChatEnabled!,
+                    activeThumbColor: honey,
+                    onChanged: widget.onNewChatEnabledChanged,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
         const SizedBox(height: 8),

@@ -219,7 +219,11 @@ export function ChatSidebar({
   // member's own, for this chat: they route at the member toggles with
   // their id. A 1:1 (or a guest) has the chat's one switch.
   const memberId = t?.memberId ?? null;
-  const switchToggle = (kind: 'Realism' | 'Needs' | 'Afterglow', fallback: string, v: boolean) =>
+  const switchToggle = (
+    kind: 'Realism' | 'Needs' | 'Afterglow' | 'BoonsBogies',
+    fallback: string,
+    v: boolean,
+  ) =>
     memberId ? toggle(`member${kind}`, v, { id: memberId }) : toggle(fallback, v);
   const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
   const pocketLabel = (i: { name: string; state?: string }) =>
@@ -589,6 +593,27 @@ export function ChatSidebar({
                       {t?.needsAllowed === false && (
                         <p className="muted small">
                           Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.
+                        </p>
+                      )}
+                      {t?.boonsBogiesEnabled !== undefined && (
+                        <label className="state-line">
+                          <span>✨ Boons &amp; Bogies</span>
+                          <input
+                            type="checkbox"
+                            aria-label="Boons & Bogies"
+                            className="state-switch"
+                            checked={t.boonsBogiesEnabled !== false}
+                            disabled={t.boonsBogiesAllowed === false}
+                            onChange={(e) =>
+                              switchToggle('BoonsBogies', 'boonsBogies', e.target.checked)
+                            }
+                          />
+                        </label>
+                      )}
+                      {t?.boonsBogiesAllowed === false && (
+                        <p className="muted small">
+                          Off in Porch Life, so no chat runs Boons &amp; Bogies. This chat&apos;s
+                          choice is kept.
                         </p>
                       )}
                       {realism.needsEnabled &&

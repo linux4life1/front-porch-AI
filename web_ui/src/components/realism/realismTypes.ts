@@ -247,6 +247,8 @@ export interface RealismValues {
   /** Boons & Bogies card kit (docs/design/boons-and-bogies.md §4). The
    *  desktop parse (`TraitKitEntry.parse`) is the law; this mirrors it. */
   traitKit: TraitKitEntry[];
+  /** Ruling 18's card default for NEW chats. null = follow Porch Life. */
+  boonsBogiesChoice: boolean | null;
   /** Short plan-line sentences. Identity like ambitions. */
   planLines: string[];
   /** What they do. Blank is omitted from the card, same as desktop. */
@@ -376,6 +378,7 @@ export const REALISM_DEFAULTS: RealismValues = {
   currentTask: '',
   ambitions: [],
   traitKit: [],
+  boonsBogiesChoice: null,
   planLines: [],
   occupation: '',
   occupationBrief: '',
@@ -569,6 +572,11 @@ export function realismFromDetail(raw: Partial<RealismValues> | null | undefined
   const present = raw != null && Object.prototype.hasOwnProperty.call(raw, 'workDays');
   merged.workDays = parseWorkDaysField(raw?.workDays, present);
   merged.traitKit = traitKitFromDetail(raw?.traitKit);
+  // The wire key is the desktop codec's (boons_bogies_enabled flattened);
+  // absent or null means the card made no choice, so Porch Life decides.
+  const rawBb = (raw as { boonsBogiesEnabled?: unknown } | null | undefined)
+    ?.boonsBogiesEnabled;
+  merged.boonsBogiesChoice = rawBb === true ? true : rawBb === false ? false : null;
   merged.sex = normalizeSex(raw?.sex ?? '');
   merged.recovery = recoveryFromDetail(raw?.recovery);
   return merged;

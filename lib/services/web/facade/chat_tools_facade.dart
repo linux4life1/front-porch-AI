@@ -192,6 +192,10 @@ class ChatToolsFacade {
   Future<void> setChaosNsfw(bool v) => _switches.setChaosNsfw(v);
 
   Future<void> setAfterglow(bool v) => _switches.setAfterglow(v);
+  Future<void> setBbEnabled(bool v) => _switches.setBbEnabled(v);
+
+  Future<bool> setMemberBb(String id, bool v) => _switches.setMemberBb(id, v);
+
   Future<bool> setMemberAfterglow(String id, bool v) =>
       _switches.setMemberAfterglow(id, v);
   Future<void> setPocketsEnabled(bool v) => _switches.setPocketsEnabled(v);

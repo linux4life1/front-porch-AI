@@ -99,6 +99,11 @@ class ChatToolsSnapshot {
       'realismAllowed': rs.realismAllowed,
       'realismSwitch': _chat.realismSwitchFor(switchId),
       'needsEnabled': _chat.needsSwitchFor(switchId),
+      // Ruling 18: this chat's (or the focused member's) Boons & Bogies
+      // switch, and whether Porch Life allows the feature at all.
+      'boonsBogiesEnabled': _chat.bbSwitchFor(switchId),
+      'boonsBogiesAllowed': _storage.memorySettings.characterEvolutionEnabled &&
+          _storage.memorySettings.boonsBogiesEnabled,
       // Additive: set only in a group, for a full member. The PWA then routes
       // the Realism, Needs and Afterglow switches at `memberRealism`,
       // `memberNeeds` and `memberAfterglow` with this id, one member at a

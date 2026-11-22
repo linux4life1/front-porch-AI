@@ -110,6 +110,10 @@ extension ChatServiceControls on ChatService {
       ? controlsDoor.memberSwitches.setBb(memberId, on)
       : controlsDoor.setBbEnabled(on);
 
+  /// The 1:1 chat's Boons & Bogies switch (ruling 18); a group turn sets
+  /// every member through [setMemberBbEnabled] instead.
+  Future<void> setBbEnabled(bool on) => controlsDoor.setBbEnabled(on);
+
   Future<void> setMemberRealismEnabled(String memberId, bool on) => isGroupMode
       ? controlsDoor.memberSwitches.setRealism(memberId, on)
       : setRealismEnabled(on);

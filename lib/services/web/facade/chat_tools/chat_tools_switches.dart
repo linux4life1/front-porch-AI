@@ -116,6 +116,16 @@ class ChatToolsSwitches {
   Future<bool> setMemberNeeds(String id, bool v) =>
       _forMember(id, (m) => _chat.setMemberNeedsEnabled(m, v));
 
+  /// Ruling 18: the 1:1 chat's Boons & Bogies switch and a member's own,
+  /// the web twin of the sidebar's Boons & Bogies line.
+  Future<void> setBbEnabled(bool v) async {
+    await _chat.setBbEnabled(v);
+    _notify();
+  }
+
+  Future<bool> setMemberBb(String id, bool v) =>
+      _forMember(id, (m) => _chat.setMemberBbEnabled(m, v));
+
   // PR 5b: the member's own Chaos Mode and its 18+ events toggle.
   Future<bool> setMemberChaos(String id, bool v) =>
       _forMember(id, (m) => _chat.setMemberChaosEnabled(m, v));
