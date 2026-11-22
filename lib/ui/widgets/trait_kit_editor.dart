@@ -125,6 +125,34 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
                 color: textSecondary,
               ),
             ),
+            const SizedBox(width: 6),
+            // Beta marker for nightly ships. Remove together with the
+            // settings copy when phase 5 lands — tracked in issue #763.
+            Tooltip(
+              message:
+                  'Beta: shipping ahead of the full ruleset. Milestones '
+                  '(Master, overcome) arrive in a later update; until '
+                  'then growth stops one step below Master.',
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  color: honey.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'BETA',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: honey,
+                  ),
+                ),
+              ),
+            ),
             const Spacer(),
             Text(
               '${widget.values.length} of ${TraitKitEntry.maxEntries}',

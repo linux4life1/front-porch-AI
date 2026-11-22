@@ -44,6 +44,14 @@ export function TraitKitEditor({
     <div className="realism-field" data-testid="trait-kit">
       <div style={{ display: 'flex', alignItems: 'baseline' }}>
         <span className="realism-head" style={{ margin: 0 }}>Boons &amp; Bogies</span>
+        {/* Beta marker for nightly ships. Remove together with the
+            settings copy when phase 5 lands — tracked in issue #763. */}
+        <span
+          className="trait-kit-beta"
+          title="Beta: shipping ahead of the full ruleset. Milestones (Master, overcome) arrive in a later update; until then growth stops one step below Master."
+        >
+          BETA
+        </span>
         <span className="chiplist-count">{values.length} of {MAX_KIT_ENTRIES}</span>
       </div>
       {helper && <p className="muted small" style={{ margin: '4px 0 8px' }}>{helper}</p>}

@@ -194,6 +194,11 @@ void main() {
       findsOneWidget,
       reason: 'the kind chip reads as a dropdown, and says Bogey',
     );
+    expect(
+      find.text('BETA'),
+      findsOneWidget,
+      reason: 'nightly ships tell the user the ruleset is incomplete',
+    );
     expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
     expect(find.byIcon(Icons.unfold_more), findsOneWidget);
   });
