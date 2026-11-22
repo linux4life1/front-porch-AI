@@ -616,6 +616,24 @@ export function ChatSidebar({
                           choice is kept.
                         </p>
                       )}
+                      {t?.boonsBogiesEnabled &&
+                        (t.boonsBogiesRings?.length ?? 0) === 0 && (
+                          <p className="muted small">
+                            Nothing yet — a new chat seeds the card&apos;s kit on its first
+                            growth pass.
+                          </p>
+                        )}
+                      {(t?.boonsBogiesRings ?? []).slice(0, 6).map((r, i) => (
+                        <div className="state-line" key={`bb-${i}`}>
+                          <span>
+                            {r.kind === 'bogey' ? '🌫 ' : '✨ '}
+                            {r.text}
+                          </span>
+                          <span className="muted small">
+                            {r.tier === 'master' ? 'Master' : r.tier === 'skilled' ? 'Skilled' : 'Novice'}
+                          </span>
+                        </div>
+                      ))}
                       {realism.needsEnabled &&
                         Object.entries(realism.needs).map(([k, v]) => (
                           <NeedBar

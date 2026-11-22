@@ -18,9 +18,12 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 
 /// This chat's own Boons & Bogies switch for one character, on the line it
@@ -45,6 +48,7 @@ class BbLine extends StatelessWidget {
     final member = this.member;
     // '' for the 1:1 host, whose switch is the chat's.
     final memberId = member == null ? '' : chat.characterIdFor(member);
+    final on = chat.bbSwitchFor(memberId);
     final accent = AppColors.porchHoneyOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,7 +77,7 @@ class BbLine extends StatelessWidget {
               height: 24,
               child: FittedBox(
                 child: Switch(
-                  value: chat.bbSwitchFor(memberId),
+                  value: on,
                   activeThumbColor: accent,
                   onChanged: !allowed || chat.isGenerating
                       ? null
@@ -91,8 +95,102 @@ class BbLine extends StatelessWidget {
               fontSize: 11,
               color: AppColors.textTertiary(context),
             ),
+          )
+        else if (on)
+          _traits(context, accent),
+      ],
+    );
+  }
+
+  /// The rings this line governs, under it like Needs' bars: boons first,
+  /// then bogies, each with its tier. The card's kit is what fills this on
+  /// a new chat's first growth pass — an empty list says so rather than
+  /// leaving the author wondering where the traits went.
+  Widget _traits(BuildContext context, Color accent) {
+    final member = this.member;
+    final ownerId = member == null
+        ? (chat.activeCharacter == null
+              ? ''
+              : chat.characterIdFor(chat.activeCharacter!))
+        : chat.characterIdFor(member);
+    final rings = ownerId.isEmpty
+        ? const <GrowthRingData>[]
+        : chat
+              .growthRingsForOwner(ownerId)
+              .where((r) => BoonsBogies.isBoonOrBogey(r) && !r.retired)
+              .toList()
+        ..sort((a, b) {
+          final kind = (BoonsBogies.isBogey(a) ? 1 : 0).compareTo(
+            BoonsBogies.isBogey(b) ? 1 : 0,
+          );
+          return kind != 0 ? kind : b.strength.compareTo(a.strength);
+        });
+    if (rings.isEmpty) {
+      return Text(
+        'Nothing yet — a new chat seeds the card\'s kit on its first '
+        'growth pass.',
+        style: TextStyle(
+          fontSize: 11,
+          color: AppColors.textTertiary(context),
+        ),
+      );
+    }
+    final bogey = ChatColors.bogeyOf(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final r in rings.take(6))
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  BoonsBogies.isBogey(r)
+                      ? Icons.blur_on_outlined
+                      : Icons.auto_awesome,
+                  size: 12,
+                  color: BoonsBogies.isBogey(r) ? bogey : accent,
+                ),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    r.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textSecondary(context),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  _tierLabel(BoonsBogies.tierOf(r)),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textTertiary(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (rings.length > 6)
+          Text(
+            '+${rings.length - 6} more in Journal & Memory → Growth',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: AppColors.textTertiary(context),
+            ),
           ),
       ],
     );
   }
+
+  static String _tierLabel(String tier) => switch (tier) {
+    'master' => 'Master',
+    'skilled' => 'Skilled',
+    _ => 'Novice',
+  };
 }

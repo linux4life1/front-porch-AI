@@ -102,6 +102,22 @@ class ChatToolsSnapshot {
       // Ruling 18: this chat's (or the focused member's) Boons & Bogies
       // switch, and whether Porch Life allows the feature at all.
       'boonsBogiesEnabled': _chat.bbSwitchFor(switchId),
+      // The rings the switch governs, boons then bogies (the desktop line
+      // lists them the same way). Additive: an older bundle ignores it.
+      'boonsBogiesRings': [
+        // allRingsFor hands back an unmodifiable list: copy before sorting.
+        for (final r in ([..._chat.growthRingsForOwner(switchId)]..sort(
+              (a, b) => (a.category == 'bogey' ? 1 : 0).compareTo(
+                b.category == 'bogey' ? 1 : 0,
+              ),
+            )))
+          if (BoonsBogies.isBoonOrBogey(r) && !r.retired)
+            {
+              'kind': BoonsBogies.isBogey(r) ? 'bogey' : 'boon',
+              'text': r.content,
+              'tier': BoonsBogies.tierOf(r),
+            },
+      ],
       'boonsBogiesAllowed': _storage.memorySettings.characterEvolutionEnabled &&
           _storage.memorySettings.boonsBogiesEnabled,
       // Additive: set only in a group, for a full member. The PWA then routes
