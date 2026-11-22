@@ -246,14 +246,19 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
     ],
     onSelected: (kind) => _update(
       i,
-      // Kind decides the pin default too — a bogey arrives pinned unless
-      // the author says otherwise (docs/design/boons-and-bogies.md §4).
+      // Kind decides the pin default, and so does tier (ruling,
+      // 2026-11-21): a fresh Skilled bogey arrives pinned, a fresh
+      // Novice one stays as authored — fragile until the story says
+      // otherwise (§4). The author's pin click always wins after that.
       (e) => _with(
         e,
         kind: kind,
-        pinned: kind == TraitKitEntry.kindBogey && e.text == ''
-            ? true
-            : e.pinned,
+        pinned:
+            kind == TraitKitEntry.kindBogey &&
+                    e.text == '' &&
+                    e.tier == TraitKitEntry.tierDeveloping
+                ? true
+                : e.pinned,
       ),
     ),
     child: Container(

@@ -83,7 +83,7 @@ void main() {
     expect(last!.last.text, 'steady hands');
   });
 
-  testWidgets('flipping a fresh row to Bogey pins it (§4 default)', (
+  testWidgets('a fresh Novice bogey stays unpinned (ruling 2026-11-21)', (
     tester,
   ) async {
     await pump(tester);
@@ -96,10 +96,30 @@ void main() {
     expect(last!.single.kind, 'bogey');
     expect(
       last!.single.pinned,
+      isFalse,
+      reason: 'a Novice flaw is authored fragile; pinning it would lie',
+    );
+  });
+
+  testWidgets('a fresh Skilled bogey arrives pinned (§4 default)', (
+    tester,
+  ) async {
+    await pump(tester);
+    await tester.tap(find.text('Add trait'));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Starting tier'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Skilled — a known habit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Kind'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bogey'));
+    await tester.pumpAndSettle();
+    expect(last!.single.kind, 'bogey');
+    expect(
+      last!.single.pinned,
       isTrue,
-      reason:
-          'a bogey arrives pinned '
-          'unless the author says otherwise',
+      reason: 'a bogey the author calls a habit arrives pinned',
     );
   });
 

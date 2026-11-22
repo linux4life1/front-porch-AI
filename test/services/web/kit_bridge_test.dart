@@ -145,11 +145,15 @@ void main() {
         'traitKit': [
           {'kind': 'power', 'text': 'flight'},
           {'kind': 'bogey', 'text': 'bad temper'},
+          {'kind': 'bogey', 'text': 'short fuse', 'tier': 'developing'},
         ],
       });
-      expect(back.traitKit, hasLength(1));
-      expect(back.traitKit.single.isBogey, isTrue);
-      expect(back.traitKit.single.pinned, isTrue);
+      expect(back.traitKit, hasLength(2));
+      expect(back.traitKit.first.isBogey, isTrue);
+      // Tier-aware default (ruling 2026-11-21): the Novice flaw arrives
+      // unpinned; the Skilled one arrives pinned.
+      expect(back.traitKit.first.pinned, isFalse);
+      expect(back.traitKit.last.pinned, isTrue);
     });
   });
 }

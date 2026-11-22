@@ -33,13 +33,17 @@ describe('traitKitFromDetail — one reader, two ends', () => {
     expect(kit[1].pinned).toBe(false); // explicit false beats the bogey default
   });
 
-  it('defaults a bogey pinned and a boon not (§4)', () => {
+  it('defaults a Skilled bogey pinned, a Novice one not, boons never (§4)', () => {
     const kit = traitKitFromDetail([
       { kind: 'bogey', text: 'bad temper' },
-      { kind: 'boon', text: 'steady hands' },
+      { kind: 'bogey', text: 'short fuse', tier: 'developing' },
+      { kind: 'bogey', text: 'old grudge', tier: 'established' },
+      { kind: 'boon', text: 'steady hands', tier: 'developing' },
     ]);
-    expect(kit[0].pinned).toBe(true);
-    expect(kit[1].pinned).toBe(false);
+    // Tier-aware default (ruling 2026-11-21), mirroring the Dart parse:
+    // Novice fragile, Skilled pinned, pre-cap established counts Skilled.
+    expect(kit.map((e) => e.pinned)).toEqual([false, true, true, false]);
+    expect(kit[2].tier).toBe('developing');
   });
 
   it('drops unknown kinds and blank text, falls back bad tiers', () => {

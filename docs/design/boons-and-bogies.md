@@ -223,9 +223,11 @@ inherit the Pockets bug class. Rings are already keyed
   `kDistillSeedStrength`), with `bb.seeded = true` and
   `advance_count` set to the tier's floor. Each chat's ninja starts with the
   same kit and grows apart from there.
-- Seeded bogies start **pinned** by default so the author's core flaw cannot
-  fade out in the first thirty turns; the author can untick that. Pinned does
-  not block the accepted overcome path (§3.2).
+- Seeded bogies start **pinned at Skilled, unpinned at Novice** (amended
+  2026-11-21): an earned habit the author means cannot fade out in the
+  first thirty turns, but a flaw authored as a crack stays fragile until
+  the story says otherwise. The author can override either way; the pin
+  does not block the accepted overcome path (§3.2).
 - Groups: each member is seeded from their own card, once.
 - **Existing chats:** switching the feature on offers the kit once, naming the
   whole cast. Decline writes nothing. The offer is re-runnable from the panel.

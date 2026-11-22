@@ -50,7 +50,9 @@ TraitKitEntry _entry(
   kind: bogey ? TraitKitEntry.kindBogey : TraitKitEntry.kindBoon,
   text: text,
   tier: tier,
-  pinned: pinned ?? bogey,
+  // Tier-aware bogey default (ruling, 2026-11-21): Skilled arrives
+  // pinned, Novice does not.
+  pinned: pinned ?? (bogey && tier == TraitKitEntry.tierDeveloping),
 );
 
 void main() {

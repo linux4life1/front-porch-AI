@@ -86,6 +86,19 @@ void main() {
       );
     });
 
+    test('the bogey default pin is tier-aware; boons never default pinned', () {
+      final kit = TraitKitEntry.parse([
+        {'kind': 'bogey', 'text': 'b'},
+        {'kind': 'bogey', 'text': 'c', 'tier': 'developing'},
+        {'kind': 'bogey', 'text': 'd', 'tier': 'established'},
+        {'kind': 'boon', 'text': 'e', 'tier': 'developing'},
+      ]);
+      // Ruling 2026-11-21: Novice fragile, Skilled pinned, pre-cap
+      // `established` counts as Skilled before its tier clamp.
+      expect(kit.map((e) => e.pinned).toList(), [false, true, true, false]);
+      expect(kit[2].tier, 'developing');
+    });
+
     test('unknown kind and blank text are dropped, bad tier falls back', () {
       final kit = TraitKitEntry.parse([
         {'kind': 'power', 'text': 'flight'},

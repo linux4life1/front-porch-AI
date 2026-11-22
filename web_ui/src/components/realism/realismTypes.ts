@@ -545,9 +545,15 @@ export function traitKitFromDetail(raw: unknown): TraitKitEntry[] {
       // steps down to `developing`. A kit seeds at Skilled at most —
       // Master is where the story asks, never where a card asserts.
       tier: tier === 'developing' || tier === 'established' ? 'developing' : 'emerging',
-      // Defaults follow the card codec: a bogey arrives pinned unless the
-      // author unticks it (§4).
-      pinned: typeof e.pinned === 'boolean' ? e.pinned : kind === 'bogey',
+      // Default pin is tier-aware (ruling, 2026-11-21), mirroring the
+      // Dart parse: a Skilled bogey arrives pinned unless the author
+      // unticks it (§4); a Novice bogey arrives unpinned, as authored.
+      // `tier` here is pre-clamp, so `established` (Skilled's pre-cap
+      // spelling) counts as Skilled, exactly as on desktop.
+      pinned:
+        typeof e.pinned === 'boolean'
+          ? e.pinned
+          : kind === 'bogey' && (tier === 'developing' || tier === 'established'),
       ...(typeof e.linkedTo === 'string' && e.linkedTo.trim()
         ? { linkedTo: e.linkedTo.trim() }
         : {}),

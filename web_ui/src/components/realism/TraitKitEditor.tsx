@@ -58,9 +58,16 @@ export function TraitKitEditor({
             onChange={(ev) =>
               update(i, {
                 kind: ev.target.value as (typeof KINDS)[number],
-                // Kind decides the pin default on a fresh row: a bogey
-                // arrives pinned unless the author says otherwise (§4).
-                pinned: e.text === '' && ev.target.value === 'bogey' ? true : e.pinned,
+                // Kind decides the pin default on a fresh row, and so
+                // does tier (ruling, 2026-11-21): a fresh Skilled bogey
+                // arrives pinned, a fresh Novice one stays fragile until
+                // the story says otherwise (§4).
+                pinned:
+                  e.text === '' &&
+                  ev.target.value === 'bogey' &&
+                  e.tier === 'developing'
+                    ? true
+                    : e.pinned,
               })
             }
           >

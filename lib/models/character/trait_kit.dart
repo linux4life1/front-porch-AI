@@ -93,9 +93,12 @@ class TraitKitEntry {
   /// ruling 8 amended 2026-11-21).
   final String tier;
 
-  /// Seeded rings from this entry start pinned, so the author's core flaw
-  /// cannot fade in the first thirty turns. Pinned does not block the
-  /// accepted overcome path. Defaults: bogey true, boon false.
+  /// Whether a seeded ring from this entry starts pinned. Tier-aware
+  /// (ruling, 2026-11-21): a Skilled bogey defaults to pinned so the
+  /// author's earned flaw cannot fade in the first thirty turns; a
+  /// Novice bogey defaults unpinned, fragile as authored. An explicit
+  /// choice — checkbox or card key — always wins. Pinned does not block
+  /// the accepted overcome path. Boons default unpinned.
   final bool pinned;
 
   /// Text of the boon this bogey pushes against (phase 7 link; carried
@@ -164,7 +167,16 @@ class TraitKitEntry {
           kind: kind,
           text: text,
           tier: tier,
-          pinned: v['pinned'] is bool ? v['pinned'] as bool : kind == kindBogey,
+          // Default pin is tier-aware (ruling, 2026-11-21): a Skilled
+          // bogey arrives pinned — the author means it and it must not
+          // evaporate in the first thirty turns; a Novice bogey arrives
+          // as authored, fragile, unpinned. An explicit `pinned` in the
+          // card is the author's veto and always wins. `tier` here is
+          // pre-clamp, so `established` (Skilled's pre-cap spelling)
+          // counts as Skilled.
+          pinned: v['pinned'] is bool
+              ? v['pinned'] as bool
+              : kind == kindBogey && tier != tierEmerging,
           linkedTo: linked.isEmpty ? null : linked,
         ),
       );
