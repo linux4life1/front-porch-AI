@@ -564,6 +564,17 @@ export function realismFromDetail(raw: Partial<RealismValues> | null | undefined
   return merged;
 }
 
+// ── Kit seed-tier display names (mirror trait_kit.dart `seedTierName`) ──────
+/** Ruling 2: an author sees Novice / Skilled / Master, never the wire tier.
+ *  The top option is "Master-bound", not "Master": a seeded kit starts one
+ *  advance pass short of the milestone (ruling 8), it never holds Master.
+ *  Post-`traitKitFromDetail` the tier is always a canonical key. */
+export const SEED_TIER_NAMES: Record<string, string> = {
+  emerging: 'Novice',
+  developing: 'Skilled',
+  established: 'Master-bound',
+};
+
 // ── Relationship tier names (mirror realism_form_section.dart) ──────────────
 export function shortTermTier(score: number): string {
   if (score >= 80) return 'Devoted';

@@ -8,15 +8,19 @@
 // parse layer truncates, but an author who hits the wall should see it.
 
 import type { TraitKitEntry } from './realismTypes';
-import { MAX_KIT_ENTRIES } from './realismTypes';
+import { MAX_KIT_ENTRIES, SEED_TIER_NAMES } from './realismTypes';
 
 const KINDS = ['boon', 'bogey'] as const;
 const TIERS = ['emerging', 'developing', 'established'] as const;
-const TIER_LABEL: Record<string, string> = {
-  emerging: 'Novice — starts faint',
-  developing: 'Skilled — a known habit',
-  established: 'Master-bound — core to them',
+// Ladder name (SEED_TIER_NAMES, ruling 2) + what the seed buys the trait.
+const TIER_SUFFIX: Record<string, string> = {
+  emerging: 'starts faint',
+  developing: 'a known habit',
+  established: 'core to them',
 };
+const TIER_LABEL: Record<string, string> = Object.fromEntries(
+  TIERS.map((t) => [t, `${SEED_TIER_NAMES[t]} — ${TIER_SUFFIX[t]}`]),
+);
 
 export function TraitKitEditor({
   values,

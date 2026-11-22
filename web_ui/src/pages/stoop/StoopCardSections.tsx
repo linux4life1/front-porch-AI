@@ -10,6 +10,7 @@ import {
   type InventoryRecord,
   inventoryToChips,
   traitKitFromDetail,
+  SEED_TIER_NAMES,
 } from '../../components/realism/realismTypes';
 import {
   stoopCardKind,
@@ -90,7 +91,7 @@ function IdentityExtras({ card }: { card: CardMap }) {
           <ul className="stoop-ambitions">
             {kit.map((e, i) => (
               <li key={i}>
-                {e.kind === 'bogey' ? '🎲' : '🍀'} {e.text} — {e.tier[0].toUpperCase() + e.tier.slice(1)}
+                {e.kind === 'bogey' ? '🎲' : '🍀'} {e.text} — {SEED_TIER_NAMES[e.tier] ?? 'Novice'}
                 {e.pinned ? ' · pinned' : ''}
               </li>
             ))}

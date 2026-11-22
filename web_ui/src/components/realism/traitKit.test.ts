@@ -16,6 +16,7 @@ import {
   MAX_KIT_TEXT_CHARS,
   realismFromDetail,
   traitKitFromDetail,
+  SEED_TIER_NAMES,
 } from './realismTypes';
 
 describe('traitKitFromDetail — one reader, two ends', () => {
@@ -98,5 +99,21 @@ describe('realismFromDetail carries the kit like the Dart bridge does', () => {
       })),
     });
     expect(rv.traitKit).toHaveLength(MAX_KIT_ENTRIES);
+  });
+});
+
+describe('SEED_TIER_NAMES — ruling 2 vocabulary, never the wire value', () => {
+  it('names the three tiers Novice / Skilled / Master-bound', () => {
+    expect(SEED_TIER_NAMES.emerging).toBe('Novice');
+    expect(SEED_TIER_NAMES.developing).toBe('Skilled');
+    // "Master-bound", never "Master": a seeded kit starts one advance
+    // pass short of the milestone (ruling 8).
+    expect(SEED_TIER_NAMES.established).toBe('Master-bound');
+  });
+
+  it('echoes no wire tier value', () => {
+    for (const wire of ['emerging', 'developing', 'established']) {
+      expect(SEED_TIER_NAMES[wire].toLowerCase()).not.toBe(wire);
+    }
   });
 });

@@ -189,7 +189,7 @@ class CreatorReviewSummary extends StatelessWidget {
                     ),
                   if (d.realismTraitKit.isNotEmpty)
                     Text(
-                      'Boons & Bogies: ${d.realismTraitKit.map((e) => '${e.kindLabel} ${e.text} (${e.tier})').join('; ')}',
+                      'Boons & Bogies: ${d.realismTraitKit.map((e) => '${e.kindLabel} ${e.text} (${e.seedTierName})').join('; ')}',
                       style: tertiary11,
                     ),
                   if (d.realismLikes.isNotEmpty)

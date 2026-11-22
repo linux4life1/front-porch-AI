@@ -84,13 +84,16 @@ class TraitKitEntry {
   /// strength 0.80 with the advance floor ONE pass short of the Master
   /// milestone (ruling 8: Master is always asked, never seeded) — hence
   /// "Master-bound", not "Master". Every user-facing surface (kit editor,
-  /// Stoop tile) names the tier through here; the wire value stays
-  /// emerging/developing/established (§4).
-  String get seedTierName => switch (tier) {
+  /// Stoop tile, creator review) names the tier through here; the wire
+  /// value stays emerging/developing/established (§4). Mirrored in web by
+  /// `SEED_TIER_NAMES` (realismTypes.ts).
+  static String seedTierNameFor(String tier) => switch (tier) {
     tierDeveloping => 'Skilled',
     tierEstablished => 'Master-bound',
     _ => 'Novice',
   };
+
+  String get seedTierName => seedTierNameFor(tier);
 
   Map<String, dynamic> toJson() => {
     'kind': kind,

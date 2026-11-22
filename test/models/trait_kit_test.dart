@@ -19,6 +19,28 @@ FrontPorchExtensions _roundTrip(FrontPorchExtensions e) =>
     decodeFrontPorchExtensions(encodeFrontPorchExtensions(e));
 
 void main() {
+  group('seedTierName — ruling 2 vocabulary, never the wire value', () {
+    test('the three tiers are Novice / Skilled / Master-bound', () {
+      expect(TraitKitEntry.seedTierNameFor('emerging'), 'Novice');
+      expect(TraitKitEntry.seedTierNameFor('developing'), 'Skilled');
+      // "Master-bound", never "Master": a seeded kit starts one advance
+      // pass short of the milestone (ruling 8).
+      expect(TraitKitEntry.seedTierNameFor('established'), 'Master-bound');
+    });
+
+    test('junk coerces to Novice like the parser does', () {
+      expect(TraitKitEntry.seedTierNameFor('legendary'), 'Novice');
+      expect(TraitKitEntry.seedTierNameFor(''), 'Novice');
+    });
+
+    test('no display name echoes a wire tier value', () {
+      for (final wire in const ['emerging', 'developing', 'established']) {
+        final name = TraitKitEntry.seedTierNameFor(wire);
+        expect(name.toLowerCase(), isNot(wire));
+      }
+    });
+  });
+
   group('parse — one reader for cards from anywhere', () {
     test('a good kit survives untouched', () {
       final kit = TraitKitEntry.parse([

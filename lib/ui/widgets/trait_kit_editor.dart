@@ -284,19 +284,18 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
     initialValue: entry.tier,
     position: PopupMenuPosition.under,
     icon: const Icon(Icons.unfold_more, size: 14),
-    itemBuilder: (context) => const [
-      PopupMenuItem(
-        value: TraitKitEntry.tierEmerging,
-        child: Text('Novice — starts faint'),
-      ),
-      PopupMenuItem(
-        value: TraitKitEntry.tierDeveloping,
-        child: Text('Skilled — a known habit'),
-      ),
-      PopupMenuItem(
-        value: TraitKitEntry.tierEstablished,
-        child: Text('Master-bound — core to them'),
-      ),
+    itemBuilder: (context) => [
+      // Ladder name (ruling 2) + what the seed buys the trait; the tier
+      // wire value rides on `value:`, never on the label.
+      for (final (tier, buys) in const [
+        (TraitKitEntry.tierEmerging, 'starts faint'),
+        (TraitKitEntry.tierDeveloping, 'a known habit'),
+        (TraitKitEntry.tierEstablished, 'core to them'),
+      ])
+        PopupMenuItem(
+          value: tier,
+          child: Text('${TraitKitEntry.seedTierNameFor(tier)} — $buys'),
+        ),
     ],
     onSelected: (tier) => _update(i, (e) => _with(e, tier: tier)),
   );
