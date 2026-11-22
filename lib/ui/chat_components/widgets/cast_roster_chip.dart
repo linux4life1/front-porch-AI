@@ -45,8 +45,8 @@ class CastRosterChip extends StatelessWidget {
   final VoidCallback onFocus;
   final VoidCallback? onPromote;
 
-  /// Group members only: where the member is now, shown as a status word.
-  /// Null hides the row (host, 1:1 guests).
+  /// Group members only, full or lite: where the member is now, shown as a
+  /// status word. Null hides the row (host, 1:1 guests).
   final PresenceWhere? presence;
 
   /// Toggles Away with the presence value to set (true from With you).
@@ -90,20 +90,16 @@ class CastRosterChip extends StatelessWidget {
   );
 
   bool get hasPresenceWord =>
-      !isLite &&
-      (presence == PresenceWhere.withYou ||
-          presence == PresenceWhere.away ||
-          presence == PresenceWhere.atWork);
+      presence == PresenceWhere.withYou ||
+      presence == PresenceWhere.away ||
+      presence == PresenceWhere.atWork;
 
   /// Status only — the presence word describes, it no longer acts. The
   /// Away / Back action lives in the chip menu and on the Character State
   /// word (which has always toggled from there).
   Widget _presenceWord(BuildContext context) {
     final (label, tone) = switch (presence) {
-      PresenceWhere.withYou => (
-        'With you',
-        AppColors.porchAmberOf(context),
-      ),
+      PresenceWhere.withYou => ('With you', AppColors.porchAmberOf(context)),
       PresenceWhere.away => ('Away', AppColors.textSecondary(context)),
       PresenceWhere.atWork => ('At work', AppColors.textTertiary(context)),
       _ => ('', AppColors.textTertiary(context)),
@@ -181,7 +177,12 @@ class CastRosterChip extends StatelessWidget {
     ];
     showMenu<String>(
       context: context,
-      position: RelativeRect.fromLTRB(global.dx, global.dy, global.dx, global.dy),
+      position: RelativeRect.fromLTRB(
+        global.dx,
+        global.dy,
+        global.dx,
+        global.dy,
+      ),
       items: [
         for (final id in items)
           PopupMenuItem(
@@ -253,9 +254,8 @@ class CastRosterChip extends StatelessWidget {
                             ? [
                                 BoxShadow(
                                   color: AppColors.porchAmberOf(
-                                          context,
-                                        )
-                                        .withValues(alpha: 0.9),
+                                    context,
+                                  ).withValues(alpha: 0.9),
                                   spreadRadius: 2,
                                   blurRadius: 0,
                                 ),

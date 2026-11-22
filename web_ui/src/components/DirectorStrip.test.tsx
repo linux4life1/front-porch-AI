@@ -242,6 +242,38 @@ describe('Director Mode on the web', () => {
     expect(chips.map((c) => c.classList.contains('away'))).toEqual([false, true, true]);
   });
 
+  it('a lite group member wears the status word and is sent away and brought back like a full one', () => {
+    const onSetAway = vi.fn();
+    const draw = (presence: 'withYou' | 'away') =>
+      render(
+        createElement(CastBar, {
+          cast: [{ ...member('Misty', true), presence }],
+          focusedId: null,
+          busy: false,
+          guestStatus: null,
+          guestIsError: false,
+          pendingDetection: null,
+          onFocus: () => {},
+          onAdd: () => {},
+          onCommand: () => {},
+          onSetAway,
+        }),
+      );
+    draw('withYou');
+    expect(container.querySelector('.cast-word')?.textContent).toBe('With you');
+    openMenu('Misty');
+    expect(button('Promote to full member')).toBeDefined();
+    act(() => button('Send away')!.click());
+    expect(onSetAway).toHaveBeenLastCalledWith('Misty', true);
+
+    draw('away');
+    expect(container.querySelector('.cast-word')?.textContent).toBe('Away');
+    expect(chipEl('Misty').classList.contains('away')).toBe(true);
+    openMenu('Misty');
+    act(() => button('Bring back')!.click());
+    expect(onSetAway).toHaveBeenLastCalledWith('Misty', false);
+  });
+
   it('keeps the Next pill live while the turn settles (a hold fires nothing) but disables the menu away row', () => {
     render(
       createElement(CastBar, {

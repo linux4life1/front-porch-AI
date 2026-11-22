@@ -84,12 +84,12 @@ function ChipMenu({
       <button onClick={onQueue} disabled={busy}>
         {member.queued ? 'Cancel queued turn' : 'Queue to speak next'}
       </button>
-      {member.presence === 'withYou' && !member.isLite && (
+      {member.presence === 'withYou' && (
         <button onClick={() => onAway(true)} disabled={busy}>
           Send away
         </button>
       )}
-      {member.presence === 'away' && !member.isLite && (
+      {member.presence === 'away' && (
         <button onClick={() => onAway(false)} disabled={busy}>
           Bring back
         </button>
@@ -166,7 +166,9 @@ export function CastBar({
         {cast.map((c) => {
           const isFocused = c.id === focused;
           const showPicture = c.hasAvatar && !c.placeholderPortrait && !!c.avatarUrl;
-          const showWord = !c.isLite && !!c.presence && onSetAway !== undefined;
+          // Full and lite group members alike: a lite member's turn skips
+          // on the same Away hold (desktop chip's rule).
+          const showWord = !!c.presence && onSetAway !== undefined;
           const canQueue = !!onQueue;
           return (
             <div

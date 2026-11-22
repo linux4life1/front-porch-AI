@@ -270,15 +270,17 @@ class _ParticipantRoster extends StatelessWidget {
 
   Widget _roster(BuildContext context) {
     final hasLite = cast.any((p) => p.isLite);
-    // Group members only (the web's rule): With you / Away / At work ride
-    // the chip as an honest status word; the toggle lives in the menu.
+    // Group members only, full or lite (the web's rule): With you / Away /
+    // At work ride the chip as an honest status word; the toggle lives in
+    // the menu. A lite member's turn skips on the same hold a full
+    // member's does, so the user can send either away.
     PresenceWhere? presenceOf(ChatParticipant p) =>
-        chatService.isGroupMode && !p.isLite && !p.isHost
+        chatService.isGroupMode && !p.isHost
         ? chatService.groupMemberPresence(p.id)
         : null;
     // Chip column: avatar 36 + gap 2 + name 14 + status word 14 + Next
-    // pill 20 ≈ 86; lite drops the word row (-14) and adds Promote (+20)
-    // ≈ 92. Container padding (12) on top: 100 full, 110 lite.
+    // pill 20 ≈ 86; lite adds Promote (+20) ≈ 106. Container padding (12)
+    // on top: 100 full, 110 lite.
     return Container(
       height: (hasLite ? 110 : 100) + 12,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

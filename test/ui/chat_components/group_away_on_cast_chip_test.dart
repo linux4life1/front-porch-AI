@@ -376,7 +376,7 @@ void main() {
   });
 
   testWidgets('chip words: every presence reads, At work never offers a '
-      'toggle, lite and host show no word', (tester) async {
+      'toggle, host shows no word', (tester) async {
     var menuAwayCalls = 0;
     await tester.pumpWidget(
       _chip(
@@ -410,17 +410,71 @@ void main() {
     expect(find.text('Send away'), findsNothing);
     expect(find.text('Bring back'), findsNothing);
 
-    // Lite guests and host-side chips (no presence) carry no word.
-    for (final hidden in [
+    // Changed 2026-11-22: a lite group member's turn skips on the same Away
+    // hold a full member's does, so its chip now wears the word too (the
+    // old assertion hid a state the turn picker already acted on). Only a
+    // host-side chip (no presence) carries no word.
+    await tester.pumpWidget(
       _chip(
         presence: PresenceWhere.withYou,
         onSetAway: (_) => menuAwayCalls++,
         isLite: true,
       ),
+    );
+    expect(find.text('With you'), findsOneWidget);
+    await tester.pumpWidget(
       _chip(presence: null, onSetAway: (_) => menuAwayCalls++),
-    ]) {
-      await tester.pumpWidget(hidden);
-      expect(find.text('With you'), findsNothing);
-    }
+    );
+    expect(find.text('With you'), findsNothing);
   });
+
+  testWidgets(
+    'a lite member is sent away from its chip, skipped by the turn picker, '
+    'and brought back',
+    (tester) async {
+      await tester.runAsync(() => boot(clockRunning: false));
+      addTearDown(
+        () => tester.runAsync(() => disposeChatThenCloseDb(chat, db)),
+      );
+      final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+      ana.frontPorchExtensions = FrontPorchExtensions(tier: 'lite');
+      await pumpSidebar(tester);
+      // A lite chip's centre is its Promote button: hold the face.
+      Future<void> holdFace() async {
+        await tester.longPress(
+          find.descendant(of: chip('Ana'), matching: find.byType(CircleAvatar)),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      expect(
+        find.descendant(of: chip('Ana'), matching: find.text('Promote')),
+        findsOneWidget,
+        reason: 'Ana is a lite member',
+      );
+      expect(
+        find.descendant(of: chip('Ana'), matching: find.text('With you')),
+        findsOneWidget,
+      );
+
+      await holdFace();
+      await tester.tap(find.text('Send away'));
+      await settle(tester);
+      expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.away);
+      expect(
+        find.descendant(of: chip('Ana'), matching: find.text('Away')),
+        findsOneWidget,
+      );
+      expect(
+        chat.nextCharacter?.name,
+        'Bea',
+        reason: 'the picker walks past a held lite member',
+      );
+
+      await holdFace();
+      await tester.tap(find.text('Bring back'));
+      await settle(tester);
+      expect(chat.groupMemberPresence('mem-ana'), PresenceWhere.withYou);
+    },
+  );
 }
