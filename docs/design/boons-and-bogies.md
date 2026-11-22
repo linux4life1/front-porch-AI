@@ -405,7 +405,11 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
    on both surfaces + manifest + the Stoop line.
 4. Bogey rolls + injection + regen/swipe behaviour + scene gate + Chance
    Time precedence. Rolls respect ruling 18: opted-out members are not
-   rolled, and the pass prompt records `not offered` (§3).
+   rolled, and the pass prompt records `not offered` (§3). Ships the
+   ruling-18 participation UI in the same PR: character-editor default
+   enablement inherited by new chats and the per-member sidebar toggle,
+   in group chats and on web exactly like realism/needs (maintainer
+   ruling, 2026-11-21).
 5. Milestone card (static burst), budget, Moments list, Master and
    overcome, queue, group naming. Ships the ruling-18 participation UI
    (character default + sidebar toggle, both stacks) and lifts the BETA
