@@ -108,6 +108,9 @@ FrontPorchExtensions decodeFrontPorchExtensions(
     enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
     ambitions: _phrases(realism['ambitions']),
     traitKit: TraitKitEntry.parse(realism['traitKit']),
+    // Ruling 18's card layer: tri-state, so a key-less card follows the
+    // Porch Life global while an explicit false opts this character out.
+    boonsBogiesChoice: realism['boons_bogies_enabled'] as bool?,
     planLines: _phrases(realism['plan_lines']),
     occupation: realism['occupation'] as String? ?? '',
     hours: realism['hours'] as String? ?? '',
@@ -214,6 +217,10 @@ Map<String, dynamic> encodeFrontPorchExtensions(FrontPorchExtensions e) {
       // Additive and omitted when empty (the `?` element idiom): a card
       // without a kit re-saves byte-identical, old apps ignore the key.
       'traitKit': ?TraitKitEntry.encode(e.traitKit),
+      // Written only when the card made a choice (null = follow the global),
+      // so a key-less card re-saves byte-identical.
+      if (e.boonsBogiesChoice != null)
+        'boons_bogies_enabled': e.boonsBogiesChoice,
       'plan_lines': e.planLines,
       if (e.occupation.isNotEmpty) 'occupation': e.occupation,
       if (e.hours.isNotEmpty) 'hours': e.hours,

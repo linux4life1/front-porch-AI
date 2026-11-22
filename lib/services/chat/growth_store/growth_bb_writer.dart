@@ -129,4 +129,69 @@ class GrowthBbWriter {
       ),
     );
   }
+
+  /// Persist one reply's gauge movement for a bogey (§6): pressure and
+  /// cooldown, nothing else. Fired rings park through [parkBogey].
+  Future<void> recordBogeyGauge(
+    GrowthRingData ring, {
+    required int pressure,
+    required int cooldown,
+  }) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        bogeyPressure: Value(pressure),
+        bogeyCooldown: Value(cooldown),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// A fire: park the nudge for the next reply and restart the gauge. The
+  /// delivered flag clears so regen/swipe of that reply re-inject the SAME
+  /// line (ruling 19) until the next user turn clears the slot.
+  Future<void> parkBogey(GrowthRingData ring, {required String text}) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        bogeyPending: Value(text),
+        bogeyDelivered: const Value(false),
+        bogeyPressure: const Value(0),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// The prompt builder consumed the parked nudge: a second build (regen,
+  /// swipe) still sees it, so only the flag moves.
+  Future<void> markBogeyDelivered(GrowthRingData ring) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        bogeyDelivered: const Value(true),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// The next user turn: the slot clears so the same flaw can be rolled
+  /// again later. Delivered only — a parked-but-undelivered nudge survives.
+  Future<void> clearDeliveredBogey(GrowthRingData ring) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        bogeyPending: const Value(null),
+        bogeyDelivered: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
 }

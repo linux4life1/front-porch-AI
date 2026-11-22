@@ -1605,6 +1605,21 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _bbEnabledMeta = const VerificationMeta(
+    'bbEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> bbEnabled = GeneratedColumn<bool>(
+    'bb_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("bb_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _shortTermMoodMeta = const VerificationMeta(
     'shortTermMood',
   );
@@ -2283,6 +2298,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     turnsSinceLongTermCheck,
     shortTermDeltasSummary,
     realismEnabled,
+    bbEnabled,
     shortTermMood,
     moodDecayCounter,
     characterEmotion,
@@ -2500,6 +2516,12 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
           data['realism_enabled']!,
           _realismEnabledMeta,
         ),
+      );
+    }
+    if (data.containsKey('bb_enabled')) {
+      context.handle(
+        _bbEnabledMeta,
+        bbEnabled.isAcceptableOrUnknown(data['bb_enabled']!, _bbEnabledMeta),
       );
     }
     if (data.containsKey('short_term_mood')) {
@@ -3046,6 +3068,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.bool,
         data['${effectivePrefix}realism_enabled'],
       )!,
+      bbEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}bb_enabled'],
+      )!,
       shortTermMood: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}short_term_mood'],
@@ -3297,6 +3323,7 @@ class Session extends DataClass implements Insertable<Session> {
   final int turnsSinceLongTermCheck;
   final int shortTermDeltasSummary;
   final bool realismEnabled;
+  final bool bbEnabled;
   final int shortTermMood;
   final int moodDecayCounter;
   final String characterEmotion;
@@ -3451,6 +3478,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.turnsSinceLongTermCheck,
     required this.shortTermDeltasSummary,
     required this.realismEnabled,
+    required this.bbEnabled,
     required this.shortTermMood,
     required this.moodDecayCounter,
     required this.characterEmotion,
@@ -3544,6 +3572,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['turns_since_long_term_check'] = Variable<int>(turnsSinceLongTermCheck);
     map['short_term_deltas_summary'] = Variable<int>(shortTermDeltasSummary);
     map['realism_enabled'] = Variable<bool>(realismEnabled);
+    map['bb_enabled'] = Variable<bool>(bbEnabled);
     map['short_term_mood'] = Variable<int>(shortTermMood);
     map['mood_decay_counter'] = Variable<int>(moodDecayCounter);
     map['character_emotion'] = Variable<String>(characterEmotion);
@@ -3684,6 +3713,7 @@ class Session extends DataClass implements Insertable<Session> {
       turnsSinceLongTermCheck: Value(turnsSinceLongTermCheck),
       shortTermDeltasSummary: Value(shortTermDeltasSummary),
       realismEnabled: Value(realismEnabled),
+      bbEnabled: Value(bbEnabled),
       shortTermMood: Value(shortTermMood),
       moodDecayCounter: Value(moodDecayCounter),
       characterEmotion: Value(characterEmotion),
@@ -3813,6 +3843,7 @@ class Session extends DataClass implements Insertable<Session> {
         json['shortTermDeltasSummary'],
       ),
       realismEnabled: serializer.fromJson<bool>(json['realismEnabled']),
+      bbEnabled: serializer.fromJson<bool>(json['bbEnabled']),
       shortTermMood: serializer.fromJson<int>(json['shortTermMood']),
       moodDecayCounter: serializer.fromJson<int>(json['moodDecayCounter']),
       characterEmotion: serializer.fromJson<String>(json['characterEmotion']),
@@ -3922,6 +3953,7 @@ class Session extends DataClass implements Insertable<Session> {
       ),
       'shortTermDeltasSummary': serializer.toJson<int>(shortTermDeltasSummary),
       'realismEnabled': serializer.toJson<bool>(realismEnabled),
+      'bbEnabled': serializer.toJson<bool>(bbEnabled),
       'shortTermMood': serializer.toJson<int>(shortTermMood),
       'moodDecayCounter': serializer.toJson<int>(moodDecayCounter),
       'characterEmotion': serializer.toJson<String>(characterEmotion),
@@ -4005,6 +4037,7 @@ class Session extends DataClass implements Insertable<Session> {
     int? turnsSinceLongTermCheck,
     int? shortTermDeltasSummary,
     bool? realismEnabled,
+    bool? bbEnabled,
     int? shortTermMood,
     int? moodDecayCounter,
     String? characterEmotion,
@@ -4085,6 +4118,7 @@ class Session extends DataClass implements Insertable<Session> {
     shortTermDeltasSummary:
         shortTermDeltasSummary ?? this.shortTermDeltasSummary,
     realismEnabled: realismEnabled ?? this.realismEnabled,
+    bbEnabled: bbEnabled ?? this.bbEnabled,
     shortTermMood: shortTermMood ?? this.shortTermMood,
     moodDecayCounter: moodDecayCounter ?? this.moodDecayCounter,
     characterEmotion: characterEmotion ?? this.characterEmotion,
@@ -4224,6 +4258,7 @@ class Session extends DataClass implements Insertable<Session> {
       realismEnabled: data.realismEnabled.present
           ? data.realismEnabled.value
           : this.realismEnabled,
+      bbEnabled: data.bbEnabled.present ? data.bbEnabled.value : this.bbEnabled,
       shortTermMood: data.shortTermMood.present
           ? data.shortTermMood.value
           : this.shortTermMood,
@@ -4397,6 +4432,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('turnsSinceLongTermCheck: $turnsSinceLongTermCheck, ')
           ..write('shortTermDeltasSummary: $shortTermDeltasSummary, ')
           ..write('realismEnabled: $realismEnabled, ')
+          ..write('bbEnabled: $bbEnabled, ')
           ..write('shortTermMood: $shortTermMood, ')
           ..write('moodDecayCounter: $moodDecayCounter, ')
           ..write('characterEmotion: $characterEmotion, ')
@@ -4476,6 +4512,7 @@ class Session extends DataClass implements Insertable<Session> {
     turnsSinceLongTermCheck,
     shortTermDeltasSummary,
     realismEnabled,
+    bbEnabled,
     shortTermMood,
     moodDecayCounter,
     characterEmotion,
@@ -4554,6 +4591,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.turnsSinceLongTermCheck == this.turnsSinceLongTermCheck &&
           other.shortTermDeltasSummary == this.shortTermDeltasSummary &&
           other.realismEnabled == this.realismEnabled &&
+          other.bbEnabled == this.bbEnabled &&
           other.shortTermMood == this.shortTermMood &&
           other.moodDecayCounter == this.moodDecayCounter &&
           other.characterEmotion == this.characterEmotion &&
@@ -4630,6 +4668,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<int> turnsSinceLongTermCheck;
   final Value<int> shortTermDeltasSummary;
   final Value<bool> realismEnabled;
+  final Value<bool> bbEnabled;
   final Value<int> shortTermMood;
   final Value<int> moodDecayCounter;
   final Value<String> characterEmotion;
@@ -4705,6 +4744,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.turnsSinceLongTermCheck = const Value.absent(),
     this.shortTermDeltasSummary = const Value.absent(),
     this.realismEnabled = const Value.absent(),
+    this.bbEnabled = const Value.absent(),
     this.shortTermMood = const Value.absent(),
     this.moodDecayCounter = const Value.absent(),
     this.characterEmotion = const Value.absent(),
@@ -4781,6 +4821,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.turnsSinceLongTermCheck = const Value.absent(),
     this.shortTermDeltasSummary = const Value.absent(),
     this.realismEnabled = const Value.absent(),
+    this.bbEnabled = const Value.absent(),
     this.shortTermMood = const Value.absent(),
     this.moodDecayCounter = const Value.absent(),
     this.characterEmotion = const Value.absent(),
@@ -4857,6 +4898,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<int>? turnsSinceLongTermCheck,
     Expression<int>? shortTermDeltasSummary,
     Expression<bool>? realismEnabled,
+    Expression<bool>? bbEnabled,
     Expression<int>? shortTermMood,
     Expression<int>? moodDecayCounter,
     Expression<String>? characterEmotion,
@@ -4935,6 +4977,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (shortTermDeltasSummary != null)
         'short_term_deltas_summary': shortTermDeltasSummary,
       if (realismEnabled != null) 'realism_enabled': realismEnabled,
+      if (bbEnabled != null) 'bb_enabled': bbEnabled,
       if (shortTermMood != null) 'short_term_mood': shortTermMood,
       if (moodDecayCounter != null) 'mood_decay_counter': moodDecayCounter,
       if (characterEmotion != null) 'character_emotion': characterEmotion,
@@ -5026,6 +5069,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<int>? turnsSinceLongTermCheck,
     Value<int>? shortTermDeltasSummary,
     Value<bool>? realismEnabled,
+    Value<bool>? bbEnabled,
     Value<int>? shortTermMood,
     Value<int>? moodDecayCounter,
     Value<String>? characterEmotion,
@@ -5104,6 +5148,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       shortTermDeltasSummary:
           shortTermDeltasSummary ?? this.shortTermDeltasSummary,
       realismEnabled: realismEnabled ?? this.realismEnabled,
+      bbEnabled: bbEnabled ?? this.bbEnabled,
       shortTermMood: shortTermMood ?? this.shortTermMood,
       moodDecayCounter: moodDecayCounter ?? this.moodDecayCounter,
       characterEmotion: characterEmotion ?? this.characterEmotion,
@@ -5232,6 +5277,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (realismEnabled.present) {
       map['realism_enabled'] = Variable<bool>(realismEnabled.value);
+    }
+    if (bbEnabled.present) {
+      map['bb_enabled'] = Variable<bool>(bbEnabled.value);
     }
     if (shortTermMood.present) {
       map['short_term_mood'] = Variable<int>(shortTermMood.value);
@@ -5441,6 +5489,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('turnsSinceLongTermCheck: $turnsSinceLongTermCheck, ')
           ..write('shortTermDeltasSummary: $shortTermDeltasSummary, ')
           ..write('realismEnabled: $realismEnabled, ')
+          ..write('bbEnabled: $bbEnabled, ')
           ..write('shortTermMood: $shortTermMood, ')
           ..write('moodDecayCounter: $moodDecayCounter, ')
           ..write('characterEmotion: $characterEmotion, ')

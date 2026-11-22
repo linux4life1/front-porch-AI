@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/doors/controls/bogey_rolls.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/chance_time.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/group_member_ext_writer.dart';
@@ -116,6 +117,12 @@ class ControlsDoor {
   bool realismEnabledFor(String? id) =>
       permission.allowed &&
       (_activeGroup == null ? chatRealism : _g.groups.realismOnFor(id));
+
+  /// Ruling 18's switch lives on [MemberSwitches]; these keep the door's
+  /// call sites reading the same names.
+  bool bbEnabledFor(String? id) => memberSwitches.bbEnabledFor(id);
+  bool get bbChatSwitch => memberSwitches.chatBbSwitch;
+  void setChatBb(bool on) => memberSwitches.chatBbSwitch = on;
 
   /// Objectives are actually running for this chat: the per-chat switch AND the
   /// global one (docs/design/feature-independence.md). Objectives depend on
@@ -278,7 +285,10 @@ class ControlsDoor {
     deps.notify();
   }
 
-  /// Writes Porch Life Passage of Time — the live clock gate.
+  /// Ruling 18's chat write: 1:1 the chat's own switch, a group the whole
+  /// cast (the sidebar's per-member toggles write through MemberSwitches).
+  /// Off freezes — rings stay, nothing is deleted.
+  Future<void> setBbEnabled(bool on) => memberSwitches.setChatBb(on);  /// Writes Porch Life Passage of Time — the live clock gate.
   Future<void> setPassageOfTimeEnabled(bool enabled) async {
     await _storage.realismSettings.setPassageOfTimeDefault(enabled);
     _g.time.markClockGateSource('porch_life');
@@ -465,6 +475,14 @@ class ControlsDoor {
   );
 
   late final ChanceTime chance = ChanceTime(deps);
+
+  /// Bogey rolls (spec §6); the gates read the same switches as the growth
+  /// desk, so an opted-out member never rolls (ruling 18).
+  late final BogeyRolls bogeys = BogeyRolls(deps)
+    ..globalEnabled = (() => _storage.memorySettings.boonsBogiesEnabled)
+    ..bbEnabledFor = ((id) => bbEnabledFor(id))
+    ..judgeRuns = (() => realismEnabled)
+    ..sceneIsStrong = (() => _g.registers.intensity == 'strong');
 
   // ── A group member's own switches, persisted ──────────────────────────
 

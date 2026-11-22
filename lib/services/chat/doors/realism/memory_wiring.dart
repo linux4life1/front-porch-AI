@@ -222,6 +222,7 @@ extension RealismMemoryWiring on RealismGraph {
       getReviewFirst: () => _storageService.memorySettings.growthReviewFirst,
       getBoonsBogiesEnabled: () =>
           _storageService.memorySettings.boonsBogiesEnabled,
+      getBbEnabledFor: (id) => controls.bbEnabledFor(id),
       getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => growthPassRunning,
       setIsPassRunning: (v) => growthPassRunning = v,

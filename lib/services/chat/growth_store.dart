@@ -297,6 +297,25 @@ class GrowthStore {
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
       _writer.restoreUndo(ring, undo);
 
+  /// See [GrowthBbWriter.recordBogeyGauge] — one reply's gauge movement.
+  Future<void> recordBogeyGauge(
+    GrowthRingData ring, {
+    required int pressure,
+    required int cooldown,
+  }) => _writer.bb.recordBogeyGauge(ring, pressure: pressure, cooldown: cooldown);
+
+  /// See [GrowthBbWriter.parkBogey] — a fire parks the nudge.
+  Future<void> parkBogey(GrowthRingData ring, {required String text}) =>
+      _writer.bb.parkBogey(ring, text: text);
+
+  /// See [GrowthBbWriter.markBogeyDelivered].
+  Future<void> markBogeyDelivered(GrowthRingData ring) =>
+      _writer.bb.markBogeyDelivered(ring);
+
+  /// See [GrowthBbWriter.clearDeliveredBogey].
+  Future<void> clearDeliveredBogey(GrowthRingData ring) =>
+      _writer.bb.clearDeliveredBogey(ring);
+
   /// See [GrowthRingWriter.reinforceRing].
   Future<void> reinforceRing(
     GrowthRingData ring, {

@@ -27,6 +27,7 @@ import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 
 export 'package:front_porch_ai/models/character/card_title.dart';
 export 'package:front_porch_ai/models/character/front_porch_extensions.dart';
+export 'package:front_porch_ai/models/character/front_porch_opening.dart';
 
 class CharacterCard {
   String name;

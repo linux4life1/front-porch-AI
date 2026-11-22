@@ -58,6 +58,7 @@ class ChatEntry {
   /// The chat's own Realism switch: reset, then seeded from the card.
   bool get _realismChatSwitch => _s.controls().chatRealism;
   set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
+  set _bbChatSwitch(bool on) => _s.controls().setChatBb(on);
 
   /// The chat's stored Needs switch: seeded here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
@@ -301,6 +302,9 @@ class ChatEntry {
             // until the user opts in globally.
             _realismChatSwitch =
                 ext.realismEnabled || _s.storage.realismSettings.realismDefault;
+            // Ruling 18: the card's own Boons & Bogies choice seeds this
+            // chat's switch once; the global still gates at every read.
+            _bbChatSwitch = ext.boonsBogiesChoice ?? true;
             // Card-seed path (rec 1 from PR #47): seedFromCardV2OrExt is plain .clamp only,
             // because V2.5 cards + creator UI author shortTermBond/longTermBond on the *current*
             // ±300 scale (see models/character_card.dart:31-32 + FrontPorchExtensions). The old

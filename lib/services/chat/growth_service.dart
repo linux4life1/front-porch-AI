@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -129,6 +131,10 @@ class GrowthService {
   /// (docs/design/boons-and-bogies.md). Defaults off for old callers.
   final bool Function() getBoonsBogiesEnabled;
 
+  /// Ruling 18: does this owner participate in THIS chat? Null-safe default
+  /// keeps old callers (and tests) participating when the global is on.
+  final bool Function(String) getBbEnabledFor;
+
   /// User messages between automatic passes. The reinforce brake allows
   /// about one strength step per ring per this many messages.
   final int Function() getGrowthInterval;
@@ -163,6 +169,7 @@ class GrowthService {
     required this.getGrowthEnabled,
     required this.getReviewFirst,
     this.getBoonsBogiesEnabled = boonsBogiesOff,
+    this.getBbEnabledFor = bbEnabledAlways,
     this.getGrowthInterval = _defaultGrowthInterval,
     required this.getIsPassRunning,
     required this.setIsPassRunning,
@@ -231,7 +238,24 @@ class GrowthService {
       charName: card.name,
       activeRings: store.activeRingsFor(session, charId),
       legacyBlob: legacy == null ? '' : legacy.$1,
-    );
+    ) + bogeyNudgeFor(card);
+  }
+
+  /// The parked bogey nudge for [card], if one is pending (§6). Marks it
+  /// delivered on build so regen/swipe of the same reply re-inject the
+  /// identical line (ruling 19); the next user turn clears the slot.
+  String bogeyNudgeFor(CharacterCard card) {
+    final charId = getCharacterIdFromCard(card);
+    final session = getSessionId();
+    if (session == null) return '';
+    for (final r in store.activeRingsFor(session, charId)) {
+      if (r.category != 'bogey' || r.bogeyPending == null) continue;
+      if (!r.bogeyDelivered) unawaited(store.markBogeyDelivered(r));
+      return '\n\n[SCENE NOTE — part of who ${card.name} is, showing in this '
+          'reply: ${r.bogeyPending}. Play it small and inside the scene; '
+          'never name it as a flaw, a trait, or a system.]';
+    }
+    return '';
   }
 
   /// Raw growth lines for prompt-budgeted consumers (the realism dossier):
@@ -316,6 +340,9 @@ class GrowthService {
       for (final owner in owners) {
         final ownerId = getCharacterIdFromCard(owner);
         if (ownerId.isEmpty) continue;
+        // Ruling 18: an opted-out member's rings freeze — the pass neither
+        // fades, advances, nor proposes for them, and never deletes.
+        if (!getBbEnabledFor(ownerId)) continue;
 
         final allRings = await store.ringsFor(sessionToken, ownerId);
         final active = allRings.where((r) => !r.retired).toList();

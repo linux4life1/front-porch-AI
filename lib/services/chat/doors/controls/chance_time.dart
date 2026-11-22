@@ -84,6 +84,19 @@ class ChanceTime {
     return (mayRoll: true, bag: bag);
   }
 
+  /// The member a bogey roll belongs to this reply: the pinned upcoming
+  /// speaker in a group (previewing here so the pin and the roll name one
+  /// member), the 1:1 host otherwise.
+  String? bogeyOwnerId() {
+    if (_activeGroup == null) {
+      final c = _session.activeCharacter;
+      return c == null ? null : _session.characterIdFor(c);
+    }
+    _previewSpeaker();
+    final card = _upcomingSpeaker;
+    return card == null ? null : _session.characterIdFor(card);
+  }
+
   /// The user-turn clear: the scalar if it was delivered, and every
   /// member's delivered event. Delivered ones hold through regen/swipe of
   /// THEIR reply and clear on the next user turn, per member.

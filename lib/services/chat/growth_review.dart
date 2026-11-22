@@ -28,6 +28,10 @@ import 'growth_store.dart';
 /// Default for callers that predate Boons & Bogies (tests, fakes): off.
 bool boonsBogiesOff() => false;
 
+/// Default for callers that predate ruling 18 (tests, fakes): every owner
+/// participates, exactly as before the per-member switch existed.
+bool bbEnabledAlways(String id) => true;
+
 /// Growth Rings — proposals + the ONE applier
 /// (docs/design/boons-and-bogies.md; the journal_review.dart pattern).
 ///

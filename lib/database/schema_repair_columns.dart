@@ -119,6 +119,9 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     ...kGroupEditorColumnsV66,
   ],
   'sessions': [
+    // v70 — Boons & Bogies participation switch (ruling 18); same silent-
+    // catch risk as everything else here.
+    'bb_enabled INTEGER NOT NULL DEFAULT 1',
     // v12–v19 Realism columns. All added with the same silent catch, and
     // all named unconditionally by Drift's generated SELECT for sessions —
     // one missing column makes every chat open and every session-list

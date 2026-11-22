@@ -36,6 +36,23 @@ class MemberSwitches {
 
   final ControlsDeps deps;
 
+  /// The 1:1 chat's own Boons & Bogies switch (v70, spec ruling 18). A group
+  /// keeps it true — its switches live per member in the bag, and the store's
+  /// `chatBb` fallback reads this. Off freezes: nothing is deleted.
+  bool chatBbSwitch = true;
+
+  /// Ruling 18's gate for [id]: the 1:1 chat switch, or the member's own in
+  /// a group. The Porch Life global ANDs on top at the growth gates.
+  bool bbEnabledFor(String? id) =>
+      deps.session.activeGroup == null ? chatBbSwitch : _groups.bbOnFor(id);
+
+  /// The chat-level write: 1:1 its own switch, a group the whole cast.
+  Future<void> setChatBb(bool on) async {
+    chatBbSwitch = on;
+    applyToAll(bb: on);
+    await _commit();
+  }
+
   GroupRealismStore get _groups => deps.graph().groups;
 
   /// The full members: a lite guest carries no Realism, Needs or Afterglow.
@@ -75,6 +92,11 @@ class MemberSwitches {
       own.needsSwitch ??= needs;
       own.objectivesSwitch ??= objectives;
       own.afterglowSwitch ??= afterglow;
+      // Ruling 18: the card's own choice (null = follow the chat's switch,
+      // which follows the global), then the chat's. Written once; after
+      // this the member's switch is theirs and is never re-derived.
+      own.bbSwitch ??=
+          c.frontPorchExtensions?.boonsBogiesChoice ?? _groups.bbOnFor(id);
       // PR 5b (docs/design/chaos-per-character.md): the same OR the 1:1
       // and group entry seeds already use (card OR the chat's switch).
       // An existing group enters with every member exactly as the group's
@@ -98,6 +120,7 @@ class MemberSwitches {
       bag?.needsSwitch = null;
       bag?.objectivesSwitch = null;
       bag?.afterglowSwitch = null;
+      bag?.bbSwitch = null;
       // PR 5b: afresh means afresh — the 1:1 chat's own Chaos choice is
       // carried onto the group column before this runs (scalar carries),
       // so the seed below lands it on every member like the others.
@@ -131,6 +154,13 @@ class MemberSwitches {
 
   void _setObjectives(String id, bool on) {
     _groups.memberForWrite(id).objectivesSwitch = on;
+  }
+
+  /// Ruling 18: off freezes that member's rings in place — nothing is
+  /// deleted, zeroed or written to the growth tables. The gate reads live,
+  /// so the next pass simply skips them until the switch comes back on.
+  void _setBb(String id, bool on) {
+    _groups.memberForWrite(id).bbSwitch = on;
   }
 
   /// PR 5b: a member's Chaos off zeroes their gauge and cooldown exactly
@@ -180,6 +210,12 @@ class MemberSwitches {
     await _commit();
   }
 
+  Future<void> setBb(String id, bool on) async {
+    seedMissing();
+    _setBb(id, on);
+    await _commit();
+  }
+
   Future<void> setChaos(String id, bool on) async {
     seedMissing();
     _setChaos(id, on);
@@ -201,6 +237,7 @@ class MemberSwitches {
     bool? afterglow,
     bool? objectives,
     bool? chaos,
+    bool? bb,
   }) {
     if (deps.session.activeGroup == null) return;
     seedMissing();
@@ -212,6 +249,7 @@ class MemberSwitches {
       if (afterglow != null) _setAfterglow(id, afterglow);
       if (objectives != null) _setObjectives(id, objectives);
       if (chaos != null) _setChaos(id, chaos);
+      if (bb != null) _setBb(id, bb);
     }
   }
 }
