@@ -166,7 +166,7 @@
   font-size: 0.6rem; font-weight: 700; letter-spacing: 0.09em;
   text-transform: uppercase; color: var(--muted);
 }
-.bb-group-head em { font-style: normal; font-weight: 400; letter-spacing: 0; }
+.bb-group-head em { font-style: normal; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .growth-chip.act-add { background: color-mix(in srgb, var(--growth-habit) 15%, transparent); color: var(--growth-habit); }
 .growth-chip.act-reinforce { background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey); }
 .growth-chip.act-revise { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
