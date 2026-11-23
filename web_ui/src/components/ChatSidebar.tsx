@@ -192,9 +192,11 @@ export function ChatSidebar({
   useEffect(() => {
     void load();
   }, [load, toolsKey]);
-  // Kit seeding lands just after a new chat opens (message 0, ruling
-  // 2026-11-22), so the first snapshot can race it. One delayed re-fetch
-  // covers that without polling: the desktop listens, the PWA does not.
+  // A select can still be settling when this sidebar's first snapshot lands
+  // (the tools fetch and /api/chat/select are separate requests), and a kit
+  // seeds at message 0 inside that select. One delayed re-fetch when the
+  // line reads empty covers that window. The line still will not repaint
+  // while the PWA sits idle — that is the missing push, tracked separately.
   const bbEmpty = t?.boonsBogiesEnabled === true && (t.boonsBogiesRings?.length ?? 0) === 0;
   useEffect(() => {
     if (!bbEmpty) return;

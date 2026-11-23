@@ -360,12 +360,12 @@ class ChatService extends ChangeNotifier {
   Future<void> setAfterglowEnabled(bool on) =>
       controlsDoor.setAfterglowEnabled(on);
 
-  // Pockets & Wardrobe per-chat switches
-  // (docs/design/pockets-wardrobe-chat-toggle.md). Forwarders, not
-  // extensions: the golden fakes answer these for the sidebar widget tests.
-  /// This 1:1 chat's stored Pockets switch (the checkbox reads it; the gate
-  /// is [pocketsEnabledFor]).
+  // Pockets & Boons & Bogies per-chat switches (pockets-wardrobe-chat-toggle,
+  // ruling 18). Forwarders, not extensions: the golden fakes answer these.
+  /// The 1:1 chat's stored switch; Pockets' gate is [pocketsEnabledFor].
   bool get pocketsChatSwitch => controlsDoor.pocketsChatSwitch;
+
+  bool get bbChatSwitch => controlsDoor.bbChatSwitch;
 
   /// The member's stored per-chat switch in a group, the 1:1 one outside.
   bool pocketsSwitchFor(String memberId) =>

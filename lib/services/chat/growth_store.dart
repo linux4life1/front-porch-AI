@@ -183,6 +183,16 @@ class GrowthStore {
         .toList();
   }
 
+  /// Re-read one owner's rings after a write the cache never saw. Kit seeding
+  /// writes rings from inside the first [refresh]'s settle, so the cache that
+  /// refresh just filled predates them; without this the sidebar's line and
+  /// the panel stay empty until some unrelated touch re-scopes the cache.
+  Future<void> reloadOwner(String sessionId, String characterId) async {
+    final db = getDb();
+    if (db == null || !_cacheValid(sessionId)) return;
+    _ringCache[characterId] = await db.getGrowthRings(sessionId, characterId);
+  }
+
   /// Every ring (active + retired) for one owner — sync, for the timeline UI.
   List<GrowthRingData> allRingsFor(String? sessionId, String characterId) {
     if (!_cacheValid(sessionId)) return const [];
@@ -302,7 +312,8 @@ class GrowthStore {
     GrowthRingData ring, {
     required int pressure,
     required int cooldown,
-  }) => _writer.bb.recordBogeyGauge(ring, pressure: pressure, cooldown: cooldown);
+  }) =>
+      _writer.bb.recordBogeyGauge(ring, pressure: pressure, cooldown: cooldown);
 
   /// See [GrowthBbWriter.parkBogey] — a fire parks the nudge.
   Future<void> parkBogey(GrowthRingData ring, {required String text}) =>

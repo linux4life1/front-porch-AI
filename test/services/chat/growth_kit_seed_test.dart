@@ -278,6 +278,55 @@ void main() {
       await store.setKitSeedState('s1', GrowthKitSeed.kStateSettled);
       expect(await db.getKitSeedState('s1'), GrowthKitSeed.kStateSettled);
     });
+
+    test(
+      'a ring written after the refresh reads back without a second one',
+      () async {
+        await seedSession('s1');
+        await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
+        expect(store.activeRingsFor('s1', 'c1'), isEmpty);
+        // Kit seeding runs inside the first refresh's settle, i.e. after the
+        // cache this refresh filled — opening a fresh chat is exactly this
+        // ordering, and the sidebar/panel read the cache, not the DB.
+        await store.addRing(
+          sessionId: 's1',
+          characterId: 'c1',
+          content: 'reads a room',
+          category: 'skill',
+          metadata: BoonsBogies.boonMetadata(seeded: true),
+        );
+        await store.reloadOwner('s1', 'c1');
+        expect(store.activeRingsFor('s1', 'c1').single.content, 'reads a room');
+        await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
+        expect(
+          store.activeRingsFor('s1', 'c1'),
+          hasLength(1),
+          reason: 'reloadOwner re-reads; it never writes a second ring',
+        );
+      },
+    );
+
+    test(
+      'reloadOwner leaves a session the cache does not hold alone',
+      () async {
+        await seedSession('s1');
+        await seedSession('s2');
+        await store.refresh('s1', charIds: ['c1'], activeCharId: 'c1');
+        await store.addRing(
+          sessionId: 's2',
+          characterId: 'c1',
+          content: 'late write',
+          category: 'skill',
+        );
+        await store.reloadOwner('s2', 'c1');
+        expect(
+          store.activeRingsFor('s1', 'c1'),
+          isEmpty,
+          reason: 'a late write from the old chat must not stamp the live one',
+        );
+        expect(store.activeRingsFor('s2', 'c1'), isEmpty);
+      },
+    );
   });
 
   group('budget mirror', () {

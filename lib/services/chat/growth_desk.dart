@@ -410,6 +410,7 @@ class GrowthDesk {
           advanceCount: r.advanceCount,
         );
       }
+      await _growthStore.reloadOwner(sessionId, id);
     }
   }
 

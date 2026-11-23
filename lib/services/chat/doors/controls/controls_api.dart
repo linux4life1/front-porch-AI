@@ -102,9 +102,8 @@ extension ChatServiceControls on ChatService {
       : afterglowChatSwitch;
 
   /// Ruling 18: the member's own Boons & Bogies switch (1:1 the chat's).
-  bool bbSwitchFor(String memberId) => isGroupMode
-      ? realism.groups.bbOnFor(memberId)
-      : controlsDoor.bbChatSwitch;
+  bool bbSwitchFor(String memberId) =>
+      isGroupMode ? realism.groups.bbOnFor(memberId) : bbChatSwitch;
 
   Future<void> setMemberBbEnabled(String memberId, bool on) => isGroupMode
       ? controlsDoor.memberSwitches.setBb(memberId, on)

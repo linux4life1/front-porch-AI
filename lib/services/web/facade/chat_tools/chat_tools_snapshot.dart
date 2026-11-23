@@ -20,9 +20,9 @@ import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_memory.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_growth.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 
@@ -94,6 +94,9 @@ class ChatToolsSnapshot {
         : _chat.isGroupMode
         ? memberArousal
         : nsfw.arousalLevel;
+    // Porch Life's two switches for the feature; off hides the line and the
+    // rings it would list, so the snapshot asks for neither.
+    final bbAllowed = mem.characterEvolutionEnabled && mem.boonsBogiesEnabled;
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
@@ -113,19 +116,8 @@ class ChatToolsSnapshot {
       'boonsBogiesEnabled': _chat.bbSwitchFor(switchId),
       // The rings the switch governs, boons then bogies (the desktop line
       // lists them the same way). Additive: an older bundle ignores it.
-      'boonsBogiesRings': [
-        // Same serializer the Growth panel's endpoint uses, so the sidebar
-        // renders the identical card (meter, receipts, pin, undo).
-        // allRingsFor hands back an unmodifiable list: copy before sorting.
-        for (final r in ([..._chat.growthRingsForOwner(ringsOwnerId)]..sort(
-              (a, b) => (a.category == 'bogey' ? 1 : 0).compareTo(
-                b.category == 'bogey' ? 1 : 0,
-              ),
-            )))
-          if (BoonsBogies.isBoonOrBogey(r) && !r.retired) growthRingToJson(r),
-      ],
-      'boonsBogiesAllowed': _storage.memorySettings.characterEvolutionEnabled &&
-          _storage.memorySettings.boonsBogiesEnabled,
+      'boonsBogiesRings': bbRingsJson(_chat, ringsOwnerId, allowed: bbAllowed),
+      'boonsBogiesAllowed': bbAllowed,
       // Additive: set only in a group, for a full member. The PWA then routes
       // the Realism, Needs and Afterglow switches at `memberRealism`,
       // `memberNeeds` and `memberAfterglow` with this id, one member at a
