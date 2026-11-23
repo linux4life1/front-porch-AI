@@ -603,6 +603,19 @@ export function ChatSidebar({
                           Off in Porch Life, so no chat runs Needs. This chat&apos;s choice is kept.
                         </p>
                       )}
+                      {realism.needsEnabled &&
+                        Object.entries(realism.needs).map(([k, v]) => (
+                          <NeedBar
+                            key={k}
+                            label={NEED_LABELS[k] ?? k}
+                            value={v}
+                            urgentAt={realism.needsUrgentAt}
+                            criticalAt={realism.needsCriticalAt}
+                            trouble={moodOn ? needTrouble(k, v, enjoysLowHygiene) : undefined}
+                            hue={moodOn ? moodPaints!.needs[k] : undefined}
+                            fill={NEED_TOKENS[k]}
+                          />
+                        ))}
                       {t?.boonsBogiesEnabled !== undefined && (
                         <label className="state-line">
                           <span>✨ Boons &amp; Bogies</span>
@@ -639,19 +652,6 @@ export function ChatSidebar({
                           act={growthAct}
                         />
                       ))}
-                      {realism.needsEnabled &&
-                        Object.entries(realism.needs).map(([k, v]) => (
-                          <NeedBar
-                            key={k}
-                            label={NEED_LABELS[k] ?? k}
-                            value={v}
-                            urgentAt={realism.needsUrgentAt}
-                            criticalAt={realism.needsCriticalAt}
-                            trouble={moodOn ? needTrouble(k, v, enjoysLowHygiene) : undefined}
-                            hue={moodOn ? moodPaints!.needs[k] : undefined}
-                            fill={NEED_TOKENS[k]}
-                          />
-                        ))}
                     </>
                   )}
                   </>
