@@ -25,6 +25,7 @@ import { ToolCallingPill, type ToolSupport } from './ToolCallingPill';
 import { ChatLorebookModal } from './ChatLorebookModal';
 import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
+import { GrowthRingRow } from './GrowthPanel';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
 import { BelongingsPanel } from './BelongingsPanel';
@@ -208,6 +209,13 @@ export function ChatSidebar({
     apply(api.post<ToolsState>(`/api/chat/tools/settings${q}`, fields));
   const toggle = (name: string, value: boolean, extra?: Record<string, unknown>) =>
     apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name, value, ...extra }));
+  // Growth-ring actions from the Boons & Bogies line: same endpoint the
+  // Growth panel posts to, then reload the snapshot so the row repaints.
+  const growthAct = (action: string, body: Record<string, unknown> = {}) =>
+    void api
+      .post(`/api/chat/tools/growth${q}`, { action, ...body })
+      .then(() => load())
+      .catch(() => {});
   const pocketRemove = (section: string, index: number) =>
     apply(api.post<ToolsState>(`/api/chat/tools/pocket-remove${q}`, { section, index }));
   const pocketAdd = (section: string, name: string, gift: boolean, correction = false) =>
@@ -622,16 +630,13 @@ export function ChatSidebar({
                             No boons or bogies yet — a card kit seeds when a chat opens.
                           </p>
                         )}
-                      {(t?.boonsBogiesRings ?? []).slice(0, 6).map((r, i) => (
-                        <div className="state-line" key={`bb-${i}`}>
-                          <span>
-                            {r.kind === 'bogey' ? '🌫 ' : '✨ '}
-                            {r.text}
-                          </span>
-                          <span className="muted small">
-                            {r.tier === 'master' ? 'Master' : r.tier === 'skilled' ? 'Skilled' : 'Novice'}
-                          </span>
-                        </div>
+                      {(t?.boonsBogiesRings ?? []).map((r) => (
+                        <GrowthRingRow
+                          key={r.id}
+                          ring={r}
+                          isPast={false}
+                          act={growthAct}
+                        />
                       ))}
                       {realism.needsEnabled &&
                         Object.entries(realism.needs).map(([k, v]) => (

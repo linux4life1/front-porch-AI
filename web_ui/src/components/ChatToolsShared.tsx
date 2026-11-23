@@ -42,8 +42,9 @@ export interface ToolsState {
   boonsBogiesEnabled?: boolean;
   /** Porch Life allows Boons & Bogies (Growth AND the feature switch). */
   boonsBogiesAllowed?: boolean;
-  /** The rings the switch governs, boons then bogies (additive). */
-  boonsBogiesRings?: { kind: string; text: string; tier: string }[];
+  /** The rings the switch governs, boons then bogies (additive) — the same
+   *  wire shape the Growth panel's endpoint emits. */
+  boonsBogiesRings?: import('./GrowthPanel').GrowthRing[];
   realismOneShotEval: boolean;
   // Tri-state One-Shot mode (2026-08-10). Optional: absent on an older
   // facade, in which case the legacy bool still tells us on-vs-not.

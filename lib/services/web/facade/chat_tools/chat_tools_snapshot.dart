@@ -20,6 +20,7 @@ import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_memory.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
@@ -105,18 +106,15 @@ class ChatToolsSnapshot {
       // The rings the switch governs, boons then bogies (the desktop line
       // lists them the same way). Additive: an older bundle ignores it.
       'boonsBogiesRings': [
+        // Same serializer the Growth panel's endpoint uses, so the sidebar
+        // renders the identical card (meter, receipts, pin, undo).
         // allRingsFor hands back an unmodifiable list: copy before sorting.
         for (final r in ([..._chat.growthRingsForOwner(switchId)]..sort(
               (a, b) => (a.category == 'bogey' ? 1 : 0).compareTo(
                 b.category == 'bogey' ? 1 : 0,
               ),
             )))
-          if (BoonsBogies.isBoonOrBogey(r) && !r.retired)
-            {
-              'kind': BoonsBogies.isBogey(r) ? 'bogey' : 'boon',
-              'text': r.content,
-              'tier': BoonsBogies.tierOf(r),
-            },
+          if (BoonsBogies.isBoonOrBogey(r) && !r.retired) growthRingToJson(r),
       ],
       'boonsBogiesAllowed': _storage.memorySettings.characterEvolutionEnabled &&
           _storage.memorySettings.boonsBogiesEnabled,
