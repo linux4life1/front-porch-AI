@@ -625,6 +625,7 @@ export function ChatSidebar({
                         </p>
                       )}
                       {t?.boonsBogiesEnabled &&
+                        t.boonsBogiesAllowed !== false &&
                         (t.boonsBogiesRings?.length ?? 0) === 0 && (
                           <p className="muted small">
                             No boons or bogies yet — a card kit seeds when a chat opens.

@@ -70,6 +70,14 @@ class ChatToolsSnapshot {
     final switchId = switchOwner == null
         ? ''
         : _chat.characterIdFor(switchOwner);
+    // Rings are owner-keyed, and a 1:1 chat's owner is the active character
+    // (switchId is '' there — it names the member toggle route, not an
+    // owner). Without this the sidebar asked for nobody's rings.
+    final ringsOwnerId = switchOwner != null
+        ? _chat.characterIdFor(switchOwner)
+        : (_chat.activeCharacter == null
+              ? ''
+              : _chat.characterIdFor(_chat.activeCharacter!));
     // Afterglow off hides Lust and recovery and keeps them: the block then
     // carries neither, as the desktop shows neither.
     final afterglowRuns = _chat.isGroupMode
@@ -109,7 +117,7 @@ class ChatToolsSnapshot {
         // Same serializer the Growth panel's endpoint uses, so the sidebar
         // renders the identical card (meter, receipts, pin, undo).
         // allRingsFor hands back an unmodifiable list: copy before sorting.
-        for (final r in ([..._chat.growthRingsForOwner(switchId)]..sort(
+        for (final r in ([..._chat.growthRingsForOwner(ringsOwnerId)]..sort(
               (a, b) => (a.category == 'bogey' ? 1 : 0).compareTo(
                 b.category == 'bogey' ? 1 : 0,
               ),
