@@ -108,15 +108,12 @@ class NewChatOpener {
           _session.activeCharacter!.frontPorchExtensions ??
           FrontPorchExtensions();
 
-      // Global "Enable Realism Mode" default is an OR override so imported
-      // cards (no realism setup) get realism + baseline generation without the
-      // user editing each card. Defaults false → no change until opted in;
-      // mirrors the setActiveCharacter fresh-seed path (chat_entry).
+      // Global Realism default is an OR override (imported cards get realism
+      // without edits); mirrors the setActiveCharacter fresh-seed path.
       _realismChatSwitch =
           extSeed.realismEnabled || _s.storage.realismSettings.realismDefault;
       _bbChatSwitch = extSeed.boonsBogiesChoice ?? true; // ruling 18
-      // Card-seed bypass: seedFromCardV2OrExt (plain .clamp only, no
-      // migration) because V2.5 cards author on the current ±300 scale; the
+      // Card-seed bypass: plain .clamp only (V2.5 cards author ±300); the
       // old "Migration + seed" doubled bond on a fresh 1:1 New Chat.
       // Clear ALL per-chat relationship registers first, THEN re-seed
       // bond/trust from the card: seedFromCardV2OrExt deliberately does NOT
@@ -384,6 +381,8 @@ class NewChatOpener {
     debugPrint('[startNewChat] BEFORE SAVE: ${_debugScalars()}');
     await _store.save();
     debugPrint('[startNewChat] AFTER SAVE: ${_debugScalars()}');
+    // Message 0 (ruling 2026-11-22): seed card kits now, not on first touch.
+    await _s.graph().growthDesk.refreshCache();
     _d.notify();
 
     // ── Post-Greeting Realism Baseline ──────────────────────────────────

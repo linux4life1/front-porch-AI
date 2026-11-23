@@ -619,8 +619,7 @@ export function ChatSidebar({
                       {t?.boonsBogiesEnabled &&
                         (t.boonsBogiesRings?.length ?? 0) === 0 && (
                           <p className="muted small">
-                            Nothing yet — a new chat seeds the card&apos;s kit on its first
-                            growth pass.
+                            No boons or bogies yet — a card kit seeds when a chat opens.
                           </p>
                         )}
                       {(t?.boonsBogiesRings ?? []).slice(0, 6).map((r, i) => (

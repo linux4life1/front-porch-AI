@@ -127,8 +127,7 @@ class BbLine extends StatelessWidget {
         });
     if (rings.isEmpty) {
       return Text(
-        'Nothing yet — a new chat seeds the card\'s kit on its first '
-        'growth pass.',
+        'No boons or bogies yet — a card kit seeds when a chat opens.',
         style: TextStyle(
           fontSize: 11,
           color: AppColors.textTertiary(context),
