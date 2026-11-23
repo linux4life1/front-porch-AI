@@ -21,9 +21,9 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/growth_panel.bb.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 
 /// This chat's own Boons & Bogies switch for one character, on the line it
@@ -97,16 +97,18 @@ class BbLine extends StatelessWidget {
             ),
           )
         else if (on)
-          _traits(context, accent),
+          _traits(context),
       ],
     );
   }
 
-  /// The rings this line governs, under it like Needs' bars: boons first,
-  /// then bogies, each with its tier. The card's kit is what fills this on
-  /// a new chat's first growth pass — an empty list says so rather than
-  /// leaving the author wondering where the traits went.
-  Widget _traits(BuildContext context, Color accent) {
+  /// The rings this line governs, mounted as the SAME cards the Growth
+  /// panel renders (BoonBogeyCard: kind, tier, meter, pin/cooldown meta,
+  /// receipts, undo, menu) — the sidebar must not invent a blander second
+  /// language for the same data (maintainer, 2026-11-22). The panel keeps
+  /// the full list and the jump-to-message taps; this is the same rows,
+  /// one owner, boons then bogies.
+  Widget _traits(BuildContext context) {
     final member = this.member;
     final ownerId = member == null
         ? (chat.activeCharacter == null
@@ -118,13 +120,7 @@ class BbLine extends StatelessWidget {
         : chat
               .growthRingsForOwner(ownerId)
               .where((r) => BoonsBogies.isBoonOrBogey(r) && !r.retired)
-              .toList()
-        ..sort((a, b) {
-          final kind = (BoonsBogies.isBogey(a) ? 1 : 0).compareTo(
-            BoonsBogies.isBogey(b) ? 1 : 0,
-          );
-          return kind != 0 ? kind : b.strength.compareTo(a.strength);
-        });
+              .toList();
     if (rings.isEmpty) {
       return Text(
         'No boons or bogies yet — a card kit seeds when a chat opens.',
@@ -134,62 +130,25 @@ class BbLine extends StatelessWidget {
         ),
       );
     }
-    final bogey = ChatColors.bogeyOf(context);
+    final boons = rings.where(BoonsBogies.isBoon).toList();
+    final bogies = rings.where(BoonsBogies.isBogey).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final r in rings.take(6))
-          Padding(
-            padding: const EdgeInsets.only(top: 3),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  BoonsBogies.isBogey(r)
-                      ? Icons.blur_on_outlined
-                      : Icons.auto_awesome,
-                  size: 12,
-                  color: BoonsBogies.isBogey(r) ? bogey : accent,
-                ),
-                const SizedBox(width: 5),
-                Expanded(
-                  child: Text(
-                    r.content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.textSecondary(context),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _tierLabel(BoonsBogies.tierOf(r)),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textTertiary(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        if (rings.length > 6)
-          Text(
-            '+${rings.length - 6} more in Journal & Memory → Growth',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: AppColors.textTertiary(context),
-            ),
-          ),
+        BoonBogeySection(
+          title: 'Boons',
+          rings: boons,
+          chatService: chat,
+          characterId: ownerId,
+        ),
+        BoonBogeySection(
+          title: 'Bogies',
+          trailing: '${bogies.length} of ${BoonsBogies.kMaxActiveBogies}',
+          rings: bogies,
+          chatService: chat,
+          characterId: ownerId,
+        ),
       ],
     );
   }
-
-  static String _tierLabel(String tier) => switch (tier) {
-    'master' => 'Master',
-    'skilled' => 'Skilled',
-    _ => 'Novice',
-  };
 }
