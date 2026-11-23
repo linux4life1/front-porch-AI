@@ -95,8 +95,6 @@ class GrowthPanel extends StatelessWidget {
         final rings = chatService.growthRingsForOwner(characterId);
         final active = rings.where((r) => !r.retired).toList();
         final past = rings.where((r) => r.retired).toList();
-        final boons = active.where(BoonsBogies.isBoon).toList();
-        final bogies = active.where(BoonsBogies.isBogey).toList();
         final ordinary = active
             .where((r) => !BoonsBogies.isBoonOrBogey(r))
             .toList();
@@ -186,22 +184,9 @@ class GrowthPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-              BoonBogeySection(
-                title: 'Boons',
-                trailing: characterName,
-                rings: boons,
-                chatService: chatService,
-                characterId: characterId,
-                onJumpToMessage: onJumpToMessage,
-              ),
-              BoonBogeySection(
-                title: 'Bogies',
-                trailing: '${bogies.length} of ${BoonsBogies.kMaxActiveBogies}',
-                rings: bogies,
-                chatService: chatService,
-                characterId: characterId,
-                onJumpToMessage: onJumpToMessage,
-              ),
+              // Boons and bogies live on the Character State line now
+              // (maintainer, 2026-11-23): one home, not two. This panel
+              // keeps the ordinary rings, the banners and the cadence.
               for (final tier in const [
                 'established',
                 'developing',

@@ -161,8 +161,6 @@ export function GrowthPanel({
 
   const active = d.rings.filter((r) => !r.retired);
   const past = d.rings.filter((r) => r.retired);
-  const boons = active.filter((r) => r.kind === 'boon');
-  const bogies = active.filter((r) => r.kind === 'bogey');
   const ordinary = active.filter((r) => r.kind !== 'boon' && r.kind !== 'bogey');
 
   const ringCard = (r: GrowthRing, isPast: boolean) => {
@@ -260,24 +258,8 @@ export function GrowthPanel({
           {d.name} hasn&apos;t grown yet — rings appear as the story changes them.
         </p>
       )}
-      {boons.length > 0 && (
-        <div>
-          <div className="growth-tier-head">
-            <span className="growth-tier-dot" />
-            Boons <span className="grow" /> <span className="muted small">{d.name}</span>
-          </div>
-          {boons.map((r) => ringCard(r, false))}
-        </div>
-      )}
-      {bogies.length > 0 && (
-        <div>
-          <div className="growth-tier-head">
-            <span className="growth-tier-dot" style={{ background: 'var(--bogey)' }} />
-            Bogies <span className="grow" /> <span className="muted small">{bogies.length} of 3</span>
-          </div>
-          {bogies.map((r) => ringCard(r, false))}
-        </div>
-      )}
+      {/* Boons and bogies live on the Character State line now
+          (maintainer, 2026-11-23): one home, not two. */}
       {TIERS.map(([tier, label]) => {
         const rings = ordinary.filter((r) => r.tier === tier);
         if (rings.length === 0) return null;
