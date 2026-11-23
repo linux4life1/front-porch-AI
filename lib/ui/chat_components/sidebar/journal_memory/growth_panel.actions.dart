@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -230,7 +231,12 @@ Future<void> editGrowthRing(
     initialCategory: ring.category,
   );
   if (draft == null) return;
-  await chatService.editGrowthRing(ring, text: draft.$1, category: draft.$2);
+  // A Boons & Bogies ring's category IS the mechanic (rolls, fade, the
+  // bogey cap): re-tagging it trait/scar leaves metadata disagreeing with
+  // the category and silently drops it out of the feature. Wording may be
+  // edited; the kind may not — pin or retire instead.
+  final category = BoonsBogies.isBoonOrBogey(ring) ? ring.category : draft.$2;
+  await chatService.editGrowthRing(ring, text: draft.$1, category: category);
 }
 
 /// Confirms, then wipes every ring [characterId] has in this chat.
