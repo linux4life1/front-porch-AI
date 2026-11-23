@@ -117,6 +117,9 @@ class ChatToolsSnapshot {
       // The rings the switch governs, boons then bogies (the desktop line
       // lists them the same way). Additive: an older bundle ignores it.
       'boonsBogiesRings': bbRingsJson(_chat, ringsOwnerId, allowed: bbAllowed),
+      // The bogey cap the desktop line prints on its BOGIES header ("2 of 3");
+      // additive, so an older bundle ignores it.
+      'boonsBogiesBogeyCap': BoonsBogies.kMaxActiveBogies,
       'boonsBogiesAllowed': bbAllowed,
       // Additive: set only in a group, for a full member. The PWA then routes
       // the Realism, Needs and Afterglow switches at `memberRealism`,

@@ -156,6 +156,17 @@
 .growth-ring.bogey .growth-strength i { background: var(--bogey); }
 .growth-ring .growth-undo { font-size: 0.62rem; font-weight: 700; padding: 1px 5px; }
 .growth-ring .growth-bb-meta { font-size: 0.62rem; color: var(--muted); white-space: nowrap; }
+/* The Boons & Bogies line's group headers, the desktop line's own labels
+   (uppercase, letter-spaced, with the bogey cap trailing on the right). */
+.bb-groups { display: flex; flex-direction: column; gap: 6px; }
+.bb-group { display: flex; flex-direction: column; gap: 4px; }
+.bb-group-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-left: 2px;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.09em;
+  text-transform: uppercase; color: var(--muted);
+}
+.bb-group-head em { font-style: normal; font-weight: 400; letter-spacing: 0; }
 .growth-chip.act-add { background: color-mix(in srgb, var(--growth-habit) 15%, transparent); color: var(--growth-habit); }
 .growth-chip.act-reinforce { background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey); }
 .growth-chip.act-revise { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }

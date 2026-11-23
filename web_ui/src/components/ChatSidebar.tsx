@@ -245,6 +245,14 @@ export function ChatSidebar({
   ) =>
     memberId ? toggle(`member${kind}`, v, { id: memberId }) : toggle(fallback, v);
   const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
+  // Boons then bogies under the labels the desktop line prints, with the
+  // bogey cap on its own header — the two sidebars list the same rings in the
+  // same order, and each group disappears when it has nothing to show.
+  // Porch Life off means no rings to list, whatever an older snapshot sent.
+  const bbRings = t?.boonsBogiesAllowed === false ? [] : t?.boonsBogiesRings ?? [];
+  const bbBoons = bbRings.filter((r) => r.kind !== 'bogey');
+  const bbBogeys = bbRings.filter((r) => r.kind === 'bogey');
+  const bbCap = t?.boonsBogiesBogeyCap;
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
 
@@ -627,42 +635,73 @@ export function ChatSidebar({
                             fill={NEED_TOKENS[k]}
                           />
                         ))}
-                      {t?.boonsBogiesEnabled !== undefined && (
-                        <label className="state-line">
-                          <span>✨ Boons &amp; Bogies</span>
-                          <input
-                            type="checkbox"
-                            aria-label="Boons & Bogies"
-                            className="state-switch"
-                            checked={t.boonsBogiesEnabled !== false}
-                            disabled={t.boonsBogiesAllowed === false}
-                            onChange={(e) =>
-                              switchToggle('BoonsBogies', 'boonsBogies', e.target.checked)
-                            }
-                          />
-                        </label>
-                      )}
-                      {t?.boonsBogiesAllowed === false && (
+                    </>
+                  )}
+                  {/* Its own section, as the desktop's movable 'boons_bogies'
+                      entry is: the line does not ride the Needs switch. */}
+                  {t?.boonsBogiesEnabled !== undefined && (
+                    <>
+                      <label className="state-line">
+                        <span>✨ Boons &amp; Bogies</span>
+                        <input
+                          type="checkbox"
+                          aria-label="Boons & Bogies"
+                          className="state-switch"
+                          checked={t.boonsBogiesEnabled !== false}
+                          disabled={t.boonsBogiesAllowed === false}
+                          onChange={(e) =>
+                            switchToggle('BoonsBogies', 'boonsBogies', e.target.checked)
+                          }
+                        />
+                      </label>
+                      {t.boonsBogiesAllowed === false && (
                         <p className="muted small">
                           Off in Porch Life, so no chat runs Boons &amp; Bogies. This chat&apos;s
                           choice is kept.
                         </p>
                       )}
-                      {t?.boonsBogiesEnabled &&
+                      {t.boonsBogiesEnabled &&
                         t.boonsBogiesAllowed !== false &&
-                        (t.boonsBogiesRings?.length ?? 0) === 0 && (
+                        bbRings.length === 0 && (
                           <p className="muted small">
                             No boons or bogies yet — a card kit seeds when a chat opens.
                           </p>
                         )}
-                      {(t?.boonsBogiesRings ?? []).map((r) => (
-                        <GrowthRingRow
-                          key={r.id}
-                          ring={r}
-                          isPast={false}
-                          act={growthAct}
-                        />
-                      ))}
+                      {bbRings.length > 0 && (
+                        <div className="bb-groups">
+                          {bbBoons.length > 0 && (
+                            <div className="bb-group">
+                              <div className="bb-group-head">
+                                <span>Boons</span>
+                              </div>
+                              {bbBoons.map((r) => (
+                                <GrowthRingRow
+                                  key={r.id}
+                                  ring={r}
+                                  isPast={false}
+                                  act={growthAct}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {bbBogeys.length > 0 && (
+                            <div className="bb-group">
+                              <div className="bb-group-head">
+                                <span>Bogies</span>
+                                {bbCap ? <em>{`${bbBogeys.length} of ${bbCap}`}</em> : null}
+                              </div>
+                              {bbBogeys.map((r) => (
+                                <GrowthRingRow
+                                  key={r.id}
+                                  ring={r}
+                                  isPast={false}
+                                  act={growthAct}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                   </>
