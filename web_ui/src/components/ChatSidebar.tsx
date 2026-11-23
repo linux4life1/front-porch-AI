@@ -192,6 +192,15 @@ export function ChatSidebar({
   useEffect(() => {
     void load();
   }, [load, toolsKey]);
+  // Kit seeding lands just after a new chat opens (message 0, ruling
+  // 2026-11-22), so the first snapshot can race it. One delayed re-fetch
+  // covers that without polling: the desktop listens, the PWA does not.
+  const bbEmpty = t?.boonsBogiesEnabled === true && (t.boonsBogiesRings?.length ?? 0) === 0;
+  useEffect(() => {
+    if (!bbEmpty) return;
+    const id = window.setTimeout(() => void load(), 2500);
+    return () => window.clearTimeout(id);
+  }, [bbEmpty, load]);
   // While the host downloads the embedding model, poll so the bar moves
   // (same 1s rule ChatTools uses).
   const embeddingBusy = Boolean(t?.memory?.ragEnabled && t?.memory?.embedding?.settingUp);
