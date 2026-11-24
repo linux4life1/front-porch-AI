@@ -14663,6 +14663,38 @@ class $GrowthMomentsTable extends GrowthMoments
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _payloadMeta = const VerificationMeta(
+    'payload',
+  );
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+    'payload',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _shownAtMeta = const VerificationMeta(
+    'shownAt',
+  );
+  @override
+  late final GeneratedColumn<int> shownAt = GeneratedColumn<int>(
+    'shown_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -14673,6 +14705,9 @@ class $GrowthMomentsTable extends GrowthMoments
     tier,
     createdAt,
     seen,
+    status,
+    payload,
+    shownAt,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14742,6 +14777,24 @@ class $GrowthMomentsTable extends GrowthMoments
         seen.isAcceptableOrUnknown(data['seen']!, _seenMeta),
       );
     }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('payload')) {
+      context.handle(
+        _payloadMeta,
+        payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta),
+      );
+    }
+    if (data.containsKey('shown_at')) {
+      context.handle(
+        _shownAtMeta,
+        shownAt.isAcceptableOrUnknown(data['shown_at']!, _shownAtMeta),
+      );
+    }
     return context;
   }
 
@@ -14783,6 +14836,18 @@ class $GrowthMomentsTable extends GrowthMoments
         DriftSqlType.bool,
         data['${effectivePrefix}seen'],
       )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      payload: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payload'],
+      ),
+      shownAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}shown_at'],
+      ),
     );
   }
 
@@ -14809,6 +14874,13 @@ class GrowthMomentData extends DataClass
   final String? tier;
   final DateTime createdAt;
   final bool seen;
+
+  /// v71 (phase 5): pending / accepted / rejected; the proposal as JSON
+  /// (text, category, receipts, owner name); the user-message count it
+  /// popped at — null never popped, the max is the 8-message budget's clock.
+  final String status;
+  final String? payload;
+  final int? shownAt;
   const GrowthMomentData({
     required this.id,
     required this.sessionId,
@@ -14818,6 +14890,9 @@ class GrowthMomentData extends DataClass
     this.tier,
     required this.createdAt,
     required this.seen,
+    required this.status,
+    this.payload,
+    this.shownAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -14834,6 +14909,13 @@ class GrowthMomentData extends DataClass
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['seen'] = Variable<bool>(seen);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || payload != null) {
+      map['payload'] = Variable<String>(payload);
+    }
+    if (!nullToAbsent || shownAt != null) {
+      map['shown_at'] = Variable<int>(shownAt);
+    }
     return map;
   }
 
@@ -14849,6 +14931,13 @@ class GrowthMomentData extends DataClass
       tier: tier == null && nullToAbsent ? const Value.absent() : Value(tier),
       createdAt: Value(createdAt),
       seen: Value(seen),
+      status: Value(status),
+      payload: payload == null && nullToAbsent
+          ? const Value.absent()
+          : Value(payload),
+      shownAt: shownAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shownAt),
     );
   }
 
@@ -14866,6 +14955,9 @@ class GrowthMomentData extends DataClass
       tier: serializer.fromJson<String?>(json['tier']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       seen: serializer.fromJson<bool>(json['seen']),
+      status: serializer.fromJson<String>(json['status']),
+      payload: serializer.fromJson<String?>(json['payload']),
+      shownAt: serializer.fromJson<int?>(json['shownAt']),
     );
   }
   @override
@@ -14880,6 +14972,9 @@ class GrowthMomentData extends DataClass
       'tier': serializer.toJson<String?>(tier),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'seen': serializer.toJson<bool>(seen),
+      'status': serializer.toJson<String>(status),
+      'payload': serializer.toJson<String?>(payload),
+      'shownAt': serializer.toJson<int?>(shownAt),
     };
   }
 
@@ -14892,6 +14987,9 @@ class GrowthMomentData extends DataClass
     Value<String?> tier = const Value.absent(),
     DateTime? createdAt,
     bool? seen,
+    String? status,
+    Value<String?> payload = const Value.absent(),
+    Value<int?> shownAt = const Value.absent(),
   }) => GrowthMomentData(
     id: id ?? this.id,
     sessionId: sessionId ?? this.sessionId,
@@ -14901,6 +14999,9 @@ class GrowthMomentData extends DataClass
     tier: tier.present ? tier.value : this.tier,
     createdAt: createdAt ?? this.createdAt,
     seen: seen ?? this.seen,
+    status: status ?? this.status,
+    payload: payload.present ? payload.value : this.payload,
+    shownAt: shownAt.present ? shownAt.value : this.shownAt,
   );
   GrowthMomentData copyWithCompanion(GrowthMomentsCompanion data) {
     return GrowthMomentData(
@@ -14914,6 +15015,9 @@ class GrowthMomentData extends DataClass
       tier: data.tier.present ? data.tier.value : this.tier,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       seen: data.seen.present ? data.seen.value : this.seen,
+      status: data.status.present ? data.status.value : this.status,
+      payload: data.payload.present ? data.payload.value : this.payload,
+      shownAt: data.shownAt.present ? data.shownAt.value : this.shownAt,
     );
   }
 
@@ -14927,7 +15031,10 @@ class GrowthMomentData extends DataClass
           ..write('kind: $kind, ')
           ..write('tier: $tier, ')
           ..write('createdAt: $createdAt, ')
-          ..write('seen: $seen')
+          ..write('seen: $seen, ')
+          ..write('status: $status, ')
+          ..write('payload: $payload, ')
+          ..write('shownAt: $shownAt')
           ..write(')'))
         .toString();
   }
@@ -14942,6 +15049,9 @@ class GrowthMomentData extends DataClass
     tier,
     createdAt,
     seen,
+    status,
+    payload,
+    shownAt,
   );
   @override
   bool operator ==(Object other) =>
@@ -14954,7 +15064,10 @@ class GrowthMomentData extends DataClass
           other.kind == this.kind &&
           other.tier == this.tier &&
           other.createdAt == this.createdAt &&
-          other.seen == this.seen);
+          other.seen == this.seen &&
+          other.status == this.status &&
+          other.payload == this.payload &&
+          other.shownAt == this.shownAt);
 }
 
 class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
@@ -14966,6 +15079,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
   final Value<String?> tier;
   final Value<DateTime> createdAt;
   final Value<bool> seen;
+  final Value<String> status;
+  final Value<String?> payload;
+  final Value<int?> shownAt;
   final Value<int> rowid;
   const GrowthMomentsCompanion({
     this.id = const Value.absent(),
@@ -14976,6 +15092,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
     this.tier = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.seen = const Value.absent(),
+    this.status = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.shownAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GrowthMomentsCompanion.insert({
@@ -14987,6 +15106,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
     this.tier = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.seen = const Value.absent(),
+    this.status = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.shownAt = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        sessionId = Value(sessionId),
@@ -15001,6 +15123,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
     Expression<String>? tier,
     Expression<DateTime>? createdAt,
     Expression<bool>? seen,
+    Expression<String>? status,
+    Expression<String>? payload,
+    Expression<int>? shownAt,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -15012,6 +15137,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
       if (tier != null) 'tier': tier,
       if (createdAt != null) 'created_at': createdAt,
       if (seen != null) 'seen': seen,
+      if (status != null) 'status': status,
+      if (payload != null) 'payload': payload,
+      if (shownAt != null) 'shown_at': shownAt,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -15025,6 +15153,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
     Value<String?>? tier,
     Value<DateTime>? createdAt,
     Value<bool>? seen,
+    Value<String>? status,
+    Value<String?>? payload,
+    Value<int?>? shownAt,
     Value<int>? rowid,
   }) {
     return GrowthMomentsCompanion(
@@ -15036,6 +15167,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
       tier: tier ?? this.tier,
       createdAt: createdAt ?? this.createdAt,
       seen: seen ?? this.seen,
+      status: status ?? this.status,
+      payload: payload ?? this.payload,
+      shownAt: shownAt ?? this.shownAt,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -15067,6 +15201,15 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
     if (seen.present) {
       map['seen'] = Variable<bool>(seen.value);
     }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (shownAt.present) {
+      map['shown_at'] = Variable<int>(shownAt.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -15084,6 +15227,9 @@ class GrowthMomentsCompanion extends UpdateCompanion<GrowthMomentData> {
           ..write('tier: $tier, ')
           ..write('createdAt: $createdAt, ')
           ..write('seen: $seen, ')
+          ..write('status: $status, ')
+          ..write('payload: $payload, ')
+          ..write('shownAt: $shownAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

@@ -273,6 +273,13 @@ class GrowthMoments extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get seen => boolean().withDefault(const Constant(false))();
 
+  /// v71 (phase 5): pending / accepted / rejected; the proposal as JSON
+  /// (text, category, receipts, owner name); the user-message count it
+  /// popped at — null never popped, the max is the 8-message budget's clock.
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get payload => text().nullable()();
+  IntColumn get shownAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

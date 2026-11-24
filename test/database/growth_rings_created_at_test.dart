@@ -209,4 +209,36 @@ void main() {
       names.length,
     );
   });
+
+  test('v71 gives a v68 moments queue its milestone columns', () async {
+    // Rebuild growth_moments in its exact v68 shape (the ladder's own DDL),
+    // then climb from 70: status/payload/shown_at must arrive, and a row
+    // written before them reads as a pending, never-shown moment.
+    await db.customStatement('DROP TABLE IF EXISTS growth_moments');
+    await db.migration.onUpgrade(Migrator(db), 67, 68);
+    await db.customStatement(
+      "INSERT INTO growth_moments (id, session_id, character_id, kind) "
+      "VALUES ('m1', 's1', 'tess', 'new_boon')",
+    );
+    await db.migration.onUpgrade(Migrator(db), 70, db.schemaVersion);
+
+    final cols = await db
+        .customSelect('PRAGMA table_info(growth_moments)')
+        .get();
+    final names = [for (final c in cols) c.data['name'] as String];
+    expect(names, containsAll(const ['status', 'payload', 'shown_at']));
+    final row =
+        (await db
+                .customSelect("SELECT * FROM growth_moments WHERE id = 'm1'")
+                .getSingle())
+            .data;
+    expect(row['status'], 'pending');
+    expect(row['shown_at'], isNull);
+
+    await db.migration.onUpgrade(Migrator(db), 70, db.schemaVersion);
+    expect(
+      (await db.customSelect('PRAGMA table_info(growth_moments)').get()).length,
+      names.length,
+    );
+  });
 }

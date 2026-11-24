@@ -152,9 +152,10 @@ void main() {
     // the Boons & Bogies roll/advance columns on growth_rings and the
     // growth_moments queue. 2026-11-21: v69 adds growth_state.kit_seed_state
     // (the retroactive card-kit offer, ruling 13). 2026-11-21: v70 adds
-    // sessions.bb_enabled (Boons & Bogies participation, ruling 18). The
-    // ladder ends at 70.
-    expect(first['_meta']!['user_version'], 70);
+    // sessions.bb_enabled (Boons & Bogies participation, ruling 18).
+    // 2026-11-23: v71 adds growth_moments status/payload/shown_at (phase-5
+    // milestones). The ladder ends at 71.
+    expect(first['_meta']!['user_version'], 71);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -179,7 +180,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 70);
+    expect(second['_meta']!['user_version'], 71);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

@@ -85,5 +85,18 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         debugPrint('[DB] v68: growth_moments create skipped: $e');
       }
     }
+    if (from < 71) {
+      // v70→v71: phase-5 milestones on growth_moments — decision state, the
+      // proposal, and when it popped (docs/design/boons-and-bogies.md §7).
+      // After the v68 block, which creates the table on an older upgrade.
+      // Additive; no moment row existed before phase 5.
+      for (final c in kGrowthMomentColumnsV71) {
+        try {
+          await customStatement('ALTER TABLE growth_moments ADD COLUMN $c');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+    }
   }
 }
