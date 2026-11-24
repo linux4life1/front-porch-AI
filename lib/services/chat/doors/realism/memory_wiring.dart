@@ -231,7 +231,13 @@ extension RealismMemoryWiring on RealismGraph {
       getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => growthPassRunning,
       setIsPassRunning: (v) => growthPassRunning = v,
-      refreshCache: () => growthDesk.refreshCache(),
+      // A normal pass applies, then refreshes here (review-first Apply goes
+      // through onApplied above): either way, a moment it queued pops once
+      // no reply is owed.
+      refreshCache: () async {
+        await growthDesk.refreshCache();
+        await milestoneSurface.check();
+      },
       onNotify: deps.notify,
     );
   }

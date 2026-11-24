@@ -5,8 +5,13 @@
 // 15): the moment queue, the decisions, and the popup budget, on a real
 // in-memory database.
 
+import 'dart:io';
+
 import 'package:drift/drift.dart' show Value;
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/milestone_surface.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
@@ -14,7 +19,9 @@ import 'package:front_porch_ai/services/chat/growth_milestones.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
-import 'package:front_porch_ai/services/chat/doors/realism/milestone_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../integration_test/support/fake_backend.dart';
 
 void main() {
   late AppDatabase db;
@@ -470,5 +477,83 @@ void main() {
       expect(surface.showing, isNull);
       expect(surface.replaying, isFalse);
     });
+  });
+
+  group('a real Growth pass raises the card (ChatService, fake backend)', () {
+    late AppDatabase chatDb;
+    late StorageService storage;
+    late ChatService chat;
+    late FakeBackendServer backend;
+
+    setUp(() async {
+      HttpOverrides.global = null;
+      SharedPreferences.setMockInitialValues({'update_auto_check': false});
+      const channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            return Directory.systemTemp.createTempSync('fpai_ms_').path;
+          });
+      chatDb = AppDatabase.forTesting();
+      backend = await FakeBackendServer.start(replyPieces: ['Evening.']);
+      storage = StorageService();
+      chat =
+          ChatService(
+              KoboldService(storage),
+              UserPersonaService(chatDb),
+              storage,
+              WorldRepository(storage, chatDb),
+            )
+            ..setDatabase(chatDb)
+            ..setCharacterRepository(CharacterRepository(chatDb, storage))
+            ..testLlmServiceOverride = OpenRouterService(
+              apiUrl: '${backend.baseUrl}/v1',
+              modelName: 'smoke-model',
+            );
+      await storage.initialized;
+      await storage.memorySettings.setCharacterEvolutionEnabled(true);
+      await storage.memorySettings.setBoonsBogiesEnabled(true);
+      await storage.memorySettings.setMilestonePopupsEnabled(true);
+    });
+
+    tearDown(() async {
+      chat.dispose();
+      await backend.close();
+      await chatDb.close();
+    });
+
+    test(
+      'a pass after the reply queues a new boon and the card is up',
+      () async {
+        final card = CharacterCard(
+          name: 'Mira Vale',
+          description: 'Keeps the porch bar.',
+          firstMessage: 'Evening.',
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: false,
+            needsSimEnabled: false,
+          ),
+        )..dbId = 'mira-pass';
+        await chat.setActiveCharacter(card);
+        await chat.sendMessage('I pour us both a glass of lemonade.');
+        for (
+          var i = 0;
+          i < 400 && (chat.isGenerating || chat.isSettlingTurn);
+          i++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        // The pass runs after the reply, as the background job does.
+        await chat.forceGrowthPass();
+        for (var i = 0; i < 100 && chat.milestoneShowing == null; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        expect(
+          chat.milestoneShowing?.kind,
+          'new_boon',
+          reason: 'a normal (not review-first) pass must raise the card',
+        );
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
   });
 }
