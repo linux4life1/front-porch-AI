@@ -507,7 +507,9 @@ leaves the app working:
 
 - The card is never written by a chat; rings never cross chats.
 - **Content** changes go through `GrowthReview.applyOwnerProposals` (including
-  the undo snapshot). **Gauges** have exactly one other writer, the roll
+  the undo snapshot), or — only for a milestone the user accepted —
+  `GrowthMilestones.decide` (the ring added, crowned Master, or retired as
+  overcome). **Gauges** have exactly one other writer, the roll
   (`GrowthBogeyStore.recordGauge` / `fire`), which touches only the six gauge
   columns plus a bogey's `strength` — a pure function of `advance_count` for a
   bogey, so it moves with the count. Two writers, two disjoint column sets,
