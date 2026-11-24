@@ -135,7 +135,6 @@ class GrowthRingWriter {
   /// The bogey writers (gauges, parking), for [GrowthStore]'s delegations.
   GrowthBbWriter get bb => _bb;
 
-
   /// Strengthen a ring one step and append the new receipts.
   Future<void> reinforceRing(
     GrowthRingData ring, {
@@ -277,13 +276,10 @@ class GrowthRingWriter {
     if (db == null) return;
     for (final ring in await db.getGrowthRings(sessionId, characterId)) {
       if (ring.retired || reinforcedIds.contains(ring.id)) continue;
-      if (BoonsBogies.isBogey(ring)) {
-        // A coping pass wears the flaw down; pinned bogeys never fade (the
-        // author's core flaw cannot drift away — an accepted overcome is the
-        // one exception, on the milestone path).
-        await _bb.fadeBogey(ring);
-        continue;
-      }
+      // Silence is "not offered" for a flaw and holds it (§3 absence
+      // amendment): only a cited coping verdict wears one down
+      // (GrowthBogeyStore.cope), and never the ordinary fade-to-retire.
+      if (BoonsBogies.isBogey(ring)) continue;
       final faded = GrowthPhysics.fadedStrength(ring);
       if (faded == ring.strength) continue; // established or pinned
       if (faded <= 0.0) {

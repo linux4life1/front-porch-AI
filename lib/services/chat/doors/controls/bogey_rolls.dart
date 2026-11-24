@@ -22,7 +22,6 @@ import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/services/chat/bogey_roll.dart';
 import 'package:front_porch_ai/services/chat/doors/controls/controls_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
-import 'package:front_porch_ai/services/chat/pressure_roll.dart';
 
 /// The turn-side half of bogey rolls (docs/design/boons-and-bogies.md §6):
 /// the scene gate, one roll per reply for the speaker only, and the parked
@@ -43,38 +42,70 @@ class BogeyRolls {
   /// gate closed (spec §6: no roll on a scene the judge did not read).
   bool Function()? judgeRuns;
 
-  /// The last scene verdict, for the gate: true when the judge read
-  /// `strong`. A strong scene holds the roll.
-  bool Function()? sceneIsStrong;
+  /// The emotional judge's own intensity for this user turn's message, as
+  /// it answered — before mood physics holds or eases it. Cleared when the
+  /// turn owes its roll ([oweRoll]), written by the judge, read by the gate.
+  String _sceneRead = '';
+
+  /// The judge path's hook (wired through [RealismEvals.noteSceneRead]).
+  void noteSceneRead(String intensity) =>
+      _sceneRead = intensity.trim().toLowerCase();
 
   /// Ruling 18: the owner's participation switch, wired by the door.
   bool Function(String)? bbEnabledFor;
 
-  /// The Porch Life global, wired by the door.
+  /// The Porch Life chain (Growth Rings → Boons & Bogies → Bogey rolls).
   bool Function()? globalEnabled;
 
   /// The turn gate: may a bogey roll at all for [ownerId] right now?
   ///
-  /// - Boons & Bogies off globally or for this member: no.
-  /// - The emotional judge did not run (one-shot / no Realism): closed —
-  ///   no roll on an unknown scene. [sceneIsStrong] reads the last known
-  ///   verdict; unwired means the judge is not running.
-  /// - A strong scene: hold. A muted grief scene reads moderate and may
+  /// - Any switch in the Porch Life chain off, or this member's: no.
+  /// - Realism off, or no intensity read for THIS message (a judge that
+  ///   failed, a lite speaker): closed — no roll on an unknown scene. The
+  ///   one-shot call reads intensity too, so one-shot turns are known.
+  /// - A strong read: hold. A muted grief scene reads moderate and may
   ///   fire; that is a known v1 limit (spec §6).
   /// - A bogey already parked and undelivered: no second roll.
   bool mayRollFor(String ownerId, List<GrowthRingData> activeRings) {
     if (!(globalEnabled?.call() ?? false)) return false;
     if (!(bbEnabledFor?.call(ownerId) ?? true)) return false;
     if (!(judgeRuns?.call() ?? false)) return false;
-    if (sceneIsStrong?.call() ?? false) return false;
+    if (_sceneRead.isEmpty || _sceneRead == 'strong') return false;
     return !activeRings.any(
       (r) => r.category == 'bogey' && r.bogeyPending != null,
     );
   }
 
-  /// One reply: tick every active bogey of [ownerId], persist the gauges,
-  /// and park the one that fires. Returns the fired ring (null = quiet).
-  /// Continue never reaches here — the caller does not roll on Continue.
+  /// The owner a fresh user turn owes its one roll to (§6), or null. The
+  /// send path sets it before the emotional judge runs; [settleOwed] rolls
+  /// it after, so the scene gate reads THIS message's verdict instead of
+  /// the previous one's. Regen, swipe and Continue never owe a roll.
+  String? _owedFor;
+
+  /// The send path's verdict for this user turn: [ownerId] is owed a roll,
+  /// or null when nobody is (Chance Time fired, a guest was addressed).
+  /// Always called, so a roll a cancelled turn never settled cannot leak
+  /// into the next one.
+  void oweRoll(String? ownerId) {
+    _owedFor = (ownerId == null || ownerId.isEmpty) ? null : ownerId;
+    _sceneRead = ''; // this message has not been read yet
+  }
+
+  /// The turn engine, after the speaker's judges and before the prompt is
+  /// built: roll once if [speakerId] is the owner this turn owes. A reply
+  /// by anyone else (a guest first) leaves the roll owed to a later reply
+  /// of the same turn.
+  Future<GrowthRingData?> settleOwed(String speakerId) async {
+    final owner = _owedFor;
+    if (owner == null || owner != speakerId) return null;
+    _owedFor = null;
+    return rollTurn(owner);
+  }
+
+  /// One reply: tick every active bogey of [ownerId] through
+  /// [BogeyRoll.reply], persist the gauges, and fire the one it picks
+  /// (nudge parked, count advanced, cooldown started). Returns the fired
+  /// ring (null = quiet).
   Future<GrowthRingData?> rollTurn(String ownerId) async {
     final session = _d.session.currentSessionId;
     if (session == null) return null;
@@ -83,36 +114,32 @@ class BogeyRolls {
     );
     if (rings.isEmpty || !mayRollFor(ownerId, rings)) return null;
 
-    final ticks = <GrowthRingTick>[];
-    for (final ring in rings) {
-      final t = BogeyRoll.tick(
-        pressure: ring.bogeyPressure,
-        cooldown: ring.bogeyCooldown,
-        random: _random,
-      );
-      ticks.add((ring: ring, tick: t));
-      await _g.growthStore.recordBogeyGauge(
-        ring,
-        pressure: t.pressure,
-        cooldown: t.cooldown,
+    final reply = BogeyRoll.reply([
+      for (final r in rings)
+        (pressure: r.bogeyPressure, cooldown: r.bogeyCooldown),
+    ], _random);
+    final bogeys = _g.growthStore.bogeys;
+    final index = reply.fired;
+    for (var i = 0; i < rings.length; i++) {
+      if (i == index) continue;
+      await bogeys.recordGauge(
+        rings[i],
+        pressure: reply.after[i].pressure,
+        cooldown: reply.after[i].cooldown,
       );
     }
-    final fired = BogeyRoll.pickFired(
-      [for (final t in ticks) t.ring],
-      [for (final t in ticks) t.tick],
-      _random,
-    );
+    GrowthRingData? fired;
+    if (index != null) {
+      fired = rings[index];
+      await bogeys.fire(
+        fired,
+        text: BogeyRoll.injectionText(fired, _nameFor(ownerId)),
+        cooldown: reply.after[index].cooldown,
+        advance: BogeyRoll.advanceAfterFire(fired.advanceCount),
+      );
+    }
     // The prompt reads rings from the desk's cache; a parked nudge and the
     // new gauges must be visible to it before this reply is built.
-    await _g.growthDesk.refreshCache();
-    if (fired == null) {
-      await _d.saveChat();
-      return null;
-    }
-    await _g.growthStore.parkBogey(
-      fired,
-      text: BogeyRoll.injectionText(fired, _nameFor(ownerId)),
-    );
     await _g.growthDesk.refreshCache();
     await _d.saveChat();
     return fired;
@@ -137,7 +164,7 @@ class BogeyRolls {
     if (session == null) return;
     for (final ring in _g.growthStore.activeRingsFor(session, ownerId)) {
       if (ring.category == 'bogey' && ring.bogeyDelivered) {
-        await _g.growthStore.clearDeliveredBogey(ring);
+        await _g.growthStore.bogeys.clearDelivered(ring);
       }
     }
   }
@@ -157,6 +184,3 @@ class BogeyRolls {
     }
   }
 }
-
-/// One bogey's gauge movement in [BogeyRolls.rollTurn]'s local list.
-typedef GrowthRingTick = ({GrowthRingData ring, PressureRollTick tick});

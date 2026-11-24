@@ -98,6 +98,7 @@ extension RealismJudgeWiring on RealismGraph {
       setEmotionCause: (v) => registers.cause = v,
       getEmotionHeldTurns: () => registers.heldTurns,
       setEmotionHeldTurns: (v) => registers.heldTurns = v,
+      noteSceneRead: (v) => controls.bogeys.noteSceneRead(v),
       relationshipService: relationship,
       nsfwService: nsfw,
       timeService: time,

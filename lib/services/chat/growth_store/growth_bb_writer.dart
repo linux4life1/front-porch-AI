@@ -92,10 +92,9 @@ class GrowthBbWriter {
   /// One coping step: the fire count drops (floor 0) and strength follows it.
   /// False when the ring cannot fade (pinned, or already at zero).
   ///
-  /// The pass prompt reinforces a bogey only when the story makes it worse,
-  /// so "this pass did not reinforce it" is the coping case (§3.2) — the same
-  /// mapping the ordinary fade already uses, named here because the ruling
-  /// talks about the story rather than the op list.
+  /// Reached only from a coping verdict the Growth pass cited
+  /// ([GrowthBogeyStore.cope]). Silence is "not offered" and never lands
+  /// here (§3 absence amendment): a flaw the story left alone holds.
   Future<bool> fadeBogey(GrowthRingData ring) async {
     final db = getDb();
     if (db == null) return false;
@@ -131,7 +130,7 @@ class GrowthBbWriter {
   }
 
   /// Persist one reply's gauge movement for a bogey (§6): pressure and
-  /// cooldown, nothing else. Fired rings park through [parkBogey].
+  /// cooldown, nothing else. Fired rings go through [fireBogey].
   Future<void> recordBogeyGauge(
     GrowthRingData ring, {
     required int pressure,
@@ -149,10 +148,19 @@ class GrowthBbWriter {
     );
   }
 
-  /// A fire: park the nudge for the next reply and restart the gauge. The
-  /// delivered flag clears so regen/swipe of that reply re-inject the SAME
-  /// line (ruling 19) until the next user turn clears the slot.
-  Future<void> parkBogey(GrowthRingData ring, {required String text}) async {
+  /// A fire, in one row write: park the nudge for the next reply, restart
+  /// the gauge with its fresh [cooldown], and count the fire ([advance], the
+  /// bogey ladder's evidence — §3.2). Strength is a pure function of the
+  /// count for a bogey, so it moves with it; nothing else is touched (no
+  /// content, no undo snapshot — those stay the applier's). The delivered
+  /// flag clears so regen/swipe of that reply re-inject the SAME line
+  /// (ruling 19) until the next user turn clears the slot.
+  Future<void> fireBogey(
+    GrowthRingData ring, {
+    required String text,
+    required int cooldown,
+    required int advance,
+  }) async {
     final db = getDb();
     if (db == null) return;
     await db.updateGrowthRing(
@@ -161,6 +169,9 @@ class GrowthBbWriter {
         bogeyPending: Value(text),
         bogeyDelivered: const Value(false),
         bogeyPressure: const Value(0),
+        bogeyCooldown: Value(cooldown),
+        advanceCount: Value(advance),
+        strength: Value(BoonsBogies.bogeyStrength(advance)),
         updatedAt: Value(DateTime.now()),
       ),
     );

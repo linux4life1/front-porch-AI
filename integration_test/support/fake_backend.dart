@@ -126,6 +126,10 @@ class FakeBackendServer {
   /// empty reply the one-shot logs as "Failed — no JSON". Set it back to
   /// null to let the next turn score normally.
   String? feelingsJudgeAnswer;
+
+  /// The emotional judge's `emotion_intensity` (mild / moderate / strong).
+  /// Moderate by default, as before; a strong scene holds the bogey roll.
+  String emotionIntensity = 'moderate';
   int feelingsJudgeAnswersServed = 0;
 
   /// Every prompt that asked for `relationship_delta`, in order, so a suite
@@ -135,6 +139,10 @@ class FakeBackendServer {
   /// Body of the most recent NON-eval chat completion — lets the test prove
   /// the user's message actually reached the outbound prompt.
   String lastChatBody = '';
+
+  /// Every CHAT-classified body, in order — [lastChatBody] alone can be
+  /// overwritten by a side call (the scene-guest name check) after a reply.
+  final List<String> chatBodies = [];
 
   /// When set, a conversation turn whose prompt contains this marker is
   /// answered with HTTP 500 instead of a stream, then this clears itself.
@@ -613,7 +621,7 @@ class FakeBackendServer {
     }
     if (lastContent.contains('emotion_intensity')) {
       eval['emotion'] = 'happy';
-      eval['emotion_intensity'] = 'moderate';
+      eval['emotion_intensity'] = emotionIntensity;
     }
     if (lastContent.contains('fixation_topic')) {
       eval['fixation_topic'] = 'none';
@@ -723,6 +731,7 @@ class FakeBackendServer {
 
     chatRequests++;
     lastChatBody = body;
+    chatBodies.add(body);
     await _streamSse(req, replyPieces, delay: chatChunkDelay);
   }
 

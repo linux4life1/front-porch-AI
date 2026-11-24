@@ -247,8 +247,9 @@ class SendTurn {
     // stranger's.
     _chance.clearDeliveredPendingsAllOwners();
     // Bogey nudges follow the same rule (§6): delivered ones rode their
-    // reply, and the next user turn releases the slot.
-    unawaited(_controls.bogeys.clearDeliveredAll());
+    // reply, and the next user turn releases the slot. Awaited: this turn's
+    // roll gate reads the slot, and a clear still in flight read as taken.
+    await _controls.bogeys.clearDeliveredAll();
     // Clear Mafia force-ack only after a prior turn *showed* it and the user
     // is now continuing (regen of that AI reply still re-injects until here).
     unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
@@ -325,16 +326,14 @@ class SendTurn {
     // the cancel return below and the callMode setter release an orphaned one.
     if (addressedGuest == null) _enterCallEvalModelSwap();
 
-    // ── Boons & Bogies: one bogey roll per reply, speaker only (§6) ─────
+    // ── Boons & Bogies: this user turn owes one bogey roll (§6) ──────────
     // Chance Time wins the turn (ruling 16): a fired wheel holds the bogey
-    // pressure. Continue never reaches this path at all, and the gate itself
-    // closes when the emotional judge did not run or read a strong scene.
-    if (!chaosFired && addressedGuest == null) {
-      final ownerId = _chance.bogeyOwnerId();
-      if (ownerId != null && ownerId.isNotEmpty) {
-        await _controls.bogeys.rollTurn(ownerId);
-      }
-    }
+    // pressure. The roll itself settles in the turn engine once the
+    // speaker's emotional judge has read THIS message, so a scene turning
+    // heavy now holds the flaw. Continue and regen never reach this path.
+    _controls.bogeys.oweRoll(
+      !chaosFired && addressedGuest == null ? _chance.bogeyOwnerId() : null,
+    );
 
     // ── The player's time skip ──────────────────────────────────────────
     // PoT is the only clock driver. The skip reader reads the line (or a

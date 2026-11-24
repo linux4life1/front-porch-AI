@@ -82,6 +82,11 @@ class MemorySettings with SettingsBase {
   bool get growthReviewFirst => _growthReviewFirst;
   bool get boonsBogiesEnabled => _boonsBogiesEnabled;
   bool get bogeyRollsEnabled => _bogeyRollsEnabled;
+
+  /// The Porch Life chain a bogey roll needs (§8): Growth Rings, then Boons
+  /// & Bogies, then its own Bogey rolls switch. Any one off, no roll.
+  bool get bogeyRollsLive =>
+      _characterEvolutionEnabled && _boonsBogiesEnabled && _bogeyRollsEnabled;
   bool get milestonePopupsEnabled => _milestonePopupsEnabled;
 
   void load() {

@@ -89,11 +89,16 @@ class GrowthOwnerProposals {
   /// a successful apply (design §8).
   final bool distilled;
 
+  /// The owner's own Boons & Bogies switch (ruling 18). Off: a new skill
+  /// lands as a plain skill, never a boon, even with the feature on.
+  final bool boonsBogies;
+
   GrowthOwnerProposals({
     required this.ownerId,
     required this.ownerName,
     required this.ops,
     this.distilled = false,
+    this.boonsBogies = true,
   });
 }
 
@@ -161,7 +166,7 @@ class GrowthReview {
     final addCap = owner.distilled
         ? kDistillApplyCap
         : GrowthPhysics.kMaxNewRingsPerPass;
-    final boonsBogiesOn = getBoonsBogiesEnabled();
+    final boonsBogiesOn = getBoonsBogiesEnabled() && owner.boonsBogies;
     // One advance per ring per pass: a pass that reinforces the same boon
     // twice counts once (docs/design/boons-and-bogies.md §3.2).
     final advancedThisPass = <String>{};
