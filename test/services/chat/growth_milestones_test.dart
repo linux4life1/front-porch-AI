@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/chat/growth_milestones.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/milestone_view.dart';
 
 void main() {
   late AppDatabase db;
@@ -187,6 +188,24 @@ void main() {
   });
 
   group('the queue and the budget (ruling 9)', () {
+    test('Moments list newest first, even within one second; a decided '
+        'row reads Accepted, never the wire word', () async {
+      await proposeAdd('first');
+      await proposeAdd('second');
+      await proposeAdd('third');
+      final texts = [
+        for (final m in await milestones.momentsFor('s1'))
+          MilestoneProposal.decode(m.payload)!.text,
+      ];
+      expect(texts, ['third', 'second', 'first']);
+      final m = (await milestones.momentsFor('s1')).last;
+      await milestones.decide(m.id, accept: true);
+      final decided = (await milestones.momentsFor('s1')).last;
+      final view = MilestoneView.of(decided, ownerName: 'Mira', inGroup: false);
+      expect(view.statusLabel, 'Accepted');
+      expect(view.toJson()['statusLabel'], 'Accepted');
+    });
+
     test('the same crossing is never queued twice', () async {
       final b = await seed('Bad temper', category: 'bogey');
       final a = await milestones.propose(

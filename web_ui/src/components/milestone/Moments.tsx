@@ -40,7 +40,7 @@ export function MomentsUnreadDot({ moments }: { moments: MilestoneViewJson[] }) 
 function detail(m: MilestoneViewJson): string {
   return [
     m.text,
-    m.status !== 'pending' ? m.status : '',
+    m.statusLabel,
     m.receipt.replace(/^(Seen|Coped) in /, ''),
   ]
     .filter(Boolean)

@@ -181,7 +181,7 @@ class _MomentRow extends StatelessWidget {
 
   String get _detail => [
     view.text,
-    if (!view.pending) view.status,
+    view.statusLabel,
     if (view.receipt.isNotEmpty)
       view.receipt.replaceFirst(RegExp(r'^(Seen|Coped) in '), ''),
   ].where((s) => s.isNotEmpty).join(' · ');

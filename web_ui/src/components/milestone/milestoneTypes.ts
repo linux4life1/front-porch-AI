@@ -6,6 +6,8 @@ export interface MilestoneViewJson {
   id: string;
   kind: string;
   status: 'pending' | 'accepted' | 'rejected' | string;
+  /** Accepted / Rejected — what a decided row says; '' while pending. */
+  statusLabel: string;
   seen: boolean;
   title: string;
   pill: 'BOON' | 'BOGEY' | string;

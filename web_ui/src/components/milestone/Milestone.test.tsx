@@ -33,6 +33,7 @@ function view(extra: Partial<MilestoneViewJson> = {}): MilestoneViewJson {
     id: 'm1',
     kind: 'new_boon',
     status: 'pending',
+    statusLabel: '',
     seen: false,
     title: 'New boon',
     pill: 'BOON',
@@ -171,13 +172,21 @@ describe('Moments', () => {
       createElement(MomentsSection, {
         moments: [
           view(),
-          view({ id: 'm2', status: 'accepted', seen: true, title: 'Master · boon' }),
+          view({
+            id: 'm2',
+            status: 'accepted',
+            statusLabel: 'Accepted',
+            seen: true,
+            title: 'Master · boon',
+          }),
         ],
         query: '?participant=mira',
         onChanged,
       }),
     );
     expect(text()).toContain('ASKS');
+    expect(text()).toContain('Accepted');
+    expect(text()).not.toContain('accepted');
     await act(async () => {
       button('Accept')!.click();
       await Promise.resolve();

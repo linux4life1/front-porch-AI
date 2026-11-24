@@ -257,7 +257,12 @@ class GrowthMilestones {
             ? m.sessionId.equals(sessionId)
             : m.sessionId.equals(sessionId) & m.characterId.equals(characterId),
       )
-      ..orderBy([(m) => OrderingTerm.desc(m.createdAt)]);
+      // createdAt has one-second resolution; insert order breaks the tie so
+      // a pass that queues two moments still lists them newest first.
+      ..orderBy([
+        (m) => OrderingTerm.desc(m.createdAt),
+        (m) => OrderingTerm.desc(const CustomExpression<int>('rowid')),
+      ]);
     return q.get();
   }
 

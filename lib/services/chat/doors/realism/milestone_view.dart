@@ -117,8 +117,15 @@ class MilestoneView {
   /// The wire kind (`new_boon` …) — the celebration it plays.
   final String kind;
 
-  /// pending / accepted / rejected.
+  /// pending / accepted / rejected (the wire value; never shown).
   final String status;
+
+  /// What a decided moment's row says: Accepted / Rejected; '' pending.
+  String get statusLabel => switch (status) {
+    'accepted' => 'Accepted',
+    'rejected' => 'Rejected',
+    _ => '',
+  };
   final bool seen;
 
   /// "New boon", "Master · bogey", …
@@ -149,6 +156,7 @@ class MilestoneView {
     'id': id,
     'kind': kind,
     'status': status,
+    'statusLabel': statusLabel,
     'seen': seen,
     'title': title,
     'pill': pill,
