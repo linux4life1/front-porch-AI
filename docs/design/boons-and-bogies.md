@@ -9,7 +9,12 @@ Phase 4 shipped in PR #771 (rolls, participation, one home for traits) and
 was closed out on 2026-11-23 by the phase-4 closer: fires count and cool
 down, the nudge slot clears, the scene gate reads this message, the
 "Bogey rolls" switch gates rolls, the opt-out freezes only Boons & Bogies,
-and the `not offered` verdict (#764). Phase 5 (milestones) remains.
+and the `not offered` verdict (#764). Phase 5 shipped on 2026-11-24
+(branch `feat/boons-and-bogies-phase5`): schema v71, the milestone card and
+Moments on both surfaces from the approved mockup, the shared celebration
+sim (Flame on desktop, canvas on web), and #763 (BETA lifted, boon link,
+scope hint, kind-flip pin default). v1 is complete; phase 7 (the boon
+link's slowdown) is next.
 Ruling 18 (three-layer participation) and the §3 absence amendment are law
 for phases 4–5.
 v1 (2026-11-19) proposed
@@ -297,9 +302,10 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   appearing. No test can prove a prompt obeyed this: hand-check and live test.
 - Same transports as today (XML and native tools); the parser normalizes or
   drops unknown categories, so an old model ignoring `bogey` costs nothing.
-- **Half-built guard:** until the milestone surface ships (phase 5), the
-  applier holds advancement one step below Master, so "Master always asks"
-  cannot be violated by a partial build.
+- **Master always asks:** the silent ladder stops one step below Master
+  (it did from phase 2, as a half-built guard); since phase 5 the step that
+  would cross proposes a Master milestone instead, and only an Accept
+  crowns the ring.
 
 ## 6. Bogey rolls
 
