@@ -446,6 +446,38 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
    parity entry.
 7. (v2) Boon link and its slowdown; a linked Master makes overcome likely.
 
+### Phase 5 build order (2026-11-23)
+
+One PR (ruling 12: no half surface), built in this order so each commit
+leaves the app working:
+
+1. **Schema v71.** `growth_moments` gains `status` (pending / accepted /
+   rejected), `payload` (JSON: text, category, receipts, owner name) and
+   `shown_at`; the session records the user-message count of the last
+   popup for the 8-message budget. Additive, ladder + repair list +
+   upgrade test.
+2. **`GrowthMilestones` leaf** (`lib/services/chat/`). `propose` writes a
+   pending moment; `decide(id, accept)` applies through the one applier:
+   new boon/bogey → the ring is added; Master → permanent; Master rejected
+   → `master_declined` latch (boon: never again; bogey: re-armed below 4
+   fires); overcome → retired even when pinned (the tested exception).
+   Reject of an add or overcome drops it.
+3. **Producers.** The applier routes boon/bogey adds and a bogey retire
+   (overcome) to `propose`; boon reinforces and bogey fires that cross
+   Master propose instead of clamping (`kMilestoneSurfaceShipped` on).
+4. **Surface.** After the reply finishes streaming, at most one pending
+   moment pops when Milestone popups is on and 8 user messages have passed
+   since the last; everything else waits unread in Moments.
+5. **UI, both stacks, from the approved mockup.** The card (desktop via
+   `showWarmDialog`, web modal), the Moments sub-section of the Boons &
+   Bogies line (inline Accept/Reject, Replay), `milestone_palette.dart` +
+   its `theme-keep` web twin, one burst PNG per kind under
+   `assets/milestones/` rendered from one SVG source and loaded by both
+   stacks (no SVG package), reduce motion, golden + `one_ui_parity_test`
+   entry, web facade routes.
+6. **#763.** Lift the BETA markers, the `linkedTo` row affordance, the
+   prop-bound scope hint, the kind-flip pin default.
+
 ## 11. Repo rules this has to meet (CLAUDE.md)
 
 - **One UI:** every phase that touches UI ships desktop and `web_ui/` in the
