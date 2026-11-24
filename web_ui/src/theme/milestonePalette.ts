@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The Boons & Bogies milestone colours — the web twin of
 // lib/ui/theme/milestone_palette.dart. The celebration's game identity is
 // fixed in every theme (like Chance Time's); the card's chrome uses the

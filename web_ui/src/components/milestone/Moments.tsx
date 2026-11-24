@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Moments (docs/design/boons-and-bogies.md §7): the MOMENTS section of the
 // Boons & Bogies line and its header dot — the web twin of
 // lib/ui/widgets/milestone/moments_section.dart. One read

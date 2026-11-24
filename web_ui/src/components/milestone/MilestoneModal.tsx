@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The milestone card on the web (docs/design/boons-and-bogies.md §7): the
 // chat-state snapshot's `milestone` drives it; the card sits over a canvas
 // painting the shared celebration sim (Flame paints the same sim on

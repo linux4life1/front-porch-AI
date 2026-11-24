@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // #763 on the web kit editor — the twin of the desktop `_reshape` tests in
 // test/ui/widgets/trait_kit_editor_test.dart: the pin follows the default
 // while it still is the default, an author's differing pin stays, a boon

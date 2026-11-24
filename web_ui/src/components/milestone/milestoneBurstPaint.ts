@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // Paints the shared milestone sim on a canvas — the web twin of
 // lib/ui/widgets/milestone/milestone_burst_game.dart (Flame). The motion is
 // milestoneBurst.ts's (pinned to the same vectors as the Dart sim); this file

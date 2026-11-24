@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The milestone celebration's web twin reproduces the shared vectors the Dart
 // sim is pinned to (test/fixtures/growth/milestone_burst_vectors.json), so
 // the canvas and Flame paint the same particles frame for frame.

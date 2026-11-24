@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The milestone celebration, as plain maths — the web twin of
 // lib/services/chat/milestone_burst.dart (docs/design/boons-and-bogies.md
 // §7, ruling 12 as amended). Both are pinned to

@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The milestone card — the web twin of lib/ui/widgets/milestone/milestone_card.dart,
 // transcribed from the approved mockup
 // (docs/design/mockups/boons-and-bogies-milestones.html): "✦ Milestone", the

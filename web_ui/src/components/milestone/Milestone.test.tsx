@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The web milestone card and Moments (docs/design/boons-and-bogies.md §7) —
 // the same words and answers as the desktop card
 // (test/ui/widgets/milestone_card_test.dart): the card's words, group

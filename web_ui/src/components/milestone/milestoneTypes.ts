@@ -1,3 +1,6 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 // The milestone wire (docs/design/boons-and-bogies.md §7): MilestoneView.toJson
 // from lib/services/chat/doors/realism/milestone_view.dart — the same words
 // the desktop card reads, built once on the host.
