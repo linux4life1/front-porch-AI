@@ -5,7 +5,11 @@ Rawhide): schema v68–v69, PressureRoll
 physics, ladders, Master guard, undo, Porch Life switches, the Growth panel
 sections (PR #754), and the card `traitKit` — kit editors on both surfaces,
 seed-on-first-touch with the retroactive offer (ruling 13), Stoop display.**
-Phase 4+ (overcome milestone UX polish, the `linkedTo` link UI) remain.
+Phase 4 shipped in PR #771 (rolls, participation, one home for traits) and
+was closed out on 2026-11-23 by the phase-4 closer: fires count and cool
+down, the nudge slot clears, the scene gate reads this message, the
+"Bogey rolls" switch gates rolls, the opt-out freezes only Boons & Bogies,
+and the `not offered` verdict (#764). Phase 5 (milestones) remains.
 Ruling 18 (three-layer participation) and the §3 absence amendment are law
 for phases 4–5.
 v1 (2026-11-19) proposed
@@ -76,6 +80,9 @@ file it was read from, at `ba5b37a2f`.
     born owner-aware. The participation UI ships with the next PR that
     touches the Porch Life or group-sidebar surfaces on both stacks;
     it does not wait for phase 5. (Migrated from issue #765, 2026-11-21.)
+    "Rings" here means the member's boons and bogies: their ordinary
+    traits, stances, habits and scars keep growing (ruling 10), exactly
+    as with the global switch off (maintainer ruling, 2026-11-23).
 19. **No rerolling around a bogey.** Regen and swipe re-inject the same
     bogey with the identical nudge text — no "already tried, pick another
     manifestation" hint. The flaw is a fixed fact of the turn; the user's
@@ -161,8 +168,8 @@ boon loses strength and can drop back to Novice — a chip, not a milestone.
 | Skilled | 4 times it actually fired |
 | Master | 12 times it actually fired (~85 replies at the target rate) |
 
-A fire increments the count; a growth pass where the story shows the character
-coping decrements it by 1 (floor 0). A bogey's `strength` is kept equal to
+A fire increments the count (and starts the cooldown); a growth pass that cites
+a message where the character copes decrements it by 1 (floor 0). A bogey's `strength` is kept equal to
 `0.30 + 0.05 × count` (clamped 0.30..0.90) so existing sorting and injection
 code keeps working, but its tier is derived from the count. The growth prompt
 is told never to reinforce a bogey for merely appearing; only the story making
@@ -174,6 +181,13 @@ and coped-against. A ring the scene never had a surface to touch gets
 neither fade nor advance; charging silence as recovery is how a bar-bound
 flaw withers when the story leaves the bar. Roll injection already knows
 what a scene contains — the verdict must record what it implicitly reads.
+**Silence is the `not offered` verdict** (maintainer ruling, 2026-11-23): a
+bogey the pass says nothing about holds. Coping is an explicit
+`<ring action="cope" id="N" src="…"/>` (tool `cope_with_ring`) citing a
+message inside this window — the same evidence bar a boon needs to grow, so a
+small model that emits nothing never erodes a flaw. Copes are physics like the
+fade they replace: applied at pass time in both modes, never parked for
+review.
 
 **Master.** Reaching Master always produces a milestone. On Accept the trait
 becomes permanent. On Reject `master_declined` latches: a boon is never
@@ -309,7 +323,14 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   turn. Continue does not roll.
 - **Scene check:** if the emotional judge read `emotion_intensity: strong`, the
   roll is skipped and pressure holds. If the judge did not run (one-shot,
-  Continue), the gate is **closed** — no roll on an unknown scene. Known v1
+  Continue), the gate is **closed** — no roll on an unknown scene. The read is
+  the judge's own answer for **this** message, not the mood register it
+  settles into (a held feeling eases on schedule while the judge still calls
+  the scene strong): the send owes the roll, and the turn engine rolls it
+  after this speaker's judges. *Flagged for the maintainer (2026-11-23):*
+  one-shot's fused `report_realism` call returns `emotion_intensity` too, so
+  a one-shot turn is a known scene and the code rolls on it; closing it would
+  turn rolls off for every remote backend Auto fuses. Known v1
   limits: a strong joy scene also holds (a harmless delay); a muted grief scene
   reads moderate and can fire. A dedicated `scene_weight` field on the
   emotional judge is a v2 refinement, not a v1 blocker.
@@ -441,9 +462,11 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
 
 - The card is never written by a chat; rings never cross chats.
 - **Content** changes go through `GrowthReview.applyOwnerProposals` (including
-  the undo snapshot). **Gauges** have exactly one other writer,
-  `setBogeyGauge`, which touches only the six gauge columns. Two writers, two
-  disjoint column sets, stated out loud.
+  the undo snapshot). **Gauges** have exactly one other writer, the roll
+  (`GrowthBogeyStore.recordGauge` / `fire`), which touches only the six gauge
+  columns plus a bogey's `strength` — a pure function of `advance_count` for a
+  bogey, so it moves with the count. Two writers, two disjoint column sets,
+  stated out loud.
 - At most one bogey injection per reply, for the speaker only.
 - At most one milestone modal per 8 messages; overflow is never dropped.
 - Chaos Mode behaviour is bit-for-bit unchanged (golden vectors).

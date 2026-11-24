@@ -92,6 +92,11 @@ class RealismEvalSupport {
     } else if (intensityMatch != null) {
       evals.setEmotionIntensity(intensityMatch.group(1)!.toLowerCase().trim());
     }
+    // The raw read, not the mood it settled into: a held feeling eases on
+    // the schedule even while the judge still calls the scene strong.
+    evals.noteSceneRead?.call(
+      intensityMatch?.group(1)?.toLowerCase().trim() ?? '',
+    );
 
     if (applyArousal && evals.nsfwService.nsfwCooldownEnabled) {
       final arDelta = evals.extractJsonInt(text, 'arousal_delta');

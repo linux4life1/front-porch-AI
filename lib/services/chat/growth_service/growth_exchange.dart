@@ -25,6 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../growth_bb_pass.dart';
 import '../growth_ops.dart';
 import '../growth_physics.dart';
 import '../growth_prompt.dart';
@@ -66,8 +67,9 @@ class GrowthExchange {
 
   /// One owner's LLM exchange — tools first when the backend allows, XML
   /// otherwise (shared probe memory with the Journal pass). Null means the
-  /// backend produced nothing usable.
-  Future<List<GrowthOp>?> run({
+  /// backend produced nothing usable. [bbOn] is the owner's own Boons &
+  /// Bogies switch (ruling 18); off reads the pass as if the feature were.
+  Future<GrowthPassReply?> run({
     required CharacterCard owner,
     required List<GrowthRingData> activeRings,
     required List<JournalMemoryData> journalCards,
@@ -75,7 +77,9 @@ class GrowthExchange {
     required int windowStart,
     required String legacyBlob,
     required int startedEpoch,
+    bool bbOn = true,
   }) async {
+    final boonsBogies = bbOn && getBoonsBogiesEnabled();
     String prompt({required bool toolsMode}) => buildGrowthPrompt(
       ownerName: owner.name,
       userName: getUserName(),
@@ -90,7 +94,7 @@ class GrowthExchange {
       windowStart: windowStart,
       legacyBlob: legacyBlob,
       toolsMode: toolsMode,
-      boonsBogies: getBoonsBogiesEnabled(),
+      boonsBogies: boonsBogies,
     );
 
     final backend = getBackendIdentity();
@@ -102,7 +106,7 @@ class GrowthExchange {
           fireToolEval,
           ToolEvalSpec(
             prompt: prompt(toolsMode: true),
-            tools: kGrowthTools,
+            tools: [...kGrowthTools, if (boonsBogies) kGrowthCopeTool],
             maxLength: kProseToolMaxTokens,
             repeatPenalty: kProseToolRepeatPenalty,
           ),
@@ -118,14 +122,19 @@ class GrowthExchange {
       }
       if (resp != null) {
         if (resp.calls.isNotEmpty) probe.markSupported(backend);
-        var ops = parseGrowthToolCalls(resp.calls);
-        if (ops.isEmpty && resp.text.trim().isNotEmpty) {
+        var reply = (
+          ops: parseGrowthToolCalls(resp.calls),
+          copes: parseGrowthToolCopes(resp.calls),
+        );
+        if (reply.ops.isEmpty &&
+            reply.copes.isEmpty &&
+            resp.text.trim().isNotEmpty) {
           // The model ignored the tools but wrote text — salvage any tags.
-          ops = parseGrowthOps(stripThinkBlocks(resp.text));
+          reply = _parseTags(resp.text);
         }
-        if (ops.isNotEmpty) return ops;
+        if (reply.ops.isNotEmpty || reply.copes.isNotEmpty) return reply;
         if (resp.calls.isNotEmpty) {
-          return const [];
+          return kEmptyGrowthReply;
         }
         if (resp.isUnusableNativeToolCall) {
           probe.noteInconclusive(backend);
@@ -152,7 +161,13 @@ class GrowthExchange {
     if (getPassEpoch() != startedEpoch) return null;
     final raw = await fireLLMEval(prompt(toolsMode: false));
     if (raw == null || raw.trim().isEmpty) return null;
-    return parseGrowthOps(stripThinkBlocks(raw));
+    return _parseTags(raw);
+  }
+
+  /// The XML floor: ring ops and coping verdicts from one tagged reply.
+  GrowthPassReply _parseTags(String raw) {
+    final text = stripThinkBlocks(raw);
+    return (ops: parseGrowthOps(text), copes: parseGrowthCopes(text));
   }
 }
 

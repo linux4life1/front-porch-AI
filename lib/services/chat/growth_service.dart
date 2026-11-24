@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 
+import 'growth_bb_pass.dart';
 import 'growth_ops.dart';
 import 'growth_physics.dart';
 import 'salience_kick_gate.dart';
@@ -33,6 +34,7 @@ import 'journal_physics.dart';
 import 'pass_support.dart';
 import 'tool_eval_spec.dart';
 import 'growth_service/growth_exchange.dart';
+import 'growth_service/growth_pass_physics.dart';
 
 /// Pass-window start index: clamp [cursor] into [messageCount], then cap the
 /// open window at [JournalPhysics.kFirstPassCap] (audit P1.9 — Journal twin).
@@ -235,10 +237,11 @@ class GrowthService {
     final session = getSessionId();
     final legacy = store.legacyBlobFor(session, charId);
     return buildGrowthInjection(
-      charName: card.name,
-      activeRings: store.activeRingsFor(session, charId),
-      legacyBlob: legacy == null ? '' : legacy.$1,
-    ) + bogeyNudgeFor(card);
+          charName: card.name,
+          activeRings: store.activeRingsFor(session, charId),
+          legacyBlob: legacy == null ? '' : legacy.$1,
+        ) +
+        bogeyNudgeFor(card);
   }
 
   /// The parked bogey nudge for [card], if one is pending (§6). Marks it
@@ -250,7 +253,7 @@ class GrowthService {
     if (session == null) return '';
     for (final r in store.activeRingsFor(session, charId)) {
       if (r.category != 'bogey' || r.bogeyPending == null) continue;
-      if (!r.bogeyDelivered) unawaited(store.markBogeyDelivered(r));
+      if (!r.bogeyDelivered) unawaited(store.bogeys.markDelivered(r));
       return '\n\n[SCENE NOTE — part of who ${card.name} is, showing in this '
           'reply: ${r.bogeyPending}. Play it small and inside the scene; '
           'never name it as a flaw, a trait, or a system.]';
@@ -340,12 +343,15 @@ class GrowthService {
       for (final owner in owners) {
         final ownerId = getCharacterIdFromCard(owner);
         if (ownerId.isEmpty) continue;
-        // Ruling 18: an opted-out member's rings freeze — the pass neither
-        // fades, advances, nor proposes for them, and never deletes.
-        if (!getBbEnabledFor(ownerId)) continue;
-
-        final allRings = await store.ringsFor(sessionToken, ownerId);
-        final active = allRings.where((r) => !r.retired).toList();
+        // Ruling 18: an opted-out owner's boons and bogies freeze — out of
+        // the prompt, no fade, no advance, no new ones — while their
+        // ordinary rings keep today's physics (ruling 10). Never deletes.
+        final bbOn = getBbEnabledFor(ownerId);
+        final view = growthBbView(
+          await store.ringsFor(sessionToken, ownerId),
+          bbOn: bbOn,
+        );
+        final active = view.shown;
         final legacy = store.legacyBlobFor(sessionToken, ownerId);
         final legacyText = legacy == null
             ? ''
@@ -359,7 +365,7 @@ class GrowthService {
           ownerId,
         )).where(JournalPhysics.isHot).toList();
 
-        final ops = await _exchange.run(
+        final reply = await _exchange.run(
           owner: owner,
           activeRings: active,
           journalCards: journalCards,
@@ -367,8 +373,9 @@ class GrowthService {
           windowStart: start,
           legacyBlob: legacyText,
           startedEpoch: epoch,
+          bbOn: bbOn,
         );
-        if (ops == null || getPassEpoch() != epoch) {
+        if (reply == null || getPassEpoch() != epoch) {
           debugPrint('[Growth] ✗ ${owner.name}: empty eval response');
           continue;
         }
@@ -376,7 +383,7 @@ class GrowthService {
         final distillMode = legacyText.isNotEmpty;
         final intervalHeld = <String>{};
         final resolved = resolveGrowthOps(
-          ops,
+          bbOn ? reply.ops : growthOpsForFrozen(reply.ops),
           active,
           distillMode: distillMode,
           ownerName: owner.name,
@@ -392,6 +399,7 @@ class GrowthService {
           ownerId: ownerId,
           ownerName: owner.name,
           ops: resolved,
+          boonsBogies: bbOn,
           // Only count the distill done when it actually produced starter
           // rings — a whiffed distill retries on the next pass (the blob
           // keeps injecting meanwhile, so nothing is lost).
@@ -400,24 +408,22 @@ class GrowthService {
               resolved.any((op) => op.action == GrowthOpAction.add),
         );
 
-        // Ring physics: rings this pass actively engaged (reinforced or
-        // revised) don't fade; everything else non-established steps down.
-        // Applied at pass time in both modes (JournalStore.coolCards
-        // precedent — a later discarded review doesn't undo physics).
-        final engagedIds = proposals.ops
-            .where(
-              (op) =>
-                  op.action == GrowthOpAction.reinforce ||
-                  op.action == GrowthOpAction.revise,
-            )
-            .map((op) => op.ringId)
-            .whereType<String>()
-            .toSet();
-        // A too-soon reinforce is not applied, but the ring did show up:
-        // do not also fade it on the passes that refuse the extra step.
-        engagedIds.addAll(intervalHeld);
+        // Ring physics at pass time, in both modes (fade + coping).
         if (!rewound) {
-          await store.fadeUnreinforced(sessionToken, ownerId, engagedIds);
+          await applyGrowthPassPhysics(
+            store,
+            sessionToken,
+            ownerId,
+            ops: proposals.ops,
+            held: {...intervalHeld, ...view.frozenIds},
+            copes: resolveGrowthCopes(
+              reply.copes,
+              active,
+              windowStart: start,
+              windowLength: window.length,
+              rewound: rewound,
+            ),
+          );
         }
 
         final proposed = proposals.ops.length;

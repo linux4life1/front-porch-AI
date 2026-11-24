@@ -288,7 +288,9 @@ class ControlsDoor {
   /// Ruling 18's chat write: 1:1 the chat's own switch, a group the whole
   /// cast (the sidebar's per-member toggles write through MemberSwitches).
   /// Off freezes — rings stay, nothing is deleted.
-  Future<void> setBbEnabled(bool on) => memberSwitches.setChatBb(on);  /// Writes Porch Life Passage of Time — the live clock gate.
+  Future<void> setBbEnabled(bool on) => memberSwitches.setChatBb(on);
+
+  /// Writes Porch Life Passage of Time — the live clock gate.
   Future<void> setPassageOfTimeEnabled(bool enabled) async {
     await _storage.realismSettings.setPassageOfTimeDefault(enabled);
     _g.time.markClockGateSource('porch_life');
@@ -479,10 +481,9 @@ class ControlsDoor {
   /// Bogey rolls (spec §6); the gates read the same switches as the growth
   /// desk, so an opted-out member never rolls (ruling 18).
   late final BogeyRolls bogeys = BogeyRolls(deps)
-    ..globalEnabled = (() => _storage.memorySettings.boonsBogiesEnabled)
+    ..globalEnabled = (() => _storage.memorySettings.bogeyRollsLive)
     ..bbEnabledFor = ((id) => bbEnabledFor(id))
-    ..judgeRuns = (() => realismEnabled)
-    ..sceneIsStrong = (() => _g.registers.intensity == 'strong');
+    ..judgeRuns = (() => realismEnabled);
 
   // ── A group member's own switches, persisted ──────────────────────────
 

@@ -169,6 +169,12 @@ String buildGrowthPrompt({
       'the story establishes it as durable. Never reinforce a bogey for '
       'merely appearing; reinforce only when the story makes it worse.',
     );
+    b.writeln(
+      '- A bogey wears down only when a NEW message gives the flaw its '
+      'moment and $ownerName handles it — then mark it coped and cite that '
+      'message. If these events never gave the flaw a chance to show, say '
+      'nothing about it: an untouched flaw holds as it is.',
+    );
   } else {
     b.writeln(
       '- Categories: trait (who they are), stance (how they relate to '
@@ -183,8 +189,8 @@ String buildGrowthPrompt({
   if (toolsMode) {
     b.writeln(
       '- Use ONLY the provided tools (add_ring, reinforce_ring, revise_ring, '
-      'retire_ring). No plain-text reply. If there is nothing to record, '
-      'call no tools.',
+      'retire_ring${boonsBogies ? ', cope_with_ring' : ''}). No plain-text '
+      'reply. If there is nothing to record, call no tools.',
     );
   } else {
     b.writeln('- Emit only the tags below. No other commentary.');
@@ -197,6 +203,7 @@ String buildGrowthPrompt({
     b.writeln('<ring action="reinforce" id="3" src="18"/>');
     b.writeln('<ring action="revise" id="3">replacement text</ring>');
     b.writeln('<ring action="retire" id="2"/>');
+    if (boonsBogies) b.writeln('<ring action="cope" id="4" src="19"/>');
   }
 
   return b.toString();

@@ -237,6 +237,11 @@ class RealismEvals {
   final int Function()? getEmotionHeldTurns;
   final void Function(int)? setEmotionHeldTurns;
 
+  /// The judge's own `emotion_intensity` for THIS message, before mood
+  /// physics holds or eases it — the scene read the bogey gate keys on
+  /// (docs/design/boons-and-bogies.md §6). '' when no intensity parsed.
+  final void Function(String)? noteSceneRead;
+
   // Services for owned state (avoids duplicating scalars/cbs in god for this leaf)
   final RelationshipService relationshipService;
   final NsfwService nsfwService;
@@ -343,6 +348,7 @@ class RealismEvals {
     this.setEmotionCause,
     this.getEmotionHeldTurns,
     this.setEmotionHeldTurns,
+    this.noteSceneRead,
     required this.relationshipService,
     required this.nsfwService,
     required this.timeService,

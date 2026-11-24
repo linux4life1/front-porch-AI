@@ -23,6 +23,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'growth_boons_bogies.dart';
 import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
+import 'growth_store/growth_bogey_store.dart';
 import 'growth_store/growth_ring_codec.dart';
 import 'growth_store/growth_ring_writer.dart';
 
@@ -307,25 +308,23 @@ class GrowthStore {
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
       _writer.restoreUndo(ring, undo);
 
-  /// See [GrowthBbWriter.recordBogeyGauge] — one reply's gauge movement.
-  Future<void> recordBogeyGauge(
-    GrowthRingData ring, {
-    required int pressure,
-    required int cooldown,
-  }) =>
-      _writer.bb.recordBogeyGauge(ring, pressure: pressure, cooldown: cooldown);
+  /// The bogey roll's writes and the coping verdict (see [GrowthBogeyStore]).
+  late final GrowthBogeyStore bogeys = GrowthBogeyStore(
+    writer: _writer.bb,
+    ringsFor: ringsFor,
+    patchCached: _patchCached,
+  );
 
-  /// See [GrowthBbWriter.parkBogey] — a fire parks the nudge.
-  Future<void> parkBogey(GrowthRingData ring, {required String text}) =>
-      _writer.bb.parkBogey(ring, text: text);
-
-  /// See [GrowthBbWriter.markBogeyDelivered].
-  Future<void> markBogeyDelivered(GrowthRingData ring) =>
-      _writer.bb.markBogeyDelivered(ring);
-
-  /// See [GrowthBbWriter.clearDeliveredBogey].
-  Future<void> clearDeliveredBogey(GrowthRingData ring) =>
-      _writer.bb.clearDeliveredBogey(ring);
+  /// Swap one ring's cached row for [next] (same id), when the cache covers
+  /// its session. Writes the cache never saw go through here or a reload.
+  void _patchCached(GrowthRingData next) {
+    if (!_cacheValid(next.sessionId)) return;
+    final rows = _ringCache[next.characterId];
+    if (rows == null) return;
+    _ringCache[next.characterId] = [
+      for (final r in rows) r.id == next.id ? next : r,
+    ];
+  }
 
   /// See [GrowthRingWriter.reinforceRing].
   Future<void> reinforceRing(

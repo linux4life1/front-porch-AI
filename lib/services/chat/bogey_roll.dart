@@ -19,7 +19,15 @@
 import 'dart:math';
 
 import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/pressure_roll.dart';
+
+/// One bogey's gauge: pressure 0..100 and replies of cooldown left.
+typedef BogeyGauge = ({int pressure, int cooldown});
+
+/// One reply's outcome ([BogeyRoll.reply]): the index that fired (null =
+/// quiet) and every gauge after the reply, index for index.
+typedef BogeyReply = ({int? fired, List<BogeyGauge> after});
 
 /// Bogey rolls — the Boons & Bogies half of the shared pressure gauge
 /// (docs/design/boons-and-bogies.md §6).
@@ -77,6 +85,34 @@ class BogeyRoll {
     random: random,
   );
 
+  /// One whole reply over every rollable bogey's gauge, in [gauges] order:
+  /// tick each, pick at most one fired index, and start that one's cooldown
+  /// with its pressure back at zero. [BogeyRolls.rollTurn] persists exactly
+  /// what this returns, so the simulation test that drives it pins the rate
+  /// the app really rolls — not a loop the test wrote for itself.
+  static BogeyReply reply(List<BogeyGauge> gauges, Random random) {
+    final ticks = [
+      for (final g in gauges)
+        tick(pressure: g.pressure, cooldown: g.cooldown, random: random),
+    ];
+    final fired = pickFiredIndex(ticks, random);
+    return (
+      fired: fired,
+      after: [
+        for (var i = 0; i < ticks.length; i++)
+          i == fired
+              ? (pressure: 0, cooldown: cooldownAfterFire(random))
+              : (pressure: ticks[i].pressure, cooldown: ticks[i].cooldown),
+      ],
+    );
+  }
+
+  /// The count a fire leaves behind (§3.2: bogies advance on times they
+  /// actually fired), held one below Master until the milestone ships.
+  /// Strength follows it through [BoonsBogies.bogeyStrength].
+  static int advanceAfterFire(int advanceCount) =>
+      BoonsBogies.nextBogeyAdvance(advanceCount);
+
   /// The one ring that fires this reply: highest post-tick pressure among
   /// the fired ones, ties broken at random. Null when none fired.
   ///
@@ -86,9 +122,15 @@ class BogeyRoll {
     List<PressureRollTick> ticks,
     Random random,
   ) {
+    final i = pickFiredIndex(ticks, random);
+    return i == null ? null : rings[i];
+  }
+
+  /// [pickFired] by index.
+  static int? pickFiredIndex(List<PressureRollTick> ticks, Random random) {
     var best = -1;
     var ties = 0;
-    for (var i = 0; i < rings.length; i++) {
+    for (var i = 0; i < ticks.length; i++) {
       if (!ticks[i].fired) continue;
       final p = ticks[i].pressure;
       if (best < 0 || p > ticks[best].pressure) {
@@ -100,7 +142,7 @@ class BogeyRoll {
         if (random.nextInt(ties) == 0) best = i;
       }
     }
-    return best < 0 ? null : rings[best];
+    return best < 0 ? null : best;
   }
 
   /// The rings a reply rolls for: active bogeys of one owner. Pinned rings

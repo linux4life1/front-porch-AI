@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/chat/growth_bb_pass.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
@@ -1243,7 +1244,8 @@ Some prose the model wrote.
       expect(after.strength, closeTo(0.45, 1e-9));
     });
 
-    test('a coping pass lowers an unpinned bogey count (floor 0)', () async {
+    test('silence holds a bogey; a cited cope lowers an unpinned one '
+        '(floor 0)', () async {
       final ring = await seed(
         category: 'bogey',
         content: 'Afraid of heights',
@@ -1251,7 +1253,14 @@ Some prose the model wrote.
         strength: 0.45,
         advance: 3,
       );
+      // Absence is not coping (§3 amendment, #764): a pass that said
+      // nothing about the flaw leaves it exactly as it was.
       await store.fadeUnreinforced('s1', 'c1', const {});
+      final held = (await store.ringsFor('s1', 'c1')).single;
+      expect(held.advanceCount, 3);
+      expect(held.strength, closeTo(0.45, 1e-9));
+      // A coping verdict wears it down one step, with an undo snapshot.
+      await store.bogeys.cope('s1', 'c1', {ring.id});
       final after = (await store.ringsFor('s1', 'c1')).single;
       expect(after.advanceCount, 2);
       expect(after.strength, closeTo(0.40, 1e-9));
@@ -1261,7 +1270,7 @@ Some prose the model wrote.
         ring.id,
         const GrowthRingsCompanion(pinned: Value(true)),
       );
-      await store.fadeUnreinforced('s1', 'c1', const {});
+      await store.bogeys.cope('s1', 'c1', {ring.id});
       final pinned = (await store.ringsFor('s1', 'c1')).single;
       expect(pinned.advanceCount, 2);
     });
@@ -1308,6 +1317,245 @@ Some prose the model wrote.
       );
       final after = (await store.ringsFor('s1', 'c1')).single;
       expect(after.retired, isFalse);
+    });
+  });
+
+  group('Boons & Bogies coping verdict — transport (#764)', () {
+    test('a cope tag parses on its own reader; the ring ops reader '
+        'ignores it', () {
+      const raw =
+          '<ring action="cope" id="2" src="7"/>'
+          '<ring action="reinforce" id="1" src="7"/>';
+      final copes = parseGrowthCopes(raw);
+      expect(copes.single.handle, 2);
+      expect(copes.single.sourcePositions, [7]);
+      expect(parseGrowthOps(raw).single.action, GrowthOpAction.reinforce);
+    });
+
+    test('the cope tool parses into the same verdict', () {
+      final copes = parseGrowthToolCopes(const [
+        LlmToolCall(
+          name: 'cope_with_ring',
+          arguments: {
+            'id': 3,
+            'src': [4, 5],
+          },
+        ),
+        LlmToolCall(name: 'retire_ring', arguments: {'id': 1}),
+      ]);
+      expect(copes.single.handle, 3);
+      expect(copes.single.sourcePositions, [4, 5]);
+    });
+  });
+
+  group('Boons & Bogies in a Growth pass (fake LLM, real DB)', () {
+    late AppDatabase db;
+    late GrowthStore store;
+    var bbOn = true;
+    String? xmlReply;
+    var lastPrompt = '';
+    final host = CharacterCard(name: 'Mira', personality: 'Wry, guarded.');
+    final chatty = [
+      _msg('You', 'Hold the ladder for me?', isUser: true),
+      _msg('Mira', 'She steadies it and climbs anyway', charId: 'mira'),
+      _msg('You', 'thank you', isUser: true),
+      _msg('Mira', 'Always', charId: 'mira'),
+    ];
+
+    setUp(() async {
+      db = AppDatabase.forTesting(sameIsolate: true);
+      store = GrowthStore(getDb: () => db);
+      bbOn = true;
+      xmlReply = null;
+      lastPrompt = '';
+      await db.insertSession(SessionsCompanion.insert(id: 's1'));
+    });
+
+    tearDown(() async => db.close());
+
+    GrowthService makeService() {
+      var running = false;
+      final review = GrowthReview(
+        store: store,
+        getSessionId: () => 's1',
+        getIsGroup: () => false,
+        getBoonsBogiesEnabled: () => true,
+        onApplied: () async {},
+        onNotify: () {},
+      );
+      return GrowthService(
+        store: store,
+        review: review,
+        probe: ToolTransportProbe()..markXmlOnly('fake'),
+        fireLLMEval: (prompt) async {
+          lastPrompt = prompt;
+          return xmlReply;
+        },
+        fireToolEval: (p, t) async => null,
+        stripThinkBlocks: (t) => t,
+        getBackendIdentity: () => 'fake',
+        getSessionId: () => 's1',
+        getActiveCharacter: () => host,
+        getActiveGroup: () => null,
+        getGroupCharacters: () => const [],
+        getSceneGuestCards: () => const [],
+        getCharacterIdFromCard: (c) => c.name.toLowerCase(),
+        getMessages: () => chatty,
+        getUserName: () => 'You',
+        getRecap: () => '',
+        getJournalCards: (s, c) async => const [],
+        getGrowthEnabled: () => true,
+        getReviewFirst: () => false,
+        getIsPassRunning: () => running,
+        setIsPassRunning: (v) => running = v,
+        refreshCache: () =>
+            store.refresh('s1', charIds: ['mira'], activeCharId: 'mira'),
+        onNotify: () {},
+        getBoonsBogiesEnabled: () => true,
+        getBbEnabledFor: (_) => bbOn,
+      );
+    }
+
+    Future<GrowthRingData> seed(
+      String content, {
+      String category = 'trait',
+      String? metadata,
+      double strength = 0.5,
+      int advance = 0,
+    }) async {
+      await store.addRing(
+        sessionId: 's1',
+        characterId: 'mira',
+        content: content,
+        category: category,
+        strength: strength,
+        metadata: metadata,
+      );
+      final ring = (await store.ringsFor(
+        's1',
+        'mira',
+      )).firstWhere((r) => r.content == content);
+      if (advance > 0) {
+        await db.updateGrowthRing(
+          ring.id,
+          GrowthRingsCompanion(advanceCount: Value(advance)),
+        );
+      }
+      return ring;
+    }
+
+    Future<GrowthRingData> ring(String content) async => (await store.ringsFor(
+      's1',
+      'mira',
+    )).firstWhere((r) => r.content == content);
+
+    /// The `[N]` handle the prompt gave [content] — handles are what the
+    /// model writes back.
+    int handleOf(String content) {
+      final m = RegExp(
+        r'\[(\d+)\] \([^)]*\) ' + RegExp.escape(content),
+      ).firstMatch(lastPrompt);
+      return int.parse(m!.group(1)!);
+    }
+
+    test('silence holds a bogey; only a cope citing this window wears one '
+        'down', () async {
+      await seed(
+        'Freezes on ladders',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.45,
+        advance: 3,
+      );
+      await seed(
+        'Hoards spare keys',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.45,
+        advance: 3,
+      );
+      await seed(
+        'Snaps when tired',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.45,
+        advance: 3,
+      );
+      // Handles are 1-based positions in the list the pass shows the model.
+      final shown = growthBbView(
+        await store.ringsFor('s1', 'mira'),
+        bbOn: true,
+      ).shown;
+      int handle(String content) =>
+          shown.indexWhere((r) => r.content == content) + 1;
+      xmlReply =
+          '<ring action="cope" id="${handle('Freezes on ladders')}" src="1"/>'
+          '<ring action="cope" id="${handle('Snaps when tired')}" src="99"/>';
+      await makeService().runGrowthPass(force: true);
+      expect(lastPrompt, contains('action="cope"'));
+      expect(
+        handleOf('Freezes on ladders'),
+        handle('Freezes on ladders'),
+        reason: 'the prompt numbered the rings as the test did',
+      );
+
+      expect(
+        (await ring('Freezes on ladders')).advanceCount,
+        2,
+        reason: 'a cited cope inside the window wears the flaw down',
+      );
+      expect(
+        (await ring('Hoards spare keys')).advanceCount,
+        3,
+        reason: 'silence is "not offered" and holds',
+      );
+      expect(
+        (await ring('Snaps when tired')).advanceCount,
+        3,
+        reason: 'a cope citing no message in this window is not evidence',
+      );
+    });
+
+    test('an opted-out owner: ordinary rings still grow; boons and bogies '
+        'freeze and none are added', () async {
+      bbOn = false;
+      await seed('Trusts slowly', strength: 0.5);
+      await seed(
+        'Picks any lock',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.5,
+        advance: 2,
+      );
+      await seed(
+        'Freezes on ladders',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.45,
+        advance: 3,
+      );
+      xmlReply =
+          '<ring action="reinforce" id="1" src="1"/>'
+          '<ring action="add" category="bogey" src="1">Flinches at noise</ring>'
+          '<ring action="add" category="skill" src="1">Rides well</ring>';
+      await makeService().runGrowthPass(force: true);
+
+      expect(lastPrompt, isNot(contains('Picks any lock')));
+      expect(lastPrompt, isNot(contains('Freezes on ladders')));
+      expect(lastPrompt, isNot(contains('bogey')));
+      expect(
+        (await ring('Trusts slowly')).strength,
+        greaterThan(0.5),
+        reason: 'ruling 10: ordinary rings keep their physics',
+      );
+      final boon = await ring('Picks any lock');
+      expect(boon.strength, closeTo(0.5, 1e-9), reason: 'frozen: no fade');
+      expect(boon.advanceCount, 2);
+      expect((await ring('Freezes on ladders')).advanceCount, 3);
+      final rings = await store.ringsFor('s1', 'mira');
+      expect(rings.where((r) => r.content == 'Flinches at noise'), isEmpty);
+      final skill = rings.firstWhere((r) => r.content == 'Rides well');
+      expect(BoonsBogies.isBoon(skill), isFalse);
     });
   });
 }

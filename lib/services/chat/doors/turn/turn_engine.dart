@@ -329,6 +329,15 @@ class TurnEngine {
         );
       }
 
+      // A fresh user turn's owed bogey roll (§6), now that this speaker's
+      // judges have read the message and before the prompt reads the slot.
+      // Regen and swipe owe none; Continue never rolls even if one is left.
+      if (guestSpeaker == null && mode != GenerationMode.continue_) {
+        await _controls.bogeys.settleOwed(
+          _getCharacterIdFromCard(speakingCharacter),
+        );
+      }
+
       // ── The six-phase turn pipeline: four prompt phases on the prompt
       // assembler (doors/turn/), then the stream and post-gen parts ──
       // Fixed order — `late` carrier fields make an out-of-order call a loud
