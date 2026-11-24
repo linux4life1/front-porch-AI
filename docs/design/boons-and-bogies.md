@@ -10,7 +10,7 @@ was closed out on 2026-11-23 by the phase-4 closer: fires count and cool
 down, the nudge slot clears, the scene gate reads this message, the
 "Bogey rolls" switch gates rolls, the opt-out freezes only Boons & Bogies,
 and the `not offered` verdict (#764). Phase 5 shipped on 2026-11-24
-(branch `feat/boons-and-bogies-phase5`): schema v71, the milestone card and
+(PR #774): schema v71, the milestone card and
 Moments on both surfaces from the approved mockup, the shared celebration
 sim (Flame on desktop, canvas on web), and #763 (BETA lifted, boon link,
 scope hint, kind-flip pin default). v1 is complete; phase 7 (the boon
