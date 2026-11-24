@@ -341,6 +341,13 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
 
 ## 7. Milestones
 
+**Approved mockup (maintainer, 2026-11-23):**
+`docs/design/mockups/boons-and-bogies-milestones.html` is the binding design
+for the card, its five moments and Moments. Its three open calls are settled
+as drawn: Moments lives in the Boons & Bogies line (the traits' one home since
+phase 4), the title and ask copy stand, and with Milestone popups off a
+pending moment is answered inline in Moments.
+
 A center-screen moment, shown **after the reply finishes streaming**, never
 mid-stream. **Accept / Reject** (Redo cut, ruling 15). The effect plays on
 Accept.
