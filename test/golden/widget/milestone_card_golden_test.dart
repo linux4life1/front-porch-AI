@@ -71,7 +71,7 @@ void main() {
       ),
       group: 'milestone_card',
       name: 'new_boon',
-      surface: const Size(380, 340),
+      surface: const Size(380, 410),
     );
   });
 
@@ -93,7 +93,7 @@ void main() {
       ),
       group: 'milestone_card',
       name: 'master_bogey_group',
-      surface: const Size(380, 400),
+      surface: const Size(380, 470),
     );
   });
 
@@ -114,7 +114,7 @@ void main() {
       ),
       group: 'milestone_card',
       name: 'overcome',
-      surface: const Size(380, 380),
+      surface: const Size(380, 450),
     );
   });
 }

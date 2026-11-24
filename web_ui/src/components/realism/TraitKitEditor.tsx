@@ -7,8 +7,37 @@
 // starting tier, pin. The 6-entry cap (ruling 11) is enforced here; the
 // parse layer truncates, but an author who hits the wall should see it.
 
+import { Fragment } from 'react';
+
 import type { TraitKitEntry } from './realismTypes';
 import { MAX_KIT_ENTRIES, SEED_TIER_NAMES } from './realismTypes';
+
+/** The kit's scope hint under the bogey rows (#763) — the desktop's words. */
+export const BOGEY_SCOPE_HINT =
+  'Write flaws that can show up anywhere — one tied to a single place or object only shows near it.';
+
+/** The pin default (ruling, 2026-11-21): a Skilled bogey arrives pinned. */
+const defaultPin = (kind: string, tier: string) => kind === 'bogey' && tier === 'developing';
+
+/**
+ * A kind or tier change — the desktop's `_reshape`. The pin follows the
+ * default while it still IS the default for the row as it was (typing first,
+ * then flipping a Skilled row to Bogey now pins it, #763); a pin that
+ * differs is the author's and stays. A boon carries no boon link.
+ */
+export function reshape(
+  e: TraitKitEntry,
+  next: { kind?: TraitKitEntry['kind']; tier?: TraitKitEntry['tier'] },
+): Partial<TraitKitEntry> {
+  const kind = next.kind ?? e.kind;
+  const tier = next.tier ?? e.tier;
+  return {
+    kind,
+    tier,
+    pinned: e.pinned === defaultPin(e.kind, e.tier) ? defaultPin(kind, tier) : e.pinned,
+    linkedTo: kind === 'bogey' ? e.linkedTo : undefined,
+  };
+}
 
 const KINDS = ['boon', 'bogey'] as const;
 // Seed cap (ruling 8, amended 2026-11-21): the editor offers Novice and
@@ -36,6 +65,9 @@ export function TraitKitEditor({
 }) {
   const full = values.length >= MAX_KIT_ENTRIES;
   const bogeys = values.filter((e) => e.kind === 'bogey').length;
+  const boons = values
+    .filter((e) => e.kind === 'boon' && e.text.trim() !== '')
+    .map((e) => e.text.trim());
 
   const update = (i: number, patch: Partial<TraitKitEntry>) =>
     onChange(values.map((e, j) => (i === j ? { ...e, ...patch } : e)));
@@ -44,39 +76,17 @@ export function TraitKitEditor({
     <div className="realism-field" data-testid="trait-kit">
       <div style={{ display: 'flex', alignItems: 'baseline' }}>
         <span className="realism-head" style={{ margin: 0 }}>Boons &amp; Bogies</span>
-        {/* Beta marker for nightly ships. Remove together with the
-            settings copy when phase 5 lands — tracked in issue #763. */}
-        <span
-          className="trait-kit-beta"
-          title="Beta: shipping ahead of the full ruleset. Milestones (Master, overcome) arrive in a later update; until then growth stops one step below Master."
-        >
-          BETA
-        </span>
         <span className="chiplist-count">{values.length} of {MAX_KIT_ENTRIES}</span>
       </div>
       {helper && <p className="muted small" style={{ margin: '4px 0 8px' }}>{helper}</p>}
       {values.map((e, i) => (
-        <div
-          key={i}
-          className={`trait-kit-row${e.kind === 'bogey' ? ' bogey' : ''}`}
-        >
+        <Fragment key={i}>
+        <div className={`trait-kit-row${e.kind === 'bogey' ? ' bogey' : ''}`}>
           <select
             aria-label="Kind"
             value={e.kind}
             onChange={(ev) =>
-              update(i, {
-                kind: ev.target.value as (typeof KINDS)[number],
-                // Kind decides the pin default on a fresh row, and so
-                // does tier (ruling, 2026-11-21): a fresh Skilled bogey
-                // arrives pinned, a fresh Novice one stays fragile until
-                // the story says otherwise (§4).
-                pinned:
-                  e.text === '' &&
-                  ev.target.value === 'bogey' &&
-                  e.tier === 'developing'
-                    ? true
-                    : e.pinned,
-              })
+              update(i, reshape(e, { kind: ev.target.value as (typeof KINDS)[number] }))
             }
           >
             {KINDS.map((k) => (
@@ -93,7 +103,9 @@ export function TraitKitEditor({
           <select
             aria-label="Starting tier"
             value={e.tier}
-            onChange={(ev) => update(i, { tier: ev.target.value as TraitKitEntry['tier'] })}
+            onChange={(ev) =>
+              update(i, reshape(e, { tier: ev.target.value as TraitKitEntry['tier'] }))
+            }
           >
             {TIERS.map((t) => (
               <option key={t} value={t}>{TIER_LABEL[t]}</option>
@@ -115,7 +127,25 @@ export function TraitKitEditor({
             ×
           </button>
         </div>
+        {e.kind === 'bogey' && boons.length > 0 && (
+          // A bogey's boon link (#763; phase 7's roll bias reads it).
+          <label className="trait-kit-link">
+            <span>Pushes against</span>
+            <select
+              aria-label="Boon link"
+              value={e.linkedTo && boons.includes(e.linkedTo) ? e.linkedTo : ''}
+              onChange={(ev) => update(i, { linkedTo: ev.target.value || undefined })}
+            >
+              <option value="">No boon</option>
+              {boons.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        </Fragment>
       ))}
+      {bogeys > 0 && <p className="muted small" style={{ margin: '0 0 4px' }}>{BOGEY_SCOPE_HINT}</p>}
       <button
         type="button"
         className="ghost"

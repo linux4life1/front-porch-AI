@@ -91,31 +91,33 @@ class MilestoneCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: '✦ ',
-                    style: TextStyle(
-                      color: MilestonePalette.gold,
-                      shadows: [
-                        Shadow(
-                          color: MilestonePalette.gold.withValues(alpha: 0.6),
-                          blurRadius: 10,
-                        ),
-                      ],
+            // The ✦ is the star icon on desktop (the app font has no ✦ glyph),
+            // as the Boons & Bogies line pairs ✨ on web with auto_awesome here.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.auto_awesome,
+                  size: 15,
+                  color: MilestonePalette.gold,
+                  shadows: [
+                    Shadow(
+                      color: MilestonePalette.gold.withValues(alpha: 0.6),
+                      blurRadius: 10,
                     ),
+                  ],
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Milestone',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.9,
+                    color: primary,
                   ),
-                  const TextSpan(text: 'Milestone'),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.9,
-                color: primary,
-              ),
+                ),
+              ],
             ),
             const SizedBox(height: 2),
             Text.rich(

@@ -198,8 +198,7 @@ class PorchLifeMemoryGroup extends StatelessWidget {
                 label: 'Boons & Bogies',
                 subtitle:
                     'Abilities that grow and flaws that surface. New ones '
-                    'always ask you first. Beta: milestones (Master, '
-                    'overcome) arrive in a later update.',
+                    'always ask you first.',
                 need: FeatureNeed.needs,
                 dependsOn: 'Growth Rings',
                 satisfied: growthOn,

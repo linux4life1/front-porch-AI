@@ -196,8 +196,10 @@ void main() {
     );
     expect(
       find.text('BETA'),
-      findsOneWidget,
-      reason: 'nightly ships tell the user the ruleset is incomplete',
+      findsNothing,
+      reason:
+          'phase 5 shipped the milestones the BETA pill warned about '
+          '(#763); the ruleset is complete',
     );
     expect(find.byIcon(Icons.arrow_drop_down), findsOneWidget);
     expect(find.byIcon(Icons.unfold_more), findsOneWidget);
@@ -206,9 +208,7 @@ void main() {
   testWidgets('the pin button toggles', (tester) async {
     await pump(
       tester,
-      values: [
-        TraitKitEntry(kind: 'bogey', text: 'bad temper', pinned: true),
-      ],
+      values: [TraitKitEntry(kind: 'bogey', text: 'bad temper', pinned: true)],
     );
     await tester.tap(
       find.byTooltip('Pinned — a seeded flaw never fades. Tap to unpin.'),
@@ -264,5 +264,85 @@ void main() {
       ),
     );
     expect(find.textContaining('at most 3 active bogies'), findsOneWidget);
+  });
+
+  group('#763: the pin follows the default, the link, the scope hint', () {
+    testWidgets('a written Skilled row flipped to Bogey arrives pinned', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        values: [
+          TraitKitEntry(
+            kind: 'boon',
+            text: 'snaps when cornered',
+            tier: 'developing',
+          ),
+        ],
+      );
+      await tester.tap(find.byTooltip('Kind'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bogey'));
+      await tester.pumpAndSettle();
+      expect(last!.single.kind, 'bogey');
+      expect(
+        last!.single.pinned,
+        isTrue,
+        reason: 'the pin still was the default, so it follows the default',
+      );
+    });
+
+    testWidgets('a pin the author set against the default stays', (
+      tester,
+    ) async {
+      // The author UNpinned a Skilled bogey (the default pins it). Making
+      // it Novice and back keeps it unpinned: a pin that differs from the
+      // default is theirs. (Decided from the entry alone, so a pin that
+      // happens to equal the new default reads as the default — the price
+      // of no per-row state a removed row could shift onto a neighbour.)
+      await pump(
+        tester,
+        values: [
+          TraitKitEntry(
+            kind: 'bogey',
+            text: 'snaps when cornered',
+            tier: 'developing',
+            pinned: false,
+          ),
+        ],
+      );
+      await tester.tap(find.byTooltip('Starting tier'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Novice — starts faint').last);
+      await tester.pumpAndSettle();
+      expect(last!.single.pinned, isFalse);
+      await tester.tap(find.byTooltip('Kind'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Boon').last);
+      await tester.pumpAndSettle();
+      expect(
+        last!.single.pinned,
+        isFalse,
+        reason: 'the author unpinned it; no default re-pins it',
+      );
+    });
+
+    testWidgets('a bogey links to a boon in the kit, and shows the hint', (
+      tester,
+    ) async {
+      await pump(
+        tester,
+        values: [
+          TraitKitEntry(kind: 'boon', text: 'reads a room'),
+          TraitKitEntry(kind: 'bogey', text: 'blurts the truth'),
+        ],
+      );
+      expect(find.textContaining('tied to a single place'), findsOneWidget);
+      await tester.tap(find.byTooltip('Boon link'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('reads a room').last);
+      await tester.pumpAndSettle();
+      expect(last!.last.linkedTo, 'reads a room');
+    });
   });
 }

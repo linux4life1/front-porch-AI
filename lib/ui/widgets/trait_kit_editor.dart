@@ -54,6 +54,12 @@ class TraitKitEditor extends StatefulWidget {
   State<TraitKitEditor> createState() => _TraitKitEditorState();
 }
 
+/// The kit's scope hint under the bogey rows (#763); the web editor shows
+/// the same words.
+const String kBogeyScopeHint =
+    'Write flaws that can show up anywhere — one tied to a single place or '
+    'object only shows near it.';
+
 class _TraitKitEditorState extends State<TraitKitEditor> {
   final Map<int, TextEditingController> _controllers = {};
   final Map<int, FocusNode> _focus = {};
@@ -133,34 +139,6 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
                 color: textSecondary,
               ),
             ),
-            const SizedBox(width: 6),
-            // Beta marker for nightly ships. Remove together with the
-            // settings copy when phase 5 lands — tracked in issue #763.
-            Tooltip(
-              message:
-                  'Beta: shipping ahead of the full ruleset. Milestones '
-                  '(Master, overcome) arrive in a later update; until '
-                  'then growth stops one step below Master.',
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 1,
-                ),
-                decoration: BoxDecoration(
-                  color: honey.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'BETA',
-                  style: TextStyle(
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
-                    color: honey,
-                  ),
-                ),
-              ),
-            ),
             const Spacer(),
             Text(
               '${widget.values.length} of ${TraitKitEntry.maxEntries}',
@@ -205,6 +183,12 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
         const SizedBox(height: 8),
         for (var i = 0; i < widget.values.length; i++)
           _row(context, i, honey, bogey),
+        // #763: a flaw tied to one place or object can only fire near it.
+        if (_bogies > 0)
+          Text(
+            kBogeyScopeHint,
+            style: TextStyle(fontSize: 10.5, color: textSecondary),
+          ),
         const SizedBox(height: 6),
         Row(
           children: [
@@ -240,7 +224,7 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
     if (!focus.hasFocus && controller.text != entry.text) {
       controller.text = entry.text;
     }
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -292,6 +276,11 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
         ),
       ),
     );
+    if (!entry.isBogey) return row;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [row, _linkRow(i, entry, bogey)],
+    );
   }
 
   Widget _kindToggle(int i, TraitKitEntry entry) => PopupMenuButton<String>(
@@ -303,23 +292,7 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
       PopupMenuItem(value: TraitKitEntry.kindBoon, child: Text('Boon')),
       PopupMenuItem(value: TraitKitEntry.kindBogey, child: Text('Bogey')),
     ],
-    onSelected: (kind) => _update(
-      i,
-      // Kind decides the pin default, and so does tier (ruling,
-      // 2026-11-21): a fresh Skilled bogey arrives pinned, a fresh
-      // Novice one stays as authored — fragile until the story says
-      // otherwise (§4). The author's pin click always wins after that.
-      (e) => _with(
-        e,
-        kind: kind,
-        pinned:
-            kind == TraitKitEntry.kindBogey &&
-                    e.text == '' &&
-                    e.tier == TraitKitEntry.tierDeveloping
-                ? true
-                : e.pinned,
-      ),
-    ),
+    onSelected: (kind) => _update(i, (e) => _reshape(e, kind: kind)),
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -400,8 +373,91 @@ class _TraitKitEditorState extends State<TraitKitEditor> {
       ])
         PopupMenuItem(value: tier, child: Text(tierLabel(tier))),
     ],
-    onSelected: (tier) => _update(i, (e) => _with(e, tier: tier)),
+    onSelected: (tier) => _update(i, (e) => _reshape(e, tier: tier)),
   );
+
+  /// The pin default (ruling, 2026-11-21): a Skilled bogey arrives pinned,
+  /// anything else unpinned (§4).
+  static bool _defaultPin(String kind, String tier) =>
+      kind == TraitKitEntry.kindBogey && tier == TraitKitEntry.tierDeveloping;
+
+  /// A kind or tier change. The pin follows the default while it still IS
+  /// the default for the row as it was — typing first, then flipping a
+  /// Skilled row to Bogey, now pins it (#763). A pin that differs from the
+  /// default is the author's, and stays. Decided from the entry alone, so a
+  /// removed row cannot leave its state on a neighbour. A boon carries no
+  /// boon link.
+  static TraitKitEntry _reshape(TraitKitEntry e, {String? kind, String? tier}) {
+    final nextKind = kind ?? e.kind;
+    final nextTier = tier ?? e.tier;
+    return TraitKitEntry(
+      kind: nextKind,
+      text: e.text,
+      tier: nextTier,
+      pinned: e.pinned == _defaultPin(e.kind, e.tier)
+          ? _defaultPin(nextKind, nextTier)
+          : e.pinned,
+      linkedTo: nextKind == TraitKitEntry.kindBogey ? e.linkedTo : null,
+    );
+  }
+
+  /// A bogey's boon link (phase 7's roll bias reads it): the text of the
+  /// boon it pushes against, or none.
+  Widget _linkRow(int i, TraitKitEntry entry, Color bogey) {
+    final boons = [
+      for (final e in widget.values)
+        if (!e.isBogey && e.text.trim().isNotEmpty) e.text.trim(),
+    ];
+    if (boons.isEmpty) return const SizedBox.shrink();
+    final current = boons.contains(entry.linkedTo) ? entry.linkedTo : null;
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Row(
+        children: [
+          Text('Pushes against', style: TextStyle(fontSize: 11, color: bogey)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: PopupMenuButton<String>(
+              tooltip: 'Boon link',
+              initialValue: current ?? '',
+              position: PopupMenuPosition.under,
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: '', child: Text('No boon')),
+                for (final b in boons) PopupMenuItem(value: b, child: Text(b)),
+              ],
+              onSelected: (b) => _update(
+                i,
+                (e) => TraitKitEntry(
+                  kind: e.kind,
+                  text: e.text,
+                  tier: e.tier,
+                  pinned: e.pinned,
+                  linkedTo: b.isEmpty ? null : b,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      current ?? 'No boon',
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.unfold_more, size: 14),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   static TraitKitEntry _withText(TraitKitEntry e, String text) =>
       _with(e, text: text);
