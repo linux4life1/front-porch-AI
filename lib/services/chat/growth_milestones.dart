@@ -130,6 +130,37 @@ class GrowthMilestones {
     String? ringId,
     String? tier,
     MilestoneProposal? proposal,
+  }) {
+    // One at a time: the dedupe read and the insert straddle awaits, and a
+    // Growth pass and a bogey roll can see the same Master crossing at once.
+    final run = _proposals.then(
+      (_) => _propose(
+        sessionId: sessionId,
+        characterId: characterId,
+        kind: kind,
+        ringId: ringId,
+        tier: tier,
+        proposal: proposal,
+      ),
+    );
+    _proposals = run.then<void>(
+      (_) {},
+      onError: (Object e) {
+        debugPrint('[Milestones] propose failed: $e');
+      },
+    );
+    return run;
+  }
+
+  Future<void> _proposals = Future.value();
+
+  Future<String?> _propose({
+    required String sessionId,
+    required String characterId,
+    required MilestoneKind kind,
+    String? ringId,
+    String? tier,
+    MilestoneProposal? proposal,
   }) async {
     final db = getDb();
     if (db == null) return null;
@@ -158,6 +189,59 @@ class GrowthMilestones {
         );
     return id;
   }
+
+  // ── Producers (the applier and the roll call these) ───────────────────
+
+  /// A new boon or bogey the Growth pass proposed (ruling 1): queued, never
+  /// added on the spot.
+  Future<void> proposeAdd({
+    required String sessionId,
+    required String characterId,
+    required String text,
+    required bool bogey,
+    List<int> sourcePositions = const [],
+  }) => propose(
+    sessionId: sessionId,
+    characterId: characterId,
+    kind: bogey ? MilestoneKind.newBogey : MilestoneKind.newBoon,
+    tier: 'novice',
+    proposal: MilestoneProposal(
+      text: text,
+      category: bogey ? BoonsBogies.kCategoryBogey : 'skill',
+      sourcePositions: sourcePositions,
+    ),
+  );
+
+  /// Queue the Master moment when [ring]'s next step crosses into Master
+  /// ([BoonsBogies.crossesMaster]); [strengthAfter] is a boon's strength
+  /// after this pass. True when a moment is (or already was) pending.
+  Future<bool> proposeMasterIfCrossing(
+    GrowthRingData ring, {
+    double? strengthAfter,
+  }) async {
+    if (!BoonsBogies.crossesMaster(ring, strengthAfter: strengthAfter)) {
+      return false;
+    }
+    final id = await propose(
+      sessionId: ring.sessionId,
+      characterId: ring.characterId,
+      kind: BoonsBogies.isBogey(ring)
+          ? MilestoneKind.masterBogey
+          : MilestoneKind.masterBoon,
+      ringId: ring.id,
+      tier: 'master',
+    );
+    return id != null;
+  }
+
+  /// The model says the character beat a flaw: an overcome moment, never a
+  /// silent retire (§3.2).
+  Future<void> proposeOvercome(GrowthRingData ring) => propose(
+    sessionId: ring.sessionId,
+    characterId: ring.characterId,
+    kind: MilestoneKind.overcome,
+    ringId: ring.id,
+  );
 
   /// One owner's moments (every owner when [characterId] is null), newest
   /// first — the Moments list.

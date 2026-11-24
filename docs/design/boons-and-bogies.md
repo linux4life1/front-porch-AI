@@ -467,7 +467,9 @@ leaves the app working:
    Reject of an add or overcome drops it.
 3. **Producers.** The applier routes boon/bogey adds and a bogey retire
    (overcome) to `propose`; boon reinforces and bogey fires that cross
-   Master propose instead of clamping (`kMilestoneSurfaceShipped` on).
+   Master propose (`BoonsBogies.crossesMaster`); the silent ladder still
+   stops one short, and Master shows only on a crowned ring. A declined
+   bogey re-arms below 4 fires.
 4. **Surface.** After the reply finishes streaming, at most one pending
    moment pops when Milestone popups is on and 8 user messages have passed
    since the last; everything else waits unread in Moments.

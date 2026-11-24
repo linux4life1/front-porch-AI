@@ -87,6 +87,13 @@ class MemorySettings with SettingsBase {
   /// & Bogies, then its own Bogey rolls switch. Any one off, no roll.
   bool get bogeyRollsLive =>
       _characterEvolutionEnabled && _boonsBogiesEnabled && _bogeyRollsEnabled;
+
+  /// The same chain for the center-screen card (§8): off, every moment
+  /// waits in Moments instead.
+  bool get milestonePopupsLive =>
+      _characterEvolutionEnabled &&
+      _boonsBogiesEnabled &&
+      _milestonePopupsEnabled;
   bool get milestonePopupsEnabled => _milestonePopupsEnabled;
 
   void load() {

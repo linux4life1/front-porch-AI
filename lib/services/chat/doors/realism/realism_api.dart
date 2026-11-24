@@ -28,6 +28,8 @@ import 'package:front_porch_ai/services/expression_classifier.dart'
     show ExpressionClassifierService;
 import 'package:front_porch_ai/services/chat_service.dart';
 
+export 'milestones_api.dart';
+
 /// The group lore in play (bodies in [ChatLore]).
 extension ChatServiceRealismLore on ChatService {
   /// The post-group-filter active entries of the open group, deduplicated
@@ -364,7 +366,8 @@ extension ChatServiceMemoryDoors on ChatService {
   Future<void> declineGrowthKit() => realism.growthDesk.declineGrowthKit();
 
   /// Give the cast's kits another first touch (panel re-run).
-  Future<void> offerGrowthKitAgain() => realism.growthDesk.offerGrowthKitAgain();
+  Future<void> offerGrowthKitAgain() =>
+      realism.growthDesk.offerGrowthKitAgain();
 
   /// Whether the re-run button earns its seat in the action row.
   bool get growthKitReplayAvailable =>

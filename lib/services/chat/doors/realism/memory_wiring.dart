@@ -188,7 +188,12 @@ extension RealismMemoryWiring on RealismGraph {
       getIsGroup: () => session.activeGroup != null,
       getBoonsBogiesEnabled: () =>
           _storageService.memorySettings.boonsBogiesEnabled,
-      onApplied: () => growthDesk.refreshCache(),
+      getMilestones: () => growthMilestones,
+      onApplied: () async {
+        await growthDesk.refreshCache();
+        // A pass that queued a moment pops it once no reply is streaming.
+        await milestoneSurface.check();
+      },
       onNotify: deps.notify,
     );
   }

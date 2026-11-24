@@ -41,6 +41,7 @@ export 'growth_boons_bogies.dart';
 export 'growth_kit_seed.dart';
 export 'growth_ops.dart';
 export 'lookup_force.dart';
+export 'growth_milestones.dart';
 export 'growth_physics.dart';
 export 'growth_prompt.dart';
 export 'growth_review.dart';

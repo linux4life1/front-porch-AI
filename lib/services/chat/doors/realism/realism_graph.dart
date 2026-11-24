@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/chat/doors/realism/injection_wiring.dart
 import 'package:front_porch_ai/services/chat/doors/realism/judge_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/memory_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/needs_seeds.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/milestone_surface.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_restores.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_state.dart';
@@ -54,6 +55,7 @@ export 'package:front_porch_ai/services/chat/doors/realism/needs_seeds.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/realism_deps.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/realism_restores.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/realism_state.dart';
+export 'package:front_porch_ai/services/chat/doors/realism/milestone_surface.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/regen_baseline.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/scalar_carries.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/today_planner.dart';
@@ -153,6 +155,23 @@ class RealismGraph {
   late final MilestoneFeed milestoneFeed = buildMilestoneFeed();
   late final GrowthStore growthStore = buildGrowthStore();
   late final GrowthReview growthReview = buildGrowthReview();
+  late final GrowthMilestones growthMilestones = GrowthMilestones(
+    store: growthStore,
+    getDb: deps.services.db,
+  );
+  late final MilestoneSurface milestoneSurface = MilestoneSurface(
+    milestones: growthMilestones,
+    sessionId: () => session.currentSessionId,
+    userMessageCount: () => session.messages.where((m) => m.isUser).length,
+    popupsOn: () => deps.services.storage.memorySettings.milestonePopupsLive,
+    replyOwed: () =>
+        (session.messages.isNotEmpty && session.messages.last.isUser) ||
+        deps.doors.turn().isTurnBusy ||
+        evalStatus.evaluating ||
+        deps.doors.objectives().inObjectiveTurn,
+    onDecided: () => growthDesk.refreshCache(),
+    notify: deps.notify,
+  );
   late final GrowthService growthService = buildGrowthService();
   late final GrowthDesk growthDesk = buildGrowthDesk();
   late final TimelineInvalidator timeline = buildTimeline();

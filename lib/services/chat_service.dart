@@ -360,12 +360,12 @@ class ChatService extends ChangeNotifier {
   Future<void> setAfterglowEnabled(bool on) =>
       controlsDoor.setAfterglowEnabled(on);
 
-  // Pockets & Boons & Bogies per-chat switches (pockets-wardrobe-chat-toggle,
-  // ruling 18). Forwarders, not extensions: the golden fakes answer these.
+  // Pockets & Boons & Bogies switches (ruling 18) and the milestone card on
+  // screen (§7). Forwarders, not extensions: the golden fakes answer these.
   /// The 1:1 chat's stored switch; Pockets' gate is [pocketsEnabledFor].
   bool get pocketsChatSwitch => controlsDoor.pocketsChatSwitch;
-
   bool get bbChatSwitch => controlsDoor.bbChatSwitch;
+  GrowthMomentData? get milestoneShowing => realism.milestoneSurface.showing;
 
   /// The member's stored per-chat switch in a group, the 1:1 one outside.
   bool pocketsSwitchFor(String memberId) =>

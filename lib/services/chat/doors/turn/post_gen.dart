@@ -367,6 +367,8 @@ class PostGen {
     if (t.originalModelName != null && _llmProvider != null) {
       _llmProvider!.openRouterService.configure(modelName: t.originalModelName);
     }
+    // A milestone pops only now that the reply has finished (§7).
+    unawaited(_g.milestoneSurface.check(afterReply: true));
   }
 
   /// Post-reply clock decide. Announced time was already in the prompt;

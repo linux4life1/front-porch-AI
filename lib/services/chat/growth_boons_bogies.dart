@@ -88,11 +88,21 @@ class BoonsBogies {
   /// queued, never dropped.
   static const int kMilestoneMinGapMessages = 8;
 
-  /// Half-built guard (docs/design/boons-and-bogies.md §5): until the
-  /// milestone surface ships, advancement is held one step below Master so a
-  /// partial build cannot violate "Master always asks". The milestone PR
-  /// flips this to true.
-  static const bool kMilestoneSurfaceShipped = false;
+  /// Whether the next silent step would cross into Master (ruling 8: silent
+  /// changes stop one step below it; the crossing is a milestone). [ring]
+  /// is the ring before this step; [strengthAfter] what the step leaves it
+  /// at. A declined ring never asks again until re-armed (§3.2).
+  static bool crossesMaster(GrowthRingData ring, {double? strengthAfter}) {
+    if (ring.masterDeclined || ring.retired) return false;
+    if (isBogey(ring)) return ring.advanceCount >= kBogeyMasterFires - 1;
+    if (!isBoon(ring)) return false;
+    return ring.advanceCount >= kBoonMasterPasses - 1 &&
+        (strengthAfter ?? ring.strength) >= kBoonMasterStrength;
+  }
+
+  /// A declined bogey is re-armed once coping drops it below this many
+  /// fires; climbing back to Master then asks again (§3.2).
+  static const int kBogeyMasterRearmBelow = 4;
 
   // ── Kind predicates ────────────────────────────────────────────────────
 
@@ -151,9 +161,8 @@ class BoonsBogies {
       };
     }
     final skilled = kBoonSkilledPasses;
-    final master = kMilestoneSurfaceShipped
-        ? kBoonMasterPasses
-        : kBoonMasterPasses - 1;
+    // A seed is never Master (ruling 8); 'established' clamps upstream.
+    const master = kBoonMasterPasses - 1;
     return switch (tier) {
       'established' => master,
       'developing' => skilled,
@@ -163,19 +172,17 @@ class BoonsBogies {
 
   // ── Tiers (§3.2) ───────────────────────────────────────────────────────
 
-  /// The displayed tier: Novice / Skilled / Master. Master is only ever
-  /// reported once the milestone surface exists.
+  /// The displayed tier: Novice / Skilled / Master. Silent advancement stops
+  /// one below Master, so Master shows only on a ring an accepted milestone
+  /// crowned ([GrowthBbWriter.crownMaster]).
   static String tierOf(GrowthRingData ring) {
     if (isBogey(ring)) {
-      if (kMilestoneSurfaceShipped && ring.advanceCount >= kBogeyMasterFires) {
-        return 'master';
-      }
+      if (ring.advanceCount >= kBogeyMasterFires) return 'master';
       if (ring.advanceCount >= kBogeySkilledFires) return 'skilled';
       return 'novice';
     }
     if (isBoon(ring)) {
-      if (kMilestoneSurfaceShipped &&
-          ring.advanceCount >= kBoonMasterPasses &&
+      if (ring.advanceCount >= kBoonMasterPasses &&
           ring.strength >= kBoonMasterStrength) {
         return 'master';
       }
@@ -194,22 +201,15 @@ class BoonsBogies {
 
   // ── Advancement counters ───────────────────────────────────────────────
 
-  /// A boon's count after one used growth pass. Held one below Master while
-  /// the milestone surface is unshipped, so a partial build cannot cross.
-  static int nextBoonAdvance(int current) {
-    final ceiling = kMilestoneSurfaceShipped
-        ? kBoonMasterPasses
-        : kBoonMasterPasses - 1;
-    return (current + 1).clamp(0, ceiling);
-  }
+  /// A boon's count after one used growth pass. Silent steps stop one below
+  /// Master (ruling 8); the crossing is a milestone ([crossesMaster]).
+  static int nextBoonAdvance(int current) =>
+      (current + 1).clamp(0, kBoonMasterPasses - 1);
 
-  /// A bogey's count after one fire (or one "made worse" pass).
-  static int nextBogeyAdvance(int current) {
-    final ceiling = kMilestoneSurfaceShipped
-        ? kBogeyMasterFires
-        : kBogeyMasterFires - 1;
-    return (current + 1).clamp(0, ceiling);
-  }
+  /// A bogey's count after one fire (or one "made worse" pass), held one
+  /// below Master like [nextBoonAdvance].
+  static int nextBogeyAdvance(int current) =>
+      (current + 1).clamp(0, kBogeyMasterFires - 1);
 
   /// A bogey's count after one pass that showed the character coping
   /// (floor 0 — a flaw never goes negative).

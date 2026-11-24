@@ -85,7 +85,15 @@ class GrowthBogeyStore {
     for (final ring in await _ringsFor(sessionId, characterId)) {
       if (ring.retired || !ringIds.contains(ring.id)) continue;
       if (!BoonsBogies.isBogey(ring)) continue;
-      await _writer.fadeBogey(ring);
+      final faded = await _writer.fadeBogey(ring);
+      // A declined Master re-arms once the flaw falls back below the re-arm
+      // count; climbing to Master again then asks again (§3.2).
+      if (faded &&
+          ring.masterDeclined &&
+          BoonsBogies.fadedBogeyAdvance(ring.advanceCount) <
+              BoonsBogies.kBogeyMasterRearmBelow) {
+        await _writer.setMasterDeclined(ring, false);
+      }
     }
   }
 }

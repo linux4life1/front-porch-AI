@@ -8,8 +8,11 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/doors/realism/milestone_surface.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/growth_milestones.dart';
+import 'package:front_porch_ai/services/chat/growth_ops.dart';
+import 'package:front_porch_ai/services/chat/growth_review.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
 
 void main() {
@@ -238,6 +241,215 @@ void main() {
         second,
       );
       expect((await moment(second)).seen, isFalse, reason: 'still unread');
+    });
+  });
+
+  group('producers through the one applier', () {
+    late GrowthReview review;
+
+    setUp(() {
+      review = GrowthReview(
+        store: store,
+        getSessionId: () => 's1',
+        getIsGroup: () => false,
+        getBoonsBogiesEnabled: () => true,
+        getMilestones: () => milestones,
+        onApplied: () async {},
+        onNotify: () {},
+      );
+    });
+
+    Future<void> apply(List<GrowthProposedOp> ops) =>
+        review.applyOwnerProposals(
+          's1',
+          GrowthOwnerProposals(ownerId: 'mira', ownerName: 'Mira', ops: ops),
+        );
+
+    Future<List<String>> kinds() async => [
+      for (final m in await milestones.momentsFor('s1')) m.kind,
+    ];
+
+    test('a new boon or bogey becomes a moment; a plain trait still lands '
+        '(ruling 1)', () async {
+      await apply([
+        GrowthProposedOp(
+          action: GrowthOpAction.add,
+          text: 'Hums when nervous',
+          category: 'bogey',
+          sourcePositions: const [3],
+        ),
+        GrowthProposedOp(
+          action: GrowthOpAction.add,
+          text: 'Reads a room in one breath',
+          category: 'skill',
+        ),
+      ]);
+      // A proposal is still one of the pass's two new things (the add cap);
+      // the plain trait comes in a pass of its own.
+      await apply([
+        GrowthProposedOp(
+          action: GrowthOpAction.add,
+          text: 'Trusts slowly',
+          category: 'trait',
+        ),
+      ]);
+      final rings = await store.ringsFor('s1', 'mira');
+      expect([for (final r in rings) r.content], ['Trusts slowly']);
+      expect(await kinds(), containsAll(['new_bogey', 'new_boon']));
+      final bogey = (await milestones.momentsFor(
+        's1',
+      )).firstWhere((m) => m.kind == 'new_bogey');
+      expect(
+        MilestoneProposal.decode(bogey.payload)?.text,
+        'Hums when nervous',
+      );
+      expect(MilestoneProposal.decode(bogey.payload)?.sourcePositions, [3]);
+    });
+
+    test('crossing into Master asks and the silent step stays one short; a '
+        'declined ring never asks', () async {
+      final boon = await seed(
+        'Steady hands',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.75,
+        advance: 7,
+      );
+      final bogey = await seed(
+        'Bad temper',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        strength: 0.85,
+        advance: 11,
+      );
+      final declined = await seed(
+        'Picks any lock',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.85,
+        advance: 7,
+      );
+      await store.bb.setMasterDeclined(declined, true);
+      await apply([
+        for (final r in [boon, bogey, declined])
+          GrowthProposedOp(
+            action: GrowthOpAction.reinforce,
+            ringId: r.id,
+            sourcePositions: const [9],
+          ),
+      ]);
+      final moments = await milestones.momentsFor('s1');
+      expect(
+        {for (final m in moments) m.ringId: m.kind},
+        {boon.id: 'master_boon', bogey.id: 'master_bogey'},
+      );
+      expect((await ring('Steady hands')).advanceCount, 7);
+      expect((await ring('Bad temper')).advanceCount, 11);
+      expect(
+        BoonsBogies.tierOf(await ring('Steady hands')),
+        'skilled',
+        reason: 'Master shows only once accepted',
+      );
+    });
+
+    test('a model retiring a bogey proposes the overcome instead', () async {
+      final b = await seed(
+        'Freezes on ladders',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+      );
+      await apply([
+        GrowthProposedOp(action: GrowthOpAction.retire, ringId: b.id),
+      ]);
+      expect((await ring('Freezes on ladders')).retired, isFalse);
+      expect(await kinds(), ['overcome']);
+    });
+
+    test('coping a declined bogey below 4 fires re-arms its Master', () async {
+      final b = await seed(
+        'Bad temper',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+        advance: 4,
+      );
+      await store.bb.setMasterDeclined(b, true);
+      await store.bogeys.cope('s1', 'mira', {b.id});
+      final after = await ring('Bad temper');
+      expect(after.advanceCount, 3);
+      expect(after.masterDeclined, isFalse);
+    });
+  });
+
+  group('the card on screen (MilestoneSurface)', () {
+    late MilestoneSurface surface;
+    var session = 's1';
+    var owed = false;
+    var popups = true;
+    var users = 1;
+    var notified = 0;
+
+    setUp(() {
+      session = 's1';
+      owed = false;
+      popups = true;
+      users = 1;
+      notified = 0;
+      surface = MilestoneSurface(
+        milestones: milestones,
+        sessionId: () => session,
+        userMessageCount: () => users,
+        popupsOn: () => popups,
+        replyOwed: () => owed,
+        onDecided: () async {},
+        notify: () => notified++,
+      );
+    });
+
+    test('never opens while a reply is owed — except from the end of the '
+        'reply itself', () async {
+      final id = await proposeAdd('Catches what falls');
+      owed = true;
+      await surface.check();
+      expect(surface.showing, isNull, reason: 'a reply is still to come');
+      await surface.check(afterReply: true);
+      expect(surface.showing?.id, id);
+      expect((await moment(id)).shownAt, 1);
+      expect(notified, 1);
+    });
+
+    test('popups off: nothing opens, the moment waits unread', () async {
+      final id = await proposeAdd('Catches what falls');
+      popups = false;
+      await surface.check(afterReply: true);
+      expect(surface.showing, isNull);
+      expect((await moment(id)).seen, isFalse);
+    });
+
+    test('Accept closes the card; a full bogey cap keeps it up', () async {
+      for (final t in ['one', 'two', 'three']) {
+        await seed(t, category: 'bogey', metadata: BoonsBogies.bogeyMetadata());
+      }
+      final id = await proposeAdd('four', bogey: true);
+      await surface.check(afterReply: true);
+      expect(
+        await surface.answer(id, accept: true),
+        MilestoneOutcome.bogeyCapFull,
+      );
+      expect(surface.showing?.id, id, reason: 'the user is told why');
+      expect(await surface.answer(id, accept: false), MilestoneOutcome.done);
+      expect(surface.showing, isNull);
+    });
+
+    test('a decided moment replays without asking; another chat never sees '
+        'the card', () async {
+      final id = await proposeAdd('Catches what falls');
+      await milestones.decide(id, accept: true);
+      await surface.replay(id);
+      expect(surface.showing?.id, id);
+      expect(surface.replaying, isTrue);
+      session = 's2';
+      expect(surface.showing, isNull);
+      expect(surface.replaying, isFalse);
     });
   });
 }
