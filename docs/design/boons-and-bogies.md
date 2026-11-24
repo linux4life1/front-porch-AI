@@ -278,6 +278,15 @@ inherit the Pockets bug class. Rings are already keyed
 - Groups: each member is seeded from their own card, once.
 - **Existing chats:** switching the feature on offers the kit once, naming the
   whole cast. Decline writes nothing. The offer is re-runnable from the panel.
+- **Entries added mid-chat** (maintainer ruling 2026-11-24): an entry the
+  author appends in the character editor (desktop or web, library card or a
+  group member's copy) lands **at once** as a ring in every chat with that
+  character, at its tier and pin — the save is the author's yes. Chats where
+  Boons & Bogies is off for that character take nothing; words a live ring
+  already says and bogeys past the cap are skipped; retyping an existing
+  entry is an edit of the card, not a new trait (`GrowthKitAdditions`).
+  Before this, a seeded chat never saw the entry and an unseeded one only
+  got the offer above.
 - Character creator: a "Boons & Bogies" block in the realism step
   (`lib/ui/character_creator/steps/realism_step.dart`); character editor and
   web editor get the same block. New field lands in

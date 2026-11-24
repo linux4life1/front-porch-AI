@@ -17,6 +17,7 @@
   "addCharacterToGroup",
   "addGeneratedImageMessage",
   "addManualTask",
+  "addNewKitEntriesToChats",
   "addPocketItem",
   "afterglowChatSwitch",
   "afterglowRunsFor",

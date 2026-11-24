@@ -99,6 +99,51 @@ class GrowthKitSeed {
     }
     return plan;
   }
+
+  /// Entries a save APPENDED to a kit ([before] → [after]), for the
+  /// mid-chat edit rule (maintainer ruling 2026-11-24: an entry the author
+  /// adds in the editor lands at once in every chat with that character).
+  /// The editors append, so only entries past the old length count, and
+  /// only when their words are new: retyping an existing row is an edit of
+  /// the card, not a new trait, and a chat's copy is its own (§4).
+  static List<TraitKitEntry> added(
+    List<TraitKitEntry> before,
+    List<TraitKitEntry> after,
+  ) {
+    if (after.length <= before.length) return const [];
+    final known = {for (final e in before) sameTextKey(e.text)};
+    return [
+      for (final e in after.skip(before.length))
+        if (!known.contains(sameTextKey(e.text))) e,
+    ];
+  }
+
+  /// Rings for [added] entries in one chat: like [planOwner], but per entry
+  /// (an owner already seeded still takes a NEW entry), skipping words a
+  /// live ring already says and bogeys past the shared cap (§5).
+  static List<KitSeedRing> planAdditions({
+    required List<TraitKitEntry> added,
+    required List<GrowthRingData> activeRings,
+  }) {
+    final have = {for (final r in activeRings) sameTextKey(r.content)};
+    final plan = <KitSeedRing>[];
+    var bogeys = activeRings.where(BoonsBogies.isBogey).length;
+    for (final entry in added) {
+      if (!have.add(sameTextKey(entry.text))) continue;
+      if (entry.isBogey && bogeys >= BoonsBogies.kMaxActiveBogies) continue;
+      if (entry.isBogey) bogeys++;
+      plan.addAll(planOwner(kit: [entry], activeRings: const []));
+    }
+    return plan;
+  }
+
+  /// One spelling for "the same trait": case, spacing and a closing full
+  /// stop aside.
+  static String sameTextKey(String text) => text
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!]+$'), '');
 }
 
 /// What a first Growth touch does with the cast's kits.

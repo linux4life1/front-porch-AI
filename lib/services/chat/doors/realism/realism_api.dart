@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/expression_classifier.dart'
     show ExpressionClassifierService;
 import 'package:front_porch_ai/services/chat_service.dart';
 
+export 'kit_additions_api.dart';
 export 'milestones_api.dart';
 
 /// The group lore in play (bodies in [ChatLore]).

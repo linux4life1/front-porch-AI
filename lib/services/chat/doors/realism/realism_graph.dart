@@ -30,6 +30,7 @@ import 'package:front_porch_ai/services/chat/doors/realism/judge_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/memory_wiring.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/needs_seeds.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/milestone_surface.dart';
+import 'package:front_porch_ai/services/chat/growth_kit_additions.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_deps.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_restores.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_state.dart';
@@ -171,6 +172,20 @@ class RealismGraph {
         deps.doors.objectives().inObjectiveTurn,
     onDecided: () => growthDesk.refreshCache(),
     notify: deps.notify,
+  );
+  late final GrowthKitAdditions kitAdditions = GrowthKitAdditions(
+    store: growthStore,
+    getDb: deps.services.db,
+    featureOn: () {
+      final m = deps.services.storage.memorySettings;
+      return m.characterEvolutionEnabled && m.boonsBogiesEnabled;
+    },
+    openSessionId: () => session.currentSessionId,
+    openBbFor: (id) => controls.bbEnabledFor(id),
+    refreshOpen: () async {
+      await growthDesk.refreshCache();
+      deps.notify();
+    },
   );
   late final GrowthService growthService = buildGrowthService();
   late final GrowthDesk growthDesk = buildGrowthDesk();
