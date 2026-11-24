@@ -178,6 +178,11 @@ class MilestoneCard extends StatelessWidget {
 
   Widget _ringBox(BuildContext context, Color accent) {
     final card = AppColors.cardOf(context);
+    // Bright gold on a light card is unreadable: a light theme darkens the
+    // pill's word toward the text colour (web: milestone.css .ms-pill).
+    final pillInk = Theme.of(context).brightness == Brightness.light
+        ? Color.lerp(accent, AppColors.textPrimary(context), 0.7)!
+        : accent;
     final box = Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
@@ -203,7 +208,7 @@ class MilestoneCard extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8,
-                    color: accent,
+                    color: pillInk,
                   ),
                 ),
               ),

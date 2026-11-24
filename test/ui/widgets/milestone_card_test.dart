@@ -5,11 +5,15 @@
 // approved mockup: the words it shows, group naming, replay, one answer per
 // double tap, the bogey-cap line, and reduce motion.
 
+import 'dart:math' as math;
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/growth_milestones.dart';
 import 'package:front_porch_ai/services/chat_service.dart' show MilestoneView;
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/milestone_palette.dart';
 import 'package:front_porch_ai/ui/widgets/milestone/milestone.dart';
 
 import '../../helpers/double_tap.dart';
@@ -172,5 +176,42 @@ void main() {
     );
     expect(find.byType(GameWidget<MilestoneBurstGame>), findsNothing);
     expect(find.text('MASTER'), findsOneWidget, reason: 'badge static');
+  });
+
+  testWidgets('the kind pill stays readable on a light card (4.5:1)', (
+    tester,
+  ) async {
+    for (final view in [
+      _view(),
+      _view(kind: 'new_bogey', pill: 'BOGEY', title: 'New bogey'),
+      _view(kind: 'overcome', pill: 'BOGEY', title: 'Overcome'),
+    ]) {
+      await pumpOverlay(
+        tester,
+        view,
+        onAnswer: (_) async => MilestoneOutcome.done,
+      );
+      final pill = find.text(view.pill);
+      final context = tester.element(pill);
+      expect(Theme.of(context).brightness, Brightness.light);
+      final ink = tester.widget<Text>(pill).style!.color!;
+      // The pill's fill (accent 22%) over the ring box (accent 10% over the
+      // card): the darkest the accent can make what sits behind the word.
+      final accent = switch (view.kind) {
+        'overcome' => MilestonePalette.overcome,
+        'new_bogey' => MilestonePalette.violet,
+        _ => MilestonePalette.gold,
+      };
+      final box = Color.alphaBlend(
+        accent.withValues(alpha: 0.10),
+        AppColors.cardOf(context),
+      );
+      final fill = Color.alphaBlend(accent.withValues(alpha: 0.22), box);
+      final a = ink.computeLuminance(), b = fill.computeLuminance();
+      final ratio = (math.max(a, b) + 0.05) / (math.min(a, b) + 0.05);
+      expect(ratio, greaterThanOrEqualTo(4.5), reason: '${view.kind}: $ratio');
+      Navigator.of(context).pop();
+      await tester.pumpAndSettle();
+    }
   });
 }
