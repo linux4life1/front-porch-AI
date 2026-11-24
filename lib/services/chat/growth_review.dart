@@ -211,11 +211,19 @@ class GrowthReview {
           // Off proposes nothing new (§8); a model that emits a bogey
           // anyway is ignored.
           if (bogey && !boonsBogiesOn) continue;
+          final milestones = getMilestones();
+          final asks =
+              milestones != null &&
+              (bogey || (op.category == 'skill' && boonsBogiesOn));
+          // A boon or bogey already on the card is not new: asking again
+          // would pop a second "New boon" for the same words.
+          if (asks && _alreadyOnCard(rings, op.text)) {
+            debugPrint('[Growth] already on the card — dropping: ${op.text}');
+            continue;
+          }
           adds++;
           if (bogey) activeBogeys++;
-          final milestones = getMilestones();
-          if (milestones != null &&
-              (bogey || (op.category == 'skill' && boonsBogiesOn))) {
+          if (asks) {
             // Ruling 1: a new boon or bogey always asks first.
             await milestones.proposeAdd(
               sessionId: sessionId,
@@ -414,3 +422,15 @@ class GrowthReview {
 /// Add cap when the pass ran in distill mode (kDistillMaxRings starter rings
 /// from the legacy blob + the normal per-pass allowance from the window).
 const int kDistillApplyCap = 8;
+
+/// Whether a live ring already says [text] (case, spacing and a closing
+/// full stop ignored).
+bool _alreadyOnCard(List<GrowthRingData> rings, String text) {
+  String norm(String s) => s
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!]+$'), '');
+  final want = norm(text);
+  return rings.any((r) => !r.retired && norm(r.content) == want);
+}

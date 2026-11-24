@@ -332,6 +332,31 @@ void main() {
       expect(MilestoneProposal.decode(bogey.payload)?.sourcePositions, [3]);
     });
 
+    test('a boon already on the card does not ask again; a plain trait with '
+        'the same words still lands', () async {
+      await seed(
+        'Pours a perfect glass of lemonade every time.',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+      );
+      await apply([
+        GrowthProposedOp(
+          action: GrowthOpAction.add,
+          text: 'pours a perfect glass of lemonade  every time',
+          category: 'skill',
+        ),
+      ]);
+      expect(await kinds(), isEmpty, reason: 'nothing new to ask about');
+      await apply([
+        GrowthProposedOp(
+          action: GrowthOpAction.add,
+          text: 'Pours a perfect glass of lemonade every time.',
+          category: 'trait',
+        ),
+      ]);
+      expect((await store.ringsFor('s1', 'mira')).length, 2);
+    });
+
     test('crossing into Master asks and the silent step stays one short; a '
         'declined ring never asks', () async {
       final boon = await seed(
