@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Milestone Moments</title>
+<style>
+/* Fixed game palette — identical in every theme (milestone_palette.dart; web twin is theme-keep). */
+:root{
+  --gold:#FFD166; --gold-deep:#FFC233; --on-gold:#1A1200;
+  --violet:#9B5DE5; --smoke:#7D7590; --overcome:#06D6A0; --pink:#FF6B9D; --blue:#118AB2;
+}
+/* Card chrome follows the app theme. Porch dark shown by default; the toggle flips to Porch light. */
+:root, [data-theme="dark"]{
+  --page:#14110f; --panel:#1d1916; --chat:#1a1613; --card:#221d19; --card-2:#2a2420;
+  --border:#3b332d; --text:#efe7df; --muted:#a89c90; --scrim:rgba(8,6,5,.66);
+}
+[data-theme="light"]{
+  --page:#efe9e1; --panel:#f8f3ec; --chat:#f4eee6; --card:#fffaf3; --card-2:#f3ebe0;
+  --border:#ddd0c0; --text:#2a221c; --muted:#7b6d60; --scrim:rgba(40,30,20,.38);
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --page:#efe9e1; --panel:#f8f3ec; --chat:#f4eee6; --card:#fffaf3; --card-2:#f3ebe0;
+  --border:#ddd0c0; --text:#2a221c; --muted:#7b6d60; --scrim:rgba(40,30,20,.38);
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:26px;margin:0 0 6px}
+h2{font-size:19px;margin:44px 0 6px;padding-top:12px;border-top:1px solid var(--border)}
+p.lead,.note{color:var(--muted);max-width:780px}
+.note b{color:var(--text)}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+.bar button{background:var(--card-2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;cursor:pointer}
+.bar button[aria-pressed="true"]{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.pair{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;margin-top:14px}
+.frame{flex:1 1 360px;min-width:0}
+.frame>.cap{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+/* Desktop: a slice of the chat window with the sidebar edge; the card opens centred over it. */
+.desk{position:relative;height:560px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--chat);display:flex}
+.desk .chatcol{flex:1;padding:18px}
+.desk .side{width:150px;background:var(--panel);border-left:1px solid var(--border)}
+.bubble{background:var(--card-2);border-radius:12px;padding:10px 12px;font-size:13px;color:var(--muted);margin-bottom:10px;max-width:420px}
+/* Phone: 400 px wide, the web layout. */
+.phone{position:relative;width:min(400px,100%);height:560px;border:1px solid var(--border);border-radius:26px;overflow:hidden;background:var(--chat)}
+.phone .top{height:44px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;font-weight:600;font-size:14px}
+.phone .chatcol{padding:12px}
+.scrim{position:absolute;inset:0;background:var(--scrim);display:flex;align-items:center;justify-content:center;padding:16px}
+.burst{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.burst svg{width:520px;max-width:none;height:auto;animation:in .6s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes in{from{transform:scale(.55);opacity:0}to{transform:scale(1);opacity:1}}
+.slot{position:relative;width:340px;max-width:100%;display:flex;justify-content:center}
+.phone .slot{width:100%}
+.tablewrap{overflow-x:auto;max-width:100%}
+.still .burst{display:none}
+.still .card{animation:none}
+
+/* The card — one component, identical on both surfaces (only padding/width adapt at phone size). */
+.card{position:relative;width:340px;max-width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.35);animation:in .35s ease-out both}
+.phone .card{width:100%;padding:16px 14px 14px}
+.card .title{font-weight:800;letter-spacing:.06em;color:var(--text);font-size:15px;text-align:center}
+.card .title .star{color:var(--gold);text-shadow:0 0 10px color-mix(in srgb,var(--gold) 60%,transparent)}
+.card .kind{font-size:13px;color:var(--muted);text-align:center;margin-top:2px}
+.card .kind b{color:var(--text);font-weight:600}
+.ring{margin:14px 0 10px;border-radius:12px;border:1.5px solid color-mix(in srgb,var(--accent) 55%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--card));padding:12px 12px 10px}
+.ring .row{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)}
+.pill{font-size:10px;font-weight:800;letter-spacing:.08em;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--accent)}
+.ring .text{font-size:15px;font-weight:600;margin:8px 0 9px}
+.meter{height:4px;border-radius:2px;background:color-mix(in srgb,var(--muted) 25%,transparent);overflow:hidden}
+.meter i{display:block;height:100%;background:var(--accent)}
+.badge{position:absolute;right:12px;top:-12px;transform:rotate(8deg);background:var(--accent);color:var(--on-badge,var(--on-gold));font-weight:900;font-size:11px;letter-spacing:.12em;padding:4px 9px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.3);animation:stamp .45s .25s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes stamp{from{transform:rotate(8deg) scale(2.2);opacity:0}to{transform:rotate(8deg) scale(1);opacity:1}}
+.still .badge{animation:none}
+.receipt{font-size:12px;color:var(--muted);text-align:center}
+.ask{font-size:14px;text-align:center;margin:10px 0 0;font-weight:600}
+.btns{display:flex;gap:10px;margin-top:14px}
+.btns button{flex:1;min-height:44px;border-radius:999px;font:inherit;font-weight:800;font-size:14px;cursor:pointer}
+.reject{background:transparent;color:var(--text);border:1.5px solid var(--border)}
+.accept{background:var(--gold);color:var(--on-gold);border:0}
+.k-boon{--accent:var(--gold)}
+.k-bogey{--accent:var(--violet);--on-badge:#fff}
+.k-overcome{--accent:var(--overcome)}
+
+/* Sidebar line (Character State) — the Moments sub-section. */
+.sb{width:min(360px,100%);background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px}
+.sb .hdr{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.sb .hdr .dot{margin-left:auto;font-size:11px;font-weight:800;background:var(--gold);color:var(--on-gold);border-radius:999px;padding:1px 8px}
+.sw{width:34px;height:20px;border-radius:999px;background:var(--gold);position:relative;flex:none}
+.sw:after{content:"";position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:#fff}
+.sec{font-size:10px;letter-spacing:.12em;color:var(--muted);margin:14px 0 6px;display:flex}
+.sec span{margin-left:auto}
+.mini{border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--card);margin-bottom:6px;font-size:13px}
+.mom{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;background:var(--card);margin-bottom:6px;font-size:13px}
+.mom .what{flex:1;min-width:0}
+.mom .what small{display:block;color:var(--muted);font-size:11px}
+.mom .u{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}
+.mom .seen{background:transparent;border:1px solid var(--border)}
+.mom button{font:inherit;font-size:12px;font-weight:700;border-radius:999px;padding:5px 10px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;min-height:32px}
+.mom button.g{background:var(--gold);color:var(--on-gold);border-color:var(--gold)}
+.q{display:inline-block;font-size:11px;font-weight:800;color:var(--on-gold);background:var(--gold);border-radius:4px;padding:0 5px;margin-right:4px}
+table{border-collapse:collapse;margin-top:10px;font-size:13px;width:100%;max-width:820px}
+td,th{border-bottom:1px solid var(--border);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600}
+.sw-row{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.sw-row span{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--border);border-radius:999px;padding:3px 10px 3px 4px}
+.sw-row i{width:16px;height:16px;border-radius:50%}
+</style>
+</head>
+<body>
+<main>
+<h1>Boons &amp; Bogies — milestone moments (phase 5)</h1>
+<p class="lead">For approval before any phase-5 UI is written. One card component, the same on desktop and web: only its padding and width adapt at phone size. The burst is one static SVG per kind (v1, ruling 12), scaling in behind the card; Accept plays nothing extra in v1. Built from spec §7, ruling 1, 8, 9, 15 and the Chance Time structure (fixed game palette, theme-following chrome).</p>
+
+<div class="bar" role="group" aria-label="Moment">
+  <button data-m="newBoon" aria-pressed="true">New boon</button>
+  <button data-m="newBogey">New bogey</button>
+  <button data-m="masterBoon">Master · boon</button>
+  <button data-m="masterBogey">Master · bogey</button>
+  <button data-m="overcome">Bogey overcome</button>
+</div>
+<div class="bar" role="group" aria-label="Options">
+  <button data-o="theme" aria-pressed="false">Light chrome</button>
+  <button data-o="group" aria-pressed="false">Group chat (member named)</button>
+  <button data-o="still" aria-pressed="false">Reduce motion</button>
+</div>
+
+<div class="pair">
+  <div class="frame">
+    <div class="cap">Desktop · 1:1 chat · opens through showWarmDialog</div>
+    <div class="desk stage">
+      <div class="chatcol">
+        <div class="bubble">*Mira catches the falling tray one-handed, then laughs at herself.*</div>
+        <div class="bubble">"I've done that a hundred times. Never like that."</div>
+      </div>
+      <div class="side"></div>
+      <div class="scrim"><div class="burst"></div><div class="slot"></div></div>
+    </div>
+  </div>
+  <div class="frame" style="flex:0 1 400px">
+    <div class="cap">Web phone · 400 px</div>
+    <div class="phone stage">
+      <div class="top">Mira Vale</div>
+      <div class="chatcol">
+        <div class="bubble">*Mira catches the falling tray one-handed…*</div>
+      </div>
+      <div class="scrim"><div class="burst"></div><div class="slot"></div></div>
+    </div>
+  </div>
+</div>
+<p class="note">Shown <b>after the reply finishes streaming</b>, never mid-stream. Accept and Reject share one row at phone width (the v1 mockup's wrap was a bug). Reject drops the proposal; the next Growth pass may propose another (ruling 15 — no Redo). Reduce motion: no burst, the card appears at once, the badge is static.</p>
+
+<h2>The five moments</h2>
+<div class="tablewrap"><table>
+<tr><th>Moment</th><th>Burst (static SVG v1)</th><th>Ask</th><th>Accept</th><th>Reject</th></tr>
+<tr><td>New boon</td><td>Gold rays, rising glow</td><td>—</td><td>The boon is added at Novice</td><td>Dropped</td></tr>
+<tr><td>New bogey</td><td>Violet smoke, cracked-glass shimmer</td><td>—</td><td>The bogey is added (counts toward 3)</td><td>Dropped</td></tr>
+<tr><td>Master · boon</td><td>Confetti, MASTER badge stamps in</td><td>“Mira has mastered this. Keep it for good?”</td><td>Permanent</td><td>Stays Skilled; never asked again</td></tr>
+<tr><td>Master · bogey</td><td>Smoke, violet MASTER badge</td><td>“This has become part of who Mira is. Make it permanent?”</td><td>Permanent</td><td>Stays Skilled; asked again only after it falls below 4 fires and climbs back to 12</td></tr>
+<tr><td>Bogey overcome</td><td>Smoke burning off into confetti</td><td>“Mira has overcome this. Let it go?”</td><td>Retired to past growth — even when pinned (the one exception)</td><td>Stays as it was</td></tr>
+</table></div>
+<div class="sw-row" aria-label="Fixed palette">
+  <span><i style="background:var(--gold)"></i>gold</span><span><i style="background:var(--gold-deep)"></i>gold deep</span><span><i style="background:var(--on-gold)"></i>on-gold</span><span><i style="background:var(--violet)"></i>bogey violet</span><span><i style="background:var(--smoke)"></i>smoke</span><span><i style="background:var(--overcome)"></i>overcome green</span>
+</div>
+
+<h2>Budget and Moments — the Character State line</h2>
+<p class="note">At most one popup per 8 user messages. A moment over budget — or any moment with <b>Milestone popups</b> off — waits unread in <b>Moments</b>, inside the Boons &amp; Bogies line (its one home since phase 4, not the Growth panel). A pending one is answered right there; a decided one can be replayed, burst included. The header dot counts unread. Same line, same order on desktop, web wide and web phone; in a group it lists the focused member's moments.</p>
+<div class="pair">
+  <div class="sb">
+    <div class="hdr">✦ Boons &amp; Bogies <span class="dot">2 new</span><span class="sw" aria-hidden="true"></span></div>
+    <div class="sec">BOONS</div>
+    <div class="mini">steady hands under pressure</div>
+    <div class="sec">BOGIES <span>2 of 3</span></div>
+    <div class="mini">bad temper when cornered</div>
+    <div class="sec">MOMENTS</div>
+    <div class="mom"><i class="u"></i><div class="what"><span class="q">ASKS</span>New bogey<small>knocks things over when nervous · #42</small></div><button>Reject</button><button class="g">Accept</button></div>
+    <div class="mom"><i class="u"></i><div class="what">Master · boon<small>steady hands under pressure · accepted · #31</small></div><button>Replay</button></div>
+    <div class="mom"><i class="u seen"></i><div class="what">New boon<small>reads a room in one breath · accepted · #9</small></div><button>Replay</button></div>
+  </div>
+</div>
+
+<h2>Decisions this mockup asks you to make</h2>
+<ol class="note">
+  <li><b>Moments placement</b> — inside the Boons &amp; Bogies line (shown) rather than the Growth panel the spec names, because phase 4 made the line the one home for traits.</li>
+  <li><b>Copy</b> — the three ask lines in the table and “✦ Milestone” as the title.</li>
+  <li><b>Popups off</b> — pending proposals answered inline in Moments (shown), instead of the Growth review list.</li>
+</ol>
+</main>
+
+<script>
+const BURSTS = {
+  boon: `<svg viewBox="0 0 520 520" aria-hidden="true"><defs><filter id="smk" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs><defs><radialGradient id="g1"><stop offset="0" stop-color="#FFD166" stop-opacity=".55"/><stop offset="1" stop-color="#FFD166" stop-opacity="0"/></radialGradient></defs><circle cx="260" cy="260" r="230" fill="url(#g1)"/>${Array.from({length:16},(_,i)=>{const a=i*22.5*Math.PI/180,r1=150,r2=i%2?225:250;return `<line x1="${260+r1*Math.cos(a)}" y1="${260+r1*Math.sin(a)}" x2="${260+r2*Math.cos(a)}" y2="${260+r2*Math.sin(a)}" stroke="${i%2?'#FFC233':'#FFD166'}" stroke-width="${i%2?4:7}" stroke-linecap="round"/>`}).join('')}${Array.from({length:10},(_,i)=>`<circle cx="${180+i*17}" cy="${110-(i%3)*14}" r="${2+(i%3)}" fill="#FFD166" opacity=".8"/>`).join('')}</svg>`,
+  bogey: `<svg viewBox="0 0 520 520" aria-hidden="true"><defs><filter id="smk" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs><defs><radialGradient id="g2"><stop offset="0" stop-color="#9B5DE5" stop-opacity=".45"/><stop offset="1" stop-color="#9B5DE5" stop-opacity="0"/></radialGradient></defs><circle cx="260" cy="260" r="235" fill="url(#g2)"/>${[[110,170,62],[400,160,70],[90,350,58],[420,370,66],[260,90,54],[250,445,60]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#7D7590" opacity=".55" filter="url(#smk)"/><circle cx="${x+22}" cy="${y-14}" r="${r*.6}" fill="#9B5DE5" opacity=".4" filter="url(#smk)"/>`).join('')}<g stroke="#e9dcff" stroke-width="2" opacity=".7" fill="none"><path d="M70 230 l40 12 l22 -18 l30 26"/><path d="M450 280 l-34 -8 l-18 22 l-34 -14"/><path d="M300 60 l-10 30 l16 18"/></g></svg>`,
+  master: (c) => `<svg viewBox="0 0 520 520" aria-hidden="true"><defs><filter id="smk" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs>${Array.from({length:46},(_,i)=>{const x=(i*97)%500+10,y=(i*61)%480+10,r=(i*37)%360;const col=['#06D6A0','#FFD166','#FF6B9D',c,'#118AB2'][i%5];return `<rect x="${x}" y="${y}" width="${8+(i%3)*3}" height="${4+(i%2)*3}" rx="1.5" fill="${col}" transform="rotate(${r} ${x} ${y})" opacity=".9"/>`}).join('')}</svg>`,
+  masterBogey: `<svg viewBox="0 0 520 520" aria-hidden="true"><defs><filter id="smk" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs><defs><radialGradient id="g3"><stop offset="0" stop-color="#9B5DE5" stop-opacity=".5"/><stop offset="1" stop-color="#9B5DE5" stop-opacity="0"/></radialGradient></defs><circle cx="260" cy="260" r="240" fill="url(#g3)"/>${[[100,150,70],[430,150,74],[80,380,64],[440,380,70],[260,70,58],[260,460,64],[50,260,48],[480,260,50]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#7D7590" opacity=".6" filter="url(#smk)"/>`).join('')}</svg>`,
+  overcome: `<svg viewBox="0 0 520 520" aria-hidden="true"><defs><filter id="smk" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14"/></filter></defs>${[[110,380,60],[410,390,64],[260,450,58]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#7D7590" opacity=".4" filter="url(#smk)"/>`).join('')}${Array.from({length:34},(_,i)=>{const x=(i*83)%480+20,y=(i*47)%300+20,r=(i*41)%360;const col=['#06D6A0','#FFD166','#06D6A0','#FF6B9D'][i%4];return `<rect x="${x}" y="${y}" width="9" height="5" rx="1.5" fill="${col}" transform="rotate(${r} ${x} ${y})"/>`}).join('')}</svg>`,
+};
+const MOMENTS = {
+  newBoon:{k:'k-boon',burst:BURSTS.boon,kind:'New boon',pill:'BOON',tier:'Novice · new',text:'catches what falls before it lands',meter:30,receipt:'Seen in #14 and #18'},
+  newBogey:{k:'k-bogey',burst:BURSTS.bogey,kind:'New bogey',pill:'BOGEY',tier:'Novice · new · 3 of 3 after this',text:'knocks things over when nervous',meter:30,receipt:'Seen in #36 and #42'},
+  masterBoon:{k:'k-boon',burst:BURSTS.master('#FFD166'),kind:'Master · boon',pill:'BOON',tier:'Skilled → Master · used in 8 scenes',text:'steady hands under pressure',meter:92,receipt:'Last used in #77',badge:'MASTER',ask:'NAME has mastered this. Keep it for good?'},
+  masterBogey:{k:'k-bogey',burst:BURSTS.masterBogey,kind:'Master · bogey',pill:'BOGEY',tier:'Skilled → Master · fired 12 times',text:'bad temper when cornered',meter:90,receipt:'Last showed in #93',badge:'MASTER',ask:'This has become part of who NAME is. Make it permanent?'},
+  overcome:{k:'k-overcome',burst:BURSTS.overcome,kind:'Bogey overcome',pill:'BOGEY',tier:'Skilled · pinned',text:'bad temper when cornered',meter:45,receipt:'Coped in #58, #64 and #71',ask:'NAME has overcome this. Let it go?'},
+};
+let state={m:'newBoon',group:false};
+function render(){
+  const m=MOMENTS[state.m];
+  const name='Mira';
+  const who=state.group?` · <b>${name} Vale</b>`:'';
+  const html=`<div class="card ${m.k}" role="dialog" aria-label="Milestone">
+    <div class="title"><span class="star">✦</span> Milestone</div>
+    <div class="kind">${m.kind}${who}</div>
+    <div class="ring" style="position:relative">${m.badge?`<span class="badge">${m.badge}</span>`:''}
+      <div class="row"><span class="pill">${m.pill}</span>${m.tier}</div>
+      <div class="text">${m.text}</div>
+      <div class="meter"><i style="width:${m.meter}%"></i></div>
+    </div>
+    <div class="receipt">${m.receipt}</div>
+    ${m.ask?`<div class="ask">${m.ask.replace('NAME',name)}</div>`:''}
+    <div class="btns"><button class="reject">Reject</button><button class="accept">Accept</button></div>
+  </div>`;
+  document.querySelectorAll('.stage').forEach(s=>{s.querySelector('.slot').outerHTML=`<div class="slot">${html}</div>`;s.querySelector('.burst').innerHTML=m.burst;});
+}
+document.querySelectorAll('[data-m]').forEach(b=>b.addEventListener('click',()=>{state.m=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x===b));render();}));
+document.querySelectorAll('[data-o]').forEach(b=>b.addEventListener('click',()=>{const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',on);
+  if(b.dataset.o==='theme')document.documentElement.dataset.theme=on?'light':'dark';
+  if(b.dataset.o==='group')state.group=on;
+  if(b.dataset.o==='still')document.body.classList.toggle('still',on);
+  render();}));
+document.documentElement.dataset.theme='dark';
+render();
+</script>
+</body>
+</html>
