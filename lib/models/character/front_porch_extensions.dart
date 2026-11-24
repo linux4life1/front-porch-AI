@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
 
 import 'package:front_porch_ai/models/character/front_porch_extensions_codec.dart';
 import 'package:front_porch_ai/models/character/recovery_profile.dart';
@@ -96,6 +95,14 @@ class FrontPorchExtensions {
   /// journal cards (Living Time §6). Authored in the character editor.
   List<String> ambitions;
   List<TraitKitEntry> traitKit; // Boons & Bogies kit — see trait_kit.dart (§4)
+
+  /// The card's own Boons & Bogies choice for NEW chats; null when the card
+  /// says nothing, so the Porch Life global decides (ruling 18's middle
+  /// layer). An explicit false opts this character out even with the global
+  /// on. Kept null through copyWith and toJson, like [needsSimChoice]: a
+  /// re-save never invents a false the card did not have. The live mid-chat
+  /// switch is the chat's member switch, never this field.
+  bool? boonsBogiesChoice;
 
   /// Short plan-line sentences. Identity like [ambitions]: travel with the card.
   /// The today sentence is session state, never stored here.
@@ -258,6 +265,7 @@ class FrontPorchExtensions {
     // so the const default is safe.
     this.ambitions = const [],
     this.traitKit = const [],
+    this.boonsBogiesChoice,
     this.planLines = const [],
     this.occupation = '',
     this.hours = '',
@@ -345,6 +353,7 @@ class FrontPorchExtensions {
     bool? enjoysLowHygiene,
     List<String>? ambitions,
     List<TraitKitEntry>? traitKit,
+    bool? boonsBogiesChoice,
     List<String>? planLines,
     String? occupation,
     String? hours,
@@ -411,6 +420,7 @@ class FrontPorchExtensions {
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,
       traitKit: traitKit ?? this.traitKit,
+      boonsBogiesChoice: boonsBogiesChoice ?? this.boonsBogiesChoice,
       planLines: planLines ?? this.planLines,
       occupation: occupation ?? this.occupation,
       hours: hours ?? this.hours,
@@ -462,38 +472,4 @@ class FrontPorchExtensions {
       favoriteAvatarId: favoriteAvatarId ?? this.favoriteAvatarId,
     );
   }
-
-  static final Uuid _uuid = Uuid();
-
-  /// Ensures this extensions object has a non-empty stableId.
-  /// Generates a fresh v4 UUID only if missing or empty.
-  /// Call this on any FP object right before a saveCardAsPng / persist that will embed it
-  /// (creation, realism edits, import collision update-in-place, duplicate gets fresh instead).
-  void ensureStableId() {
-    if (stableId == null || stableId!.isEmpty) {
-      stableId = _uuid.v4();
-    }
-  }
-
-  /// Card-level opening used as the merge base for greeting overlays.
-  GreetingOpeningBase get openingBase => GreetingOpeningBase(
-    shortTermBond: shortTermBond,
-    longTermBond: longTermBond,
-    trustLevel: trustLevel,
-    dayCount: dayCount,
-    timeOfDay: timeOfDay,
-    storyStartDate: storyStartDate,
-    storyStartTime: storyStartTime,
-    characterEmotion: characterEmotion,
-    emotionIntensity: emotionIntensity,
-    currentTask: currentTask,
-    needsBaselineHunger: needsBaselineHunger,
-    needsBaselineBladder: needsBaselineBladder,
-    needsBaselineEnergy: needsBaselineEnergy,
-    needsBaselineSocial: needsBaselineSocial,
-    needsBaselineFun: needsBaselineFun,
-    needsBaselineHygiene: needsBaselineHygiene,
-    needsBaselineComfort: needsBaselineComfort,
-    inventory: inventory,
-  );
 }

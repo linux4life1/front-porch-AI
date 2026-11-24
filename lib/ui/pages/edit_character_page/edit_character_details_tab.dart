@@ -323,6 +323,11 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 traitKitEditor: TraitKitEditor(
                   values: d.traitKit,
                   onChanged: (v) => _edit(() => d.traitKit = v),
+                  // Ruling 18's card layer: what NEW chats start with
+                  // (null follows Porch Life, which is the default).
+                  newChatEnabled: d.boonsBogiesChoice ?? true,
+                  onNewChatEnabledChanged: (on) =>
+                      _edit(() => d.boonsBogiesChoice = on),
                 ),
                 planLines: d.planLines,
                 onPlanLinesChanged: (v) => _edit(() => d.planLines = v),

@@ -37,6 +37,16 @@ export interface ToolsState {
   needsEnabled: boolean;
   /** Porch Life allows Needs (additive: absent on an older desktop). */
   needsAllowed?: boolean;
+  /** Ruling 18's Boons & Bogies switch for this chat / focused member
+   *  (additive: absent on an older desktop, where the line does not show). */
+  boonsBogiesEnabled?: boolean;
+  /** Porch Life allows Boons & Bogies (Growth AND the feature switch). */
+  boonsBogiesAllowed?: boolean;
+  /** The rings the switch governs, boons then bogies (additive) — the same
+   *  wire shape the Growth panel's endpoint emits. */
+  boonsBogiesRings?: import('./GrowthPanel').GrowthRing[];
+  /** The bogey cap the desktop's BOGIES header prints ("2 of 3"). */
+  boonsBogiesBogeyCap?: number;
   realismOneShotEval: boolean;
   // Tri-state One-Shot mode (2026-08-10). Optional: absent on an older
   // facade, in which case the legacy bool still tells us on-vs-not.

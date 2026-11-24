@@ -30,6 +30,7 @@ class GroupRealismStore {
     this.chatRealism,
     this.chatNeeds,
     this.chatObjectives,
+    this.chatBb,
   });
 
   /// The chat's own Realism, Needs and Objectives switches: what a member
@@ -39,6 +40,11 @@ class GroupRealismStore {
   final bool Function()? chatRealism;
   final bool Function()? chatNeeds;
   final bool Function()? chatObjectives;
+
+  /// The chat's own Boons & Bogies switch (1:1 chat switch, or a group
+  /// saved before members carried their own). Ruling 18's middle layer is
+  /// the card default, applied by the seed; this is the last fallback.
+  final bool Function()? chatBb;
 
   /// A group chat is open (any member, observer or not).
   final bool Function() isGroup;
@@ -96,6 +102,10 @@ class GroupRealismStore {
   bool needsOnFor(String? id) =>
       (id == null ? null : members[id]?.needsSwitch) ??
       chatNeeds?.call() ??
+      true;
+  bool bbOnFor(String? id) =>
+      (id == null ? null : members[id]?.bbSwitch) ??
+      chatBb?.call() ??
       true;
   bool objectivesOnFor(String? id) =>
       (id == null ? null : members[id]?.objectivesSwitch) ??

@@ -246,6 +246,9 @@ class SendTurn {
     // member's parked event — delivered ones rode THEIR regen, not a
     // stranger's.
     _chance.clearDeliveredPendingsAllOwners();
+    // Bogey nudges follow the same rule (§6): delivered ones rode their
+    // reply, and the next user turn releases the slot.
+    unawaited(_controls.bogeys.clearDeliveredAll());
     // Clear Mafia force-ack only after a prior turn *showed* it and the user
     // is now continuing (regen of that AI reply still re-injects until here).
     unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
@@ -283,12 +286,14 @@ class SendTurn {
     final chaosGate = addressedGuest == null
         ? _chance.chaosGateForTurn()
         : null;
+    var chaosFired = false;
     if (chaosGate != null) {
       final gateBag = chaosGate.bag;
       final fires = gateBag == null
           ? checkAndTickChaosPressure()
           : _chaosModeService.checkAndTickMember(gateBag);
       if (fires) {
+        chaosFired = true;
         // Create a completer so sendMessage pauses here until the wheel resolves
         _chance.completer = Completer<void>();
         _chance.pendingTrigger = true;
@@ -319,6 +324,17 @@ class SendTurn {
     // The request phase adopts the swap into the turn's restore machinery;
     // the cancel return below and the callMode setter release an orphaned one.
     if (addressedGuest == null) _enterCallEvalModelSwap();
+
+    // ── Boons & Bogies: one bogey roll per reply, speaker only (§6) ─────
+    // Chance Time wins the turn (ruling 16): a fired wheel holds the bogey
+    // pressure. Continue never reaches this path at all, and the gate itself
+    // closes when the emotional judge did not run or read a strong scene.
+    if (!chaosFired && addressedGuest == null) {
+      final ownerId = _chance.bogeyOwnerId();
+      if (ownerId != null && ownerId.isNotEmpty) {
+        await _controls.bogeys.rollTurn(ownerId);
+      }
+    }
 
     // ── The player's time skip ──────────────────────────────────────────
     // PoT is the only clock driver. The skip reader reads the line (or a

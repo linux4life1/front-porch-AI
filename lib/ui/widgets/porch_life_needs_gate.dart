@@ -22,6 +22,20 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+/// Whether Porch Life runs Boons & Bogies at all (spec ruling 18: the
+/// global kill switch, ANDed with Growth, which the feature cannot work
+/// without). While it does not, every Boons & Bogies switch greys out at its
+/// own value: the chat's choice is kept for when Porch Life turns it back
+/// on. Allowed without a StorageService above (widget goldens).
+bool porchLifeAllowsBbOf(BuildContext context) {
+  try {
+    final memory = Provider.of<StorageService>(context).memorySettings;
+    return memory.characterEvolutionEnabled && memory.boonsBogiesEnabled;
+  } on ProviderNotFoundException {
+    return true;
+  }
+}
+
 /// Whether Porch Life runs Needs at all. While it does not, every Needs
 /// switch (a 1:1 chat's, a group chat's, a group's for new chats) greys out
 /// at its own value with [NeedsOffInPorchLifeNote]: the choice is kept for

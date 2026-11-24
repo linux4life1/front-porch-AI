@@ -493,6 +493,12 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   Future<void> setMemberPocketsEnabled(String memberId, bool on) async {}
 
+  // Same reason as Pockets: the Boons & Bogies line reads this chat's own
+  // switch in build. The 1:1 branch of the real forwarder reaches it through
+  // the controls door — which this fake throws — so answer the read here.
+  @override
+  bool get bbChatSwitch => true;
+
   // Objective surface — empty by default (renders the "propose an objective" UI).
   @override
   Objective? get primaryObjective => null;

@@ -130,6 +130,16 @@ abstract final class GroupRealismKeys {
   static const afterglowSwitch = 'afterglow_switch';
   static const objectivesSwitch = 'objectives_switch';
 
+  /// This member's own Boons & Bogies participation in THIS chat (spec
+  /// ruling 18): the sidebar's mid-chat opt-out. Same shape as
+  /// [realismSwitch] — absent means never seeded, and the seed writes it
+  /// once from the member card's own default (or the chat's switch), so an
+  /// existing group enters with every member exactly as the global had
+  /// them. Off hides and holds: rings stay visible and injectable, but no
+  /// fade, advance, roll or proposal runs for this member, and off never
+  /// deletes.
+  static const bbSwitch = 'bb_switch';
+
   /// This member's own Chaos Mode in THIS chat (docs/design/
   /// chaos-per-character.md, PR 5b). Same shape as [realismSwitch]: absent
   /// means never seeded, and the entry seed writes it once from the card
@@ -369,6 +379,8 @@ class GroupMemberRealism {
   /// erases.
   bool? get realismSwitch => _bool(GroupRealismKeys.realismSwitch);
   set realismSwitch(bool? v) => _putBool(GroupRealismKeys.realismSwitch, v);
+  bool? get bbSwitch => _bool(GroupRealismKeys.bbSwitch);
+  set bbSwitch(bool? v) => _putBool(GroupRealismKeys.bbSwitch, v);
   bool? get needsSwitch => _bool(GroupRealismKeys.needsSwitch);
   set needsSwitch(bool? v) => _putBool(GroupRealismKeys.needsSwitch, v);
   bool? get afterglowSwitch => _bool(GroupRealismKeys.afterglowSwitch);

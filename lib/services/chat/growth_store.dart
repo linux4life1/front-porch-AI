@@ -183,6 +183,16 @@ class GrowthStore {
         .toList();
   }
 
+  /// Re-read one owner's rings after a write the cache never saw. Kit seeding
+  /// writes rings from inside the first [refresh]'s settle, so the cache that
+  /// refresh just filled predates them; without this the sidebar's line and
+  /// the panel stay empty until some unrelated touch re-scopes the cache.
+  Future<void> reloadOwner(String sessionId, String characterId) async {
+    final db = getDb();
+    if (db == null || !_cacheValid(sessionId)) return;
+    _ringCache[characterId] = await db.getGrowthRings(sessionId, characterId);
+  }
+
   /// Every ring (active + retired) for one owner — sync, for the timeline UI.
   List<GrowthRingData> allRingsFor(String? sessionId, String characterId) {
     if (!_cacheValid(sessionId)) return const [];
@@ -296,6 +306,26 @@ class GrowthStore {
   /// See [GrowthRingWriter.restoreUndo].
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
       _writer.restoreUndo(ring, undo);
+
+  /// See [GrowthBbWriter.recordBogeyGauge] — one reply's gauge movement.
+  Future<void> recordBogeyGauge(
+    GrowthRingData ring, {
+    required int pressure,
+    required int cooldown,
+  }) =>
+      _writer.bb.recordBogeyGauge(ring, pressure: pressure, cooldown: cooldown);
+
+  /// See [GrowthBbWriter.parkBogey] — a fire parks the nudge.
+  Future<void> parkBogey(GrowthRingData ring, {required String text}) =>
+      _writer.bb.parkBogey(ring, text: text);
+
+  /// See [GrowthBbWriter.markBogeyDelivered].
+  Future<void> markBogeyDelivered(GrowthRingData ring) =>
+      _writer.bb.markBogeyDelivered(ring);
+
+  /// See [GrowthBbWriter.clearDeliveredBogey].
+  Future<void> clearDeliveredBogey(GrowthRingData ring) =>
+      _writer.bb.clearDeliveredBogey(ring);
 
   /// See [GrowthRingWriter.reinforceRing].
   Future<void> reinforceRing(

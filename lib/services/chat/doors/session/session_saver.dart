@@ -199,6 +199,11 @@ class SessionSaver {
           _relationshipService.shortTermDeltasSummary,
         ),
         realismEnabled: drift.Value(_realismChatSwitch),
+        // v70 — Boons & Bogies participation (spec ruling 18). Groups keep
+        // true: their switches are per member and ride group_realism_state.
+        bbEnabled: drift.Value(
+          _activeGroup == null ? _s.controls().bbChatSwitch : true,
+        ),
         // v64 (docs/design/pockets-wardrobe-chat-toggle.md): the 1:1 chat's
         // own Pockets switch. Groups keep NULL — their switches are
         // per-member and ride group_realism_state below.

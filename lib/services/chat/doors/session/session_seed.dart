@@ -49,6 +49,7 @@ class SessionSeed {
   /// read back from a package head.
   bool get _realismChatSwitch => _s.controls().chatRealism;
   set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
+  set _bbChatSwitch(bool on) => _s.controls().setChatBb(on);
 
   /// The chat's stored Needs switch: seeded and restored here, never a gate.
   bool get _needsSimEnabled => _scope.needsSimEnabled();
@@ -99,6 +100,8 @@ class SessionSeed {
           _session.activeCharacter!.frontPorchExtensions ??
           FrontPorchExtensions();
       _realismChatSwitch = extSeed.realismEnabled || settings.realismDefault;
+      // Ruling 18: the card's choice seeds this chat's switch once.
+      _bbChatSwitch = extSeed.boonsBogiesChoice ?? true;
       _relationshipService.resetForFreshChat();
       _relationshipService.seedFromCardV2OrExt(
         shortTermBond: extSeed.shortTermBond,

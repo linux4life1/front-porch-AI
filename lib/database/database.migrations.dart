@@ -41,6 +41,19 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 70) {
+      // v69→v70: Boons & Bogies participation switch on the chat row
+      // (docs/design/boons-and-bogies.md ruling 18, 2026-11-21). Additive;
+      // 1 means "participates when the global allows", which is exactly how
+      // every existing chat behaved, so an upgrade changes nothing.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN bb_enabled INTEGER NOT NULL DEFAULT 1',
+        );
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
     if (from < 68) {
       // v67→v68: Boons & Bogies — the roll/advance columns on growth_rings
       // and the growth_moments queue (docs/design/boons-and-bogies.md §3.3,

@@ -25,6 +25,7 @@ import { ToolCallingPill, type ToolSupport } from './ToolCallingPill';
 import { ChatLorebookModal } from './ChatLorebookModal';
 import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
+import { GrowthRingRow } from './GrowthPanel';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
 import { BelongingsPanel } from './BelongingsPanel';
@@ -191,6 +192,17 @@ export function ChatSidebar({
   useEffect(() => {
     void load();
   }, [load, toolsKey]);
+  // A select can still be settling when this sidebar's first snapshot lands
+  // (the tools fetch and /api/chat/select are separate requests), and a kit
+  // seeds at message 0 inside that select. One delayed re-fetch when the
+  // line reads empty covers that window. The line still will not repaint
+  // while the PWA sits idle — that is the missing push, tracked separately.
+  const bbEmpty = t?.boonsBogiesEnabled === true && (t.boonsBogiesRings?.length ?? 0) === 0;
+  useEffect(() => {
+    if (!bbEmpty) return;
+    const id = window.setTimeout(() => void load(), 2500);
+    return () => window.clearTimeout(id);
+  }, [bbEmpty, load]);
   // While the host downloads the embedding model, poll so the bar moves
   // (same 1s rule ChatTools uses).
   const embeddingBusy = Boolean(t?.memory?.ragEnabled && t?.memory?.embedding?.settingUp);
@@ -208,6 +220,13 @@ export function ChatSidebar({
     apply(api.post<ToolsState>(`/api/chat/tools/settings${q}`, fields));
   const toggle = (name: string, value: boolean, extra?: Record<string, unknown>) =>
     apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name, value, ...extra }));
+  // Growth-ring actions from the Boons & Bogies line: same endpoint the
+  // Growth panel posts to, then reload the snapshot so the row repaints.
+  const growthAct = (action: string, body: Record<string, unknown> = {}) =>
+    void api
+      .post(`/api/chat/tools/growth${q}`, { action, ...body })
+      .then(() => load())
+      .catch(() => {});
   const pocketRemove = (section: string, index: number) =>
     apply(api.post<ToolsState>(`/api/chat/tools/pocket-remove${q}`, { section, index }));
   const pocketAdd = (section: string, name: string, gift: boolean, correction = false) =>
@@ -219,9 +238,21 @@ export function ChatSidebar({
   // member's own, for this chat: they route at the member toggles with
   // their id. A 1:1 (or a guest) has the chat's one switch.
   const memberId = t?.memberId ?? null;
-  const switchToggle = (kind: 'Realism' | 'Needs' | 'Afterglow', fallback: string, v: boolean) =>
+  const switchToggle = (
+    kind: 'Realism' | 'Needs' | 'Afterglow' | 'BoonsBogies',
+    fallback: string,
+    v: boolean,
+  ) =>
     memberId ? toggle(`member${kind}`, v, { id: memberId }) : toggle(fallback, v);
   const pocketsOn = typeof t?.pocketsSwitch === 'boolean' ? t.pocketsSwitch : true;
+  // Boons then bogies under the labels the desktop line prints, with the
+  // bogey cap on its own header — the two sidebars list the same rings in the
+  // same order, and each group disappears when it has nothing to show.
+  // Porch Life off means no rings to list, whatever an older snapshot sent.
+  const bbRings = t?.boonsBogiesAllowed === false ? [] : t?.boonsBogiesRings ?? [];
+  const bbBoons = bbRings.filter((r) => r.kind !== 'bogey');
+  const bbBogeys = bbRings.filter((r) => r.kind === 'bogey');
+  const bbCap = t?.boonsBogiesBogeyCap;
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
 
@@ -604,6 +635,73 @@ export function ChatSidebar({
                             fill={NEED_TOKENS[k]}
                           />
                         ))}
+                    </>
+                  )}
+                  {/* Its own section, as the desktop's movable 'boons_bogies'
+                      entry is: the line does not ride the Needs switch. */}
+                  {t?.boonsBogiesEnabled !== undefined && (
+                    <>
+                      <label className="state-line">
+                        <span>✨ Boons &amp; Bogies</span>
+                        <input
+                          type="checkbox"
+                          aria-label="Boons & Bogies"
+                          className="state-switch"
+                          checked={t.boonsBogiesEnabled !== false}
+                          disabled={t.boonsBogiesAllowed === false}
+                          onChange={(e) =>
+                            switchToggle('BoonsBogies', 'boonsBogies', e.target.checked)
+                          }
+                        />
+                      </label>
+                      {t.boonsBogiesAllowed === false && (
+                        <p className="muted small">
+                          Off in Porch Life, so no chat runs Boons &amp; Bogies. This chat&apos;s
+                          choice is kept.
+                        </p>
+                      )}
+                      {t.boonsBogiesEnabled &&
+                        t.boonsBogiesAllowed !== false &&
+                        bbRings.length === 0 && (
+                          <p className="muted small">
+                            No boons or bogies yet — a card kit seeds when a chat opens.
+                          </p>
+                        )}
+                      {bbRings.length > 0 && (
+                        <div className="bb-groups">
+                          {bbBoons.length > 0 && (
+                            <div className="bb-group">
+                              <div className="bb-group-head">
+                                <span>Boons</span>
+                              </div>
+                              {bbBoons.map((r) => (
+                                <GrowthRingRow
+                                  key={r.id}
+                                  ring={r}
+                                  isPast={false}
+                                  act={growthAct}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          {bbBogeys.length > 0 && (
+                            <div className="bb-group">
+                              <div className="bb-group-head">
+                                <span>Bogies</span>
+                                {bbCap ? <em>{`${bbBogeys.length} of ${bbCap}`}</em> : null}
+                              </div>
+                              {bbBogeys.map((r) => (
+                                <GrowthRingRow
+                                  key={r.id}
+                                  ring={r}
+                                  isPast={false}
+                                  act={growthAct}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                   </>

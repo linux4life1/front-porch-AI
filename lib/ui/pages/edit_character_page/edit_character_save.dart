@@ -177,6 +177,7 @@ class EditCharacterCardWriter {
       // the 6-entry budget truncated, tier normalized — same rule as an
       // import from anywhere (trait_kit.dart).
       traitKit: TraitKitEntry.parse([for (final e in d.traitKit) e.toJson()]),
+      boonsBogiesChoice: d.boonsBogiesChoice,
       planLines: _trimmed(d.planLines),
       occupation: d.occupation.trim(),
       occupationBrief: d.occupationBrief.trim(),

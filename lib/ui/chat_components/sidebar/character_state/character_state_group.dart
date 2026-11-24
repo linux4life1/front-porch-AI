@@ -30,6 +30,7 @@ import '../porch_accordion.dart';
 import '../sidebar_reorder.dart';
 import 'bond_bars.dart';
 import 'bond_reads.dart';
+import 'bb_line.dart';
 import 'character_state_leaves.dart';
 import 'time_strip.dart';
 
@@ -170,6 +171,8 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
         'fixation',
       // The NeedsLeaf; its grid has the live needsActive gate inside.
       if (realismOn && !lite) 'needs',
+      // Ruling 18's mid-chat switch, one line like Needs (spec §10 phase 4).
+      if (!lite) 'boons_bogies',
       if (chat.objectivesActive &&
           card != null &&
           !lite &&
@@ -325,6 +328,8 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
           member: widget.isGroup ? member : null,
           pulseInTrouble: widget.moodLook.portraitOn,
         );
+      case 'boons_bogies':
+        return BbLine(chat: chat, member: widget.isGroup ? member : null);
       case 'ambitions':
         return AmbitionsLeaf(chat: chat, card: card!);
       case 'pockets':

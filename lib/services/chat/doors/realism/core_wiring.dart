@@ -181,6 +181,7 @@ extension RealismCoreWiring on RealismGraph {
     chatRealism: () => controls.chatRealism,
     chatNeeds: () => controls.needsSimEnabled,
     chatObjectives: () => controls.objectivesEnabled,
+    chatBb: () => controls.bbChatSwitch,
   );
 
   /// A member's occupation and hours, read from their library card.

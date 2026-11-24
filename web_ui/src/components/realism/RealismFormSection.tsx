@@ -307,6 +307,12 @@ export function IdentitySections({
           onChange={(t) => set({ traitKit: t })}
           helper="What this character starts with: boons they can climb, bogies that surface under pressure. A new chat seeds these as growth rings; a chat already growing is asked first."
         />
+        <ToggleRow
+          label="Boons & Bogies in new chats"
+          hint="The starting choice for new chats with this character, unless Porch Life has Boons & Bogies off. Each chat can then change its own switch, and the choice stays in that chat."
+          value={v.boonsBogiesChoice ?? true}
+          onChange={(b) => set({ boonsBogiesChoice: b })}
+        />
       </RlCard>
 
       {planner && (

@@ -179,8 +179,8 @@ void main() {
   // each on the line it controls, so those are the only switches here.
   // The gear sat in the header code both modes share; the fake cannot build
   // group mode, so 1:1 pins it.
-  testWidgets("Character State's only switches are the Realism master and "
-      'the Needs and Afterglow lines', (tester) async {
+  testWidgets("Character State's switches are the Realism master, Needs, "
+      'Afterglow and Boons & Bogies lines', (tester) async {
     final storage = _AdultStorage();
     final chat = FakeChatService();
     addTearDown(() {
@@ -223,9 +223,12 @@ void main() {
     );
     expect(
       find.byType(Switch),
-      findsNWidgets(3),
+      findsNWidgets(4),
       reason:
-          'the Realism master switch, the Needs line and the Afterglow line',
+          'the Realism master switch, the Needs line, the Afterglow line and '
+          "the Boons & Bogies line — the last one greyed at this chat's "
+          'choice while Porch Life has the feature off, as the Pockets line '
+          'is (ruling 18)',
     );
   });
 
@@ -302,8 +305,10 @@ void main() {
       expect(find.text('Afterglow'), findsNothing);
       expect(
         find.byType(Switch),
-        findsNWidgets(2),
-        reason: 'the Realism master switch and the Needs line',
+        findsNWidgets(3),
+        reason:
+            'the Realism master switch, the Needs line, and the Boons & Bogies '
+            'line — the Afterglow one is the one this case turns off',
       );
     });
 

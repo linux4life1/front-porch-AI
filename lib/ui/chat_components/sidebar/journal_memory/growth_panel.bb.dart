@@ -22,6 +22,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 
 import '../sidebar_tokens.dart';
@@ -278,6 +279,31 @@ class BoonBogeyCard extends StatelessWidget {
   Future<void> _undo(BuildContext context) async {
     final sessionId = chatService.currentSessionId;
     if (sessionId == null) return;
+    // Guard (maintainer, 2026-11-23): undo reverts a story-earned fact in
+    // one tap with no redo behind it, so it asks first. House dialog.
+    final ok = await showWarmDialog<bool>(
+      context,
+      title: 'Undo the last change?',
+      content: Text(
+        'This reverts "${ring.content}" to the value it had before the last '
+        'growth change. There is no redo.',
+        style: TextStyle(
+          fontSize: 13,
+          color: AppColors.textSecondary(context),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Keep it'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Undo'),
+        ),
+      ],
+    );
+    if (ok != true) return;
     await chatService.growthReview.undoBoonBogey(
       sessionId,
       characterId,

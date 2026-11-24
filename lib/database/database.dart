@@ -284,7 +284,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 69;
+  int get schemaVersion => 70;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

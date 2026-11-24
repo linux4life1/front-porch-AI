@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_growth.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 
@@ -69,6 +70,14 @@ class ChatToolsSnapshot {
     final switchId = switchOwner == null
         ? ''
         : _chat.characterIdFor(switchOwner);
+    // Rings are owner-keyed, and a 1:1 chat's owner is the active character
+    // (switchId is '' there — it names the member toggle route, not an
+    // owner). Without this the sidebar asked for nobody's rings.
+    final ringsOwnerId = switchOwner != null
+        ? _chat.characterIdFor(switchOwner)
+        : (_chat.activeCharacter == null
+              ? ''
+              : _chat.characterIdFor(_chat.activeCharacter!));
     // Afterglow off hides Lust and recovery and keeps them: the block then
     // carries neither, as the desktop shows neither.
     final afterglowRuns = _chat.isGroupMode
@@ -85,6 +94,9 @@ class ChatToolsSnapshot {
         : _chat.isGroupMode
         ? memberArousal
         : nsfw.arousalLevel;
+    // Porch Life's two switches for the feature; off hides the line and the
+    // rings it would list, so the snapshot asks for neither.
+    final bbAllowed = mem.characterEvolutionEnabled && mem.boonsBogiesEnabled;
     return {
       'wikiBaseUrl': _chat.wikiBaseUrl,
       'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
@@ -99,6 +111,16 @@ class ChatToolsSnapshot {
       'realismAllowed': rs.realismAllowed,
       'realismSwitch': _chat.realismSwitchFor(switchId),
       'needsEnabled': _chat.needsSwitchFor(switchId),
+      // Ruling 18: this chat's (or the focused member's) Boons & Bogies
+      // switch, and whether Porch Life allows the feature at all.
+      'boonsBogiesEnabled': _chat.bbSwitchFor(switchId),
+      // The rings the switch governs, boons then bogies (the desktop line
+      // lists them the same way). Additive: an older bundle ignores it.
+      'boonsBogiesRings': bbRingsJson(_chat, ringsOwnerId, allowed: bbAllowed),
+      // The bogey cap the desktop line prints on its BOGIES header ("2 of 3");
+      // additive, so an older bundle ignores it.
+      'boonsBogiesBogeyCap': BoonsBogies.kMaxActiveBogies,
+      'boonsBogiesAllowed': bbAllowed,
       // Additive: set only in a group, for a full member. The PWA then routes
       // the Realism, Needs and Afterglow switches at `memberRealism`,
       // `memberNeeds` and `memberAfterglow` with this id, one member at a

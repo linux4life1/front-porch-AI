@@ -103,6 +103,11 @@ class Sessions extends Table {
       integer().withDefault(const Constant(0))(); // trends over the LT window
   BoolColumn get realismEnabled =>
       boolean().withDefault(const Constant(false))(); // master realism toggle
+  // v70 — Boons & Bogies participation for this chat (spec ruling 18's chat
+  // layer; groups keep it on the member bag). Defaults true: the global
+  // switch still gates, so an upgraded chat behaves exactly as before.
+  BoolColumn get bbEnabled =>
+      boolean().withDefault(const Constant(true))(); // B&B participation
   IntColumn get shortTermMood =>
       integer().withDefault(const Constant(0))(); // -5 to +5
   IntColumn get moodDecayCounter =>

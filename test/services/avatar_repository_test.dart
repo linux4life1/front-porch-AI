@@ -50,7 +50,7 @@ void main() {
       await db.close();
     });
 
-    test('schema version is 69', () {
+    test('schema version is 70', () {
       // v40: Living Worlds (worlds columns + chat_worlds + chat_biome_spans).
       // v41: worlds.place_traits (atmosphere/gravity JSON).
       // v42: groups.folder_id (groups movable through folders).
@@ -143,7 +143,10 @@ void main() {
       //      the chat; decline writes nothing) and by
       //      test/database/v14_to_current_upgrade_test (the ladder lands
       //      here).
-      expect(db.schemaVersion, 69);
+      // v70: sessions.bb_enabled — the 1:1 chat's own Boons & Bogies
+      //      switch (phase 4, ruling 18). Guarded by the Table/ladder/repair
+      //      trio in test/database/v14_to_current_upgrade_test.dart.
+      expect(db.schemaVersion, 70);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

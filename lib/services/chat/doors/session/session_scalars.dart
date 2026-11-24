@@ -52,6 +52,7 @@ class SessionScalars {
 
   /// The chat's own Realism switch, restored from the row.
   set _realismChatSwitch(bool on) => _s.controls().setChatRealism(on);
+  set _bbChatSwitch(bool on) => _s.controls().setChatBb(on);
 
   /// The chat's own Pockets switch, restored from the row (or derived from
   /// the card once when the v64 column is NULL — see the restore site).
@@ -112,6 +113,9 @@ class SessionScalars {
     // instead of a short topic — truncate to keep the UI and prompts sane.
     _relationshipService.sanitizeFixationIfTooLong();
     _realismChatSwitch = s.realismEnabled;
+    // v70 — the chat's own Boons & Bogies switch (spec ruling 18). A chat
+    // saved before it keeps participating exactly as the global had it.
+    _bbChatSwitch = s.bbEnabled;
     // v64 (docs/design/pockets-wardrobe-chat-toggle.md): restore the 1:1
     // chat's own Pockets switch. A NULL column means the chat predates it:
     // derive ONCE from the card's default (maintainer ruling D1) and the

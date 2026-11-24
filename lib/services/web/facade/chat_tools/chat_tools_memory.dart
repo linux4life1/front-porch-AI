@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 
@@ -63,31 +64,7 @@ class ChatToolsMemory {
               'entryCount': _chat.growthKitOffer!.entryCount,
             },
       'kitReplay': _chat.growthKitReplayAvailable,
-      'rings': [
-        for (final r in rings)
-          {
-            'id': r.id,
-            'content': r.content,
-            'category': r.category,
-            // Physics tier (ordinary ring grouping) and the boon/bogey tier
-            // (Novice/Skilled/Master) travel separately so the web panel can
-            // render both kinds without re-implementing either ladder.
-            'tier': GrowthPhysics.tierOf(r),
-            'kind': BoonsBogies.isBogey(r)
-                ? BoonsBogies.kKindBogey
-                : (BoonsBogies.isBoon(r) ? BoonsBogies.kKindBoon : null),
-            'bbTier': BoonsBogies.tierOf(r),
-            'advanceCount': r.advanceCount,
-            'pressure': r.bogeyPressure,
-            'cooldown': r.bogeyCooldown,
-            'seeded': BoonsBogies.bbOf(r)[BoonsBogies.kSeededKey] == true,
-            'canUndo': BoonsBogies.undoOf(r) != null,
-            'strength': r.strength,
-            'pinned': r.pinned,
-            'retired': r.retired,
-            'receipts': GrowthStore.receiptsOf(r),
-          },
-      ],
+      'rings': [for (final r in rings) growthRingToJson(r)],
     };
   }
 
@@ -307,3 +284,29 @@ class ChatToolsMemory {
     kept: kept,
   );
 }
+
+/// One growth ring on the wire — the Growth panel and the sidebar's Boons &
+/// Bogies line must receive the same shape, or one surface renders a blander
+/// row than the other (maintainer, 2026-11-23).
+Map<String, dynamic> growthRingToJson(GrowthRingData r) => {
+  'id': r.id,
+  'content': r.content,
+  'category': r.category,
+  // Physics tier (ordinary ring grouping) and the boon/bogey tier
+  // (Novice/Skilled/Master) travel separately so the web panel can render
+  // both kinds without re-implementing either ladder.
+  'tier': GrowthPhysics.tierOf(r),
+  'kind': BoonsBogies.isBogey(r)
+      ? BoonsBogies.kKindBogey
+      : (BoonsBogies.isBoon(r) ? BoonsBogies.kKindBoon : null),
+  'bbTier': BoonsBogies.tierOf(r),
+  'advanceCount': r.advanceCount,
+  'pressure': r.bogeyPressure,
+  'cooldown': r.bogeyCooldown,
+  'seeded': BoonsBogies.bbOf(r)[BoonsBogies.kSeededKey] == true,
+  'canUndo': BoonsBogies.undoOf(r) != null,
+  'strength': r.strength,
+  'pinned': r.pinned,
+  'retired': r.retired,
+  'receipts': GrowthStore.receiptsOf(r),
+};

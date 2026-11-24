@@ -132,6 +132,10 @@ class GrowthRingWriter {
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
       _bb.restoreUndo(ring, undo);
 
+  /// The bogey writers (gauges, parking), for [GrowthStore]'s delegations.
+  GrowthBbWriter get bb => _bb;
+
+
   /// Strengthen a ring one step and append the new receipts.
   Future<void> reinforceRing(
     GrowthRingData ring, {

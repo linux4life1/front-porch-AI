@@ -69,6 +69,9 @@ class EditCharacterDraft {
   /// Boons & Bogies kit (docs/design/boons-and-bogies.md §4). The dirty
   /// fingerprint sees it through [TraitKitEntry.toJson].
   List<TraitKitEntry> traitKit = const [];
+
+  /// Ruling 18's card default for NEW chats; null follows Porch Life.
+  bool? boonsBogiesChoice;
   List<String> planLines = const [];
   String occupation = '';
   String occupationBrief = '';
@@ -279,6 +282,7 @@ class EditCharacterDraft {
     ttsVoice,
     ambitions,
     [for (final e in traitKit) e.toJson()],
+    boonsBogiesChoice,
     planLines,
     occupation,
     occupationBrief,
@@ -373,6 +377,7 @@ class EditCharacterDraft {
   void _seedIdentity(FrontPorchExtensions? ext) {
     ambitions = List<String>.from(ext?.ambitions ?? const []);
     traitKit = List<TraitKitEntry>.from(ext?.traitKit ?? const []);
+    boonsBogiesChoice = ext?.boonsBogiesChoice;
     planLines = List<String>.from(ext?.planLines ?? const []);
     occupation = ext?.occupation ?? '';
     occupationBrief = ext?.occupationBrief ?? '';
