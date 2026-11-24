@@ -16,8 +16,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/database/database.dart' show GrowthMomentData;
+import 'package:front_porch_ai/database/database.dart'
+    show GrowthMomentData, GrowthRingData;
 import 'package:front_porch_ai/services/chat/growth_milestones.dart';
+
+export 'package:front_porch_ai/services/chat/doors/realism/milestone_view.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 
 /// Boons & Bogies milestones (docs/design/boons-and-bogies.md §7) — the
@@ -40,6 +43,29 @@ extension ChatServiceMilestones on ChatService {
 
   /// Close the card unanswered; a pending moment waits in Moments.
   void dismissMilestone() => realism.milestoneSurface.dismiss();
+
+  /// Moves when the moment list may have changed (re-read Moments).
+  int get milestoneRevision => realism.milestoneSurface.revision;
+
+  /// The words for one moment — the same view on the card and in Moments,
+  /// desktop and web.
+  MilestoneView milestoneViewOf(GrowthMomentData m) {
+    GrowthRingData? ring;
+    for (final r in realism.growthDesk.growthRingsForOwner(m.characterId)) {
+      if (r.id == m.ringId) ring = r;
+    }
+    return MilestoneView.of(
+      m,
+      ring: ring,
+      ownerName: milestoneOwnerName(m.characterId),
+      inGroup: activeGroup != null,
+    );
+  }
+
+  /// One owner's Moments as views, newest first.
+  Future<List<MilestoneView>> milestoneViewsFor(String ownerId) async => [
+    for (final m in await milestonesForOwner(ownerId)) milestoneViewOf(m),
+  ];
 
   /// One owner's moments in this chat, newest first (the Moments list).
   Future<List<GrowthMomentData>> milestonesForOwner(String ownerId) async {

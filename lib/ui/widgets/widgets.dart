@@ -63,6 +63,7 @@ export 'character_card_grid.dart';
 export 'library_view.dart';
 export 'call_overlay.dart';
 export 'chance_time_overlay.dart';
+export 'milestone/milestone.dart';
 export 'warm_card.dart';
 export 'warm_dialog.dart';
 export 'unsaved_changes_guard.dart';

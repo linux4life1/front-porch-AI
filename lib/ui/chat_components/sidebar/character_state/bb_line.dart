@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/growth_panel.bb.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/milestone/milestone.dart';
 import 'package:front_porch_ai/ui/widgets/porch_life_needs_gate.dart';
 
 /// This chat's own Boons & Bogies switch for one character, on the line it
@@ -50,6 +51,41 @@ class BbLine extends StatelessWidget {
     final memberId = member == null ? '' : chat.characterIdFor(member);
     final on = chat.bbSwitchFor(memberId);
     final accent = AppColors.porchHoneyOf(context);
+    final ownerId = _ownerId();
+    // Moments (phase 5, §7) show under the same gate as the traits they
+    // are about: Porch Life allows the feature and this member's switch is
+    // on. One read feeds the header dot and the section.
+    return MomentsLoader(
+      chat: chat,
+      ownerId: allowed && on ? ownerId : '',
+      builder: (context, moments) => _line(
+        context,
+        allowed: allowed,
+        on: on,
+        accent: accent,
+        memberId: memberId,
+        ownerId: ownerId,
+        moments: moments,
+      ),
+    );
+  }
+
+  String _ownerId() {
+    final member = this.member;
+    if (member != null) return chat.characterIdFor(member);
+    final host = chat.activeCharacter;
+    return host == null ? '' : chat.characterIdFor(host);
+  }
+
+  Widget _line(
+    BuildContext context, {
+    required bool allowed,
+    required bool on,
+    required Color accent,
+    required String memberId,
+    required String ownerId,
+    required List<MilestoneView> moments,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -73,6 +109,7 @@ class BbLine extends StatelessWidget {
                 ),
               ),
             ),
+            MomentsUnreadDot(moments: moments),
             SizedBox(
               height: 24,
               child: FittedBox(
@@ -96,8 +133,10 @@ class BbLine extends StatelessWidget {
               color: AppColors.textTertiary(context),
             ),
           )
-        else if (on)
-          _traits(context),
+        else if (on) ...[
+          _traits(context, ownerId),
+          MomentsSection(chat: chat, moments: moments),
+        ],
       ],
     );
   }
@@ -108,13 +147,7 @@ class BbLine extends StatelessWidget {
   /// language for the same data (maintainer, 2026-11-22). The panel keeps
   /// the full list and the jump-to-message taps; this is the same rows,
   /// one owner, boons then bogies.
-  Widget _traits(BuildContext context) {
-    final member = this.member;
-    final ownerId = member == null
-        ? (chat.activeCharacter == null
-              ? ''
-              : chat.characterIdFor(chat.activeCharacter!))
-        : chat.characterIdFor(member);
+  Widget _traits(BuildContext context, String ownerId) {
     final rings = ownerId.isEmpty
         ? const <GrowthRingData>[]
         : chat
@@ -124,10 +157,7 @@ class BbLine extends StatelessWidget {
     if (rings.isEmpty) {
       return Text(
         'No boons or bogies yet — a card kit seeds when a chat opens.',
-        style: TextStyle(
-          fontSize: 11,
-          color: AppColors.textTertiary(context),
-        ),
+        style: TextStyle(fontSize: 11, color: AppColors.textTertiary(context)),
       );
     }
     final boons = rings.where(BoonsBogies.isBoon).toList();

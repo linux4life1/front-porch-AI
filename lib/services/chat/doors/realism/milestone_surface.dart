@@ -59,6 +59,11 @@ class MilestoneSurface {
   GrowthMomentData? _showing;
   bool _replaying = false;
 
+  /// Moves whenever the moment list may have changed (a check after a
+  /// reply or a pass, an answer, a replay): the Moments list on both
+  /// surfaces re-reads when it differs from the one it drew.
+  int revision = 0;
+
   /// The card to show, or null — never a card from another chat.
   GrowthMomentData? get showing {
     final m = _showing;
@@ -73,6 +78,7 @@ class MilestoneSurface {
   /// the end of a reply's post-gen pass [afterReply] (that call IS the
   /// moment the reply finished, while the settle lease is still held).
   Future<void> check({bool afterReply = false}) async {
+    revision++; // a pass or a roll may have queued a moment
     if (showing != null || (!afterReply && replyOwed())) return;
     final s = sessionId();
     if (s == null) return;
@@ -96,6 +102,7 @@ class MilestoneSurface {
     if (outcome != MilestoneOutcome.bogeyCapFull && _showing?.id == id) {
       _showing = null;
     }
+    revision++;
     await onDecided();
     notify();
     return outcome;
@@ -114,6 +121,7 @@ class MilestoneSurface {
     await milestones.markSeen(id);
     _showing = found;
     _replaying = found.status != 'pending';
+    revision++;
     notify();
   }
 

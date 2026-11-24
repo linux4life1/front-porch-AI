@@ -132,8 +132,40 @@ class ChatToolsMemory {
       case 'kitAgain':
         await _chat.offerGrowthKitAgain();
         break;
+      // Phase-5 milestones (§7): the card's and Moments' answers, by id.
+      case 'milestoneAnswer':
+        lastMilestoneOutcome = (await _chat.answerMilestone(
+          body['momentId'] as String? ?? '',
+          accept: body['accept'] == true,
+        )).name;
+        break;
+      case 'milestoneReplay':
+        await _chat.replayMilestone(body['momentId'] as String? ?? '');
+        break;
+      case 'milestoneDismiss':
+        _chat.dismissMilestone();
+        break;
     }
     _notify();
+  }
+
+  /// What the last `milestoneAnswer` did (a [MilestoneOutcome] name), so the
+  /// web card can say why it stayed up (the bogey cap is full).
+  String? lastMilestoneOutcome;
+
+  /// One owner's Moments for the web line, newest first, with the revision
+  /// the list was read at (re-read when the snapshot's differs).
+  Future<Map<String, dynamic>> moments(String? participantId) async {
+    final owner = _ctx.growthOwner(participantId);
+    return {
+      'revision': _chat.milestoneRevision,
+      'moments': owner == null
+          ? const []
+          : [
+              for (final v in await _chat.milestoneViewsFor(owner.id))
+                v.toJson(),
+            ],
+    };
   }
 
   /// The parked growth-review batch (review-first mode, default OFF) in a

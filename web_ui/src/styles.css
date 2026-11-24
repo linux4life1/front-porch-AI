@@ -22,6 +22,7 @@
 @import './styles/settings.css';
 @import './styles/voice-media.css';
 @import './styles/overlays.css';
+@import './styles/milestone.css';
 @import './styles/forms.css';
 @import './styles/realism-desktop.css';
 @import './styles/crop.css';

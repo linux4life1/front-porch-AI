@@ -52,6 +52,10 @@ class WebChatToolsRoutes {
     router.get('/api/chat/tools/growth', _growthGet);
     router.post('/api/chat/tools/growth', _growthPost);
     router.get('/api/chat/tools/growth/review', _growthReviewGet);
+    router.get(
+      '/api/chat/tools/growth/moments',
+      (shelf.Request r) => handleMomentsGet(request: r, facade: _facade),
+    );
     router.post('/api/chat/tools/growth/review', _growthReviewPost);
     // Journal diary (audit P2.12) — Growth twin: cards + review-first.
     router.get('/api/chat/tools/journal', _journalGet);

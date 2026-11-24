@@ -1,0 +1,240 @@
+/* Boons & Bogies milestones (docs/design/boons-and-bogies.md §7): the card,
+   its canvas, and Moments — transcribed from the approved mockup
+   (docs/design/mockups/boons-and-bogies-milestones.html), the twin of
+   lib/ui/widgets/milestone/. Chrome follows the theme tokens; the accents
+   are the fixed milestone palette (milestonePalette.ts), declared once. */
+
+.ms-overlay,
+.ms-moments,
+.bb-line-head {
+  --ms-gold: #ffd166; /* theme-keep: milestone celebration identity */
+  --ms-on-gold: #1a1200; /* theme-keep: milestone celebration identity */
+  --ms-violet: #9b5de5; /* theme-keep: milestone celebration identity */
+  --ms-overcome: #06d6a0; /* theme-keep: milestone celebration identity */
+  --ms-white: #ffffff; /* theme-keep: milestone celebration identity */
+}
+
+.ms-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: color-mix(in srgb, var(--bg) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ms-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.ms-center {
+  position: relative;
+  width: min(340px, 100%);
+}
+
+.ms-card {
+  --ms-accent: var(--ms-gold);
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  color: var(--text);
+  text-align: center;
+}
+.ms-title {
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  font-size: 15px;
+}
+.ms-star {
+  color: var(--ms-gold);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--ms-gold) 60%, transparent);
+}
+.ms-kind {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.ms-kind b {
+  color: var(--text);
+  font-weight: 600;
+}
+.ms-ring {
+  position: relative;
+  margin: 14px 0 10px;
+  border-radius: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--ms-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--ms-accent) 10%, var(--card));
+  padding: 12px 12px 10px;
+  text-align: left;
+}
+.ms-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ms-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ms-accent) 22%, transparent);
+  color: var(--ms-accent);
+}
+.ms-text {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 8px 0 9px;
+}
+.ms-meter {
+  height: 4px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--muted) 25%, transparent);
+  overflow: hidden;
+}
+.ms-meter i {
+  display: block;
+  height: 100%;
+  background: var(--ms-accent);
+}
+.ms-badge {
+  position: absolute;
+  right: 12px;
+  top: -12px;
+  background: var(--ms-accent);
+  color: var(--ms-on-gold);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  padding: 4px 9px;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+.ms-badge-bogey {
+  color: var(--ms-white);
+}
+.ms-receipt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ms-ask {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.ms-notice {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.ms-btns {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.ms-btns button {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+}
+.ms-btns button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.ms-reject {
+  background: transparent;
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+.ms-accept {
+  background: var(--ms-gold);
+  color: var(--ms-on-gold);
+  border: 0;
+}
+
+/* Moments, inside the Boons & Bogies line. */
+.ms-unread {
+  font-size: 10px;
+  font-weight: 800;
+  background: var(--ms-gold);
+  color: var(--ms-on-gold);
+  border-radius: 999px;
+  padding: 1px 7px;
+  margin-left: auto;
+  margin-right: 6px;
+}
+.ms-moment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--card);
+  margin-bottom: 6px;
+}
+.ms-moment-what {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.ms-moment-what small {
+  display: block;
+  color: var(--faint);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ms-gold);
+  flex: none;
+}
+.ms-dot-seen {
+  background: transparent;
+  border: 1px solid var(--border);
+}
+.ms-asks {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--ms-on-gold);
+  background: var(--ms-gold);
+  border-radius: 4px;
+  padding: 0 5px;
+  margin-right: 4px;
+}
+.ms-pill-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 5px 10px;
+  min-height: 32px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.ms-pill-gold {
+  background: var(--ms-gold);
+  color: var(--ms-on-gold);
+  border-color: var(--ms-gold);
+}

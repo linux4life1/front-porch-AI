@@ -3047,3 +3047,41 @@ test("the creator's Realism step saves Porch Life onto the saved character", asy
     expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
   }
 });
+
+// Boons & Bogies phase 5 (§7): a new boon asks first. The stand-in backend's
+// Growth pass proposes a boon whenever Boons & Bogies is offered; the card
+// pops after the reply, and its Accept goes through the growth route's
+// whitelist to the host — the click the phase-2 Undo never had.
+test('a milestone asks first: Accept on the card keeps the new boon', { tag: SERIAL }, async ({ page }) => {
+  const before = (await (await page.request.get('/api/settings')).json()) as {
+    realism?: Record<string, unknown>;
+  };
+  const keys = ['characterEvolutionEnabled', 'boonsBogiesEnabled', 'milestonePopupsEnabled'];
+  const restore = Object.fromEntries(keys.map((k) => [k, before.realism?.[k] ?? false]));
+  const on = await page.request.post('/api/settings', {
+    data: { realism: Object.fromEntries(keys.map((k) => [k, true])) },
+  });
+  expect(on.ok(), `turning Boons & Bogies on: ${on.status()}`).toBe(true);
+  try {
+    await openPorchChat(page);
+    await openConversations(page);
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+    await send(page, 'I pour us both a glass of lemonade.');
+    const check = await page.request.post('/api/chat/tools/growth', { data: { action: 'check' } });
+    expect(check.ok(), `running the Growth pass: ${check.status()}`).toBe(true);
+
+    const card = page.getByRole('dialog', { name: 'Milestone: New boon' });
+    await expect(card).toBeVisible({ timeout: 60_000 });
+    await expect(card).toContainText('Pours a perfect glass of lemonade every time.');
+    await card.getByRole('button', { name: 'Accept' }).click();
+    await expect(card).toBeHidden();
+
+    const moments = (await (await page.request.get('/api/chat/tools/growth/moments')).json()) as {
+      moments: { title: string; status: string }[];
+    };
+    expect(moments.moments.find((m) => m.title === 'New boon')?.status).toBe('accepted');
+  } finally {
+    await page.request.post('/api/settings', { data: { realism: restore } });
+  }
+});
