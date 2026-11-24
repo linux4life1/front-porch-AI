@@ -42,6 +42,7 @@ class TimelineInvalidator {
     required this.growthReview,
     required this.growth,
     required this.itemCards,
+    required this.invalidateMoments,
     required this.db,
     required this.disposed,
     required this.notify,
@@ -65,6 +66,10 @@ class TimelineInvalidator {
   final GrowthReview Function() growthReview;
   final GrowthDesk Function() growth;
   final ItemCardJournal Function() itemCards;
+
+  /// Boons & Bogies: drop pending milestones citing the rewritten region
+  /// (or whose ring the sweep just removed). Runs after the ring sweep.
+  final Future<void> Function(String sessionId, int position) invalidateMoments;
   final AppDatabase Function() db;
   final bool Function() disposed;
   final void Function() notify;
@@ -172,6 +177,8 @@ class TimelineInvalidator {
         await growth().refreshCache();
         notify();
       }
+      // After the sweep, so a Master or overcome whose ring went goes too.
+      if (!_disposed) await invalidateMoments(sessionId, position);
     } catch (e) {
       debugPrint('[Growth] ⚠ ring invalidation at $position skipped: $e');
     }

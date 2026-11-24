@@ -546,6 +546,24 @@ void main() {
       await chatDb.close();
     });
 
+    // One reply, then the Growth pass the background job would run; waits
+    // for the card it queues.
+    Future<void> raiseCard(CharacterCard card) async {
+      await chat.setActiveCharacter(card);
+      await chat.sendMessage('I pour us both a glass of lemonade.');
+      for (
+        var i = 0;
+        i < 400 && (chat.isGenerating || chat.isSettlingTurn);
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      await chat.forceGrowthPass();
+      for (var i = 0; i < 100 && chat.milestoneShowing == null; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    }
+
     test(
       'a pass after the reply queues a new boon and the card is up',
       () async {
@@ -558,20 +576,7 @@ void main() {
             needsSimEnabled: false,
           ),
         )..dbId = 'mira-pass';
-        await chat.setActiveCharacter(card);
-        await chat.sendMessage('I pour us both a glass of lemonade.');
-        for (
-          var i = 0;
-          i < 400 && (chat.isGenerating || chat.isSettlingTurn);
-          i++
-        ) {
-          await Future<void>.delayed(const Duration(milliseconds: 5));
-        }
-        // The pass runs after the reply, as the background job does.
-        await chat.forceGrowthPass();
-        for (var i = 0; i < 100 && chat.milestoneShowing == null; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 10));
-        }
+        await raiseCard(card);
         expect(
           chat.milestoneShowing?.kind,
           'new_boon',
@@ -580,5 +585,87 @@ void main() {
       },
       timeout: const Timeout(Duration(minutes: 2)),
     );
+
+    test(
+      'deleting the message a pending boon cites drops it and its card',
+      () async {
+        await raiseCard(
+          CharacterCard(
+            name: 'Mira Vale',
+            description: 'Keeps the porch bar.',
+            firstMessage: 'Evening.',
+            frontPorchExtensions: FrontPorchExtensions(
+              realismEnabled: false,
+              needsSimEnabled: false,
+            ),
+          )..dbId = 'mira-rewrite',
+        );
+        expect(chat.milestoneShowing?.kind, 'new_boon');
+        final session = chat.currentSessionId!;
+        final shown = chat.milestoneShowing!;
+        expect(MilestoneProposal.decode(shown.payload)?.sourcePositions, [
+          1,
+        ], reason: 'the boon cites the user message (#2)');
+        // Deleting message #2 rewrites the timeline from there.
+        await chat.deleteMessage(1);
+        Future<List<GrowthMomentData>> moments() =>
+            chat.realism.growthMilestones.momentsFor(session);
+        for (var i = 0; i < 100 && (await moments()).isNotEmpty; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        expect(await moments(), isEmpty, reason: 'it asked about lost plot');
+        expect(chat.milestoneShowing, isNull, reason: 'its card came down');
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
+  });
+
+  group('a timeline rewrite drops pending moments citing it', () {
+    test('cites at or after the rewrite: dropped; earlier, decided, or a '
+        'live ring: kept; a Master whose ring went: dropped', () async {
+      Future<String> add(String text, List<int> at) async =>
+          (await milestones.propose(
+            sessionId: 's1',
+            characterId: 'mira',
+            kind: MilestoneKind.newBoon,
+            proposal: MilestoneProposal(
+              text: text,
+              category: 'skill',
+              sourcePositions: at,
+            ),
+          ))!;
+      final early = await add('Hums when nervous', [2]);
+      final late = await add('Reads a room', [3, 6]);
+      final decided = await add('Pours lemonade', [7]);
+      await milestones.decide(decided, accept: false);
+      final boon = await seed(
+        'Steady hands',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+      );
+      final master = (await milestones.propose(
+        sessionId: 's1',
+        characterId: 'mira',
+        kind: MilestoneKind.masterBoon,
+        ringId: boon.id,
+      ))!;
+      final liveMaster = await seed(
+        'Bad temper',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(),
+      );
+      final kept = (await milestones.propose(
+        sessionId: 's1',
+        characterId: 'mira',
+        kind: MilestoneKind.masterBogey,
+        ringId: liveMaster.id,
+      ))!;
+      await store.deleteRing(boon.id); // the ring sweep removed it
+
+      final dropped = await milestones.invalidatePendingFrom('s1', 6);
+      expect(dropped.toSet(), {late, master});
+      final left = {for (final m in await milestones.momentsFor('s1')) m.id};
+      expect(left, {early, decided, kept});
+    });
   });
 }

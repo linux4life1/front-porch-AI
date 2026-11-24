@@ -402,6 +402,66 @@ class GrowthMilestones {
     return MilestoneOutcome.done;
   }
 
+  /// Timeline integrity, the twin of the ring sweep
+  /// (`GrowthRingWriter.invalidateRingsCitingFrom`): a message at or after
+  /// [fromPosition] was regenerated, swiped, deleted or edited, so a
+  /// pending moment citing that region, or whose ring the sweep removed,
+  /// asks about plot that no longer happened. Those are deleted; decided
+  /// moments are history and stay. Runs in the [propose] queue so a
+  /// proposal written mid-rewrite cannot slip past it, and leaves a moment
+  /// a tap is deciding right now to that answer. Returns the ids dropped.
+  Future<List<String>> invalidatePendingFrom(
+    String sessionId,
+    int fromPosition,
+  ) {
+    final run = _proposals.then(
+      (_) => _invalidatePendingFrom(sessionId, fromPosition),
+    );
+    _proposals = run.then<void>(
+      (_) {},
+      onError: (Object e) {
+        debugPrint('[Milestones] rewrite sweep failed: $e');
+      },
+    );
+    return run;
+  }
+
+  Future<List<String>> _invalidatePendingFrom(
+    String sessionId,
+    int fromPosition,
+  ) async {
+    final db = getDb();
+    if (db == null) return const [];
+    final live = {
+      for (final r in await db.getGrowthRingsForSession(sessionId)) r.id,
+    };
+    final pending =
+        await (db.select(db.growthMoments)..where(
+              (m) => m.sessionId.equals(sessionId) & m.status.equals('pending'),
+            ))
+            .get();
+    final dropped = <String>[];
+    for (final m in pending) {
+      if (_deciding.contains(m.id)) continue;
+      final cites =
+          MilestoneProposal.decode(
+            m.payload,
+          )?.sourcePositions.any((p) => p >= fromPosition) ??
+          false;
+      final ringGone = m.ringId != null && !live.contains(m.ringId);
+      if (!cites && !ringGone) continue;
+      // Conditional: a moment answered since the read above is kept.
+      final n = await (db.delete(
+        db.growthMoments,
+      )..where((g) => g.id.equals(m.id) & g.status.equals('pending'))).go();
+      if (n > 0) dropped.add(m.id);
+    }
+    if (dropped.isNotEmpty) {
+      debugPrint('[Milestones] rewrite at $fromPosition dropped $dropped');
+    }
+    return dropped;
+  }
+
   Future<List<GrowthMomentData>> _pending(
     AppDatabase db,
     String sessionId,

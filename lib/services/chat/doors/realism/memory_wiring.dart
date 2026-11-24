@@ -289,6 +289,11 @@ extension RealismMemoryWiring on RealismGraph {
     growthReview: () => growthReview,
     growth: () => growthDesk,
     itemCards: () => itemCards,
+    invalidateMoments: (sessionId, position) async {
+      milestoneSurface.forget(
+        await growthMilestones.invalidatePendingFrom(sessionId, position),
+      );
+    },
     db: deps.services.db,
     disposed: () => deps.life.disposed,
     notify: deps.notify,

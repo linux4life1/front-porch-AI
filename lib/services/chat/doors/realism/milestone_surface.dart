@@ -125,6 +125,19 @@ class MilestoneSurface {
     notify();
   }
 
+  /// A timeline rewrite dropped these pending moments
+  /// ([GrowthMilestones.invalidatePendingFrom]): take down a card showing
+  /// one, and let Moments re-read.
+  void forget(List<String> ids) {
+    if (ids.isEmpty) return;
+    if (ids.contains(_showing?.id)) {
+      _showing = null;
+      _replaying = false;
+    }
+    revision++;
+    notify();
+  }
+
   /// Close the card without answering: a pending moment waits in Moments.
   void dismiss() {
     if (_showing == null) return;
