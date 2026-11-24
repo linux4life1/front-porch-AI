@@ -161,6 +161,7 @@ class GroupMemberEdit {
     final c = await _card(groupId, memberId);
     if (c == null) return false;
     final afterglowBefore = c.frontPorchExtensions?.afterglowEnabled ?? true;
+    final kitBefore = [...?c.frontPorchExtensions?.traitKit];
     // The page always posts its Realism fields. Over extensions the app could
     // not read they are only defaults; the save keeps what is stored.
     applyCharacterFields(
@@ -175,6 +176,8 @@ class GroupMemberEdit {
       chat.refreshActiveCharacterCard(c);
       await settleMemberAfterglow(chat, c, afterglowBefore);
     }
+    // Kit entries added here land in the group's chats now, as on desktop.
+    await spreadNewKitEntries(chat, c, kitBefore, groupMemberId: memberId);
     await _saveGroupValues(groupId, memberId, fields['groupValues']);
     return true;
   }

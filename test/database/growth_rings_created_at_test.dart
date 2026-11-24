@@ -209,4 +209,76 @@ void main() {
       names.length,
     );
   });
+
+  test(
+    'v72 gives growth_state its kit_seen column; an old row reads null',
+    () async {
+      // growth_state as v69 left it (v36 table + v69's kit_seed_state), with a
+      // settled chat in it; climbing from 71 must add kit_seen as null, and a
+      // second climb must not add it twice.
+      await db.customStatement('DROP TABLE IF EXISTS growth_state');
+      await db.customStatement(
+        'CREATE TABLE growth_state (session_id TEXT NOT NULL PRIMARY KEY, '
+        'cursor INTEGER NOT NULL DEFAULT 0, '
+        'kit_seed_state INTEGER NOT NULL DEFAULT 0)',
+      );
+      await db.customStatement(
+        "INSERT INTO growth_state (session_id, kit_seed_state) VALUES ('s1', 1)",
+      );
+      await db.migration.onUpgrade(Migrator(db), 71, db.schemaVersion);
+
+      final cols = await db
+          .customSelect('PRAGMA table_info(growth_state)')
+          .get();
+      final names = [for (final c in cols) c.data['name'] as String];
+      expect(names, contains('kit_seen'));
+      final row =
+          (await db
+                  .customSelect(
+                    "SELECT * FROM growth_state WHERE session_id = 's1'",
+                  )
+                  .getSingle())
+              .data;
+      expect(row['kit_seen'], isNull);
+      expect(row['kit_seed_state'], 1);
+
+      await db.migration.onUpgrade(Migrator(db), 71, db.schemaVersion);
+      expect(
+        (await db.customSelect('PRAGMA table_info(growth_state)').get()).length,
+        names.length,
+      );
+    },
+  );
+
+  test('v71 gives a v68 moments queue its milestone columns', () async {
+    // Rebuild growth_moments in its exact v68 shape (the ladder's own DDL),
+    // then climb from 70: status/payload/shown_at must arrive, and a row
+    // written before them reads as a pending, never-shown moment.
+    await db.customStatement('DROP TABLE IF EXISTS growth_moments');
+    await db.migration.onUpgrade(Migrator(db), 67, 68);
+    await db.customStatement(
+      "INSERT INTO growth_moments (id, session_id, character_id, kind) "
+      "VALUES ('m1', 's1', 'tess', 'new_boon')",
+    );
+    await db.migration.onUpgrade(Migrator(db), 70, db.schemaVersion);
+
+    final cols = await db
+        .customSelect('PRAGMA table_info(growth_moments)')
+        .get();
+    final names = [for (final c in cols) c.data['name'] as String];
+    expect(names, containsAll(const ['status', 'payload', 'shown_at']));
+    final row =
+        (await db
+                .customSelect("SELECT * FROM growth_moments WHERE id = 'm1'")
+                .getSingle())
+            .data;
+    expect(row['status'], 'pending');
+    expect(row['shown_at'], isNull);
+
+    await db.migration.onUpgrade(Migrator(db), 70, db.schemaVersion);
+    expect(
+      (await db.customSelect('PRAGMA table_info(growth_moments)').get()).length,
+      names.length,
+    );
+  });
 }

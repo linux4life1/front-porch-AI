@@ -41,6 +41,9 @@ const knownGrowthActions = {
   'acceptKit',
   'declineKit',
   'kitAgain',
+  'milestoneAnswer',
+  'milestoneReplay',
+  'milestoneDismiss',
 };
 
 /// `POST /api/chat/tools/growth` — one growth mutation, then the fresh
@@ -60,5 +63,20 @@ Future<shelf.Response> handleGrowthPost({
     return JsonResponse.badRequest('Unknown growth action: $action');
   }
   await facade.growthAction(participant, action, body);
-  return JsonResponse.ok(facade.growth(participant));
+  return JsonResponse.ok({
+    ...facade.growth(participant),
+    // A milestone answer says what it did: the card stays up, with a
+    // reason, when a new bogey would pass the cap.
+    if (action == 'milestoneAnswer')
+      'milestoneOutcome': facade.lastMilestoneOutcome,
+  });
 }
+
+/// `GET /api/chat/tools/growth/moments` — the focused owner's Moments
+/// (`?participant=`), newest first, with the revision they were read at.
+Future<shelf.Response> handleMomentsGet({
+  required shelf.Request request,
+  required ChatToolsFacade facade,
+}) async => JsonResponse.ok(
+  await facade.moments(request.url.queryParameters['participant']),
+);

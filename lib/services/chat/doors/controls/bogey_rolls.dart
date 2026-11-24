@@ -131,6 +131,8 @@ class BogeyRolls {
     GrowthRingData? fired;
     if (index != null) {
       fired = rings[index];
+      // The twelfth fire asks (ruling 8); the count itself stays one short.
+      await _g.growthMilestones.proposeMasterIfCrossing(fired);
       await bogeys.fire(
         fired,
         text: BogeyRoll.injectionText(fired, _nameFor(ownerId)),

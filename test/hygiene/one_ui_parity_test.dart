@@ -1229,4 +1229,81 @@ void main() {
     ]);
     expect(dartMember, webMember);
   });
+
+  test('the milestone card and Moments: same words, same order, one wire '
+      '(Boons & Bogies §7)', () {
+    // Markers are read from code, never from the doc comments that name them.
+    String code(String path) => File(path)
+        .readAsStringSync()
+        .replaceAll(RegExp(r'/\*[\s\S]*?\*/'), '')
+        .replaceAll(RegExp(r'^\s*//.*$', multiLine: true), '');
+    final dartCard = code('lib/ui/widgets/milestone/milestone_card.dart');
+    final webCard = code('web_ui/src/components/milestone/MilestoneCard.tsx');
+    int at(String src, String marker, String file) {
+      final i = src.indexOf(marker);
+      if (i < 0) fail('$file lost "$marker"');
+      return i;
+    }
+
+    // Title, then the ring box's MASTER badge, then Reject before Accept.
+    for (final (a, b) in [
+      ("'Milestone'", "'MASTER'"),
+      ("'MASTER'", "'Reject'"),
+      ("'Reject'", "'Accept'"),
+    ]) {
+      expect(
+        at(dartCard, a, 'milestone_card.dart') <
+            at(dartCard, b, 'milestone_card.dart'),
+        isTrue,
+        reason: 'desktop: $a before $b',
+      );
+    }
+    // On the web the words are JSX text: `>Reject<`, whitespace allowed.
+    int jsx(String word) {
+      final m = RegExp('>\\s*$word\\s*<').firstMatch(webCard);
+      if (m == null) fail('MilestoneCard.tsx lost the "$word" text');
+      return m.start;
+    }
+
+    for (final (a, b) in [
+      ('(?:</span>\\s*)?Milestone', 'MASTER'),
+      ('MASTER', 'Reject'),
+      ('Reject', 'Accept'),
+    ]) {
+      expect(jsx(a) < jsx(b), isTrue, reason: 'web: $a before $b');
+    }
+    expect(dartCard, contains("'Close'"));
+    expect(webCard, contains('Close'));
+
+    // Moments rows offer the same answers on both stacks.
+    final dartMoments = File(
+      'lib/ui/widgets/milestone/moments_section.dart',
+    ).readAsStringSync();
+    final webMoments = File(
+      'web_ui/src/components/milestone/Moments.tsx',
+    ).readAsStringSync();
+    for (final word in ['ASKS', 'Reject', 'Accept', 'Replay', ' new']) {
+      expect(dartMoments, contains(word), reason: 'desktop Moments: $word');
+      expect(webMoments, contains(word), reason: 'web Moments: $word');
+    }
+
+    // One wire: the TS card reads exactly the keys MilestoneView sends.
+    final view = File(
+      'lib/services/chat/doors/realism/milestone_view.dart',
+    ).readAsStringSync();
+    final toJson = view.substring(view.indexOf('toJson() => {'));
+    final dartKeys = RegExp(
+      r"'(\w+)':",
+    ).allMatches(toJson.substring(0, toJson.indexOf('};'))).map((m) => m[1]);
+    final types = File(
+      'web_ui/src/components/milestone/milestoneTypes.ts',
+    ).readAsStringSync();
+    final start = types.indexOf('interface MilestoneViewJson');
+    final iface = types.substring(start, types.indexOf('}', start));
+    final webKeys = RegExp(
+      r'^\s+(\w+):',
+      multiLine: true,
+    ).allMatches(iface).map((m) => m[1]);
+    expect(webKeys.toSet(), dartKeys.toSet());
+  });
 }

@@ -88,11 +88,17 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     // carries them too. Defaults match the Table class exactly.
     ...kGrowthBogeyColumnsV68,
   ],
+  'growth_moments': [
+    // v71 — phase-5 milestones (docs/design/boons-and-bogies.md §7).
+    ...kGrowthMomentColumnsV71,
+  ],
   'growth_state': [
     // v69 — kit seeding settles here (docs/design/boons-and-bogies.md §4).
     // The repair must carry it: Drift's generated SELECT names the column on
     // every cursor read, so one missed ALTER makes chats fail to open.
     'kit_seed_state INTEGER NOT NULL DEFAULT 0',
+    // v72 — the kit entries the chat has taken (mid-chat kit edits).
+    'kit_seen TEXT',
   ],
   'groups': [
     // v30
@@ -272,6 +278,14 @@ const kGrowthBogeyColumnsV68 = [
   'bogey_pending TEXT',
   'bogey_delivered INTEGER NOT NULL DEFAULT 0',
   'master_declined INTEGER NOT NULL DEFAULT 0',
+];
+
+/// v71: a milestone's decision state, its proposal and when it popped — one
+/// list for the upgrade ladder and the always-on schema repair.
+const kGrowthMomentColumnsV71 = [
+  "status TEXT NOT NULL DEFAULT 'pending'",
+  'payload TEXT',
+  'shown_at INTEGER',
 ];
 
 /// v66: the group editor's own fields, the one list the upgrade ladder and

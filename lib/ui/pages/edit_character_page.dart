@@ -168,6 +168,17 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     if (_saving) return;
     _saving = true;
     var left = false;
+    // The kit as the editor opened it: the writer below replaces it on the
+    // very card a chat holds, so "what was added" is only known here.
+    final kitBefore = List<TraitKitEntry>.of(
+      widget.character.frontPorchExtensions?.traitKit ?? const [],
+    );
+    ChatService? chat;
+    try {
+      chat = Provider.of<ChatService>(context, listen: false);
+    } catch (_) {
+      // No ChatService in this context (a bare editor): no chats to reach.
+    }
     try {
       final writer = EditCharacterCardWriter(
         character: widget.character,
@@ -211,6 +222,18 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       final values = _values;
       if (_valuesMoved && values != null) {
         await widget.member!.saveValues(values);
+      }
+
+      // Kit entries added here land in this character's chats now (ruling
+      // 2026-11-24). A delegated save outside member mode is not ours to
+      // spread; a plain save never reaches the realism door.
+      if (widget.onSaveOverride == null || widget.member != null) {
+        await spreadNewKitEntries(
+          chat,
+          widget.character,
+          kitBefore,
+          groupMemberId: widget.member?.memberId,
+        );
       }
 
       if (widget.onSaved != null) {

@@ -18,6 +18,8 @@ import { api, ApiError } from '../../api/client';
 import { type Message } from '../../components/chatTypes';
 import { useReprocessNeeds } from './useReprocessNeeds';
 import type { PendingConfirm } from './useChatSend';
+import { MilestoneModal } from '../../components/milestone/MilestoneModal';
+import type { MilestoneShowing } from '../../components/milestone/milestoneTypes';
 
 // The desktop bubble's Delete Message / Fork Conversation confirms, same words.
 function confirmCopy({ kind, index }: PendingConfirm) {
@@ -58,6 +60,7 @@ export function ChatOverlays(props: {
   onAccept: () => void | Promise<void>;
   imagePromptReview?: string;
   pendingSkip?: PendingSkip | null;
+  milestone?: MilestoneShowing | null;
   placeMove?: { id: string; name: string } | null;
   placeMint?: { name: string; descriptor: string; settingName?: string } | null;
   onAnswerPlaceMint?: (action: 'add_move' | 'add' | 'ignore') => void | Promise<void>;
@@ -172,6 +175,8 @@ export function ChatOverlays(props: {
       )}
 
       {props.pendingSkip && <SkipConfirmOverlay pending={props.pendingSkip} />}
+
+      {props.milestone && <MilestoneModal milestone={props.milestone} />}
 
       {imagePromptReview && (
         <ImagePromptReviewModal

@@ -33,6 +33,7 @@ import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'package:front_porch_ai/ui/theme/realism_colors.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
+import 'milestone_wire.dart';
 
 /// Builds the full `/api/chat/state` payload from the live chat.
 class ChatStateSnapshot {
@@ -328,6 +329,9 @@ class ChatStateSnapshot {
       // "Did time pass?" (#629): the send waits on it; the client shows a
       // sheet and answers via POST /api/chat/skip-confirm. Additive.
       'pendingSkip': ?_chat.pendingSkip?.toJson(),
+      // Boons & Bogies milestone card (§7); the web modal answers through
+      // POST /api/chat/tools/growth. Additive, absent when none is up.
+      'milestone': ?milestoneWire(_chat),
       // Tool-calling verdict for the current backend+model (desktop sidebar
       // pill parity). Retest via POST /api/chat/tool-test. Additive field.
       'toolSupport': _chat.toolSupportJson,

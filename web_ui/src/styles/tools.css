@@ -83,26 +83,31 @@
   background: color-mix(in srgb, var(--bogey) 6%, transparent);
   border-color: color-mix(in srgb, var(--bogey) 35%, transparent);
 }
-/* Beta marker for nightly ships (mirrors the desktop BETA pill;
-   remove with it when phase 5 lands — issue #763). */
-.trait-kit-beta {
-  margin-left: 6px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  font-size: 8.5px;
-  font-weight: 800;
-  letter-spacing: 0.6px;
-  color: var(--porch-honey);
-  background: color-mix(in srgb, var(--porch-honey) 18%, transparent);
-  cursor: help;
+/* A bogey's boon link (#763), under its row. */
+.trait-kit-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -2px 0 6px 8px;
+  font-size: 11px;
+  color: var(--bogey);
+}
+.trait-kit-link select {
+  font-size: 11px;
+  width: auto; /* compact, as on desktop (see the row rule below) */
+  min-width: 0;
+  max-width: 100%;
 }
 /* No max-width on the selects: a 14ch cap silently clipped the ladder
    names ("Master-bou…"). Unset width sizes a select to its longest
    option, which is the label the ruling demands we show in full; the
    row wraps first so the trait input keeps room on phone widths. */
 .trait-kit-row { flex-wrap: wrap; }
-.trait-kit-row input { flex: 1 1 8ch; min-width: 8ch; }
-.trait-kit-row select { flex: none; }
+/* width: auto undoes the global form rule (input, select { width: 100% }),
+   which stacked every control on its own line even at 1440 px; one trait
+   is one line, as on desktop, until the row runs out of room. */
+.trait-kit-row input { flex: 1 1 8ch; min-width: 8ch; width: auto; }
+.trait-kit-row select { flex: none; width: auto; }
 .trait-kit-pin { background: none; border: none; cursor: pointer; opacity: 0.45; }
 .trait-kit-pin.on { opacity: 1; }
 .growth-tier-head {

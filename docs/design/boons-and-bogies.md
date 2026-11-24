@@ -9,7 +9,12 @@ Phase 4 shipped in PR #771 (rolls, participation, one home for traits) and
 was closed out on 2026-11-23 by the phase-4 closer: fires count and cool
 down, the nudge slot clears, the scene gate reads this message, the
 "Bogey rolls" switch gates rolls, the opt-out freezes only Boons & Bogies,
-and the `not offered` verdict (#764). Phase 5 (milestones) remains.
+and the `not offered` verdict (#764). Phase 5 shipped on 2026-11-24
+(PR #774): schema v71, the milestone card and
+Moments on both surfaces from the approved mockup, the shared celebration
+sim (Flame on desktop, canvas on web), and #763 (BETA lifted, boon link,
+scope hint, kind-flip pin default). v1 is complete; phase 7 (the boon
+link's slowdown) is next.
 Ruling 18 (three-layer participation) and the §3 absence amendment are law
 for phases 4–5.
 v1 (2026-11-19) proposed
@@ -56,7 +61,10 @@ file it was read from, at `ba5b37a2f`.
     rings.
 12. **Rollout.** v1 is the working loop with a static celebration. v2 is the
     deterministic particle sim and the boon link. No phase ships half a
-    surface.
+    surface. *Amended 2026-11-23 (maintainer):* the particle sim (phase 6)
+    is pulled into phase 5 — Flame paints it on desktop, a canvas paints
+    the same shared sim on web; there is no static-burst v1. The boon link
+    (phase 7) stays v2.
 13. **Existing chats.** Turning the feature on offers the card's kit once,
     naming the whole cast. Decline changes nothing; the offer can be re-run
     from the panel.
@@ -270,6 +278,21 @@ inherit the Pockets bug class. Rings are already keyed
 - Groups: each member is seeded from their own card, once.
 - **Existing chats:** switching the feature on offers the kit once, naming the
   whole cast. Decline writes nothing. The offer is re-runnable from the panel.
+- **Entries added mid-chat** (maintainer ruling 2026-11-24): an entry the
+  author appends in the character editor (desktop or web, library card or a
+  group member's copy) lands **at once** as a ring in every chat with that
+  character, at its tier and pin — the save is the author's yes. Chats where
+  Boons & Bogies is off for that character take nothing; words a live ring
+  already says and bogeys past the cap are skipped; retyping an existing
+  entry is an edit of the card, not a new trait (`GrowthKitAdditions`).
+  Before this, a seeded chat never saw the entry and an unseeded one only
+  got the offer above. The save is not the only way in: each chat records
+  the kit entries it has taken (`growth_state.kit_seen`, v72), and on every
+  Growth refresh a settled chat takes any it has not (`GrowthKitSettler`),
+  so a save that could not reach a chat is caught up the next time the
+  chat loads. An entry the user removed from a chat stays removed; a chat
+  from before v72 counts its own rings as taken, or the whole kit if it
+  declined the kit.
 - Character creator: a "Boons & Bogies" block in the realism step
   (`lib/ui/character_creator/steps/realism_step.dart`); character editor and
   web editor get the same block. New field lands in
@@ -294,9 +317,10 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   appearing. No test can prove a prompt obeyed this: hand-check and live test.
 - Same transports as today (XML and native tools); the parser normalizes or
   drops unknown categories, so an old model ignoring `bogey` costs nothing.
-- **Half-built guard:** until the milestone surface ships (phase 5), the
-  applier holds advancement one step below Master, so "Master always asks"
-  cannot be violated by a partial build.
+- **Master always asks:** the silent ladder stops one step below Master
+  (it did from phase 2, as a half-built guard); since phase 5 the step that
+  would cross proposes a Master milestone instead, and only an Accept
+  crowns the ring.
 
 ## 6. Bogey rolls
 
@@ -340,6 +364,13 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   Master it makes an overcome proposal likely. v1's overcome does not need it.
 
 ## 7. Milestones
+
+**Approved mockup (maintainer, 2026-11-23):**
+`docs/design/mockups/boons-and-bogies-milestones.html` is the binding design
+for the card, its five moments and Moments. Its three open calls are settled
+as drawn: Moments lives in the Boons & Bogies line (the traits' one home since
+phase 4), the title and ask copy stand, and with Milestone popups off a
+pending moment is answered inline in Moments.
 
 A center-screen moment, shown **after the reply finishes streaming**, never
 mid-stream. **Accept / Reject** (Redo cut, ruling 15). The effect plays on
@@ -439,6 +470,43 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
    parity entry.
 7. (v2) Boon link and its slowdown; a linked Master makes overcome likely.
 
+### Phase 5 build order (2026-11-23)
+
+One PR (ruling 12: no half surface), built in this order so each commit
+leaves the app working:
+
+1. **Schema v71.** `growth_moments` gains `status` (pending / accepted /
+   rejected), `payload` (JSON: text, category, receipts, owner name) and
+   `shown_at`; the session records the user-message count of the last
+   popup for the 8-message budget. Additive, ladder + repair list +
+   upgrade test.
+2. **`GrowthMilestones` leaf** (`lib/services/chat/`). `propose` writes a
+   pending moment; `decide(id, accept)` applies through the one applier:
+   new boon/bogey → the ring is added; Master → permanent; Master rejected
+   → `master_declined` latch (boon: never again; bogey: re-armed below 4
+   fires); overcome → retired even when pinned (the tested exception).
+   Reject of an add or overcome drops it.
+3. **Producers.** The applier routes boon/bogey adds and a bogey retire
+   (overcome) to `propose`; boon reinforces and bogey fires that cross
+   Master propose (`BoonsBogies.crossesMaster`); the silent ladder still
+   stops one short, and Master shows only on a crowned ring. A declined
+   bogey re-arms below 4 fires.
+4. **Surface.** After the reply finishes streaming, at most one pending
+   moment pops when Milestone popups is on and 8 user messages have passed
+   since the last; everything else waits unread in Moments.
+5. **UI, both stacks, from the approved mockup.** The card (desktop via
+   `showWarmDialog`, web modal), the Moments sub-section of the Boons &
+   Bogies line (inline Accept/Reject, Replay), `milestone_palette.dart` +
+   its `theme-keep` web twin, the celebration sim (phase 6 pulled in,
+   ruling 12 amended): `milestone_burst.dart` ↔ `milestoneBurst.ts`, every
+   particle from `(kind, seed)` at fixed 1/60 s steps in card widths, pinned
+   by `test/fixtures/growth/milestone_burst_vectors.json` read by a Dart
+   test and a vitest; Flame paints it on desktop, a canvas on web (the
+   Chance Time structure: `chance_spin.dart` ↔ `chanceSpin.ts`). Reduce
+   motion, golden + `one_ui_parity_test` entry, web facade routes.
+6. **#763.** Lift the BETA markers, the `linkedTo` row affordance, the
+   prop-bound scope hint, the kind-flip pin default.
+
 ## 11. Repo rules this has to meet (CLAUDE.md)
 
 - **One UI:** every phase that touches UI ships desktop and `web_ui/` in the
@@ -462,7 +530,9 @@ Each phase leaves the app working on both surfaces. v1 ends at phase 5; phases
 
 - The card is never written by a chat; rings never cross chats.
 - **Content** changes go through `GrowthReview.applyOwnerProposals` (including
-  the undo snapshot). **Gauges** have exactly one other writer, the roll
+  the undo snapshot), or — only for a milestone the user accepted —
+  `GrowthMilestones.decide` (the ring added, crowned Master, or retired as
+  overcome). **Gauges** have exactly one other writer, the roll
   (`GrowthBogeyStore.recordGauge` / `fire`), which touches only the six gauge
   columns plus a bogey's `strength` — a pure function of `advance_count` for a
   bogey, so it moves with the count. Two writers, two disjoint column sets,

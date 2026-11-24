@@ -6,6 +6,7 @@
 
 import { type CastMember } from '../../components/CastBar';
 import { type ToolSupport } from '../../components/ToolCallingPill';
+import { type MilestoneShowing } from '../../components/milestone/milestoneTypes';
 import { type PromptSourceState } from '../../components/PromptSource';
 import { type DirectorState, type ExitUndo } from '../../components/DirectorStrip';
 import {
@@ -79,6 +80,9 @@ export interface ChatState {
   // Chaos "Chance Time" park state: while pending, the engine is frozen waiting
   // for the user to accept their fate (event is pre-resolved server-side).
   chanceTime?: { pending: boolean; event?: string; kind?: string; label?: string; emoji?: string };
+  // Boons & Bogies milestone card on screen (§7, additive): the host's
+  // MilestoneView plus replaying and the celebration seed.
+  milestone?: MilestoneShowing;
   // Crafted /image prompt parked for review (review setting on) — the modal
   // resolves it via POST /api/chat/image-review.
   imagePromptReview?: string;

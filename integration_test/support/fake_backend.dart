@@ -314,6 +314,13 @@ class FakeBackendServer {
         '<ring action="add" category="stance" src="1">'
             'Has started saving the porch swing for their favorite guest.'
             '</ring>',
+        // With Boons & Bogies offered (the prompt names bogeys only then),
+        // the pass also proposes a boon — a phase-5 milestone moment the
+        // browser journey answers. Off, the reply is exactly as before.
+        if (lastContent.contains('bogey'))
+          '<ring action="add" category="skill" src="1">'
+              'Pours a perfect glass of lemonade every time.'
+              '</ring>',
       ]);
       return;
     }

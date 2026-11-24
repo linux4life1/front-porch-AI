@@ -134,6 +134,13 @@ class ChatToolsFacade {
     Map<String, dynamic> body,
   ) => _memory.growthAction(participantId, action, body);
 
+  /// The last milestone answer's outcome name (see [ChatToolsMemory]).
+  String? get lastMilestoneOutcome => _memory.lastMilestoneOutcome;
+
+  /// The focused owner's Moments (phase-5 milestones).
+  Future<Map<String, dynamic>> moments(String? participantId) =>
+      _memory.moments(participantId);
+
   Map<String, dynamic> growthReviewBatch() => _memory.growthReviewBatch();
 
   Future<void> settleGrowthReview({

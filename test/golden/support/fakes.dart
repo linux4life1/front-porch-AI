@@ -26,7 +26,8 @@
 
 import 'package:flutter/foundation.dart';
 
-import 'package:front_porch_ai/database/database.dart' show Objective;
+import 'package:front_porch_ai/database/database.dart'
+    show GrowthMomentData, Objective;
 import 'package:front_porch_ai/services/chat/pockets.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_generation_settings.dart';
@@ -498,6 +499,10 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   // the controls door — which this fake throws — so answer the read here.
   @override
   bool get bbChatSwitch => true;
+
+  // No milestone card on a fake: the web snapshot reads this every state().
+  @override
+  GrowthMomentData? get milestoneShowing => null;
 
   // Objective surface — empty by default (renders the "propose an objective" UI).
   @override

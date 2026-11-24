@@ -273,6 +273,13 @@ class GrowthMoments extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get seen => boolean().withDefault(const Constant(false))();
 
+  /// v71 (phase 5): pending / accepted / rejected; the proposal as JSON
+  /// (text, category, receipts, owner name); the user-message count it
+  /// popped at — null never popped, the max is the 8-message budget's clock.
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get payload => text().nullable()();
+  IntColumn get shownAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -289,6 +296,12 @@ class GrowthState extends Table {
   /// settled — seeded silently, offered and accepted, or declined. Decline
   /// writes no ring, so this row is the only trace it exists.
   IntColumn get kitSeedState => integer().withDefault(const Constant(0))();
+
+  /// v72 — the kit entries this chat has taken, per owner (JSON
+  /// `{ownerId: [textKey]}`): an entry the author adds later lands on the
+  /// next refresh; one the user removed from this chat stays removed. Null
+  /// on a chat from before v72 (its rings stand in).
+  TextColumn get kitSeen => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {sessionId};

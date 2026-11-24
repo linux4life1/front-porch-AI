@@ -778,6 +778,7 @@ export function ChatPage() {
         }
         imagePromptReview={state.imagePromptReview}
         pendingSkip={state.pendingSkip ?? null}
+        milestone={state.milestone ?? null}
         pendingConfirm={pendingConfirm}
         onConfirmPending={confirmPending}
         onCancelPending={cancelPending}

@@ -23,6 +23,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'growth_boons_bogies.dart';
 import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
+import 'growth_store/growth_bb_writer.dart';
 import 'growth_store/growth_bogey_store.dart';
 import 'growth_store/growth_ring_codec.dart';
 import 'growth_store/growth_ring_writer.dart';
@@ -307,6 +308,9 @@ class GrowthStore {
   /// See [GrowthRingWriter.restoreUndo].
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) =>
       _writer.restoreUndo(ring, undo);
+
+  /// The Boons & Bogies row writer, for the milestone decisions.
+  GrowthBbWriter get bb => _writer.bb;
 
   /// The bogey roll's writes and the coping verdict (see [GrowthBogeyStore]).
   late final GrowthBogeyStore bogeys = GrowthBogeyStore(

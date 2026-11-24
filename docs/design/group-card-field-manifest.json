@@ -858,8 +858,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/growth_desk.dart",
-          "in": "GrowthDesk._seedCastKits",
+          "path": "lib/services/chat/growth_kit_settler.dart",
+          "in": "GrowthKitSettler._seedCastKits",
           "marker": "card.frontPorchExtensions?.traitKit"
         }
       ],

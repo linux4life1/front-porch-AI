@@ -26,6 +26,7 @@ import { ChatLorebookModal } from './ChatLorebookModal';
 import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
 import { GrowthRingRow } from './GrowthPanel';
+import { MomentsSection, MomentsUnreadDot, useMoments } from './milestone/Moments';
 import { LookSwiper, Portrait } from './ChatAvatar';
 import { CardMenu, type CardMenuItem } from './library/CardMenu';
 import { BelongingsPanel } from './BelongingsPanel';
@@ -253,6 +254,10 @@ export function ChatSidebar({
   const bbBoons = bbRings.filter((r) => r.kind !== 'bogey');
   const bbBogeys = bbRings.filter((r) => r.kind === 'bogey');
   const bbCap = t?.boonsBogiesBogeyCap;
+  // Moments (phase 5, §7): same gate as the traits; one read feeds the
+  // header dot and the section, re-read after each reply (toolsKey).
+  const bbOn = t?.boonsBogiesEnabled === true && t.boonsBogiesAllowed !== false;
+  const bbMoments = useMoments(q, toolsKey, bbOn);
   const pocketLabel = (i: { name: string; state?: string }) =>
     i.state ? `${i.name} (${i.state})` : i.name;
 
@@ -641,8 +646,9 @@ export function ChatSidebar({
                       entry is: the line does not ride the Needs switch. */}
                   {t?.boonsBogiesEnabled !== undefined && (
                     <>
-                      <label className="state-line">
+                      <label className="state-line bb-line-head">
                         <span>✨ Boons &amp; Bogies</span>
+                        <MomentsUnreadDot moments={bbMoments.moments} />
                         <input
                           type="checkbox"
                           aria-label="Boons & Bogies"
@@ -701,6 +707,16 @@ export function ChatSidebar({
                             </div>
                           )}
                         </div>
+                      )}
+                      {bbOn && (
+                        <MomentsSection
+                          moments={bbMoments.moments}
+                          query={q}
+                          onChanged={() => {
+                            void bbMoments.reload();
+                            void load();
+                          }}
+                        />
                       )}
                     </>
                   )}

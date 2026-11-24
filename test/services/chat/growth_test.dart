@@ -961,8 +961,10 @@ Some prose the model wrote.
       expect(tier(2, 0.9), 'novice');
       expect(tier(3, 0.4), 'novice');
       expect(tier(3, 0.5), 'skilled');
-      // Master is held one step below until the milestone surface ships.
-      expect(tier(8, 0.9), 'skilled');
+      // Phase 5: the silent ladder still stops at 7 (pinned below), so 8 is
+      // only ever a ring an accepted Master milestone crowned.
+      expect(tier(7, 0.9), 'skilled');
+      expect(tier(8, 0.9), 'master');
     });
 
     test('bogey tiers are fire-count only and Master is held', () {
@@ -976,7 +978,8 @@ Some prose the model wrote.
       expect(tier(3), 'novice');
       expect(tier(4), 'skilled');
       expect(tier(11), 'skilled');
-      expect(tier(12), 'skilled'); // guard until the milestone surface
+      // Phase 5: 12 is reachable only through an accepted Master milestone.
+      expect(tier(12), 'master');
     });
 
     test('bogey strength follows the fire count, clamped', () {

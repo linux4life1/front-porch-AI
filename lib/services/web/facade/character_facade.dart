@@ -278,6 +278,7 @@ class CharacterFacade {
     if (repo == null) return false;
     final card = cardByDbId(id);
     if (card == null) return false;
+    final kitBefore = [...?card.frontPorchExtensions?.traitKit];
     applyCharacterFields(
       card,
       fields,
@@ -287,6 +288,8 @@ class CharacterFacade {
     // A card sets how its new chats start; chats that exist keep their own
     // switches (the desktop editor's rule).
     await repo.updateCharacter(card);
+    // Kit entries added here land in its chats now, as on desktop.
+    await spreadNewKitEntries(_chat, card, kitBefore);
     return true;
   }
 

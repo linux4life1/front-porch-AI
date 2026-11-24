@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character/trait_kit.dart';
 import 'package:front_porch_ai/models/character_card.dart';
@@ -99,6 +103,117 @@ class GrowthKitSeed {
     }
     return plan;
   }
+
+  /// Entries a save APPENDED to a kit ([before] → [after]), for the
+  /// mid-chat edit rule (maintainer ruling 2026-11-24: an entry the author
+  /// adds in the editor lands at once in every chat with that character).
+  /// The editors append, so only entries past the old length count, and
+  /// only when their words are new: retyping an existing row is an edit of
+  /// the card, not a new trait, and a chat's copy is its own (§4).
+  static List<TraitKitEntry> added(
+    List<TraitKitEntry> before,
+    List<TraitKitEntry> after,
+  ) {
+    if (after.length <= before.length) return const [];
+    final known = {for (final e in before) sameTextKey(e.text)};
+    return [
+      for (final e in after.skip(before.length))
+        if (!known.contains(sameTextKey(e.text))) e,
+    ];
+  }
+
+  /// Rings for [added] entries in one chat: like [planOwner], but per entry
+  /// (an owner already seeded still takes a NEW entry), skipping words a
+  /// live ring already says and bogeys past the shared cap (§5).
+  static List<KitSeedRing> planAdditions({
+    required List<TraitKitEntry> added,
+    required List<GrowthRingData> activeRings,
+  }) {
+    final have = {for (final r in activeRings) sameTextKey(r.content)};
+    final plan = <KitSeedRing>[];
+    var bogeys = activeRings.where(BoonsBogies.isBogey).length;
+    for (final entry in added) {
+      if (!have.add(sameTextKey(entry.text))) continue;
+      if (entry.isBogey && bogeys >= BoonsBogies.kMaxActiveBogies) continue;
+      if (entry.isBogey) bogeys++;
+      plan.addAll(planOwner(kit: [entry], activeRings: const []));
+    }
+    return plan;
+  }
+
+  /// One spelling for "the same trait": case, spacing and a closing full
+  /// stop aside.
+  static String sameTextKey(String text) => text
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!]+$'), '');
+}
+
+/// The kit entries each chat has taken, per owner (`growth_state.kit_seen`,
+/// v72): what lets an entry added later land on the next refresh while one
+/// the user removed from a chat stays removed. Keys are
+/// [GrowthKitSeed.sameTextKey].
+abstract final class KitSeen {
+  /// The chat's record, or null for a chat from before v72.
+  static Future<Map<String, Set<String>>?> read(
+    AppDatabase db,
+    String sessionId,
+  ) async {
+    final row = await (db.select(
+      db.growthState,
+    )..where((g) => g.sessionId.equals(sessionId))).getSingleOrNull();
+    final raw = row?.kitSeen;
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return null;
+      return {
+        for (final e in json.entries)
+          if (e.value is List)
+            '${e.key}': {...(e.value as List).whereType<String>()},
+      };
+    } catch (e) {
+      debugPrint('[Growth] unreadable kit_seen on $sessionId: $e');
+      return null;
+    }
+  }
+
+  static Future<void> write(
+    AppDatabase db,
+    String sessionId,
+    Map<String, Set<String>> seen,
+  ) => db
+      .into(db.growthState)
+      .insertOnConflictUpdate(
+        GrowthStateCompanion(
+          sessionId: Value(sessionId),
+          kitSeen: Value(
+            jsonEncode({
+              for (final e in seen.entries) e.key: e.value.toList()..sort(),
+            }),
+          ),
+        ),
+      );
+
+  /// Every key in [kit].
+  static Set<String> keysOf(Iterable<TraitKitEntry> kit) => {
+    for (final e in kit) GrowthKitSeed.sameTextKey(e.text),
+  };
+
+  /// One kit write at a time across the app: the save-time spread and the
+  /// refresh catch-up both read rings, then write — run together they could
+  /// add the same trait twice.
+  static Future<T> exclusive<T>(Future<T> Function() run) {
+    final next = _tail.then((_) => run());
+    _tail = next.then<void>(
+      (_) {},
+      onError: (Object e) => debugPrint('[Growth] kit write failed: $e'),
+    );
+    return next;
+  }
+
+  static Future<void> _tail = Future.value();
 }
 
 /// What a first Growth touch does with the cast's kits.

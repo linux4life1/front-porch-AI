@@ -62,6 +62,7 @@ class ChatScenePrompts {
   bool _showingGuestPicker = false;
   bool _showingImageReview = false;
   bool _showingSkip = false;
+  final MilestonePrompt _milestones = MilestonePrompt();
 
   /// Handle one ChatService notification. [context] is the mounted chat
   /// page's; [onGuestAvatarReady] gets the image path of a guest whose
@@ -71,6 +72,7 @@ class ChatScenePrompts {
     ChatService chat, {
     required ValueChanged<String> onGuestAvatarReady,
   }) {
+    _milestones.onChatChanged(context, chat); // Boons & Bogies (§7)
     if (chat.chanceTimePendingTrigger) {
       chat.consumeChanceTimeTrigger();
       WidgetsBinding.instance.addPostFrameCallback(

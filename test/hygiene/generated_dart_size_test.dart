@@ -52,7 +52,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// freed headroom cannot quietly grow back.
 const Map<String, int> kGeneratedCeilings = {
   'lib/database/database.g.dart':
-      19400, // v68: six bogey columns + moments table
+      19600, // v71: three milestone columns on growth_moments (v68: bogeys)
   'lib/services/chat/weather_providers.g.dart': 400,
   'lib/services/chat/milestone_providers.g.dart': 320,
   'lib/ui/chat_components/overlays/absence_recap_banner.g.dart': 160,

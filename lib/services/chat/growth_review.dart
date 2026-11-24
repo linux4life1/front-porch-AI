@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart';
 
 import 'growth_boons_bogies.dart';
+import 'growth_milestones.dart';
 import 'growth_ops.dart';
 import 'growth_physics.dart';
 import 'growth_store.dart';
@@ -132,14 +133,22 @@ class GrowthReview {
   final Future<void> Function() onApplied;
   final VoidCallback onNotify;
 
+  /// Phase-5 milestones (ruling 1): new boons and bogies, Master crossings
+  /// and overcome become moments here instead of applying. Null only in a
+  /// host without milestones (older unit tests), where adds apply directly.
+  final GrowthMilestones? Function() getMilestones;
+
   GrowthReview({
     required this.store,
     required this.getSessionId,
     required this.getIsGroup,
     this.getBoonsBogiesEnabled = boonsBogiesOff,
+    this.getMilestones = _noMilestones,
     required this.onApplied,
     required this.onNotify,
   });
+
+  static GrowthMilestones? _noMilestones() => null;
 
   GrowthReviewBatch? _pending;
   GrowthReviewBatch? get pending => _pending;
@@ -198,8 +207,33 @@ class GrowthReview {
             );
             continue;
           }
+          final bogey = op.category == BoonsBogies.kCategoryBogey;
+          // Off proposes nothing new (§8); a model that emits a bogey
+          // anyway is ignored.
+          if (bogey && !boonsBogiesOn) continue;
+          final milestones = getMilestones();
+          final asks =
+              milestones != null &&
+              (bogey || (op.category == 'skill' && boonsBogiesOn));
+          // A boon or bogey already on the card is not new: asking again
+          // would pop a second "New boon" for the same words.
+          if (asks && _alreadyOnCard(rings, op.text)) {
+            debugPrint('[Growth] already on the card — dropping: ${op.text}');
+            continue;
+          }
           adds++;
-          if (op.category == BoonsBogies.kCategoryBogey) activeBogeys++;
+          if (bogey) activeBogeys++;
+          if (asks) {
+            // Ruling 1: a new boon or bogey always asks first.
+            await milestones.proposeAdd(
+              sessionId: sessionId,
+              characterId: owner.ownerId,
+              text: op.text,
+              bogey: bogey,
+              sourcePositions: op.sourcePositions,
+            );
+            break;
+          }
           await store.addRing(
             sessionId: sessionId,
             characterId: owner.ownerId,
@@ -223,6 +257,12 @@ class GrowthReview {
             // One step per ring per pass: a pass that reinforces the same
             // boon twice counts (and advances) once.
             if (advancedThisPass.contains(ring.id)) continue;
+            // The 8th used pass at Master strength asks (ruling 8); the
+            // silent step below still lands, held one short of Master.
+            await getMilestones()?.proposeMasterIfCrossing(
+              ring,
+              strengthAfter: GrowthPhysics.reinforced(ring.strength),
+            );
             await store.reinforceBoon(
               ring,
               advanceCount: BoonsBogies.nextBoonAdvance(ring.advanceCount),
@@ -237,6 +277,7 @@ class GrowthReview {
             // A second reinforce for the same bogey in one pass adds no
             // evidence — the roll is the only other writer.
             if (advancedThisPass.contains(ring.id)) continue;
+            await getMilestones()?.proposeMasterIfCrossing(ring);
             await store.reinforceBogey(
               ring,
               advanceCount: BoonsBogies.nextBogeyAdvance(ring.advanceCount),
@@ -274,7 +315,11 @@ class GrowthReview {
           // A bogey is only retired by the accepted overcome milestone
           // (§3.2) — a model "outgrown" retire would silently take a flaw
           // away, which is the one thing the approval rule exists to stop.
-          if (BoonsBogies.isBogey(ring)) continue;
+          // It becomes that milestone's proposal instead.
+          if (BoonsBogies.isBogey(ring)) {
+            await getMilestones()?.proposeOvercome(ring);
+            continue;
+          }
           await store.retireRing(op.ringId!);
           retired++;
           break;
@@ -377,3 +422,15 @@ class GrowthReview {
 /// Add cap when the pass ran in distill mode (kDistillMaxRings starter rings
 /// from the legacy blob + the normal per-pass allowance from the window).
 const int kDistillApplyCap = 8;
+
+/// Whether a live ring already says [text] (case, spacing and a closing
+/// full stop ignored).
+bool _alreadyOnCard(List<GrowthRingData> rings, String text) {
+  String norm(String s) => s
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(RegExp(r'[.!]+$'), '');
+  final want = norm(text);
+  return rings.any((r) => !r.retired && norm(r.content) == want);
+}

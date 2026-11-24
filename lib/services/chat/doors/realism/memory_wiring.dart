@@ -188,7 +188,12 @@ extension RealismMemoryWiring on RealismGraph {
       getIsGroup: () => session.activeGroup != null,
       getBoonsBogiesEnabled: () =>
           _storageService.memorySettings.boonsBogiesEnabled,
-      onApplied: () => growthDesk.refreshCache(),
+      getMilestones: () => growthMilestones,
+      onApplied: () async {
+        await growthDesk.refreshCache();
+        // A pass that queued a moment pops it once no reply is streaming.
+        await milestoneSurface.check();
+      },
       onNotify: deps.notify,
     );
   }
@@ -226,7 +231,13 @@ extension RealismMemoryWiring on RealismGraph {
       getGrowthInterval: () => _storageService.memorySettings.growthInterval,
       getIsPassRunning: () => growthPassRunning,
       setIsPassRunning: (v) => growthPassRunning = v,
-      refreshCache: () => growthDesk.refreshCache(),
+      // A normal pass applies, then refreshes here (review-first Apply goes
+      // through onApplied above): either way, a moment it queued pops once
+      // no reply is owed.
+      refreshCache: () async {
+        await growthDesk.refreshCache();
+        await milestoneSurface.check();
+      },
       onNotify: deps.notify,
     );
   }
@@ -245,6 +256,7 @@ extension RealismMemoryWiring on RealismGraph {
     sceneGuestCards: () => _guestCards,
     characterIdFor: session.characterIdFor,
     memorySettings: () => _storageService.memorySettings,
+    bbEnabledFor: (id) => controls.bbEnabledFor(id),
     hasLlm: () => deps.services.llmProvider() != null,
     isGrowthPassRunning: () => growthPassRunning,
     awaitHistoryHydrated: () => _sessions.window.awaitHistoryHydrated(),
@@ -278,6 +290,11 @@ extension RealismMemoryWiring on RealismGraph {
     growthReview: () => growthReview,
     growth: () => growthDesk,
     itemCards: () => itemCards,
+    invalidateMoments: (sessionId, position) async {
+      milestoneSurface.forget(
+        await growthMilestones.invalidatePendingFrom(sessionId, position),
+      );
+    },
     db: deps.services.db,
     disposed: () => deps.life.disposed,
     notify: deps.notify,

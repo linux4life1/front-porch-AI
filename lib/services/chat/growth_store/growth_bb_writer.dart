@@ -112,6 +112,41 @@ class GrowthBbWriter {
     return true;
   }
 
+  /// An accepted Master milestone (ruling 8): the count reaches the Master
+  /// floor and strength reaches established, so the trait never fades.
+  /// Written only from an accepted moment ([GrowthMilestones.decide]).
+  Future<void> crownMaster(
+    GrowthRingData ring, {
+    required int advance,
+    required double strength,
+  }) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        advanceCount: Value(advance),
+        strength: Value(strength),
+        masterDeclined: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// The Master latch (§3.2): set when a Master moment is rejected, cleared
+  /// when a bogey falls back below the re-arm count.
+  Future<void> setMasterDeclined(GrowthRingData ring, bool declined) async {
+    final db = getDb();
+    if (db == null) return;
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        masterDeclined: Value(declined),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   /// Restore a ring from its one-step undo snapshot: strength, advance count
   /// and text together, then clear the snapshot.
   Future<void> restoreUndo(GrowthRingData ring, BbUndo undo) async {
