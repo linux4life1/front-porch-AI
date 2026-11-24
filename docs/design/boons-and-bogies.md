@@ -56,7 +56,10 @@ file it was read from, at `ba5b37a2f`.
     rings.
 12. **Rollout.** v1 is the working loop with a static celebration. v2 is the
     deterministic particle sim and the boon link. No phase ships half a
-    surface.
+    surface. *Amended 2026-11-23 (maintainer):* the particle sim (phase 6)
+    is pulled into phase 5 — Flame paints it on desktop, a canvas paints
+    the same shared sim on web; there is no static-burst v1. The boon link
+    (phase 7) stays v2.
 13. **Existing chats.** Turning the feature on offers the card's kit once,
     naming the whole cast. Decline changes nothing; the offer can be re-run
     from the panel.
@@ -471,10 +474,13 @@ leaves the app working:
 5. **UI, both stacks, from the approved mockup.** The card (desktop via
    `showWarmDialog`, web modal), the Moments sub-section of the Boons &
    Bogies line (inline Accept/Reject, Replay), `milestone_palette.dart` +
-   its `theme-keep` web twin, one burst PNG per kind under
-   `assets/milestones/` rendered from one SVG source and loaded by both
-   stacks (no SVG package), reduce motion, golden + `one_ui_parity_test`
-   entry, web facade routes.
+   its `theme-keep` web twin, the celebration sim (phase 6 pulled in,
+   ruling 12 amended): `milestone_burst.dart` ↔ `milestoneBurst.ts`, every
+   particle from `(kind, seed)` at fixed 1/60 s steps in card widths, pinned
+   by `test/fixtures/growth/milestone_burst_vectors.json` read by a Dart
+   test and a vitest; Flame paints it on desktop, a canvas on web (the
+   Chance Time structure: `chance_spin.dart` ↔ `chanceSpin.ts`). Reduce
+   motion, golden + `one_ui_parity_test` entry, web facade routes.
 6. **#763.** Lift the BETA markers, the `linkedTo` row affordance, the
    prop-bound scope hint, the kind-flip pin default.
 
