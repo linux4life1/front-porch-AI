@@ -286,7 +286,13 @@ inherit the Pockets bug class. Rings are already keyed
   already says and bogeys past the cap are skipped; retyping an existing
   entry is an edit of the card, not a new trait (`GrowthKitAdditions`).
   Before this, a seeded chat never saw the entry and an unseeded one only
-  got the offer above.
+  got the offer above. The save is not the only way in: each chat records
+  the kit entries it has taken (`growth_state.kit_seen`, v72), and on every
+  Growth refresh a settled chat takes any it has not (`GrowthKitSettler`),
+  so a save that could not reach a chat is caught up the next time the
+  chat loads. An entry the user removed from a chat stays removed; a chat
+  from before v72 counts its own rings as taken, or the whole kit if it
+  declined the kit.
 - Character creator: a "Boons & Bogies" block in the realism step
   (`lib/ui/character_creator/steps/realism_step.dart`); character editor and
   web editor get the same block. New field lands in

@@ -16,6 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character/trait_kit.dart';
 import 'package:front_porch_ai/models/character_card.dart';
@@ -144,6 +148,72 @@ class GrowthKitSeed {
       .toLowerCase()
       .replaceAll(RegExp(r'\s+'), ' ')
       .replaceAll(RegExp(r'[.!]+$'), '');
+}
+
+/// The kit entries each chat has taken, per owner (`growth_state.kit_seen`,
+/// v72): what lets an entry added later land on the next refresh while one
+/// the user removed from a chat stays removed. Keys are
+/// [GrowthKitSeed.sameTextKey].
+abstract final class KitSeen {
+  /// The chat's record, or null for a chat from before v72.
+  static Future<Map<String, Set<String>>?> read(
+    AppDatabase db,
+    String sessionId,
+  ) async {
+    final row = await (db.select(
+      db.growthState,
+    )..where((g) => g.sessionId.equals(sessionId))).getSingleOrNull();
+    final raw = row?.kitSeen;
+    if (raw == null) return null;
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return null;
+      return {
+        for (final e in json.entries)
+          if (e.value is List)
+            '${e.key}': {...(e.value as List).whereType<String>()},
+      };
+    } catch (e) {
+      debugPrint('[Growth] unreadable kit_seen on $sessionId: $e');
+      return null;
+    }
+  }
+
+  static Future<void> write(
+    AppDatabase db,
+    String sessionId,
+    Map<String, Set<String>> seen,
+  ) => db
+      .into(db.growthState)
+      .insertOnConflictUpdate(
+        GrowthStateCompanion(
+          sessionId: Value(sessionId),
+          kitSeen: Value(
+            jsonEncode({
+              for (final e in seen.entries) e.key: e.value.toList()..sort(),
+            }),
+          ),
+        ),
+      );
+
+  /// Every key in [kit].
+  static Set<String> keysOf(Iterable<TraitKitEntry> kit) => {
+    for (final e in kit) GrowthKitSeed.sameTextKey(e.text),
+  };
+
+  /// One kit write at a time across the app: the save-time spread and the
+  /// refresh catch-up both read rings, then write — run together they could
+  /// add the same trait twice.
+  static Future<T> exclusive<T>(Future<T> Function() run) {
+    final next = _tail.then((_) => run());
+    _tail = next.then<void>(
+      (_) {},
+      onError: (Object e) => debugPrint('[Growth] kit write failed: $e'),
+    );
+    return next;
+  }
+
+  static Future<void> _tail = Future.value();
 }
 
 /// What a first Growth touch does with the cast's kits.

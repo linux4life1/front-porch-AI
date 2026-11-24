@@ -14340,8 +14340,24 @@ class $GrowthStateTable extends GrowthState
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _kitSeenMeta = const VerificationMeta(
+    'kitSeen',
+  );
   @override
-  List<GeneratedColumn> get $columns => [sessionId, cursor, kitSeedState];
+  late final GeneratedColumn<String> kitSeen = GeneratedColumn<String>(
+    'kit_seen',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    sessionId,
+    cursor,
+    kitSeedState,
+    kitSeen,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -14377,6 +14393,12 @@ class $GrowthStateTable extends GrowthState
         ),
       );
     }
+    if (data.containsKey('kit_seen')) {
+      context.handle(
+        _kitSeenMeta,
+        kitSeen.isAcceptableOrUnknown(data['kit_seen']!, _kitSeenMeta),
+      );
+    }
     return context;
   }
 
@@ -14398,6 +14420,10 @@ class $GrowthStateTable extends GrowthState
         DriftSqlType.int,
         data['${effectivePrefix}kit_seed_state'],
       )!,
+      kitSeen: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}kit_seen'],
+      ),
     );
   }
 
@@ -14416,10 +14442,17 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
   /// settled — seeded silently, offered and accepted, or declined. Decline
   /// writes no ring, so this row is the only trace it exists.
   final int kitSeedState;
+
+  /// v72 — the kit entries this chat has taken, per owner (JSON
+  /// `{ownerId: [textKey]}`): an entry the author adds later lands on the
+  /// next refresh; one the user removed from this chat stays removed. Null
+  /// on a chat from before v72 (its rings stand in).
+  final String? kitSeen;
   const GrowthStateData({
     required this.sessionId,
     required this.cursor,
     required this.kitSeedState,
+    this.kitSeen,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -14427,6 +14460,9 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     map['session_id'] = Variable<String>(sessionId);
     map['cursor'] = Variable<int>(cursor);
     map['kit_seed_state'] = Variable<int>(kitSeedState);
+    if (!nullToAbsent || kitSeen != null) {
+      map['kit_seen'] = Variable<String>(kitSeen);
+    }
     return map;
   }
 
@@ -14435,6 +14471,9 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
       sessionId: Value(sessionId),
       cursor: Value(cursor),
       kitSeedState: Value(kitSeedState),
+      kitSeen: kitSeen == null && nullToAbsent
+          ? const Value.absent()
+          : Value(kitSeen),
     );
   }
 
@@ -14447,6 +14486,7 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
       sessionId: serializer.fromJson<String>(json['sessionId']),
       cursor: serializer.fromJson<int>(json['cursor']),
       kitSeedState: serializer.fromJson<int>(json['kitSeedState']),
+      kitSeen: serializer.fromJson<String?>(json['kitSeen']),
     );
   }
   @override
@@ -14456,6 +14496,7 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
       'sessionId': serializer.toJson<String>(sessionId),
       'cursor': serializer.toJson<int>(cursor),
       'kitSeedState': serializer.toJson<int>(kitSeedState),
+      'kitSeen': serializer.toJson<String?>(kitSeen),
     };
   }
 
@@ -14463,10 +14504,12 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     String? sessionId,
     int? cursor,
     int? kitSeedState,
+    Value<String?> kitSeen = const Value.absent(),
   }) => GrowthStateData(
     sessionId: sessionId ?? this.sessionId,
     cursor: cursor ?? this.cursor,
     kitSeedState: kitSeedState ?? this.kitSeedState,
+    kitSeen: kitSeen.present ? kitSeen.value : this.kitSeen,
   );
   GrowthStateData copyWithCompanion(GrowthStateCompanion data) {
     return GrowthStateData(
@@ -14475,6 +14518,7 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
       kitSeedState: data.kitSeedState.present
           ? data.kitSeedState.value
           : this.kitSeedState,
+      kitSeen: data.kitSeen.present ? data.kitSeen.value : this.kitSeen,
     );
   }
 
@@ -14483,49 +14527,56 @@ class GrowthStateData extends DataClass implements Insertable<GrowthStateData> {
     return (StringBuffer('GrowthStateData(')
           ..write('sessionId: $sessionId, ')
           ..write('cursor: $cursor, ')
-          ..write('kitSeedState: $kitSeedState')
+          ..write('kitSeedState: $kitSeedState, ')
+          ..write('kitSeen: $kitSeen')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(sessionId, cursor, kitSeedState);
+  int get hashCode => Object.hash(sessionId, cursor, kitSeedState, kitSeen);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is GrowthStateData &&
           other.sessionId == this.sessionId &&
           other.cursor == this.cursor &&
-          other.kitSeedState == this.kitSeedState);
+          other.kitSeedState == this.kitSeedState &&
+          other.kitSeen == this.kitSeen);
 }
 
 class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
   final Value<String> sessionId;
   final Value<int> cursor;
   final Value<int> kitSeedState;
+  final Value<String?> kitSeen;
   final Value<int> rowid;
   const GrowthStateCompanion({
     this.sessionId = const Value.absent(),
     this.cursor = const Value.absent(),
     this.kitSeedState = const Value.absent(),
+    this.kitSeen = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GrowthStateCompanion.insert({
     required String sessionId,
     this.cursor = const Value.absent(),
     this.kitSeedState = const Value.absent(),
+    this.kitSeen = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : sessionId = Value(sessionId);
   static Insertable<GrowthStateData> custom({
     Expression<String>? sessionId,
     Expression<int>? cursor,
     Expression<int>? kitSeedState,
+    Expression<String>? kitSeen,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (sessionId != null) 'session_id': sessionId,
       if (cursor != null) 'cursor': cursor,
       if (kitSeedState != null) 'kit_seed_state': kitSeedState,
+      if (kitSeen != null) 'kit_seen': kitSeen,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -14534,12 +14585,14 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
     Value<String>? sessionId,
     Value<int>? cursor,
     Value<int>? kitSeedState,
+    Value<String?>? kitSeen,
     Value<int>? rowid,
   }) {
     return GrowthStateCompanion(
       sessionId: sessionId ?? this.sessionId,
       cursor: cursor ?? this.cursor,
       kitSeedState: kitSeedState ?? this.kitSeedState,
+      kitSeen: kitSeen ?? this.kitSeen,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -14556,6 +14609,9 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
     if (kitSeedState.present) {
       map['kit_seed_state'] = Variable<int>(kitSeedState.value);
     }
+    if (kitSeen.present) {
+      map['kit_seen'] = Variable<String>(kitSeen.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -14568,6 +14624,7 @@ class GrowthStateCompanion extends UpdateCompanion<GrowthStateData> {
           ..write('sessionId: $sessionId, ')
           ..write('cursor: $cursor, ')
           ..write('kitSeedState: $kitSeedState, ')
+          ..write('kitSeen: $kitSeen, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

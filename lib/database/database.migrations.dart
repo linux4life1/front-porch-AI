@@ -98,5 +98,17 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         }
       }
     }
+    if (from < 72) {
+      // v71→v72: the kit entries each chat has taken (growth_state, created
+      // in the v36 rung), so a kit entry added mid-chat lands on refresh and
+      // one removed from a chat stays removed. Additive and nullable.
+      try {
+        await customStatement(
+          'ALTER TABLE growth_state ADD COLUMN kit_seen TEXT',
+        );
+      } catch (e) {
+        debugPrint('[DB] v72 kit_seen: $e (the repair pass re-checks)');
+      }
+    }
   }
 }

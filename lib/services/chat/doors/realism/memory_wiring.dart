@@ -256,6 +256,7 @@ extension RealismMemoryWiring on RealismGraph {
     sceneGuestCards: () => _guestCards,
     characterIdFor: session.characterIdFor,
     memorySettings: () => _storageService.memorySettings,
+    bbEnabledFor: (id) => controls.bbEnabledFor(id),
     hasLlm: () => deps.services.llmProvider() != null,
     isGrowthPassRunning: () => growthPassRunning,
     awaitHistoryHydrated: () => _sessions.window.awaitHistoryHydrated(),

@@ -81,7 +81,7 @@ class GrowthKitAdditions {
       for (final s in await _guestSessions(db, dbId))
         _Target(s, ownerId, oneToOne: true),
     ];
-    return _write(targets, added);
+    return _write(targets, added, _kit(card));
   }
 
   /// A group member's copy saved (desktop Edit group or the open group's
@@ -99,23 +99,48 @@ class GrowthKitAdditions {
     )..where((m) => m.id.equals(memberId))).getSingleOrNull();
     if (row == null) return 0;
     final ownerId = groupMemberStoreId(card);
-    return _write([
-      for (final s in await db.getSessionsForGroup(row.groupId))
-        _Target(s, ownerId, oneToOne: false),
-    ], added);
+    return _write(
+      [
+        for (final s in await db.getSessionsForGroup(row.groupId))
+          _Target(s, ownerId, oneToOne: false),
+      ],
+      added,
+      _kit(card),
+    );
   }
 
-  Future<int> _write(List<_Target> targets, List<TraitKitEntry> added) async {
+  Future<int> _write(
+    List<_Target> targets,
+    List<TraitKitEntry> added,
+    List<TraitKitEntry> kit,
+  ) async {
+    // Outside the queue: the open chat's refresh runs the catch-up, which
+    // waits on the same queue.
+    final (written, touchedOpen) = await KitSeen.exclusive(
+      () => _writeAll(targets, added, kit),
+    );
+    if (touchedOpen) await refreshOpen();
+    if (written > 0) {
+      debugPrint(
+        '[Growth] kit edit: $written ring(s) into ${targets.length} chat(s)',
+      );
+    }
+    return written;
+  }
+
+  Future<(int, bool)> _writeAll(
+    List<_Target> targets,
+    List<TraitKitEntry> added,
+    List<TraitKitEntry> kit,
+  ) async {
     final open = openSessionId();
     var written = 0;
     var touchedOpen = false;
     for (final t in targets) {
       final id = t.session.id;
       if (!(id == open ? openBbFor(t.ownerId) : t.bbOn)) continue;
-      final rings = (await store.ringsFor(
-        id,
-        t.ownerId,
-      )).where((r) => !r.retired).toList();
+      final all = await store.ringsFor(id, t.ownerId);
+      final rings = all.where((r) => !r.retired).toList();
       final plan = GrowthKitSeed.planAdditions(
         added: added,
         activeRings: rings,
@@ -136,22 +161,37 @@ class GrowthKitAdditions {
       touchedOpen |= id == open && plan.isNotEmpty;
       // A 1:1 chat that never settled its kit would still offer it in the
       // Growth panel; the entries it would add are here now.
-      if (t.oneToOne && plan.isNotEmpty) {
-        final db = getDb();
-        if (db != null &&
-            await db.getKitSeedState(id) == GrowthKitSeed.kStateUnsettled) {
-          await store.setKitSeedState(id, GrowthKitSeed.kStateSettled);
-        }
+      final db = getDb();
+      if (db == null) continue;
+      if (t.oneToOne &&
+          plan.isNotEmpty &&
+          await db.getKitSeedState(id) == GrowthKitSeed.kStateUnsettled) {
+        await store.setKitSeedState(id, GrowthKitSeed.kStateSettled);
       }
+      // The chat has now seen the whole kit as saved (a retyped row too, so
+      // the catch-up never takes it for new) — except a bogey the cap held
+      // back, which stays unseen to land once a slot frees.
+      final seen = {...?(await KitSeen.read(db, id))};
+      final planned = {
+        for (final r in plan) GrowthKitSeed.sameTextKey(r.characterText),
+      };
+      final live = {
+        for (final r in rings) GrowthKitSeed.sameTextKey(r.content),
+      };
+      final heldBack = {
+        for (final e in added)
+          if (!planned.contains(GrowthKitSeed.sameTextKey(e.text)) &&
+              !live.contains(GrowthKitSeed.sameTextKey(e.text)))
+            GrowthKitSeed.sameTextKey(e.text),
+      };
+      seen[t.ownerId] = {
+        ...seen[t.ownerId] ??
+            {for (final r in all) GrowthKitSeed.sameTextKey(r.content)},
+        ...KitSeen.keysOf(kit).difference(heldBack),
+      };
+      await KitSeen.write(db, id, seen);
     }
-    if (touchedOpen) await refreshOpen();
-    if (written > 0) {
-      debugPrint(
-        '[Growth] kit edit: $written ring(s) into ${targets.length} '
-        'chat(s)',
-      );
-    }
-    return written;
+    return (written, touchedOpen);
   }
 
   /// 1:1 chats this character visits as a scene guest (their dbIds ride

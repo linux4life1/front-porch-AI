@@ -97,6 +97,8 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     // The repair must carry it: Drift's generated SELECT names the column on
     // every cursor read, so one missed ALTER makes chats fail to open.
     'kit_seed_state INTEGER NOT NULL DEFAULT 0',
+    // v72 — the kit entries the chat has taken (mid-chat kit edits).
+    'kit_seen TEXT',
   ],
   'groups': [
     // v30

@@ -198,6 +198,99 @@ void main() {
     );
   });
 
+  group('the chat catches up on refresh (when the save-time step missed)', () {
+    // Reported live: the save ran on code that could not reach the chats
+    // (a hot reload), so the boon was on the card and never in the chat,
+    // and no later save counted it as new. A refresh must bring it in.
+    Future<void> refresh() => chat.realism.growthDesk.refreshCache();
+
+    Future<CharacterCard> seededChat() async {
+      final mira = await libraryCard([
+        TraitKitEntry(kind: 'boon', text: 'steady hands', tier: 'developing'),
+      ]);
+      await chat.setActiveCharacter(mira);
+      await chat.sendMessage('Hello.');
+      await settle();
+      expect(openRings(mira), ['steady hands']);
+      return mira;
+    }
+
+    test('an entry on the card the chat never took lands on the next '
+        'refresh; one the user removes stays removed', () async {
+      final mira = await seededChat();
+      // The card changes with no spread (the missed save).
+      mira.frontPorchExtensions!.traitKit = [
+        ...mira.frontPorchExtensions!.traitKit,
+        TraitKitEntry(
+          kind: 'boon',
+          text: 'Able to use elven magical spells',
+          tier: 'developing',
+        ),
+      ];
+      await refresh();
+      expect(openRings(mira), contains('Able to use elven magical spells'));
+
+      final ring = chat
+          .growthRingsForOwner(chat.characterIdFor(mira))
+          .singleWhere((r) => r.content == 'Able to use elven magical spells');
+      await chat.deleteGrowthRing(ring.id);
+      await refresh();
+      await refresh();
+      expect(
+        openRings(mira),
+        isNot(contains('Able to use elven magical spells')),
+        reason: 'removed from this chat: the catch-up remembers it took it',
+      );
+    });
+
+    test('a chat from before the record counts its own rings as seen; one '
+        'that declined the kit stays without it', () async {
+      final mira = await seededChat();
+      final session = chat.currentSessionId!;
+      // As an older app left it: settled, no record of what it took.
+      await db.customStatement(
+        "UPDATE growth_state SET kit_seen = NULL WHERE session_id = '$session'",
+      );
+      mira.frontPorchExtensions!.traitKit = [
+        ...mira.frontPorchExtensions!.traitKit,
+        bogey,
+      ];
+      await refresh();
+      expect(openRings(mira), contains('bad temper when cornered'));
+      expect(
+        openRings(mira).where((t) => t == 'steady hands'),
+        hasLength(1),
+        reason: 'what it already had is not added twice',
+      );
+
+      // A declined chat: the old kit stays out.
+      await db.customStatement(
+        "UPDATE growth_state SET kit_seen = NULL, kit_seed_state = 2 "
+        "WHERE session_id = '$session'",
+      );
+      for (final r in chat.growthRingsForOwner(chat.characterIdFor(mira))) {
+        await chat.deleteGrowthRing(r.id);
+      }
+      await refresh();
+      expect(openRings(mira), isEmpty);
+    });
+
+    test('Boons & Bogies off for the chat: nothing lands', () async {
+      final mira = await seededChat();
+      await db.customStatement(
+        "UPDATE sessions SET bb_enabled = 0 "
+        "WHERE id = '${chat.currentSessionId}'",
+      );
+      chat.realism.controls.memberSwitches.chatBbSwitch = false;
+      mira.frontPorchExtensions!.traitKit = [
+        ...mira.frontPorchExtensions!.traitKit,
+        bogey,
+      ];
+      await refresh();
+      expect(openRings(mira), ['steady hands']);
+    });
+  });
+
   test('retyping an existing entry adds nothing', () async {
     final mira = await libraryCard([
       TraitKitEntry(kind: 'boon', text: 'steady hands', tier: 'developing'),

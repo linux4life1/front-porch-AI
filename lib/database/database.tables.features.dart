@@ -297,6 +297,12 @@ class GrowthState extends Table {
   /// writes no ring, so this row is the only trace it exists.
   IntColumn get kitSeedState => integer().withDefault(const Constant(0))();
 
+  /// v72 — the kit entries this chat has taken, per owner (JSON
+  /// `{ownerId: [textKey]}`): an entry the author adds later lands on the
+  /// next refresh; one the user removed from this chat stays removed. Null
+  /// on a chat from before v72 (its rings stand in).
+  TextColumn get kitSeen => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {sessionId};
 }
