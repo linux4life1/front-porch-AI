@@ -35,8 +35,10 @@ class StudioRecentLink {
   /// A picture to load into the Edit tab as its source.
   final ValueNotifier<Uint8List?> editPicture = ValueNotifier(null);
 
-  /// Keep a fresh result on the shelf and show it. [onChanged] runs once the
-  /// entry is known. A failure is logged; the picture stays on screen.
+  /// Show a fresh result's shelf entry: the generator keeps every picture,
+  /// so this claims that entry rather than keeping a second copy. [onChanged]
+  /// runs once the entry is known. A failure is logged; the picture stays on
+  /// screen.
   Future<void> remember(
     BuildContext context,
     Uint8List png,
@@ -46,7 +48,7 @@ class StudioRecentLink {
   }) async {
     shown = null;
     try {
-      shown = await rememberStudioResult(
+      shown = await claimStudioResult(
         context.read<StorageService>(),
         png,
         prompt: prompt,

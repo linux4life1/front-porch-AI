@@ -23,11 +23,23 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
+import 'package:front_porch_ai/services/services.dart'
+    show
+        BackendManager,
+        ImageGenMode,
+        ImageGenService,
+        KoboldService,
+        LLMProvider,
+        OpenRouterService;
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_expression_tab.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_recent_shelf.dart';
 
 // A real PNG (1x1) so the thumbnail decodes.
@@ -147,5 +159,87 @@ void main() {
     expect(storage.imageGenSettings.studioRecentLimit, 0);
     expect(find.text('Recent · off'), findsOneWidget);
     expect(find.textContaining('Recent is off'), findsOneWidget);
+  });
+
+  // Issue #775: a picture made outside the Studio (here a character creator
+  // draft the generator kept) is on the shelf, and once brought back it can
+  // be the Create reference and the expression pack's source.
+  testWidgets('a picture kept elsewhere comes back as a reference and source', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (call) async => root.path,
+        );
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    storage.imageGenSettings.initializeBase(prefs, storage.notifyListeners);
+    storage.imageGenSettings.load();
+    await storage.imageGenSettings.setImageGenBackend('a1111');
+    final draft = await tester.runAsync(
+      () => keepGeneratedPicture(
+        storage,
+        _png,
+        prompt: 'a creator draft',
+        edit: false,
+      ),
+    );
+    await tester.binding.setSurfaceSize(const Size(1040, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final llm = LLMProvider(
+      KoboldService(storage),
+      OpenRouterService(),
+      storage,
+      BackendManager(storage),
+    );
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ImageGenService>(
+              create: (_) => ImageGenService(storage),
+            ),
+            ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: ImageStudio(
+                mode: ImageGenMode.characterPortrait,
+                characterName: 'Ada',
+                characterDbId: 'ada-id',
+              ),
+            ),
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await settle(tester);
+
+    final useLast = find.widgetWithText(
+      TextButton,
+      'Use the last picture I made',
+    );
+    expect(tester.widget<TextButton>(useLast).onPressed, isNull);
+
+    final thumb = find.byKey(ValueKey('studio-recent-${draft!.name}'));
+    await tester.ensureVisible(thumb);
+    await tester.tap(thumb);
+    await settle(tester);
+    final pack = tester.widget<StudioExpressionTab>(
+      find.byType(StudioExpressionTab, skipOffstage: false),
+    );
+    expect(pack.lastStudioImage, _png);
+
+    await tester.ensureVisible(useLast);
+    await tester.tap(useLast);
+    await tester.pump();
+    expect(find.text('Replace'), findsOneWidget);
+    expect(find.text('How different from the photo?'), findsOneWidget);
+    // Let the thumbnail's tooltip delay run out before teardown.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

@@ -42,12 +42,17 @@ class ReferenceImagePicker extends StatelessWidget {
   final VoidCallback onPick;
   final VoidCallback onClear;
 
+  /// Use the last picture the Studio made or brought back from Recent; null
+  /// while there is none (the button stays, disabled, so nothing moves).
+  final VoidCallback? onUseLast;
+
   const ReferenceImagePicker({
     super.key,
     required this.referenceBytes,
     required this.isBusy,
     required this.onPick,
     required this.onClear,
+    this.onUseLast,
   });
 
   @override
@@ -109,14 +114,30 @@ class ReferenceImagePicker extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           if (!hasRef)
-            OutlinedButton.icon(
-              onPressed: isBusy ? null : onPick,
-              icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
-              label: const Text('Choose image…'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.formAccentOf(context),
-                side: BorderSide(color: AppColors.borderOf(context)),
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: isBusy ? null : onPick,
+                  icon: const Icon(
+                    Icons.add_photo_alternate_outlined,
+                    size: 16,
+                  ),
+                  label: const Text('Choose image…'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.formAccentOf(context),
+                    side: BorderSide(color: AppColors.borderOf(context)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: isBusy ? null : onUseLast,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.formAccentOf(context),
+                  ),
+                  child: const Text('Use the last picture I made'),
+                ),
+              ],
             )
           else ...[
             Row(

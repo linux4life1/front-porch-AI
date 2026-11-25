@@ -329,3 +329,45 @@ Future<StudioRecentEntry?> rememberStudioResult(
     model: edit ? settings.imageGenEditModel : settings.imageGenModel,
   );
 }
+
+/// Entries the generator kept, keyed by the very picture it returned, until
+/// the screen that asked claims them ([claimStudioResult]).
+final Expando<StudioRecentEntry> _kept = Expando('studio_recent_kept');
+
+/// Keep a picture the generator just finished. Every single generation comes
+/// through here, whichever screen asked (the Studio, the character creator,
+/// chat, cast and Story Studio portraits, the phone), so none can miss the
+/// shelf.
+Future<StudioRecentEntry?> keepGeneratedPicture(
+  StorageService storage,
+  Uint8List png, {
+  required String prompt,
+  required bool edit,
+}) async {
+  final entry = await rememberStudioResult(
+    storage,
+    png,
+    prompt: prompt,
+    edit: edit,
+  );
+  if (entry != null) _kept[png] = entry;
+  return entry;
+}
+
+/// The Recent entry for [png], a picture the Studio got back from the
+/// generator: the one already kept for it, else a new one (a stand-in
+/// generator's picture, or one whose first write failed). Claiming forgets
+/// the pairing, so the same picture is never kept twice.
+Future<StudioRecentEntry?> claimStudioResult(
+  StorageService storage,
+  Uint8List png, {
+  required String prompt,
+  required bool edit,
+}) async {
+  final kept = _kept[png];
+  if (kept != null) {
+    _kept[png] = null;
+    return kept;
+  }
+  return rememberStudioResult(storage, png, prompt: prompt, edit: edit);
+}

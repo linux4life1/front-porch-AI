@@ -115,13 +115,17 @@ class _EditViewState extends State<EditView> {
     _error = '';
   });
 
-  /// Bring back a Recent picture as the result, with its instruction.
-  void _restoreRecent(StudioRecentEntry entry, Uint8List bytes) => setState(() {
-    _instructionCtrl.text = entry.prompt;
-    _resultBytes = bytes;
-    _recent.shown = entry;
-    _error = '';
-  });
+  /// Bring back a Recent picture as the result, with its instruction. It is
+  /// the last Studio picture too, as a fresh edit result is (#775).
+  void _restoreRecent(StudioRecentEntry entry, Uint8List bytes) {
+    setState(() {
+      _instructionCtrl.text = entry.prompt;
+      _resultBytes = bytes;
+      _recent.shown = entry;
+      _error = '';
+    });
+    widget.onResultImage?.call(bytes);
+  }
 
   Widget get _shelf => StudioRecentShelf(
     onRestore: _restoreRecent,
