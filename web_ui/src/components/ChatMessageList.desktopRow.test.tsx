@@ -9,6 +9,8 @@
 // row must not have these desktop containers.
 // Guards the isDesktop branch — every other list test renders at phone width.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement, createRef } from 'react';
@@ -143,5 +145,40 @@ describe('desktop message row', () => {
     const actions = rows[1].querySelector('.msg-actions') as HTMLElement;
     expect(actions.querySelector('button[title="Edit"]')).not.toBeNull();
     expect(actions.querySelector('button[title="Regenerate"]')).not.toBeNull();
+  });
+});
+
+// Issue #772: "My messages on the right" did nothing on the web, because the
+// row every width uses never mirrored. The desktop lays the user's row out
+// right to left (message_bubble.dart); the web must do the same, from the
+// real stylesheet and the root attribute the setting writes.
+describe('"My messages on the right" mirrors the user row', () => {
+  let sheet: HTMLStyleElement;
+  beforeEach(() => {
+    sheet = document.createElement('style');
+    sheet.textContent = readFileSync(join(__dirname, '..', 'styles', 'messages.css'), 'utf8');
+    document.head.appendChild(sheet);
+  });
+  afterEach(() => {
+    sheet.remove();
+    delete document.documentElement.dataset.userSide;
+  });
+
+  const direction = (el: Element | null) => getComputedStyle(el as Element).flexDirection;
+
+  it('on: the user row and its top row run right to left; the reply row does not', () => {
+    document.documentElement.dataset.userSide = 'right';
+    renderList([userLine, reply], true);
+    const [userRow, replyRow] = container.querySelectorAll('.msg-row-desktop');
+    expect(direction(userRow)).toBe('row-reverse');
+    expect(direction(userRow.querySelector('.bubble-actions'))).toBe('row-reverse');
+    expect(direction(replyRow)).toBe('row');
+  });
+
+  it('off: the user row stays left to right like every other row', () => {
+    document.documentElement.dataset.userSide = 'left';
+    renderList([userLine, reply], true);
+    const [userRow] = container.querySelectorAll('.msg-row-desktop');
+    expect(direction(userRow)).toBe('row');
   });
 });

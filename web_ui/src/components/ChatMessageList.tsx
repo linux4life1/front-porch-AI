@@ -278,8 +278,11 @@ const TranscriptRows = memo(function TranscriptRows({
         // msg-speaker, msg-number, thinking, msg-actions) is kept, so the
         // shared journeys selectors work on both layouts.
         if (isDesktop) {
+          // `user-row` lets "My messages on the right" mirror the whole row,
+          // as desktop message_bubble.dart does (messages.css).
+          const rowClass = `msg-row msg-row-desktop${m.isUser && !isDirectorNote ? ' user-row' : ''}`;
           return (
-            <div key={m.rowKey ?? m.index} data-msg-index={m.index} className="msg-row msg-row-desktop">
+            <div key={m.rowKey ?? m.index} data-msg-index={m.index} className={rowClass}>
               <div className="msg-avatar-col">
                 <span className="msg-avatar" aria-hidden>
                   {speakerName.charAt(0).toUpperCase()}

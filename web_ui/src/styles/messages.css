@@ -231,6 +231,15 @@
 }
 .bubble-actions .icon-btn { margin-left: auto; }
 .bubble-actions .icon-btn + .icon-btn { margin-left: 0; }
+/* "My messages on the right" (Settings → General), as the desktop lays the
+   user's row out right to left (message_bubble.dart): the avatar column goes
+   to the right of the bubble, and the bubble's top row flips — name on the
+   right, tools on the left. Every width uses this row, so phone gets it too. */
+:root[data-user-side="right"] .msg-row-desktop.user-row { flex-direction: row-reverse; }
+:root[data-user-side="right"] .msg-row-desktop.user-row .bubble-actions { flex-direction: row-reverse; }
+:root[data-user-side="right"] .msg-row-desktop.user-row .bubble-actions .msg-speaker { margin: 0 2px 0 0; }
+:root[data-user-side="right"] .msg-row-desktop.user-row .bubble-actions .icon-btn { margin-left: 0; }
+:root[data-user-side="right"] .msg-row-desktop.user-row .bubble-actions .icon-btn:not(.icon-btn + .icon-btn) { margin-right: auto; }
 /* Newest-reply controls sit INSIDE the bubble, bottom-right, as the window
    draws them (regenerate, continue, ‹ n/m ›, pick version). */
 .msg-row-desktop .bubble .reply-actions {
