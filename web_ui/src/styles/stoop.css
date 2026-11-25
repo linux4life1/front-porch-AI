@@ -147,7 +147,8 @@
   border-radius: 50%; overflow: hidden; vertical-align: middle;
   background: var(--surface); border: 2px solid var(--accent);
 }
-.stoop-creator-ava img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Top-anchored like the desktop StoopAvatar (stoop_avatar.dart). */
+.stoop-creator-ava img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
 .stoop-creator-mono { color: var(--accent); font-family: Georgia, 'Times New Roman', serif; }
 .stoop-creator-bio { max-width: 640px; white-space: pre-wrap; }
 .stoop-creator-links { display: flex; flex-wrap: wrap; gap: 12px; }

@@ -40,7 +40,8 @@ button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transpar
   border: 1px solid var(--border); background: var(--surface-2); aspect-ratio: 1;
 }
 .avatar-tile.prime { border-color: var(--accent); }
-.avatar-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Top-anchored like the desktop gallery tile (avatar_tile.dart). */
+.avatar-tile img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
 .avatar-label {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 6px;
   font-size: 0.68rem; background: color-mix(in srgb, var(--image-scrim) 78%, transparent); color: var(--image-ink); text-align: center;

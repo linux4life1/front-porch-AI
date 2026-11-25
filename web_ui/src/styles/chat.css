@@ -316,8 +316,10 @@ a.model-switch-settings {
 
 /* ── Expression portrait (insight panel) ──────────────────────── */
 .portrait-wrap { position: relative; align-self: center; }
+/* Crops from the top like the desktop sidebar (character_portrait.dart),
+   so the 16:9 drawer frame keeps the face instead of the chest. */
 .portrait {
-  width: 100%; max-width: 240px; aspect-ratio: 1; object-fit: cover;
+  width: 100%; max-width: 240px; aspect-ratio: 1; object-fit: cover; object-position: top center;
   border-radius: var(--radius); background: var(--surface-2);
   border: 1px solid var(--border); display: block;
 }
