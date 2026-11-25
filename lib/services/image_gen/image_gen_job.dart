@@ -442,7 +442,7 @@ class ImageGenJob {
       }
 
       _status.lastGeneratedImage = imageBytes;
-      if (!fromPack) await _keepOnRecent(imageBytes, prompt, intent);
+      if (!fromPack) _keepOnRecent(imageBytes, prompt, intent);
       _status.statusMessage = 'Image generated successfully.';
       debugPrint('ImageGen: Returning ${imageBytes.length} bytes');
       _status.notify();
@@ -464,15 +464,12 @@ class ImageGenJob {
 
   /// Image Studio's Recent shelf keeps every single picture, whichever screen
   /// asked for it (issue #775). Expression pack and batch frames stay off:
-  /// they have their own grids, and one pack would trim the shelf. A failed
-  /// write is logged and never costs the caller its picture.
-  Future<void> _keepOnRecent(
-    Uint8List bytes,
-    String prompt,
-    StudioIntent intent,
-  ) async {
+  /// they have their own grids, and one pack would trim the shelf. The write
+  /// runs on its own (never under this lock); a failure is logged and never
+  /// costs the caller its picture.
+  void _keepOnRecent(Uint8List bytes, String prompt, StudioIntent intent) {
     try {
-      await keepGeneratedPicture(
+      keepGeneratedPicture(
         _storage,
         bytes,
         prompt: prompt,

@@ -55,6 +55,14 @@ class ReferenceImagePicker extends StatelessWidget {
     this.onUseLast,
   });
 
+  /// The small accent link style beside the reference thumbnail.
+  static ButtonStyle _compact(BuildContext context) => TextButton.styleFrom(
+    foregroundColor: AppColors.formAccentOf(context),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    minimumSize: const Size(0, 0),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  );
+
   @override
   Widget build(BuildContext context) {
     // Only the local backends (A1111, Draw Things, ComfyUI) support img2img.
@@ -167,19 +175,21 @@ class ReferenceImagePicker extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      TextButton.icon(
-                        onPressed: isBusy ? null : onPick,
-                        icon: const Icon(Icons.swap_horiz, size: 14),
-                        label: const Text('Replace'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.formAccentOf(context),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          TextButton.icon(
+                            onPressed: isBusy ? null : onPick,
+                            icon: const Icon(Icons.swap_horiz, size: 14),
+                            label: const Text('Replace'),
+                            style: _compact(context),
                           ),
-                          minimumSize: const Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
+                          TextButton(
+                            onPressed: isBusy ? null : onUseLast,
+                            style: _compact(context),
+                            child: const Text('Use the last picture I made'),
+                          ),
+                        ],
                       ),
                     ],
                   ),

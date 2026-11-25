@@ -177,14 +177,15 @@ void main() {
     storage.imageGenSettings.initializeBase(prefs, storage.notifyListeners);
     storage.imageGenSettings.load();
     await storage.imageGenSettings.setImageGenBackend('a1111');
-    final draft = await tester.runAsync(
-      () => keepGeneratedPicture(
+    final draft = await tester.runAsync(() async {
+      keepGeneratedPicture(
         storage,
         _png,
         prompt: 'a creator draft',
         edit: false,
-      ),
-    );
+      );
+      return (await StudioRecentStore.of(storage).list()).single;
+    });
     await tester.binding.setSurfaceSize(const Size(1040, 1600));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final llm = LLMProvider(
