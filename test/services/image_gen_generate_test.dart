@@ -48,6 +48,7 @@ import 'package:front_porch_ai/services/capability/capability.dart'
     show StudioIntent;
 import 'package:front_porch_ai/services/image/model_family.dart'
     show ModelFamily;
+import 'package:front_porch_ai/services/image/studio_recent_store.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
@@ -612,6 +613,82 @@ void main() {
         final models = await service.fetchImageModels();
         expect(models, isEmpty);
         await fake.close();
+      }),
+    );
+  });
+
+  // Issue #775: Image Studio's Recent shelf keeps every single picture the
+  // generator makes, whichever screen asked; pack and batch frames stay off.
+  group('ImageGenService.generateImage — Image Studio Recent', () {
+    late Directory tempDir;
+    late _FakeLocalImageServer fake;
+    late _FakeStorageForGenerate storage;
+    late ImageGenService service;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('imagegen_recent_');
+      fake = await _FakeLocalImageServer.start();
+      storage = _FakeStorageForGenerate(tempDir.path);
+      await storage.imageGenSettings.setImageGenBackend('a1111');
+      await storage.imageGenSettings.setLocalImageGenUrl(fake.baseUrl);
+      fake.genImages = [_fixtureB64];
+      service = ImageGenService(storage);
+    });
+
+    tearDown(() async {
+      await fake.close();
+      await tempDir.delete(recursive: true);
+    });
+
+    test(
+      'character creator drafts land on Recent, and pack frames do not',
+      () => _withRealHttp(() async {
+        // The creator's call: a portrait from its prompt, once per draft.
+        final first = await service.generateImage(
+          prompt: 'first draft',
+          isPortrait: true,
+        );
+        final second = await service.generateImage(
+          prompt: 'second draft',
+          isPortrait: true,
+        );
+        expect(first, isNotNull);
+        expect(second, isNotNull);
+        await ImageGenService.startExpressionPackOn(service, ['happy'], (
+          emotions,
+        ) async {
+          await ImageGenService.expressionFrameOn(
+            service,
+            prompt: 'pack frame',
+            referenceImage: first,
+          );
+          return emotions;
+        });
+
+        final store = StudioRecentStore.of(storage);
+        final entries = await store.list();
+        expect(entries.map((e) => e.prompt), ['second draft', 'first draft']);
+        expect(entries.every((e) => e.mode == 'create'), isTrue);
+        expect(await File(entries.last.path).readAsBytes(), _fixtureBytes);
+      }),
+    );
+
+    test(
+      "the Studio claims the generator's entry instead of keeping a copy",
+      () => _withRealHttp(() async {
+        final bytes = await service.generateImage(prompt: 'from the Studio');
+        final store = StudioRecentStore.of(storage);
+        final kept = await store.list();
+        expect(kept, hasLength(1));
+
+        final claimed = await claimStudioResult(
+          storage,
+          bytes!,
+          prompt: 'from the Studio',
+          edit: false,
+        );
+        expect(claimed?.name, kept.single.name);
+        expect(await store.list(), hasLength(1));
       }),
     );
   });

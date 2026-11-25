@@ -291,6 +291,7 @@ class _ImageStudioState extends State<ImageStudio> {
     _editablePrompt = entry.prompt;
     _selectedStyle = restorableStyle(entry.style, _selectedStyle);
     _currentImageBytes = bytes;
+    _lastStudioImage = bytes; // a reference or pack source too (#775)
     _recent.shown = entry;
     _error = '';
   });
@@ -424,6 +425,9 @@ class _ImageStudioState extends State<ImageStudio> {
         onSelectSubject: _selectSubject,
         onPickReference: _pickReferenceImage,
         onClearReference: () => setState(() => _referenceImageBytes = null),
+        onUseLastAsReference: _lastStudioImage == null
+            ? null
+            : () => setState(() => _referenceImageBytes = _lastStudioImage),
         onPromptChanged: _updatePrompt,
         onCraftLlm: _craftWithLlmIfAvailable,
         onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,

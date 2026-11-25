@@ -34,12 +34,13 @@ class ImageStudioRecent {
 
   StudioRecentStore get store => StudioRecentStore.of(_storage);
 
-  /// Keep a fresh Studio result. Returns null when there is no storage root.
+  /// The shelf entry for a fresh Studio result: the one the generator kept
+  /// for it, never a second copy. Null when there is no storage root.
   Future<StudioRecentEntry?> remember(
     Uint8List png, {
     required String prompt,
     required bool edit,
-  }) => rememberStudioResult(_storage, png, prompt: prompt, edit: edit);
+  }) => claimStudioResult(_storage, png, prompt: prompt, edit: edit);
 
   /// The shelf as the phone draws it: newest first, with the limit and how
   /// much room the pictures take.

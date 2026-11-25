@@ -442,6 +442,7 @@ class ImageGenJob {
       }
 
       _status.lastGeneratedImage = imageBytes;
+      if (!fromPack) _keepOnRecent(imageBytes, prompt, intent);
       _status.statusMessage = 'Image generated successfully.';
       debugPrint('ImageGen: Returning ${imageBytes.length} bytes');
       _status.notify();
@@ -458,6 +459,24 @@ class ImageGenJob {
       _status.genProgress = null;
       _status.genPreview = null;
       _status.notify();
+    }
+  }
+
+  /// Image Studio's Recent shelf keeps every single picture, whichever screen
+  /// asked for it (issue #775). Expression pack and batch frames stay off:
+  /// they have their own grids, and one pack would trim the shelf. The write
+  /// runs on its own (never under this lock); a failure is logged and never
+  /// costs the caller its picture.
+  void _keepOnRecent(Uint8List bytes, String prompt, StudioIntent intent) {
+    try {
+      keepGeneratedPicture(
+        _storage,
+        bytes,
+        prompt: prompt,
+        edit: intent == StudioIntent.edit,
+      );
+    } catch (e) {
+      debugPrint('ImageGen: could not keep the picture on Recent: $e');
     }
   }
 

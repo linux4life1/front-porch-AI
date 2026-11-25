@@ -161,7 +161,12 @@ class StudioRecentStore extends ChangeNotifier {
       bytes: png.length,
     );
     await File(entry.path).writeAsBytes(png, flush: true);
-    await _writeSidecar(entry);
+    try {
+      await _writeSidecar(entry);
+    } on FileSystemException {
+      await _remove(entry.path); // no picture on the shelf without its notes
+      rethrow;
+    }
     await _trim(dir);
     notifyListeners();
     return entry;
@@ -328,4 +333,44 @@ Future<StudioRecentEntry?> rememberStudioResult(
     style: settings.imageGenStyle,
     model: edit ? settings.imageGenEditModel : settings.imageGenModel,
   );
+}
+
+/// The writes the generator started, keyed by the very picture it returned,
+/// until the screen that asked claims them ([claimStudioResult]).
+final Expando<Future<StudioRecentEntry?>> _kept = Expando('studio_recent_kept');
+
+/// Start keeping a picture the generator just finished, and return at once:
+/// the caller (the generator, still holding its lock) never waits on the
+/// disk, so a slow Recent folder cannot stall the next picture. Every single
+/// generation comes through here, whichever screen asked (the Studio, the
+/// character creator, chat, cast and Story Studio portraits, the phone), so
+/// none can miss the shelf. A failed write is logged.
+void keepGeneratedPicture(
+  StorageService storage,
+  Uint8List png, {
+  required String prompt,
+  required bool edit,
+}) {
+  _kept[png] = rememberStudioResult(storage, png, prompt: prompt, edit: edit)
+      .catchError((Object e) {
+        debugPrint('StudioRecentStore: could not keep a generated picture: $e');
+        return null;
+      });
+}
+
+/// The Recent entry for [png], a picture the Studio got back from the
+/// generator: the one the generator is keeping for it, else a new one (a
+/// stand-in generator's picture, or one whose first write failed). Claiming
+/// forgets the pairing, so the same picture is never kept twice.
+Future<StudioRecentEntry?> claimStudioResult(
+  StorageService storage,
+  Uint8List png, {
+  required String prompt,
+  required bool edit,
+}) async {
+  final kept = _kept[png];
+  _kept[png] = null;
+  final entry = kept == null ? null : await kept;
+  return entry ??
+      rememberStudioResult(storage, png, prompt: prompt, edit: edit);
 }

@@ -55,6 +55,7 @@ class StudioView extends StatelessWidget {
     required this.onSelectSubject,
     required this.onPickReference,
     required this.onClearReference,
+    this.onUseLastAsReference,
     required this.onPromptChanged,
     required this.onCraftLlm,
     this.onExpressionPack,
@@ -103,6 +104,10 @@ class StudioView extends StatelessWidget {
   final ValueChanged<ImageGenMode> onSelectSubject;
   final VoidCallback onPickReference;
   final VoidCallback onClearReference;
+
+  /// Make the last Studio picture (made here or brought back from Recent) the
+  /// reference; null while there is none.
+  final VoidCallback? onUseLastAsReference;
   final ValueChanged<String> onPromptChanged;
 
   /// The LLM prompt writer behind "Write it for me".
@@ -240,6 +245,7 @@ class StudioView extends StatelessWidget {
         isBusy: draftBusy,
         onPick: onPickReference,
         onClear: onClearReference,
+        onUseLast: onUseLastAsReference,
       ),
       output: _result(context),
       stove: StudioDesk(
