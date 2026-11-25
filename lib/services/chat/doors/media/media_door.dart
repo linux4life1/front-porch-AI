@@ -22,6 +22,8 @@ import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -142,6 +144,17 @@ class MediaDoor extends ChangeNotifier {
     completer.complete(prompt);
     notifyListeners();
   }
+
+  /// Run `/image` [args], its picture marked as this chat's on Image Studio's
+  /// Recent shelf. The chat is read now, at the start: the prompt is crafted
+  /// first, and the user may have moved to another chat by the time it paints.
+  Future<void> runImageCommand(String args) => withImageSource(
+    ImageSource(
+      ImageSourceKind.chat,
+      _session.activeGroup?.name ?? _session.activeCharacter?.name ?? '',
+    ),
+    () => ensureImageCommand().handle(args),
+  );
 
   ImageCommandService ensureImageCommand() {
     return _imageCommand ??= ImageCommandService(

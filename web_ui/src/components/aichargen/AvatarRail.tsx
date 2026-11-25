@@ -198,7 +198,7 @@ export function AvatarRail({
     setGenerating(true);
     setError('');
     try {
-      const r = await generatePortrait(prompt);
+      const r = await generatePortrait(prompt, id);
       setPreview(r.image);
     } catch (err) {
       setError(messageOf(err, 'The portrait could not be generated.'));

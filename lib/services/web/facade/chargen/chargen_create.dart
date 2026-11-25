@@ -7,6 +7,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/facade/chargen/chargen_jobs.dart';
@@ -317,8 +319,11 @@ class ChargenCreate {
       // mirrors the desktop creator (the old fixed 512x512 failed on remote
       // models that reject small sizes and capped local quality).
       // No desktop dialog can be answered from here; see ImageFacade.generate.
-      return await withoutCity96Ask(
-        () => svc.generateImage(prompt: clean, isPortrait: true),
+      return await withImageSource(
+        ImageSource(ImageSourceKind.creator, name),
+        () => withoutCity96Ask(
+          () => svc.generateImage(prompt: clean, isPortrait: true),
+        ),
       );
     } catch (_) {
       _hub?.broadcast({

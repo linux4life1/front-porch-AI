@@ -65,7 +65,8 @@ describe('the Recent shelf', () => {
     await settle();
     expect(text()).toContain('Recent · 1 of 50 · 1 starred');
     expect(container.querySelectorAll('.fp-recent-star')).toHaveLength(1);
-    expect(text()).toContain('Edit · ');
+    // An edit is marked in the corner now, not in the caption.
+    expect(container.querySelector('[aria-label="From Edits"]')).not.toBeNull();
 
     act(() => thumb('rec_1.png').click());
     expect(props.onRestore).toHaveBeenCalledWith(expect.objectContaining({ name: 'rec_1.png', prompt: 'prompt for rec_1.png' }));
@@ -147,5 +148,50 @@ describe('Recent shelf words', () => {
     expect(shelfTitle({ limit: 50, entries: [kept, loose, loose] })).toBe('Recent · 2 of 50 · 1 starred');
     expect(shelfTitle({ limit: -1, entries: [loose] })).toBe('Recent · 1');
     expect(shelfTitle({ limit: 0, entries: [] })).toBe('Recent · off');
+  });
+});
+
+// Recent sorted by where each picture came from, as on the desktop.
+describe('Recent shelf sources', () => {
+  afterEach(() => localStorage.clear());
+
+  const chip = (label: string) =>
+    [...container.querySelectorAll<HTMLButtonElement>('.fp-recent-sources button')]
+      .find((b) => b.querySelector('span')?.textContent === label)!;
+  const shownNames = () =>
+    [...container.querySelectorAll<HTMLImageElement>('.fp-recent-strip img')].map((i) => i.getAttribute('src'));
+
+  it('sorts by source, one chip each, a source with none greyed', async () => {
+    serve({
+      [GET]: view([
+        entry('rec_3.png', { source: 'creator', subject: 'Ada' }),
+        entry('rec_2.png', { source: 'chat', subject: 'Rowan' }),
+        entry('rec_1.png', { mode: 'edit' }), // kept before sources were recorded
+      ]),
+    });
+    shelf();
+    await settle();
+    expect([...container.querySelectorAll('.fp-recent-sources button')].map((b) => b.textContent)).toEqual([
+      'All3', 'Studio0', 'Edits1', 'Character creator1', 'Chat1', 'Guests0', 'Story Studio0',
+    ]);
+    expect(chip('Guests').disabled).toBe(true);
+    expect(container.querySelector('[aria-label="From Character creator"]')).not.toBeNull();
+
+    act(() => chip('Character creator').click());
+    expect(shownNames()).toEqual(['/api/image/saved/rec_3.png']);
+    expect(chip('Character creator').getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('.fp-recent-mark')).toBeNull();
+    expect(localStorage.getItem('fpai.studio.recentSource')).toBe('creator');
+  });
+
+  it('remembers the chip and says when that source has none', async () => {
+    localStorage.setItem('fpai.studio.recentSource', 'chat');
+    serve({ [GET]: view([entry('rec_1.png', { source: 'studio' })]) });
+    shelf();
+    await settle();
+    expect(chip('Chat').getAttribute('aria-pressed')).toBe('true');
+    expect(text()).toContain('No pictures from Chat yet.');
+    act(() => chip('All').click());
+    expect(shownNames()).toEqual(['/api/image/saved/rec_1.png']);
   });
 });

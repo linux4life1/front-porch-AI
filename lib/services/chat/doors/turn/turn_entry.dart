@@ -317,7 +317,7 @@ class TurnEntry {
           intervalSeconds: gen.dynamicResponseInterval,
         );
       },
-      generateImage: (args) => _media.ensureImageCommand().handle(args),
+      generateImage: (args) => _media.runImageCommand(args),
       director: DirectorCommands(
         isGroup: () => _activeGroup != null,
         hasSceneGuests: () => _sceneGuest.cards.isNotEmpty,

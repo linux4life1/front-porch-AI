@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/services.dart'
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_expression_tab.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_recent_link.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_recent_shelf.dart';
 
 // A real PNG (1x1) so the thumbnail decodes.
@@ -242,5 +243,143 @@ void main() {
     // Let the thumbnail's tooltip delay run out before teardown.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  // Recent sorted by source: one chip per source, a source with none greyed.
+  testWidgets('the source chips sort the shelf and remember the choice', (
+    tester,
+  ) async {
+    final kept = await tester.runAsync(() async {
+      final creator = await rememberStudioResult(
+        storage,
+        _png,
+        prompt: 'a draft',
+        edit: false,
+        source: const ImageSource(ImageSourceKind.creator, 'Ada'),
+      );
+      final chat = await rememberStudioResult(
+        storage,
+        _png,
+        prompt: 'the porch',
+        edit: false,
+        source: const ImageSource(ImageSourceKind.chat, 'Rowan'),
+      );
+      return [creator!, chat!];
+    });
+    await mount(tester, StudioRecentShelf(onRestore: (entry, bytes) {}));
+    final creator = find.byKey(ValueKey('studio-recent-${kept![0].name}'));
+    final chat = find.byKey(ValueKey('studio-recent-${kept[1].name}'));
+    expect(creator, findsOneWidget);
+    expect(chat, findsOneWidget);
+    final creatorMark = find.byIcon(Icons.person_add_alt_outlined);
+    expect(creatorMark, findsOneWidget);
+    final guests = tester.widget<ChoiceChip>(
+      find.byKey(const Key('studio-recent-source-guest')),
+    );
+    expect(guests.onSelected, isNull);
+
+    await tester.tap(find.byKey(const Key('studio-recent-source-creator')));
+    await settle(tester);
+    expect(creator, findsOneWidget);
+    expect(chat, findsNothing);
+    expect(storage.imageGenSettings.studioRecentSource, 'creator');
+    // Within one source the corner marks would say the same thing.
+    expect(creatorMark, findsNothing);
+  });
+
+  testWidgets('a picture brought back shows where it came from', (
+    tester,
+  ) async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (call) async => root.path,
+        );
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    storage.imageGenSettings.initializeBase(prefs, storage.notifyListeners);
+    storage.imageGenSettings.load();
+    final draft = await tester.runAsync(
+      () => rememberStudioResult(
+        storage,
+        _png,
+        prompt: 'a draft',
+        edit: false,
+        source: const ImageSource(ImageSourceKind.creator, 'Ada'),
+      ),
+    );
+    await tester.binding.setSurfaceSize(const Size(1040, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final llm = LLMProvider(
+      KoboldService(storage),
+      OpenRouterService(),
+      storage,
+      BackendManager(storage),
+    );
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ImageGenService>(
+              create: (_) => ImageGenService(storage),
+            ),
+            ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: ImageStudio(
+                mode: ImageGenMode.characterPortrait,
+                characterName: 'Ada',
+                characterDbId: 'ada-id',
+              ),
+            ),
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+    await settle(tester);
+    expect(find.byKey(const Key('studio-source-line')), findsNothing);
+
+    final thumb = find.byKey(ValueKey('studio-recent-${draft!.name}'));
+    await tester.ensureVisible(thumb);
+    await tester.tap(thumb);
+    await settle(tester);
+    expect(find.text('Character creator · Ada'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a picture brought back keeps the screen from a late result', (
+    tester,
+  ) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      host(
+        Builder(
+          builder: (c) {
+            ctx = c;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    final link = StudioRecentLink();
+    addTearDown(link.dispose);
+    final restored = await tester.runAsync(
+      () => rememberStudioResult(storage, _png, prompt: 'older', edit: false),
+    );
+    await tester.runAsync(() async {
+      final fresh = link.remember(
+        ctx,
+        Uint8List.fromList(_png),
+        'fresh',
+        onChanged: () {},
+      );
+      link.shown = restored; // the user taps a shelf picture meanwhile
+      await fresh;
+    });
+    expect(link.shown?.name, restored!.name);
   });
 }

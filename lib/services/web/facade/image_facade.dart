@@ -131,7 +131,7 @@ class ImageFacade {
     // value — including '' — is respected as-is.
     // The phone or web caller cannot answer the desktop's loader dialog, so
     // the gate answers "confirm on the desktop" at once instead of waiting.
-    final bytes = await withoutCity96Ask(
+    Future<Uint8List?> run() => withoutCity96Ask(
       () => _image.generateImage(
         prompt: prompt,
         negativePrompt: f['negativePrompt']?.toString(),
@@ -142,6 +142,10 @@ class ImageFacade {
         isPortrait: f['isPortrait'] == true,
       ),
     );
+    final source = await _askedSource(f);
+    final bytes = source == null
+        ? await run()
+        : await withImageSource(source, run);
     if (bytes == null) return null;
     // Every phone result lands on the Recent shelf the desktop shows too;
     // Insert into chat copies it out (see [chatImageFile]).
@@ -159,6 +163,23 @@ class ImageFacade {
       'filename': savedPath != null ? p.basename(savedPath) : null,
       if (recent != null) 'recent': recent.toJson(),
     };
+  }
+
+  /// Where a phone picture comes from when it is not the Studio's own: only
+  /// the character creator sends one, with its character's id, and the name
+  /// is read here so the wording stays the computer's. Null is the Studio.
+  Future<ImageSource?> _askedSource(Map<String, dynamic> f) async {
+    if (f['source'] != ImageSourceKind.creator.key) return null;
+    final id = f['characterId']?.toString() ?? '';
+    var name = '';
+    if (id.isNotEmpty) {
+      try {
+        name = (await _characters?.getCharacterCardById(id))?.name ?? '';
+      } catch (e) {
+        debugPrint('ImageFacade: no name for creator picture $id: $e');
+      }
+    }
+    return ImageSource(ImageSourceKind.creator, name);
   }
 
   /// Image Studio's Recent shelf, shared with the desktop Studio.

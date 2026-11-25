@@ -127,9 +127,12 @@ export const studioReady = () => api.get<StudioReady>('/api/image/studio/ready')
 
 export type GenerateResult = { image: string; savedPath?: string; filename?: string };
 
-/** One portrait render (the desktop's `isPortrait: true`). */
-export const generatePortrait = (prompt: string) =>
-  api.post<GenerateResult>('/api/image/generate', { prompt, isPortrait: true });
+/** One portrait render (the desktop's `isPortrait: true`), kept on Image
+ * Studio's Recent shelf as a character creator picture of [characterId]. */
+export const generatePortrait = (prompt: string, characterId: string) =>
+  api.post<GenerateResult>('/api/image/generate', {
+    prompt, isPortrait: true, source: 'creator', characterId,
+  });
 
 export const portraitUrl = (id: string, version: number) =>
   `/api/characters/${enc(id)}/avatar?w=512&v=${version}`;

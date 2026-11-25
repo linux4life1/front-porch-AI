@@ -23,6 +23,8 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show StudioRecentEntry;
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'studio_widgets.dart';
@@ -68,6 +70,7 @@ class StudioView extends StatelessWidget {
     this.onSaveToGallery,
     this.onKeep,
     this.kept = false,
+    this.shown,
     this.modeTabs,
     this.editBody,
     this.showEdit = false,
@@ -127,6 +130,9 @@ class StudioView extends StatelessWidget {
   /// Star the shown result on the Recent shelf; null hides the button.
   final VoidCallback? onKeep;
   final bool kept;
+
+  /// The shown result's Recent entry (where it came from); null for none.
+  final StudioRecentEntry? shown;
 
   /// The Create | Edit tab bar, rendered under the header (null = no tabs).
   final Widget? modeTabs;
@@ -280,6 +286,7 @@ class StudioView extends StatelessWidget {
                   onSaveToGallery: onSaveToGallery,
                   onKeep: onKeep,
                   kept: kept,
+                  source: shown,
                 )
               : const SizedBox.shrink(),
         ),

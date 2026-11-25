@@ -8,7 +8,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StudioDesk, type GenerateRequest } from './StudioDesk';
 import { PackBanner } from './studio/PackBanner';
-import { RecentShelf, type RecentEntry } from './studio/RecentShelf';
+import { RecentShelf, recentStamp, type RecentEntry } from './studio/RecentShelf';
+import { SourceIcon, sourceOf } from './studio/sourceIcons';
 import type { ImageConfig } from './studio/types';
 
 const PROGRESS_MS = 1000;
@@ -34,7 +35,7 @@ export function ImageGen({
   const [genError, setGenError] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
   // The Recent shelf picture on show (the computer keeps every result there).
-  const [recent, setRecent] = useState<{ name: string; kept: boolean } | null>(null);
+  const [recent, setRecent] = useState<ShownRecent | null>(null);
   const [recentKey, setRecentKey] = useState(0);
   const [editPicture, setEditPicture] = useState<{ name: string; url: string; seq: number } | null>(null);
   const live = useRef(true);
@@ -110,11 +111,11 @@ export function ImageGen({
     setInserted(false);
     setRecent(null);
     api
-      .post<{ image: string; filename: string | null; recent?: { name: string; kept: boolean } }>('/api/image/generate', body)
+      .post<{ image: string; filename: string | null; recent?: ShownRecent }>('/api/image/generate', body)
       .then((r) => {
         setImage(r.image);
         setFilename(r.filename);
-        setRecent(r.recent ? { name: r.recent.name, kept: r.recent.kept } : null);
+        setRecent(r.recent ? shownFrom(r.recent) : null);
         setRecentKey((k) => k + 1);
       })
       .catch((e: unknown) => {
@@ -141,7 +142,7 @@ export function ImageGen({
     setPrompt(entry.prompt);
     setInserted(false);
     setGenError('');
-    setRecent({ name: entry.name, kept: entry.kept });
+    setRecent(shownFrom(entry));
   };
 
   const toggleStar = () => {
@@ -177,7 +178,16 @@ export function ImageGen({
           <>
           {image ? (
             <div className="image-result">
-              <img src={image} alt="Generated" />
+              <figure className="fp-shown">
+                <img src={image} alt="Generated" />
+                {recent?.sourceLine ? (
+                  <figcaption className="fp-source-line" data-testid="studio-source-line">
+                    <SourceIcon source={sourceOf(recent)} size={14} />
+                    <span className="fp-source-what">{recent.sourceLine}</span>
+                    {recent.createdAt ? <span>{recentStamp(new Date(recent.createdAt), new Date())}</span> : null}
+                  </figcaption>
+                ) : null}
+              </figure>
               <div className="image-result-actions">
                 <a className="help-link" href={image} download="generated.png">
                   Download
@@ -213,6 +223,20 @@ export function ImageGen({
       />
     </section>
   );
+}
+
+/** The Recent picture on show: its star, and where it came from for the line on it. */
+interface ShownRecent {
+  name: string;
+  kept: boolean;
+  mode?: string;
+  source?: string;
+  sourceLine?: string;
+  createdAt?: string;
+}
+
+function shownFrom(e: ShownRecent): ShownRecent {
+  return { name: e.name, kept: e.kept, mode: e.mode, source: e.source, sourceLine: e.sourceLine, createdAt: e.createdAt };
 }
 
 /** A computer that does not name the graphs on its desk gets the built-in ones. */

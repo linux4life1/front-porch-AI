@@ -20,6 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
@@ -297,7 +299,10 @@ class _CastSectionState extends State<CastSection> {
     final prompt = StoryPipelineStudioBible.portraitPrompt(p, m);
     setState(() => _painting.add(m.name));
     try {
-      final bytes = await igs.generateImage(prompt: prompt, isPortrait: true);
+      final bytes = await withImageSource(
+        ImageSource(ImageSourceKind.story, p.title),
+        () => igs.generateImage(prompt: prompt, isPortrait: true),
+      );
       final path = await igs.saveAvatarToDisk(bytes, characterName: m.name);
       if (path == null) throw Exception('The image could not be saved.');
       m.portrait = path;

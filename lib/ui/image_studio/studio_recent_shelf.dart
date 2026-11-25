@@ -28,6 +28,7 @@ import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'studio_recent_menu.dart';
+import 'studio_recent_sources.dart';
 import 'studio_recent_thumb.dart';
 
 /// Image Studio's Recent shelf: every Create and Edit result, kept on disk
@@ -131,7 +132,15 @@ class _StudioRecentShelfState extends State<StudioRecentShelf> {
       (s) => s.imageGenSettings.studioRecentLimit,
     );
     final off = limit == kStudioRecentOff;
-    final shown = off ? _entries.where((e) => e.kept).toList() : _entries;
+    final base = off ? _entries.where((e) => e.kept).toList() : _entries;
+    final source = ImageSourceKind.fromKey(
+      context.select<StorageService, String>(
+        (s) => s.imageGenSettings.studioRecentSource,
+      ),
+    );
+    final shown = source == null
+        ? base
+        : base.where((e) => e.source == source).toList();
     final secondary = AppColors.textSecondary(context);
     final hint = TextStyle(
       color: AppColors.textTertiary(context),
@@ -159,9 +168,20 @@ class _StudioRecentShelfState extends State<StudioRecentShelf> {
           ],
         ),
         const SizedBox(height: 6),
+        StudioRecentSourceChips(
+          entries: base,
+          selected: source,
+          onSelected: (kind) => context
+              .read<StorageService>()
+              .imageGenSettings
+              .setStudioRecentSource(kind?.key ?? ''),
+        ),
+        const SizedBox(height: 6),
         if (shown.isEmpty)
           Text(
-            off
+            base.isNotEmpty && source != null
+                ? 'No pictures from ${source.label} yet.'
+                : off
                 ? 'Recent is off. Pictures stay only when you save them.'
                 : 'Pictures you make land here and stay after you close '
                       'the Studio.',
@@ -178,6 +198,7 @@ class _StudioRecentShelfState extends State<StudioRecentShelf> {
                 entry: shown[i],
                 now: now,
                 selected: shown[i].name == widget.selectedName,
+                showMark: source == null,
                 canEdit: widget.onEditPicture != null,
                 onAction: (action) => _act(shown[i], action),
               ),

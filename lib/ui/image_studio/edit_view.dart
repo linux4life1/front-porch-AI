@@ -308,6 +308,7 @@ class _EditViewState extends State<EditView> {
                 _error = '';
               }),
               onSendToChat: widget.onSendToChat == null ? null : _send,
+              source: _recent.shown,
               onSaveToGallery: widget.onSaveToGalleryBytes == null
                   ? null
                   : () {
