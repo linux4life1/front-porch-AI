@@ -666,14 +666,17 @@ mark.find-hit.active {
 /* The grip handle is the first element of each section's header row: the
    desktop's grab bars on a button that starts a pointer drag and never acts
    on the section's own control (Error Book P44). touch-action:none keeps a
-   touch drag from scrolling the panel instead. A locked layout renders no
-   grip at all. */
+   touch drag from scrolling the panel instead. */
 .sidebar-grip {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; padding: 0; border: none; background: none;
   color: var(--faint); cursor: grab; touch-action: none;
 }
 .sidebar-grip:active { cursor: grabbing; }
+/* Locked: the grip keeps its exact box but is unseen and untouchable, so no
+   row moves when the lock flips (the bars are there or not). visibility, not
+   display, is what keeps the box. */
+.sidebar-grip.sidebar-grip-off { visibility: hidden; pointer-events: none; cursor: default; }
 /* The Reset-to-default pill at the top of the sidebar. */
 .sidebar-reset-pill {
   align-self: flex-start; padding: 3px 8px; border-radius: 10px;

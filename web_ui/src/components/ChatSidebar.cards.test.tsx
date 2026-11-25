@@ -6,6 +6,8 @@
 // editor is wired, Edit group… only for a group), the layout pills keep
 // their names, and no-portrait characters get the window's initial square.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
@@ -186,29 +188,41 @@ describe('wide sidebar grips follow the layout lock', () => {
   const pill = (text: string) =>
     [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text);
 
-  it('shows the grab bars unlocked, and nothing (no padlock) locked', async () => {
+  it('shows the grab bars unlocked; locked hides them in place (no padlock, no row moves)', async () => {
     await render(false);
-    const panel = container.querySelector('.realism-panel')!;
-    const grips = container.querySelectorAll('.insight-section > button.sidebar-grip');
-    expect(grips.length).toBeGreaterThan(3);
-    grips.forEach((g) =>
-      expect(g.querySelector('path')?.getAttribute('d')).toBe('M20 9H4v2h16V9zM4 15h16v-2H4v2z'),
-    );
-    expect(panel.hasAttribute('data-layout-locked')).toBe(false);
+    const gripOf = (section: Element) => section.querySelector(':scope > button.sidebar-grip');
+    const sections = [...container.querySelectorAll('.insight-section')].filter((s) => gripOf(s));
+    expect(sections.length).toBeGreaterThan(3);
+    sections.forEach((s) => {
+      const g = gripOf(s)!;
+      expect(g.classList.contains('sidebar-grip-off')).toBe(false);
+      expect(g.querySelector('path')?.getAttribute('d')).toBe('M20 9H4v2h16V9zM4 15h16v-2H4v2z');
+    });
 
     await act(async () => {
       pill('Lock layout')!.click();
     });
-    expect(container.querySelectorAll('.sidebar-grip')).toHaveLength(0);
-    // The headers give the grip's room back (insight.css keys on this).
-    expect(panel.hasAttribute('data-layout-locked')).toBe(true);
+    // Every grip is still the section's first child, hidden and inert, so
+    // its box (and every row around it) stays exactly where it was.
+    sections.forEach((s) => {
+      const g = gripOf(s)!;
+      expect(s.firstElementChild).toBe(g);
+      expect(g.classList.contains('sidebar-grip-off')).toBe(true);
+      expect(g.hasAttribute('disabled')).toBe(true);
+      expect(g.getAttribute('aria-hidden')).toBe('true');
+    });
+    expect(container.querySelector('svg path[d^="M12 2a5"]')).toBeNull();
 
     await act(async () => {
       pill('Layout locked')!.click();
     });
-    expect(container.querySelectorAll('.insight-section > button.sidebar-grip').length).toBe(
-      grips.length,
-    );
-    expect(panel.hasAttribute('data-layout-locked')).toBe(false);
+    sections.forEach((s) => expect(gripOf(s)!.classList.contains('sidebar-grip-off')).toBe(false));
+  });
+
+  it('hides a locked grip with visibility, which keeps its box, never display', () => {
+    const css = readFileSync(join(__dirname, '..', 'styles', 'chat.css'), 'utf8');
+    const rule = /\.sidebar-grip\.sidebar-grip-off\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toMatch(/visibility:\s*hidden/);
+    expect(rule).not.toMatch(/display\s*:/);
   });
 });

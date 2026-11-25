@@ -144,7 +144,7 @@ class StoryToolsGroup extends StatelessWidget {
 
   /// The leaf widget for [id], with its reorder grip at [index].
   Widget _leaf(BuildContext context, ChatService chat, String id, int index) {
-    final grip = sidebarGripFor(context, index);
+    final grip = SidebarReorderHandle(index: index);
     switch (id) {
       case 'chaos':
         return ChaosPanel(

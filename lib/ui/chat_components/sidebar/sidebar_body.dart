@@ -265,7 +265,7 @@ class _SidebarBodyState extends State<SidebarBody> {
     final ui = storage.uiSettings;
     final isGroup = chat.isGroupMode;
     final isLite = widget.focused.isLite;
-    final grip = sidebarGripFor(context, index);
+    final grip = SidebarReorderHandle(index: index);
     switch (id) {
       case 'director':
         return Consumer<StorageService>(

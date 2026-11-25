@@ -1108,7 +1108,6 @@ export function ChatSidebar({
   return (
     <div
       className="realism-panel"
-      data-layout-locked={locked ? '' : undefined}
       ref={listEl}
       onPointerMove={dragMove}
       onPointerUp={endDrag}

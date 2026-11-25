@@ -46,6 +46,25 @@ List<String> _screenOrder(WidgetTester tester, List<String> ids) {
   return [for (final (id, _) in withY) id];
 }
 
+/// The on-screen top-left of every plain Text in the sidebar body, keyed by
+/// its words; a text shown twice is left out, since it names no one row.
+Map<String, Offset> _textSpots(WidgetTester tester) {
+  final spots = <String, Offset>{};
+  final seenTwice = <String>{};
+  final texts = find.descendant(
+    of: find.byType(SidebarBody),
+    matching: find.byType(Text),
+  );
+  for (final element in texts.evaluate()) {
+    final words = (element.widget as Text).data;
+    final box = element.renderObject;
+    if (words == null || box is! RenderBox || !box.hasSize) continue;
+    if (spots.containsKey(words)) seenTwice.add(words);
+    spots[words] = box.localToGlobal(Offset.zero);
+  }
+  return spots..removeWhere((words, _) => seenTwice.contains(words));
+}
+
 void main() {
   testWidgets('the lock stops drags, Reset still works while locked, and '
       'unlocking restores dragging', (tester) async {
@@ -83,15 +102,11 @@ void main() {
       'one_shot_eval',
     ]);
 
-    // Where the One-Shot Eval title starts while its grip leads the row.
-    final title = find.descendant(
-      of: find.byKey(const ValueKey('sidebar-section-one_shot_eval')),
-      matching: find.text('One-Shot Eval'),
-    );
-    final unlockedTitleX = tester.getTopLeft(title).dx;
+    // Where every row's text sits while the grab bars show.
+    final unlockedSpots = _textSpots(tester);
 
-    // Lock: the pill flips and every grip leaves the body — no lock icon in
-    // its place (the maintainer's ruling: the pill is the only lock sign).
+    // Lock: the pill flips and every grip disappears — no lock icon in its
+    // place (the maintainer's ruling: the pill is the only lock sign).
     await tester.tap(find.text('Lock layout'));
     await tester.pumpAndSettle();
     expect(ui.sidebarLayoutLocked, isTrue);
@@ -112,11 +127,20 @@ void main() {
       findsNothing,
       reason: 'a locked layout shows no lock icon on the sections',
     );
-    expect(
-      tester.getTopLeft(title).dx,
-      lessThanOrEqualTo(unlockedTitleX - 16),
-      reason: 'the hidden grip leaves no gap: the title moves into its place',
-    );
+    // The maintainer's rule: the bars are there or not, the rows never move.
+    final lockedSpots = _textSpots(tester);
+    final compared = [
+      for (final text in unlockedSpots.keys)
+        if (lockedSpots.containsKey(text)) text,
+    ];
+    expect(compared.length, greaterThan(5), reason: 'enough rows to compare');
+    for (final text in compared) {
+      expect(
+        lockedSpots[text],
+        unlockedSpots[text],
+        reason: '"$text" must not move when the layout locks',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('sidebar_layout_locked'), isTrue);
 

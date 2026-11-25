@@ -104,9 +104,10 @@ export function saveSidebarLayoutLocked(locked: boolean): void {
 
 /** The grip handle: the desktop's two grab bars (Material `drag_handle`) on a
  *  button that starts a drag on its own list item and never acts on the
- *  section's own control. Locked, it renders nothing: the item keeps its
- *  place, and the Lock pill is the only sign the layout is locked (the
- *  desktop's sidebar_reorder.dart leaves the grip out the same way). */
+ *  section's own control. Locked, the same button stays in place but hidden
+ *  and inert (`.sidebar-grip-off`), so no row ever moves when the lock
+ *  flips — the bars are there or not (the desktop's sidebar_reorder.dart
+ *  keeps the same footprint). The Lock pill is the only sign of the lock. */
 export function SidebarGrip({
   onDown,
   locked = false,
@@ -114,14 +115,16 @@ export function SidebarGrip({
   onDown: (e: PointerEvent<HTMLButtonElement>) => void;
   locked?: boolean;
 }) {
-  if (locked) return null;
   return (
     <button
       type="button"
-      className="sidebar-grip"
-      aria-label="Drag to reorder"
-      title="Drag to reorder"
-      onPointerDown={onDown}
+      className={locked ? 'sidebar-grip sidebar-grip-off' : 'sidebar-grip'}
+      aria-label={locked ? undefined : 'Drag to reorder'}
+      aria-hidden={locked ? true : undefined}
+      title={locked ? undefined : 'Drag to reorder'}
+      tabIndex={locked ? -1 : undefined}
+      disabled={locked}
+      onPointerDown={locked ? undefined : onDown}
     >
       <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" aria-hidden>
         <path d="M20 9H4v2h16V9zM4 15h16v-2H4v2z" />

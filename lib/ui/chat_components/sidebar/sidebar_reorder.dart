@@ -22,10 +22,10 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// True while the sidebar layout is locked. Every grip — top-level section or
-/// nested accordion leaf — is then left out ([sidebarGripFor] answers null),
-/// so nothing can start a drag and the arrangement cannot move by accident.
-/// One switch for the whole body; the pill that flips it lives in the pinned
-/// chrome above and is the only sign the layout is locked.
+/// nested accordion leaf — then draws nothing and starts no drag, so the
+/// arrangement cannot move by accident. One switch for the whole body; the
+/// pill that flips it lives in the pinned chrome above and is the only sign
+/// the layout is locked.
 class SidebarReorderLock extends InheritedWidget {
   final bool locked;
 
@@ -57,10 +57,13 @@ class SidebarReorderLock extends InheritedWidget {
 /// trailing switch/gear uses. Error Book P44: a drag must not act until the
 /// movement is unmistakable; below it, the press is still the click it was.
 ///
-/// Under a locked [SidebarReorderLock] it draws nothing. Callers should build
-/// it through [sidebarGripFor], which leaves the grip (and the gap a panel
-/// keeps beside it) out altogether while locked.
+/// Under a locked [SidebarReorderLock] it draws nothing but keeps the grab
+/// bars' exact footprint, so no row ever moves when the lock flips (the
+/// maintainer's rule: the bars are there or not, the rows never shift).
 class SidebarReorderHandle extends StatelessWidget {
+  /// The grab bars' size, and the empty footprint they leave when locked.
+  static const double size = 16;
+
   /// The item's index in its own reorderable list.
   final int index;
 
@@ -75,26 +78,22 @@ class SidebarReorderHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (SidebarReorderLock.of(context)) return const SizedBox.shrink();
+    if (SidebarReorderLock.of(context)) {
+      return const SizedBox.square(dimension: size);
+    }
     return ReorderableDragStartListener(
       index: index,
       child: Tooltip(
         message: label,
         child: Icon(
           Icons.drag_handle,
-          size: 16,
+          size: size,
           color: AppColors.textTertiary(context),
         ),
       ),
     );
   }
 }
-
-/// The grip for the item at [index], or null while the layout is locked so
-/// the panel drops the grip and its spacing (every `dragHandle` slot is
-/// optional). [context] must be inside the item's reorderable list.
-Widget? sidebarGripFor(BuildContext context, int index) =>
-    SidebarReorderLock.of(context) ? null : SidebarReorderHandle(index: index);
 
 /// Wraps a grip opaque so a tap on it never reaches the thing it sits on —
 /// the same trick the accordion's header uses (Error Book P44). The leaf
