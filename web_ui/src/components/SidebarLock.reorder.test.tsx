@@ -1,10 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The web sidebar layout lock: toggled on, every grip is inert and a pointer
-// drag moves nothing; Reset to default still POSTs while locked (and the lock
-// stays on); toggled off, the grips come back. Desktop twin:
-// test/ui/chat_components/sidebar_lock_test.dart.
+// The web sidebar layout lock: toggled on, every grip leaves the sections (no
+// lock icon in its place) and a pointer drag moves nothing; Reset to default
+// still POSTs while locked (and the lock stays on); toggled off, the grab bars
+// come back. Desktop twin: test/ui/chat_components/sidebar_lock_test.dart.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -118,25 +118,27 @@ describe('ChatInsight layout lock', () => {
   it('locks the grips, keeps Reset working while locked, and unlocks again', async () => {
     await renderInsight();
     const sectionCount = sections().length;
-    expect(container.querySelectorAll('.sidebar-grip.locked')).toHaveLength(0);
+    // Unlocked: every section leads with the desktop's grab bars.
+    const grips = container.querySelectorAll('button.sidebar-grip');
+    expect(grips).toHaveLength(sectionCount);
+    grips.forEach((g) =>
+      expect(g.querySelector('path')?.getAttribute('d')).toBe('M20 9H4v2h16V9zM4 15h16v-2H4v2z'),
+    );
 
-    // Lock: the pill posts the switch and every grip turns inert.
+    // Lock: the pill posts the switch and every grip leaves the sections.
     const lockPill = buttonWithText('Lock layout');
     expect(lockPill).toBeTruthy();
     await act(async () => {
       lockPill.click();
     });
     expect(post).toHaveBeenCalledWith('/api/settings', { sidebarLayoutLocked: true });
-    expect(container.querySelectorAll('.sidebar-grip.locked')).toHaveLength(sectionCount);
-    expect(container.querySelectorAll('button.sidebar-grip')).toHaveLength(0);
+    expect(container.querySelectorAll('.sidebar-grip')).toHaveLength(0);
     expect(buttonWithText('Layout locked').getAttribute('aria-pressed')).toBe('true');
 
-    // A pointer drag on a locked grip moves nothing.
+    // A pointer drag from where the grip used to sit moves nothing.
     const list = container.querySelector('.realism-panel')!;
-    const lockedGrip = container.querySelector<HTMLElement>(
-      '.insight-section[data-id="lorebook"] .sidebar-grip',
-    )!;
-    pointer(lockedGrip, 'pointerdown', 445);
+    const lorebook = container.querySelector<HTMLElement>('.insight-section[data-id="lorebook"]')!;
+    pointer(lorebook, 'pointerdown', 445);
     pointer(list, 'pointermove', 20);
     pointer(list, 'pointerup', 20);
     expect(sections()[0]).toBe('one_shot_eval');
@@ -151,14 +153,13 @@ describe('ChatInsight layout lock', () => {
     });
     expect(post).toHaveBeenCalledWith('/api/settings', { resetSidebarLayout: true });
     expect(buttonWithText('Layout locked')).toBeTruthy();
-    expect(container.querySelectorAll('.sidebar-grip.locked')).toHaveLength(sectionCount);
+    expect(container.querySelectorAll('.sidebar-grip')).toHaveLength(0);
 
-    // Unlock: the grips come back.
+    // Unlock: the grab bars come back.
     await act(async () => {
       buttonWithText('Layout locked').click();
     });
     expect(post).toHaveBeenCalledWith('/api/settings', { sidebarLayoutLocked: false });
-    expect(container.querySelectorAll('.sidebar-grip.locked')).toHaveLength(0);
     expect(container.querySelectorAll('button.sidebar-grip')).toHaveLength(sectionCount);
   });
 });

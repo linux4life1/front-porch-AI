@@ -165,7 +165,7 @@ class JournalMemoryGroupState extends State<JournalMemoryGroup> {
 
   /// The leaf widget for [id], with its reorder grip at [index].
   Widget _leaf(BuildContext context, String id, int index) {
-    final grip = SidebarReorderHandle(index: index);
+    final grip = sidebarGripFor(context, index);
     switch (id) {
       case 'summary':
         return SummarySection(

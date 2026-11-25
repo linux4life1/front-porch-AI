@@ -260,12 +260,14 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
   /// first element of the row and wrapped opaque, so a grip tap never reaches
   /// the portion's own controls (Error Book P44).
   Widget _part(BuildContext context, ChatService chat, String id, int index) {
-    final grip = opaqueReorderHandle(SidebarReorderHandle(index: index));
+    final grip = sidebarGripFor(context, index);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        grip,
-        const SizedBox(width: 6),
+        if (grip != null) ...[
+          opaqueReorderHandle(grip),
+          const SizedBox(width: 6),
+        ],
         Expanded(child: _portion(context, chat, id)),
       ],
     );

@@ -392,12 +392,16 @@
    fully visible in the column at 1024 and 1440, and in the drawer below. */
 .chat-sidebar .cast-bar { border-bottom: none; background: none; padding: 4px 2px 4px 30px; }
 .chat-sidebar .cast-row { flex-wrap: wrap; overflow-x: visible; }
-/* Card headers carry the window's padlock + chevron (pass 4): the grip
-   sits inside the header's left edge instead of floating above the card. */
+/* Card headers carry the grab bars + chevron (pass 4): the grip sits inside
+   the header's left edge instead of floating above the card. A locked layout
+   draws no grip, so the headers give its room back, as the desktop does. */
 .chat-sidebar .insight-section > .sidebar-grip { position: absolute; top: 8px; left: 8px; z-index: 1; }
 .chat-sidebar .tool-section > summary { padding-left: 32px; }
 .chat-sidebar .one-shot-row { padding-left: 32px; }
 .chat-sidebar .tool-pill { padding-left: 32px; }
+.chat-sidebar .realism-panel[data-layout-locked] .tool-section > summary,
+.chat-sidebar .realism-panel[data-layout-locked] .one-shot-row,
+.chat-sidebar .realism-panel[data-layout-locked] .tool-pill { padding-left: 10px; }
 .card-chev {
   display: inline-block; margin: 0 6px 0 2px; color: var(--muted);
   font-size: 0.7rem; transition: transform 0.12s;

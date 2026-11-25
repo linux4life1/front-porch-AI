@@ -165,15 +165,3 @@ export const IconMic = ({ size }: { size?: number }) => (
     <path d="M12 18v4" />
   </Line>
 );
-
-/** The wide sidebar card's grip glyph (the window draws a padlock there). */
-export const IconGripWide = ({ locked, size = 14 }: { locked: boolean; size?: number }) => (
-  <Line size={size}>
-    <rect x="4" y="11" width="16" height="10" rx="2" />
-    {locked ? (
-      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-    ) : (
-      <path d="M8 11V7a4 4 0 0 1 7.7-1.5" />
-    )}
-  </Line>
-);

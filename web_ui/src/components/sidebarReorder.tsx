@@ -11,7 +11,6 @@ import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
-import { IconGripWide } from './chatLineIcons';
 
 export type SidebarSurface = 'insight' | 'tools';
 
@@ -103,33 +102,19 @@ export function saveSidebarLayoutLocked(locked: boolean): void {
   void api.post('/api/settings', { sidebarLayoutLocked: locked }).catch(() => {});
 }
 
-/** The grip handle: a six-dot button that starts a drag on its own list item
- *  and never acts on the section's own control. Locked, it is an inert lock
- *  icon — the item keeps its place and only the drag start disappears. */
+/** The grip handle: the desktop's two grab bars (Material `drag_handle`) on a
+ *  button that starts a drag on its own list item and never acts on the
+ *  section's own control. Locked, it renders nothing: the item keeps its
+ *  place, and the Lock pill is the only sign the layout is locked (the
+ *  desktop's sidebar_reorder.dart leaves the grip out the same way). */
 export function SidebarGrip({
   onDown,
   locked = false,
-  wide = false,
 }: {
   onDown: (e: PointerEvent<HTMLButtonElement>) => void;
   locked?: boolean;
-  /** Wide sidebar (PR 1a): the window draws a padlock in the card header —
-   *  closed when locked, open when a drag is allowed. Drag still works. */
-  wide?: boolean;
 }) {
-  if (locked) {
-    return (
-      <span className="sidebar-grip locked" aria-label="Sidebar layout locked" title="Sidebar layout locked">
-        {wide ? (
-          <IconGripWide locked size={14} />
-        ) : (
-          <svg viewBox="0 0 24 24" width={14} height={14} fill="currentColor" aria-hidden>
-            <path d="M12 2a5 5 0 0 0-5 5v3H6a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1h-1V7a5 5 0 0 0-5-5zm0 2a3 3 0 0 1 3 3v3H9V7a3 3 0 0 1 3-3z" />
-          </svg>
-        )}
-      </span>
-    );
-  }
+  if (locked) return null;
   return (
     <button
       type="button"
@@ -138,13 +123,9 @@ export function SidebarGrip({
       title="Drag to reorder"
       onPointerDown={onDown}
     >
-      {wide ? (
-        <IconGripWide locked={false} size={14} />
-      ) : (
-        <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" aria-hidden>
-          {[6, 12, 18].map((y) => [9, 15].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.6} />))}
-        </svg>
-      )}
+      <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" aria-hidden>
+        <path d="M20 9H4v2h16V9zM4 15h16v-2H4v2z" />
+      </svg>
     </button>
   );
 }

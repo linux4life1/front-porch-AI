@@ -39,10 +39,7 @@ Future<StorageService> _openChat(WidgetTester tester, HomeRig rig) async {
 List<String> _screenOrder(WidgetTester tester, List<String> ids) {
   final withY = [
     for (final id in ids)
-      if (find
-              .byKey(ValueKey('sidebar-section-$id'))
-              .evaluate()
-              .isNotEmpty)
+      if (find.byKey(ValueKey('sidebar-section-$id')).evaluate().isNotEmpty)
         (id, tester.getTopLeft(find.byKey(ValueKey('sidebar-section-$id'))).dy),
   ];
   withY.sort((a, b) => a.$2.compareTo(b.$2));
@@ -71,7 +68,9 @@ void main() {
       find.byKey(const ValueKey('sidebar-section-tool_calling_pill')),
     );
     final pillHeight = tester
-        .getSize(find.byKey(const ValueKey('sidebar-section-tool_calling_pill')))
+        .getSize(
+          find.byKey(const ValueKey('sidebar-section-tool_calling_pill')),
+        )
         .height;
     await tester.timedDrag(
       grip,
@@ -79,12 +78,20 @@ void main() {
       const Duration(milliseconds: 400),
     );
     await tester.pumpAndSettle();
-    expect(
-      _screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']),
-      ['tool_calling_pill', 'one_shot_eval'],
-    );
+    expect(_screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']), [
+      'tool_calling_pill',
+      'one_shot_eval',
+    ]);
 
-    // Lock: the pill flips, the grips become inert lock icons.
+    // Where the One-Shot Eval title starts while its grip leads the row.
+    final title = find.descendant(
+      of: find.byKey(const ValueKey('sidebar-section-one_shot_eval')),
+      matching: find.text('One-Shot Eval'),
+    );
+    final unlockedTitleX = tester.getTopLeft(title).dx;
+
+    // Lock: the pill flips and every grip leaves the body — no lock icon in
+    // its place (the maintainer's ruling: the pill is the only lock sign).
     await tester.tap(find.text('Lock layout'));
     await tester.pumpAndSettle();
     expect(ui.sidebarLayoutLocked, isTrue);
@@ -102,36 +109,42 @@ void main() {
         of: find.byType(SidebarBody),
         matching: find.byIcon(Icons.lock_outline),
       ),
-      findsWidgets,
-      reason: 'every grip draws the locked state',
+      findsNothing,
+      reason: 'a locked layout shows no lock icon on the sections',
+    );
+    expect(
+      tester.getTopLeft(title).dx,
+      lessThanOrEqualTo(unlockedTitleX - 16),
+      reason: 'the hidden grip leaves no gap: the title moves into its place',
     );
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool('sidebar_layout_locked'), isTrue);
 
-    // A drag on the inert grip moves nothing.
-    final lockIcon = find
-        .descendant(
-          of: find.byKey(const ValueKey('sidebar-section-one_shot_eval')),
-          matching: find.byIcon(Icons.lock_outline),
-        )
-        .first;
-    await tester.drag(
-      lockIcon,
+    // A drag from where the grip used to sit moves nothing.
+    final gripSpot =
+        tester.getTopLeft(
+          find.byKey(const ValueKey('sidebar-section-one_shot_eval')),
+        ) +
+        const Offset(10, 10);
+    await tester.dragFrom(
+      gripSpot,
       Offset(
         0,
-        tester.getTopLeft(
-                  find.byKey(const ValueKey('sidebar-section-tool_calling_pill')),
-                ).dy +
-            pillHeight / 2 -
-            tester.getCenter(lockIcon).dy,
+        tester
+                .getCenter(
+                  find.byKey(
+                    const ValueKey('sidebar-section-tool_calling_pill'),
+                  ),
+                )
+                .dy -
+            gripSpot.dy,
       ),
     );
     await tester.pumpAndSettle();
-    expect(
-      _screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']),
-      ['tool_calling_pill', 'one_shot_eval'],
-      reason: 'a locked sidebar cannot be reordered',
-    );
+    expect(_screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']), [
+      'tool_calling_pill',
+      'one_shot_eval',
+    ], reason: 'a locked sidebar cannot be reordered');
 
     // Reset to default still works while locked — and does not unlock.
     await tester.tap(find.text('Reset to default'));
@@ -140,11 +153,10 @@ void main() {
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
     expect(ui.sidebarOrder.first, 'director');
-    expect(
-      _screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']),
-      ['one_shot_eval', 'tool_calling_pill'],
-      reason: 'Reset restores the shipped order even while locked',
-    );
+    expect(_screenOrder(tester, ['one_shot_eval', 'tool_calling_pill']), [
+      'one_shot_eval',
+      'tool_calling_pill',
+    ], reason: 'Reset restores the shipped order even while locked');
     expect(
       ui.sidebarLayoutLocked,
       isTrue,

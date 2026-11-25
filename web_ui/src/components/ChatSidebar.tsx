@@ -378,7 +378,7 @@ export function ChatSidebar({
     !locked,
   );
   const grip = (id: string) => (
-    <SidebarGrip wide locked={locked} onDown={(e) => startDrag(e, id)} />
+    <SidebarGrip locked={locked} onDown={(e) => startDrag(e, id)} />
   );
 
   const openSettingsMenu = () => {
@@ -1108,6 +1108,7 @@ export function ChatSidebar({
   return (
     <div
       className="realism-panel"
+      data-layout-locked={locked ? '' : undefined}
       ref={listEl}
       onPointerMove={dragMove}
       onPointerUp={endDrag}

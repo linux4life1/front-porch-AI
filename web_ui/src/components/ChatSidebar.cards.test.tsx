@@ -181,3 +181,34 @@ describe('wide sidebar cards', () => {
     expect(menuLabels().some((l) => l.includes('Edit group…'))).toBe(true);
   });
 });
+
+describe('wide sidebar grips follow the layout lock', () => {
+  const pill = (text: string) =>
+    [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent === text);
+
+  it('shows the grab bars unlocked, and nothing (no padlock) locked', async () => {
+    await render(false);
+    const panel = container.querySelector('.realism-panel')!;
+    const grips = container.querySelectorAll('.insight-section > button.sidebar-grip');
+    expect(grips.length).toBeGreaterThan(3);
+    grips.forEach((g) =>
+      expect(g.querySelector('path')?.getAttribute('d')).toBe('M20 9H4v2h16V9zM4 15h16v-2H4v2z'),
+    );
+    expect(panel.hasAttribute('data-layout-locked')).toBe(false);
+
+    await act(async () => {
+      pill('Lock layout')!.click();
+    });
+    expect(container.querySelectorAll('.sidebar-grip')).toHaveLength(0);
+    // The headers give the grip's room back (insight.css keys on this).
+    expect(panel.hasAttribute('data-layout-locked')).toBe(true);
+
+    await act(async () => {
+      pill('Layout locked')!.click();
+    });
+    expect(container.querySelectorAll('.insight-section > button.sidebar-grip').length).toBe(
+      grips.length,
+    );
+    expect(panel.hasAttribute('data-layout-locked')).toBe(false);
+  });
+});

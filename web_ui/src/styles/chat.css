@@ -663,10 +663,11 @@ mark.find-hit.active {
 }
 
 /* ── Reorderable chat sidebar ─────────────────────────────────── */
-/* The grip handle is the first element of each section's header row: a small
-   six-dot button that starts a pointer drag and never acts on the section's
-   own control (Error Book P44). touch-action:none keeps a touch drag from
-   scrolling the panel instead. */
+/* The grip handle is the first element of each section's header row: the
+   desktop's grab bars on a button that starts a pointer drag and never acts
+   on the section's own control (Error Book P44). touch-action:none keeps a
+   touch drag from scrolling the panel instead. A locked layout renders no
+   grip at all. */
 .sidebar-grip {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; padding: 0; border: none; background: none;
@@ -699,8 +700,6 @@ mark.find-hit.active {
   border-color: var(--accent, var(--text-strong));
   color: var(--accent, var(--text-strong));
 }
-/* A locked grip is inert: the item keeps its place, the drag start is gone. */
-.sidebar-grip.locked { cursor: default; opacity: 0.7; }
 /* Each reorderable section is its own item, so the flex gap falls between
    items rather than inside one. A held item dims while it travels. */
 .insight-section, .tools-section { position: relative; }
