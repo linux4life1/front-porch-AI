@@ -46,6 +46,7 @@ export 'edit_profile.dart';
 export 'image_gen_lora_slots.dart';
 export 'image_gen_types.dart';
 export 'image_job.dart';
+export 'image_source.dart';
 export 'image_studio_remote.dart';
 export 'image_surface.dart';
 export 'model_family.dart';

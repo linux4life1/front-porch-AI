@@ -36,9 +36,14 @@ const List<int> kStudioRecentChoices = [
 mixin StudioRecentPrefs on SettingsBase {
   int _studioRecentLimit = kStudioRecentDefault;
   String _studioRecentFolder = '';
+  String _studioRecentSource = '';
 
   int get studioRecentLimit => _studioRecentLimit;
   String get studioRecentFolder => _studioRecentFolder;
+
+  /// The source chip the desktop shelf shows (a source key); empty is All.
+  /// A view choice for this computer only: the phone keeps its own.
+  String get studioRecentSource => _studioRecentSource;
 
   void loadStudioRecentPrefs() {
     final stored = prefs?.getInt(k('image_studio_recent_limit'));
@@ -47,6 +52,14 @@ mixin StudioRecentPrefs on SettingsBase {
         : kStudioRecentDefault;
     _studioRecentFolder =
         prefs?.getString(k('image_studio_recent_folder')) ?? '';
+    _studioRecentSource =
+        prefs?.getString(k('image_studio_recent_source')) ?? '';
+  }
+
+  Future<void> setStudioRecentSource(String value) async {
+    _studioRecentSource = value;
+    await prefs?.setString(k('image_studio_recent_source'), value);
+    notify();
   }
 
   /// Ignores a value the shelf does not offer, so a stale phone cannot store

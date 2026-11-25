@@ -48,6 +48,7 @@ import 'package:front_porch_ai/services/capability/capability.dart'
     show StudioIntent;
 import 'package:front_porch_ai/services/image/model_family.dart'
     show ModelFamily;
+import 'package:front_porch_ai/services/image/image_source.dart';
 import 'package:front_porch_ai/services/image/studio_recent_store.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -689,6 +690,60 @@ void main() {
         );
         expect(claimed?.name, kept.single.name);
         expect(await store.list(), hasLength(1));
+      }),
+    );
+  });
+
+  // Recent sorted by source: a screen's withImageSource reaches the shelf's
+  // notes, so the chips and the line on the picture can say where it came from.
+  group('ImageGenService.generateImage — Recent sources', () {
+    late Directory tempDir;
+    late _FakeLocalImageServer fake;
+    late _FakeStorageForGenerate storage;
+    late ImageGenService service;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('imagegen_source_');
+      fake = await _FakeLocalImageServer.start();
+      storage = _FakeStorageForGenerate(tempDir.path);
+      await storage.imageGenSettings.setImageGenBackend('a1111');
+      await storage.imageGenSettings.setLocalImageGenUrl(fake.baseUrl);
+      fake.genImages = [_fixtureB64];
+      service = ImageGenService(storage);
+    });
+
+    tearDown(() async {
+      await fake.close();
+      await tempDir.delete(recursive: true);
+    });
+
+    test(
+      'a tagged picture keeps its source and name; an untagged one is Studio',
+      () => _withRealHttp(() async {
+        await withImageSource(
+          const ImageSource(ImageSourceKind.creator, 'Ada'),
+          () => service.generateImage(prompt: 'a draft', isPortrait: true),
+        );
+        await service.generateImage(prompt: 'from the Studio');
+        // The shelf's own list waits for the writes still under way.
+        expect(await StudioRecentStore.of(storage).list(), hasLength(2));
+
+        // A fresh read from disk, as after a restart.
+        final entries = await StudioRecentStore(
+          folder: () => StudioRecentStore.folderFor(
+            storage.rootPath,
+            storage.imageGenSettings,
+          ),
+          limit: () => 50,
+        ).list();
+        final draft = entries.firstWhere((e) => e.prompt == 'a draft');
+        expect(draft.source, ImageSourceKind.creator);
+        expect(draft.subject, 'Ada');
+        expect(draft.sourceLine, 'Character creator · Ada');
+        expect(draft.toJson()['source'], 'creator');
+        final studio = entries.firstWhere((e) => e.prompt == 'from the Studio');
+        expect(studio.source, ImageSourceKind.studio);
+        expect(studio.sourceLine, 'Image Studio · Create');
       }),
     );
   });

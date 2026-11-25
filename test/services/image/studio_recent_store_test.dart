@@ -176,4 +176,51 @@ void main() {
     expect((await store.list()).single.prompt, 'prompt 2');
     expect(other.existsSync(), isTrue);
   });
+
+  test(
+    'pictures kept before sources were recorded read as Studio or Edits',
+    () async {
+      for (final (ms, mode) in [
+        (1700000001000, 'create'),
+        (1700000002000, 'edit'),
+      ]) {
+        File(p.join(dir.path, 'rec_$ms.png')).writeAsBytesSync(png(ms % 7));
+        File(
+          p.join(dir.path, 'rec_$ms.json'),
+        ).writeAsStringSync('{"prompt":"old $mode","mode":"$mode"}');
+      }
+      final listed = await store.list();
+      final made = listed.firstWhere((e) => e.prompt == 'old create');
+      final edited = listed.firstWhere((e) => e.prompt == 'old edit');
+      expect(made.source, ImageSourceKind.studio);
+      expect(edited.source, ImageSourceKind.edit);
+      expect(edited.sourceLine, 'Image Studio · Edit');
+    },
+  );
+
+  test('a source and name are kept in the notes and read back', () async {
+    final kept = await store.add(
+      png(9),
+      prompt: 'portrait',
+      mode: 'create',
+      source: ImageSourceKind.guest,
+      subject: 'Mira',
+    );
+    final reopened = StudioRecentStore(folder: () => dir, limit: () => limit);
+    final back = (await reopened.list()).single;
+    expect(back.name, kept!.name);
+    expect(back.source, ImageSourceKind.guest);
+    expect(back.sourceLine, 'Guest portrait · Mira');
+  });
+
+  test('the chosen source chip is remembered on this computer', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = ImageGenSettings()
+      ..initializeBase(await SharedPreferences.getInstance(), () {});
+    settings.load();
+    expect(settings.studioRecentSource, isEmpty);
+    await settings.setStudioRecentSource('creator');
+    settings.load();
+    expect(settings.studioRecentSource, 'creator');
+  });
 }

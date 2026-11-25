@@ -25,6 +25,8 @@ import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/v2_card_service.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
 
@@ -367,7 +369,10 @@ class GuestFlow {
     unawaited(() async {
       String? tmpPath;
       try {
-        final bytes = await igs.generateImage(prompt: prompt, isPortrait: true);
+        final bytes = await withImageSource(
+          ImageSource(ImageSourceKind.guest, card.name),
+          () => igs.generateImage(prompt: prompt, isPortrait: true),
+        );
         if (bytes == null || bytes.isEmpty) return;
         // Image gen is slow: no art for a guest that has since left or had
         // its card deleted, or into a chat the user already left.

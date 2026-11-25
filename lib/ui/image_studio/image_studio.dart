@@ -421,6 +421,7 @@ class _ImageStudioState extends State<ImageStudio> {
             ? null
             : () => _recent.toggleKeep(context, _refresh),
         kept: _recent.shown?.kept ?? false,
+        shown: _recent.shown,
         onClose: _closeStudio,
         onSelectSubject: _selectSubject,
         onPickReference: _pickReferenceImage,

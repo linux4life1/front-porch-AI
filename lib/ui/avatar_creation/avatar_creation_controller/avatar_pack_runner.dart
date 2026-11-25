@@ -102,9 +102,12 @@ class AvatarPackRunner {
     setStage(AvatarRunStage.portrait);
     Uint8List? bytes;
     try {
-      bytes = await imageGen.generateImage(
-        prompt: promptController.text.trim(),
-        isPortrait: true,
+      bytes = await withImageSource(
+        ImageSource(ImageSourceKind.creator, anchor.card?.name ?? ''),
+        () => imageGen.generateImage(
+          prompt: promptController.text.trim(),
+          isPortrait: true,
+        ),
       );
     } catch (e) {
       debugPrint('[AvatarCreation] portrait generation failed: $e');

@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../../api/client';
+import { SOURCES, SourceIcon, sourceLabel, sourceOf, type SourceKey } from './sourceIcons';
 
 export interface RecentEntry {
   name: string;
@@ -18,6 +19,31 @@ export interface RecentEntry {
   kept: boolean;
   bytes: number;
   url: string;
+  /** Where it came from; absent on an older computer (see sourceOf). */
+  source?: string;
+  subject?: string;
+  /** The line on the picture on show, worded by the computer. */
+  sourceLine?: string;
+}
+
+const SOURCE_KEY = 'fpai.studio.recentSource';
+
+/** The chip this browser last picked; '' is All. */
+function storedSource(): SourceKey | '' {
+  try {
+    const v = localStorage.getItem(SOURCE_KEY);
+    return SOURCES.some((s) => s.key === v) ? (v as SourceKey) : '';
+  } catch {
+    return '';
+  }
+}
+
+function storeSource(v: SourceKey | '') {
+  try {
+    localStorage.setItem(SOURCE_KEY, v);
+  } catch {
+    // A private window: the chip is simply not remembered.
+  }
 }
 
 interface RecentView {
@@ -72,6 +98,7 @@ export function RecentShelf(props: {
   const [view, setView] = useState<RecentView | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [source, setSource] = useState<SourceKey | ''>(storedSource);
   const live = useRef(true);
   const { onChanged, onError } = props;
 
@@ -109,7 +136,10 @@ export function RecentShelf(props: {
 
   if (!view) return null;
   const off = view.limit === OFF;
-  const shown = off ? view.entries.filter((e) => e.kept) : view.entries;
+  const base = off ? view.entries.filter((e) => e.kept) : view.entries;
+  const shown = source ? base.filter((e) => sourceOf(e) === source) : base;
+  const count = (key: SourceKey) => base.filter((e) => sourceOf(e) === key).length;
+  const pick = (v: SourceKey | '') => { setMenu(null); setSource(v); storeSource(v); };
   const unkept = view.entries.filter((e) => !e.kept).length;
   const now = new Date();
   const picked = shown.find((e) => e.name === menu) ?? null;
@@ -139,9 +169,22 @@ export function RecentShelf(props: {
           <button type="button" onClick={() => { setConfirmClear(false); void act('/api/image/recent/clear', {}, 'Could not clear the shelf.'); }}>Clear</button>
         </div>
       ) : null}
+      <div className="fp-recent-sources" role="group" aria-label="Show pictures from">
+        <button type="button" aria-pressed={source === ''} onClick={() => pick('')}>
+          <span>All</span><span className="fp-recent-count">{base.length}</span>
+        </button>
+        {SOURCES.map((s) => (
+          <button key={s.key} type="button" aria-pressed={source === s.key}
+            disabled={source !== s.key && count(s.key) === 0} onClick={() => pick(s.key)}>
+            <span>{s.label}</span><span className="fp-recent-count">{count(s.key)}</span>
+          </button>
+        ))}
+      </div>
       {shown.length === 0 ? (
         <p className="muted fp-recent-note">
-          {off ? 'Recent is off. Pictures stay only when you save them.' : 'Pictures you make land here and stay after you leave the Studio.'}
+          {base.length > 0 && source
+            ? `No pictures from ${sourceLabel(source)} yet.`
+            : off ? 'Recent is off. Pictures stay only when you save them.' : 'Pictures you make land here and stay after you leave the Studio.'}
         </p>
       ) : (
         <>
@@ -152,8 +195,13 @@ export function RecentShelf(props: {
                   aria-label={`Bring back ${e.mode === 'edit' ? 'edit' : 'picture'} from ${recentStamp(new Date(e.createdAt), now)}`}
                   onClick={() => { setMenu(null); props.onRestore(e); }}>
                   <img src={e.url} alt="" loading="lazy" />
+                  {source === '' ? (
+                    <span className="fp-recent-mark" role="img" aria-label={`From ${sourceLabel(sourceOf(e))}`}>
+                      <SourceIcon source={sourceOf(e)} />
+                    </span>
+                  ) : null}
                   {e.kept ? <span className="fp-recent-star" aria-hidden="true">★</span> : null}
-                  <span className="fp-recent-cap">{e.mode === 'edit' ? 'Edit · ' : ''}{recentStamp(new Date(e.createdAt), now)}</span>
+                  <span className="fp-recent-cap">{recentStamp(new Date(e.createdAt), now)}</span>
                 </button>
                 <button type="button" className="fp-recent-more" aria-haspopup="menu" aria-expanded={menu === e.name}
                   aria-label="More for this picture" onClick={() => setMenu(menu === e.name ? null : e.name)}>⋯</button>

@@ -19,6 +19,8 @@
 import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 
@@ -141,9 +143,12 @@ class StoryStudio {
         'Settings → Images first.',
       );
     }
-    final bytes = await igs.generateImage(
-      prompt: StoryPipelineStudioBible.portraitPrompt(p, member),
-      isPortrait: true,
+    final bytes = await withImageSource(
+      ImageSource(ImageSourceKind.story, p.title),
+      () => igs.generateImage(
+        prompt: StoryPipelineStudioBible.portraitPrompt(p, member),
+        isPortrait: true,
+      ),
     );
     final path = await igs.saveAvatarToDisk(bytes, characterName: member.name);
     if (path == null) throw StateError('The image could not be saved.');

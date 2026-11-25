@@ -22,6 +22,8 @@ import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
+import 'package:front_porch_ai/services/image/image.dart'
+    show ImageSource, ImageSourceKind, withImageSource;
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -168,13 +170,20 @@ class MediaDoor extends ChangeNotifier {
         }
         return reviewed.trim();
       },
-      generate: (prompt, request) => _imageGen()!.generateImage(
-        prompt: prompt,
-        // Negative prompt for a `/image` generation: the user's default.
-        negativePrompt: _storage.imageGenSettings.imageGenNegativePrompt.trim(),
-        isPortrait:
-            request.kind == ImageCommandKind.me ||
-            request.kind == ImageCommandKind.character,
+      generate: (prompt, request) => withImageSource(
+        ImageSource(
+          ImageSourceKind.chat,
+          _session.activeGroup?.name ?? _session.activeCharacter?.name ?? '',
+        ),
+        () => _imageGen()!.generateImage(
+          prompt: prompt,
+          // Negative prompt for a `/image` generation: the user's default.
+          negativePrompt: _storage.imageGenSettings.imageGenNegativePrompt
+              .trim(),
+          isPortrait:
+              request.kind == ImageCommandKind.me ||
+              request.kind == ImageCommandKind.character,
+        ),
       ),
       saveImage: (bytes) => _imageGen()!.saveImageToDisk(bytes),
       snapshotSession: () => _session.currentSessionId,

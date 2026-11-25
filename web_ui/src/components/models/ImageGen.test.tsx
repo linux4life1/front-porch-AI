@@ -369,3 +369,36 @@ describe('the Recent shelf on the card', () => {
     expect(body.referenceFilename).toBe('rec_1.png');
   });
 });
+
+// The picture on show says where it came from, along its bottom edge.
+describe('the line on the picture', () => {
+  const made = {
+    name: 'rec_1.png', prompt: 'a draft', style: '', mode: 'create', model: 'm',
+    createdAt: new Date().toISOString(), kept: false, bytes: 5, url: '/api/image/saved/rec_1.png',
+    source: 'creator', subject: 'Ada', sourceLine: 'Character creator · Ada',
+  };
+  const shelf = (entries: unknown[]) => ({ limit: 50, choices: [50, 200, -1, 0], folder: null, usage: { bytes: 5, count: 1, kept: 0 }, entries });
+  const line = () => container.querySelector('[data-testid="studio-source-line"]')?.textContent ?? null;
+
+  it('shows where a picture brought back came from', async () => {
+    await open({ 'GET /api/image/recent': shelf([made]) });
+    expect(line()).toBeNull();
+    (container.querySelector('img[src="/api/image/saved/rec_1.png"]')!.closest('button') as HTMLButtonElement).click();
+    await settle();
+    expect(line()).toContain('Character creator · Ada');
+  });
+
+  it('shows it on a fresh picture too, as the computer words it', async () => {
+    await open({
+      'GET /api/image/recent': shelf([]),
+      'POST /api/image/generate': () => ({
+        image: 'data:image/png;base64,AAAA', filename: 'rec_2.png',
+        recent: { ...made, name: 'rec_2.png', source: 'studio', subject: '', sourceLine: 'Image Studio · Create' },
+      }),
+    });
+    type('textarea[aria-label="Prompt"]', 'a porch');
+    click('Generate');
+    await settle(8);
+    expect(line()).toContain('Image Studio · Create');
+  });
+});

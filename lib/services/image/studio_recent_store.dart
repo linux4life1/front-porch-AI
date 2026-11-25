@@ -26,6 +26,8 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
+import 'image_source.dart';
+
 /// One picture on Image Studio's Recent shelf.
 @immutable
 class StudioRecentEntry {
@@ -39,6 +41,8 @@ class StudioRecentEntry {
     this.model = '',
     this.kept = false,
     this.bytes = 0,
+    this.source = ImageSourceKind.studio,
+    this.subject = '',
   });
 
   /// File basename (`rec_<ms>.png`); the id the phone and desktop share.
@@ -56,6 +60,13 @@ class StudioRecentEntry {
   final bool kept;
   final int bytes;
 
+  /// Where it came from, and the character, chat, guest or story name.
+  final ImageSourceKind source;
+  final String subject;
+
+  /// The line on the picture on show.
+  String get sourceLine => ImageSource(source, subject).line;
+
   StudioRecentEntry copyWith({bool? kept}) => StudioRecentEntry(
     name: name,
     path: path,
@@ -66,6 +77,8 @@ class StudioRecentEntry {
     model: model,
     kept: kept ?? this.kept,
     bytes: bytes,
+    source: source,
+    subject: subject,
   );
 
   Map<String, Object> toJson() => {
@@ -77,6 +90,9 @@ class StudioRecentEntry {
     'createdAt': createdAt.toUtc().toIso8601String(),
     'kept': kept,
     'bytes': bytes,
+    'source': source.key,
+    'subject': subject,
+    'sourceLine': sourceLine,
   };
 }
 
@@ -142,6 +158,8 @@ class StudioRecentStore extends ChangeNotifier {
     required String mode,
     String style = '',
     String model = '',
+    ImageSourceKind source = ImageSourceKind.studio,
+    String subject = '',
   }) => _serial(() async {
     final dir = _folder();
     if (dir == null) return null;
@@ -159,6 +177,8 @@ class StudioRecentStore extends ChangeNotifier {
       mode: mode,
       model: model,
       bytes: png.length,
+      source: source,
+      subject: subject,
     );
     await File(entry.path).writeAsBytes(png, flush: true);
     try {
@@ -245,7 +265,8 @@ class StudioRecentStore extends ChangeNotifier {
   Future<void> _writeSidecar(StudioRecentEntry e) async {
     final meta = Map<String, Object>.of(e.toJson())
       ..remove('name')
-      ..remove('bytes');
+      ..remove('bytes')
+      ..remove('sourceLine');
     await File(_sidecar(e.path)).writeAsString(jsonEncode(meta), flush: true);
   }
 
@@ -303,27 +324,35 @@ class StudioRecentStore extends ChangeNotifier {
     } on FormatException catch (e) {
       debugPrint('StudioRecentStore: unreadable notes for $name: $e');
     }
+    final edit = meta['mode'] == 'edit';
     return StudioRecentEntry(
       name: name,
       path: png.path,
       createdAt: DateTime.fromMillisecondsSinceEpoch(ms),
       prompt: meta['prompt']?.toString() ?? '',
       style: meta['style']?.toString() ?? '',
-      mode: meta['mode'] == 'edit' ? 'edit' : 'create',
+      mode: edit ? 'edit' : 'create',
       model: meta['model']?.toString() ?? '',
       kept: meta['kept'] == true,
       bytes: await png.length(),
+      // Pictures kept before sources were recorded came from the Studio.
+      source:
+          ImageSourceKind.fromKey(meta['source']?.toString()) ??
+          (edit ? ImageSourceKind.edit : ImageSourceKind.studio),
+      subject: meta['subject']?.toString() ?? '',
     );
   }
 }
 
-/// Put a fresh Image Studio result on the Recent shelf with the style and
-/// model it was made with. One rule for the desktop Studio and the phone.
+/// Put a fresh picture on the Recent shelf with the style and model it was
+/// made with. [source] is where it came from; null is the Studio itself
+/// (its Edit tab when [edit]). One rule for the desktop and the phone.
 Future<StudioRecentEntry?> rememberStudioResult(
   StorageService storage,
   Uint8List png, {
   required String prompt,
   required bool edit,
+  ImageSource? source,
 }) {
   final settings = storage.imageGenSettings;
   return StudioRecentStore.of(storage).add(
@@ -332,6 +361,9 @@ Future<StudioRecentEntry?> rememberStudioResult(
     mode: edit ? 'edit' : 'create',
     style: settings.imageGenStyle,
     model: edit ? settings.imageGenEditModel : settings.imageGenModel,
+    source:
+        source?.kind ?? (edit ? ImageSourceKind.edit : ImageSourceKind.studio),
+    subject: source?.subject ?? '',
   );
 }
 
@@ -350,9 +382,16 @@ void keepGeneratedPicture(
   Uint8List png, {
   required String prompt,
   required bool edit,
+  ImageSource? source,
 }) {
-  _kept[png] = rememberStudioResult(storage, png, prompt: prompt, edit: edit)
-      .catchError((Object e) {
+  _kept[png] =
+      rememberStudioResult(
+        storage,
+        png,
+        prompt: prompt,
+        edit: edit,
+        source: source,
+      ).catchError((Object e) {
         debugPrint('StudioRecentStore: could not keep a generated picture: $e');
         return null;
       });

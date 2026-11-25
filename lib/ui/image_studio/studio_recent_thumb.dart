@@ -23,6 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'studio_recent_sources.dart' show studioSourceIcon;
+
 /// What a Recent picture's menu can do.
 enum StudioRecentAction { restore, keep, edit, delete }
 
@@ -54,6 +56,7 @@ class StudioRecentThumb extends StatelessWidget {
     required this.entry,
     required this.now,
     required this.selected,
+    this.showMark = false,
     required this.canEdit,
     required this.onAction,
   });
@@ -61,6 +64,9 @@ class StudioRecentThumb extends StatelessWidget {
   final StudioRecentEntry entry;
   final DateTime now;
   final bool selected;
+
+  /// Show the source's mark in the top-left corner (the All view).
+  final bool showMark;
 
   /// Whether the menu offers "Edit this picture".
   final bool canEdit;
@@ -96,9 +102,8 @@ class StudioRecentThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.formAccentOf(context);
-    final caption =
-        '${entry.mode == 'edit' ? 'Edit · ' : ''}'
-        '${studioRecentStamp(entry.createdAt, now)}';
+    // The source shows as the corner mark and the line on the picture.
+    final caption = studioRecentStamp(entry.createdAt, now);
     return Tooltip(
       message: entry.prompt.isEmpty ? caption : entry.prompt,
       waitDuration: const Duration(milliseconds: 600),
@@ -130,6 +135,26 @@ class StudioRecentThumb extends StatelessWidget {
                       const SizedBox.shrink(),
                 ),
               ),
+              if (showMark)
+                Positioned(
+                  top: 2,
+                  left: 2,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundOf(context),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(2),
+                      child: Icon(
+                        studioSourceIcon(entry.source),
+                        size: 12,
+                        color: AppColors.textPrimary(context),
+                        semanticLabel: 'From ${entry.source.label}',
+                      ),
+                    ),
+                  ),
+                ),
               if (entry.kept)
                 Positioned(
                   top: 2,

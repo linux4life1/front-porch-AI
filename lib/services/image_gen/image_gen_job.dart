@@ -474,6 +474,7 @@ class ImageGenJob {
         bytes,
         prompt: prompt,
         edit: intent == StudioIntent.edit,
+        source: currentImageSource, // the asking screen's withImageSource
       );
     } catch (e) {
       debugPrint('ImageGen: could not keep the picture on Recent: $e');

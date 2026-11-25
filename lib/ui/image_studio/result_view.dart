@@ -19,7 +19,10 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'studio_recent_sources.dart' show StudioSourceLine;
 
 /// Result view: large generated image + Variations / Edit+regen / Save / Accept
 /// (+ Send to chat when launched from a conversation).
@@ -43,6 +46,10 @@ class ResultView extends StatelessWidget {
   final VoidCallback? onKeep;
   final bool kept;
 
+  /// The picture's Recent entry, for the line saying where it came from;
+  /// null until the shelf knows it.
+  final StudioRecentEntry? source;
+
   const ResultView({
     super.key,
     required this.imageBytes,
@@ -57,6 +64,7 @@ class ResultView extends StatelessWidget {
     this.onSaveToGallery,
     this.onKeep,
     this.kept = false,
+    this.source,
   });
 
   @override
@@ -83,7 +91,18 @@ class ResultView extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 380),
-              child: Image.memory(imageBytes, fit: BoxFit.contain),
+              child: Stack(
+                children: [
+                  Image.memory(imageBytes, fit: BoxFit.contain),
+                  if (source != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: StudioSourceLine(entry: source!),
+                    ),
+                ],
+              ),
             ),
           ),
 

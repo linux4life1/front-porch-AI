@@ -251,10 +251,41 @@
   position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; line-height: 16px;
   text-align: center; border-radius: 50%; background: var(--bg); color: var(--accent); font-size: 11px;
 }
+/* The menu button sits top-right so the source mark keeps the desktop's
+   top-left corner; a star moves in beside it. */
 .fp-recent-more {
-  position: absolute; top: 2px; left: 2px; min-width: 0; padding: 0 5px; line-height: 1.3;
+  position: absolute; top: 2px; right: 2px; min-width: 0; padding: 0 5px; line-height: 1.3;
   border-radius: 4px; border: 0; background: var(--bg); color: var(--text); font-size: 12px;
 }
+.fp-recent-strip .fp-recent-star { right: 26px; }
+.fp-recent-mark {
+  position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; background: var(--bg); color: var(--text);
+}
+/* Source chips: one line that scrolls sideways; a source with none stays, greyed. */
+.fp-recent-sources { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.fp-recent-sources button {
+  flex: none; display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--text);
+  font-size: 12px; font-weight: 500; white-space: nowrap;
+}
+.fp-recent-sources button[aria-pressed='true'] {
+  border: 1.5px solid var(--accent); color: var(--accent); font-weight: 600;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.fp-recent-sources button:disabled { color: var(--faint); }
+.fp-recent-count { color: var(--muted); font-weight: 500; }
+.fp-recent-sources button:disabled .fp-recent-count { color: var(--faint); }
+/* Where the picture on show came from, along its bottom edge. */
+.fp-shown { position: relative; display: inline-block; align-self: flex-start; max-width: 100%; margin: 0; }
+.fp-shown img { display: block; }
+.fp-source-line {
+  position: absolute; left: 1px; right: 1px; bottom: 1px; display: flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border-radius: 0 0 var(--radius) var(--radius);
+  background: color-mix(in srgb, var(--scrim-ink) 66%, transparent); color: var(--image-ink);
+  font-size: 12px; font-weight: 500; line-height: 1.3;
+}
+.fp-source-what { flex: 1 1 auto; min-width: 0; }
 .fp-recent-menu {
   display: flex; flex-wrap: wrap; gap: 6px; padding: 6px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
