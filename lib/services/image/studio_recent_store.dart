@@ -43,6 +43,7 @@ class StudioRecentEntry {
     this.bytes = 0,
     this.source = ImageSourceKind.studio,
     this.subject = '',
+    this.sourceKey,
   });
 
   /// File basename (`rec_<ms>.png`); the id the phone and desktop share.
@@ -64,6 +65,10 @@ class StudioRecentEntry {
   final ImageSourceKind source;
   final String subject;
 
+  /// The source key as the notes file held it, kept so a key from a newer
+  /// build survives a star and is written back as it was.
+  final String? sourceKey;
+
   /// The line on the picture on show.
   String get sourceLine => ImageSource(source, subject).line;
 
@@ -79,6 +84,7 @@ class StudioRecentEntry {
     bytes: bytes,
     source: source,
     subject: subject,
+    sourceKey: sourceKey,
   );
 
   Map<String, Object> toJson() => {
@@ -90,7 +96,7 @@ class StudioRecentEntry {
     'createdAt': createdAt.toUtc().toIso8601String(),
     'kept': kept,
     'bytes': bytes,
-    'source': source.key,
+    'source': sourceKey ?? source.key,
     'subject': subject,
     'sourceLine': sourceLine,
   };
@@ -325,6 +331,7 @@ class StudioRecentStore extends ChangeNotifier {
       debugPrint('StudioRecentStore: unreadable notes for $name: $e');
     }
     final edit = meta['mode'] == 'edit';
+    final key = meta['source']?.toString();
     return StudioRecentEntry(
       name: name,
       path: png.path,
@@ -337,9 +344,10 @@ class StudioRecentStore extends ChangeNotifier {
       bytes: await png.length(),
       // Pictures kept before sources were recorded came from the Studio.
       source:
-          ImageSourceKind.fromKey(meta['source']?.toString()) ??
+          ImageSourceKind.fromKey(key) ??
           (edit ? ImageSourceKind.edit : ImageSourceKind.studio),
       subject: meta['subject']?.toString() ?? '',
+      sourceKey: key,
     );
   }
 }

@@ -47,8 +47,11 @@ void main() {
       final path = p.posix.joinAll(p.split(f.path));
       if (_untagged.any(path.startsWith)) continue;
       final code = f.readAsStringSync();
-      if (!calls.hasMatch(code)) continue;
-      (code.contains('withImageSource(') ? tagged : missing).add(path);
+      final asks = calls.allMatches(code).length;
+      if (asks == 0) continue;
+      // One tag per call, so a second, untagged call in a tagged file fails.
+      final tags = RegExp(r'withImageSource\(').allMatches(code).length;
+      (tags >= asks ? tagged : missing).add(path);
     }
     expect(missing, isEmpty, reason: 'wrap these in withImageSource');
     // The character creator (desktop and phone), chat, guests and Story

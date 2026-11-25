@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/services/capability/capability.dart'
+    show StudioIntent;
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
@@ -18,11 +20,11 @@ void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(channel, (MethodCall call) async {
-    if (call.method == 'getApplicationDocumentsDirectory') {
-      return Directory.systemTemp.createTempSync('fpai_docs_').path;
-    }
-    return null;
-  });
+        if (call.method == 'getApplicationDocumentsDirectory') {
+          return Directory.systemTemp.createTempSync('fpai_docs_').path;
+        }
+        return null;
+      });
 }
 
 void main() {
@@ -147,5 +149,53 @@ void main() {
       expect((await facade.recent.view())['limit'], 200);
       expect(storage.imageGenSettings.studioRecentLimit, 200);
     });
+  });
+
+  group('Recent sources from the phone', _sourceGroup);
+}
+
+/// Records the source the facade asked under; makes no picture.
+class _SourceProbe extends ImageGenService {
+  _SourceProbe(super.storage);
+
+  final List<ImageSource?> seen = [];
+
+  @override
+  Future<Uint8List?> generateImage({
+    required String prompt,
+    String? negativePrompt,
+    String? size,
+    Uint8List? referenceImage,
+    String? model,
+    bool isPortrait = false,
+    int? seed,
+    double? denoise,
+    StudioIntent intent = StudioIntent.create,
+    double? editStrength,
+  }) async {
+    seen.add(currentImageSource);
+    return null;
+  }
+}
+
+void _sourceGroup() {
+  // Recent sorted by source: the phone's character creator asks through the
+  // Studio's generate route, so it names itself; the Studio itself does not.
+  test('a phone creator portrait is marked as the creator\'s', () async {
+    final probe = _SourceProbe(StorageService());
+    final facade = ImageFacade(probe, StorageService());
+    await facade.generate({
+      'prompt': 'a portrait',
+      'isPortrait': true,
+      'source': 'creator',
+      'characterId': 'ada-id',
+    });
+    await facade.generate({'prompt': 'a Studio picture'});
+    await facade.generate({'prompt': 'spoofed', 'source': 'chat'});
+    expect(probe.seen.map((s) => s?.kind), [
+      ImageSourceKind.creator,
+      null,
+      null,
+    ]);
   });
 }

@@ -35,10 +35,14 @@ class StudioRecentLink {
   /// A picture to load into the Edit tab as its source.
   final ValueNotifier<Uint8List?> editPicture = ValueNotifier(null);
 
+  /// Counts [remember] calls, so only the newest one may set [shown].
+  int _turn = 0;
+
   /// Show a fresh result's shelf entry: the generator keeps every picture,
   /// so this claims that entry rather than keeping a second copy. [onChanged]
   /// runs once the entry is known. A failure is logged; the picture stays on
-  /// screen.
+  /// screen. A picture brought back from the shelf meanwhile, or a newer
+  /// result, keeps the screen: the late entry would describe the wrong one.
   Future<void> remember(
     BuildContext context,
     Uint8List png,
@@ -47,13 +51,15 @@ class StudioRecentLink {
     required VoidCallback onChanged,
   }) async {
     shown = null;
+    final turn = ++_turn;
     try {
-      shown = await claimStudioResult(
+      final entry = await claimStudioResult(
         context.read<StorageService>(),
         png,
         prompt: prompt,
         edit: edit,
       );
+      if (turn == _turn && shown == null) shown = entry;
     } on FileSystemException catch (e) {
       debugPrint('Image Studio: could not keep the picture on Recent: $e');
     }

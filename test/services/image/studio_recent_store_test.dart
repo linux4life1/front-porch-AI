@@ -19,6 +19,7 @@
 // Image Studio's Recent shelf (issue #667): every Create and Edit result is
 // kept on disk, trimmed to the user's limit, starred pictures never trimmed.
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -222,5 +223,20 @@ void main() {
     await settings.setStudioRecentSource('creator');
     settings.load();
     expect(settings.studioRecentSource, 'creator');
+  });
+
+  test('a source this build has no word for survives a star', () async {
+    const name = 'rec_1700000003000.png';
+    final notes = File(p.join(dir.path, 'rec_1700000003000.json'));
+    File(p.join(dir.path, name)).writeAsBytesSync(png(3));
+    notes.writeAsStringSync(
+      '{"prompt":"from later","mode":"create","source":"mural","subject":"Wall"}',
+    );
+    expect((await store.list()).single.source, ImageSourceKind.studio);
+    await store.setKept(name, true);
+    final kept = jsonDecode(notes.readAsStringSync()) as Map<String, dynamic>;
+    expect(kept['source'], 'mural');
+    expect(kept['subject'], 'Wall');
+    expect(kept['kept'], isTrue);
   });
 }

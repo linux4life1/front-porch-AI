@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/services.dart'
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_expression_tab.dart';
+import 'package:front_porch_ai/ui/image_studio/studio_recent_link.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_recent_shelf.dart';
 
 // A real PNG (1x1) so the thumbnail decodes.
@@ -348,5 +349,37 @@ void main() {
     expect(find.text('Character creator · Ada'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a picture brought back keeps the screen from a late result', (
+    tester,
+  ) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      host(
+        Builder(
+          builder: (c) {
+            ctx = c;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+    final link = StudioRecentLink();
+    addTearDown(link.dispose);
+    final restored = await tester.runAsync(
+      () => rememberStudioResult(storage, _png, prompt: 'older', edit: false),
+    );
+    await tester.runAsync(() async {
+      final fresh = link.remember(
+        ctx,
+        Uint8List.fromList(_png),
+        'fresh',
+        onChanged: () {},
+      );
+      link.shown = restored; // the user taps a shelf picture meanwhile
+      await fresh;
+    });
+    expect(link.shown?.name, restored!.name);
   });
 }

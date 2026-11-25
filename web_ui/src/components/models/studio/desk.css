@@ -273,7 +273,9 @@
   border: 1.5px solid var(--accent); color: var(--accent); font-weight: 600;
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
-.fp-recent-sources button:disabled { color: var(--faint); }
+/* Greyed by colour alone, like the desktop chip, not also by the global
+   disabled-button fade. */
+.fp-recent-sources button:disabled { color: var(--faint); opacity: 1; }
 .fp-recent-count { color: var(--muted); font-weight: 500; }
 .fp-recent-sources button:disabled .fp-recent-count { color: var(--faint); }
 /* Where the picture on show came from, along its bottom edge. */

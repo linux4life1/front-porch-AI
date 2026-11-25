@@ -145,6 +145,17 @@ class MediaDoor extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Run `/image` [args], its picture marked as this chat's on Image Studio's
+  /// Recent shelf. The chat is read now, at the start: the prompt is crafted
+  /// first, and the user may have moved to another chat by the time it paints.
+  Future<void> runImageCommand(String args) => withImageSource(
+    ImageSource(
+      ImageSourceKind.chat,
+      _session.activeGroup?.name ?? _session.activeCharacter?.name ?? '',
+    ),
+    () => ensureImageCommand().handle(args),
+  );
+
   ImageCommandService ensureImageCommand() {
     return _imageCommand ??= ImageCommandService(
       isConfigured: () => _imageGen()?.isConfigured ?? false,
@@ -170,20 +181,13 @@ class MediaDoor extends ChangeNotifier {
         }
         return reviewed.trim();
       },
-      generate: (prompt, request) => withImageSource(
-        ImageSource(
-          ImageSourceKind.chat,
-          _session.activeGroup?.name ?? _session.activeCharacter?.name ?? '',
-        ),
-        () => _imageGen()!.generateImage(
-          prompt: prompt,
-          // Negative prompt for a `/image` generation: the user's default.
-          negativePrompt: _storage.imageGenSettings.imageGenNegativePrompt
-              .trim(),
-          isPortrait:
-              request.kind == ImageCommandKind.me ||
-              request.kind == ImageCommandKind.character,
-        ),
+      generate: (prompt, request) => _imageGen()!.generateImage(
+        prompt: prompt,
+        // Negative prompt for a `/image` generation: the user's default.
+        negativePrompt: _storage.imageGenSettings.imageGenNegativePrompt.trim(),
+        isPortrait:
+            request.kind == ImageCommandKind.me ||
+            request.kind == ImageCommandKind.character,
       ),
       saveImage: (bytes) => _imageGen()!.saveImageToDisk(bytes),
       snapshotSession: () => _session.currentSessionId,
