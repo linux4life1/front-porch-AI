@@ -33,12 +33,13 @@ void main() {
       'lib/services/web/facade/chat_tools/chat_tools_memory.dart',
     ).readAsStringSync();
     // The growth mutation switch is the only one in that file whose cases
-    // are bare strings (the ring action names).
-    final handled = RegExp(r"case '([A-Za-z]+)':")
-        .allMatches(source)
-        .map((m) => m.group(1)!)
-        .where(knownGrowthActions.contains)
-        .toSet();
+    // are bare strings (the ring action names). Every such label counts: an
+    // earlier `.where(knownGrowthActions.contains)` here threw away exactly
+    // the switch-only action this test exists to catch. A second bare-string
+    // switch added to that file would fail this loudly — the safe direction.
+    final handled = RegExp(
+      r"case '([A-Za-z]+)':",
+    ).allMatches(source).map((m) => m.group(1)!).toSet();
 
     expect(
       handled,
