@@ -202,3 +202,89 @@ describe('Boons & Bogies line', () => {
     expect(container.textContent).toContain('Off in Porch Life');
   });
 });
+
+// Phase 7: a bogey's boon link, the desktop BogeyLinkLine's twin.
+describe('Boons & Bogies line — the boon link', () => {
+  const linkText = () =>
+    [...container.querySelectorAll('.bb-group .bogey-link-text')].map(
+      (el) => el.textContent ?? '',
+    );
+
+  it('says what holds a linked bogey back, and offers Link on an unlinked '
+    + 'one only when there is a boon to pick', async () => {
+    bb = {
+      rings: [
+        ring('b1', 'steady hands under pressure', 'boon', { bbTier: 'master' }),
+        ring('g1', 'bad temper when cornered', 'bogey', {
+          linkedBoon: { id: 'b1', content: 'steady hands under pressure', tier: 'master' },
+        }),
+        ring('g2', 'skips sleep to finish the job', 'bogey', { linkedBoon: null }),
+      ],
+    };
+    await render();
+    expect(linkText()).toEqual([
+      'Held back by steady hands under pressure (Master)',
+      'Not linked to a boon',
+    ]);
+    const buttons = [...container.querySelectorAll('.bb-group .bogey-link-btn')].map(
+      (b) => b.textContent,
+    );
+    expect(buttons).toEqual(['Change', 'Link']);
+  });
+
+  it('shows no link line on a boon, nor on a bogey with no boon to pick', async () => {
+    bb = { rings: [ring('g1', 'bad temper when cornered', 'bogey')] };
+    await render();
+    expect(linkText()).toEqual([]);
+  });
+
+  it('the picker sends `link` with the boon, or null for No boon; Cancel '
+    + 'sends nothing', async () => {
+    const act$ = vi.fn();
+    const bogey = ring('g1', 'bad temper when cornered', 'bogey', { linkedBoon: null });
+    const boons = [ring('b1', 'steady hands under pressure', 'boon')];
+    const { BogeyLinkLine } = await import('./BogeyLinkLine');
+    await act(async () => {
+      root.render(createElement(BogeyLinkLine, { ring: bogey, boons, act: act$ }));
+    });
+    const open = () =>
+      act(async () => {
+        (container.querySelector('.bogey-link-btn') as HTMLButtonElement).click();
+      });
+    const option = (label: RegExp) =>
+      [...container.querySelectorAll('.bogey-link-option')].find((b) =>
+        label.test(b.textContent ?? ''),
+      ) as HTMLButtonElement;
+
+    await open();
+    expect(container.querySelector('[role="dialog"]')?.getAttribute('aria-label')).toBe(
+      'Which boon holds this back?',
+    );
+    await act(async () => option(/steady hands/).click());
+    expect(act$).toHaveBeenLastCalledWith('link', { ringId: 'g1', boonId: 'b1' });
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+
+    // "No boon" on an already-unlinked bogey is no change: nothing is sent.
+    await open();
+    await act(async () => option(/No boon/).click());
+    expect(act$).toHaveBeenCalledTimes(1);
+
+    await open();
+    await act(async () => {
+      (
+        [...container.querySelectorAll('.modal-actions button')].find(
+          (b) => b.textContent === 'Cancel',
+        ) as HTMLButtonElement
+      ).click();
+    });
+    expect(act$).toHaveBeenCalledTimes(1);
+
+    const linked = { ...bogey, linkedBoon: { id: 'b1', content: 'steady hands', tier: 'novice' } };
+    await act(async () => {
+      root.render(createElement(BogeyLinkLine, { ring: linked, boons, act: act$ }));
+    });
+    await open();
+    await act(async () => option(/No boon/).click());
+    expect(act$).toHaveBeenLastCalledWith('link', { ringId: 'g1', boonId: null });
+  });
+});

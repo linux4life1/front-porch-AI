@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import '../growth_link_overcome.dart';
+import '../growth_milestones.dart';
 import '../growth_ops.dart';
 import '../growth_review.dart';
 import '../growth_store.dart';
@@ -29,16 +31,21 @@ import '../growth_store.dart';
 ///   refused, or an opted-out owner's frozen boons and bogies).
 /// - Every other non-established ordinary ring steps down.
 /// - Bogeys never fade on silence ("not offered" holds — §3 absence
-///   amendment). Only the [copes] the pass cited wear one down a step.
+///   amendment). Only the [copes] the pass cited wear one down a step
+///   (two while the linked boon is Master — phase 7).
+/// - A Master-linked flaw the cope wore to nothing has its Overcome offered
+///   through [milestones] (`LinkedOvercome`), citing the cope's messages.
 ///
-/// The caller skips this on a rewound re-check, which has no new messages.
+/// [copes] maps each coped ring id to its in-window messages. The caller
+/// skips this on a rewound re-check, which has no new messages.
 Future<void> applyGrowthPassPhysics(
   GrowthStore store,
   String sessionId,
   String ownerId, {
   required List<GrowthProposedOp> ops,
   required Set<String> held,
-  required Set<String> copes,
+  required Map<String, List<int>> copes,
+  GrowthMilestones? milestones,
 }) async {
   final engaged = <String>{
     for (final op in ops)
@@ -48,5 +55,12 @@ Future<void> applyGrowthPassPhysics(
     ...held,
   };
   await store.fadeUnreinforced(sessionId, ownerId, engaged);
-  await store.bogeys.cope(sessionId, ownerId, copes);
+  final touched = await store.bogeys.cope(
+    sessionId,
+    ownerId,
+    copes.keys.toSet(),
+  );
+  if (milestones != null && touched.isNotEmpty) {
+    await LinkedOvercome.offer(milestones, touched, copes);
+  }
 }

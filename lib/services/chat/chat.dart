@@ -37,6 +37,7 @@ export 'fpchat_codec.dart';
 export 'fpchat_format.dart';
 export 'fpchat_image_names.dart';
 export 'generation_error_messages.dart';
+export 'growth_bb_link.dart';
 export 'growth_boons_bogies.dart';
 export 'growth_kit_seed.dart';
 export 'growth_ops.dart';

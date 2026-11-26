@@ -66,6 +66,10 @@ class GrowthProposedOp {
   /// GrowthPhysics.kDistillSeedStrength).
   final double seedStrength;
 
+  /// A bogey add's linked boon (its ring id), resolved from the pass's
+  /// `against` handle — phase 7. Null when the model named none.
+  final String? linkedBoonId;
+
   /// Review checkbox state; every op ships accepted.
   bool accepted = true;
 
@@ -77,6 +81,7 @@ class GrowthProposedOp {
     this.category = 'trait',
     this.sourcePositions = const [],
     this.seedStrength = GrowthPhysics.kNewRingStrength,
+    this.linkedBoonId,
   });
 }
 
@@ -231,6 +236,7 @@ class GrowthReview {
               text: op.text,
               bogey: bogey,
               sourcePositions: op.sourcePositions,
+              linkedBoon: op.linkedBoonId,
             );
             break;
           }
@@ -245,7 +251,9 @@ class GrowthReview {
               // A new skill is a boon when the feature is on; a bogey is
               // always tagged so the panel and the roll agree on the kind.
               'skill' when boonsBogiesOn => BoonsBogies.boonMetadata(),
-              BoonsBogies.kCategoryBogey => BoonsBogies.bogeyMetadata(),
+              BoonsBogies.kCategoryBogey => BoonsBogies.bogeyMetadata(
+                linkedBoon: op.linkedBoonId,
+              ),
               _ => null,
             },
           );

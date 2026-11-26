@@ -19,6 +19,7 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:front_porch_ai/database/database.dart';
 
+import '../growth_bb_link.dart';
 import '../growth_boons_bogies.dart';
 import 'growth_bb_writer.dart';
 
@@ -74,26 +75,48 @@ class GrowthBogeyStore {
   }
 
   /// One coping verdict per ring id (§3 absence amendment): each cited
-  /// bogey wears down one step through [GrowthBbWriter.fadeBogey], undo
-  /// snapshot included. Silence never reaches here — it holds the flaw.
-  Future<void> cope(
+  /// bogey wears down through [GrowthBbWriter.fadeBogey], undo snapshot
+  /// included — one step, or two while its linked boon is Master (phase
+  /// 7). Silence never reaches here — it holds the flaw.
+  ///
+  /// Returns the Master-linked bogeys this cope touched, with their count
+  /// before it, for the caller to weigh an Overcome offer
+  /// ([BoonLink.overcomeRipe]). Empty when no cited flaw is Master-linked.
+  Future<List<MasterLinkedCope>> cope(
     String sessionId,
     String characterId,
     Set<String> ringIds,
   ) async {
-    if (ringIds.isEmpty) return;
-    for (final ring in await _ringsFor(sessionId, characterId)) {
+    if (ringIds.isEmpty) return const [];
+    final rings = await _ringsFor(sessionId, characterId);
+    final touched = <MasterLinkedCope>[];
+    for (final ring in rings) {
       if (ring.retired || !ringIds.contains(ring.id)) continue;
       if (!BoonsBogies.isBogey(ring)) continue;
-      final faded = await _writer.fadeBogey(ring);
+      final steps = BoonLink.copeStepsFor(ring, rings);
+      final faded = await _writer.fadeBogey(ring, steps: steps);
+      final after = faded
+          ? BoonsBogies.fadedBogeyAdvance(ring.advanceCount, steps: steps)
+          : ring.advanceCount;
       // A declined Master re-arms once the flaw falls back below the re-arm
       // count; climbing to Master again then asks again (§3.2).
       if (faded &&
           ring.masterDeclined &&
-          BoonsBogies.fadedBogeyAdvance(ring.advanceCount) <
-              BoonsBogies.kBogeyMasterRearmBelow) {
+          after < BoonsBogies.kBogeyMasterRearmBelow) {
         await _writer.setMasterDeclined(ring, false);
       }
+      if (BoonLink.masterLinked(ring, rings)) {
+        touched.add((ring: ring, before: ring.advanceCount, after: after));
+      }
     }
+    return touched;
   }
+
+  /// The user's linked-boon pick for [ring] (null unlinks).
+  Future<void> setLink(GrowthRingData ring, String? boonRingId) =>
+      _writer.setBogeyLink(ring, boonRingId);
 }
+
+/// One Master-linked bogey a cope touched: the ring as it was, and its fire
+/// count before and after the cope.
+typedef MasterLinkedCope = ({GrowthRingData ring, int before, int after});

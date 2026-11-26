@@ -423,6 +423,7 @@ class GrowthService {
               windowLength: window.length,
               rewound: rewound,
             ),
+            milestones: review.getMilestones(),
           );
         }
 

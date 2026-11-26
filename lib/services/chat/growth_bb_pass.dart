@@ -146,10 +146,12 @@ List<GrowthCope> parseGrowthToolCopes(List<LlmToolCall> calls) {
   return copes;
 }
 
-/// The ring ids [copes] may wear down this pass: in-range handles naming a
-/// bogey, each citing at least one message inside this window. A rewound
-/// re-check has no new messages, so it copes with nothing.
-Set<String> resolveGrowthCopes(
+/// The ring ids [copes] may wear down this pass, each with the in-window
+/// messages it cited: in-range handles naming a bogey, each citing at least
+/// one message inside this window. A rewound re-check has no new messages,
+/// so it copes with nothing. The messages ride along so an Overcome the
+/// cope earns (phase 7) cites them and a rewrite of them drops it.
+Map<String, List<int>> resolveGrowthCopes(
   List<GrowthCope> copes,
   List<GrowthRingData> activeRings, {
   required int windowStart,
@@ -158,15 +160,18 @@ Set<String> resolveGrowthCopes(
 }) {
   if (rewound) return const {};
   final end = windowStart + windowLength;
-  final ids = <String>{};
+  final ids = <String, List<int>>{};
   for (final cope in copes) {
     if (cope.handle < 1 || cope.handle > activeRings.length) continue;
     final ring = activeRings[cope.handle - 1];
     if (!BoonsBogies.isBogey(ring)) continue;
-    final inWindow = cope.sourcePositions.any(
-      (p) => p >= windowStart && p < end,
-    );
-    if (inWindow) ids.add(ring.id);
+    final inWindow = [
+      for (final p in cope.sourcePositions)
+        if (p >= windowStart && p < end) p,
+    ];
+    if (inWindow.isNotEmpty) {
+      (ids[ring.id] ??= <int>[]).addAll(inWindow);
+    }
   }
   return ids;
 }

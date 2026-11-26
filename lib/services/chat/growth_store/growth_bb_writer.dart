@@ -95,11 +95,12 @@ class GrowthBbWriter {
   /// Reached only from a coping verdict the Growth pass cited
   /// ([GrowthBogeyStore.cope]). Silence is "not offered" and never lands
   /// here (§3 absence amendment): a flaw the story left alone holds.
-  Future<bool> fadeBogey(GrowthRingData ring) async {
+  /// [steps] is the linked boon's pull (2 at Master, phase 7).
+  Future<bool> fadeBogey(GrowthRingData ring, {int steps = 1}) async {
     final db = getDb();
     if (db == null) return false;
     if (ring.pinned || ring.advanceCount == 0) return false;
-    final next = BoonsBogies.fadedBogeyAdvance(ring.advanceCount);
+    final next = BoonsBogies.fadedBogeyAdvance(ring.advanceCount, steps: steps);
     await db.updateGrowthRing(
       ring.id,
       GrowthRingsCompanion(
@@ -142,6 +143,26 @@ class GrowthBbWriter {
       ring.id,
       GrowthRingsCompanion(
         masterDeclined: Value(declined),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// The user's pick for a bogey's linked boon (phase 7): [boonRingId], or
+  /// null to unlink. Only the link key moves; kind, seed and undo stay.
+  Future<void> setBogeyLink(GrowthRingData ring, String? boonRingId) async {
+    final db = getDb();
+    if (db == null) return;
+    final bb = BoonsBogies.bbOf(ring);
+    if (boonRingId == null || boonRingId.isEmpty) {
+      bb.remove(BoonsBogies.kLinkedBoonKey);
+    } else {
+      bb[BoonsBogies.kLinkedBoonKey] = boonRingId;
+    }
+    await db.updateGrowthRing(
+      ring.id,
+      GrowthRingsCompanion(
+        metadata: Value(BoonsBogies.metadataWithBb(ring, bb)),
         updatedAt: Value(DateTime.now()),
       ),
     );

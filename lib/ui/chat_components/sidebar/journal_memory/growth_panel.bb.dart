@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 
 import '../sidebar_tokens.dart';
+import 'bogey_link_line.dart';
 import 'growth_panel.actions.dart';
 
 /// One Boons or Bogies section in the Growth panel — a header naming the
@@ -205,6 +206,12 @@ class BoonBogeyCard extends StatelessWidget {
               color: AppColors.textPrimary(context),
             ),
           ),
+          if (bogey)
+            BogeyLinkLine(
+              ring: ring,
+              chatService: chatService,
+              characterId: characterId,
+            ),
           const SizedBox(height: 5),
           Row(
             children: [
@@ -287,10 +294,7 @@ class BoonBogeyCard extends StatelessWidget {
       content: Text(
         'This reverts "${ring.content}" to the value it had before the last '
         'growth change. There is no redo.',
-        style: TextStyle(
-          fontSize: 13,
-          color: AppColors.textSecondary(context),
-        ),
+        style: TextStyle(fontSize: 13, color: AppColors.textSecondary(context)),
       ),
       actions: [
         TextButton(
