@@ -93,6 +93,10 @@ class SessionStore {
   String authorNote = '';
   int authorNoteStrength = 4;
 
+  /// The chat's Author's Note switch: off keeps [authorNote] and sends none
+  /// of it. Every reset that blanks the note sets this back to true.
+  bool authorNoteEnabled = true;
+
   /// Per-session generation overrides.
   ChatGenerationSettings genSettings = ChatGenerationSettings();
 

@@ -88,6 +88,7 @@ class SessionScalars {
   Future<void> hydrate(Session s) async {
     _store.authorNote = s.authorNote;
     _store.authorNoteStrength = s.authorNoteDepth;
+    _store.authorNoteEnabled = s.authorNoteEnabled;
     _store.summary = s.summary ?? '';
     _store.summaryLastIndex = s.summaryLastIndex ?? 0;
     _store.recapBoundSessionId = s.id;

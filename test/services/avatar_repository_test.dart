@@ -50,7 +50,7 @@ void main() {
       await db.close();
     });
 
-    test('schema version is 72', () {
+    test('schema version is 73', () {
       // v40: Living Worlds (worlds columns + chat_worlds + chat_biome_spans).
       // v41: worlds.place_traits (atmosphere/gravity JSON).
       // v42: groups.folder_id (groups movable through folders).
@@ -149,7 +149,8 @@ void main() {
       // v71: growth_moments status/payload/shown_at — phase-5 milestones.
       //      Guarded by the same trio and the milestone tests.
       // v72: growth_state.kit_seen — kit entries added mid-chat.
-      expect(db.schemaVersion, 72);
+      // v73: sessions.author_note_enabled — the Author's Note switch.
+      expect(db.schemaVersion, 73);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

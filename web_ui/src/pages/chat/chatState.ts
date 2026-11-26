@@ -49,6 +49,8 @@ export interface ChatState {
   loreOverflow?: string[];
   authorNote?: string;
   authorNoteDepth?: number;
+  /** The chat's Author's Note switch; absent from an older desktop (on). */
+  authorNoteEnabled?: boolean;
   greetingIndex?: number;
   totalGreetings?: number;
   expressionLabel?: string;

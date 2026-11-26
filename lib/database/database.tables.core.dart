@@ -77,6 +77,9 @@ class Sessions extends Table {
   TextColumn get description => text().nullable()();
   TextColumn get authorNote => text().withDefault(const Constant(''))();
   IntColumn get authorNoteDepth => integer().withDefault(const Constant(4))();
+  // v73 — the Author's Note switch: off keeps the text and sends none of it.
+  BoolColumn get authorNoteEnabled =>
+      boolean().withDefault(const Constant(true))();
   TextColumn get summary => text().nullable()(); // rolling chat summary
   IntColumn get summaryLastIndex =>
       integer().nullable()(); // message index at last summary update

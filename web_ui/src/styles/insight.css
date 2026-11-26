@@ -438,6 +438,18 @@
   background-image: radial-gradient(circle 6px at 22px 50%, var(--image-ink) 0 100%, transparent 0);
 }
 .card-switch input:disabled, .state-switch:disabled { opacity: 0.5; cursor: default; }
+/* The Author's Note card keeps its switch at the right of the header, as the
+   window does. */
+.chat-sidebar .note-card > summary { display: flex; align-items: center; gap: 2px; }
+.chat-sidebar .note-card > summary .card-head-text {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;
+}
+.chat-sidebar .note-card > summary .card-title { white-space: nowrap; }
+.chat-sidebar .note-card > summary .card-sub { white-space: nowrap; line-height: 1.25; }
+/* The note and its Strength, which dim together; .tool-body's own 8px gap. */
+.note-dim { display: flex; flex-direction: column; gap: 8px; }
+/* A switched-off note is kept and greyed in place; nothing below it moves. */
+.note-off { opacity: 0.45; }
 /* One control line inside the card: label left, switch right. */
 .state-line {
   display: flex; align-items: center; justify-content: space-between;

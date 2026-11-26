@@ -110,5 +110,17 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         debugPrint('[DB] v72 kit_seen: $e (the repair pass re-checks)');
       }
     }
+    if (from < 73) {
+      // v72→v73: the chat's Author's Note switch (issue #743). Additive; 1
+      // is how every existing chat behaved, so an upgrade changes nothing.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN author_note_enabled '
+          'INTEGER NOT NULL DEFAULT 1',
+        );
+      } catch (e) {
+        debugPrint('[DB] v73 author_note_enabled: $e (repair re-checks)');
+      }
+    }
   }
 }

@@ -147,6 +147,7 @@ class FakeChatService extends ChangeNotifier implements ChatService {
     this.isGenerating = false,
     this.authorNote = '',
     this.authorNoteStrength = 3,
+    this.authorNoteEnabled = true,
     this.summary = '',
     this.summaryLastIndex = 0,
     this.summaryPaused = false,
@@ -316,6 +317,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   final String authorNote;
   @override
   final int authorNoteStrength;
+  @override
+  final bool authorNoteEnabled;
   @override
   final String summary;
   @override

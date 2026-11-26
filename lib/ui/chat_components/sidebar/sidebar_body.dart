@@ -323,7 +323,9 @@ class _SidebarBodyState extends State<SidebarBody> {
           id: 'author_note',
           emoji: '📝',
           title: "Author's Note",
-          subtitle: chat.authorNote.trim().isEmpty
+          subtitle: !chat.authorNoteEnabled
+              ? 'off'
+              : chat.authorNote.trim().isEmpty
               ? null
               : 'active · strength ${chat.authorNoteStrength}',
           accent: AppColors.porchAmberOf(context),

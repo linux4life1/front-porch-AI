@@ -121,6 +121,7 @@ class ChatEntry {
       // Clear group mode when switching to 1:1 AND reset author note for new session context
       _store.authorNote = '';
       _store.authorNoteStrength = 4;
+      _store.authorNoteEnabled = true;
       _session.groupManager?.leaveGroup();
       _session.groupManager = null;
       _groupStore.members = {};

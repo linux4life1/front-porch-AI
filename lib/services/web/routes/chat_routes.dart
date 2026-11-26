@@ -433,7 +433,8 @@ class WebChatRoutes {
     final body = await _json(request);
     final note = body['authorNote']?.toString() ?? '';
     final strength = body['strength'] is int ? body['strength'] as int : null;
-    _facade.setAuthorNote(note, strength: strength);
+    final enabled = body['enabled'] is bool ? body['enabled'] as bool : null;
+    _facade.setAuthorNote(note, strength: strength, enabled: enabled);
     return JsonResponse.ok({'status': 'ok'});
   }
 

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/group_member_values.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/member_note_switch.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/relationship_scale.dart';
 
@@ -216,30 +217,45 @@ class _GroupMemberSectionState extends State<GroupMemberSection> {
           style: helper,
         ),
         const SizedBox(height: 16),
-        kit.fieldLabel("Author's note when $name speaks"),
-        const SizedBox(height: 8),
-        TextField(
-          key: const Key('group-member-note'),
-          controller: _note,
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
-          decoration: kit.inputDecoration("Author's note when $name speaks"),
-          onChanged: (t) => _emit(_v.copyWith(note: t)),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Text('Strength · ${_v.strength}', style: helper),
-            Expanded(
-              child: Slider(
-                key: const Key('group-member-strength'),
-                value: _v.strength.toDouble(),
-                min: 1,
-                max: 10,
-                divisions: 9,
-                onChanged: (x) => _emit(_v.copyWith(strength: x.round())),
+        MemberNoteSwitch(
+          label: "Author's note when $name speaks",
+          on: _v.noteEnabled,
+          switchKey: const Key('group-member-note-switch'),
+          onChanged: (on) => _emit(_v.copyWith(noteEnabled: on)),
+          child: Column(
+            children: [
+              TextField(
+                key: const Key('group-member-note'),
+                controller: _note,
+                style: TextStyle(
+                  color: AppColors.textPrimary(context),
+                  fontSize: 14,
+                ),
+                decoration: kit.inputDecoration(
+                  "Author's note when $name speaks",
+                ),
+                onChanged: (t) => _emit(_v.copyWith(note: t)),
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text('Strength · ${_v.strength}', style: helper),
+                  Expanded(
+                    child: Slider(
+                      key: const Key('group-member-strength'),
+                      value: _v.strength.toDouble(),
+                      min: 1,
+                      max: 10,
+                      divisions: 9,
+                      onChanged: _v.noteEnabled
+                          ? (x) => _emit(_v.copyWith(strength: x.round()))
+                          : null,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         if (widget.mode.others.isNotEmpty) ...[
           const SizedBox(height: 16),

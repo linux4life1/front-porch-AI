@@ -52,7 +52,10 @@ class ContextBudget {
   List<CharacterCard> get _groupCharacters => _session.groupCharacters;
   bool get _observerMode => _d.doors.entry().director.observerMode;
   bool get _directing => _d.doors.entry().director.directing;
-  String get _authorNote => _d.doors.sessions().authorNote;
+  // A switched-off note is kept but not sent, so the estimate counts none.
+  String get _authorNote => _d.doors.sessions().authorNoteEnabled
+      ? _d.doors.sessions().authorNote
+      : '';
   ChatGenerationSettings get _sessionGenSettings =>
       _d.doors.sessions().genSettings;
 

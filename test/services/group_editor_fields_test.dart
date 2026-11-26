@@ -110,4 +110,36 @@ void main() {
     expect(body, isNot(contains('GROUPEXAMPLEMARK')));
     expect(body, contains('GROUPPOSTHISTORYMARK'));
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test("a member's Author's Note switched off is kept and starts the chat "
+      'without it; a note left on is still sent', () async {
+    const notes = {
+      'mem-ada': MemberAuthorNote('ADAOFFMARK', 5, enabled: false),
+      'mem-bea': MemberAuthorNote('BEAONMARK', 5),
+    };
+    final stored = jsonDecode(
+      jsonEncode({for (final e in notes.entries) e.key: e.value.toJson()}),
+    );
+    expect(MemberAuthorNote.parseAll(stored), notes, reason: 'off is stored');
+    expect(
+      (stored as Map)['mem-bea'],
+      isNot(contains('enabled')),
+      reason: 'a note left on stores exactly as before the switch',
+    );
+
+    final h = await GroupMemoryHarness.open();
+    addTearDown(h.close);
+    await h.chat.setActiveGroup(
+      GroupChat(
+        id: GroupMemoryHarness.groupId,
+        name: 'Cast',
+        characterAuthorNotes: notes,
+      ),
+      groupRepo: GroupChatRepository(h.storage, h.db),
+    );
+    await h.say('Ada', 'Ada, what do you think?');
+    expect(h.backend.lastChatBody, isNot(contains('ADAOFFMARK')));
+    await h.say('Bea', 'And you, Bea?');
+    expect(h.backend.lastChatBody, contains('BEAONMARK'));
+  }, timeout: const Timeout(Duration(minutes: 3)));
 }

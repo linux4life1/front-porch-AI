@@ -116,4 +116,70 @@ void main() {
     await chat.impersonateUser(onToken: (_) {});
     assertResolved('impersonate');
   }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('a switched-off note keeps its text, reaches no send, Continue or '
+      'impersonate, survives a reload, and is sent again once on', () async {
+    HttpOverrides.global = null;
+    final backend = await FakeBackendServer.start(
+      replyPieces: ['The porch is quiet.'],
+    );
+    final db = AppDatabase.forTesting();
+    final storage = StorageService();
+    await storage.initialized;
+    final chat =
+        ChatService(
+            KoboldService(storage)..setBaseUrl(backend.baseUrl),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..testLlmServiceOverride = OpenRouterService(
+            apiUrl: '${backend.baseUrl}/v1',
+            modelName: 'smoke-model',
+          );
+    addTearDown(() async {
+      await disposeChatThenCloseDb(chat, db);
+      await backend.close();
+    });
+    final card = CharacterCard(
+      name: 'Wren',
+      firstMessage: 'Welcome.',
+      frontPorchExtensions: FrontPorchExtensions(
+        realismEnabled: false,
+        needsSimEnabled: false,
+        chaosModeEnabled: false,
+      ),
+    )..dbId = 'an-switch-wren';
+    await chat.setActiveCharacter(card);
+    const note = 'ANSWITCHMARK hums on the step';
+    chat.setAuthorNote(note, strength: 5);
+    chat.setAuthorNoteEnabled(false);
+
+    String prompt() => backend.lastChatBody;
+    void assertNoNote(String path) {
+      expect(prompt(), isNot(contains('ANSWITCHMARK')), reason: path);
+      expect(prompt(), isNot(contains("Author's Note")), reason: path);
+    }
+
+    await chat.sendMessage('I sit down on the step.');
+    assertNoNote('send');
+    await chat.continueGeneration();
+    assertNoNote('Continue');
+    await chat.impersonateUser(onToken: (_) {});
+    assertNoNote('impersonate');
+    expect(chat.authorNote, note, reason: 'off keeps the text');
+
+    final id = chat.currentSessionId!;
+    final row = await db.getSessionById(id);
+    expect(row!.authorNoteEnabled, isFalse, reason: 'the row saves the off');
+    expect(row.authorNote, note);
+    await chat.loadSession(id);
+    expect(chat.authorNoteEnabled, isFalse, reason: 'a reload reads it back');
+    expect(chat.authorNote, note);
+
+    chat.setAuthorNoteEnabled(true);
+    await chat.sendMessage('I look up.');
+    expect(prompt(), contains("[Author's Note: $note]"), reason: 'on again');
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

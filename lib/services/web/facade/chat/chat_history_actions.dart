@@ -183,8 +183,10 @@ class ChatHistoryActions {
     return true;
   }
 
-  void setAuthorNote(String note, {int? strength}) {
+  /// [enabled] null leaves the chat's switch as it is (older PWAs send none).
+  void setAuthorNote(String note, {int? strength, bool? enabled}) {
     _chat.setAuthorNote(note, strength: strength);
+    if (enabled != null) _chat.setAuthorNoteEnabled(enabled);
     _notify();
   }
 
