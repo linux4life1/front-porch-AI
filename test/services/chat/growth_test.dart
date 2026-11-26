@@ -1742,9 +1742,11 @@ Some prose the model wrote.
       ).shown;
       int handle(String content) =>
           shown.indexWhere((r) => r.content == content) + 1;
+      final knocks = handle('Knocks things over');
+      final burns = handle('Burns the toast');
       xmlReply =
-          '<ring action="cope" id="${handle('Knocks things over')}" src="1"/>'
-          '<ring action="cope" id="${handle('Burns the toast')}" src="1"/>';
+          '<ring action="cope" id="$knocks" src="1"/>'
+          '<ring action="cope" id="$burns" src="1"/>';
       await makeService().runGrowthPass(force: true);
 
       expect(lastPrompt, contains('against'));
@@ -1769,12 +1771,14 @@ Some prose the model wrote.
       ).shown;
       int handle(String content) =>
           shown.indexWhere((r) => r.content == content) + 1;
+      final boonHandle = handle('Moves without a sound');
+      final traitHandle = handle('Trusts slowly');
       xmlReply =
           '<ring action="add" category="bogey" '
-          'against="${handle('Moves without a sound')}" src="1">'
+          'against="$boonHandle" src="1">'
           'Knocks things over when watched</ring>'
           '<ring action="add" category="bogey" '
-          'against="${handle('Trusts slowly')}" src="1">'
+          'against="$traitHandle" src="1">'
           'Hums when nervous</ring>';
       await makeService().runGrowthPass(force: true);
 
