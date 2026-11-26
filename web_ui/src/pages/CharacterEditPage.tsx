@@ -20,6 +20,7 @@ import { api, ApiError } from '../api/client';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { TagsField } from '../components/TagsField';
 import { CharacterStatsCard } from '../components/CharacterStatsCard';
+import { scenarioGroupScopeHelp, scenarioNewChatHelp, scenarioOpeningHelp, scenarioRulesHelp, scenarioSettingHelp, ScenarioCardTypeField, type CardType } from "../components/ScenarioCardTypeField";
 import { MacroField } from '../components/MacroField';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { IdentitySections, RealismFormSection } from '../components/realism/RealismFormSection';
@@ -60,6 +61,8 @@ interface CharDetail {
   description: string;
   personality: string;
   scenario: string;
+  cardType?: CardType;
+  facilitationRules?: string;
   firstMessage: string;
   mesExample: string;
   systemPrompt: string;
@@ -203,10 +206,13 @@ export function CharacterEditPage() {
     const fieldText =
       c.name.length + FIELDS.reduce((sum, f) => sum + ((c[f.key] as string) ?? '').length, 0);
     const greetingText = greetings.reduce((sum, g) => sum + g.length, 0);
-    return fieldText + greetingText;
+    const scenarioRules = c.cardType === 'scenario'
+      ? Array.from((c.facilitationRules ?? '').trim()).slice(0, 2000).join('').length
+      : 0;
+    return fieldText + greetingText + scenarioRules;
   }, [c, greetings]);
 
-  if (error && !c) return <div className="page"><p className="error">{error}</p></div>;
+  if (error && !c) return <div className="page"><p className="error" role="alert">{error}</p></div>;
   if (!c || !rv) return <div className="centered"><div className="spinner" /></div>;
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
@@ -233,6 +239,10 @@ export function CharacterEditPage() {
         description: c.description,
         personality: c.personality,
         scenario: c.scenario,
+        ...(c.cardType && c.cardType !== 'unsupported' ? {
+          cardType: c.cardType,
+          facilitationRules: c.facilitationRules ?? '',
+        } : {}),
         firstMessage: c.firstMessage,
         mesExample: c.mesExample,
         systemPrompt: c.systemPrompt,
@@ -310,10 +320,19 @@ export function CharacterEditPage() {
 
   const field = (key: keyof CharDetail) => {
     const f = FIELDS.find((x) => x.key === key)!;
+    const scenarioLabels: Partial<Record<keyof CharDetail, string>> = {
+      description: 'Scene notes', personality: 'Narration style',
+      scenario: 'Setting', firstMessage: 'Opening message', mesExample: 'Reply examples',
+    };
+    const label = (c.cardType === 'scenario' ? scenarioLabels[key] : undefined) ?? f.label;
     return (
       <MacroField
-        label={f.label}
-        ariaLabel={f.label}
+        label={label}
+        ariaLabel={label}
+        describedBy={c.cardType !== 'scenario' ? undefined : {
+          scenario: 'edit-scenario-setting-help',
+          firstMessage: 'edit-scenario-opening-help',
+        }[key as 'scenario' | 'firstMessage']}
         rows={f.rows}
         value={(c[f.key] as string) ?? ''}
         onChange={(val) => setField(f.key, val)}
@@ -329,11 +348,13 @@ export function CharacterEditPage() {
         <div className="row-actions">
           <TokenBadge chars={tokenChars} />
           <button className="ghost" onClick={leave}>Cancel</button>
-          <button className="primary" onClick={save} disabled={saving}>
+          <button className="primary" onClick={save} disabled={saving}
+            aria-describedby={error ? 'character-save-error' : undefined}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
+      {error && <p className="error" role="alert" id="character-save-error">{error}</p>}
       <EditorTabs tab={tab} onTab={setTab} locked={memberTabLocks} />
 
       {tab === 'Details' && (
@@ -381,6 +402,10 @@ export function CharacterEditPage() {
             <span>Name</span>
             <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
           </label>
+          <ScenarioCardTypeField value={c.cardType ?? 'character'}
+            onChange={(value) => setField('cardType', value)} />
+          <p className="muted small">{scenarioNewChatHelp}</p>
+          {member && <p className="muted small">{scenarioGroupScopeHelp}</p>}
           {!member && (
             <>
               <label>
@@ -439,6 +464,16 @@ export function CharacterEditPage() {
           {field('description')}
           {field('personality')}
           {field('scenario')}
+          {c.cardType === 'scenario' && <>
+            <p id="edit-scenario-setting-help" className="muted small">{scenarioSettingHelp}</p>
+            <label>
+              Facilitation rules
+              <textarea rows={3} aria-describedby="edit-scenario-rules-help" value={c.facilitationRules ?? ''}
+                placeholder="How to run the scene..."
+                onChange={(event) => setField('facilitationRules', event.target.value)} />
+            </label>
+            <p id="edit-scenario-rules-help" className="muted small">{scenarioRulesHelp}</p>
+          </>}
 
           <details className="editor-section">
             <summary>Advanced Prompts</summary>
@@ -495,9 +530,11 @@ export function CharacterEditPage() {
 
       {tab === 'Dialogue' && (
         <>
-          <h3 className="section-label">First Message</h3>
+          <h3 className="section-label">{c.cardType === 'scenario' ? 'Opening message' : 'First Message'}</h3>
           {field('firstMessage')}
+          {c.cardType === 'scenario' && <p id="edit-scenario-opening-help" className="muted small">{scenarioOpeningHelp}</p>}
           <AltGreetingsEditor
+            showOpeningState={c.cardType !== 'scenario'}
             editorCopy
             greetings={greetings}
             onChange={setGreetings}
@@ -506,7 +543,7 @@ export function CharacterEditPage() {
             clockOn={clockOn}
             onSeedsChange={(seeds) => patch({ greetingSeeds: seeds })}
           />
-          <h3 className="section-label">Example Dialogue</h3>
+          <h3 className="section-label">{c.cardType === 'scenario' ? 'Reply examples' : 'Example Dialogue'}</h3>
           {field('mesExample')}
         </>
       )}
@@ -533,7 +570,6 @@ export function CharacterEditPage() {
         />
       )}
 
-      {error && <p className="error">{error}</p>}
     </div>
   );
 }

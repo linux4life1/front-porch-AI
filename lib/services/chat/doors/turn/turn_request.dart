@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/media/media_door.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
@@ -79,7 +80,7 @@ class TurnRequest {
     // before the generation point — local models often ignore system-role
     // instructions but follow the last content in the user message.
     final idleCue = _pendingIdleCue;
-    if (idleCue != null) {
+    if (idleCue != null && !t.facilitatesScenario) {
       t.suffix = '\n${t.speakingCharacter.name}: *';
     }
 
@@ -105,7 +106,21 @@ class TurnRequest {
     // the Total a user compares with the context size is what the send
     // weighs, not an estimate that drifts by model (issue #550's reading).
     final sectionMap = t.plan.sectionTexts();
-    final sentTokens = await _transcript.countTokens(sectionMap.values.join());
+    final sentTokens = await _transcript.countTokens(
+      t.facilitatesScenario
+          ? '$chatSystemPrompt\n$prompt'
+          : sectionMap.values.join(),
+    );
+    if (t.facilitatesScenario &&
+        sentTokens +
+                _sessionGenSettings.resolveMaxLength(_storageService) +
+                50 >
+            _a.contextSize) {
+      throw Exception(
+        'The Scenario and latest turn exceed the model context. Shorten the '
+        'latest message or Scenario instructions, or increase Context Size.',
+      );
+    }
     _contextBudget.recordLastSend(
       budgetMap: scaleBudgetRows(t.plan.budgetEstimates(), sentTokens),
       sectionMap: sectionMap,
@@ -150,14 +165,16 @@ class TurnRequest {
       stopCharacterNames = [_session.activeCharacter!.name];
     }
 
-    final stopList = t.stopList = buildPrioritizedStops(
-      configured: g2.resolveStopSequences(_storageService),
-      userName: _userPersonaService.persona.name,
-      // In impersonate mode the model IS the user, so don't stop on user name
-      impersonating: t.mode == GenerationMode.impersonate,
-      characterNames: stopCharacterNames,
-      continueSpeakerName: continueSpeakerName,
-    );
+    final stopList = t.stopList = t.facilitatesScenario
+        ? scenarioStops(g2.resolveStopSequences(_storageService))
+        : buildPrioritizedStops(
+            configured: g2.resolveStopSequences(_storageService),
+            userName: _userPersonaService.persona.name,
+            // In impersonate mode the model IS the user, so don't stop on user name
+            impersonating: t.mode == GenerationMode.impersonate,
+            characterNames: stopCharacterNames,
+            continueSpeakerName: continueSpeakerName,
+          );
 
     // Mouth speaks. Side-lane (clerk) may be a different host.
     final llmService = _lanes.mouth;
@@ -258,6 +275,7 @@ class TurnRequest {
     final globalDefault = _storageService.webSearchSettings.webSearchDefault;
     final xmlOnly = _toolProbe.isXmlOnly(_evalBackendIdentity);
     final includeSearch =
+        !t.facilitatesScenario &&
         t.forcedWebQuery == null &&
         shouldAdvertiseWebSearch(
           globalDefault: globalDefault,
@@ -267,14 +285,17 @@ class TurnRequest {
           autonomousMode: t.autonomous,
         );
     final userCards = t.userToolCards;
-    final includeUser = shouldAdvertiseUserTools(
-      hasCards: userCards.isNotEmpty,
-      directUserSend: t.directUserSend,
-      continueMode: t.mode == GenerationMode.continue_,
-      toolsUnsupported: xmlOnly,
-      autonomousMode: t.autonomous,
-    );
+    final includeUser =
+        !t.facilitatesScenario &&
+        shouldAdvertiseUserTools(
+          hasCards: userCards.isNotEmpty,
+          directUserSend: t.directUserSend,
+          continueMode: t.mode == GenerationMode.continue_,
+          toolsUnsupported: xmlOnly,
+          autonomousMode: t.autonomous,
+        );
     final includeWiki =
+        !t.facilitatesScenario &&
         t.forcedWikiQuery == null &&
         shouldAdvertiseWikiSearch(
           wikiUrl: _mediaDoor.wikiBaseUrl,
@@ -339,10 +360,16 @@ class TurnRequest {
         });
       }
     }
-    final forced = await _mediaDoor.runForcedLookup(
-      webQuery: t.forcedWebQuery,
-      wikiQuery: t.forcedWikiQuery,
-    );
+    if (t.facilitatesScenario &&
+        (t.forcedWebQuery != null || t.forcedWikiQuery != null)) {
+      _mediaDoor.announceLookupForce(scenarioLookupUnavailable);
+    }
+    final forced = t.facilitatesScenario
+        ? null
+        : await _mediaDoor.runForcedLookup(
+            webQuery: t.forcedWebQuery,
+            wikiQuery: t.forcedWikiQuery,
+          );
     if (forced != null) {
       final injection = forced.injection;
       if (injection != null && injection.isNotEmpty) scraps.add(injection);

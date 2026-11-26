@@ -436,6 +436,9 @@ class GroupEntry {
               sender: greetingSender,
               isUser: false,
               characterId: greetingCharId,
+              metadata: scenarioOpeningMetadata(
+                _store.genSettings.groupScenarios[greetingCharId],
+              ),
             ),
           );
           // Thin delegation to scanner (group greeting scan).

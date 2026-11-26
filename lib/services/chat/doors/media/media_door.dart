@@ -19,6 +19,7 @@ import 'package:front_porch_ai/services/chat/doors/media/photo_turns.dart';
 import 'package:front_porch_ai/services/chat/image_command_service.dart';
 import 'package:front_porch_ai/services/chat/lookup_force.dart';
 import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/session_state.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
 import 'package:front_porch_ai/services/chat/wiki_search_service.dart';
@@ -343,10 +344,11 @@ class MediaDoor extends ChangeNotifier {
 
   /// Banner text when [raw] is a lookup command that must not send.
   /// Null when the line is ordinary chat or a lookup that can run.
-  String? lookupCommandBlock(String raw) {
+  String? lookupCommandBlock(String raw, {bool scenario = false}) {
     final parsed = parseLookupForce(raw);
     if (!parsed.attempted) return null;
     if (parsed.error != null) return parsed.error;
+    if (scenario) return scenarioLookupUnavailable;
     return lookupForceUnavailable(
       webQuery: parsed.webQuery,
       wikiQuery: parsed.wikiQuery,

@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/cast/cast_door.dart';
 import 'package:front_porch_ai/services/chat/doors/entry/entry_door.dart';
@@ -86,35 +87,32 @@ class TurnBlocks {
 
   Future<void> assemble(GenTurn t) async {
     // Days lived off-screen land before any prompt reads a body.
-    if (t.mode == GenerationMode.normal) _needsPass.landLivedBeatBeforeReply();
-    // ── System prompt selection (Path B clean hierarchy) ──
-    // 1. Group base: the group's own prompt, else Settings' Group system
-    //    prompt, else the built-in one for the mode (`_groupBasePrompt`).
-    // 2. Per-character group override (if set for the speaker in this group) — appended.
-    // 3. Character's normal card system prompt (fallback if no group override for them).
-    // 4. (Later) Per-character Author's Note is injected separately with its own strength.
+    if (t.mode == GenerationMode.normal && !t.facilitatesScenario) {
+      _needsPass.landLivedBeatBeforeReply();
+    }
+    final scene = t.scenarioCard;
     if (_activeGroup != null) {
-      t.systemPrompt = _source.groupBasePrompt;
+      t.systemPrompt = _source.resolveGroupBase(scenario: scene != null);
     } else {
-      // Every backend now speaks the OpenAI chat protocol (local KoboldCpp
-      // via its /v1/chat/completions door), so the server applies the model's
-      // instruct template — use the chat-style default system prompt.
-      t.systemPrompt = _source.resolveOneToOneBase(t.speakingCharacter);
+      t.systemPrompt = _source.resolveOneToOneBase(
+        t.speakingCharacter,
+        scenario: scene != null,
+      );
     }
 
     if (_source.amendmentsAllowed) {
       t.systemPrompt = _storageService.generationSettings
           .withSystemPromptAddition(t.systemPrompt);
     }
-    if (_activeGroup != null) {
+    if (scene != null) {
+      t.systemPrompt +=
+          "\n\n$scenarioRole${_activeGroup != null ? scenarioGroupRole : ''}";
+    } else if (_activeGroup != null) {
       t.systemPrompt = withGroupSceneRules(
         t.systemPrompt,
         directing: _directing,
       );
     }
-
-    // Per-character group overlay used to append here and churn the system
-    // prefix every speaker. It now rides [t.speakerCardBlock] after history.
 
     // In call mode, inject voice-specific instructions for natural conversation
     if (_callMode && _storageService.sttSettings.callSystemPrompt.isNotEmpty) {
@@ -125,14 +123,17 @@ class TurnBlocks {
     final forcedLookup =
         (t.forcedWebQuery != null && t.forcedWebQuery!.isNotEmpty) ||
         (t.forcedWikiQuery != null && t.forcedWikiQuery!.isNotEmpty);
-    if (forcedLookup ||
-        (_mediaDoor.lookupsActive &&
-            t.directUserSend &&
-            !t.autonomous &&
-            t.mode != GenerationMode.continue_)) {
+    if (scene == null &&
+        (forcedLookup ||
+            (_mediaDoor.lookupsActive &&
+                t.directUserSend &&
+                !t.autonomous &&
+                t.mode != GenerationMode.continue_))) {
       t.toolRulesBlock += '\n$kSearchCharacterLine\n';
     }
-    t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    if (scene == null) {
+      t.userToolCards = loadUserToolCards(_storageService.toolsDir);
+    }
     if (shouldAdvertiseUserTools(
       hasCards: t.userToolCards.isNotEmpty,
       directUserSend: t.directUserSend,
@@ -187,10 +188,17 @@ class TurnBlocks {
       t.personaBlock =
           "${t.speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(t.speakingCharacter, t.userName)}";
     }
-    t.growthBlock = _growthDesk.resolvedGrowthBlock(
-      t.speakingCharacter,
-      t.userName,
-    );
+    if (scene != null) {
+      t.personaBlock = [
+        _activeGroup == null ? '' : t.personaBlock,
+        scene.guidance,
+      ].where((text) => text.isNotEmpty).join("\n");
+    } else {
+      t.growthBlock = _growthDesk.resolvedGrowthBlock(
+        t.speakingCharacter,
+        t.userName,
+      );
+    }
 
     // User persona — inject user's self-description + learned facts
     // A directed scene has no user in it: "the human you are talking with"
@@ -208,10 +216,11 @@ class TurnBlocks {
       rawScenario = _activeGroup!.scenario.isNotEmpty
           ? _activeGroup!.scenario
           : (_groupCharacters.isNotEmpty
-                ? _groupCharacters.first.scenario
+                ? scene?.setting ?? _groupCharacters.first.scenario
                 : '');
     } else {
-      rawScenario = _growthDesk.effectiveScenario(t.speakingCharacter);
+      rawScenario =
+          scene?.setting ?? _growthDesk.effectiveScenario(t.speakingCharacter);
     }
     t.scenario = rawScenario;
     // A Scene Guest drops into the HOST's ongoing scene — it has no scenario
@@ -220,12 +229,16 @@ class TurnBlocks {
     // is the host). This also self-heals legacy guests minted with the host's
     // scenario baked in (the "model thinks the guest IS the host" bug).
     // A soft GROUP member keeps it: there the scenario is the shared scene.
-    if (_activeGroup == null && _isLiteTurn(t)) t.scenario = '';
+    if (_activeGroup == null && scene == null && _isLiteTurn(t)) {
+      t.scenario = '';
+    }
 
     t.suffix = "";
 
     if (t.mode == GenerationMode.normal) {
-      t.suffix = "\n${t.speakingCharacter.name}:";
+      t.suffix = scene == null
+          ? "\n${t.speakingCharacter.name}:"
+          : scenarioReplyCue;
     } else if (t.mode == GenerationMode.impersonate) {
       t.suffix = "\n${t.userName}:";
     } else if (t.mode == GenerationMode.continue_) {
@@ -235,7 +248,9 @@ class TurnBlocks {
 
     // Build example dialogues block. Group examples ride the speaker card
     // (built below).
-    if (_activeGroup != null) {
+    if (scene != null) {
+      t.mesExampleBlock = scene.examples;
+    } else if (_activeGroup != null) {
       t.mesExampleBlock = '';
     } else if (t.speakingCharacter.mesExample.isNotEmpty) {
       t.mesExampleBlock = '${t.speakingCharacter.mesExample}\n';
@@ -261,27 +276,7 @@ class TurnBlocks {
     // a personal note, inject it using the same strength-modulated style.
     // Falls back gracefully (no-op) if absent. Appended after any group-level note.
     if (_activeGroup != null) {
-      final charNote = _members.getAuthorNoteForGroupCharacter(
-        t.speakingCharacter,
-      );
-      if (charNote.isNotEmpty) {
-        // Use per-character strength if set, otherwise fall back to group default
-        final s = _members.getAuthorNoteStrengthForGroupCharacter(
-          t.speakingCharacter,
-        );
-        final name = t.speakingCharacter.name;
-        String perCharBlock;
-        if (s <= 3) {
-          perCharBlock =
-              "[Author's Note (gentle suggestion for $name): $charNote]\n";
-        } else if (s <= 7) {
-          perCharBlock = "[Author's Note (for $name): $charNote]\n";
-        } else {
-          perCharBlock =
-              "[Author's Note (IMPORTANT for $name — apply immediately): $charNote]\n";
-        }
-        t.authorNoteBlock += perCharBlock;
-      }
+      t.authorNoteBlock += _blocks.groupAuthorNoteBlock(t.speakingCharacter);
     }
 
     // One-shot entrance directive (forked-in character) — hidden, consumed
@@ -300,10 +295,7 @@ class TurnBlocks {
       );
     }
 
-    // ── Scene Guests (Lite NPCs) prompt injection (1:1 only) ───────────
-    // Guests speak for themselves in their own bubbles, so the primary must
-    // not fully voice/narrate them. A guest turn instead gets a short line
-    // grounding it as a visitor in the host's scene.
+    // A Scene Guest speaks for themselves in their own bubble.
     if (_activeGroup == null) {
       final hostName = _session.activeCharacter?.name ?? 'the main character';
       if (t.guestSpeaker != null) {
@@ -377,7 +369,11 @@ class TurnBlocks {
     // Group: the speaker's card rides after the transcript. This turn's
     // notes keep the author-note seat near the end, as in 1:1: further up,
     // some models ignore the Author's Note and the Director goal.
-    if (_activeGroup != null) {
+    if (_activeGroup != null && scene != null) {
+      t.speakerCardBlock = _members.getSystemPromptForGroupCharacter(
+        t.speakingCharacter,
+      );
+    } else if (_activeGroup != null) {
       t.speakerCardBlock = _blocks.groupSpeakerCard(
         t.speakingCharacter,
         userName: t.userName,

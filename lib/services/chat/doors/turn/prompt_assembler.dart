@@ -106,8 +106,12 @@ class PromptAssembler {
   /// 1:1 guest turn **or** a soft group member speaking. Do not set
   /// `guestSpeaker` for the latter — that skip would drop Away / pick.
   bool isLiteTurn(GenTurn t) =>
+      t.facilitatesScenario ||
       t.guestSpeaker != null ||
       _d.doors.cast().roster.speakerIsSoft(t.speakingCharacter);
+
+  ScenarioCardSnapshot? scenarioFor(CharacterCard? speaker) =>
+      _d.doors.sessions().scenarioFor(speaker);
 
   // ── The turn's four phases, in this order (`late` carrier fields make an
   // out-of-order call a loud LateInitializationError) ──

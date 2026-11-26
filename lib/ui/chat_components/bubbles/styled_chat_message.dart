@@ -97,6 +97,7 @@ final _markdownImageRegex = RegExp(r'!\[([^\]]*)\]\((https?://[^)]+)\)');
 class StyledChatMessage extends StatefulWidget {
   final String text;
   final bool isUser;
+  final bool plainProse;
   final bool? externalImagesAllowed;
   final Future<bool> Function()? onRequestImagePermission;
   final CharacterCard? character;
@@ -116,6 +117,7 @@ class StyledChatMessage extends StatefulWidget {
     super.key,
     required this.text,
     required this.isUser,
+    this.plainProse = false,
     this.externalImagesAllowed,
     this.onRequestImagePermission,
     this.character,
@@ -240,7 +242,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
       _imageMatches = _markdownImageRegex.allMatches(text).toList();
     }
     final imageMatches = _imageMatches!;
-    if (imageMatches.isEmpty) {
+    if (widget.plainProse || imageMatches.isEmpty) {
       // No images — use existing fast path
       return _buildStyledText(text, 0, readingScaler, findSplit);
     }
@@ -304,7 +306,11 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     TextScaler readingScaler,
     FindLeafSplit findSplit,
   ) {
-    final tokens = _tokensFor(segment);
+    final tokens = widget.plainProse
+        ? const <
+            ({int start, int end, String matchText, StyledTokenType type})
+          >[]
+        : _tokensFor(segment);
 
     final spans = <TextSpan>[];
     int lastEnd = 0;

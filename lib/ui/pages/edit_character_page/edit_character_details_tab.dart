@@ -19,6 +19,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -188,6 +189,17 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
+                  ScenarioCardTypeField(
+                    scenario: d.isScenario,
+                    unsupported: d.unsupportedCardMode,
+                    onChanged: (value) {
+                      d.isScenario = value;
+                      onChanged();
+                    },
+                  ),
+                  const Text(scenarioNewChatHelp),
+                  if (member != null) const Text(scenarioGroupScopeHelp),
+                  const SizedBox(height: 16),
                   // A group member's copy keeps no title (its row has no
                   // place for one, and it has no library tile to show it on).
                   if (member == null) ...[
@@ -259,30 +271,44 @@ class EditCharacterDetailsTab extends StatelessWidget {
                 children: [
                   kit.styledField(
                     controller: d.descriptionController,
-                    label: 'Description',
+                    label: d.isScenario ? 'Scene notes' : 'Description',
                     maxLines: 4,
                     expandable: true,
-                    hint: 'Physical appearance, backstory, key traits...',
+                    hint: d.isScenario
+                        ? 'World and incidental cast notes...'
+                        : 'Physical appearance, backstory, key traits...',
                   ),
                   const SizedBox(height: 16),
                   kit.styledField(
                     controller: d.personalityController,
-                    label: 'Personality',
+                    label: d.isScenario ? 'Narration style' : 'Personality',
                     maxLines: 3,
                     expandable: true,
-                    hint: 'How they act, speak, think...',
+                    hint: d.isScenario
+                        ? 'Voice, tense, and text format...'
+                        : 'How they act, speak, think...',
                   ),
                   const SizedBox(height: 16),
                   kit.styledField(
                     controller: d.scenarioController,
-                    label: 'Scenario',
+                    label: d.isScenario ? 'Setting' : 'Scenario',
                     maxLines: 3,
                     expandable: true,
                     hint: 'The setting, situation, or context...',
+                    help: d.isScenario ? scenarioSettingHelp : null,
                   ),
                 ],
               ),
               const SizedBox(height: 20),
+
+              if (d.isScenario)
+                kit.styledField(
+                  controller: d.facilitationController,
+                  label: 'Facilitation rules',
+                  maxLines: 3,
+                  hint: 'How to run the scene...',
+                  help: scenarioRulesHelp,
+                ),
 
               // ── Advanced Prompts ──
               kit.sectionCard(

@@ -111,9 +111,16 @@ class CastCollapse {
     // group JSON maps to the 1:1 columns after re-home.
     String soleLegacyPers = '';
     String soleLegacyScen = '';
+    ChatGenerationSettings? settings;
     try {
       final sessRow = await _d.db.getSessionById(sessionId);
       if (sessRow != null) {
+        final current = ChatGenerationSettings.fromJsonString(
+          sessRow.generationSettings,
+        );
+        settings = current
+          ..soloScenario = current.groupScenarios[soleId]
+          ..groupScenarios = {};
         soleLegacyPers =
             _h.parseJsonMap(sessRow.groupEvolvedPersonalities)[soleId] ?? '';
         soleLegacyScen =
@@ -124,16 +131,33 @@ class CastCollapse {
     // 2) Re-home the session to a 1:1 owned by the library character. Bump
     //    createdAt so the most-recent-session load lands on exactly this
     //    session; clear group_realism_state so the 1:1 load skips it.
-    final reHomed = await _d.db.patchSession(
-      SessionsCompanion(
-        id: drift.Value(sessionId),
-        groupId: const drift.Value(null),
-        characterId: drift.Value(origin.dbId),
-        groupRealismState: const drift.Value('{}'),
-        createdAt: drift.Value(DateTime.now()),
-        updatedAt: drift.Value(DateTime.now()),
-      ),
-    );
+    final reHomed = await _d.db.transaction(() async {
+      final moved = await _d.db.patchSession(
+        SessionsCompanion(
+          id: drift.Value(sessionId),
+          groupId: const drift.Value(null),
+          characterId: drift.Value(origin.dbId),
+          groupRealismState: const drift.Value('{}'),
+          generationSettings: settings == null
+              ? const drift.Value.absent()
+              : drift.Value(settings.toJsonString()),
+          createdAt: drift.Value(DateTime.now()),
+          updatedAt: drift.Value(DateTime.now()),
+        ),
+      );
+      if (moved && settings?.soloScenario != null) {
+        // Preserve attribution to the surviving facilitator across the
+        // instance-id change. Departed members keep their historical ids.
+        await (_d.db.update(_d.db.messages)..where(
+              (row) =>
+                  row.sessionId.equals(sessionId) &
+                  row.characterId.equals(soleId) &
+                  row.isUser.equals(false),
+            ))
+            .write(MessagesCompanion(characterId: drift.Value(originId)));
+      }
+      return moved;
+    });
     if (!reHomed) {
       // No row: abort BEFORE dissolving, so the group is never deleted
       // while its session is still group-homed.
@@ -170,6 +194,11 @@ class CastCollapse {
 
     // 4) Re-enter as a 1:1 on the re-homed session; force the exact session
     //    if another session of this character is newer.
+    // The outgoing flush in setActiveCharacter still has this session id.
+    // Give that flush the converted snapshot so it cannot undo the patch.
+    if (settings != null) {
+      _d.turn().deps.doors.sessions().genSettings = settings;
+    }
     await _h.setActiveCharacter(origin);
     if (_session.currentSessionId != sessionId) {
       await _h.loadSession(sessionId);

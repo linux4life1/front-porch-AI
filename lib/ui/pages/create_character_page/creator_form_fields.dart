@@ -77,12 +77,14 @@ class CreatorExpandableField extends StatelessWidget {
     this.controller, {
     super.key,
     this.hint = '',
+    this.help,
     this.maxLines = 3,
   });
 
   final String label;
   final TextEditingController controller;
   final String hint;
+  final String? help;
   final int maxLines;
 
   @override
@@ -92,7 +94,7 @@ class CreatorExpandableField extends StatelessWidget {
       children: [
         Row(
           children: [
-            CreatorInputLabel(label),
+            ExcludeSemantics(child: CreatorInputLabel(label)),
             const Spacer(),
             IconButton(
               onPressed: () => showExpandedEditorDialog(
@@ -105,22 +107,28 @@ class CreatorExpandableField extends StatelessWidget {
                 size: 16,
                 color: AppColors.textTertiary(context),
               ),
-              tooltip: 'Expand editor',
+              tooltip: 'Expand $label',
               visualDensity: VisualDensity.compact,
             ),
           ],
         ),
         const SizedBox(height: 6),
-        AppTextField(
-          controller: controller,
-          maxLines: maxLines,
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: 14,
-            height: 1.5,
+        Semantics(
+          label: label,
+          child: AppTextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 14,
+              height: 1.5,
+            ),
+            spellCheckConfiguration: AppTextField.platformSpellCheck(),
+            decoration: creatorInputDecoration(
+              context,
+              hint,
+            ).copyWith(helperText: help, helperMaxLines: 3),
           ),
-          spellCheckConfiguration: AppTextField.platformSpellCheck(),
-          decoration: creatorInputDecoration(context, hint),
         ),
       ],
     );
@@ -134,11 +142,13 @@ class CreatorReviewField extends StatelessWidget {
     this.controller, {
     super.key,
     this.maxLines = 3,
+    this.help,
   });
 
   final String label;
   final TextEditingController controller;
   final int maxLines;
+  final String? help;
 
   @override
   Widget build(BuildContext context) {
@@ -165,6 +175,8 @@ class CreatorReviewField extends StatelessWidget {
               height: 1.5,
             ),
             decoration: InputDecoration(
+              helperText: help,
+              helperMaxLines: 3,
               filled: true,
               fillColor: AppColors.surfaceContainerOf(context),
               border: OutlineInputBorder(

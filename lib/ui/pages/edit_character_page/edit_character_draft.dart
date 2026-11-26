@@ -34,6 +34,9 @@ class EditCharacterDraft {
   final StyledTextController descriptionController;
   final StyledTextController personalityController;
   final StyledTextController scenarioController;
+  final TextEditingController facilitationController;
+  final bool unsupportedCardMode;
+  bool isScenario;
   final StyledTextController firstMessageController;
   final StyledTextController mesExampleController;
   final StyledTextController systemPromptController;
@@ -166,7 +169,12 @@ class EditCharacterDraft {
     CharacterCard character, {
     required bool Function() porchLifeNeedsDefault,
     WorldRepository? worlds,
-  }) : nameController = TextEditingController(text: character.name),
+  }) : isScenario = character.isScenarioCard,
+       unsupportedCardMode = character.hasUnsupportedCardMode,
+       facilitationController = TextEditingController(
+         text: character.facilitationRules,
+       ),
+       nameController = TextEditingController(text: character.name),
        titleController = TextEditingController(text: character.title),
        descriptionController = StyledTextController(
          text: character.description,
@@ -240,6 +248,7 @@ class EditCharacterDraft {
       descriptionController,
       personalityController,
       scenarioController,
+      facilitationController,
       firstMessageController,
       mesExampleController,
       systemPromptController,
@@ -261,12 +270,15 @@ class EditCharacterDraft {
   bool get isDirty => fingerprint() != _start;
 
   String fingerprint() => jsonEncode([
+    isScenario,
+    facilitationController.text,
     for (final c in [
       nameController,
       titleController,
       descriptionController,
       personalityController,
       scenarioController,
+      facilitationController,
       firstMessageController,
       mesExampleController,
       systemPromptController,
@@ -406,6 +418,9 @@ class EditCharacterDraft {
         mesExampleController.text.length +
         systemPromptController.text.length +
         postHistoryController.text.length;
+    if (isScenario) {
+      totalChars += limitScenarioRules(facilitationController.text).length;
+    }
     for (final c in altGreetingControllers) {
       totalChars += c.text.length;
     }
@@ -440,6 +455,7 @@ class EditCharacterDraft {
     descriptionController.dispose();
     personalityController.dispose();
     scenarioController.dispose();
+    facilitationController.dispose();
     firstMessageController.dispose();
     mesExampleController.dispose();
     systemPromptController.dispose();

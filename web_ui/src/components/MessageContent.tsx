@@ -82,10 +82,12 @@ function MessageContentImpl({
   text,
   find,
   msgIndex,
+  plainProse = false,
 }: {
   text: string;
   find?: FindSurface | null;
   msgIndex?: number;
+  plainProse?: boolean;
 }) {
   const hits = find && msgIndex != null ? find.byMessage.get(msgIndex) : undefined;
   const active = find?.active;
@@ -96,6 +98,7 @@ function MessageContentImpl({
         markRanges(plain, offset, hits.body, activeStart, key)
     : undefined;
 
+  if (plainProse) return <>{mark ? mark(text, 'prose', 0) : text}</>;
   const parts: ReactNode[] = [];
   let last = 0;
   let seg = 0;

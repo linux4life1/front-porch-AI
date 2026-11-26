@@ -22,12 +22,16 @@ import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { type RealismValues, REALISM_DEFAULTS, compactGreetingPairs, inventoryToChips } from '../components/realism/realismTypes';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
+import { scenarioOpeningHelp, scenarioRulesHelp, scenarioSettingHelp, ScenarioCardTypeField, type CardType } from "../components/ScenarioCardTypeField";
+
 interface Draft extends RealismValues {
   name: string;
   tags: string;
   description: string;
   personality: string;
   scenario: string;
+  cardType: CardType;
+  facilitationRules: string;
   firstMessage: string;
   alternateGreetings: string[];
   mesExample: string;
@@ -44,6 +48,8 @@ const EMPTY: Draft = {
   description: '',
   personality: '',
   scenario: '',
+  cardType: 'character',
+  facilitationRules: '',
   firstMessage: '',
   alternateGreetings: [],
   mesExample: '',
@@ -133,37 +139,65 @@ export function CreateCharacterPage() {
               Name<span className="req"> *</span>
               <input value={d.name} onChange={(e) => set('name', e.target.value)} autoFocus />
             </label>
+            <ScenarioCardTypeField value={d.cardType} onChange={(value) => set('cardType', value)} />
             <label>
               Tags (comma-separated)
               <input value={d.tags} onChange={(e) => set('tags', e.target.value)} />
             </label>
-            <label>
+            {d.cardType !== 'scenario' && <label>
               Description
               <textarea rows={6} value={d.description} onChange={(e) => set('description', e.target.value)} />
-            </label>
+            </label>}
           </>
         )}
 
         {step === 1 && (
           <>
+            {d.cardType === 'scenario' && <label>
+              Scene notes
+              <textarea rows={6} value={d.description} onChange={(e) => set('description', e.target.value)} />
+            </label>}
             <label>
-              Personality
+              {d.cardType === 'scenario' ? 'Narration style' : 'Personality'}
               <textarea rows={6} value={d.personality} onChange={(e) => set('personality', e.target.value)} />
             </label>
             <label>
-              Scenario
-              <textarea rows={6} value={d.scenario} onChange={(e) => set('scenario', e.target.value)} />
+              {d.cardType === 'scenario' ? 'Setting' : 'Scenario'}
+              <textarea rows={6} aria-describedby={d.cardType === 'scenario' ? 'create-scenario-setting-help' : undefined} value={d.scenario} onChange={(e) => set('scenario', e.target.value)} />
             </label>
+            {d.cardType === 'scenario' && <p id="create-scenario-setting-help" className="muted small">{scenarioSettingHelp}</p>}
+            {d.cardType === 'scenario' && <>
+              <label>
+              Facilitation rules
+              <textarea rows={3} aria-describedby="create-scenario-rules-help" value={d.facilitationRules}
+                placeholder="How to run the scene..."
+                onChange={(e) => set('facilitationRules', e.target.value)} />
+              </label>
+              <p id="create-scenario-rules-help" className="muted small">{scenarioRulesHelp}</p>
+            </>}
+            {d.cardType === 'scenario' && <details>
+              <summary>Advanced Prompts</summary>
+              <label>
+              System prompt (optional)
+              <textarea rows={3} value={d.systemPrompt} onChange={(e) => set('systemPrompt', e.target.value)} />
+            </label>
+            <label>
+              Post-history instructions (optional)
+              <textarea rows={3} value={d.postHistoryInstructions} onChange={(e) => set('postHistoryInstructions', e.target.value)} />
+            </label>
+            </details>}
           </>
         )}
 
         {step === 2 && (
           <>
             <label>
-              First message (greeting)
-              <textarea rows={5} value={d.firstMessage} onChange={(e) => set('firstMessage', e.target.value)} />
+              {d.cardType === 'scenario' ? 'Opening message' : 'First message (greeting)'}
+              <textarea rows={5} aria-describedby={d.cardType === 'scenario' ? 'create-scenario-opening-help' : undefined} value={d.firstMessage} onChange={(e) => set('firstMessage', e.target.value)} />
             </label>
+            {d.cardType === 'scenario' && <p id="create-scenario-opening-help" className="muted small">{scenarioOpeningHelp}</p>}
             <AltGreetingsEditor
+              showOpeningState={d.cardType !== 'scenario'}
               greetings={d.alternateGreetings}
               onChange={(g) => set('alternateGreetings', g)}
               seeds={d.greetingSeeds}
@@ -172,17 +206,17 @@ export function CreateCharacterPage() {
               onSeedsChange={(seeds) => set('greetingSeeds', seeds)}
             />
             <label>
-              Example dialogue
+              {d.cardType === 'scenario' ? 'Reply examples' : 'Example dialogue'}
               <textarea rows={4} value={d.mesExample} onChange={(e) => set('mesExample', e.target.value)} />
             </label>
-            <label>
+            {d.cardType !== 'scenario' && <><label>
               System prompt (optional)
               <textarea rows={3} value={d.systemPrompt} onChange={(e) => set('systemPrompt', e.target.value)} />
             </label>
             <label>
               Post-history instructions (optional)
               <textarea rows={3} value={d.postHistoryInstructions} onChange={(e) => set('postHistoryInstructions', e.target.value)} />
-            </label>
+            </label></>}
           </>
         )}
 
@@ -207,10 +241,14 @@ export function CreateCharacterPage() {
         {step === 5 && (
           <div className="review">
             <p><strong>{d.name || '(unnamed)'}</strong>{d.tags && <span className="muted"> · {d.tags}</span>}</p>
-            <ReviewRow label="Description" value={d.description} />
-            <ReviewRow label="Personality" value={d.personality} />
-            <ReviewRow label="Scenario" value={d.scenario} />
-            <ReviewRow label="First message" value={d.firstMessage} />
+            <ReviewRow label={d.cardType === 'scenario' ? 'Scene notes' : 'Description'} value={d.description} />
+            <ReviewRow label={d.cardType === 'scenario' ? 'Narration style' : 'Personality'} value={d.personality} />
+            <ReviewRow label="Card type" value={d.cardType === 'scenario' ? 'Scenario' : 'Character'} />
+            <ReviewRow label={d.cardType === 'scenario' ? 'Setting' : 'Scenario'}
+              value={d.cardType === 'scenario' && !d.scenario.trim() ? 'Chosen in chat' : d.scenario} />
+            {d.cardType === 'scenario' && <ReviewRow label="Facilitation rules" value={d.facilitationRules} />}
+            <ReviewRow label={d.cardType === 'scenario' ? 'Opening message' : 'First message'}
+              value={d.cardType === 'scenario' && !d.firstMessage.trim() ? (d.alternateGreetings.some((g) => g.trim()) ? 'Uses the first alternate' : 'Player speaks first') : d.firstMessage} />
             <ReviewRow label="Lorebook" value={d.lorebook.length ? `${d.lorebook.length} entr${d.lorebook.length === 1 ? 'y' : 'ies'}` : 'None'} />
             <ReviewRow
               label="Porch Life"
@@ -233,7 +271,7 @@ export function CreateCharacterPage() {
             {d.realismEnabled && (
               <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsPace} pace` : 'Off'} />
             )}
-            {error && <p className="error">{error}</p>}
+            {error && <p className="error" role="alert">{error}</p>}
           </div>
         )}
       </div>

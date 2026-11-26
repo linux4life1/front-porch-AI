@@ -29,6 +29,7 @@
 
 export 'avatar_image.dart';
 export 'character_card.dart';
+export 'scenario_card.dart';
 export 'character/pcd_mood.dart';
 export 'character/recovery_profile.dart';
 export 'character/trait_kit.dart';

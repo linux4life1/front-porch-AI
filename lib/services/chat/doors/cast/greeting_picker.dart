@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/turn_engine.dart';
+import 'package:front_porch_ai/services/chat/doors/turn/scenario_prompt.dart';
 
 /// The opening greeting: which one is showing, its macros, and the opening
 /// Realism and Needs seed a greeting commit applies.
@@ -84,7 +85,17 @@ class GreetingPicker {
   }
 
   String buildFirstMessage(CharacterCard character, {String? greetingText}) {
-    String msg = greetingText ?? character.firstMessage;
+    final msg = greetingText ?? character.firstMessage;
+    final scenario = _d.prompts().scenarioFor(character);
+    if (scenario != null) {
+      return resolveScenarioText(
+        msg,
+        scenario,
+        cardName: character.name,
+        playerName: _d.personas.persona.name,
+        setting: scenario.setting,
+      );
+    }
     return _d.macros.resolve(
       msg,
       MacroContext(
@@ -200,6 +211,7 @@ class GreetingPicker {
     required int index,
     bool scheduleEval = true,
   }) async {
+    if (_d.prompts().scenarioFor(card) != null) return;
     final ext = card.frontPorchExtensions;
     final firstMesEmpty = greetingFirstMesEmpty(card.firstMessage);
     final overlay = greetingOverlayAt(

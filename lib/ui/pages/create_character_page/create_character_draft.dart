@@ -35,6 +35,9 @@ class CreateCharacterDraft {
     _blank = fingerprint();
   }
 
+  bool isScenario = false;
+  final facilitationController = TextEditingController();
+
   late String _blank;
 
   /// True once the wizard holds anything a blank one does not (and [reset]
@@ -42,6 +45,7 @@ class CreateCharacterDraft {
   bool get hasContent => fingerprint() != _blank;
 
   String fingerprint() => jsonEncode([
+    isScenario,
     for (final c in allControllers) c.text,
     [for (final s in altGreetingSeeds) s?.toJson()],
     [for (final e in lorebookEntries) e.toJson()],
@@ -218,6 +222,7 @@ class CreateCharacterDraft {
     descriptionController,
     personalityController,
     scenarioController,
+    facilitationController,
     systemPromptController,
     postHistoryController,
     firstMessageController,
@@ -229,7 +234,10 @@ class CreateCharacterDraft {
     int total = 0;
     for (final c in allControllers) {
       // Rough estimate: ~4 chars per token
-      total += (c.text.length / 4).ceil();
+      final value = identical(c, facilitationController)
+          ? (isScenario ? limitScenarioRules(c.text) : '')
+          : c.text;
+      total += (value.length / 4).ceil();
     }
     // Add lorebook entries
     for (final entry in lorebookEntries) {
@@ -273,6 +281,8 @@ class CreateCharacterDraft {
     descriptionController.clear();
     personalityController.clear();
     scenarioController.clear();
+    facilitationController.clear();
+    isScenario = false;
     firstMessageController.clear();
     exampleDialogueController.clear();
     systemPromptController.clear();
@@ -339,6 +349,7 @@ class CreateCharacterDraft {
     descriptionController.dispose();
     personalityController.dispose();
     scenarioController.dispose();
+    facilitationController.dispose();
     systemPromptController.dispose();
     postHistoryController.dispose();
     firstMessageController.dispose();

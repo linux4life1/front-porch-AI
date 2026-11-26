@@ -78,6 +78,7 @@ class EditCharacterCardWriter {
     character.description = d.descriptionController.text;
     character.personality = d.personalityController.text;
     character.scenario = d.scenarioController.text;
+    character.setScenarioCard(d.isScenario, d.facilitationController.text);
     character.firstMessage = d.firstMessageController.text;
     character.mesExample = d.mesExampleController.text;
     character.systemPrompt = d.systemPromptController.text;

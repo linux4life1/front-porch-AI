@@ -388,7 +388,6 @@ class NewChatOpener {
     // ── Post-Greeting Realism Baseline ──────────────────────────────────
     // Always mark that a greeting was placed — even if Realism is currently off.
     // If Realism is already on, fire immediately. Otherwise the flag will be
-    // consumed the moment the user enables Realism.
     // Skip if character already has pre-seeded V2.5 extensions — those baseline
     // values are intentional and should not be overwritten by auto-eval.
     //
@@ -404,6 +403,7 @@ class NewChatOpener {
     // member, all four ways a conversation can start, and a reload — the seed
     // this baseline fires is a head start for the sidebar, not the mechanism.
     if (_activeGroup == null &&
+        _store.genSettings.soloScenario == null &&
         _session.messages.isNotEmpty &&
         _session.activeCharacter!.frontPorchExtensions == null) {
       _cast.baseline.greetingEvalPending = true;
@@ -447,6 +447,9 @@ class NewChatOpener {
             sender: greetingSender,
             isUser: false,
             characterId: greetingCharId,
+            metadata: scenarioOpeningMetadata(
+              _store.genSettings.groupScenarios[greetingCharId],
+            ),
           ),
         );
         _lorebookScanner.scanLatest();
@@ -454,9 +457,6 @@ class NewChatOpener {
           _session.messages.isEmpty ? null : _session.messages.first,
           kind: SlotClockWrite.seed,
         );
-        // Overlay 0 / inherit baseline into live emotion and slots.
-        // Previously only the empty-empty path applied seed, so leftover
-        // swipe fury survived New Chat on a custom opener or member-greet.
         if (!greetingFirstMesEmpty(_activeGroup!.firstMessage)) {
           await greetings.applyGroupCustomGreetingSeed(0);
         } else {
@@ -478,6 +478,7 @@ class NewChatOpener {
               greetingText: opening.first,
             ),
             sender: _session.activeCharacter!.name,
+            metadata: scenarioOpeningMetadata(_store.genSettings.soloScenario),
             isUser: false,
           ),
         );

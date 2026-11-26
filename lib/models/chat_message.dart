@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/scenario_card.dart';
 import 'package:front_porch_ai/utils/reasoning_markers.dart';
 
 /// Metadata flag for backend-down / generation-error System banners.
@@ -145,6 +146,9 @@ class ChatMessage {
   }
 
   /// Backend-down / generation-error banners. Not story.
+  bool get isScenarioProse =>
+      !isUser && activeMetadata?['presentation'] == scenarioPresentation;
+
   bool get isStatusBanner => activeMetadata?[kStatusBannerMeta] == true;
 
   /// A narrator's scene beat asked for while directing (`/narrate`).
@@ -159,6 +163,7 @@ class ChatMessage {
   /// blocks; 8 of 10 rerolls opened with the prior massage beat).
   String toPromptHistoryLine() {
     if (isStatusBanner) return '';
+    if (isScenarioProse) return 'Narrator: $promptText';
     if (characterId == '__director__') {
       return isDirectorNarration ? '[Narration: $text]' : '[Director: $text]';
     }

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'create_character_draft.dart';
@@ -41,34 +42,52 @@ class CreatorPersonalityStep extends StatelessWidget {
       children: [
         const CreatorStepTitle('Personality & World'),
         const SizedBox(height: 8),
-        const CreatorStepLead(
-          'Define who your character is and the world they inhabit.',
+        CreatorStepLead(
+          draft.isScenario
+              ? 'Set the scene and decide how it will be narrated.'
+              : 'Define who your character is and the world they inhabit.',
         ),
         const SizedBox(height: 32),
 
         CreatorExpandableField(
-          'Description',
+          draft.isScenario ? 'Scene notes' : 'Description',
           draft.descriptionController,
-          hint: 'Physical appearance, backstory, key traits...',
+          hint: draft.isScenario
+              ? 'World and incidental cast notes...'
+              : 'Physical appearance, backstory, key traits...',
           maxLines: 4,
         ),
         const SizedBox(height: 20),
 
         CreatorExpandableField(
-          'Personality',
+          draft.isScenario ? 'Narration style' : 'Personality',
           draft.personalityController,
-          hint: 'How they act, speak, think...',
+          hint: draft.isScenario
+              ? 'Voice, tense, and text format...'
+              : 'How they act, speak, think...',
           maxLines: 3,
         ),
         const SizedBox(height: 20),
 
         CreatorExpandableField(
-          'Scenario',
+          draft.isScenario ? 'Setting' : 'Scenario',
           draft.scenarioController,
           hint: 'The setting, situation, or context...',
+          help: draft.isScenario ? scenarioSettingHelp : null,
           maxLines: 3,
         ),
         const SizedBox(height: 24),
+
+        if (draft.isScenario) ...[
+          CreatorExpandableField(
+            'Facilitation rules',
+            draft.facilitationController,
+            hint: 'How to run the scene...',
+            help: scenarioRulesHelp,
+            maxLines: 3,
+          ),
+          const SizedBox(height: 24),
+        ],
 
         // Advanced Prompts (collapsed)
         Theme(

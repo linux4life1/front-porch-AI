@@ -20,6 +20,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
+
+import 'scenario_prompt.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/doors/realism/realism_graph.dart';
 import 'package:front_porch_ai/services/chat/doors/turn/prompt_assembler.dart';
@@ -123,7 +125,7 @@ class TurnStream {
       // keep only that key so an OOC / AFK snap still chips the guest
       // reply. Pending is consumed by the host attach, so also read the
       // last bot slot when the key is no longer pending.
-      final Map<String, dynamic>? initialMetadata;
+      Map<String, dynamic>? initialMetadata;
       if (_e.entry.isLiteTurn(t)) {
         var skip = _pendingRealismMetadata?['time_skip_to'] as String? ?? '';
         if (skip.isEmpty) {
@@ -145,6 +147,12 @@ class TurnStream {
         // showed last turn's wear.
         initialMetadata = Map<String, dynamic>.from(_pendingRealismMetadata!)
           ..remove('needs_time_wear');
+      }
+      if (t.facilitatesScenario && !isUserTarget) {
+        initialMetadata = {
+          ...?initialMetadata,
+          'presentation': scenarioPresentation,
+        };
       }
       debugPrint(
         '[Realism:Metadata] PRE-GEN attach (needs_deltas + any post-gen '
@@ -251,6 +259,25 @@ class TurnStream {
     var tpsWindowStart = 0;
 
     // Consume the stream — tokens go into buffer (or display immediately)
+    final sceneReply = t.facilitatesScenario
+        ? ScenarioReplyStream(t.stopList)
+        : null;
+    if (sceneReply != null &&
+        t.g2.resolveOutputSanitizerEnabled(_storageService)) {
+      t.scenarioSanitizerRules = t.g2.resolveOutputSanitizerRules(
+        _storageService,
+      );
+    }
+    void publishScene({bool done = false}) {
+      if (sceneReply == null || t.scenarioSanitizerRules != null) return;
+      final accepted = sceneReply.take(t.accumulatedResponse, done: done);
+      if (accepted.isNotEmpty) _p.tokenBuffer.add(accepted);
+      _p.publishReplyText(
+        accepted,
+        speech: sceneReply.speechText(accepted, done: done),
+      );
+    }
+
     await for (final token in t.stream) {
       if (_p.cancelRequested) break;
       t.accumulatedResponse += token;
@@ -278,18 +305,10 @@ class TurnStream {
         _p.prefillStartTime = null;
       }
 
-      // Broadcast token to external listeners (SSE bridge)
-      _p.tokenBroadcast.add(token);
+      if (sceneReply == null) _p.publishReplyText(token);
       _p.generationProgress = _p.maxTokens > 0
           ? (_p.tokensGenerated / _p.maxTokens).clamp(0.0, 1.0)
           : 0.0;
-
-      // Sentence streaming: emit complete sentences for live TTS (split
-      // logic extracted verbatim to sentence_stream.dart).
-      _p.sentenceBuffer = drainCompleteSentences(
-        _p.sentenceBuffer + token,
-        _p.sentenceBroadcast.add,
-      );
 
       // Track think timing (tail-window scans, same reasoning as above).
       // Runs BEFORE the stop-sequence scan so the scan knows the model is
@@ -329,7 +348,7 @@ class TurnStream {
             final lastTokenContribution = trimmedTotal.substring(
               previousTotal.length.clamp(0, trimmedTotal.length),
             );
-            if (lastTokenContribution.isNotEmpty) {
+            if (sceneReply == null && lastTokenContribution.isNotEmpty) {
               _p.tokenBuffer.add(lastTokenContribution);
             }
             t.accumulatedResponse = trimmedTotal;
@@ -339,12 +358,12 @@ class TurnStream {
         }
       }
 
-      if (!stopFound) {
+      if (sceneReply != null) {
+        publishScene(done: stopFound);
+      } else if (!stopFound) {
         _p.tokenBuffer.add(token);
       }
 
-      // The trim can only cut AFTER the closing tag, so a close seen this
-      // chunk always survives it.
       if (thinkClosedThisChunk) {
         _thinkEnded = true;
         // Transition out of thinking to buffering/generating
@@ -436,18 +455,13 @@ class TurnStream {
       if (stopFound) break;
     }
 
-    // Mark stream as done. From here on state changes are terminal, so
-    // drop any pending throttled notify — the finalize paths below (cancel
-    // AND normal) both end in an unthrottled notifyListeners().
+    // Finalize or Stop sends the terminal notification directly.
     streamDone = true;
     _p.cancelStreamNotifyThrottle();
+    if (!_p.cancelRequested) publishScene(done: true);
 
     if (_p.cancelRequested) {
-      // Cancelled mid-stream: do NOT drain the undisplayed backlog. A
-      // think-heavy turn can hold minutes of buffered tokens, and draining
-      // them after Stop is how an aborted reply kept "dumping" (and, via
-      // the positional last-message writes, how one landed inside a dream
-      // banner — 2026-07-28). Keep exactly what's on screen.
+      // Stop keeps only the displayed text, without draining the backlog.
     } else if (!bufferEnabled) {
       // No buffer: everything already displayed
       _p.displayedTokenCount = _p.tokenBuffer.length;
@@ -472,10 +486,7 @@ class TurnStream {
       _p.drainTimer = null;
     }
 
-    // User cancel (stream-loop break above, or Stop during the drain):
-    // halt the turn HERE — no finalize, no lorebook scan, no post-turn
-    // evals on an aborted reply. Mirrors the catch path's treatAsCancel:
-    // keep the displayed partial so regen/continue work, save, signal done.
+    // Stop skips finalization and post-turn evaluation.
     if (_p.cancelRequested) {
       await _e.stops.haltStoppedTurn(t, streamTarget);
       return true;

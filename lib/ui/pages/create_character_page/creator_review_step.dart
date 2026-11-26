@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
+import 'package:front_porch_ai/ui/widgets/scenario_card_type_field.dart';
 
 import 'create_character_draft.dart';
 import 'creator_form_fields.dart';
@@ -75,30 +76,45 @@ class CreatorReviewStep extends StatelessWidget {
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 12),
+                Text(
+                  d.isScenario
+                      ? 'Card type · Scenario'
+                      : 'Card type · Character',
+                ),
+                const SizedBox(height: 12),
                 CreatorReviewField(
-                  'Description',
+                  d.isScenario ? 'Scene notes' : 'Description',
                   d.descriptionController,
                   maxLines: 4,
                 ),
                 CreatorReviewField(
-                  'Personality',
+                  d.isScenario ? 'Narration style' : 'Personality',
                   d.personalityController,
                   maxLines: 3,
                 ),
                 CreatorReviewField(
-                  'Scenario',
+                  d.isScenario ? 'Setting' : 'Scenario',
                   d.scenarioController,
+                  help: d.isScenario ? scenarioSettingHelp : null,
                   maxLines: 3,
                 ),
+                if (d.isScenario)
+                  CreatorReviewField(
+                    'Facilitation rules',
+                    d.facilitationController,
+                    help: scenarioRulesHelp,
+                    maxLines: 3,
+                  ),
                 CreatorReviewField(
-                  'First Message',
+                  d.isScenario ? 'Opening message' : 'First Message',
                   d.firstMessageController,
+                  help: d.isScenario ? scenarioOpeningHelp : null,
                   maxLines: 5,
                 ),
                 if (d.exampleDialogueController.text.isNotEmpty)
                   CreatorReviewField(
-                    'Example Dialogue',
+                    d.isScenario ? 'Reply examples' : 'Example Dialogue',
                     d.exampleDialogueController,
                     maxLines: 4,
                   ),
@@ -126,15 +142,16 @@ class CreatorReviewStep extends StatelessWidget {
                         entry.value,
                         maxLines: 3,
                       ),
-                      GreetingSeedForm(
-                        seed: d.altGreetingSeedAt(idx),
-                        showNeeds: true,
-                        showInventory: true,
-                        onChanged: (next) {
-                          d.setAltGreetingSeed(idx, next);
-                          onChanged();
-                        },
-                      ),
+                      if (!d.isScenario)
+                        GreetingSeedForm(
+                          seed: d.altGreetingSeedAt(idx),
+                          showNeeds: true,
+                          showInventory: true,
+                          onChanged: (next) {
+                            d.setAltGreetingSeed(idx, next);
+                            onChanged();
+                          },
+                        ),
                     ],
                   );
                 }),
