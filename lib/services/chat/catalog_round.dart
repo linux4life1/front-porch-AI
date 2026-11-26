@@ -68,6 +68,7 @@ Future<CatalogRound> runCatalogRound({
   required WebSearchService search,
   WikiSearchService? wiki,
   String? backendIdentity,
+  bool bot = false,
   Future<UserToolHttpResult> Function(
     CatalogTool entry,
     Map<String, dynamic> arguments,
@@ -152,6 +153,7 @@ Future<CatalogRound> runCatalogRound({
       entry: entry,
       search: search,
       wiki: wiki,
+      bot: bot,
       executeUserTool: executeUserTool,
     );
     dispatchRounds++;
@@ -192,6 +194,7 @@ Future<CatalogRound> _dispatchCall({
   required CatalogTool entry,
   required WebSearchService search,
   WikiSearchService? wiki,
+  required bool bot,
   Future<UserToolHttpResult> Function(
     CatalogTool entry,
     Map<String, dynamic> arguments,
@@ -200,14 +203,14 @@ Future<CatalogRound> _dispatchCall({
 }) async {
   if (entry.source == ToolSource.inProcess &&
       entry.name == kWebSearchToolName) {
-    return _dispatchSearch(call, search);
+    return _dispatchSearch(call, search, bot: bot);
   }
   if (entry.source == ToolSource.inProcess &&
       entry.name == kWikiSearchToolName) {
-    return _dispatchWiki(call, wiki);
+    return _dispatchWiki(call, wiki, bot: bot);
   }
   if (entry.source == ToolSource.inProcess && entry.name == kWikiPageToolName) {
-    return _dispatchWikiPage(call, wiki);
+    return _dispatchWikiPage(call, wiki, bot: bot);
   }
   if (entry.source == ToolSource.userCard) {
     return _dispatchUserCard(
@@ -222,8 +225,9 @@ Future<CatalogRound> _dispatchCall({
 
 Future<CatalogRound> _dispatchWiki(
   LlmToolCall call,
-  WikiSearchService? wiki,
-) async {
+  WikiSearchService? wiki, {
+  required bool bot,
+}) async {
   if (wiki == null || !wiki.isActive) {
     final query = WebSearchService.prepareQuery(
       call.arguments['query']?.toString() ?? '',
@@ -249,13 +253,14 @@ Future<CatalogRound> _dispatchWiki(
     final page = await wiki.getArticle(title, honorSendCap: false);
     if (page.ok) outcome = page;
   }
-  return _wikiRound(wiki, outcome);
+  return _wikiRound(wiki, outcome, bot: bot);
 }
 
 Future<CatalogRound> _dispatchWikiPage(
   LlmToolCall call,
-  WikiSearchService? wiki,
-) async {
+  WikiSearchService? wiki, {
+  required bool bot,
+}) async {
   final title = WebSearchService.prepareQuery(
     call.arguments['title']?.toString() ??
         call.arguments['page']?.toString() ??
@@ -270,12 +275,18 @@ Future<CatalogRound> _dispatchWikiPage(
   }
   debugPrint('[Tools] dispatch in-process wiki_page title="$title"');
   final outcome = await wiki.getArticle(title);
-  return _wikiRound(wiki, outcome);
+  return _wikiRound(wiki, outcome, bot: bot);
 }
 
-CatalogRound _wikiRound(WikiSearchService wiki, WebSearchResult outcome) {
+CatalogRound _wikiRound(
+  WikiSearchService wiki,
+  WebSearchResult outcome, {
+  required bool bot,
+}) {
   final injection = outcome.ok
-      ? SearchInjection.wikiResultFragment(outcome.snippet)
+      ? (bot
+            ? SearchInjection.botResultFragment(outcome.snippet, wiki: true)
+            : SearchInjection.wikiResultFragment(outcome.snippet))
       : SearchInjection.emptyResultFragment(outcome.query);
   final base = parseWikiBaseUrl(wiki.getBaseUrl());
   final receipt = <String, dynamic>{
@@ -321,15 +332,18 @@ String? firstWikiHitTitle(String snippet) {
 
 Future<CatalogRound> _dispatchSearch(
   LlmToolCall call,
-  WebSearchService search,
-) async {
+  WebSearchService search, {
+  required bool bot,
+}) async {
   final query = WebSearchService.prepareQuery(
     call.arguments['query']?.toString() ?? '',
   );
   debugPrint('[Tools] dispatch in-process web_search query="$query"');
   final outcome = await search.lookup(query);
   final injection = outcome.ok
-      ? SearchInjection.resultFragment(outcome.snippet)
+      ? (bot
+            ? SearchInjection.botResultFragment(outcome.snippet)
+            : SearchInjection.resultFragment(outcome.snippet))
       : SearchInjection.emptyResultFragment(outcome.query);
   return CatalogRound(
     injection: injection,

@@ -22,12 +22,18 @@ import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { type RealismValues, REALISM_DEFAULTS, compactGreetingPairs, inventoryToChips } from '../components/realism/realismTypes';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
+import { botOpeningHelp, botInstructionsHelp, botScopeHelp, BotCardTypeField, type CardType } from "../components/BotCardTypeField";
+
+import { MessageContent } from '../components/MessageContent';
+
 interface Draft extends RealismValues {
   name: string;
   tags: string;
   description: string;
   personality: string;
   scenario: string;
+  cardType: CardType;
+  behaviorInstructions: string;
   firstMessage: string;
   alternateGreetings: string[];
   mesExample: string;
@@ -44,6 +50,8 @@ const EMPTY: Draft = {
   description: '',
   personality: '',
   scenario: '',
+  cardType: 'character',
+  behaviorInstructions: '',
   firstMessage: '',
   alternateGreetings: [],
   mesExample: '',
@@ -133,36 +141,63 @@ export function CreateCharacterPage() {
               Name<span className="req"> *</span>
               <input value={d.name} onChange={(e) => set('name', e.target.value)} autoFocus />
             </label>
+            <BotCardTypeField value={d.cardType} onChange={(value) => set('cardType', value)} />
             <label>
               Tags (comma-separated)
               <input value={d.tags} onChange={(e) => set('tags', e.target.value)} />
             </label>
-            <label>
+            {d.cardType !== 'bot' && <label>
               Description
               <textarea rows={6} value={d.description} onChange={(e) => set('description', e.target.value)} />
-            </label>
+            </label>}
           </>
         )}
 
         {step === 1 && (
           <>
+            {d.cardType === 'bot' && <label>
+              Role
+              <textarea rows={6} value={d.description} onChange={(e) => set('description', e.target.value)} />
+            </label>}
             <label>
-              Personality
+              {'Personality'}
               <textarea rows={6} value={d.personality} onChange={(e) => set('personality', e.target.value)} />
             </label>
             <label>
-              Scenario
-              <textarea rows={6} value={d.scenario} onChange={(e) => set('scenario', e.target.value)} />
+              {d.cardType === 'bot' ? 'Scope' : 'Scenario'}
+              <textarea rows={6} aria-describedby={d.cardType === 'bot' ? 'create-bot-setting-help' : undefined} value={d.scenario} onChange={(e) => set('scenario', e.target.value)} />
             </label>
+            {d.cardType === 'bot' && <p id="create-bot-setting-help" className="muted small">{botScopeHelp}</p>}
+            {d.cardType === 'bot' && <>
+              <label>
+              Behavior instructions
+              <textarea rows={3} aria-describedby="create-bot-rules-help" value={d.behaviorInstructions}
+                placeholder="For example, ask one question at a time."
+                onChange={(e) => set('behaviorInstructions', e.target.value)} />
+              </label>
+              <p id="create-bot-rules-help" className="muted small">{botInstructionsHelp}</p>
+            </>}
+            {d.cardType === 'bot' && <details>
+              <summary>Advanced Prompts</summary>
+              <label>
+              System prompt (optional)
+              <textarea rows={3} value={d.systemPrompt} onChange={(e) => set('systemPrompt', e.target.value)} />
+            </label>
+            <label>
+              Post-history instructions (optional)
+              <textarea rows={3} value={d.postHistoryInstructions} onChange={(e) => set('postHistoryInstructions', e.target.value)} />
+            </label>
+            </details>}
           </>
         )}
 
         {step === 2 && (
           <>
             <label>
-              First message (greeting)
-              <textarea rows={5} value={d.firstMessage} onChange={(e) => set('firstMessage', e.target.value)} />
+              {d.cardType === 'bot' ? 'Opening message' : 'First message (greeting)'}
+              <textarea rows={5} aria-describedby={d.cardType === 'bot' ? 'create-bot-opening-help' : undefined} value={d.firstMessage} onChange={(e) => set('firstMessage', e.target.value)} />
             </label>
+            {d.cardType === 'bot' && <p id="create-bot-opening-help" className="muted small">{botOpeningHelp}</p>}
             <AltGreetingsEditor
               greetings={d.alternateGreetings}
               onChange={(g) => set('alternateGreetings', g)}
@@ -172,17 +207,17 @@ export function CreateCharacterPage() {
               onSeedsChange={(seeds) => set('greetingSeeds', seeds)}
             />
             <label>
-              Example dialogue
+              {d.cardType === 'bot' ? 'Reply examples' : 'Example dialogue'}
               <textarea rows={4} value={d.mesExample} onChange={(e) => set('mesExample', e.target.value)} />
             </label>
-            <label>
+            {d.cardType !== 'bot' && <><label>
               System prompt (optional)
               <textarea rows={3} value={d.systemPrompt} onChange={(e) => set('systemPrompt', e.target.value)} />
             </label>
             <label>
               Post-history instructions (optional)
               <textarea rows={3} value={d.postHistoryInstructions} onChange={(e) => set('postHistoryInstructions', e.target.value)} />
-            </label>
+            </label></>}
           </>
         )}
 
@@ -207,10 +242,23 @@ export function CreateCharacterPage() {
         {step === 5 && (
           <div className="review">
             <p><strong>{d.name || '(unnamed)'}</strong>{d.tags && <span className="muted"> · {d.tags}</span>}</p>
-            <ReviewRow label="Description" value={d.description} />
-            <ReviewRow label="Personality" value={d.personality} />
-            <ReviewRow label="Scenario" value={d.scenario} />
-            <ReviewRow label="First message" value={d.firstMessage} />
+            <ReviewRow label={d.cardType === 'bot' ? 'Role' : 'Description'} value={d.description} />
+            <ReviewRow label={'Personality'} value={d.personality} />
+            <ReviewRow label="Card type" value={d.cardType === 'bot' ? 'Bot' : 'Character'} />
+            <ReviewRow label={d.cardType === 'bot' ? 'Scope' : 'Scenario'}
+              value={d.cardType === 'bot' && !d.scenario.trim() ? 'Use the current conversation' : d.scenario} />
+            {d.cardType === 'bot' && <ReviewRow label="Behavior instructions" value={d.behaviorInstructions} />}
+            <ReviewRow label={d.cardType === 'bot' ? 'Opening message' : 'First message'}
+              value={d.cardType === 'bot' && !d.firstMessage.trim() ? (d.alternateGreetings.some((g) => g.trim()) ? 'Uses the first alternate' : 'You speak first') : d.firstMessage} />
+            {d.cardType === 'bot' && d.firstMessage.trim() && (
+              <details>
+                <summary>Opening preview</summary>
+                <strong>{d.name}</strong>
+                <div className="bubble ai">
+                  <MessageContent text={d.firstMessage} plainProse />
+                </div>
+              </details>
+            )}
             <ReviewRow label="Lorebook" value={d.lorebook.length ? `${d.lorebook.length} entr${d.lorebook.length === 1 ? 'y' : 'ies'}` : 'None'} />
             <ReviewRow
               label="Porch Life"
@@ -233,7 +281,7 @@ export function CreateCharacterPage() {
             {d.realismEnabled && (
               <ReviewRow label="Needs" value={d.needsSimEnabled ? `On · ${d.needsPace} pace` : 'Off'} />
             )}
-            {error && <p className="error">{error}</p>}
+            {error && <p className="error" role="alert">{error}</p>}
           </div>
         )}
       </div>

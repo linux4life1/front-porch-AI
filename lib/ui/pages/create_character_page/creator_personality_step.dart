@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/widgets/bot_card_type_field.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'create_character_draft.dart';
@@ -41,15 +42,19 @@ class CreatorPersonalityStep extends StatelessWidget {
       children: [
         const CreatorStepTitle('Personality & World'),
         const SizedBox(height: 8),
-        const CreatorStepLead(
-          'Define who your character is and the world they inhabit.',
+        CreatorStepLead(
+          draft.isBot
+              ? 'Define the Bot’s role, personality, and scope.'
+              : 'Define who your character is and the world they inhabit.',
         ),
         const SizedBox(height: 32),
 
         CreatorExpandableField(
-          'Description',
+          draft.isBot ? 'Role' : 'Description',
           draft.descriptionController,
-          hint: 'Physical appearance, backstory, key traits...',
+          hint: draft.isBot
+              ? 'For example, a study coach who helps plan practice.'
+              : 'Physical appearance, backstory, key traits...',
           maxLines: 4,
         ),
         const SizedBox(height: 20),
@@ -57,18 +62,32 @@ class CreatorPersonalityStep extends StatelessWidget {
         CreatorExpandableField(
           'Personality',
           draft.personalityController,
-          hint: 'How they act, speak, think...',
+          hint: draft.isBot
+              ? 'Tone, habits, and speaking style...'
+              : 'How they act, speak, think...',
           maxLines: 3,
         ),
         const SizedBox(height: 20),
 
         CreatorExpandableField(
-          'Scenario',
+          draft.isBot ? 'Scope' : 'Scenario',
           draft.scenarioController,
           hint: 'The setting, situation, or context...',
+          help: draft.isBot ? botScopeHelp : null,
           maxLines: 3,
         ),
         const SizedBox(height: 24),
+
+        if (draft.isBot) ...[
+          CreatorExpandableField(
+            'Behavior instructions',
+            draft.behaviorController,
+            hint: 'For example, ask one question at a time.',
+            help: botInstructionsHelp,
+            maxLines: 3,
+          ),
+          const SizedBox(height: 24),
+        ],
 
         // Advanced Prompts (collapsed)
         Theme(

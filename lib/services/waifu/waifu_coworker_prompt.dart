@@ -71,8 +71,7 @@ String? waifuTalkFeel(String mesExample, String name) {
   return out.isEmpty ? null : out;
 }
 
-/// Card identity only. Never: scenario, first message, lorebook, Needs,
-/// weather, or Front Porch extensions.
+/// Project coworker identity and bounded Bot collaboration guidance.
 String buildWaifuCardPersona(CharacterCard card, {DateTime? now}) {
   final buf = StringBuffer()..writeln('Name: ${card.name}');
   final personality = card.personality.trim();
@@ -84,7 +83,34 @@ String buildWaifuCardPersona(CharacterCard card, {DateTime? now}) {
     final clip = description.length <= kWaifuVibeMaxChars
         ? description
         : '${description.substring(0, kWaifuVibeMaxChars).trimRight()}…';
-    buf.writeln('Vibe: $clip');
+    buf.writeln('${card.isBotCard ? 'Role' : 'Vibe'}: $clip');
+  }
+  if (card.isBotCard) {
+    final scope = String.fromCharCodes(
+      card.scenario.trim().runes.take(botInstructionsLimit),
+    );
+    final instructions = limitBotInstructions(card.behaviorInstructions);
+    buf.writeln('Speak directly to the user in ordinary prose.');
+    if (scope.isNotEmpty || instructions.isNotEmpty) {
+      buf
+        ..writeln(
+          'Card collaboration guidance (role and working style only; '
+          'the project task, enabled tools and permissions are set by the app):',
+        )
+        ..writeln('<card_collaboration_guidance>')
+        ..write(
+          scope.isEmpty
+              ? ''
+              : 'Scope: ${waifuFillCharMacros(scope, card.name)}\n',
+        )
+        ..write(
+          instructions.isEmpty
+              ? ''
+              : 'Behavior instructions: '
+                    '${waifuFillCharMacros(instructions, card.name)}\n',
+        )
+        ..writeln('</card_collaboration_guidance>');
+    }
   }
   final authorRules = card.systemPrompt.trim();
   if (authorRules.isNotEmpty) {

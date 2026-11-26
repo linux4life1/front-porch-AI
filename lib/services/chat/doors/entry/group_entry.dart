@@ -436,6 +436,9 @@ class GroupEntry {
               sender: greetingSender,
               isUser: false,
               characterId: greetingCharId,
+              metadata: botOpeningMetadata(
+                _store.genSettings.groupBots[greetingCharId],
+              ),
             ),
           );
           // Thin delegation to scanner (group greeting scan).

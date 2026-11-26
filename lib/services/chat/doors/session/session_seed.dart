@@ -243,6 +243,11 @@ class SessionSeed {
       'summary': _store.summary,
       'summary_last_index': _store.summaryLastIndex,
       'affection_score': _relationshipService.affectionScore,
+      if (_store.genSettings.soloBot case final bot?) 'bot_card': bot.toJson(),
+      if (_store.genSettings.groupBots.isNotEmpty)
+        'group_bot_cards': _store.genSettings.groupBots.map(
+          (id, bot) => MapEntry(id, bot.toJson()),
+        ),
       'long_term_score': _relationshipService.longTermScore,
       'trust_level': _relationshipService.trustLevel,
       'relationship_tier': _relationshipService.relationshipTier,
@@ -292,6 +297,16 @@ class SessionSeed {
 
   /// Puts a package's `session` head back onto the live scalars.
   Future<void> applyHead(Map<String, dynamic> head) async {
+    if (_activeGroup == null) {
+      _store.genSettings.soloBot = BotCardSnapshot.fromJson(head['bot_card']);
+    } else {
+      final stored = readGroupBots(head['group_bot_cards']);
+      _store.genSettings.groupBots = {
+        for (final member in _session.groupCharacters)
+          _session.characterIdFor(member):
+              ?stored[_session.characterIdFor(member)],
+      };
+    }
     if (head['realism_enabled'] is bool) {
       _realismChatSwitch = head['realism_enabled'] as bool;
     }

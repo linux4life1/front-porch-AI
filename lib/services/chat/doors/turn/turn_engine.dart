@@ -158,6 +158,9 @@ class TurnEngine {
   ChatGenerationSettings get _sessionGenSettings => _sessions.genSettings;
   TimeService get _timeService => _g.time;
 
+  CharacterCard? get upcomingGroupSpeaker =>
+      _send.speakers.upcomingGroupSpeaker;
+
   Future<void> generate(
     GenerationMode mode, {
     CharacterCard? guestSpeaker,
@@ -238,6 +241,9 @@ class TurnEngine {
         speakingCharacter = _session.activeCharacter!;
       }
       t.speakingCharacter = speakingCharacter;
+      if (guestSpeaker == null && mode != GenerationMode.impersonate) {
+        t.botCard = _sessions.botFor(speakingCharacter);
+      }
 
       if (guestSpeaker == null &&
           _activeGroup != null &&

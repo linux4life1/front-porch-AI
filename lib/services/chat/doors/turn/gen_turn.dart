@@ -65,6 +65,8 @@ class GenTurn {
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
+  BotCardSnapshot? botCard;
+  bool get speaksAsBot => botCard != null;
 
   /// The group rotation before this turn picked its speaker. Put back when
   /// the turn ends before its reply bubble lands ([replyLanded]).
@@ -139,6 +141,17 @@ class GenTurn {
   /// Stamped as `wiki_receipt` when this turn opened the wiki.
   /// When only the wiki ran, [searchReceipt] is the same map so the chip shows.
   Map<String, dynamic>? wikiReceipt;
+
+  void recordLookupReceipts({
+    Map<String, dynamic>? search,
+    Map<String, dynamic>? wiki,
+  }) {
+    if (search != null &&
+        (search['source'] != 'wiki' || searchReceipt == null)) {
+      searchReceipt = search;
+    }
+    wikiReceipt = wiki ?? wikiReceipt;
+  }
 
   /// Stamped as `tool_receipt` when this turn ran a user recipe card.
   Map<String, dynamic>? toolReceipt;

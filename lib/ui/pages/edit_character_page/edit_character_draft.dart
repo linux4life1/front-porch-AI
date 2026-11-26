@@ -34,6 +34,9 @@ class EditCharacterDraft {
   final StyledTextController descriptionController;
   final StyledTextController personalityController;
   final StyledTextController scenarioController;
+  final TextEditingController behaviorController;
+  final bool unsupportedCardMode;
+  bool isBot;
   final StyledTextController firstMessageController;
   final StyledTextController mesExampleController;
   final StyledTextController systemPromptController;
@@ -166,7 +169,12 @@ class EditCharacterDraft {
     CharacterCard character, {
     required bool Function() porchLifeNeedsDefault,
     WorldRepository? worlds,
-  }) : nameController = TextEditingController(text: character.name),
+  }) : isBot = character.isBotCard,
+       unsupportedCardMode = character.hasUnsupportedCardMode,
+       behaviorController = TextEditingController(
+         text: character.behaviorInstructions,
+       ),
+       nameController = TextEditingController(text: character.name),
        titleController = TextEditingController(text: character.title),
        descriptionController = StyledTextController(
          text: character.description,
@@ -240,6 +248,7 @@ class EditCharacterDraft {
       descriptionController,
       personalityController,
       scenarioController,
+      behaviorController,
       firstMessageController,
       mesExampleController,
       systemPromptController,
@@ -261,6 +270,8 @@ class EditCharacterDraft {
   bool get isDirty => fingerprint() != _start;
 
   String fingerprint() => jsonEncode([
+    isBot,
+    behaviorController.text,
     for (final c in [
       nameController,
       titleController,
@@ -406,6 +417,9 @@ class EditCharacterDraft {
         mesExampleController.text.length +
         systemPromptController.text.length +
         postHistoryController.text.length;
+    if (isBot) {
+      totalChars += limitBotInstructions(behaviorController.text).length;
+    }
     for (final c in altGreetingControllers) {
       totalChars += c.text.length;
     }
@@ -440,6 +454,7 @@ class EditCharacterDraft {
     descriptionController.dispose();
     personalityController.dispose();
     scenarioController.dispose();
+    behaviorController.dispose();
     firstMessageController.dispose();
     mesExampleController.dispose();
     systemPromptController.dispose();

@@ -112,6 +112,9 @@ class GroupRoster {
       asLite: asLite,
     );
 
+    if (BotCardSnapshot.fromCard(character) case final bot?) {
+      _d.sessions().genSettings.groupBots[mid] = bot;
+    }
     await groupRepo.save(_activeGroup!);
 
     // Re-resolve from private members (decoupled).

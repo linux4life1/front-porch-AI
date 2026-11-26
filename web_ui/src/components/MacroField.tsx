@@ -45,6 +45,7 @@ function HighlightArea({
   placeholder,
   autoFocus,
   ariaLabel,
+  describedBy,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -52,6 +53,7 @@ function HighlightArea({
   placeholder?: string;
   autoFocus?: boolean;
   ariaLabel?: string;
+  describedBy?: string;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const syncScroll = (e: UIEvent<HTMLTextAreaElement>) => {
@@ -73,6 +75,7 @@ function HighlightArea({
         placeholder={placeholder}
         autoFocus={autoFocus}
         aria-label={ariaLabel}
+        aria-describedby={describedBy}
         spellCheck={false}
         onScroll={syncScroll}
         onChange={(e) => onChange(e.target.value)}
@@ -88,6 +91,7 @@ export function MacroField({
   rows = 3,
   placeholder,
   ariaLabel,
+  describedBy,
   showHead = true,
   full: fullProp,
   onFullChange,
@@ -99,6 +103,7 @@ export function MacroField({
   placeholder?: string;
   /** The textarea's accessible name when no visible label sits beside it. */
   ariaLabel?: string;
+  describedBy?: string;
   /** False hides the label + expand row; the caller then opens the
    *  fullscreen editor itself through [full] / [onFullChange]. */
   showHead?: boolean;
@@ -135,6 +140,7 @@ export function MacroField({
               type="button"
               className="icon-btn macro-expand"
               title="Expand to fullscreen"
+              aria-label={label ? `Expand ${label}` : undefined}
               onClick={() => setFull(true)}
             >
               ⤢
@@ -147,6 +153,7 @@ export function MacroField({
           rows={rows}
           placeholder={placeholder}
           ariaLabel={ariaLabel}
+          describedBy={describedBy}
         />
       </div>
 

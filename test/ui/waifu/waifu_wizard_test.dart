@@ -46,12 +46,13 @@ void main() {
     WidgetTester tester, {
     bool toolsSupported = true,
     bool isLocalBackend = false,
+    CharacterCard? coworker,
     void Function(WaifuSession session)? onSatDown,
   }) {
     return tester.pumpWidget(
       MaterialApp(
         home: WaifuWizardPage(
-          characters: [mira],
+          characters: [coworker ?? mira],
           toolsSupported: toolsSupported,
           isLocalBackend: isLocalBackend,
           backendLabel: 'test-model',
@@ -118,6 +119,35 @@ void main() {
     expect(sat!.folderRoot, folder.path);
     expect(sat!.mode, WaifuMode.build);
     expect(sat!.pathMode, WaifuPathMode.folderJail);
+  });
+
+  testWidgets('a Bot can sit down as the project coworker', (tester) async {
+    final coach = CharacterCard(name: 'Juniper', scenario: 'README coaching.')
+      ..setBotCard(true, 'Ask one question.');
+    WaifuSession? session;
+    await pumpWizard(
+      tester,
+      coworker: coach,
+      onSatDown: (value) => session = value,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('waifu-use-folder')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Juniper'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('waifu-wizard-next')));
+    await tester.pumpAndSettle();
+    final consent = find.byKey(const Key('waifu-honesty-checkbox'));
+    await tester.scrollUntilVisible(consent, 250);
+    await tester.tap(consent);
+    await tester.pumpAndSettle();
+    final confirm = find.byKey(const Key('waifu-sit-down-confirm'));
+    await tester.ensureVisible(confirm);
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
+    expect(session?.coworker.isBotCard, isTrue);
+    expect(session?.coworker.scenario, 'README coaching.');
+    expect(session?.pathMode, WaifuPathMode.folderJail);
   });
 
   testWidgets('Whole-disk choice changes disclosure and saved session scope', (

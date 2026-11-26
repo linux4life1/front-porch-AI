@@ -99,6 +99,8 @@ class GroupMemberEdit {
       'description': c.description,
       'personality': c.personality,
       'scenario': c.scenario,
+      'cardType': c.cardTypeLabel,
+      'behaviorInstructions': c.behaviorInstructions,
       'firstMessage': c.firstMessage,
       'mesExample': c.mesExample,
       'systemPrompt': c.systemPrompt,

@@ -18,6 +18,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
+import {
+  BotCardTypeField, botGroupScopeHelp, botInstructionsHelp, botNewChatHelp,
+  botOpeningHelp, botScopeHelp, type CardType,
+} from '../components/BotCardTypeField';
 import { TagsField } from '../components/TagsField';
 import { CharacterStatsCard } from '../components/CharacterStatsCard';
 import { MacroField } from '../components/MacroField';
@@ -60,6 +64,8 @@ interface CharDetail {
   description: string;
   personality: string;
   scenario: string;
+  cardType?: CardType;
+  behaviorInstructions?: string;
   firstMessage: string;
   mesExample: string;
   systemPrompt: string;
@@ -203,10 +209,13 @@ export function CharacterEditPage() {
     const fieldText =
       c.name.length + FIELDS.reduce((sum, f) => sum + ((c[f.key] as string) ?? '').length, 0);
     const greetingText = greetings.reduce((sum, g) => sum + g.length, 0);
-    return fieldText + greetingText;
+    const botInstructions = c.cardType === 'bot'
+      ? Array.from((c.behaviorInstructions ?? '').trim()).slice(0, 2000).join('').length
+      : 0;
+    return fieldText + greetingText + botInstructions;
   }, [c, greetings]);
 
-  if (error && !c) return <div className="page"><p className="error">{error}</p></div>;
+  if (error && !c) return <div className="page"><p className="error" role="alert">{error}</p></div>;
   if (!c || !rv) return <div className="centered"><div className="spinner" /></div>;
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
@@ -233,6 +242,10 @@ export function CharacterEditPage() {
         description: c.description,
         personality: c.personality,
         scenario: c.scenario,
+        ...(c.cardType && c.cardType !== 'unsupported' ? {
+          cardType: c.cardType,
+          behaviorInstructions: c.behaviorInstructions ?? '',
+        } : {}),
         firstMessage: c.firstMessage,
         mesExample: c.mesExample,
         systemPrompt: c.systemPrompt,
@@ -310,10 +323,19 @@ export function CharacterEditPage() {
 
   const field = (key: keyof CharDetail) => {
     const f = FIELDS.find((x) => x.key === key)!;
+    const botLabels: Partial<Record<keyof CharDetail, string>> = {
+      description: 'Role',
+      scenario: 'Scope', firstMessage: 'Opening message', mesExample: 'Reply examples',
+    };
+    const label = (c.cardType === 'bot' ? botLabels[key] : undefined) ?? f.label;
     return (
       <MacroField
-        label={f.label}
-        ariaLabel={f.label}
+        label={label}
+        ariaLabel={label}
+        describedBy={c.cardType !== 'bot' ? undefined : {
+          scenario: 'edit-bot-setting-help',
+          firstMessage: 'edit-bot-opening-help',
+        }[key as 'scenario' | 'firstMessage']}
         rows={f.rows}
         value={(c[f.key] as string) ?? ''}
         onChange={(val) => setField(f.key, val)}
@@ -329,11 +351,13 @@ export function CharacterEditPage() {
         <div className="row-actions">
           <TokenBadge chars={tokenChars} />
           <button className="ghost" onClick={leave}>Cancel</button>
-          <button className="primary" onClick={save} disabled={saving}>
+          <button className="primary" onClick={save} disabled={saving}
+            aria-describedby={error ? 'character-save-error' : undefined}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
       </div>
+      {error && <p className="error" role="alert" id="character-save-error">{error}</p>}
       <EditorTabs tab={tab} onTab={setTab} locked={memberTabLocks} />
 
       {tab === 'Details' && (
@@ -381,6 +405,10 @@ export function CharacterEditPage() {
             <span>Name</span>
             <input value={c.name} onChange={(e) => setField('name', e.target.value)} />
           </label>
+          <BotCardTypeField value={c.cardType ?? 'character'}
+            onChange={(value) => setField('cardType', value)} />
+          <p className="muted small">{botNewChatHelp}</p>
+          {member && <p className="muted small">{botGroupScopeHelp}</p>}
           {!member && (
             <>
               <label>
@@ -439,6 +467,16 @@ export function CharacterEditPage() {
           {field('description')}
           {field('personality')}
           {field('scenario')}
+          {c.cardType === 'bot' && <>
+            <p id="edit-bot-setting-help" className="muted small">{botScopeHelp}</p>
+            <label>
+              Behavior instructions
+              <textarea rows={3} aria-describedby="edit-bot-rules-help" value={c.behaviorInstructions ?? ''}
+                placeholder="For example, ask one question at a time."
+                onChange={(event) => setField('behaviorInstructions', event.target.value)} />
+            </label>
+            <p id="edit-bot-rules-help" className="muted small">{botInstructionsHelp}</p>
+          </>}
 
           <details className="editor-section">
             <summary>Advanced Prompts</summary>
@@ -495,8 +533,9 @@ export function CharacterEditPage() {
 
       {tab === 'Dialogue' && (
         <>
-          <h3 className="section-label">First Message</h3>
+          <h3 className="section-label">{c.cardType === 'bot' ? 'Opening message' : 'First Message'}</h3>
           {field('firstMessage')}
+          {c.cardType === 'bot' && <p id="edit-bot-opening-help" className="muted small">{botOpeningHelp}</p>}
           <AltGreetingsEditor
             editorCopy
             greetings={greetings}
@@ -506,7 +545,7 @@ export function CharacterEditPage() {
             clockOn={clockOn}
             onSeedsChange={(seeds) => patch({ greetingSeeds: seeds })}
           />
-          <h3 className="section-label">Example Dialogue</h3>
+          <h3 className="section-label">{c.cardType === 'bot' ? 'Reply examples' : 'Example Dialogue'}</h3>
           {field('mesExample')}
         </>
       )}
@@ -533,7 +572,6 @@ export function CharacterEditPage() {
         />
       )}
 
-      {error && <p className="error">{error}</p>}
     </div>
   );
 }

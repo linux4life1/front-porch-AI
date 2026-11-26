@@ -166,7 +166,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   Future<void> _saveCharacter() async {
     if (_saving) return;
-    _saving = true;
+    setState(() => _saving = true);
     var left = false;
     // The kit as the editor opened it: the writer below replaces it on the
     // very card a chat holds, so "what was added" is only known here.
@@ -266,7 +266,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       }
     } finally {
       // A save that did not leave the page (it failed) lets Save try again.
-      if (!left) _saving = false;
+      if (!left && mounted) setState(() => _saving = false);
     }
   }
 
@@ -313,9 +313,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
     final mode = widget.member;
     return EditCharacterScaffold(
       characterName: widget.character.name,
-      saveLabel: widget.saveLabel,
+      saveLabel: _saving ? 'Saving…' : widget.saveLabel,
       popWithCardOnSave: widget.popWithCardOnSave,
-      onSave: _saveCharacter,
+      onSave: _saving ? null : _saveCharacter,
       tabController: _tabController,
       tokenNotifier: _draft.tokenNotifier,
       worldsLockedTooltip: mode == null ? null : kWorldsLockedTooltip,

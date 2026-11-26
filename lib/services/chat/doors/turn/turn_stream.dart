@@ -123,7 +123,7 @@ class TurnStream {
       // keep only that key so an OOC / AFK snap still chips the guest
       // reply. Pending is consumed by the host attach, so also read the
       // last bot slot when the key is no longer pending.
-      final Map<String, dynamic>? initialMetadata;
+      Map<String, dynamic>? initialMetadata;
       if (_e.entry.isLiteTurn(t)) {
         var skip = _pendingRealismMetadata?['time_skip_to'] as String? ?? '';
         if (skip.isEmpty) {
@@ -145,6 +145,12 @@ class TurnStream {
         // showed last turn's wear.
         initialMetadata = Map<String, dynamic>.from(_pendingRealismMetadata!)
           ..remove('needs_time_wear');
+      }
+      if (t.speaksAsBot && !isUserTarget) {
+        initialMetadata = {
+          ...?initialMetadata,
+          'presentation': botPresentation,
+        };
       }
       debugPrint(
         '[Realism:Metadata] PRE-GEN attach (needs_deltas + any post-gen '

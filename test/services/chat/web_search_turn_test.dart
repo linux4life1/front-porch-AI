@@ -35,6 +35,7 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -255,6 +256,122 @@ void main() {
       expect(mouth.temperature, 1.2);
     },
   );
+
+  test(
+    'Bot sends and retries use the information catalog while Continue skips it',
+    () async {
+      final coach = card()
+        ..scenario = 'PRIVATE_SCOPE spoken interview rehearsals';
+      coach.setBotCard(true, 'PRIVATE_INSTRUCTIONS offer one exercise.');
+      await storage.toolsDir.create(recursive: true);
+      await File('${storage.toolsDir.path}/fixture.json').writeAsString(
+        jsonEncode({
+          'name': 'fixture_write',
+          'method': 'POST',
+          'url': 'https://example.test/fixture',
+        }),
+      );
+      await chat.setActiveCharacter(coach);
+      llm.replyText = 'Practice silently in three short steps.';
+      await chat.sendMessage('What is Wandenreich?');
+      await drainTurn();
+      Set<Object?> namesOf(List<Map<String, dynamic>> payload) =>
+          payload.map((tool) => (tool['function'] as Map)['name']).toSet();
+      int lookupCalls() => llm.toolsPayloads
+          .where((payload) => namesOf(payload).contains(kWebSearchToolName))
+          .length;
+      expect(
+        llm.toolsPayloads.map(namesOf),
+        contains(equals({kWebSearchToolName})),
+      );
+      expect(
+        llm.toolsPayloads.map(namesOf).expand((names) => names),
+        isNot(contains('fixture_write')),
+      );
+      final clerk = catalogParams()!;
+      expect(clerk.prompt, contains('What is Wandenreich?'));
+      expect(clerk.prompt, isNot(contains('PRIVATE_SCOPE')));
+      expect(clerk.systemPrompt ?? '', isNot(contains('PRIVATE_INSTRUCTIONS')));
+      expect(mouthParams()!.prompt, contains('UNTRUSTED LOOKUP DATA'));
+      expect(mouthParams()!.prompt, contains('PRIVATE_SCOPE'));
+      expect(chat.messages.last.activeMetadata?['search_receipt'], isNotNull);
+      expect(chat.messages.last.isBotProse, isTrue);
+
+      final beforeRetry = lookupCalls();
+      await chat.regenerateLastMessage();
+      await drainTurn();
+      expect(lookupCalls(), greaterThan(beforeRetry));
+      expect(chat.messages.last.isBotProse, isTrue);
+      final beforeContinue = lookupCalls();
+      await chat.continueGeneration();
+      await drainTurn();
+      expect(lookupCalls(), beforeContinue);
+      expect(chat.messages.last.isBotProse, isTrue);
+    },
+  );
+
+  test('a Bot can force a wiki lookup without a model tool call', () async {
+    await storage.webSearchSettings.setWebSearchDefault(false);
+    await chat.setActiveCharacter(
+      card()..setBotCard(true, 'Help find timetables.'),
+    );
+    await chat.setWikiBaseUrl('https://rail-fixture.fandom.com/');
+    final requests = <Uri>[];
+    chat.mediaDoor.wikiSearchService.sendRequest = (request) async {
+      requests.add(request.url);
+      expect(request.followRedirects, isFalse);
+      final data = request.url.queryParameters['action'] == 'parse'
+          ? {
+              'parse': {
+                'title': 'Timetable',
+                'text': {
+                  '*': '<p>The next train departs at 14:00 on 5 May.</p>',
+                },
+              },
+            }
+          : {
+              'query': {
+                'search': [
+                  {'title': 'Timetable', 'snippet': 'The next departure.'},
+                ],
+              },
+            };
+      return http.Response(jsonEncode(data), 200);
+    };
+    llm.searchQuery = null;
+    await chat.sendMessage('/wiki -- timetable');
+    await drainTurn();
+    expect(requests, isNotEmpty);
+    expect(
+      requests.every((uri) => uri.host == 'rail-fixture.fandom.com'),
+      isTrue,
+    );
+    expect(mouthParams()!.prompt, contains('14:00 on 5 May'));
+    expect(mouthParams()!.prompt, contains('UNTRUSTED LOOKUP DATA'));
+    expect(
+      chat.messages.last.activeMetadata?['wiki_receipt'],
+      containsPair('ok', true),
+    );
+    expect(chat.messages.last.isBotProse, isTrue);
+
+    await storage.webSearchSettings.setWebSearchDefault(true);
+    llm.searchQuery = 'rail fixture departure';
+    await chat.sendMessage('Where is the next train? /wiki -- timetable');
+    await drainTurn();
+    final metadata = chat.messages.last.activeMetadata!;
+    expect(
+      metadata['search_receipt'],
+      containsPair('query', 'rail fixture departure'),
+    );
+    expect(metadata['wiki_receipt'], containsPair('source', 'wiki'));
+
+    await chat.setWikiBaseUrl('');
+    final before = requests.length;
+    final messages = chat.messages.length;
+    await chat.sendMessage('/wiki -- timetable');
+    expect(requests, hasLength(before));
+    expect(chat.messages, hasLength(messages));
+  });
 
   test(
     'empty search results inject the empty-result fragment, not a fake wiki',

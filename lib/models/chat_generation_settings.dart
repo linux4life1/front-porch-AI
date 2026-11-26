@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 import 'package:front_porch_ai/models/output_sanitizer_rule.dart';
+import 'package:front_porch_ai/models/bot_card.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// Per-session generation parameter overrides.
@@ -59,6 +60,9 @@ class ChatGenerationSettings {
   /// Chat Settings label. The values themselves live in the fields above.
   String? genPresetName;
 
+  BotCardSnapshot? soloBot;
+  Map<String, BotCardSnapshot> groupBots;
+
   ChatGenerationSettings({
     this.temperature,
     this.minP,
@@ -83,7 +87,9 @@ class ChatGenerationSettings {
     this.systemPromptSource,
     this.promptAmendmentsEnabled,
     this.genPresetName,
-  });
+    this.soloBot,
+    Map<String, BotCardSnapshot>? groupBots,
+  }) : groupBots = groupBots ?? {};
 
   /// Whether any field has a non-null override.
   bool get hasOverrides =>
@@ -194,19 +200,29 @@ class ChatGenerationSettings {
     if (promptAmendmentsEnabled != null) {
       map['prompt_amendments_enabled'] = promptAmendmentsEnabled;
     }
+    if (soloBot != null) map['bot_card'] = soloBot!.toJson();
+    if (groupBots.isNotEmpty) {
+      map['group_bot_cards'] = groupBots.map(
+        (id, snapshot) => MapEntry(id, snapshot.toJson()),
+      );
+    }
     if (genPresetName != null) map['gen_preset'] = genPresetName;
     return map;
   }
 
   /// Returns the JSON string, or `null` if there are no overrides.
   String? toJsonString() {
-    if (!hasOverrides) return null;
+    if (!hasOverrides && soloBot == null && groupBots.isEmpty) {
+      return null;
+    }
     return jsonEncode(toJson());
   }
 
   /// Parse from a JSON map. Missing keys stay `null` (inherit global).
   factory ChatGenerationSettings.fromJson(Map<String, dynamic> json) {
     return ChatGenerationSettings(
+      soloBot: BotCardSnapshot.fromJson(json['bot_card']),
+      groupBots: readGroupBots(json['group_bot_cards']),
       temperature: (json['temperature'] as num?)?.toDouble(),
       minP: (json['min_p'] as num?)?.toDouble(),
       topP: (json['top_p'] as num?)?.toDouble(),
