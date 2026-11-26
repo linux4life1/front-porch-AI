@@ -502,6 +502,13 @@ void main() {
             413,
             'too_large',
           ),
+          // The largest size a lossy frame can state, so the 413 path still
+          // has a case that goes through the VP8 header.
+          'a WebP at the largest legal lossy size': (
+            webpLossyTopBits(16383, 16383),
+            413,
+            'too_large',
+          ),
           'an animated WebP': (webpAnimated(), 400, 'bad_picture'),
         };
         crafted.forEach((name, spec) {

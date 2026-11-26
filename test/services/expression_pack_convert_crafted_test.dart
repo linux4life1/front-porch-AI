@@ -83,6 +83,11 @@ void main() {
       await _refusedAtOnce(dual, tooLarge: true, saying: '16383x16383');
     });
 
+    test('at the largest legal lossy size is refused as too large', () async {
+      final big = webpLossyTopBits(16383, 16383);
+      await _refusedAtOnce(big, tooLarge: true, saying: '16383x16383');
+    });
+
     test('that is animated is refused', () async {
       await _refusedAtOnce(webpAnimated(), tooLarge: false, saying: 'animated');
     });
