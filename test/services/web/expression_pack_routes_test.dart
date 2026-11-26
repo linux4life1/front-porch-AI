@@ -489,10 +489,13 @@ void main() {
             400,
             'bad_picture',
           ),
-          'a 74-byte WebP with the top bits of its size set': (
+          // image 4.13 masks a lossy WebP's size to the 14 bits the format
+          // gives it, so the scale bits above them no longer make this file
+          // huge: it is a 64 x 64 picture with nothing behind it.
+          'a 74-byte WebP with size bits above the 14-bit field': (
             webpLossyTopBits(0x4000 | 64, 0x4000 | 64),
-            413,
-            'too_large',
+            400,
+            'bad_picture',
           ),
           'a WebP with a small picture chunk and then a huge one': (
             webpChunks([vp8l(64, 64), vp8l(16383, 16383)]),

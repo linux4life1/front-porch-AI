@@ -69,11 +69,13 @@ void main() {
   });
 
   group('a WebP', () {
-    test('of 74 bytes with the top bits of its size set is refused as too '
-        'large', () async {
+    test('of 74 bytes with size bits above the 14-bit field is refused as not '
+        'a picture', () async {
       final bits = webpLossyTopBits(0x4000 | 64, 0x4000 | 64);
       expect(bits.length, 74);
-      await _refusedAtOnce(bits, tooLarge: true, saying: '16448x16448');
+      // image 4.13 reads only the 14 bits the format gives the size, so this
+      // is a 64 x 64 picture with nothing behind it, not an oversized one.
+      await _refusedAtOnce(bits, tooLarge: false, saying: 'could not be read');
     });
 
     test('with a small picture chunk and then a huge one is refused', () async {

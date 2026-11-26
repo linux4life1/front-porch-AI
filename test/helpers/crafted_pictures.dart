@@ -195,8 +195,9 @@ Uint8List webpChunks(List<List<int>> chunks) =>
     _riff([for (final c in chunks) ...c]);
 
 /// A 74-byte lossy WebP whose frame header gives [width] x [height] in 16 bits
-/// each. Only 14 are the size in the format; the decoder reads all 16, so the
-/// top two bits (a scale, in the format) make it far larger than it looks.
+/// each. Only 14 are the size in the format; the top two bits are a scale.
+/// image 4.13 masks them, so 0x4000 | 64 reads as 64; 4.12 read all 16 and
+/// took the file for far larger than it looks.
 Uint8List webpLossyTopBits(int width, int height) => _riff(
   _riffChunk('VP8 ', [
     0x10, 0, 0, 0x9D, 0x01, 0x2A, //
