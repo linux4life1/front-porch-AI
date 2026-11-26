@@ -59,22 +59,58 @@ class _AuthorNoteSectionState extends State<AuthorNoteSection> {
   @override
   Widget build(BuildContext context) {
     final isGroup = widget.chatService.activeGroup != null;
+    final on = widget.chatService.authorNoteEnabled;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Tooltip(
-          message: isGroup
-              ? 'Author\'s Note — injected for every character in the group.\n'
-                    'For per-character author\'s notes, go to Edit group → Advanced Prompts.'
-              : 'Author\'s Note — injected into the character\'s context.',
-          child: SidebarSubHeader(
-            icon: Icons.sticky_note_2_outlined,
-            label: "Author's Note",
-            accent: AppColors.porchHoneyOf(context),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Tooltip(
+                message: isGroup
+                    ? 'Author\'s Note — injected for every character in the group.\n'
+                          'For per-character author\'s notes, go to Edit group → Advanced Prompts.'
+                    : 'Author\'s Note — injected into the character\'s context.',
+                child: SidebarSubHeader(
+                  icon: Icons.sticky_note_2_outlined,
+                  label: "Author's Note",
+                  accent: AppColors.porchHoneyOf(context),
+                ),
+              ),
+            ),
+            SizedBox(
+              height: 24,
+              child: Tooltip(
+                message: on
+                    ? 'Turn the note off without losing what you wrote.'
+                    : 'The note is kept but not sent. Turn it on to send it again.',
+                child: Switch(
+                  key: const Key('author-note-switch'),
+                  value: on,
+                  activeTrackColor: AppColors.porchAmberOf(context),
+                  onChanged: widget.chatService.setAuthorNoteEnabled,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
+        // Off greys the box and slider in place: the text stays editable and
+        // nothing below moves.
+        Opacity(
+          key: const Key('author-note-body'),
+          opacity: on ? 1 : 0.45,
+          child: _body(context, on),
+        ),
+      ],
+    );
+  }
+
+  Widget _body(BuildContext context, bool on) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         AppTextField(
           controller: _controller,
           maxLines: 4,
@@ -125,6 +161,12 @@ class _AuthorNoteSectionState extends State<AuthorNoteSection> {
               sliderColor = AppColors.negativeAccentOf(context);
               tierLabel = 'Strong';
             }
+            // The badge says Off in words, so the state never rides on the
+            // grey alone.
+            if (!on) {
+              sliderColor = AppColors.textTertiary(context);
+              tierLabel = 'Off';
+            }
             return Column(
               children: [
                 Row(
@@ -165,12 +207,14 @@ class _AuthorNoteSectionState extends State<AuthorNoteSection> {
                           max: 10,
                           divisions: 9,
                           label: '$strength — $tierLabel',
-                          onChanged: (val) {
-                            widget.chatService.setAuthorNote(
-                              widget.chatService.authorNote,
-                              strength: val.round(),
-                            );
-                          },
+                          onChanged: on
+                              ? (val) {
+                                  widget.chatService.setAuthorNote(
+                                    widget.chatService.authorNote,
+                                    strength: val.round(),
+                                  );
+                                }
+                              : null,
                         ),
                       ),
                     ),

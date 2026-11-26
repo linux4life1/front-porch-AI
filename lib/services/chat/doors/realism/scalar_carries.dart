@@ -200,9 +200,10 @@ class ScalarCarries {
     }
 
     // Author note -> the host member's per-character group note (serialized into
-    // group_realism_state by the save).
+    // group_realism_state by the save). A note switched off in the 1:1 is not
+    // planted: a chat's member notes are only ever live ones.
     final note = state['authorNote'] as String? ?? '';
-    if (note.isNotEmpty) {
+    if (note.isNotEmpty && state['authorNoteEnabled'] != false) {
       _groupAuthorNotes[hostId] = note;
       _groupAuthorNoteStrengths[hostId] =
           state['authorNoteStrength'] as int? ?? 4;

@@ -19,6 +19,7 @@ export function Slider({
   unset = false,
   onClear,
   tone,
+  disabled = false,
 }: {
   label: string;
   min: number;
@@ -31,6 +32,8 @@ export function Slider({
   onClear?: () => void;
   /** The desktop paints bond and trust in its relationship blue. */
   tone?: 'bond';
+  /** Shown but not movable, as a desktop Slider with no onChanged. */
+  disabled?: boolean;
 }) {
   return (
     <div className={`realism-slider${tone ? ` tone-${tone}` : ''}`}>
@@ -52,6 +55,7 @@ export function Slider({
         max={max}
         step={step}
         value={unset ? min : value}
+        disabled={disabled}
         onChange={(e) => onChange(parseInt(e.target.value, 10))}
       />
     </div>

@@ -391,6 +391,7 @@ export function ChatPage() {
       draft={draft}
       authorNote={state.authorNote ?? ''}
       authorNoteDepth={state.authorNoteDepth ?? 4}
+      authorNoteEnabled={state.authorNoteEnabled ?? true}
       onSaveAuthorNote={saveAuthorNote}
       characterId={focused?.dbId ?? state.character?.id ?? ''}
       expressionLabel={state.expressionLabel}

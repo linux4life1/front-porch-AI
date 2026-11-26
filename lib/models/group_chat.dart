@@ -37,22 +37,31 @@ extension TurnOrderLabel on TurnOrder {
 }
 
 /// A member's Author's Note for the group's new chats, and how hard it
-/// pushes (1 to 10), as the chat's own per-member note starts out.
+/// pushes (1 to 10), as the chat's own per-member note starts out. A note
+/// switched off ([enabled] false) is kept and starts no chat with it.
 class MemberAuthorNote {
-  const MemberAuthorNote(this.note, this.strength);
+  const MemberAuthorNote(this.note, this.strength, {this.enabled = true});
   final String note;
   final int strength;
+  final bool enabled;
 
-  Map<String, dynamic> toJson() => {'note': note, 'strength': strength};
+  /// `enabled` is written only when off, so every note stored before the
+  /// switch existed reads back, and exports, exactly as it did.
+  Map<String, dynamic> toJson() => {
+    'note': note,
+    'strength': strength,
+    if (!enabled) 'enabled': false,
+  };
 
   @override
   bool operator ==(Object other) =>
       other is MemberAuthorNote &&
       other.note == note &&
-      other.strength == strength;
+      other.strength == strength &&
+      other.enabled == enabled;
 
   @override
-  int get hashCode => Object.hash(note, strength);
+  int get hashCode => Object.hash(note, strength, enabled);
 
   /// Reads the stored `{memberId: {note, strength}}`; entries that are not
   /// that shape, or have no note, are dropped.
@@ -66,6 +75,7 @@ class MemberAuthorNote {
       out['$k'] = MemberAuthorNote(
         note,
         ((v['strength'] as num?)?.toInt() ?? 4).clamp(1, 10),
+        enabled: v['enabled'] != false,
       );
     });
     return out;

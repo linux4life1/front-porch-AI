@@ -67,6 +67,7 @@ class EditGroupDraft {
     for (final e in g.characterAuthorNotes.entries) {
       notes[e.key] = TextEditingController(text: e.value.note);
       strengths[e.key] = e.value.strength;
+      notesOn[e.key] = e.value.enabled;
     }
   }
 
@@ -104,16 +105,19 @@ class EditGroupDraft {
   final String originalRawLorebook;
   bool bookUnreadable = false;
 
-  /// Per member id: the group's system prompt, Author's Note and Strength.
+  /// Per member id: the group's system prompt, Author's Note, its Strength
+  /// and its switch (off keeps the text out of new chats).
   final Map<String, TextEditingController> prompts = {};
   final Map<String, TextEditingController> notes = {};
   final Map<String, int> strengths = {};
+  final Map<String, bool> notesOn = {};
 
   TextEditingController promptOf(String mid) =>
       prompts.putIfAbsent(mid, TextEditingController.new);
   TextEditingController noteOf(String mid) =>
       notes.putIfAbsent(mid, TextEditingController.new);
   int strengthOf(String mid) => strengths[mid] ?? 4;
+  bool noteOnOf(String mid) => notesOn[mid] ?? true;
 
   /// Starting feelings, `{from: {to: score}}`, as the definition holds them.
   Map<String, Map<String, int>> get feelings =>
@@ -151,6 +155,7 @@ class EditGroupDraft {
     promptOf(mid).text = values.systemPrompt;
     noteOf(mid).text = values.note;
     strengths[mid] = values.strength;
+    notesOn[mid] = values.noteEnabled;
     for (final e in values.feelings.entries) {
       if ((feelings[mid]?[e.key]) != e.value) setFeeling(mid, e.key, e.value);
     }
@@ -188,7 +193,7 @@ class EditGroupDraft {
     {
       for (final e in notes.entries)
         if (e.value.text.trim().isNotEmpty)
-          e.key: [e.value.text.trim(), strengthOf(e.key)],
+          e.key: [e.value.text.trim(), strengthOf(e.key), noteOnOf(e.key)],
     },
     [for (final e in loreEntries) e.toJson()],
     defaultMemberJson,
@@ -205,7 +210,11 @@ class EditGroupDraft {
     final notesOut = <String, MemberAuthorNote>{
       for (final e in notes.entries)
         if (e.value.text.trim().isNotEmpty)
-          e.key: MemberAuthorNote(e.value.text.trim(), strengthOf(e.key)),
+          e.key: MemberAuthorNote(
+            e.value.text.trim(),
+            strengthOf(e.key),
+            enabled: noteOnOf(e.key),
+          ),
     };
     return GroupChat(
       id: stored.id,

@@ -226,3 +226,63 @@ describe('wide sidebar grips follow the layout lock', () => {
     expect(rule).not.toMatch(/display\s*:/);
   });
 });
+
+describe("the Author's Note switch (issue #743)", () => {
+  async function renderNote(enabled: boolean, onSave: ReturnType<typeof vi.fn>) {
+    isGroupChat = false;
+    await act(async () => {
+      root.render(
+        createElement(ChatSidebar, {
+          realism: realism as never,
+          authorNote: 'more evening light',
+          authorNoteDepth: 4,
+          authorNoteEnabled: enabled,
+          onSaveAuthorNote: onSave,
+          characterId: 'mara',
+          isGroup: false,
+          focusedIsHost: true,
+          focusedPlaceholderPortrait: true,
+          toolsKey: 1,
+          focusedId: null,
+          groupId: null,
+          onCommand: vi.fn(),
+          portraitName: 'Mara Quill',
+          onChatSettings: vi.fn(),
+        }),
+      );
+      await Promise.resolve();
+    });
+  }
+  const q = <T extends Element>(sel: string) => container.querySelector<T>(sel);
+
+  it('sits in the header; off saves the switch with the text kept, and greys the note in place', async () => {
+    const onSave = vi.fn();
+    await renderNote(true, onSave);
+    const sw = q<HTMLInputElement>('.note-card > summary [data-testid="author-note-switch"]');
+    expect(sw?.checked).toBe(true);
+    expect(q('[data-testid="author-note-body"]')!.classList.contains('note-off')).toBe(false);
+    expect(q('[data-testid="author-note-sub"]')!.textContent).toBe('active · strength 4');
+
+    act(() => sw!.click());
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith('more evening light', 4, false);
+    const body = q('[data-testid="author-note-body"]')!;
+    expect(body.classList.contains('note-off')).toBe(true);
+    // Greyed, not hidden: the note and its Strength are still drawn.
+    expect(q<HTMLTextAreaElement>('.note-input')!.value).toBe('more evening light');
+    expect(q<HTMLInputElement>('.note-strength input[type="range"]')!.disabled).toBe(true);
+    expect(q('[data-testid="author-note-sub"]')!.textContent).toBe('off');
+    // Save note stays outside the grey: it still saves the kept text.
+    expect(body.querySelector('.note-save')).toBeNull();
+  });
+
+  it('opens off when the chat has it off, and dims with opacity, never display', async () => {
+    await renderNote(false, vi.fn());
+    expect(q<HTMLInputElement>('[data-testid="author-note-switch"]')!.checked).toBe(false);
+    expect(q('[data-testid="author-note-body"]')!.classList.contains('note-off')).toBe(true);
+    const css = readFileSync(join(__dirname, '..', 'styles', 'insight.css'), 'utf8');
+    const rule = /\.note-off\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(rule).toMatch(/opacity:/);
+    expect(rule).not.toMatch(/display\s*:|visibility\s*:/);
+  });
+});

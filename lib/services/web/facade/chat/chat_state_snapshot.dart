@@ -197,6 +197,7 @@ class ChatStateSnapshot {
       'tokensGenerated': _chat.tokensGenerated,
       'authorNote': _chat.authorNote,
       'authorNoteDepth': _chat.authorNoteStrength,
+      'authorNoteEnabled': _chat.authorNoteEnabled,
       'summary': _chat.summary,
       'summaryLastIndex': _chat.summaryLastIndex,
       'summaryPaused': _chat.summaryPaused,

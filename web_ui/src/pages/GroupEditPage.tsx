@@ -15,7 +15,7 @@ import { EditorTabs, type EditorTab } from '../components/EditorTabs';
 import { GreyedOut } from '../components/GreyedOut';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { MacroField } from '../components/MacroField';
-import { feelingWord } from '../components/GroupMemberSection';
+import { feelingWord, MemberNoteSwitch } from '../components/GroupMemberSection';
 import { CharacterWorldsSection } from '../components/groupSetting/CharacterWorldsSection';
 import { NO_WORLD, type WorldChoice } from '../components/groupSetting/groupWorldChoice';
 import { Slider, ToggleRow, SelectRow } from '../components/realism/controls';
@@ -31,6 +31,8 @@ interface Member {
   prompt: string;
   note: string;
   strength: number;
+  /** Absent from an older desktop: its notes are all on. */
+  noteEnabled?: boolean;
 }
 interface RealismBlock {
   timeOfDay: string;
@@ -206,7 +208,12 @@ export function GroupEditPage() {
         realism: g.realism,
         characterSystemPrompts: Object.fromEntries(g.members.map((m) => [m.id, m.prompt])),
         characterAuthorNotes: Object.fromEntries(
-          g.members.filter((m) => m.note.trim()).map((m) => [m.id, { note: m.note, strength: m.strength }]),
+          g.members
+            .filter((m) => m.note.trim())
+            .map((m) => [
+              m.id,
+              { note: m.note, strength: m.strength, ...(m.noteEnabled === false ? { enabled: false } : {}) },
+            ]),
         ),
         feelings: g.feelings,
         ...(JSON.stringify(worldChoice) !== worldsAsLoaded ? { worlds: worldChoice } : {}),
@@ -359,17 +366,27 @@ export function GroupEditPage() {
                   Group-only system prompt (blank uses {m.name}&apos;s card)
                   <input value={m.prompt} onChange={(e) => setMember(m.id, { prompt: e.target.value })} />
                 </label>
-                <label>
-                  Author&apos;s note (when {m.name} speaks)
-                  <input value={m.note} onChange={(e) => setMember(m.id, { note: e.target.value })} />
-                </label>
-                <Slider
-                  label={`Strength · ${m.strength}`}
-                  min={1}
-                  max={10}
-                  value={m.strength}
-                  onChange={(n) => setMember(m.id, { strength: n })}
-                />
+                <MemberNoteSwitch
+                  label={`Author's note when ${m.name} speaks`}
+                  on={m.noteEnabled !== false}
+                  testId={`group-note-switch-${m.id}`}
+                  onChange={(on) => setMember(m.id, { noteEnabled: on })}
+                >
+                  <input
+                    aria-label={`Author's note when ${m.name} speaks`}
+                    placeholder={`Author's note (when ${m.name} speaks)`}
+                    value={m.note}
+                    onChange={(e) => setMember(m.id, { note: e.target.value })}
+                  />
+                  <Slider
+                    label={`Strength · ${m.strength}`}
+                    min={1}
+                    max={10}
+                    value={m.strength}
+                    disabled={m.noteEnabled === false}
+                    onChange={(n) => setMember(m.id, { strength: n })}
+                  />
+                </MemberNoteSwitch>
               </div>
             ))}
           </details>

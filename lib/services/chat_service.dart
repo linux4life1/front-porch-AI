@@ -183,8 +183,7 @@ class ChatService extends ChangeNotifier {
   bool get pocketsFeatureEnabled =>
       _storageService.realismSettings.pocketsEnabled;
 
-  /// The stable id for a card, exposed so UI can look a record up without
-  /// reaching for a private. Same resolver every Pockets surface uses.
+  /// A card's stable id: the one resolver every Pockets surface uses.
   String characterIdFor(CharacterCard c) => _session.characterIdFor(c);
 
   JournalReview get journalReview => realism.journalReview;
@@ -295,6 +294,7 @@ class ChatService extends ChangeNotifier {
   SessionStore get sessionStore => _wiring.sessionStore;
   String get authorNote => sessionStore.authorNote;
   int get authorNoteStrength => sessionStore.authorNoteStrength;
+  bool get authorNoteEnabled => sessionStore.authorNoteEnabled;
   int get historyBasePosition => sessionStore.history.basePosition;
   String? get todaySentence => sessionStore.today.todaySentence;
   String? get todayLine => sessionStore.today.todayLine;

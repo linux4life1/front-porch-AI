@@ -16,7 +16,7 @@ How a conversation actually works. If the AI will not talk at all, start with [F
 
   | Card | What it is |
   |---|---|
-  | Author's Note | Temporary “it is raining; they are exhausted.” Strength **1–10** = Subtle / Moderate / Strong. |
+  | Author's Note | Temporary “it is raining; they are exhausted.” Strength **1–10** = Subtle / Moderate / Strong. The header switch turns it off and keeps the text. |
   | Character State | Mood, bond/trust, needs, **story clock**, weather, ambitions. Realism switch in its header (1:1), Needs and Afterglow on their own lines, which only appear while the chat's Realism is on. One-Shot is at the top of the sidebar. Passage of Time is Settings → Porch Life only. |
   | Journal & Memory | Diary + RAG. [User Guide](user-guide.md#long-term-memory). |
   | Objectives | Goals. Groups open these from the focused member, not a fifth card. |

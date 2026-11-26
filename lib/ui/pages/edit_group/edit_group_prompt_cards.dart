@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/editor_tags_field.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/member_note_switch.dart';
 import 'package:front_porch_ai/ui/pages/edit_group/edit_group_draft.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -146,35 +147,50 @@ class EditGroupAdvancedPromptsCard extends StatelessWidget {
               'Group-only system prompt (blank uses ${m.name}\'s card)',
             ),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            key: Key('group-note-$id'),
-            controller: draft.noteOf(id),
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 14,
-            ),
-            decoration: kit.inputDecoration(
-              "Author's note (when ${m.name} speaks)",
-            ),
-          ),
-          Row(
-            children: [
-              Text('Strength · ${draft.strengthOf(id)}', style: helper),
-              Expanded(
-                child: Slider(
-                  key: Key('group-strength-$id'),
-                  value: draft.strengthOf(id).toDouble(),
-                  min: 1,
-                  max: 10,
-                  divisions: 9,
-                  onChanged: (v) {
-                    draft.strengths[id] = v.round();
-                    onChanged();
-                  },
+          const SizedBox(height: 12),
+          MemberNoteSwitch(
+            label: "Author's note when ${m.name} speaks",
+            on: draft.noteOnOf(id),
+            switchKey: Key('group-note-switch-$id'),
+            onChanged: (on) {
+              draft.notesOn[id] = on;
+              onChanged();
+            },
+            child: Column(
+              children: [
+                TextField(
+                  key: Key('group-note-$id'),
+                  controller: draft.noteOf(id),
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 14,
+                  ),
+                  decoration: kit.inputDecoration(
+                    "Author's note (when ${m.name} speaks)",
+                  ),
                 ),
-              ),
-            ],
+                Row(
+                  children: [
+                    Text('Strength · ${draft.strengthOf(id)}', style: helper),
+                    Expanded(
+                      child: Slider(
+                        key: Key('group-strength-$id'),
+                        value: draft.strengthOf(id).toDouble(),
+                        min: 1,
+                        max: 10,
+                        divisions: 9,
+                        onChanged: draft.noteOnOf(id)
+                            ? (v) {
+                                draft.strengths[id] = v.round();
+                                onChanged();
+                              }
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

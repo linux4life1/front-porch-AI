@@ -155,9 +155,13 @@ export function useChatSend(refresh: () => Promise<void>) {
     setEditTarget(null);
     await refresh();
   };
-  const saveAuthorNote = async (note: string, strength: number) => {
+  const saveAuthorNote = async (note: string, strength: number, enabled?: boolean) => {
     try {
-      await api.post('/api/chat/author-note', { authorNote: note, strength });
+      await api.post('/api/chat/author-note', {
+        authorNote: note,
+        strength,
+        ...(enabled === undefined ? {} : { enabled }),
+      });
       await refresh();
     } catch (e) {
       failed("save the author's note", e);

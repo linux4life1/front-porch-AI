@@ -184,6 +184,7 @@ class SessionSaver {
         userPersonaId: drift.Value(personaId),
         authorNote: drift.Value(_store.authorNote),
         authorNoteDepth: drift.Value(_store.authorNoteStrength),
+        authorNoteEnabled: drift.Value(_store.authorNoteEnabled),
         summary: drift.Value(summaryText.isEmpty ? null : summaryText),
         summaryLastIndex: drift.Value(summaryIndex > 0 ? summaryIndex : null),
         parentSession: drift.Value(_store.parentSessionId),

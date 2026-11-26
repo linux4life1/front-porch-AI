@@ -257,3 +257,30 @@ describe('the Needs pace control', () => {
     expect(post.mock.calls[0][1].needsPace ?? post.mock.calls[0][1].realism?.needsPace).toBe('fast');
   });
 });
+
+describe("a member's Author's Note switch (issue #743)", () => {
+  it('greys the note in place, keeps its text, and saves the off with it', async () => {
+    await mountAt('/groups/g1/members/mem-mara/edit');
+    const note = container.querySelector('[data-testid="group-member-note"]') as HTMLInputElement;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(note, 'Keep it short.');
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const sw = container.querySelector('[data-testid="group-member-note-switch"]') as HTMLInputElement;
+    const body = container.querySelector('[data-testid="group-member-note-switch-body"]') as HTMLElement;
+    expect(sw.checked).toBe(true);
+    expect(body.classList.contains('note-off')).toBe(false);
+    await act(async () => sw.click());
+    expect(sw.checked).toBe(false);
+    expect(body.classList.contains('note-off')).toBe(true);
+    expect(note.value).toBe('Keep it short.');
+    expect((body.querySelector('input[type="range"]') as HTMLInputElement).disabled).toBe(true);
+    expect(container.textContent).toContain('speaks · off');
+    const save = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Save')!;
+    await act(async () => save.click());
+    expect(post).toHaveBeenCalledTimes(1);
+    const { groupValues } = post.mock.calls[0][1];
+    expect([groupValues.note, groupValues.noteEnabled]).toEqual(['Keep it short.', false]);
+  });
+});

@@ -1460,6 +1460,21 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(4),
   );
+  static const VerificationMeta _authorNoteEnabledMeta = const VerificationMeta(
+    'authorNoteEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> authorNoteEnabled = GeneratedColumn<bool>(
+    'author_note_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("author_note_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _summaryMeta = const VerificationMeta(
     'summary',
   );
@@ -2286,6 +2301,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     description,
     authorNote,
     authorNoteDepth,
+    authorNoteEnabled,
     summary,
     summaryLastIndex,
     worldsInitialized,
@@ -2413,6 +2429,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         authorNoteDepth.isAcceptableOrUnknown(
           data['author_note_depth']!,
           _authorNoteDepthMeta,
+        ),
+      );
+    }
+    if (data.containsKey('author_note_enabled')) {
+      context.handle(
+        _authorNoteEnabledMeta,
+        authorNoteEnabled.isAcceptableOrUnknown(
+          data['author_note_enabled']!,
+          _authorNoteEnabledMeta,
         ),
       );
     }
@@ -3020,6 +3045,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.int,
         data['${effectivePrefix}author_note_depth'],
       )!,
+      authorNoteEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}author_note_enabled'],
+      )!,
       summary: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}summary'],
@@ -3305,6 +3334,7 @@ class Session extends DataClass implements Insertable<Session> {
   final String? description;
   final String authorNote;
   final int authorNoteDepth;
+  final bool authorNoteEnabled;
   final String? summary;
   final int? summaryLastIndex;
 
@@ -3466,6 +3496,7 @@ class Session extends DataClass implements Insertable<Session> {
     this.description,
     required this.authorNote,
     required this.authorNoteDepth,
+    required this.authorNoteEnabled,
     this.summary,
     this.summaryLastIndex,
     required this.worldsInitialized,
@@ -3552,6 +3583,7 @@ class Session extends DataClass implements Insertable<Session> {
     }
     map['author_note'] = Variable<String>(authorNote);
     map['author_note_depth'] = Variable<int>(authorNoteDepth);
+    map['author_note_enabled'] = Variable<bool>(authorNoteEnabled);
     if (!nullToAbsent || summary != null) {
       map['summary'] = Variable<String>(summary);
     }
@@ -3693,6 +3725,7 @@ class Session extends DataClass implements Insertable<Session> {
           : Value(description),
       authorNote: Value(authorNote),
       authorNoteDepth: Value(authorNoteDepth),
+      authorNoteEnabled: Value(authorNoteEnabled),
       summary: summary == null && nullToAbsent
           ? const Value.absent()
           : Value(summary),
@@ -3827,6 +3860,7 @@ class Session extends DataClass implements Insertable<Session> {
       description: serializer.fromJson<String?>(json['description']),
       authorNote: serializer.fromJson<String>(json['authorNote']),
       authorNoteDepth: serializer.fromJson<int>(json['authorNoteDepth']),
+      authorNoteEnabled: serializer.fromJson<bool>(json['authorNoteEnabled']),
       summary: serializer.fromJson<String?>(json['summary']),
       summaryLastIndex: serializer.fromJson<int?>(json['summaryLastIndex']),
       worldsInitialized: serializer.fromJson<bool>(json['worldsInitialized']),
@@ -3939,6 +3973,7 @@ class Session extends DataClass implements Insertable<Session> {
       'description': serializer.toJson<String?>(description),
       'authorNote': serializer.toJson<String>(authorNote),
       'authorNoteDepth': serializer.toJson<int>(authorNoteDepth),
+      'authorNoteEnabled': serializer.toJson<bool>(authorNoteEnabled),
       'summary': serializer.toJson<String?>(summary),
       'summaryLastIndex': serializer.toJson<int?>(summaryLastIndex),
       'worldsInitialized': serializer.toJson<bool>(worldsInitialized),
@@ -4025,6 +4060,7 @@ class Session extends DataClass implements Insertable<Session> {
     Value<String?> description = const Value.absent(),
     String? authorNote,
     int? authorNoteDepth,
+    bool? authorNoteEnabled,
     Value<String?> summary = const Value.absent(),
     Value<int?> summaryLastIndex = const Value.absent(),
     bool? worldsInitialized,
@@ -4100,6 +4136,7 @@ class Session extends DataClass implements Insertable<Session> {
     description: description.present ? description.value : this.description,
     authorNote: authorNote ?? this.authorNote,
     authorNoteDepth: authorNoteDepth ?? this.authorNoteDepth,
+    authorNoteEnabled: authorNoteEnabled ?? this.authorNoteEnabled,
     summary: summary.present ? summary.value : this.summary,
     summaryLastIndex: summaryLastIndex.present
         ? summaryLastIndex.value
@@ -4226,6 +4263,9 @@ class Session extends DataClass implements Insertable<Session> {
       authorNoteDepth: data.authorNoteDepth.present
           ? data.authorNoteDepth.value
           : this.authorNoteDepth,
+      authorNoteEnabled: data.authorNoteEnabled.present
+          ? data.authorNoteEnabled.value
+          : this.authorNoteEnabled,
       summary: data.summary.present ? data.summary.value : this.summary,
       summaryLastIndex: data.summaryLastIndex.present
           ? data.summaryLastIndex.value
@@ -4420,6 +4460,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('description: $description, ')
           ..write('authorNote: $authorNote, ')
           ..write('authorNoteDepth: $authorNoteDepth, ')
+          ..write('authorNoteEnabled: $authorNoteEnabled, ')
           ..write('summary: $summary, ')
           ..write('summaryLastIndex: $summaryLastIndex, ')
           ..write('worldsInitialized: $worldsInitialized, ')
@@ -4500,6 +4541,7 @@ class Session extends DataClass implements Insertable<Session> {
     description,
     authorNote,
     authorNoteDepth,
+    authorNoteEnabled,
     summary,
     summaryLastIndex,
     worldsInitialized,
@@ -4579,6 +4621,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.description == this.description &&
           other.authorNote == this.authorNote &&
           other.authorNoteDepth == this.authorNoteDepth &&
+          other.authorNoteEnabled == this.authorNoteEnabled &&
           other.summary == this.summary &&
           other.summaryLastIndex == this.summaryLastIndex &&
           other.worldsInitialized == this.worldsInitialized &&
@@ -4656,6 +4699,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<String?> description;
   final Value<String> authorNote;
   final Value<int> authorNoteDepth;
+  final Value<bool> authorNoteEnabled;
   final Value<String?> summary;
   final Value<int?> summaryLastIndex;
   final Value<bool> worldsInitialized;
@@ -4732,6 +4776,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.description = const Value.absent(),
     this.authorNote = const Value.absent(),
     this.authorNoteDepth = const Value.absent(),
+    this.authorNoteEnabled = const Value.absent(),
     this.summary = const Value.absent(),
     this.summaryLastIndex = const Value.absent(),
     this.worldsInitialized = const Value.absent(),
@@ -4809,6 +4854,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.description = const Value.absent(),
     this.authorNote = const Value.absent(),
     this.authorNoteDepth = const Value.absent(),
+    this.authorNoteEnabled = const Value.absent(),
     this.summary = const Value.absent(),
     this.summaryLastIndex = const Value.absent(),
     this.worldsInitialized = const Value.absent(),
@@ -4886,6 +4932,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<String>? description,
     Expression<String>? authorNote,
     Expression<int>? authorNoteDepth,
+    Expression<bool>? authorNoteEnabled,
     Expression<String>? summary,
     Expression<int>? summaryLastIndex,
     Expression<bool>? worldsInitialized,
@@ -4963,6 +5010,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (description != null) 'description': description,
       if (authorNote != null) 'author_note': authorNote,
       if (authorNoteDepth != null) 'author_note_depth': authorNoteDepth,
+      if (authorNoteEnabled != null) 'author_note_enabled': authorNoteEnabled,
       if (summary != null) 'summary': summary,
       if (summaryLastIndex != null) 'summary_last_index': summaryLastIndex,
       if (worldsInitialized != null) 'worlds_initialized': worldsInitialized,
@@ -5057,6 +5105,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<String?>? description,
     Value<String>? authorNote,
     Value<int>? authorNoteDepth,
+    Value<bool>? authorNoteEnabled,
     Value<String?>? summary,
     Value<int?>? summaryLastIndex,
     Value<bool>? worldsInitialized,
@@ -5134,6 +5183,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       description: description ?? this.description,
       authorNote: authorNote ?? this.authorNote,
       authorNoteDepth: authorNoteDepth ?? this.authorNoteDepth,
+      authorNoteEnabled: authorNoteEnabled ?? this.authorNoteEnabled,
       summary: summary ?? this.summary,
       summaryLastIndex: summaryLastIndex ?? this.summaryLastIndex,
       worldsInitialized: worldsInitialized ?? this.worldsInitialized,
@@ -5237,6 +5287,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (authorNoteDepth.present) {
       map['author_note_depth'] = Variable<int>(authorNoteDepth.value);
+    }
+    if (authorNoteEnabled.present) {
+      map['author_note_enabled'] = Variable<bool>(authorNoteEnabled.value);
     }
     if (summary.present) {
       map['summary'] = Variable<String>(summary.value);
@@ -5477,6 +5530,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('description: $description, ')
           ..write('authorNote: $authorNote, ')
           ..write('authorNoteDepth: $authorNoteDepth, ')
+          ..write('authorNoteEnabled: $authorNoteEnabled, ')
           ..write('summary: $summary, ')
           ..write('summaryLastIndex: $summaryLastIndex, ')
           ..write('worldsInitialized: $worldsInitialized, ')

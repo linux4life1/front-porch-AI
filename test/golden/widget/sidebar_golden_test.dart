@@ -396,6 +396,26 @@ void main() {
     );
   });
 
+  testWidgets('AuthorNoteSection — switched off, kept and greyed', (
+    tester,
+  ) async {
+    final chat = FakeChatService(
+      authorNote: '[Keep the tone wry. {{char}} avoids direct answers.]',
+      authorNoteStrength: 4,
+      authorNoteEnabled: false,
+    );
+    addTearDown(chat.dispose);
+    await expectThemedGoldens(
+      tester,
+      child: SizedBox(width: 320, child: AuthorNoteSection(chatService: chat)),
+      group: 'sidebar',
+      name: 'author_note_off',
+      surface: const Size(360, 360),
+      // Owns a text field (blinking-cursor ticker).
+      settle: false,
+    );
+  });
+
   testWidgets('SummarySection — populated recap', (tester) async {
     final chat = FakeChatService(
       summary:

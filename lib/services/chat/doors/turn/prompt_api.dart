@@ -61,6 +61,8 @@ extension ChatServicePrompts on ChatService {
   /// Writes the Author's Note (and its strength), saves and repaints.
   void setAuthorNote(String note, {int? strength}) =>
       promptAssembler.blocks.setAuthorNote(note, strength: strength);
+  void setAuthorNoteEnabled(bool on) =>
+      promptAssembler.blocks.setAuthorNoteEnabled(on);
 
   /// Names of lore entries dropped by the token budget on the last
   /// generation, plus the meter numbers the sidebar shows.

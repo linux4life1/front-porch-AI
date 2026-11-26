@@ -29,7 +29,7 @@ recomputed in the web layer).
 | Swipes (alt generations) | ✅ | |
 | Edit / delete message | ✅ | |
 | Thinking (`<think>`) blocks | ✅ | Collapsible per message. |
-| Author's note | ✅ | |
+| Author's note | ✅ | The header on/off switch (keeps the text, sends none) and each group member's note switch ship on both. |
 | Slash commands (`/join`, `/create`, `/promote`, `/speak`, `/exit`, `/turnorder`, `/scan`, `/expression`, `/afk`, `/image`, …) | ✅ | Routed through `sendMessage`, identical to desktop; `/`-cheat-sheet popup included, and its rows are served from the host (`GET /api/chat/slash-commands` renders `kSlashCommands`) so the sheet cannot drift from the desktop helper (ledger #14). |
 | Inline images in messages (`![](url)`) | ✅ | `MessageContent` renders them (parity with desktop `ExternalImageWidget`). |
 | Insert a generated image into chat | ✅ | "Insert into chat" in the image panel → appends to the latest message. |

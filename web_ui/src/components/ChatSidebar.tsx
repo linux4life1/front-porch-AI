@@ -104,6 +104,7 @@ export function ChatSidebar({
   groupLorebookUnreadable,
   authorNote,
   authorNoteDepth,
+  authorNoteEnabled = true,
   onSaveAuthorNote,
   characterId,
   expressionLabel,
@@ -137,7 +138,9 @@ export function ChatSidebar({
   groupLorebookUnreadable?: boolean;
   authorNote: string;
   authorNoteDepth: number;
-  onSaveAuthorNote: (note: string, strength: number) => void;
+  /** The chat's Author's Note switch: off keeps the note and sends none. */
+  authorNoteEnabled?: boolean;
+  onSaveAuthorNote: (note: string, strength: number, enabled?: boolean) => void;
   characterId: string;
   expressionLabel?: string;
   isGroup: boolean;
@@ -296,6 +299,10 @@ export function ChatSidebar({
   useEffect(() => setNote(authorNote), [authorNote]);
   const [strength, setStrength] = useState(authorNoteDepth);
   useEffect(() => setStrength(authorNoteDepth), [authorNoteDepth]);
+  const [noteOn, setNoteOn] = useState(authorNoteEnabled);
+  useEffect(() => setNoteOn(authorNoteEnabled), [authorNoteEnabled]);
+  // The window's subtitle: off, nothing for a blank note, else its strength.
+  const noteSub = !noteOn ? 'off' : note.trim() ? `active · strength ${strength}` : '';
 
   // ── Lorebook preview + modals (same as ChatInsight's lorebook case) ──
   const [wouldTrigger, setWouldTrigger] = useState<string[]>([]);
@@ -440,10 +447,35 @@ export function ChatSidebar({
         return <ToolCallingPill support={toolSupport} />;
       case 'author_note':
         return (
-          <details className="tool-section">
-            <summary><span className="card-chev" aria-hidden>❯</span>📝 Author's Note{' '}
-              <span className="card-sub">strength {strength}</span></summary>
+          <details className="tool-section note-card">
+            <summary><span className="card-chev" aria-hidden>❯</span>
+              {/* Title over its subtitle, two lines whatever the subtitle
+                  says, so switching never moves the card. */}
+              <span className="card-head-text">
+                <span className="card-title">📝 Author's Note</span>
+                <span className="card-sub" data-testid="author-note-sub">{noteSub || ' '}</span>
+              </span>
+              {/* Off keeps the note and sends none of it, as the window's
+                  switch. Stopping the click/key keeps it from toggling the card. */}
+              <label
+                className="card-switch"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  aria-label="Author's Note"
+                  data-testid="author-note-switch"
+                  checked={noteOn}
+                  onChange={(e) => {
+                    setNoteOn(e.target.checked);
+                    onSaveAuthorNote(note, strength, e.target.checked);
+                  }}
+                />
+              </label>
+            </summary>
             <div className="tool-body">
+              <div className={noteOn ? 'note-dim' : 'note-dim note-off'} data-testid="author-note-body">
               <textarea
                 className="note-input"
                 value={note}
@@ -459,9 +491,11 @@ export function ChatSidebar({
                   max={10}
                   step={1}
                   value={strength}
+                  disabled={!noteOn}
                   onChange={(e) => setStrength(Number(e.target.value))}
                 />
               </label>
+              </div>
               <button className="primary note-save" onClick={() => onSaveAuthorNote(note, strength)}>
                 Save note
               </button>

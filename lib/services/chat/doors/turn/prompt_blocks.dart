@@ -78,10 +78,20 @@ class PromptBlocks {
     _d.notify();
   }
 
+  /// Turns the chat's own Author's Note on or off; the text is kept either
+  /// way. A group member's own note has its own switch (Edit group).
+  void setAuthorNoteEnabled(bool on) {
+    _sessions.authorNoteEnabled = on;
+    _sessions.save();
+    _d.notify();
+  }
+
   /// Build the Author's Note block with strength-modulated wrapper text.
   /// Strength 1–3: subtle suggestion, 4–7: standard, 8–10: urgent directive.
+  /// Empty while the chat's switch is off: send, Continue, regen and
+  /// impersonate all build the note here.
   String authorNoteBlock() {
-    if (_authorNote.isEmpty) return '';
+    if (_authorNote.isEmpty || !_sessions.authorNoteEnabled) return '';
     if (_authorNoteStrength <= 3) {
       return '[Author\'s Note (gentle suggestion): $_authorNote]\n';
     } else if (_authorNoteStrength <= 7) {

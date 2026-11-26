@@ -423,6 +423,53 @@ test('the sidebar walks its sections in the desktop order at every width', async
   }
 });
 
+// Serial: the note and its switch belong to the Porch Tester chat the other
+// journeys share, so the finally puts them back (on, and blank).
+test("the Author's Note switch greys the note, keeps its text, and holds across a reload", { tag: SERIAL }, async ({ page, request }) => {
+  // The standalone request context: a page.request POST from WebKit hung here
+  // while the same POST over plain HTTP answered at once.
+  const reset = () =>
+    request.post('/api/chat/author-note', { data: { authorNote: '', strength: 4, enabled: true } });
+  const noteCard = async () => {
+    await openSidebar(page);
+    const panel = sidebarPanel(page);
+    // The drawer fills once the tools snapshot lands, as in the order journey.
+    await expect(panel.locator('.state-card')).toBeVisible();
+    const card = panel.locator('.insight-section[data-id="author_note"] details');
+    // Open it directly: the drag grip sits over the chevron.
+    await card.evaluate((d) => {
+      (d as HTMLDetailsElement).open = true;
+    });
+    return card;
+  };
+  // A run that timed out never reached its finally: start from on and blank,
+  // before the page opens, so the blank never lands on top of the typing.
+  await reset();
+  await openPorchChat(page);
+  try {
+    let card = await noteCard();
+    await card.locator('.note-input').fill('Keep the evening slow.');
+    await card.getByRole('button', { name: 'Save note' }).click();
+    await expect(card.getByTestId('author-note-switch')).toBeChecked();
+    // Tap the switch's label, as a finger does: on a phone its enlarged tap
+    // area (touch.css) covers the checkbox.
+    await card.locator('summary .card-switch').click();
+    await expect(card.getByTestId('author-note-switch')).not.toBeChecked();
+    await expect(card.getByTestId('author-note-body')).toHaveClass(/note-off/);
+    await expect(card.getByTestId('author-note-sub')).toHaveText('off');
+    await expect(card).toHaveAttribute('open', '');
+
+    await page.reload();
+    await waitIdle(page);
+    card = await noteCard();
+    await expect(card.getByTestId('author-note-switch')).not.toBeChecked();
+    await expect(card.locator('.note-input')).toHaveValue('Keep the evening slow.');
+    await expect(card.getByTestId('author-note-body')).toHaveClass(/note-off/);
+  } finally {
+    await reset();
+  }
+});
+
 // Serial, and Memory put back as it was: the links only show while Memory is
 // on, and that switch is the app-wide setting the other journeys share.
 test('the Memory section: pick memory sources and keep a Data Bank, as on the desktop', { tag: SERIAL }, async ({ page }) => {

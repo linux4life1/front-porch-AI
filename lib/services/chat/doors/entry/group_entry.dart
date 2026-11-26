@@ -109,6 +109,7 @@ class GroupEntry {
       // Reset author notes and summary when starting fresh chat/group (will be overridden if loading existing session)
       _store.authorNote = '';
       _store.authorNoteStrength = 4;
+      _store.authorNoteEnabled = true;
       _store.summary = '';
       _store.summaryLastIndex = 0;
       _store.selectedLooks

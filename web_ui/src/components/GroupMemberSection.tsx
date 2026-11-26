@@ -6,12 +6,16 @@
 // page shows: the member's system prompt in this group, their Author's Note
 // with its Strength, and how they start out feeling about the others.
 
+import type { ReactNode } from 'react';
+
 import { Slider } from './realism/controls';
 
 export interface GroupValues {
   systemPrompt: string;
   note: string;
   strength: number;
+  /** The note's switch: off keeps the note and starts new chats without it. */
+  noteEnabled: boolean;
   feelings: Record<string, number>;
 }
 
@@ -26,8 +30,46 @@ export function parseGroupValues(raw: unknown): GroupValues | null {
     systemPrompt: typeof r.systemPrompt === 'string' ? r.systemPrompt : '',
     note: typeof r.note === 'string' ? r.note : '',
     strength: typeof r.strength === 'number' ? r.strength : 4,
+    // An older desktop sends no switch: its notes are all on.
+    noteEnabled: r.noteEnabled !== false,
     feelings,
   };
+}
+
+/** A member's Author's Note: its label with the on/off switch, then the note
+ *  and its Strength, greyed in place while off — the desktop's
+ *  MemberNoteSwitch. Edit group and "In the group" both draw it. */
+export function MemberNoteSwitch({
+  label,
+  on,
+  testId,
+  onChange,
+  children,
+}: {
+  label: string;
+  on: boolean;
+  testId: string;
+  onChange: (on: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <label className="state-line">
+        <span>{on ? label : `${label} · off`}</span>
+        <input
+          type="checkbox"
+          className="state-switch"
+          aria-label={label}
+          data-testid={testId}
+          checked={on}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+      </label>
+      <div className={on ? undefined : 'note-off'} data-testid={`${testId}-body`}>
+        {children}
+      </div>
+    </>
+  );
 }
 
 /** The tier name for a feeling score, as the desktop's relationshipTierName. */
@@ -68,21 +110,28 @@ export function GroupMemberSection({
         />
       </label>
       <p className="muted small">Blank uses the System Prompt under Advanced Prompts.</p>
-      <label>
-        Author&apos;s note when {memberName} speaks
+      <MemberNoteSwitch
+        label={`Author's note when ${memberName} speaks`}
+        on={values.noteEnabled}
+        testId="group-member-note-switch"
+        onChange={(on) => onChange({ ...values, noteEnabled: on })}
+      >
         <input
           data-testid="group-member-note"
+          aria-label={`Author's note when ${memberName} speaks`}
+          placeholder={`Author's note when ${memberName} speaks`}
           value={values.note}
           onChange={(e) => onChange({ ...values, note: e.target.value })}
         />
-      </label>
-      <Slider
-        label={`Strength · ${values.strength}`}
-        min={1}
-        max={10}
-        value={values.strength}
-        onChange={(n) => onChange({ ...values, strength: n })}
-      />
+        <Slider
+          label={`Strength · ${values.strength}`}
+          min={1}
+          max={10}
+          value={values.strength}
+          disabled={!values.noteEnabled}
+          onChange={(n) => onChange({ ...values, strength: n })}
+        />
+      </MemberNoteSwitch>
       {others.length > 0 && (
         <>
           <p>How {memberName} starts out feeling about the others</p>

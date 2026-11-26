@@ -115,6 +115,7 @@ class GroupFork {
       'chaosNsfwEnabled': _chaosModeService.chaosNsfwEnabled,
       'authorNote': _store.authorNote,
       'authorNoteStrength': _store.authorNoteStrength,
+      'authorNoteEnabled': _store.authorNoteEnabled,
       // Live kit, regardless of realism — collapse copies this back onto
       // `_pockets`; the fork must plant it on the host member the same way.
       if (_pockets != null) 'pockets': _pockets!.toJson(),
@@ -241,6 +242,7 @@ class GroupFork {
         description: drift.Value(_store.sessionDescription),
         authorNote: drift.Value(_store.authorNote),
         authorNoteDepth: drift.Value(_store.authorNoteStrength),
+        authorNoteEnabled: drift.Value(_store.authorNoteEnabled),
         summary: drift.Value(_store.summary.isEmpty ? null : _store.summary),
         summaryLastIndex: drift.Value(
           _store.summaryLastIndex > 0 ? _store.summaryLastIndex : null,

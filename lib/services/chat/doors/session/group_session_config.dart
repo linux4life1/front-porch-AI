@@ -41,15 +41,15 @@ class GroupSessionConfig {
 
   /// A new chat of [group] starts from the group's own defaults for each
   /// member (Edit group): their system prompt, Author's Note and Strength.
-  /// What the chat before it held does not carry over.
+  /// What the chat before it held does not carry over. A member note that is
+  /// switched off stays in Edit group and starts the chat without it.
   void seedNewChatDefaults(GroupChat group) {
     characterSystemPrompts = Map.of(group.characterSystemPrompts);
-    authorNotes = {
-      for (final e in group.characterAuthorNotes.entries) e.key: e.value.note,
-    };
-    authorNoteStrengths = {
+    final live = [
       for (final e in group.characterAuthorNotes.entries)
-        e.key: e.value.strength,
-    };
+        if (e.value.enabled) e,
+    ];
+    authorNotes = {for (final e in live) e.key: e.value.note};
+    authorNoteStrengths = {for (final e in live) e.key: e.value.strength};
   }
 }

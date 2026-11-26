@@ -1193,6 +1193,79 @@ void main() {
     );
     expect(find.byKey(const Key('group-user-colours-note')), findsNothing);
   });
+
+  testWidgets("In the group: switching a member's note off greys it in "
+      'place, keeps the text, and saves the off to the group store once', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      final saved = <GroupMemberValues>[];
+      await pumpHost(
+        tester,
+        chat: _OpenGroup(const []),
+        onOpen: (context) => editGroupMemberCard(
+          context,
+          member(),
+          _memberId,
+          mode: GroupMemberMode(
+            groupName: 'Pair',
+            memberId: _memberId,
+            others: const [],
+            scene: const GroupSceneTime(),
+            values: const GroupMemberValues(note: 'Keep it short.'),
+            saveValues: (v) async => saved.add(v),
+          ),
+        ),
+      );
+      final noteField = find.byKey(const Key('group-member-note'));
+      final body = find.ancestor(of: noteField, matching: find.byType(Opacity));
+      await tester.ensureVisible(noteField);
+      expect(tester.widget<Opacity>(body.first).opacity, 1);
+      final rowTop = tester.getTopLeft(noteField).dy;
+
+      await tester.tap(find.byKey(const Key('group-member-note-switch')));
+      await tester.pump();
+      expect(tester.widget<Opacity>(body.first).opacity, lessThan(1));
+      expect(
+        tester
+            .widget<Slider>(find.byKey(const Key('group-member-strength')))
+            .onChanged,
+        isNull,
+        reason: 'Strength waits while the note is off',
+      );
+      expect(find.text("Author's note when Mara speaks · off"), findsOneWidget);
+      expect(tester.getTopLeft(noteField).dy, rowTop, reason: 'nothing moves');
+      expect(
+        tester.widget<TextField>(noteField).controller!.text,
+        'Keep it short.',
+      );
+
+      await doubleTapNoFrame(tester, find.text('Save'));
+      await pumpUntil(
+        tester,
+        () => find.byType(EditCharacterPage).evaluate().isEmpty,
+        why: 'Save never closed the editor',
+      );
+      expect(saved, hasLength(1), reason: 'the group store was written once');
+      expect(
+        (saved.single.note, saved.single.noteEnabled),
+        ('Keep it short.', false),
+      );
+      final group = GroupChat(id: _groupId, name: 'Pair');
+      applyGroupMemberValues(group, _memberId, saved.single);
+      expect(group.characterAuthorNotes[_memberId]?.enabled, isFalse);
+      final draft = EditGroupDraft(group);
+      addTearDown(draft.dispose);
+      expect(draft.noteOnOf(_memberId), isFalse, reason: 'Edit group agrees');
+      expect(
+        draft
+            .toGroup(group, worldFields: null, loreJson: null)
+            .characterAuthorNotes[_memberId],
+        const MemberAuthorNote('Keep it short.', 4, enabled: false),
+        reason: "Edit group's Save keeps it off",
+      );
+    });
+  });
 }
 
 /// An open group named Pair that records each member Afterglow it sets. Like

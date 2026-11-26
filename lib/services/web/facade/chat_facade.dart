@@ -416,8 +416,8 @@ class ChatFacade {
   Future<bool> insertImage(String filename, {String prompt = ''}) =>
       _history.insertImage(filename, prompt: prompt);
 
-  void setAuthorNote(String note, {int? strength}) =>
-      _history.setAuthorNote(note, strength: strength);
+  void setAuthorNote(String note, {int? strength, bool? enabled}) =>
+      _history.setAuthorNote(note, strength: strength, enabled: enabled);
 
   Map<String, dynamic> chatLorebookRows() => _history.chatLorebookRows();
 

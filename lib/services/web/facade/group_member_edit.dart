@@ -140,6 +140,7 @@ class GroupMemberEdit {
             'systemPrompt': v.systemPrompt,
             'note': v.note,
             'strength': v.strength,
+            'noteEnabled': v.noteEnabled,
             'feelings': v.feelings,
           };
         }(),
@@ -207,6 +208,9 @@ class GroupMemberEdit {
       strength: json['strength'] is num
           ? (json['strength'] as num).toInt().clamp(1, 10)
           : now.strength,
+      noteEnabled: json['noteEnabled'] is bool
+          ? json['noteEnabled'] as bool
+          : now.noteEnabled,
       feelings: feelings,
     );
     if (next == now) return;

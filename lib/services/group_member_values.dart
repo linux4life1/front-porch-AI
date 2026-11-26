@@ -51,23 +51,29 @@ class GroupMemberValues {
     this.systemPrompt = '',
     this.note = '',
     this.strength = 4,
+    this.noteEnabled = true,
     this.feelings = const {},
   });
 
   final String systemPrompt;
   final String note;
   final int strength;
+
+  /// The note's switch: off keeps [note] and starts new chats without it.
+  final bool noteEnabled;
   final Map<String, int> feelings;
 
   GroupMemberValues copyWith({
     String? systemPrompt,
     String? note,
     int? strength,
+    bool? noteEnabled,
     Map<String, int>? feelings,
   }) => GroupMemberValues(
     systemPrompt: systemPrompt ?? this.systemPrompt,
     note: note ?? this.note,
     strength: strength ?? this.strength,
+    noteEnabled: noteEnabled ?? this.noteEnabled,
     feelings: feelings ?? this.feelings,
   );
 
@@ -77,6 +83,7 @@ class GroupMemberValues {
       other.systemPrompt == systemPrompt &&
       other.note == note &&
       other.strength == strength &&
+      other.noteEnabled == noteEnabled &&
       other.feelings.length == feelings.length &&
       other.feelings.entries.every((e) => feelings[e.key] == e.value);
 
@@ -85,6 +92,7 @@ class GroupMemberValues {
     systemPrompt,
     note,
     strength,
+    noteEnabled,
     Object.hashAllUnordered(feelings.entries.map((e) => (e.key, e.value))),
   );
 }
@@ -115,6 +123,7 @@ GroupMemberValues groupMemberValuesOf(GroupChat group, String mid) {
     systemPrompt: group.characterSystemPrompts[mid] ?? '',
     note: note?.note ?? '',
     strength: note?.strength ?? 4,
+    noteEnabled: note?.enabled ?? true,
     feelings: {
       if (legacy is Map)
         for (final e in legacy.entries)
@@ -146,6 +155,7 @@ void applyGroupMemberValues(
     group.characterAuthorNotes[mid] = MemberAuthorNote(
       note,
       values.strength.clamp(1, 10),
+      enabled: values.noteEnabled,
     );
   }
   final before = groupMemberValuesOf(group, mid).feelings;
