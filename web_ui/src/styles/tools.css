@@ -169,6 +169,8 @@
 .bogey-link-text { flex: 1; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .bogey-link .bogey-link-btn { font-size: 0.62rem; font-weight: 700; padding: 1px 4px; color: var(--porch-honey); }
 .bogey-link-modal { max-width: 340px; width: calc(100vw - 32px); }
+/* The desktop picker's title is the house dialog's heading, not a drawer label. */
+.bogey-link-modal .drawer-head span { font-size: 1.05rem; font-weight: 700; color: var(--text); }
 .bogey-link-options { display: flex; flex-direction: column; gap: 2px; margin: 6px 0; }
 .bogey-link-option {
   display: flex; align-items: center; gap: 8px; text-align: left;
