@@ -1,5 +1,4 @@
 {
-  "_discoveryapis_commons": "1.0.7",
   "_fe_analyzer_shared": "103.0.0",
   "analyzer": "13.3.0",
   "analyzer_buffer": "0.3.3",
@@ -73,7 +72,6 @@
   "google_cloud": "0.5.0",
   "google_fonts": "8.2.1",
   "google_identity_services_web": "0.3.3+1",
-  "googleapis": "17.0.0",
   "googleapis_auth": "2.3.4",
   "graphs": "2.3.2",
   "grpc": "5.1.0",

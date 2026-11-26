@@ -58,7 +58,6 @@ dependencies:
   package_info_plus: ^10.2.2
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
-  googleapis: ^17.0.0
   googleapis_auth: ^2.3.7
   drift: ^2.35.4
   # PAIRS WITH `sqlite3` 3.x, which bundles SQLite itself via native assets.
