@@ -102,6 +102,7 @@ class RealismSnapshot {
       'storyClock': _timeService.storyClockIso,
       'storyStartDate': _timeService.storyStartDateIso,
       'arousalLevel': _nsfwService.arousalLevel,
+      'heatLevel': _nsfwService.heatLevel,
       ..._nsfwService.refractory.toSnapshot(),
       'trustLevel': _relationshipService.trustLevel,
       'pendingTrustRepair': _relationshipService.pendingTrustRepair,
@@ -254,6 +255,7 @@ class RealismSnapshot {
     }
     if (rs.containsKey('arousalLevel')) {
       rs['arousalLevel'] = _nsfwService.arousalLevel;
+      rs['heatLevel'] = _nsfwService.heatLevel;
       rs.addAll(_nsfwService.refractory.toSnapshot());
     }
     if (rs.containsKey('spatialStance')) {

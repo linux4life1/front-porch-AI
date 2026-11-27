@@ -254,6 +254,7 @@ class SessionSaver {
         ),
         groupRealismState: drift.Value(groupRealismJson),
         arousalLevel: drift.Value(_nsfwService.arousalLevel),
+        heatLevel: drift.Value(_nsfwService.heatLevel), // v74
         // v55 — story minutes. The old cooldown_turns_* columns are no longer
         // written; a row that never had minutes reads them once on load.
         refractoryMinutesRemaining: drift.Value(body.minutes),

@@ -313,11 +313,12 @@ class RealismPromptBuilder {
     String preferences = '',
     List<({String text, int progress})> ambitions = const [],
     bool toolsMode = false,
+    bool heatEnabled = true,
   }) =>
       '${judgePrefix(charName: charName, userName: userName, dossier: dossier, standing: standing, preferences: preferences, ambitions: ambitions)}'
       'Name what $charName truly feels right now. Evaluate:\n'
       '${RealismPromptFragments.emotionSection(charName, allowedEmotionLabels, userName: userName, pcdActive: pcdActive)}'
-      '${arousalEnabled ? RealismPromptFragments.arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning, refractorySoft: refractorySoft, warmthTailMinutes: warmthTailMinutes, mutualOpening: mutualOpening) : ''}'
+      '${arousalEnabled ? RealismPromptFragments.arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning, refractorySoft: refractorySoft, warmthTailMinutes: warmthTailMinutes, mutualOpening: mutualOpening, heatOn: heatEnabled) : ''}'
       '\n'
       '${RealismPromptFragments.recentBlock(recent)}'
       '${toolsMode ? RealismPromptFragments.toolInstruction('report_emotional_state') : RealismPromptFragments.jsonInstruction([
@@ -325,7 +326,7 @@ class RealismPromptBuilder {
               'emotion_intensity',
               'emotion_cause',
               'emotion_change',
-              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason', if (heatEnabled) 'contact'],
             ])}';
 
   static String narrativeEvalPrompt({
@@ -372,6 +373,7 @@ class RealismPromptBuilder {
     List<String> recentEnded = const [],
     String preferences = '',
     bool toolsMode = false,
+    bool heatEnabled = true,
   }) =>
       '${judgePrefix(charName: charName, userName: userName, dossier: dossier, standing: standing, preferences: preferences, ambitions: ambitions)}'
       'Score how this exchange truly landed for $charName across every '
@@ -379,7 +381,7 @@ class RealismPromptBuilder {
       '${RealismPromptFragments.bondSection(charName, userName)}'
       '${RealismPromptFragments.trustSection(charName, userName)}'
       '${RealismPromptFragments.emotionSection(charName, allowedEmotionLabels, userName: userName, pcdActive: pcdActive)}'
-      '${arousalEnabled ? RealismPromptFragments.arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning, refractorySoft: refractorySoft, warmthTailMinutes: warmthTailMinutes, mutualOpening: mutualOpening, bondScoredHere: true) : ''}'
+      '${arousalEnabled ? RealismPromptFragments.arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning, refractorySoft: refractorySoft, warmthTailMinutes: warmthTailMinutes, mutualOpening: mutualOpening, bondScoredHere: true, heatOn: heatEnabled) : ''}'
       '${RealismPromptFragments.objectiveSection(charName, userName, primaryObjective, ambitions, openGoals: openGoals, recentEnded: recentEnded)}'
       '${RealismPromptFragments.fixationSection(charName)}'
       '${RealismPromptFragments.reasonSection()}'
@@ -394,7 +396,7 @@ class RealismPromptBuilder {
               'emotion_intensity',
               'emotion_cause',
               'emotion_change',
-              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason', if (heatEnabled) 'contact'],
               'proposed_objective',
               if (RealismPromptFragments.ambitionRoster(ambitions).isNotEmpty) 'serves_ambition',
               'fixation_topic',

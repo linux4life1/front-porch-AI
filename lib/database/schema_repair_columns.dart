@@ -130,6 +130,8 @@ const Map<String, List<String>> kSchemaRepairColumns = {
     'bb_enabled INTEGER NOT NULL DEFAULT 1',
     // v73 — the chat's Author's Note switch (issue #743).
     'author_note_enabled INTEGER NOT NULL DEFAULT 1',
+    // v74 — Heat, closeness to release (docs/design/heat-meter.md).
+    'heat_level INTEGER NOT NULL DEFAULT 0',
     // v12–v19 Realism columns. All added with the same silent catch, and
     // all named unconditionally by Drift's generated SELECT for sessions —
     // one missing column makes every chat open and every session-list

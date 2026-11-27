@@ -3191,8 +3191,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/afterglow_pass.dart",
-          "in": "AfterglowPass.runClimaxPass",
+          "path": "lib/services/chat/climax_landing.dart",
+          "in": "climaxLanding",
           "marker": "recovery.recoveryMinutes"
         }
       ]
@@ -3230,8 +3230,8 @@
       ],
       "reader": [
         {
-          "path": "lib/services/chat/afterglow_pass.dart",
-          "in": "AfterglowPass.runClimaxPass",
+          "path": "lib/services/chat/climax_landing.dart",
+          "in": "climaxLanding",
           "marker": "recovery.resolvedMode("
         },
         {
@@ -3245,8 +3245,8 @@
     "ext.sex": {
       "reader": [
         {
-          "path": "lib/services/chat/afterglow_pass.dart",
-          "in": "AfterglowPass.runClimaxPass",
+          "path": "lib/services/chat/climax_landing.dart",
+          "in": "climaxLanding",
           "marker": "recovery.resolvedMode(ext?.sex"
         }
       ],

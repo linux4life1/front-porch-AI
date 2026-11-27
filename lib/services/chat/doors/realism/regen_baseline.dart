@@ -180,6 +180,7 @@ class RegenBaseline {
         final arousalDelta =
             lastMsg.activeMetadata!['arousal_delta'] as int? ?? 0;
         final trustDelta = lastMsg.activeMetadata!['trust_delta'] as int? ?? 0;
+        final heatDelta = lastMsg.activeMetadata!['heat_delta'] as int? ?? 0;
 
         if (bondDelta != 0) {
           // recordMilestone: false — undoing a rejected reply must not plant
@@ -212,6 +213,12 @@ class RegenBaseline {
               ? Refractory.read(Map<dynamic, dynamic>.from(stamped))
               : null;
           _nsfwService.setArousalLevel(preClimaxArousal);
+          // Heat beside Lust (docs/design/heat-meter.md); a reply stamped
+          // before Heat existed carries none and leaves Heat as it is.
+          final preClimaxHeat = meta['pre_climax_heat'];
+          if (preClimaxHeat is num) {
+            _nsfwService.setHeatLevel(preClimaxHeat.toInt());
+          }
           _nsfwService.setRefractory(preBody ?? Refractory.none);
           debugPrint(
             '[Realism:Regen] Reverted climax state: arousal restored to '
@@ -223,6 +230,11 @@ class RegenBaseline {
           _nsfwService.setArousalLevel(
             (_nsfwService.arousalLevel - arousalDelta).clamp(-100, 100),
           );
+        }
+        if (!climaxTriggered &&
+            heatDelta != 0 &&
+            _nsfwService.nsfwCooldownEnabled) {
+          _nsfwService.setHeatLevel(_nsfwService.heatLevel - heatDelta);
         }
 
         // Needs pre-turn vector revert — mirrors the bond/trust/arousal delta

@@ -322,6 +322,30 @@ class PorchLifeAfterDarkGroup extends StatelessWidget {
           },
         ),
         FeatureRow(
+          key: const ValueKey('classic-lust-row'),
+          icon: Icons.history,
+          label: 'Classic Lust bar',
+          subtitle:
+              'Off shows the Heat bar under Lust. On keeps the old single Lust bar.',
+          need: FeatureNeed.needs,
+          dependsOn: 'Afterglow',
+          satisfied: engineOn && realism.afterglowEnabled,
+          showDependencyBadge: true,
+          expandDetailsSignal: expandDetailsSignal,
+          onDependencyTap: () => onJumpTo('realism'),
+          blurb:
+              'Off (the default): Lust is how much a character wants it, '
+              'and a separate Heat bar shows how close they are to '
+              'release. Heat only builds during intimate contact, so a '
+              'long flirt does not end on the first touch. On: the way it '
+              'worked before Heat — one Lust bar decides both, and no '
+              'Heat bar shows. Turning it on keeps each chat\'s Heat, so '
+              'turning it off again picks up where it was. Costs nothing '
+              'either way.',
+          value: realism.classicLustEnabled,
+          onChanged: realism.setClassicLustEnabled,
+        ),
+        FeatureRow(
           icon: Icons.favorite,
           label: 'Acts on desires',
           subtitle:

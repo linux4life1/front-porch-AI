@@ -44,6 +44,7 @@ class BondReads {
     required this.lustLevel,
     required this.lustTier,
     required this.lustTierName,
+    required this.heatLevel,
     required this.refractoryChip,
     required this.refractorySoft,
   });
@@ -57,6 +58,9 @@ class BondReads {
   final int lustLevel;
   final int lustTier;
   final String lustTierName;
+
+  /// Heat (docs/design/heat-meter.md), shown under Lust whenever Lust is.
+  final int heatLevel;
 
   /// Empty while no recovery runs.
   final String refractoryChip;
@@ -91,6 +95,7 @@ class BondReads {
       lustLevel: nsfw.arousalLevel.clamp(-100, 100),
       lustTier: nsfw.arousalTier,
       lustTierName: nsfw.arousalTierName,
+      heatLevel: nsfw.heatLevel,
       refractoryChip: nsfw.refractoryMinutesRemaining > 0
           ? nsfw.refractoryWords.chip
           : '',
@@ -136,6 +141,9 @@ class BondReads {
       lustLevel: arousal,
       lustTier: NsfwService.arousalTierForLevel(arousal),
       lustTierName: chat.nsfwService.arousalTierNameForLevel(arousal),
+      heatLevel: lustOn
+          ? chat.entryDoor.reads.getHeatForGroupCharacter(member)
+          : 0,
       refractoryChip: refractory.chip,
       refractorySoft: refractory.soft,
     );

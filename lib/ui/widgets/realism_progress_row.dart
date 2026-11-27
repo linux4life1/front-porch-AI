@@ -48,6 +48,10 @@ class RealismProgressRow extends StatelessWidget {
   /// true the moment they were wired up.
   final double? progress;
 
+  /// When non-null, the bar fills with this gradient instead of [color]
+  /// (Heat: the theme's amber to deep rose). Every other row stays solid.
+  final List<Color>? fillGradient;
+
   const RealismProgressRow({
     super.key,
     required this.label,
@@ -60,6 +64,7 @@ class RealismProgressRow extends StatelessWidget {
     this.tooltip,
     this.compact = false,
     this.progress,
+    this.fillGradient,
   });
 
   @override
@@ -119,14 +124,29 @@ class RealismProgressRow extends StatelessWidget {
         const SizedBox(height: 3),
         ClipRRect(
           borderRadius: BorderRadius.circular(2),
-          child: LinearProgressIndicator(
-            value: norm,
-            minHeight: compact ? 3 : 5,
-            backgroundColor: AppColors.borderOf(
-              context,
-            ).withValues(alpha: 0.35),
-            valueColor: AlwaysStoppedAnimation<Color>(displayColor),
-          ),
+          child: fillGradient == null
+              ? LinearProgressIndicator(
+                  value: norm,
+                  minHeight: compact ? 3 : 5,
+                  backgroundColor: AppColors.borderOf(
+                    context,
+                  ).withValues(alpha: 0.35),
+                  valueColor: AlwaysStoppedAnimation<Color>(displayColor),
+                )
+              : Container(
+                  height: compact ? 3 : 5,
+                  color: AppColors.borderOf(context).withValues(alpha: 0.35),
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: norm,
+                    heightFactor: 1,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: fillGradient!),
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ],
     );

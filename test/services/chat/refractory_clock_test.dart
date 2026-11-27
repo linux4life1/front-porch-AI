@@ -444,7 +444,9 @@ void main() {
         );
         expect(
           llm.replyPrompts.last,
-          contains('peak of arousal'),
+          // #770: the top Lust rung says "peak of desire" now that release
+          // wording moved to Heat; the rung itself is unchanged.
+          contains('peak of desire'),
           reason: 'arousal never dropped — 90 reads the top arousal rung now',
         );
       },

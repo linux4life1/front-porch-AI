@@ -190,6 +190,7 @@ class SessionScalars {
     _nsfwService.loadNsfwScalars(
       nsfwCooldownEnabled: s.nsfwCooldownEnabled,
       arousalLevel: s.arousalLevel,
+      heatLevel: s.heatLevel,
       refractory:
           Refractory.read({
             RefractoryKeys.minutes: s.refractoryMinutesRemaining,

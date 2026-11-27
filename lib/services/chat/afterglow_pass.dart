@@ -13,6 +13,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/climax_eval.dart';
+import 'package:front_porch_ai/services/chat/climax_landing.dart';
 import 'package:front_porch_ai/services/chat/clock_resolve.dart';
 import 'package:front_porch_ai/services/chat/group_member_realism.dart';
 import 'package:front_porch_ai/services/chat/group_realism_store.dart';
@@ -185,6 +186,9 @@ class AfterglowPass {
     // would record the post-climax body: the chip would say the character
     // peaked from nothing, and a regen revert would restore the wrong state.
     final preClimaxArousal = _nsfwService.arousalLevel;
+    // Heat at the climax, whatever it read: a climax counts whenever it
+    // happens (docs/design/heat-meter.md 3.5); the log says how often low.
+    final preClimaxHeat = _nsfwService.heatLevel;
     final preClimaxBody = _nsfwService.refractory;
     var newPeak = true;
     if (_messages.isNotEmpty && !_messages.last.isUser) {
@@ -208,6 +212,7 @@ class AfterglowPass {
       } else {
         meta['climax_triggered'] = true;
         meta['pre_climax_arousal'] = preClimaxArousal;
+        meta['pre_climax_heat'] = preClimaxHeat;
         // PR 5: the mutual beat rides the same verdict — stamped only when
         // true (absence is the default the whole stack already reads), read
         // once on the opening turn, and re-rolled by regen with its
@@ -236,25 +241,13 @@ class AfterglowPass {
         msg.activeMetadata = meta;
       }
     }
-    // The speaker's recovery profile (their card — the same one the judge
-    // saw): a fixed hard-lock length replaces the judge's number, and the
-    // resolved kind decides which body physics the climax lands with.
-    final ext = speaker.frontPorchExtensions;
-    final recovery = ext?.recovery ?? RecoveryProfile.auto;
-    final fixed = recovery.recoveryMinutes;
-    final kind = recovery.resolvedMode(ext?.sex ?? '');
-    final soft = kind == kRecoveryModeSoft;
-    // PR 4's warmth tail: half the would-be lock, floor 15, cap 120. A
-    // hard card judged to 0 gets neither lock nor tail. A soft card's
-    // would-be lock is the JUDGE's number — `fixed` is a hard-lock length
-    // and means nothing under a soft mode (a hand-edited card can carry
-    // both; the mode wins).
-    final tailMinutes = warmthTailMinutes(
-      soft
-          ? turns * kRefractoryMinutesPerTurn
-          : (fixed ?? turns * kRefractoryMinutesPerTurn),
-      soft: soft,
-    );
+    // The speaker's recovery profile decides how the climax lands: lock or
+    // window, fixed length, warmth tail (climax_landing.dart).
+    final landing = climaxLanding(speaker, turns);
+    final fixed = landing.fixedMinutes;
+    final kind = landing.kind;
+    final soft = landing.soft;
+    final tailMinutes = landing.tailMinutes;
     _nsfwService.applyClimaxEffects(
       turns: turns,
       fixedMinutes: fixed,
@@ -265,13 +258,13 @@ class AfterglowPass {
 
     debugPrint(
       soft
-          ? '[Afterglow] climax detected (arousal was $preClimaxArousal) — '
-                'tenderness window '
+          ? '[Afterglow] climax detected (arousal was $preClimaxArousal, '
+                'heat $preClimaxHeat) — tenderness window '
                 '${_nsfwService.refractoryMinutesRemaining} min, peak '
                 '${_nsfwService.refractoryPeaksLastHour} '
                 '(${newPeak ? 'stamped' : 'continue, no new peak'})'
-          : '[Afterglow] climax detected (arousal was $preClimaxArousal) — '
-                'refractory ${_nsfwService.refractoryMinutesRemaining} min '
+          : '[Afterglow] climax detected (arousal was $preClimaxArousal, '
+                'heat $preClimaxHeat) — refractory${_nsfwService.refractoryMinutesRemaining} min '
                 '($kind, ${fixed != null ? 'card-fixed' : 'judge'})',
     );
     if (tailMinutes > 0 && newPeak) {

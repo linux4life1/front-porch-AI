@@ -147,6 +147,9 @@ class Sessions extends Table {
       boolean().withDefault(const Constant(false))();
   IntColumn get arousalLevel =>
       integer().withDefault(const Constant(0))(); // 0 to 10 scale
+
+  /// Heat, closeness to release, 0–100 (docs/design/heat-meter.md). v74.
+  IntColumn get heatLevel => integer().withDefault(const Constant(0))();
   IntColumn get cooldownTurnsRemaining =>
       integer().withDefault(const Constant(0))(); // 0 = no cooldown
   IntColumn get cooldownTurnsTotal => integer().withDefault(

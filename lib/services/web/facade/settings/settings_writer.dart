@@ -231,6 +231,10 @@ class SettingsWriter {
       if (agency is bool) {
         await _storage.realismSettings.setIntimateAgencyEnabled(agency);
       }
+      final classicLust = realism['classicLustEnabled'];
+      if (classicLust is bool) {
+        await _storage.realismSettings.setClassicLustEnabled(classicLust);
+      }
       final chaos = realism['chaosModeDefault'];
       if (chaos is bool) {
         await _storage.realismSettings.setChaosModeDefault(chaos);

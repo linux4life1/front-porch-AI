@@ -122,5 +122,17 @@ extension _AppDatabaseMigrationLadder on AppDatabase {
         debugPrint('[DB] v73 author_note_enabled: $e (repair re-checks)');
       }
     }
+    if (from < 74) {
+      // v73→v74: Heat, closeness to release (docs/design/heat-meter.md).
+      // Additive; 0 is where every existing chat's Heat starts.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN heat_level '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+      } catch (e) {
+        debugPrint('[DB] v74 heat_level: $e (repair re-checks)');
+      }
+    }
   }
 }

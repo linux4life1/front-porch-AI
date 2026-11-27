@@ -41,6 +41,29 @@ Map<String, dynamic> _strField(String description) => {
   'description': description,
 };
 
+/// The desire fields of the emotional judge (and so of the one-shot judge):
+/// Lust's delta and reason, moved here verbatim from realism_tool_schemas.dart
+/// so Heat's `contact` (docs/design/heat-meter.md) could join them without
+/// that file crossing 500 lines.
+///
+/// `contact` is a plain string with no `enum`, on purpose: the text salvage
+/// (`usableEvalJsonText`) rejects the WHOLE emotional answer when an enum
+/// field holds any other word, and a model writing "Teasing" or "light"
+/// would cost the turn its mood and Lust. `HeatMeter.parseContact` reads it
+/// leniently instead. Optional like `arousal_delta`: missing moves nothing.
+final Map<String, Map<String, dynamic>> kDesireToolFields = {
+  'arousal_delta': _intField(
+    'Physical desire shift this turn (only when asked for in the prompt).',
+  ),
+  'arousal_reason': _strField(
+    'One brief in-character thought explaining the desire shift, or "none".',
+  ),
+  'contact': _strField(
+    'Sexual contact the character receives this turn: none, teasing, '
+    'intimate or intense (only when asked for in the prompt).',
+  ),
+};
+
 Map<String, dynamic> _tool(
   String name,
   String description,

@@ -457,7 +457,10 @@
 }
 .state-line > span:first-child { font-weight: 600; }
 .state-body { gap: 6px; }
-.lust-bar .stat-fill { background: var(--lust-up); }
+.lust-bar .stat-fill { background: var(--lust-accent); }
+/* Heat (docs/design/heat-meter.md): the theme's amber to Lust's deep rose,
+   the desktop HeatRow's gradient. */
+.heat-bar .stat-fill { background: linear-gradient(90deg, var(--porch-amber), var(--lust-deep)); }
 .state-time-line {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
   font-size: 0.82rem; margin-top: 2px;

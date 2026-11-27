@@ -156,8 +156,9 @@ void main() {
     // 2026-11-23: v71 adds growth_moments status/payload/shown_at (phase-5
     // milestones). 2026-11-24: v72 adds growth_state.kit_seen (kit entries
     // added mid-chat). 2026-11-25: v73 adds sessions.author_note_enabled
-    // (the Author's Note switch). The ladder ends at 73.
-    expect(first['_meta']!['user_version'], 73);
+    // (the Author's Note switch). 2026-11-26: v74 adds sessions.heat_level
+    // (Heat, closeness to release). The ladder ends at 74.
+    expect(first['_meta']!['user_version'], 74);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -182,7 +183,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 73);
+    expect(second['_meta']!['user_version'], 74);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

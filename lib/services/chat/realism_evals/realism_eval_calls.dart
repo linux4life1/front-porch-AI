@@ -215,6 +215,7 @@ class RealismEvalCalls {
           recent: recent,
           arousalEnabled: arousalEnabled,
           arousalLevel: evals.nsfwService.arousalLevel,
+          heatEnabled: evals.nsfwService.heatOn,
           refractoryMinutesLeft: evals.nsfwService.refractoryMinutesRemaining,
           clockRunning: evals.nsfwService.clockRunning,
           refractorySoft: evals.nsfwService.refractory.soft,

@@ -262,6 +262,7 @@ class SessionSeed {
       'fixation_lifespan': _relationshipService.fixationLifespan,
       'spatial_stance': _relationshipService.spatialStance,
       'arousal_level': _nsfwService.arousalLevel,
+      'heat_level': _nsfwService.heatLevel,
       'refractory_minutes_remaining': _nsfwService.refractoryMinutesRemaining,
       'refractory_minutes_total': _nsfwService.refractoryMinutesTotal,
       'refractory_opened': _nsfwService.refractoryOpened,
@@ -423,6 +424,7 @@ Map<String, dynamic> _headRealismState(
     'fixationLifespan': head['fixation_lifespan'],
   if (head['spatial_stance'] != null) 'spatialStance': head['spatial_stance'],
   if (head['arousal_level'] != null) 'arousalLevel': head['arousal_level'],
+  if (head['heat_level'] != null) 'heatLevel': head['heat_level'],
   if (head['refractory_minutes_remaining'] != null)
     RefractoryKeys.minutes: head['refractory_minutes_remaining'],
   if (head['refractory_minutes_total'] != null)

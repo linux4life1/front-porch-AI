@@ -622,6 +622,23 @@ export function ChatSidebar({
                           value={`${t.nsfw.arousalLevel}/100`}
                           percent={Math.abs(t.nsfw.arousalLevel) / 100}
                           className="lust-bar"
+                          // The desktop's three Lust hues (bond_bars.dart):
+                          // frost below 0, deep rose from tier 6, rose between.
+                          fill={
+                            t.nsfw.arousalLevel < 0
+                              ? 'var(--frost-accent)'
+                              : t.nsfw.arousalLevel >= 60
+                                ? 'var(--lust-deep)'
+                                : 'var(--lust-accent)'
+                          }
+                        />
+                      )}
+                      {t.nsfw.cooldownEnabled && t.nsfw.heatLevel !== undefined && (
+                        <StatBar
+                          label={`Heat: ${t.nsfw.heatTier}`}
+                          value={`${t.nsfw.heatLevel}/100`}
+                          percent={t.nsfw.heatLevel / 100}
+                          className="heat-bar"
                         />
                       )}
                       {t.nsfw.cooldownEnabled && t.nsfw.refractoryMinutesRemaining > 0 && (

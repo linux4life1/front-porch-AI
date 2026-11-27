@@ -133,6 +133,10 @@
   --trust-down: #7c4dff;
   --lust-up: #ff6e40;
   --lust-down: #40c4ff;
+  /* Lust and Heat bars; WebThemeTokens sends the live pair for each mode. */
+  --lust-accent: #fb7185;
+  --lust-deep: #f43f5e;
+  --frost-accent: #38bdf8;
   /* What a chip's wash mixes over: nothing on a dark page, the card on
      paper. */
   --chip-well: rgba(0, 0, 0, 0);
