@@ -253,8 +253,9 @@ Findings:
 - **Pacing holds.** Sustained contact climbs about 15 a turn, and the
   climax lands in the Close band or above (75–81) after five to seven turns.
 
-Open for the maintainer: tighten the contact rubric's examples, place the
-Heat line nearer the end of the prompt, or accept this as model variance.
+Ruling (2026-11-26): accepted as model variance. The contact rubric and the
+Heat line's place in the prompt stay as they are; a climax that slips through
+counts, as ruled in section 8.
 
 ## 7. PR plan
 
@@ -278,3 +279,5 @@ Heat line nearer the end of the prompt, or accept this as model variance.
    90–100 at the maintainer's request).
 5. **Climax**: counts whenever it happens, whatever Heat reads (3.5).
 6. **Chips**: no Heat chips on messages.
+7. **Live slip**: a first touch that climaxes anyway (1 in 10 on the live
+   run) is model variance; no rubric or prompt tightening (section 6a).
