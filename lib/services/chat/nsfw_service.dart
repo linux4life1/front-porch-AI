@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/heat_meter.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped NSFW
@@ -42,6 +43,9 @@ import 'package:front_porch_ai/services/chat/refractory.dart';
 ///   arousal is halved toward neutral (baseline receptivity returns) —
 ///   previously the character exited cooldown at arousal ≤ -2 and the
 ///   injection ladder read that as "physically repulsed" forever.
+/// - Heat (0..100, [HeatMeter]) is closeness to release and lives beside
+///   Lust in every snapshot, group map and rewind: it moves only on contact,
+///   never from desire alone.
 ///
 /// ChatService owns the instance via a private late final and delegates.
 /// Cross-state for group per-character persistence (arousal +
@@ -100,6 +104,7 @@ class NsfwService {
   Refractory _refractory = Refractory.none;
   int _arousalLevel =
       0; // -100 to +100 scale (tier-based, matching relationship system)
+  int _heatLevel = 0; // 0 to 100: closeness to release (HeatMeter)
 
   NsfwService({
     required this.getGroupInt,
@@ -129,6 +134,7 @@ class NsfwService {
   /// loaded member's own for this chat).
   bool get chatSwitchOn => _chatSwitchOn?.call() ?? true;
   int get arousalLevel => _arousalLevel;
+  int get heatLevel => _heatLevel;
 
   Refractory get refractory => _refractory;
   int get refractoryMinutesRemaining => _refractory.minutes;
@@ -226,6 +232,26 @@ class NsfwService {
     _arousalLevel = v.clamp(-100, 100);
   }
 
+  void setHeatLevel(int v) {
+    _heatLevel = v.clamp(0, HeatMeter.maxHeat);
+  }
+
+  /// The single apply path for the judge's `contact` read, after this
+  /// turn's Lust delta landed ([lustDelta] is the effective one). Returns
+  /// the Heat change that landed, which metadata records as `heat_delta` so
+  /// a regen rewinds it exactly.
+  int applyHeatContact(HeatContact contact, {required int lustDelta}) {
+    final before = _heatLevel;
+    _heatLevel = HeatMeter.next(
+      heat: _heatLevel,
+      contact: contact,
+      lust: _arousalLevel,
+      lustDelta: lustDelta,
+      hardLock: _refractory.running && !_refractory.soft,
+    );
+    return _heatLevel - before;
+  }
+
   /// Restores and rewinds (regen, delete, swipe, receipts).
   void setRefractory(Refractory r) {
     _refractory = r;
@@ -264,6 +290,7 @@ class NsfwService {
         final peak = (_refractory.peaksLastHour + 1).clamp(1, kPeakCap);
         _arousalLevel = (_arousalLevel - softPeakCost(_arousalLevel, peak))
             .clamp(-100, 100);
+        _heatLevel = HeatMeter.afterClimax(heat: _heatLevel, soft: true);
         final stamps = [..._refractory.peaks, 0];
         _refractory = Refractory.tenderness(
           stamps.length <= kPeakCap
@@ -283,6 +310,7 @@ class NsfwService {
         ? Refractory.fromMinutes(fixedMinutes, tailMinutes: tailMinutes)
         : Refractory.fromJudgeTurns(turns, tailMinutes: tailMinutes);
     _arousalLevel = 0;
+    _heatLevel = HeatMeter.afterClimax(heat: _heatLevel, soft: false);
   }
 
   /// The single apply path for eval-scored arousal deltas (multi-call and
@@ -328,12 +356,14 @@ class NsfwService {
     _nsfwCooldownEnabled = false;
     _refractory = Refractory.none;
     _arousalLevel = 0;
+    _heatLevel = 0;
   }
 
   /// Runtime arousal/cooldown zero for "New Chat" explicit fresh (even after
   /// ext seed of the enabled flag). Keeps non-ext and ext paths in sync.
   void resetRuntimeArousalAndCooldown() {
     _arousalLevel = 0;
+    _heatLevel = 0;
     _refractory = Refractory.none;
   }
 
@@ -346,11 +376,13 @@ class NsfwService {
   void loadNsfwScalars({
     required bool nsfwCooldownEnabled,
     required int arousalLevel,
+    int heatLevel = 0,
     Refractory refractory = Refractory.none,
   }) {
     _loadedMemberId = null;
     _nsfwCooldownEnabled = nsfwCooldownEnabled;
     _arousalLevel = arousalLevel.clamp(-100, 100);
+    _heatLevel = heatLevel.clamp(0, HeatMeter.maxHeat);
     _refractory = refractory;
   }
 
@@ -385,6 +417,11 @@ class NsfwService {
     final al = state['arousalLevel'];
     _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
         .clamp(-100, 100);
+    final hl = state['heatLevel'];
+    _heatLevel = (hl is num ? hl.toInt() : _heatLevel).clamp(
+      0,
+      HeatMeter.maxHeat,
+    );
     _refractory = Refractory.read(state) ?? _refractory;
   }
 
@@ -398,6 +435,7 @@ class NsfwService {
     _loadedMemberId = charId;
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel' for compat.
     _arousalLevel = getGroupInt(charId, 'arousal');
+    _heatLevel = getGroupInt(charId, 'heat').clamp(0, HeatMeter.maxHeat);
 
     final rawEnabled = getGroupValue(charId, 'nsfwCooldownEnabled');
     _nsfwCooldownEnabled =
@@ -418,6 +456,7 @@ class NsfwService {
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel'
     // for compat.
     setGroupValue(charId, 'arousal', _arousalLevel);
+    setGroupValue(charId, 'heat', _heatLevel);
     setGroupValue(charId, 'nsfwCooldownEnabled', _nsfwCooldownEnabled);
     final snap = _refractory.toSnapshot();
     for (final e in snap.entries) {

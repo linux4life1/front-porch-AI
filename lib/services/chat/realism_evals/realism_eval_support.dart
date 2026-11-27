@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/objective_proposal_gate.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_evals.dart';
+import 'package:front_porch_ai/services/chat/realism_evals/heat_apply.dart';
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
@@ -100,10 +101,11 @@ class RealismEvalSupport {
 
     if (applyArousal && evals.nsfwService.nsfwCooldownEnabled) {
       final arDelta = evals.extractJsonInt(text, 'arousal_delta');
+      var arousalDelta = 0;
       if (arDelta != null) {
         // Record the EFFECTIVE delta (post-clamp + refractory physiology) so
         // chips show what actually happened and regen revert stays exact.
-        final arousalDelta = evals.nsfwService.applyEvalArousalDelta(
+        arousalDelta = evals.nsfwService.applyEvalArousalDelta(
           arDelta.clamp(kMinArousalDelta, kMaxArousalDelta),
         );
         if (arousalDelta != 0) {
@@ -113,7 +115,20 @@ class RealismEvalSupport {
           evals.setPendingRealismMetadata(pending);
         }
       }
+      _applyHeat(text, arousalDelta);
     }
+  }
+
+  /// Heat rides the arousal owner, after Lust landed (heat_apply.dart).
+  void _applyHeat(String text, int lustDelta) {
+    final pending = evals.getPendingRealismMetadata() ?? {};
+    final landed = applyJudgedHeat(
+      evals.nsfwService,
+      text,
+      lustDelta: lustDelta,
+      pending: pending,
+    );
+    if (landed != 0) evals.setPendingRealismMetadata(pending);
   }
 
   /// Apply fixation update + autonomous objective proposal (if any) from a (possibly director-corrected)
@@ -395,6 +410,7 @@ class RealismEvalSupport {
           arDelta.clamp(kMinArousalDelta, kMaxArousalDelta),
         );
       }
+      _applyHeat(text, arousalDelta);
     }
 
     // Neither field in the answer (prose, a refusal) means nothing was

@@ -1820,6 +1820,18 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _heatLevelMeta = const VerificationMeta(
+    'heatLevel',
+  );
+  @override
+  late final GeneratedColumn<int> heatLevel = GeneratedColumn<int>(
+    'heat_level',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _cooldownTurnsRemainingMeta =
       const VerificationMeta('cooldownTurnsRemaining');
   @override
@@ -2330,6 +2342,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     passageOfTimeEnabled,
     passageOfTimeGateMigrated,
     arousalLevel,
+    heatLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
     refractoryMinutesRemaining,
@@ -2673,6 +2686,12 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
           data['arousal_level']!,
           _arousalLevelMeta,
         ),
+      );
+    }
+    if (data.containsKey('heat_level')) {
+      context.handle(
+        _heatLevelMeta,
+        heatLevel.isAcceptableOrUnknown(data['heat_level']!, _heatLevelMeta),
       );
     }
     if (data.containsKey('cooldown_turns_remaining')) {
@@ -3161,6 +3180,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.int,
         data['${effectivePrefix}arousal_level'],
       )!,
+      heatLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}heat_level'],
+      )!,
       cooldownTurnsRemaining: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}cooldown_turns_remaining'],
@@ -3374,6 +3397,9 @@ class Session extends DataClass implements Insertable<Session> {
   /// we stop rewriting it as if it were a gate.
   final bool passageOfTimeGateMigrated;
   final int arousalLevel;
+
+  /// Heat, closeness to release, 0–100 (docs/design/heat-meter.md). v74.
+  final int heatLevel;
   final int cooldownTurnsRemaining;
   final int cooldownTurnsTotal;
 
@@ -3525,6 +3551,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.passageOfTimeEnabled,
     required this.passageOfTimeGateMigrated,
     required this.arousalLevel,
+    required this.heatLevel,
     required this.cooldownTurnsRemaining,
     required this.cooldownTurnsTotal,
     this.refractoryMinutesRemaining,
@@ -3626,6 +3653,7 @@ class Session extends DataClass implements Insertable<Session> {
       passageOfTimeGateMigrated,
     );
     map['arousal_level'] = Variable<int>(arousalLevel);
+    map['heat_level'] = Variable<int>(heatLevel);
     map['cooldown_turns_remaining'] = Variable<int>(cooldownTurnsRemaining);
     map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal);
     if (!nullToAbsent || refractoryMinutesRemaining != null) {
@@ -3766,6 +3794,7 @@ class Session extends DataClass implements Insertable<Session> {
       passageOfTimeEnabled: Value(passageOfTimeEnabled),
       passageOfTimeGateMigrated: Value(passageOfTimeGateMigrated),
       arousalLevel: Value(arousalLevel),
+      heatLevel: Value(heatLevel),
       cooldownTurnsRemaining: Value(cooldownTurnsRemaining),
       cooldownTurnsTotal: Value(cooldownTurnsTotal),
       refractoryMinutesRemaining:
@@ -3899,6 +3928,7 @@ class Session extends DataClass implements Insertable<Session> {
         json['passageOfTimeGateMigrated'],
       ),
       arousalLevel: serializer.fromJson<int>(json['arousalLevel']),
+      heatLevel: serializer.fromJson<int>(json['heatLevel']),
       cooldownTurnsRemaining: serializer.fromJson<int>(
         json['cooldownTurnsRemaining'],
       ),
@@ -4006,6 +4036,7 @@ class Session extends DataClass implements Insertable<Session> {
         passageOfTimeGateMigrated,
       ),
       'arousalLevel': serializer.toJson<int>(arousalLevel),
+      'heatLevel': serializer.toJson<int>(heatLevel),
       'cooldownTurnsRemaining': serializer.toJson<int>(cooldownTurnsRemaining),
       'cooldownTurnsTotal': serializer.toJson<int>(cooldownTurnsTotal),
       'refractoryMinutesRemaining': serializer.toJson<int?>(
@@ -4089,6 +4120,7 @@ class Session extends DataClass implements Insertable<Session> {
     bool? passageOfTimeEnabled,
     bool? passageOfTimeGateMigrated,
     int? arousalLevel,
+    int? heatLevel,
     int? cooldownTurnsRemaining,
     int? cooldownTurnsTotal,
     Value<int?> refractoryMinutesRemaining = const Value.absent(),
@@ -4174,6 +4206,7 @@ class Session extends DataClass implements Insertable<Session> {
     passageOfTimeGateMigrated:
         passageOfTimeGateMigrated ?? this.passageOfTimeGateMigrated,
     arousalLevel: arousalLevel ?? this.arousalLevel,
+    heatLevel: heatLevel ?? this.heatLevel,
     cooldownTurnsRemaining:
         cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
     cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
@@ -4340,6 +4373,7 @@ class Session extends DataClass implements Insertable<Session> {
       arousalLevel: data.arousalLevel.present
           ? data.arousalLevel.value
           : this.arousalLevel,
+      heatLevel: data.heatLevel.present ? data.heatLevel.value : this.heatLevel,
       cooldownTurnsRemaining: data.cooldownTurnsRemaining.present
           ? data.cooldownTurnsRemaining.value
           : this.cooldownTurnsRemaining,
@@ -4489,6 +4523,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
           ..write('passageOfTimeGateMigrated: $passageOfTimeGateMigrated, ')
           ..write('arousalLevel: $arousalLevel, ')
+          ..write('heatLevel: $heatLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
           ..write('refractoryMinutesRemaining: $refractoryMinutesRemaining, ')
@@ -4570,6 +4605,7 @@ class Session extends DataClass implements Insertable<Session> {
     passageOfTimeEnabled,
     passageOfTimeGateMigrated,
     arousalLevel,
+    heatLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
     refractoryMinutesRemaining,
@@ -4650,6 +4686,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.passageOfTimeEnabled == this.passageOfTimeEnabled &&
           other.passageOfTimeGateMigrated == this.passageOfTimeGateMigrated &&
           other.arousalLevel == this.arousalLevel &&
+          other.heatLevel == this.heatLevel &&
           other.cooldownTurnsRemaining == this.cooldownTurnsRemaining &&
           other.cooldownTurnsTotal == this.cooldownTurnsTotal &&
           other.refractoryMinutesRemaining == this.refractoryMinutesRemaining &&
@@ -4728,6 +4765,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<bool> passageOfTimeEnabled;
   final Value<bool> passageOfTimeGateMigrated;
   final Value<int> arousalLevel;
+  final Value<int> heatLevel;
   final Value<int> cooldownTurnsRemaining;
   final Value<int> cooldownTurnsTotal;
   final Value<int?> refractoryMinutesRemaining;
@@ -4805,6 +4843,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.passageOfTimeEnabled = const Value.absent(),
     this.passageOfTimeGateMigrated = const Value.absent(),
     this.arousalLevel = const Value.absent(),
+    this.heatLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
     this.refractoryMinutesRemaining = const Value.absent(),
@@ -4883,6 +4922,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.passageOfTimeEnabled = const Value.absent(),
     this.passageOfTimeGateMigrated = const Value.absent(),
     this.arousalLevel = const Value.absent(),
+    this.heatLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
     this.refractoryMinutesRemaining = const Value.absent(),
@@ -4961,6 +5001,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<bool>? passageOfTimeEnabled,
     Expression<bool>? passageOfTimeGateMigrated,
     Expression<int>? arousalLevel,
+    Expression<int>? heatLevel,
     Expression<int>? cooldownTurnsRemaining,
     Expression<int>? cooldownTurnsTotal,
     Expression<int>? refractoryMinutesRemaining,
@@ -5044,6 +5085,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (passageOfTimeGateMigrated != null)
         'passage_of_time_gate_migrated': passageOfTimeGateMigrated,
       if (arousalLevel != null) 'arousal_level': arousalLevel,
+      if (heatLevel != null) 'heat_level': heatLevel,
       if (cooldownTurnsRemaining != null)
         'cooldown_turns_remaining': cooldownTurnsRemaining,
       if (cooldownTurnsTotal != null)
@@ -5134,6 +5176,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<bool>? passageOfTimeEnabled,
     Value<bool>? passageOfTimeGateMigrated,
     Value<int>? arousalLevel,
+    Value<int>? heatLevel,
     Value<int>? cooldownTurnsRemaining,
     Value<int>? cooldownTurnsTotal,
     Value<int?>? refractoryMinutesRemaining,
@@ -5215,6 +5258,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       passageOfTimeGateMigrated:
           passageOfTimeGateMigrated ?? this.passageOfTimeGateMigrated,
       arousalLevel: arousalLevel ?? this.arousalLevel,
+      heatLevel: heatLevel ?? this.heatLevel,
       cooldownTurnsRemaining:
           cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
       cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
@@ -5382,6 +5426,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (arousalLevel.present) {
       map['arousal_level'] = Variable<int>(arousalLevel.value);
+    }
+    if (heatLevel.present) {
+      map['heat_level'] = Variable<int>(heatLevel.value);
     }
     if (cooldownTurnsRemaining.present) {
       map['cooldown_turns_remaining'] = Variable<int>(
@@ -5559,6 +5606,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('passageOfTimeEnabled: $passageOfTimeEnabled, ')
           ..write('passageOfTimeGateMigrated: $passageOfTimeGateMigrated, ')
           ..write('arousalLevel: $arousalLevel, ')
+          ..write('heatLevel: $heatLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
           ..write('refractoryMinutesRemaining: $refractoryMinutesRemaining, ')

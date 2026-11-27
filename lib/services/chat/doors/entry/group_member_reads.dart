@@ -161,6 +161,15 @@ class GroupMemberReads {
     return _groupRealism[id]?.arousal ?? 0;
   }
 
+  /// The member's own Heat (docs/design/heat-meter.md), off their entry like
+  /// [getArousalForGroupCharacter]. Reached as `entryDoor.reads`, not through
+  /// a ChatService forwarder: no fake overrides it.
+  int getHeatForGroupCharacter(CharacterCard character) {
+    if (!_realismOnFor(character)) return 0;
+    final id = _getCharacterIdFromCard(character);
+    return _groupRealism[id]?.heat ?? 0;
+  }
+
   /// The member's own recovery in the 1:1 chip's words, with its minutes and
   /// whether it is a soft window: off their own entry, never the live
   /// scalars, which hold whoever was loaded last. Empty while none runs and

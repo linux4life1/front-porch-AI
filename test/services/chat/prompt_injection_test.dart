@@ -604,7 +604,10 @@ void main() {
         nsfwSvc: peak,
         activeChar: CharacterCard(name: 'Ada'),
       ).buildNsfwCooldownInjection();
-      expect(txt, contains('tip over into climax'));
+      // #770: Lust speaks desire only; the tip-over clause moved to Heat's
+      // line (HeatMeter.bodyLine), so peak Lust with no Heat must not carry
+      // it. The old assertion pinned the release wording on Lust itself.
+      expect(txt, isNot(contains('tip over')));
       expect(txt, contains('never produces an orgasm on its own'));
     });
 
@@ -1275,11 +1278,13 @@ void main() {
         final t = text(const Refractory(soft: true, peaks: [30]), arousal: 55);
         expect(t, contains('is warm again'));
         expect(t, contains('nothing is being chased yet'));
-        expect(t, isNot(contains('chasing release')));
+        // #770: the "heavily aroused" rung's marker is now "vocal and wanting
+        // more" ("chasing release" was release wording on Lust).
+        expect(t, isNot(contains('vocal and wanting more')));
         // Past the hour the normal ladder returns.
         expect(
           text(const Refractory(soft: true), arousal: 55),
-          contains('chasing release'),
+          contains('vocal and wanting more'),
         );
       },
     );
@@ -1290,7 +1295,7 @@ void main() {
       // soft warmth words belong to a soft body only.
       final t = text(const Refractory(peaks: [10]), arousal: 55);
       expect(t, isNot(contains('is warm again')));
-      expect(t, contains('chasing release'));
+      expect(t, contains('vocal and wanting more')); // #770 marker
     });
 
     test('no rung of any ladder speaks a gendered pronoun', () {
@@ -1403,7 +1408,7 @@ void main() {
       expect(t, contains('still riding a warm afterglow'));
       expect(t, contains('small kindnesses land harder'));
       expect(t, contains('any desire that has come back cools slowly'));
-      expect(t, isNot(contains('chasing release')));
+      expect(t, isNot(contains('vocal and wanting more'))); // #770 marker
       // The same body with no tail says nothing at 10 — the tail rung is
       // the only difference.
       expect(
@@ -1416,7 +1421,7 @@ void main() {
     test('the tail yields to strong desire and to a soured body', () {
       expect(
         tailText(cleared, arousal: 55),
-        contains('chasing release'),
+        contains('vocal and wanting more'), // #770 marker
         reason: 'a body that is genuinely hungry again speaks the real rung',
       );
       expect(

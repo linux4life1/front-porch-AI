@@ -51,6 +51,7 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'storyClock',
   'storyStartDate',
   'arousalLevel',
+  'heatLevel',
   'refractoryMinutesRemaining',
   'refractoryMinutesTotal',
   'refractoryOpened',

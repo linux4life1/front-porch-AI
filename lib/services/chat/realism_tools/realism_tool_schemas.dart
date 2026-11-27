@@ -69,12 +69,8 @@ final Map<String, Map<String, dynamic>> _emotionalFields = {
         'held: the same feeling carrying on. stoked: the same feeling, '
         'freshly fed by this turn. moved: a different feeling now.',
   },
-  'arousal_delta': _intField(
-    'Physical desire shift this turn (only when asked for in the prompt).',
-  ),
-  'arousal_reason': _strField(
-    'One brief in-character thought explaining the desire shift, or "none".',
-  ),
+  // arousal_delta, arousal_reason and Heat's contact: afterglow_tool_schemas.
+  ...kDesireToolFields,
 };
 
 final Map<String, Map<String, dynamic>> _narrativeFields = {

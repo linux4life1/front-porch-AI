@@ -55,6 +55,7 @@ const List<String> _kJudgedMetaKeys = [
   'trust_reason',
   'arousal_delta',
   'arousal_reason',
+  'heat_delta',
   'trust_repair_verdict',
   'trust_repair_recovery',
   'trust_repair_reason',
@@ -233,7 +234,12 @@ class Reprocessor {
       );
     } catch (_) {
       // Whatever threw, the snapshot goes back before anything is saved.
-      _putJudgedRegisters(now, now['arousalLevel'], groupSid);
+      _putJudgedRegisters(
+        now,
+        now['arousalLevel'],
+        groupSid,
+        heat: now['heatLevel'],
+      );
       rethrow;
     }
   }
@@ -259,6 +265,7 @@ class Reprocessor {
       },
       stamp['arousalLevel'],
       groupSid,
+      heat: stamp['heatLevel'],
     );
     _s.graph().restores.applyMoodDecay();
     if (groupSid != null) _s.graph().dance.loadIntoScalars(groupSid);
@@ -295,7 +302,12 @@ class Reprocessor {
         '[Realism:Rescore] ${speaker.name}: no readable answer — the reply '
         'keeps what it had',
       );
-      _putJudgedRegisters(now, now['arousalLevel'], groupSid);
+      _putJudgedRegisters(
+        now,
+        now['arousalLevel'],
+        groupSid,
+        heat: now['heatLevel'],
+      );
       return false;
     }
 
@@ -307,11 +319,19 @@ class Reprocessor {
     final arousal = meta['climax_triggered'] == true
         ? nowArousal
         : nowArousal - oldArousal + newArousal;
+    // Heat the same way, beside Lust (docs/design/heat-meter.md).
+    final nowHeat = (now['heatLevel'] as num?)?.toInt() ?? 0;
+    final heat = meta['climax_triggered'] == true
+        ? nowHeat
+        : nowHeat -
+              ((meta['heat_delta'] as num?)?.toInt() ?? 0) +
+              ((pending['heat_delta'] as num?)?.toInt() ?? 0);
     // Cadence, the hidden group feelings and posture are the turn's.
     _putJudgedRegisters(
       {...nowCadence, 'spatialStance': now['spatialStance']},
       arousal,
       groupSid,
+      heat: heat,
     );
 
     meta.removeWhere((k, _) => _kJudgedMetaKeys.contains(k));
@@ -330,7 +350,7 @@ class Reprocessor {
     final live = _s.graph().snapshot.capture();
     meta['realism_state'] = {
       ...Map<String, dynamic>.from(meta['realism_state'] as Map),
-      for (final k in [..._kJudgedRegisters, 'arousalLevel'])
+      for (final k in [..._kJudgedRegisters, 'arousalLevel', 'heatLevel'])
         if (live.containsKey(k)) k: live[k],
     };
     // Our Story cards only for a tier the old score had not already reached,
@@ -401,16 +421,21 @@ class Reprocessor {
   void _putJudgedRegisters(
     Map<String, dynamic> state,
     Object? arousal,
-    String? groupSid,
-  ) {
+    String? groupSid, {
+    Object? heat,
+  }) {
     _relationshipService.restoreFromMessageState(
       state,
       groupSpeakerId: groupSid,
     );
     _s.graph().mood.restoreFromStamp(state);
-    // Lust is scored only while Afterglow runs; a re-score leaves it alone.
+    // Lust and Heat are scored only while Afterglow runs; a re-score leaves
+    // them alone otherwise.
     if (arousal is num && _nsfwService.nsfwCooldownEnabled) {
       _nsfwService.setArousalLevel(arousal.toInt());
+    }
+    if (heat is num && _nsfwService.nsfwCooldownEnabled) {
+      _nsfwService.setHeatLevel(heat.toInt());
     }
     if (groupSid == null) return;
     _s.graph().dance.saveScalarsIntoGroup(groupSid);

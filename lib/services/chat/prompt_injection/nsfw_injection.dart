@@ -46,12 +46,14 @@ const _afterglowNeedsDrive =
 /// built. Only the NAME needed its own group lookup (getActiveCharacter is
 /// the previous speaker at that point).
 ///
-/// LOAD-BEARING (keep): the peak-arousal band's "desire meter, not a climax
-/// countdown" rule — peak desire alone must never produce a spontaneous
-/// orgasm, but in an actively sexual scene the character must be allowed to
-/// finish naturally without an OOC order (otherwise arousal pins at max and
-/// the refractory never fires, since the post-gen climax check only triggers
-/// when the reply depicts release).
+/// LOAD-BEARING (keep): Lust's lines speak of desire only, never of release.
+/// Closeness to release is Heat's line ([HeatMeter.bodyLine], appended after
+/// Lust's): below its edge it forbids narrating the orgasm, at the edge it
+/// lets the character finish naturally without an OOC order (otherwise the
+/// scene never ends and the refractory never fires, since the post-gen
+/// climax check only triggers when the reply depicts release). Lust's top
+/// bands used to carry that release wording, so a flirt-built Lust of 80
+/// climaxed on the first touch (#770, docs/design/heat-meter.md).
 bool _noMutualOpening() => false;
 
 class NsfwInjection {
@@ -107,7 +109,14 @@ class NsfwInjection {
     if (!getRealismEnabled() || !nsfwService.nsfwCooldownEnabled) return '';
 
     final name = _speakerName();
+    final lust = _lustLine(name);
+    final heat = HeatMeter.bodyLine(name, nsfwService.heatLevel);
+    if (heat.isEmpty) return lust;
+    return lust.isEmpty ? heat : '$lust $heat';
+  }
 
+  /// Lust and recovery: desire, closeness and capacity, never release.
+  String _lustLine(String name) {
     if (nsfwService.refractoryMinutesRemaining > 0) {
       final remaining = nsfwService.refractoryMinutesRemaining;
       final total = nsfwService.refractoryMinutesTotal > 0
@@ -243,22 +252,18 @@ class NsfwInjection {
     if (a <= 60) {
       return 'Body: $name is heavily aroused — pulse racing, aching for '
           'contact, focus fraying. In an active sexual scene: vocal and '
-          'chasing release; otherwise: visibly distracted, restless, '
+          'wanting more; otherwise: visibly distracted, restless, '
           'inventing excuses to touch or be near while fighting the urge to '
           'escalate.';
     }
     if (a <= 80) {
       return 'Body: $name is overwhelmed with desire — trembling, desperate, '
-          'barely holding composure. In an active sexual scene release is '
-          'close; otherwise every sensation is electric, the state is '
-          'impossible to hide, and no relief has come yet.';
+          'barely holding composure; every sensation is electric and the '
+          'state is impossible to hide.';
     }
-    return 'Body: $name is at the absolute peak of arousal — consumed by '
+    return 'Body: $name is at the absolute peak of desire — consumed by '
         'need, unable to think straight, desperate and unable to hide it. '
-        'If the scene is actively sexual and stimulation keeps up, let $name '
-        'tip over into climax naturally, in $name\'s own voice, without '
-        'waiting for permission — but if nothing physical is actually '
-        'happening, this is only how badly it is wanted; desire this high '
-        'never produces an orgasm on its own.';
+        'This is how badly it is wanted, not how close release is; desire '
+        'this high never produces an orgasm on its own.';
   }
 }

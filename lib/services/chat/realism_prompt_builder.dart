@@ -325,7 +325,7 @@ class RealismPromptBuilder {
               'emotion_intensity',
               'emotion_cause',
               'emotion_change',
-              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason', 'contact'],
             ])}';
 
   static String narrativeEvalPrompt({
@@ -394,7 +394,7 @@ class RealismPromptBuilder {
               'emotion_intensity',
               'emotion_cause',
               'emotion_change',
-              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason', 'contact'],
               'proposed_objective',
               if (RealismPromptFragments.ambitionRoster(ambitions).isNotEmpty) 'serves_ambition',
               'fixation_topic',

@@ -21,6 +21,7 @@
 // progress with the same word. A local copy here would drift the first time a
 // band moved.
 import 'package:front_porch_ai/services/chat/ambition_service.dart';
+import 'package:front_porch_ai/services/chat/heat_meter.dart';
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
 
@@ -198,13 +199,14 @@ class RealismPromptFragments {
       '  These bands are the default. Authored "drawn to" / "warms to" tastes outrank the '
       'Rejection band: a matching turn is wanted intimacy, not humiliation. A genuine '
       'out-of-play stop is still Rejection.\n'
-      '  Arousal measures DESIRE and PHYSICAL RESPONSE, not progress toward climax — climax only happens '
-      'during active sexual contact at high arousal. At 60+ it is VISIBLE in $charName\'s behavior: '
+      '  Arousal measures DESIRE and PHYSICAL RESPONSE, not progress toward climax — closeness to '
+      'release is tracked separately, from "contact" below. At 60+ it is VISIBLE in $charName\'s behavior: '
       'breathing, focus, flushed skin, body language.\n'
       '  A non-sexual, non-romantic turn (food, work, errands, small talk, plain comfort) is 0 — and if '
       'current arousal is above 0 on such a turn, return roughly -5 to -10 so it cools back toward neutral.\n'
       '- "arousal_reason": one brief in-character thought from $charName explaining the desire shift '
       '(e.g. "The way they said my name." or "Not now, not like this."), or "none" if the delta is 0.\n'
+      '${HeatMeter.contactRubric(charName, userName)}'
       '${refractoryMinutesLeft > 0
           ? _refractoryNote(charName, userName, refractoryMinutesLeft, clockRunning, refractorySoft, mutualOpening: mutualOpening, surge: bondScoredHere)
           : warmthTailMinutes > 0
