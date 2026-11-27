@@ -42,6 +42,7 @@ List<Map<String, dynamic>> bbRingsJson(
     );
   return [
     for (final r in rings)
-      if (BoonsBogies.isBoonOrBogey(r) && !r.retired) growthRingToJson(r),
+      if (BoonsBogies.isBoonOrBogey(r) && !r.retired)
+        growthRingToJson(r, ownerRings: rings),
   ];
 }

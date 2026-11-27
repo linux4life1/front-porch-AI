@@ -13,8 +13,11 @@ and the `not offered` verdict (#764). Phase 5 shipped on 2026-11-24
 (PR #774): schema v71, the milestone card and
 Moments on both surfaces from the approved mockup, the shared celebration
 sim (Flame on desktop, canvas on web), and #763 (BETA lifted, boon link,
-scope hint, kind-flip pin default). v1 is complete; phase 7 (the boon
-link's slowdown) is next.
+scope hint, kind-flip pin default). v1 is complete. Phase 7 (the boon
+link) was built on 2026-11-26 on `feat/boons-and-bogies-phase7` to
+rulings 20–23: the slowdown, the Master wear-down with the app's own
+Overcome offer, the link line on both surfaces, and links from the Growth
+pass with the user's override (§6, "Boon link").
 Ruling 18 (three-layer participation) and the §3 absence amendment are law
 for phases 4–5.
 v1 (2026-11-19) proposed
@@ -98,6 +101,27 @@ file it was read from, at `ba5b37a2f`.
     would make swiping converge on endearing clumsiness, which is a
     reroll escaping the mechanic the rate math exists to guarantee.
     (Maintainer ruling, 2026-11-21.)
+20. **The link slows the flaw by tier.** A bogey linked to a live boon
+    fires about once every 8 replies at Novice, 10 at Skilled and 12 at
+    Master (unlinked: about 7). The link scales the capped fire chance —
+    80 / 50 / 33 percent — so pressure, the cooldown and Chance Time's
+    shared math are untouched; a pure-function simulation over the call
+    the roll makes pins the gaps. (Maintainer ruling, 2026-11-26.)
+21. **A Master link makes overcome likely: the app offers it.** While the
+    linked boon is Master, a cope wears the flaw down two steps instead of
+    one, and when it reaches zero the app itself proposes the Overcome
+    milestone, citing the cope's messages. A pinned flaw never wears down,
+    so for it the cope itself is the moment. After a Reject the app asks
+    again only once the flaw has fired since. The user still decides.
+    (Maintainer ruling, 2026-11-26.)
+22. **The link is visible.** Under each bogey on the shared card, desktop
+    and web: "Held back by Stealth (Skilled)", or "Not linked to a boon"
+    when the owner has boons to pick. (Maintainer ruling, 2026-11-26.)
+23. **The model may link; the user overrides.** A Growth pass that adds a
+    bogey may name the boon that pushes against it (`against="N"`, tool
+    `against`); the link rides the New bogey milestone and lands on Accept.
+    The card's Link / Change picker lets the user pick another boon or
+    "No boon" at any time. (Maintainer ruling, 2026-11-26.)
 
 ## 1. Pitch
 
@@ -360,8 +384,31 @@ bogey to a boon. Code keeps the guardrails, not the prompt:
   emotional judge is a v2 refinement, not a v1 blocker.
 - **Chance Time precedence:** if a Chance Time event fired this turn, skip the
   bogey roll and hold pressure (ruling 16).
-- **Boon link (v2):** each tier of the linked boon slows pressure growth; at
-  Master it makes an overcome proposal likely. v1's overcome does not need it.
+- **Boon link (phase 7, rulings 20–23).** The link is `metadata.bb.linkedBoon`:
+  a boon ring id (the user's pick, or a Growth pass's `against`), or the
+  boon's words as a card kit names it. `BoonLink.linkedBoonOf`
+  (`lib/services/chat/growth_bb_link.dart`) resolves it — id first, then
+  the kit's words — among the same owner's live boons; a link to a boon
+  that is gone or retired reads as unlinked, and the roll treats it so.
+  - *Slowdown:* `BogeyRoll.replyForRings` scales each bogey's capped chance
+    by `BoonLink.chancePercentFor(tier)` (80 / 50 / 33);
+    `PressureRoll.tick`'s default 100 keeps Chance Time bit-for-bit.
+  - *Wear-down and Overcome:* `GrowthBogeyStore.cope` steps two at a Master
+    link and reports the Master-linked copes; `LinkedOvercome.offer`
+    (`growth_link_overcome.dart`) queues the Overcome moment through the
+    milestone queue (dedupe, rewrite sweep) with the cope's messages as its
+    receipts and the count it was offered at, which is the Reject memory.
+  - *Model links:* `GrowthOp.linkHandle` → `BoonLink.boonIdForHandle` (a
+    live boon in the list the prompt numbered, or nothing) →
+    `GrowthProposedOp.linkedBoonId` → `MilestoneProposal.linkedBoon`.
+  - *User override:* `ChatService.setBogeyLink` (one write, the desk checks
+    the boon is the same owner's) behind the desktop `BogeyLinkLine` and the
+    web growth action `link`.
+  - Path-complete: the slowdown lives inside the roll, so Continue (no
+    roll), regen and swipe (the parked nudge) and group speakers (one
+    owner's rings) behave as before; a rewrite of the cope's message drops
+    a pending Overcome offer; the physics of a cope is not undone by a
+    rewrite, as for every cope.
 
 ## 7. Milestones
 

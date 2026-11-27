@@ -38,6 +38,7 @@ const knownGrowthActions = {
   'reset',
   'check',
   'undoBb',
+  'link',
   'acceptKit',
   'declineKit',
   'kitAgain',

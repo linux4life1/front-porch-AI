@@ -212,8 +212,10 @@ class BoonsBogies {
       (current + 1).clamp(0, kBogeyMasterFires - 1);
 
   /// A bogey's count after one pass that showed the character coping
-  /// (floor 0 — a flaw never goes negative).
-  static int fadedBogeyAdvance(int current) => (current - 1).clamp(0, 999);
+  /// (floor 0 — a flaw never goes negative). [steps] is 2 while the
+  /// bogey's linked boon is Master (phase 7, `BoonLink.copeStepsFor`).
+  static int fadedBogeyAdvance(int current, {int steps = 1}) =>
+      (current - steps).clamp(0, 999);
 
   /// Strength is derived from the fire count so existing sorting and
   /// injection code keeps working (§3.2).

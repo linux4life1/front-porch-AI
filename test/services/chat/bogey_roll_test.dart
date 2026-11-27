@@ -29,6 +29,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/bogey_roll.dart';
+import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -286,5 +287,117 @@ void main() {
       final after = await bogey();
       expect(after.bogeyPressure, before.bogeyPressure);
     }, timeout: const Timeout(Duration(minutes: 2)));
+  });
+
+  group('the boon link holds a bogey back (phase 7)', () {
+    GrowthRingData ringRow({
+      required String id,
+      required String category,
+      required String content,
+      String? metadata,
+      double strength = 0.3,
+      int advance = 0,
+    }) => GrowthRingData(
+      id: id,
+      sessionId: 's1',
+      characterId: 'mira',
+      content: content,
+      category: category,
+      strength: strength,
+      pinned: false,
+      retired: false,
+      createdAt: DateTime(2026),
+      lastReinforcedAt: DateTime(2026),
+      updatedAt: DateTime(2026),
+      metadata: metadata,
+      advanceCount: advance,
+      bogeyPressure: 0,
+      bogeyCooldown: 0,
+      bogeyDelivered: false,
+      masterDeclined: false,
+    );
+
+    /// A boon at [tier] by the ladder's own floors.
+    GrowthRingData boonAt(String tier) => ringRow(
+      id: 'boon',
+      category: 'skill',
+      content: 'Moves without a sound',
+      metadata: BoonsBogies.boonMetadata(),
+      strength: switch (tier) {
+        'master' => 0.95,
+        'skilled' => 0.6,
+        _ => 0.3,
+      },
+      advance: switch (tier) {
+        'master' => BoonsBogies.kBoonMasterPasses,
+        'skilled' => BoonsBogies.kBoonSkilledPasses,
+        _ => 0,
+      },
+    );
+
+    /// The median gap over 10k replies, driven through
+    /// [BogeyRoll.replyForRings] — the call `BogeyRolls.rollTurn` makes —
+    /// so the rings-to-roll path itself is what this pins. [link] null =
+    /// the bogey names no boon.
+    ({int median, double mean}) gapsFor(String? tier, {String? link}) {
+      final owned = <GrowthRingData>[if (tier != null) boonAt(tier)];
+      var bogey = ringRow(
+        id: 'bogey',
+        category: 'bogey',
+        content: 'Knocks things over when nervous',
+        metadata: BoonsBogies.bogeyMetadata(linkedBoon: link),
+      );
+      expect(
+        BoonsBogies.tierOf(owned.isEmpty ? bogey : owned.single),
+        tier ?? 'novice',
+        reason: 'the boon fixture sits at the tier under test',
+      );
+      final random = Random(20261126);
+      final gaps = <int>[];
+      var since = 0;
+      for (var i = 0; i < 10000; i++) {
+        final reply = BogeyRoll.replyForRings(
+          [bogey],
+          [...owned, bogey],
+          random,
+        );
+        final g = reply.after.single;
+        bogey = bogey.copyWith(
+          bogeyPressure: g.pressure,
+          bogeyCooldown: g.cooldown,
+        );
+        since++;
+        if (reply.fired == 0) {
+          gaps.add(since);
+          since = 0;
+        }
+      }
+      gaps.sort();
+      final mean = gaps.reduce((a, b) => a + b) / gaps.length;
+      return (median: gaps[gaps.length ~/ 2], mean: mean);
+    }
+
+    test('each tier of the linked boon stretches the gap: about 8 / 10 / 12 '
+        'replies against about 7 unlinked', () {
+      final unlinked = gapsFor(null);
+      final novice = gapsFor('novice', link: 'boon');
+      final skilled = gapsFor('skilled', link: 'boon');
+      final master = gapsFor('master', link: 'boon');
+      expect(unlinked.median, inInclusiveRange(7, 9));
+      expect(novice.median, inInclusiveRange(8, 9));
+      expect(skilled.median, inInclusiveRange(9, 11));
+      expect(master.median, inInclusiveRange(11, 13));
+      expect(unlinked.mean, lessThan(novice.mean));
+      expect(novice.mean, lessThan(skilled.mean));
+      expect(skilled.mean, lessThan(master.mean));
+    });
+
+    test('a link by the kit\'s words holds it back too; a link to a boon '
+        'that is gone does not', () {
+      final byWords = gapsFor('master', link: 'moves without a sound.');
+      final gone = gapsFor('master', link: 'some-retired-id');
+      expect(byWords.median, inInclusiveRange(11, 13));
+      expect(gone.median, inInclusiveRange(7, 9));
+    });
   });
 }

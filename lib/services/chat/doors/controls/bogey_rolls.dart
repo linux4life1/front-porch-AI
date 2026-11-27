@@ -109,15 +109,12 @@ class BogeyRolls {
   Future<GrowthRingData?> rollTurn(String ownerId) async {
     final session = _d.session.currentSessionId;
     if (session == null) return null;
-    final rings = BogeyRoll.rollable(
-      _g.growthStore.activeRingsFor(session, ownerId),
-    );
+    final owned = _g.growthStore.activeRingsFor(session, ownerId);
+    final rings = BogeyRoll.rollable(owned);
     if (rings.isEmpty || !mayRollFor(ownerId, rings)) return null;
 
-    final reply = BogeyRoll.reply([
-      for (final r in rings)
-        (pressure: r.bogeyPressure, cooldown: r.bogeyCooldown),
-    ], _random);
+    // Phase 7: each tier of a bogey's linked boon holds it back.
+    final reply = BogeyRoll.replyForRings(rings, owned, _random);
     final bogeys = _g.growthStore.bogeys;
     final index = reply.fired;
     for (var i = 0; i < rings.length; i++) {

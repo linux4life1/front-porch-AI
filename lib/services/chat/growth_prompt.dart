@@ -175,6 +175,11 @@ String buildGrowthPrompt({
       'message. If these events never gave the flaw a chance to show, say '
       'nothing about it: an untouched flaw holds as it is.',
     );
+    b.writeln(
+      '- When you add a bogey that one of $ownerName\'s boons plainly pushes '
+      'against, name that boon\'s [N] handle in against'
+      '${toolsMode ? '' : '="N"'}. Leave it out when no boon fits.',
+    );
   } else {
     b.writeln(
       '- Categories: trait (who they are), stance (how they relate to '
@@ -203,7 +208,13 @@ String buildGrowthPrompt({
     b.writeln('<ring action="reinforce" id="3" src="18"/>');
     b.writeln('<ring action="revise" id="3">replacement text</ring>');
     b.writeln('<ring action="retire" id="2"/>');
-    if (boonsBogies) b.writeln('<ring action="cope" id="4" src="19"/>');
+    if (boonsBogies) {
+      b.writeln('<ring action="cope" id="4" src="19"/>');
+      b.writeln(
+        '<ring action="add" category="bogey" against="5" src="21">'
+        'third-person flaw text</ring>',
+      );
+    }
   }
 
   return b.toString();
