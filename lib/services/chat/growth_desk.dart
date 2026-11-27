@@ -165,6 +165,28 @@ class GrowthDesk {
     notify();
   }
 
+  /// The user's link pick for one of [ownerId]'s bogeys (phase 7):
+  /// [boonRingId] must name one of the same owner's live boons, or be null
+  /// to unlink. Anything else is ignored, so a stale tap cannot cross owners.
+  Future<void> setBogeyLink(
+    String ownerId,
+    String ringId,
+    String? boonRingId,
+  ) async {
+    final rings = growthRingsForOwner(ownerId);
+    final bogey = rings.where((r) => r.id == ringId).firstOrNull;
+    if (bogey == null || !BoonsBogies.isBogey(bogey)) return;
+    if (boonRingId != null &&
+        !rings.any(
+          (r) => r.id == boonRingId && !r.retired && BoonsBogies.isBoon(r),
+        )) {
+      return;
+    }
+    await _growthStore.bogeys.setLink(bogey, boonRingId);
+    await refreshCache();
+    notify();
+  }
+
   Future<void> setGrowthRingPinned(String ringId, bool pinned) async {
     await _growthStore.setPinned(ringId, pinned);
     await refreshCache();

@@ -16,8 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart';
@@ -25,6 +23,9 @@ import 'package:uuid/uuid.dart';
 
 import 'growth_boons_bogies.dart';
 import 'growth_store.dart';
+import 'milestone_proposal.dart';
+
+export 'milestone_proposal.dart';
 
 /// The five milestone moments (docs/design/boons-and-bogies.md §7), with
 /// the wire strings `growth_moments.kind` stores.
@@ -64,41 +65,6 @@ enum MilestoneOutcome {
 
   /// Already accepted or rejected — a second tap writes nothing.
   alreadyDecided,
-}
-
-/// A proposed add, as `growth_moments.payload` stores it: the ring text
-/// (names resolved), its category and the messages that showed it.
-class MilestoneProposal {
-  const MilestoneProposal({
-    required this.text,
-    required this.category,
-    this.sourcePositions = const [],
-  });
-
-  final String text;
-  final String category;
-  final List<int> sourcePositions;
-
-  String encode() =>
-      jsonEncode({'text': text, 'category': category, 'src': sourcePositions});
-
-  static MilestoneProposal? decode(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final m = jsonDecode(raw) as Map<String, dynamic>;
-      return MilestoneProposal(
-        text: '${m['text'] ?? ''}',
-        category: '${m['category'] ?? ''}',
-        sourcePositions: [
-          for (final p in (m['src'] as List? ?? const []))
-            if (p is int) p,
-        ],
-      );
-    } catch (e) {
-      debugPrint('[Milestones] unreadable payload: $e');
-      return null;
-    }
-  }
 }
 
 /// Phase-5 milestones (docs/design/boons-and-bogies.md §7, rulings 1, 8, 9,
@@ -200,6 +166,7 @@ class GrowthMilestones {
     required String text,
     required bool bogey,
     List<int> sourcePositions = const [],
+    String? linkedBoon,
   }) => propose(
     sessionId: sessionId,
     characterId: characterId,
@@ -209,6 +176,7 @@ class GrowthMilestones {
       text: text,
       category: bogey ? BoonsBogies.kCategoryBogey : 'skill',
       sourcePositions: sourcePositions,
+      linkedBoon: bogey ? linkedBoon : null,
     ),
   );
 
@@ -376,7 +344,7 @@ class GrowthMilestones {
           category: bogey ? BoonsBogies.kCategoryBogey : 'skill',
           sourcePositions: p.sourcePositions,
           metadata: bogey
-              ? BoonsBogies.bogeyMetadata()
+              ? BoonsBogies.bogeyMetadata(linkedBoon: p.linkedBoon)
               : BoonsBogies.boonMetadata(),
         );
       case MilestoneKind.masterBoon:

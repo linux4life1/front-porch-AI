@@ -64,7 +64,7 @@ class ChatToolsMemory {
               'entryCount': _chat.growthKitOffer!.entryCount,
             },
       'kitReplay': _chat.growthKitReplayAvailable,
-      'rings': [for (final r in rings) growthRingToJson(r)],
+      'rings': [for (final r in rings) growthRingToJson(r, ownerRings: rings)],
     };
   }
 
@@ -111,6 +111,17 @@ class ChatToolsMemory {
       case 'delete':
         if (ring == null) return;
         await _chat.deleteGrowthRing(ring.id);
+        break;
+      // Phase 7: the bogey's linked boon — a boon id, or null to unlink.
+      case 'link':
+        if (ring == null) return;
+        final boonId = body['boonId'];
+        await setBogeyLink(
+          _chat,
+          owner.id,
+          ring.id,
+          boonId is String && boonId.isNotEmpty ? boonId : null,
+        );
         break;
       case 'undoBb':
         final sessionId = _chat.currentSessionId;
@@ -319,8 +330,13 @@ class ChatToolsMemory {
 
 /// One growth ring on the wire — the Growth panel and the sidebar's Boons &
 /// Bogies line must receive the same shape, or one surface renders a blander
-/// row than the other (maintainer, 2026-11-23).
-Map<String, dynamic> growthRingToJson(GrowthRingData r) => {
+/// row than the other (maintainer, 2026-11-23). [ownerRings] (the same
+/// owner's rings) resolves a bogey's linked boon for its link line.
+Map<String, dynamic> growthRingToJson(
+  GrowthRingData r, {
+  Iterable<GrowthRingData> ownerRings = const [],
+}) => {
+  'linkedBoon': _linkedBoonJson(r, ownerRings),
   'id': r.id,
   'content': r.content,
   'category': r.category,
@@ -342,3 +358,19 @@ Map<String, dynamic> growthRingToJson(GrowthRingData r) => {
   'retired': r.retired,
   'receipts': GrowthStore.receiptsOf(r),
 };
+
+/// A bogey's live linked boon on the wire (`{id, content, tier}`), or null:
+/// not a bogey, unlinked, or the named boon is gone — the same lookup the
+/// roll and the desktop card use ([BoonLink.linkedBoonOf]).
+Map<String, dynamic>? _linkedBoonJson(
+  GrowthRingData r,
+  Iterable<GrowthRingData> ownerRings,
+) {
+  final boon = BoonLink.linkedBoonOf(r, ownerRings);
+  if (boon == null) return null;
+  return {
+    'id': boon.id,
+    'content': boon.content,
+    'tier': BoonsBogies.tierOf(boon),
+  };
+}

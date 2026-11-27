@@ -25,6 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+import '../growth_bb_link.dart';
 import '../growth_bb_pass.dart';
 import '../growth_ops.dart';
 import '../growth_physics.dart';
@@ -210,6 +211,11 @@ List<GrowthProposedOp> resolveGrowthOps(
             seedStrength: distillMode
                 ? GrowthPhysics.kDistillSeedStrength
                 : GrowthPhysics.kNewRingStrength,
+            linkedBoonId: BoonLink.boonIdForHandle(
+              op.linkHandle,
+              category: op.category,
+              shown: activeRings,
+            ),
           ),
         );
         break;

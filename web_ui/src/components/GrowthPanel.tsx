@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { GrowthReviewModal } from './GrowthReviewModal';
+import { BogeyLinkLine } from './BogeyLinkLine';
 import { confirmDiscard, UnsavedPrompt } from '../hooks/useUnsavedChanges';
 
 export interface GrowthRing {
@@ -32,6 +33,8 @@ export interface GrowthRing {
   cooldown?: number;
   seeded?: boolean;
   canUndo?: boolean;
+  /** A bogey's live linked boon (phase 7); null when unlinked or gone. */
+  linkedBoon?: { id: string; content: string; tier: string } | null;
 }
 interface GrowthData {
   name: string;
@@ -124,15 +127,18 @@ function RingEditor({
 /** One growth ring card. The Growth panel and the chat sidebar's Boons &
  *  Bogies line render the SAME markup (maintainer, 2026-11-23: no second,
  *  blander language for the same data). Omit `act`/`setEditor` on a
- *  read-only surface: the action buttons hide themselves. */
+ *  read-only surface: the action buttons hide themselves. `boons` is the
+ *  same owner's live boons — a bogey's link line picks from them. */
 export function GrowthRingRow({
   ring,
   isPast,
   act,
   setEditor,
+  boons = [],
 }: {
   ring: GrowthRing;
   isPast: boolean;
+  boons?: GrowthRing[];
   act?: (action: string, body?: Record<string, unknown>) => void;
   setEditor?: (v: { mode: 'edit'; ring: GrowthRing } | null) => void;
 }) {
@@ -190,6 +196,7 @@ export function GrowthRingRow({
         )}
       </div>
       <div className="growth-ring-text">{r.content}</div>
+      {isBogey && !isPast && <BogeyLinkLine ring={r} boons={boons} act={act} />}
       <div className="growth-ring-meta">
         {!isPast && (
           <div className="growth-strength">
@@ -248,7 +255,13 @@ export function GrowthPanel({
   const ordinary = active.filter((r) => r.kind !== 'boon' && r.kind !== 'bogey');
 
   const ringCard = (r: GrowthRing, isPast: boolean) => (
-    <GrowthRingRow ring={r} isPast={isPast} act={act} setEditor={setEditor} />
+    <GrowthRingRow
+      ring={r}
+      isPast={isPast}
+      act={act}
+      setEditor={setEditor}
+      boons={d.rings.filter((b) => b.kind === 'boon' && !b.retired)}
+    />
   );
 
   return (

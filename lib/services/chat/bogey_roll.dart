@@ -19,6 +19,7 @@
 import 'dart:math';
 
 import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
+import 'package:front_porch_ai/services/chat/growth_bb_link.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
 import 'package:front_porch_ai/services/chat/pressure_roll.dart';
 
@@ -62,11 +63,13 @@ class BogeyRoll {
 
   static const int pressureCap = 100;
 
-  /// One reply on one bogey's gauge.
+  /// One reply on one bogey's gauge. [chancePercent] is the linked boon's
+  /// hold on it (`BoonLink.chancePercentFor`); 100 = unlinked.
   static PressureRollTick tick({
     required int pressure,
     required int cooldown,
     required Random random,
+    int chancePercent = 100,
   }) => PressureRoll.tick(
     base: base,
     growthMin: growthMin,
@@ -76,6 +79,7 @@ class BogeyRoll {
     pressure: pressure,
     cooldown: cooldown,
     random: random,
+    chancePercent: chancePercent,
   );
 
   /// The quiet stretch after a fire.
@@ -90,10 +94,22 @@ class BogeyRoll {
   /// with its pressure back at zero. [BogeyRolls.rollTurn] persists exactly
   /// what this returns, so the simulation test that drives it pins the rate
   /// the app really rolls — not a loop the test wrote for itself.
-  static BogeyReply reply(List<BogeyGauge> gauges, Random random) {
+  ///
+  /// [chancePercents] is each gauge's linked-boon hold, index for index
+  /// (phase 7); omitted or short = 100, unlinked.
+  static BogeyReply reply(
+    List<BogeyGauge> gauges,
+    Random random, {
+    List<int> chancePercents = const [],
+  }) {
     final ticks = [
-      for (final g in gauges)
-        tick(pressure: g.pressure, cooldown: g.cooldown, random: random),
+      for (var i = 0; i < gauges.length; i++)
+        tick(
+          pressure: gauges[i].pressure,
+          cooldown: gauges[i].cooldown,
+          random: random,
+          chancePercent: i < chancePercents.length ? chancePercents[i] : 100,
+        ),
     ];
     final fired = pickFiredIndex(ticks, random);
     return (
@@ -106,6 +122,23 @@ class BogeyRoll {
       ],
     );
   }
+
+  /// One reply over [rings] (the owner's rollable bogeys, [rollable]) with
+  /// each one's linked-boon hold read from [owned] (all the owner's active
+  /// rings) — exactly what [BogeyRolls.rollTurn] persists, so the linked
+  /// rate test drives the app's own path from rings to roll (phase 7).
+  static BogeyReply replyForRings(
+    List<GrowthRingData> rings,
+    List<GrowthRingData> owned,
+    Random random,
+  ) => reply(
+    [
+      for (final r in rings)
+        (pressure: r.bogeyPressure, cooldown: r.bogeyCooldown),
+    ],
+    random,
+    chancePercents: [for (final r in rings) BoonLink.chancePercentOf(r, owned)],
+  );
 
   /// The count a fire leaves behind (§3.2: bogies advance on times they
   /// actually fired), held one below Master until the milestone ships.

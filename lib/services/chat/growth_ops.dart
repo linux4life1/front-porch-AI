@@ -52,12 +52,18 @@ class GrowthOp {
   /// Ring text (add/revise). Empty for reinforce/retire.
   final String text;
 
+  /// For a bogey add: the 1-based handle of the boon that pushes against
+  /// it (`against="N"` / the tool's `against`), phase 7's boon link. The
+  /// resolver keeps it only when it names one of the owner's boons.
+  final int? linkHandle;
+
   const GrowthOp({
     required this.action,
     this.handle,
     this.category = 'trait',
     this.sourcePositions = const [],
     this.text = '',
+    this.linkHandle,
   });
 }
 
@@ -115,6 +121,7 @@ List<GrowthOp> parseGrowthOps(String raw) {
             category: normalizeGrowthCategory(attrs['category']),
             sourcePositions: parseGrowthPositions(attrs['src']),
             text: text,
+            linkHandle: int.tryParse(attrs['against'] ?? ''),
           ),
         );
         break;
@@ -261,6 +268,12 @@ const List<Map<String, dynamic>> kGrowthTools = [
             'items': {'type': 'integer'},
             'description': 'The #numbered message positions that show it.',
           },
+          'against': {
+            'type': 'integer',
+            'description':
+                'Bogey only, optional: the [N] handle of the boon that '
+                'pushes against this flaw.',
+          },
         },
         'required': ['content'],
       },
@@ -369,6 +382,7 @@ List<GrowthOp> parseGrowthToolCalls(List<LlmToolCall> calls) {
             category: normalizeGrowthCategory(strArg(args, 'category')),
             sourcePositions: positions(args['src']),
             text: text,
+            linkHandle: intArg(args, 'against'),
           ),
         );
         break;

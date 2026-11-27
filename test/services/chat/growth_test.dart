@@ -16,8 +16,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
+import 'package:front_porch_ai/services/chat/growth_bb_link.dart';
 import 'package:front_porch_ai/services/chat/growth_bb_pass.dart';
 import 'package:front_porch_ai/services/chat/growth_boons_bogies.dart';
+import 'package:front_porch_ai/services/chat/growth_milestones.dart';
+import 'package:front_porch_ai/services/chat/growth_service/growth_pass_physics.dart';
 import 'package:front_porch_ai/services/chat/growth_ops.dart';
 import 'package:front_porch_ai/services/chat/growth_physics.dart';
 import 'package:front_porch_ai/services/chat/growth_prompt.dart';
@@ -1559,6 +1562,339 @@ Some prose the model wrote.
       expect(rings.where((r) => r.content == 'Flinches at noise'), isEmpty);
       final skill = rings.firstWhere((r) => r.content == 'Rides well');
       expect(BoonsBogies.isBoon(skill), isFalse);
+    });
+  });
+
+  group('Boons & Bogies boon link (phase 7, real DB)', () {
+    late AppDatabase db;
+    late GrowthStore store;
+    late GrowthMilestones milestones;
+    String? xmlReply;
+    var lastPrompt = '';
+    final host = CharacterCard(name: 'Mira', personality: 'Wry, guarded.');
+    final chatty = [
+      _msg('You', 'Hold the ladder for me?', isUser: true),
+      _msg('Mira', 'She steadies it and climbs anyway', charId: 'mira'),
+      _msg('You', 'thank you', isUser: true),
+      _msg('Mira', 'Always', charId: 'mira'),
+    ];
+
+    setUp(() async {
+      db = AppDatabase.forTesting(sameIsolate: true);
+      store = GrowthStore(getDb: () => db);
+      milestones = GrowthMilestones(store: store, getDb: () => db);
+      xmlReply = null;
+      lastPrompt = '';
+      await db.insertSession(SessionsCompanion.insert(id: 's1'));
+    });
+
+    tearDown(() async => db.close());
+
+    GrowthService makeService() {
+      var running = false;
+      final review = GrowthReview(
+        store: store,
+        getSessionId: () => 's1',
+        getIsGroup: () => false,
+        getBoonsBogiesEnabled: () => true,
+        onApplied: () async {},
+        onNotify: () {},
+        getMilestones: () => milestones,
+      );
+      return GrowthService(
+        store: store,
+        review: review,
+        probe: ToolTransportProbe()..markXmlOnly('fake'),
+        fireLLMEval: (prompt) async {
+          lastPrompt = prompt;
+          return xmlReply;
+        },
+        fireToolEval: (p, t) async => null,
+        stripThinkBlocks: (t) => t,
+        getBackendIdentity: () => 'fake',
+        getSessionId: () => 's1',
+        getActiveCharacter: () => host,
+        getActiveGroup: () => null,
+        getGroupCharacters: () => const [],
+        getSceneGuestCards: () => const [],
+        getCharacterIdFromCard: (c) => c.name.toLowerCase(),
+        getMessages: () => chatty,
+        getUserName: () => 'You',
+        getRecap: () => '',
+        getJournalCards: (s, c) async => const [],
+        getGrowthEnabled: () => true,
+        getReviewFirst: () => false,
+        getIsPassRunning: () => running,
+        setIsPassRunning: (v) => running = v,
+        refreshCache: () =>
+            store.refresh('s1', charIds: ['mira'], activeCharId: 'mira'),
+        onNotify: () {},
+        getBoonsBogiesEnabled: () => true,
+        getBbEnabledFor: (_) => true,
+      );
+    }
+
+    Future<GrowthRingData> seed(
+      String content, {
+      String category = 'trait',
+      String? metadata,
+      double strength = 0.5,
+      int advance = 0,
+      bool pinned = false,
+    }) async {
+      await store.addRing(
+        sessionId: 's1',
+        characterId: 'mira',
+        content: content,
+        category: category,
+        strength: strength,
+        metadata: metadata,
+      );
+      final ring = (await store.ringsFor(
+        's1',
+        'mira',
+      )).firstWhere((r) => r.content == content);
+      await db.updateGrowthRing(
+        ring.id,
+        GrowthRingsCompanion(
+          advanceCount: Value(advance),
+          pinned: Value(pinned),
+        ),
+      );
+      return (await store.ringsFor(
+        's1',
+        'mira',
+      )).firstWhere((r) => r.content == content);
+    }
+
+    Future<GrowthRingData> ring(String content) async => (await store.ringsFor(
+      's1',
+      'mira',
+    )).firstWhere((r) => r.content == content);
+
+    /// A boon at Master by the ladder's own floors (strength 1.0 so a
+    /// pass's fade still leaves it at Master).
+    Future<GrowthRingData> masterBoon(String content) => seed(
+      content,
+      category: 'skill',
+      metadata: BoonsBogies.boonMetadata(),
+      strength: 1.0,
+      advance: BoonsBogies.kBoonMasterPasses,
+    );
+
+    Future<GrowthRingData> linkedBogey(
+      String content,
+      GrowthRingData boon, {
+      int advance = 2,
+      bool pinned = false,
+    }) => seed(
+      content,
+      category: 'bogey',
+      metadata: BoonsBogies.bogeyMetadata(linkedBoon: boon.id),
+      strength: BoonsBogies.bogeyStrength(advance),
+      advance: advance,
+      pinned: pinned,
+    );
+
+    Future<List<GrowthMomentData>> pendingOvercomes() async => [
+      for (final m in await milestones.momentsFor('s1', characterId: 'mira'))
+        if (m.kind == MilestoneKind.overcome.wire && m.status == 'pending') m,
+    ];
+
+    test('both transports carry a bogey add\'s `against` handle', () {
+      expect(
+        parseGrowthOps(
+          '<ring action="add" category="bogey" against="2" src="1">'
+          'Flinches at noise</ring>',
+        ).single.linkHandle,
+        2,
+      );
+      expect(
+        parseGrowthToolCalls([
+          const LlmToolCall(
+            name: 'add_ring',
+            arguments: {
+              'content': 'Flinches at noise',
+              'category': 'bogey',
+              'against': '3',
+            },
+          ),
+        ]).single.linkHandle,
+        3,
+      );
+    });
+
+    test('a pass: a cope on a Master-linked flaw wears it down two steps and '
+        'the app offers Overcome; a Novice link wears one and offers '
+        'nothing', () async {
+      final master = await masterBoon('Moves without a sound');
+      final novice = await seed(
+        'Bakes bread',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+        strength: 0.3,
+      );
+      await linkedBogey('Knocks things over', master);
+      await linkedBogey('Burns the toast', novice, advance: 3);
+      final shown = growthBbView(
+        await store.ringsFor('s1', 'mira'),
+        bbOn: true,
+      ).shown;
+      int handle(String content) =>
+          shown.indexWhere((r) => r.content == content) + 1;
+      final knocks = handle('Knocks things over');
+      final burns = handle('Burns the toast');
+      xmlReply =
+          '<ring action="cope" id="$knocks" src="1"/>'
+          '<ring action="cope" id="$burns" src="1"/>';
+      await makeService().runGrowthPass(force: true);
+
+      expect(lastPrompt, contains('against'));
+      final knocked = await ring('Knocks things over');
+      expect(knocked.advanceCount, 0, reason: 'Master pulls two steps');
+      expect((await ring('Burns the toast')).advanceCount, 2);
+      final offers = await pendingOvercomes();
+      expect(offers, hasLength(1));
+      expect(offers.single.ringId, knocked.id);
+      expect(MilestoneProposal.decode(offers.single.payload)!.sourcePositions, [
+        1,
+      ], reason: 'the offer cites the cope, so a rewrite of it drops it');
+    });
+
+    test('a pass: the model links a new bogey to a boon; Accept keeps the '
+        'link; `against` naming a non-boon links nothing', () async {
+      await masterBoon('Moves without a sound');
+      await seed('Trusts slowly');
+      final shown = growthBbView(
+        await store.ringsFor('s1', 'mira'),
+        bbOn: true,
+      ).shown;
+      int handle(String content) =>
+          shown.indexWhere((r) => r.content == content) + 1;
+      final boonHandle = handle('Moves without a sound');
+      final traitHandle = handle('Trusts slowly');
+      xmlReply =
+          '<ring action="add" category="bogey" '
+          'against="$boonHandle" src="1">'
+          'Knocks things over when watched</ring>'
+          '<ring action="add" category="bogey" '
+          'against="$traitHandle" src="1">'
+          'Hums when nervous</ring>';
+      await makeService().runGrowthPass(force: true);
+
+      final adds = [
+        for (final m in await milestones.momentsFor('s1', characterId: 'mira'))
+          if (m.kind == MilestoneKind.newBogey.wire) m,
+      ];
+      expect(adds, hasLength(2));
+      String? linkFor(String text) => adds
+          .map((m) => MilestoneProposal.decode(m.payload)!)
+          .firstWhere((p) => p.text == text)
+          .linkedBoon;
+      final boonId = (await ring('Moves without a sound')).id;
+      expect(linkFor('Knocks things over when watched'), boonId);
+      expect(linkFor('Hums when nervous'), isNull);
+
+      final linkedMoment = adds.firstWhere(
+        (m) =>
+            MilestoneProposal.decode(m.payload)!.text ==
+            'Knocks things over when watched',
+      );
+      expect(
+        await milestones.decide(linkedMoment.id, accept: true),
+        MilestoneOutcome.done,
+      );
+      final added = await ring('Knocks things over when watched');
+      expect(BoonLink.linkOf(added), boonId);
+      expect(
+        BoonLink.masterLinked(added, await store.ringsFor('s1', 'mira')),
+        isTrue,
+      );
+    });
+
+    test('a Reject is not asked again until the flaw fires again', () async {
+      final boon = await masterBoon('Moves without a sound');
+      final bogey = await linkedBogey('Knocks things over', boon, advance: 1);
+      Future<void> cope() => applyGrowthPassPhysics(
+        store,
+        's1',
+        'mira',
+        ops: const [],
+        held: const {},
+        copes: {
+          bogey.id: [1],
+        },
+        milestones: milestones,
+      );
+
+      await cope();
+      final first = await pendingOvercomes();
+      expect(first, hasLength(1));
+      await milestones.decide(first.single.id, accept: false);
+
+      await cope(); // still at 0: the same no
+      expect(await pendingOvercomes(), isEmpty);
+
+      await db.updateGrowthRing(
+        bogey.id,
+        const GrowthRingsCompanion(advanceCount: Value(1)),
+      ); // it fired since
+      await cope();
+      expect(await pendingOvercomes(), hasLength(1));
+    });
+
+    test(
+      'a pinned Master-linked flaw never wears down, so the cope itself '
+      'offers Overcome; a rewrite of the cited message drops the offer',
+      () async {
+        final boon = await masterBoon('Moves without a sound');
+        final bogey = await linkedBogey(
+          'Knocks things over',
+          boon,
+          advance: 6,
+          pinned: true,
+        );
+        await applyGrowthPassPhysics(
+          store,
+          's1',
+          'mira',
+          ops: const [],
+          held: const {},
+          copes: {
+            bogey.id: [3],
+          },
+          milestones: milestones,
+        );
+        expect((await ring('Knocks things over')).advanceCount, 6);
+        expect(await pendingOvercomes(), hasLength(1));
+
+        await milestones.invalidatePendingFrom('s1', 3);
+        expect(await pendingOvercomes(), isEmpty);
+      },
+    );
+
+    test('the user\'s pick replaces or clears the link and keeps the rest '
+        'of the pouch', () async {
+      final a = await masterBoon('Moves without a sound');
+      final b = await seed(
+        'Bakes bread',
+        category: 'skill',
+        metadata: BoonsBogies.boonMetadata(),
+      );
+      await seed(
+        'Knocks things over',
+        category: 'bogey',
+        metadata: BoonsBogies.bogeyMetadata(seeded: true, linkedBoon: a.id),
+      );
+      await store.bogeys.setLink(await ring('Knocks things over'), b.id);
+      var bogey = await ring('Knocks things over');
+      expect(BoonLink.linkOf(bogey), b.id);
+      expect(BoonsBogies.isKitSeeded(bogey), isTrue);
+      await store.bogeys.setLink(bogey, null);
+      bogey = await ring('Knocks things over');
+      expect(BoonLink.linkOf(bogey), isNull);
+      expect(BoonsBogies.isBogey(bogey), isTrue);
+      expect(BoonsBogies.isKitSeeded(bogey), isTrue);
     });
   });
 }

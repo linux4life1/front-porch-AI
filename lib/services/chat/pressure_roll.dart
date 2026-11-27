@@ -45,7 +45,9 @@ class PressureRoll {
   /// the pressure grows by a value in [growthMin]..[growthMax] (a fixed value
   /// draws nothing), the chance is `base + pressure` capped at [chanceCap],
   /// and one [rollScale]-sided roll decides it. Pressure itself is capped at
-  /// [pressureCap].
+  /// [pressureCap]. [chancePercent] scales the capped chance (integer
+  /// percent, floored): a bogey's linked boon holds it back this way. At the
+  /// default 100 the arithmetic is exactly Chance Time's.
   static PressureRollTick tick({
     required int base,
     required int growthMin,
@@ -55,6 +57,7 @@ class PressureRoll {
     required int pressure,
     required int cooldown,
     required Random random,
+    int chancePercent = 100,
   }) {
     if (cooldown > 0) {
       return PressureRollTick(
@@ -67,7 +70,10 @@ class PressureRoll {
         ? growthMin
         : growthMin + random.nextInt(growthMax - growthMin + 1);
     final newPressure = (pressure + growth).clamp(0, pressureCap);
-    final chance = (base + newPressure).clamp(0, chanceCap);
+    final capped = (base + newPressure).clamp(0, chanceCap);
+    final chance = chancePercent == 100
+        ? capped
+        : capped * chancePercent.clamp(0, 100) ~/ 100;
     final roll = random.nextInt(rollScale);
     return PressureRollTick(
       fired: roll < chance,

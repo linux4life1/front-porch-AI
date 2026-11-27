@@ -20,6 +20,7 @@ import 'package:front_porch_ai/database/database.dart'
     show GrowthMomentData, GrowthRingData;
 import 'package:front_porch_ai/services/chat/growth_milestones.dart';
 
+export 'package:front_porch_ai/services/chat/doors/realism/bogey_link_api.dart';
 export 'package:front_porch_ai/services/chat/doors/realism/milestone_view.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 

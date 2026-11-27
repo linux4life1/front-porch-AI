@@ -736,6 +736,7 @@ export function ChatSidebar({
                                   ring={r}
                                   isPast={false}
                                   act={growthAct}
+                                  boons={bbBoons}
                                 />
                               ))}
                             </div>
