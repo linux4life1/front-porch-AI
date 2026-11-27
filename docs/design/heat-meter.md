@@ -229,7 +229,8 @@ None of these scripts a model's reading and asserts it back.
 
 ## 6a. Live runs (2026-11-26, MacBook, oMLX Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)
 
-`test/live/heat_live_test.dart`, synthetic card, Lust set to 82 before the
+A by-hand harness, not committed (CI cannot run a live model, so it would
+pin nothing). Synthetic card, Lust set to 82 before the
 last flirt turn, the first touch rerolled, then up to 8 sustained-scene
 turns. The same scene ran on Rawhide (no Heat) as a baseline.
 
