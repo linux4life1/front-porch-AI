@@ -20,6 +20,7 @@ import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_chaos.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_growth.dart';
@@ -243,6 +244,7 @@ class ChatToolsSnapshot {
         // same ladder the desktop member card uses; the host scalar in 1:1.
         'arousalLevel': shownArousal,
         'arousalTier': nsfw.arousalTierNameForLevel(shownArousal),
+        ...ChatRealismRead.heatFields(_chat, ownerMember, runs: afterglowRuns),
       },
       // Ambitions (Living Time §6) for the focused participant — additive;
       // same ChatService.ambitionsFor merge the desktop sidebar reads.

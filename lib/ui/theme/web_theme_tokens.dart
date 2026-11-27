@@ -127,6 +127,12 @@ class WebThemeTokens {
     'trust-down': pick(Colors.deepPurpleAccent, const Color(0xFF6D28D9)),
     'lust-up': pick(Colors.deepOrangeAccent, const Color(0xFFA3330F)),
     'lust-down': pick(Colors.lightBlueAccent, const Color(0xFF075985)),
+    // The sidebar's Lust and Heat bars (desktop bond_bars.dart twins): rose,
+    // deep rose from tier 6, frost below 0. Heat's fill runs from the
+    // theme's porch-amber to lust-deep.
+    'lust-accent': pick(AppColors.lustAccent, AppColors.lustAccentLight),
+    'lust-deep': pick(AppColors.lustDeep, AppColors.lustDeepLight),
+    'frost-accent': pick(AppColors.frostAccent, AppColors.frostAccentLight),
   };
 
   /// Porch Stories (studio.css), the web twin of [StudioColors].

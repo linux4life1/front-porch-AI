@@ -291,6 +291,9 @@ export function ChatInsight({
                     {realism.lustOn === true && (
                       <div className="stat-line"><span>Lust</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
                     )}
+                    {realism.lustOn === true && realism.heat && (
+                      <div className="stat-line"><span>Heat</span><span className="muted">{realism.heat.tier} · {realism.heat.level}</span></div>
+                    )}
                     {realism.lustOn === true && realism.refractoryLabel && (
                       <div className="stat-line"><span className="muted">{realism.refractoryLabel}</span></div>
                     )}

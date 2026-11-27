@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show HeatMeter;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
@@ -137,8 +138,12 @@ class BondBars extends StatelessWidget {
                 : Icons.favorite_border,
             maxValue: 100,
             progress: (reads.lustLevel.abs() / 100).clamp(0.0, 1.0),
-            tooltip: 'Arousal: Physical/sexual tension level.',
+            tooltip:
+                'Lust: how much they want it. It shapes how they act, not '
+                'when they finish.',
           ),
+          const SizedBox(height: 8),
+          HeatRow(heat: reads.heatLevel),
           if (reads.refractoryChip.isNotEmpty) ...[
             const SizedBox(height: 4),
             RefractoryLine(
@@ -150,6 +155,37 @@ class BondBars extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Heat under Lust (docs/design/heat-meter.md): how close they are to
+/// release. Shown whenever Lust is, at 0 too ("Cool"); the fill runs from
+/// the theme's amber to Lust's deep rose. The 1:1 host's and each group
+/// member's own.
+class HeatRow extends StatelessWidget {
+  const HeatRow({super.key, required this.heat, this.compact = false});
+
+  final int heat;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) => RealismProgressRow(
+    label: 'Heat',
+    value: heat,
+    tier: heat ~/ 10,
+    tierName: HeatMeter.tierName(heat),
+    color: AppColors.lustDeepOf(context),
+    icon: Icons.device_thermostat,
+    maxValue: HeatMeter.maxHeat,
+    progress: (heat / HeatMeter.maxHeat).clamp(0.0, 1.0),
+    fillGradient: [
+      AppColors.porchAmberOf(context),
+      AppColors.lustDeepOf(context),
+    ],
+    compact: compact,
+    tooltip:
+        'Heat: how close they are to release. It only builds during '
+        'intimate contact, and falls when it stops.',
+  );
 }
 
 /// The recovery countdown under a Lust bar: the 1:1 host's, and each group

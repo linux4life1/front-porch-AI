@@ -182,8 +182,10 @@ Desktop and web ship together, in the same order, in the same PR.
 while the desktop bar uses `lustAccentOf` (rose `#FB7185`, deep rose at tier 6+,
 frost blue below 0; `bond_bars.dart:59-63`). Web gets the desktop's three
 states through new tokens. The web Afterglow line also opens with a 💗 emoji
-(`ChatSidebar.tsx`, the `state-line` label) where desktop draws the flame icon;
-the sketch shows the flame on both.
+(`ChatSidebar.tsx`, the `state-line` label) where desktop draws the flame icon.
+That emoji is part of the web Porch Life page's wider emoji labels
+(`PorchLifeSettings.tsx`), so it is left for its own change rather than
+fixed here.
 
 ## 5. Every path (path-complete)
 

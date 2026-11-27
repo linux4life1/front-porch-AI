@@ -138,6 +138,10 @@ export interface ToolsState {
     refractoryLabel: string;
     arousalLevel: number;
     arousalTier: string;
+    /** Heat, closeness to release (docs/design/heat-meter.md): shown under
+     *  Lust whenever Lust is. Absent on an older desktop, which hides it. */
+    heatLevel?: number;
+    heatTier?: string;
   };
   // Ambitions (Living Time §6, additive — absent on older facades).
   // `step` is the open quest climbing this ambition (v46); null when none.

@@ -16,8 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart' show CharacterCard;
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show NeedsSimulation, moodDisplayLine, visibleNeedsFor;
+    show HeatMeter, NeedsSimulation, moodDisplayLine, visibleNeedsFor;
 import 'package:front_porch_ai/services/avatar_gallery.dart'
     show expressionsFrom;
 import 'package:front_porch_ai/services/services.dart';
@@ -103,6 +104,11 @@ class ChatRealismRead {
           'level': arousalLevel,
           'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
         },
+        // Heat under Lust, this member's own (docs/design/heat-meter.md);
+        // additive, so an older phone build ignores it.
+        'heat': _heatJson(
+          lustOn ? _chat.entryDoor.reads.getHeatForGroupCharacter(card) : 0,
+        ),
         // The Lust line shows while Afterglow runs for this member, as the
         // desktop's member card does.
         'lustOn': lustOn,
@@ -186,6 +192,7 @@ class ChatRealismRead {
       'arousal': nsfw.nsfwCooldownEnabled
           ? {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName}
           : {'level': 0, 'tier': nsfw.arousalTierNameForLevel(0)},
+      'heat': _heatJson(nsfw.nsfwCooldownEnabled ? nsfw.heatLevel : 0),
       'lustOn': nsfw.nsfwCooldownEnabled,
       // The desktop's line under the Lust bar (additive; empty when none).
       // In a group the live scalars hold whoever was loaded last, so none.
@@ -207,5 +214,29 @@ class ChatRealismRead {
           _chat.activeCharacter?.frontPorchExtensions?.enjoysLowHygiene ??
           false,
     };
+  }
+
+  /// Heat's level and bar word, the same table the desktop row reads.
+  static Map<String, Object> _heatJson(int level) => {
+    'level': level,
+    'tier': HeatMeter.tierName(level),
+  };
+
+  /// The chat tools feed's Heat beside its `arousalLevel`: the focused
+  /// [owner]'s own in a group, the host scalar in a 1:1, 0 while Afterglow
+  /// does not run for them ([runs]). Additive fields.
+  static Map<String, Object> heatFields(
+    ChatService chat,
+    CharacterCard? owner, {
+    required bool runs,
+  }) {
+    final level = !runs
+        ? 0
+        : chat.isGroupMode
+        ? (owner == null
+              ? 0
+              : chat.entryDoor.reads.getHeatForGroupCharacter(owner))
+        : chat.nsfwService.heatLevel;
+    return {'heatLevel': level, 'heatTier': HeatMeter.tierName(level)};
   }
 }

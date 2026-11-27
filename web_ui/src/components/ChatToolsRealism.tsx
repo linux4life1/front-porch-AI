@@ -239,6 +239,9 @@ export function ChatToolsNsfw({ t, toggle }: { t: ToolsState; toggle: ToolsToggl
         {t.nsfw.cooldownEnabled && (
           <div className="stat-line"><span>Lust</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
         )}
+        {t.nsfw.cooldownEnabled && t.nsfw.heatLevel !== undefined && (
+          <div className="stat-line"><span>Heat</span><span className="muted">{t.nsfw.heatTier} · {t.nsfw.heatLevel}</span></div>
+        )}
         {t.nsfw.cooldownEnabled && t.nsfw.refractoryMinutesRemaining > 0 && (
           <div className="stat-line"><span className="muted">{t.nsfw.refractoryLabel}</span></div>
         )}
