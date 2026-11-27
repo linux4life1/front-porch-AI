@@ -282,3 +282,13 @@ counts, as ruled in section 8.
 6. **Chips**: no Heat chips on messages.
 7. **Live slip**: a first touch that climaxes anyway (1 in 10 on the live
    run) is model variance; no rubric or prompt tightening (section 6a).
+8. **Classic Lust bar** (2026-11-27): Porch Life → After Dark gets a
+   "Classic Lust bar" switch, default off. Off is Heat as above. On keeps
+   the pre-Heat behaviour: the judge is not asked about `contact`, Lust's
+   judge line and its top three body lines read exactly as on Rawhide before
+   Heat (release wording on Lust), no Heat line rides the prompt, and no
+   Heat bar shows on desktop or web. Heat's value is held, never erased, so
+   switching back resumes it. Stored as `classic_lust_enabled`
+   (`ClassicLustSetting`), read live through `NsfwService.heatOn`; the web
+   reads and writes `realism.classicLustEnabled`, and the Heat fields drop
+   out of the feed while it is on.

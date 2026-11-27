@@ -196,9 +196,14 @@ class GroupMemberCardLook {
               : Icons.favorite_border,
           maxValue: 100,
         ),
-        // Heat under Lust, this member's own (same row as the 1:1).
-        const SizedBox(height: 8),
-        HeatRow(heat: chat.entryDoor.reads.getHeatForGroupCharacter(character)),
+        // Heat under Lust, this member's own (same row as the 1:1); Porch
+        // Life's Classic Lust bar hides it.
+        if (chat.nsfwService.heatOn) ...[
+          const SizedBox(height: 8),
+          HeatRow(
+            heat: chat.entryDoor.reads.getHeatForGroupCharacter(character),
+          ),
+        ],
         if (refractory case final r? when r.chip.isNotEmpty) ...[
           const SizedBox(height: 4),
           RefractoryLine(chip: r.chip, soft: r.soft),

@@ -186,6 +186,10 @@ class RealismPromptFragments {
     /// bond field — advice with no field flows into arousal_delta, the
     /// number the note caps.
     bool bondScoredHere = false,
+
+    /// Heat runs (Porch Life's Classic Lust bar is off): `contact` is asked
+    /// for and Lust's line points at it. Off restores the pre-Heat line.
+    bool heatOn = true,
   }) =>
       '- "arousal_delta": physical desire shift this turn ($kMinArousalDelta to +$kMaxArousalDelta). '
       'Current arousal: $currentArousal/100.\n'
@@ -199,14 +203,15 @@ class RealismPromptFragments {
       '  These bands are the default. Authored "drawn to" / "warms to" tastes outrank the '
       'Rejection band: a matching turn is wanted intimacy, not humiliation. A genuine '
       'out-of-play stop is still Rejection.\n'
-      '  Arousal measures DESIRE and PHYSICAL RESPONSE, not progress toward climax — closeness to '
-      'release is tracked separately, from "contact" below. At 60+ it is VISIBLE in $charName\'s behavior: '
+      '  Arousal measures DESIRE and PHYSICAL RESPONSE, not progress toward climax — '
+      '${heatOn ? 'closeness to release is tracked separately, from "contact" below' : 'climax only happens during active sexual contact at high arousal'}. '
+      'At 60+ it is VISIBLE in $charName\'s behavior: '
       'breathing, focus, flushed skin, body language.\n'
       '  A non-sexual, non-romantic turn (food, work, errands, small talk, plain comfort) is 0 — and if '
       'current arousal is above 0 on such a turn, return roughly -5 to -10 so it cools back toward neutral.\n'
       '- "arousal_reason": one brief in-character thought from $charName explaining the desire shift '
       '(e.g. "The way they said my name." or "Not now, not like this."), or "none" if the delta is 0.\n'
-      '${HeatMeter.contactRubric(charName, userName)}'
+      '${heatOn ? HeatMeter.contactRubric(charName, userName) : ''}'
       '${refractoryMinutesLeft > 0
           ? _refractoryNote(charName, userName, refractoryMinutesLeft, clockRunning, refractorySoft, mutualOpening: mutualOpening, surge: bondScoredHere)
           : warmthTailMinutes > 0

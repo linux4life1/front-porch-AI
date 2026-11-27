@@ -113,9 +113,17 @@ class NsfwService {
     bool Function()? isClockRunning,
     bool Function()? afterglowOn,
     bool Function()? chatSwitchOn,
+    bool Function()? heatOn,
   }) : _isClockRunning = isClockRunning ?? _clockOn,
        _afterglowOn = afterglowOn,
-       _chatSwitchOn = chatSwitchOn;
+       _chatSwitchOn = chatSwitchOn,
+       _heatOn = heatOn;
+
+  /// Porch Life's Classic Lust bar is off (the default): Heat runs. On, the
+  /// judge is not asked about contact, the prompt speaks the pre-Heat Lust
+  /// lines and no Heat bar shows; Heat's value is kept, never erased.
+  final bool Function()? _heatOn;
+  bool get heatOn => _heatOn?.call() ?? true;
 
   static bool _clockOn() => true;
 

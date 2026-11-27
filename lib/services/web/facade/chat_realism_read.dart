@@ -106,9 +106,11 @@ class ChatRealismRead {
         },
         // Heat under Lust, this member's own (docs/design/heat-meter.md);
         // additive, so an older phone build ignores it.
-        'heat': _heatJson(
-          lustOn ? _chat.entryDoor.reads.getHeatForGroupCharacter(card) : 0,
-        ),
+        // Absent under Porch Life's Classic Lust bar, so the phone hides it.
+        if (_chat.nsfwService.heatOn)
+          'heat': _heatJson(
+            lustOn ? _chat.entryDoor.reads.getHeatForGroupCharacter(card) : 0,
+          ),
         // The Lust line shows while Afterglow runs for this member, as the
         // desktop's member card does.
         'lustOn': lustOn,
@@ -192,7 +194,8 @@ class ChatRealismRead {
       'arousal': nsfw.nsfwCooldownEnabled
           ? {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName}
           : {'level': 0, 'tier': nsfw.arousalTierNameForLevel(0)},
-      'heat': _heatJson(nsfw.nsfwCooldownEnabled ? nsfw.heatLevel : 0),
+      if (nsfw.heatOn)
+        'heat': _heatJson(nsfw.nsfwCooldownEnabled ? nsfw.heatLevel : 0),
       'lustOn': nsfw.nsfwCooldownEnabled,
       // The desktop's line under the Lust bar (additive; empty when none).
       // In a group the live scalars hold whoever was loaded last, so none.
@@ -230,6 +233,8 @@ class ChatRealismRead {
     CharacterCard? owner, {
     required bool runs,
   }) {
+    // Porch Life's Classic Lust bar: no Heat fields, so the phone hides it.
+    if (!chat.nsfwService.heatOn) return const {};
     final level = !runs
         ? 0
         : chat.isGroupMode

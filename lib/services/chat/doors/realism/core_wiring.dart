@@ -287,6 +287,8 @@ extension RealismCoreWiring on RealismGraph {
           _storageService.realismSettings.afterglowEnabled &&
           controls.afterglowSwitchForLoaded,
       chatSwitchOn: () => controls.afterglowSwitchForLoaded,
+      // Porch Life's Classic Lust bar off (the default) runs Heat.
+      heatOn: () => _storageService.realismSettings.heatEnabled,
     );
   }
 

@@ -40,6 +40,8 @@ interface PorchLifeState {
   standingMoodEnabled: boolean;
   pocketTransfersEnabled: boolean;
   intimateAgencyEnabled: boolean;
+  /** After Dark → Classic Lust bar: on hides Heat (docs/design/heat-meter.md). */
+  classicLustEnabled: boolean;
   chaosModeDefault: boolean;
   chaosFrequency: 'rare' | 'normal' | 'wild';
   webSearchDefault: boolean;
@@ -78,6 +80,7 @@ const DEFAULTS: PorchLifeState = {
   standingMoodEnabled: false,
   pocketTransfersEnabled: false,
   intimateAgencyEnabled: false,
+  classicLustEnabled: false,
   chaosModeDefault: false,
   chaosFrequency: 'normal',
   webSearchDefault: false,
@@ -795,6 +798,20 @@ export function PorchLifeSettings({
         blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API. Multiorgasmic characters feel a tenderness window instead of a lock. Off: no chat tracks Lust, and the Afterglow switches on characters and chats are hidden. Each chat keeps its own choice for when you turn this back on."
         value={st.nsfwCooldownDefault}
         onChange={(v) => set('nsfwCooldownDefault', v)}
+      />
+      <FeatureRow
+        icon="🕰️"
+        label="Classic Lust bar"
+        subtitle="Off shows the Heat bar under Lust. On keeps the old single Lust bar."
+        need="needs"
+        dependsOn="Afterglow"
+        satisfied={engineOn && st.nsfwCooldownDefault}
+        showDependencyBadge
+        expandDetailsSignal={detailsSignal}
+        onDependencyTap={() => jumpTo('realism')}
+        blurb="Off (the default): Lust is how much a character wants it, and a separate Heat bar shows how close they are to release. Heat only builds during intimate contact, so a long flirt does not end on the first touch. On: the way it worked before Heat — one Lust bar decides both, and no Heat bar shows. Turning it on keeps each chat's Heat, so turning it off again picks up where it was. Costs nothing either way."
+        value={st.classicLustEnabled}
+        onChange={(v) => set('classicLustEnabled', v)}
       />
       <FeatureRow
         icon="💗"

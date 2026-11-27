@@ -41,12 +41,16 @@ import '../../helpers/refractory_judges.dart';
 
 final Directory _root = Directory.systemTemp.createTempSync('fpai_heat_');
 
-NsfwService _nsfw({Map<String, Map<String, dynamic>>? group}) {
+NsfwService _nsfw({
+  Map<String, Map<String, dynamic>>? group,
+  bool heatOn = true,
+}) {
   final g = group ?? <String, Map<String, dynamic>>{};
   return NsfwService(
     getGroupInt: (id, k) => (g[id]?[k] as num?)?.toInt() ?? 0,
     getGroupValue: (id, k) => g[id]?[k],
     setGroupValue: (id, k, v) => (g[id] ??= {})[k] = v,
+    heatOn: () => heatOn,
   );
 }
 
@@ -464,6 +468,101 @@ void main() {
       expect(meta['pre_climax_heat'], 5, reason: '4 × 1.25, floored');
       expect(chat.nsfwService.heatLevel, 0);
       expect(chat.nsfwService.refractoryMinutesRemaining, greaterThan(0));
+    });
+
+    test('Porch Life Classic Lust bar: no contact asked, Heat held, the old '
+        'Lust line speaks', () async {
+      await storage.realismSettings.setClassicLustEnabled(true);
+      chat.nsfwService.setHeatLevel(30);
+      chat.nsfwService.setArousalLevel(95);
+      judges.contact = 'intense';
+      await chat.sendMessage('Come here.');
+      await settle();
+      expect(chat.nsfwService.heatLevel, 30, reason: 'held, never erased');
+      expect(chat.messages.last.activeMetadata?['heat_delta'], isNull);
+      expect(
+        judges.judgePrompts.where((p) => p.contains('"contact"')),
+        isEmpty,
+        reason: 'the judge is not asked about contact',
+      );
+      expect(judges.replyPrompts.last, contains('tip over into climax'));
+      expect(judges.replyPrompts.last, isNot(contains('Do not narrate')));
+
+      // Off again: Heat picks up from where it was held.
+      await storage.realismSettings.setClassicLustEnabled(false);
+      chat.nsfwService.setArousalLevel(95);
+      await chat.sendMessage('Stay.');
+      await settle();
+      expect(chat.nsfwService.heatLevel, 54, reason: '30 + 16 × 1.5');
+    });
+  });
+
+  group('Classic Lust bar (Porch Life)', () {
+    test('defaults off: Heat runs', () {
+      expect(_nsfw().heatOn, isTrue);
+    });
+
+    test('on: the judge read moves nothing', () {
+      final n = _nsfw(heatOn: false)
+        ..setArousalLevel(80)
+        ..setHeatLevel(30);
+      final pending = <String, dynamic>{};
+      expect(
+        applyJudgedHeat(
+          n,
+          '{"contact":"intense"}',
+          lustDelta: 5,
+          pending: pending,
+        ),
+        0,
+      );
+      expect(n.heatLevel, 30);
+      expect(pending, isEmpty);
+    });
+
+    test('on: the pre-Heat Lust lines, and no Heat line', () {
+      final n = _nsfw(heatOn: false)
+        ..setNsfwCooldownEnabled(true)
+        ..setArousalLevel(95)
+        ..setHeatLevel(90);
+      final line = _body(n);
+      expect(line, contains('at the absolute peak of arousal'));
+      expect(line, contains('tip over into climax'));
+      expect(line, isNot(contains('on the edge')));
+      n.setArousalLevel(70);
+      expect(_body(n), contains('In an active sexual scene release is close'));
+    });
+
+    test('on: the judge prompts drop contact and say the old Lust line', () {
+      final emotional = RealismPromptBuilder.emotionalEvalPrompt(
+        charName: 'Mara',
+        userName: 'Sam',
+        dossier: '',
+        standing: '',
+        recent: 'Sam: hi',
+        arousalEnabled: true,
+        arousalLevel: 40,
+        heatEnabled: false,
+      );
+      final oneShot = RealismPromptBuilder.oneShotEvalPrompt(
+        charName: 'Mara',
+        userName: 'Sam',
+        dossier: '',
+        standing: '',
+        recent: 'Sam: hi',
+        arousalEnabled: true,
+        arousalLevel: 40,
+        heatEnabled: false,
+      );
+      for (final p in [emotional, oneShot]) {
+        expect(p, isNot(contains('"contact"')));
+        expect(
+          p,
+          contains(
+            'climax only happens during active sexual contact at high arousal',
+          ),
+        );
+      }
     });
   });
 }

@@ -110,7 +110,10 @@ class NsfwInjection {
 
     final name = _speakerName();
     final lust = _lustLine(name);
-    final heat = HeatMeter.bodyLine(name, nsfwService.heatLevel);
+    // Classic Lust bar: the pre-Heat lines speak and no Heat line rides.
+    final heat = nsfwService.heatOn
+        ? HeatMeter.bodyLine(name, nsfwService.heatLevel)
+        : '';
     if (heat.isEmpty) return lust;
     return lust.isEmpty ? heat : '$lust $heat';
   }
@@ -249,6 +252,7 @@ class NsfwInjection {
           'control. Outside actual contact it shows as charged tension, '
           'loaded silences, and deliberate proximity.';
     }
+    if (!nsfwService.heatOn && a > 35) return _classicTopBand(name, a);
     if (a <= 60) {
       return 'Body: $name is heavily aroused — pulse racing, aching for '
           'contact, focus fraying. In an active sexual scene: vocal and '
@@ -266,4 +270,30 @@ class NsfwInjection {
         'This is how badly it is wanted, not how close release is; desire '
         'this high never produces an orgasm on its own.';
   }
+}
+
+/// Porch Life's Classic Lust bar: the three top Lust lines exactly as they
+/// read before Heat, where Lust itself carries the release wording (kept
+/// verbatim on purpose; docs/design/heat-meter.md §8).
+String _classicTopBand(String name, int a) {
+  if (a <= 60) {
+    return 'Body: $name is heavily aroused — pulse racing, aching for '
+        'contact, focus fraying. In an active sexual scene: vocal and '
+        'chasing release; otherwise: visibly distracted, restless, '
+        'inventing excuses to touch or be near while fighting the urge to '
+        'escalate.';
+  }
+  if (a <= 80) {
+    return 'Body: $name is overwhelmed with desire — trembling, desperate, '
+        'barely holding composure. In an active sexual scene release is '
+        'close; otherwise every sensation is electric, the state is '
+        'impossible to hide, and no relief has come yet.';
+  }
+  return 'Body: $name is at the absolute peak of arousal — consumed by '
+      'need, unable to think straight, desperate and unable to hide it. '
+      'If the scene is actively sexual and stimulation keeps up, let $name '
+      'tip over into climax naturally, in $name\'s own voice, without '
+      'waiting for permission — but if nothing physical is actually '
+      'happening, this is only how badly it is wanted; desire this high '
+      'never produces an orgasm on its own.';
 }

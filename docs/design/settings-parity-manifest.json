@@ -217,6 +217,12 @@
       "dartMarker": "Milestone popups",
       "webMarker": "Porch Life"
     },
+    "classicLust": {
+      "section": "porch-life",
+      "dart": "lib/ui/settings/tabs/porch_life_groups.dart",
+      "dartMarker": "classic-lust-row",
+      "webMarker": "Porch Life"
+    },
     "generationPreset": {
       "section": "generation",
       "dart": "lib/ui/settings/widgets/generation_preset_bar.dart",

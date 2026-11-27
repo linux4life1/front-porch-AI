@@ -176,6 +176,8 @@ class SettingsSnapshot {
         // 2026-08-08: "Acts on desires" (After Dark) and the global Chaos Mode
         // default. Additive, as always — an older PWA ignores both keys.
         'intimateAgencyEnabled': _storage.realismSettings.intimateAgencyEnabled,
+        // After Dark → Classic Lust bar (docs/design/heat-meter.md). Additive.
+        'classicLustEnabled': _storage.realismSettings.classicLustEnabled,
         'chaosModeDefault': _storage.realismSettings.chaosModeDefault,
         'chaosFrequency': _storage.realismSettings.chaosFrequency.name,
         'webSearchDefault': _storage.webSearchSettings.webSearchDefault,

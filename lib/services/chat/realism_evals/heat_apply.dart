@@ -34,6 +34,8 @@ int applyJudgedHeat(
   required int lustDelta,
   required Map<String, dynamic> pending,
 }) {
+  // Classic Lust bar: Heat is held where it is, never moved or erased.
+  if (!nsfw.heatOn) return 0;
   final contact = HeatMeter.parseContact(evalJsonString(text, 'contact'));
   if (contact == null) return 0;
   final landed = nsfw.applyHeatContact(contact, lustDelta: lustDelta);

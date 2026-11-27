@@ -142,8 +142,11 @@ class BondBars extends StatelessWidget {
                 'Lust: how much they want it. It shapes how they act, not '
                 'when they finish.',
           ),
-          const SizedBox(height: 8),
-          HeatRow(heat: reads.heatLevel),
+          // Porch Life's Classic Lust bar hides Heat (and keeps it).
+          if (chat.nsfwService.heatOn) ...[
+            const SizedBox(height: 8),
+            HeatRow(heat: reads.heatLevel),
+          ],
           if (reads.refractoryChip.isNotEmpty) ...[
             const SizedBox(height: 4),
             RefractoryLine(
