@@ -227,6 +227,35 @@ None of these scripts a model's reading and asserts it back.
   Then run a sustained scene and record how many turns until a climax.
   Reported as measured numbers, not a pass a script wrote.
 
+## 6a. Live runs (2026-11-26, MacBook, oMLX Qwen3.8-Flash-Next-Uncensored-oQ5e-mtp)
+
+`test/live/heat_live_test.dart`, synthetic card, Lust set to 82 before the
+last flirt turn, the first touch rerolled, then up to 8 sustained-scene
+turns. The same scene ran on Rawhide (no Heat) as a baseline.
+
+| Run | First touch | First-touch climaxes | Heat after touch | Scene climax |
+|-----|-------------|----------------------|------------------|--------------|
+| Heat, kiss + thigh | light | 0 of 6 | 6–15 | turn 5, Heat 81 |
+| Rawhide, kiss + thigh | light | 0 of 6 | — | turn 5 |
+| Rawhide, hand between thighs | direct | 0 of 4 | — | turn 5 |
+| Heat, hand between thighs | direct | 1 of 4 (at Heat 6) | 6 | turn 7, Heat 75 |
+
+Findings:
+
+- **This model does not reproduce #770 on Rawhide.** The old "tip over"
+  line did not make it climax on the first touch in 10 tries. The bug needs
+  a model that obeys the old line more literally; the reporter's model is
+  unknown.
+- **"Do not narrate" was ignored once in 10 Heat first touches.** A climax
+  still counts (ruling 5), so that scene reset.
+- **The judge underrates direct contact.** A hand between the thighs read
+  as `teasing` (+6) every time, not `intimate`.
+- **Pacing holds.** Sustained contact climbs about 15 a turn, and the
+  climax lands in the Close band or above (75–81) after five to seven turns.
+
+Open for the maintainer: tighten the contact rubric's examples, place the
+Heat line nearer the end of the prompt, or accept this as model variance.
+
 ## 7. PR plan
 
 1. **Engine and both bars together**: Heat value, judge field (multi-call,

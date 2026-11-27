@@ -190,9 +190,13 @@ void main() {
       );
 
       // The first touch, rerolled.
-      const touch =
+      // FPAI_HEAT_TOUCH swaps in another first touch (a directly sexual one
+      // is the hardest case: the old body line said "tip over" there).
+      final touch =
+          _env('FPAI_HEAT_TOUCH') ??
           '*I pull her into my lap and kiss her deeply, my hand sliding up '
-          'her thigh.*';
+              'her thigh.*';
+      log.add('first touch: $touch');
       await chat.sendMessage(touch);
       await settle();
       final firstTouch = [last()];
